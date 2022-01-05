@@ -1,11 +1,10 @@
-import { criticalDamage, itemDeleteCheck, nsaFlag, coloredBorders, autoFastForwardAbilityRolls } from "../settings"
- import { configSettings } from "../settings"
-import { warn, i18n, error, debug, gameStats } from "../../midi-qol";
-import { RollStats } from "../RollStats";
-import { installedModules } from "../setupModules";
+import { criticalDamage, itemDeleteCheck, nsaFlag, coloredBorders, autoFastForwardAbilityRolls, importSettingsFromJSON, exportSettingsToJSON } from "../settings.js"
+ import { configSettings } from "../settings.js"
+import { warn, i18n, error, debug, gameStats, debugEnabled, geti18nOptions } from "../../midi-qol.js";
+import { installedModules } from "../setupModules.js";
 export class ConfigPanel extends FormApplication {
   
-  static get defaultOptions() {
+  static get defaultOptions(): any {
     return mergeObject(super.defaultOptions, {
       title: game.i18n.localize("midi-qol.ConfigTitle"),
       template: "modules/midi-qol/templates/config.html",
@@ -21,34 +20,46 @@ export class ConfigPanel extends FormApplication {
   get title() {
     return i18n("midi-qol.ConfigTitle")
   }
-  getData() {
-    if (autoFastForwardAbilityRolls && configSettings.playerRollSaves === "letmeQuery")
-      configSettings.playerRollSaves = "letme";
-//@ts-ignore
+  async getData(options: any) : Promise<any> {
+    let wallsBlockRangeOptions = geti18nOptions("WallsBlockRangeOptions");
+    if (installedModules.get("dnd5e-helpers")) {
+      wallsBlockRangeOptions = geti18nOptions("WallsBlockRangeOptionsNew");
+    }
+
     let data = {
       configSettings,
-      speedItemRollsOptions: i18n("midi-qol.speedItemRollsOptions"),
-      autoCheckHitOptions: i18n("midi-qol.autoCheckHitOptions"),
-      clickOptions: i18n("midi-qol.clickOptions"),
-      autoTargetOptions: i18n("midi-qol.autoTargetOptions"),
-      autoCheckSavesOptions: i18n("midi-qol.autoCheckSavesOptions"),
-      autoRollDamageOptions: i18n("midi-qol.autoRollDamageOptions"),
-      removeButtonsOptions: i18n("midi-qol.removeButtonsOptions"),
+      speedItemRollsOptions: geti18nOptions("speedItemRollsOptions"),
+      autoCheckHitOptions: geti18nOptions("autoCheckHitOptions"),
+      clickOptions: geti18nOptions("clickOptions"),
+      autoTargetOptions: geti18nOptions("autoTargetOptions"),
+      rangeTargetOptions: geti18nOptions("rangeTargetOptions"),
+      requiresTargetsOptions: geti18nOptions("requiresTargetsOptions"),
+      autoCheckSavesOptions: geti18nOptions("autoCheckSavesOptions"),
+      autoRollDamageOptions: geti18nOptions("autoRollDamageOptions"),
+      removeButtonsOptions: geti18nOptions("removeButtonsOptions"),
       criticalDamage,
-      autoApplyDamageOptions: i18n("midi-qol.autoApplyDamageOptions"),
-      damageImmunitiesOptions: i18n("midi-qol.damageImmunitiesOptions"),
-      showItemDetailsOptions: i18n("midi-qol.showItemDetailsOptions"),
+      autoApplyDamageOptions: geti18nOptions("autoApplyDamageOptions"),
+      damageImmunitiesOptions: geti18nOptions("damageImmunitiesOptions"),
+      showItemDetailsOptions: geti18nOptions("showItemDetailsOptions"),
+      doReactionsOptions: geti18nOptions("DoReactionsOptions"),
+      gmDoReactionsOptions: geti18nOptions("GMDoReactionsOptions"),
+      rollOtherDamageOptions: geti18nOptions("RollOtherDamageOptions"),
+      showReactionAttackRollOptions: geti18nOptions("ShowReactionAttackRollOptions"),
+      wallsBlockRangeOptions,
       //@ts-ignore
       itemTypeLabels: CONFIG.Item.typeLabels,
+      hasConvenientEffects: installedModules.get("dfreds-convenient-effects"),
       itemDeleteCheck,
-      hideRollDetailsOptions: i18n("midi-qol.hideRollDetailsOptions"),
+      hideRollDetailsOptions: geti18nOptions("hideRollDetailsOptions"),
+      hideRollDetailsHint: i18n("midi-qol.HideRollDetails.HintLong"),
       nsaFlag,
       coloredBorders,
-      playerRollSavesOptions: autoFastForwardAbilityRolls ? i18n("midi-qol.playerRollSavesOptionsReduced") : i18n("midi-qol.playerRollSavesOptions") ,
-      rollNPCSavesOptions: i18n("midi-qol.rollNPCSavesOptions"),
+      playerRollSavesOptions: (autoFastForwardAbilityRolls && false) ? geti18nOptions("playerRollSavesOptionsReduced") : geti18nOptions("playerRollSavesOptions"),
+      rollNPCSavesOptions: geti18nOptions("rollNPCSavesOptions"),
       //@ts-ignore .map undefined
-      customSoundsPlaylistOptions: game.playlists.entries.reduce((acc, e) =>{acc[e._id]= e.name; return acc}, {}),
-      customSoundOptions: game.playlists.get(configSettings.customSoundsPlaylist)?.sounds.reduce((acc, s) =>{acc[s._id]= s.name; return acc}, {"none": ""}),
+      customSoundsPlaylistOptions: game.playlists.contents.reduce((acc, e) =>{acc[e.id]= e.name; return acc}, {}) || {},
+      //@ts-ignore .sounds
+      customSoundOptions: game.playlists?.get(configSettings.customSoundsPlaylist)?.sounds.reduce((acc, s) =>{acc[s.id]= s.name; return acc}, {"none": ""}),
       rollSoundOptions: CONFIG.sounds,
       isBetterRolls: installedModules.get("betterrolls5e"),
       keys: {
@@ -57,9 +68,9 @@ export class ConfigPanel extends FormApplication {
         "shiftKey": "shift"
       }
     };
-    warn("Config Panel: getdata ", data)
-    return data;
 
+    if (debugEnabled > 0) warn("Config Panel: getdata ", data)
+    return data;
   }
 
   activateListeners(html) {
@@ -86,6 +97,14 @@ export class ConfigPanel extends FormApplication {
     html.find("#midi-qol-show-stats").on("click", event => {
       gameStats.showStats();
     })
+
+    html.find("#midi-qol-export-config").on("click", exportSettingsToJSON)
+    html.find("#midi-qol-import-config").on("click", async () => {
+      if (await importFromJSONDialog()) {
+        this.close();
+      }
+    });
+
   }
 
   async _playList(event) {
@@ -113,7 +132,7 @@ export class ConfigPanel extends FormApplication {
     formData.keyMapping = keyMapping;
     let newSettings = mergeObject(configSettings, formData, {overwrite:true, inplace:false})
     // const newSettings = mergeObject(configSettings, expand, {overwrite: true})
-    if (game.user.can("SETTINGS_MODIFY")) game.settings.set("midi-qol", "ConfigSettings", newSettings);
+    if (game.user?.can("SETTINGS_MODIFY")) game.settings.set("midi-qol", "ConfigSettings", newSettings);
   }
 }
 
@@ -142,20 +161,21 @@ export class IemTypeSelector extends FormApplication {
    * @type {String}
    */
   get attribute() {
+    //@ts-ignore .name
 	  return this.options.name;
   }
 
   /* -------------------------------------------- */
 
   /** @override */
-  getData() {
+  getData() : any {
 
     // Get current values
     configSettings.itemTypeList;
 
     // Populate choices
     //@ts-ignore
-    const choices = duplicate(CONFIG.Item.typeLabels);
+    const choices: {} = duplicate(CONFIG.Item.typeLabels);
     for ( let [k, v] of Object.entries(choices) ) {
       choices[k] = {
         label: i18n(v),
@@ -177,12 +197,44 @@ export class IemTypeSelector extends FormApplication {
   //@ts-ignore
   _updateObject(event, formData) {
     const updateData = {};
-
     // Obtain choices
-    const chosen = [];
+    const chosen : any[] = [];
     for ( let [k, v] of Object.entries(formData) ) {
       if ( v ) chosen.push(k);
     }
     configSettings.itemTypeList = chosen;
   }
+}
+async function importFromJSONDialog() {
+  const content = await renderTemplate("templates/apps/import-data.html", {entity: "midi-qol", name: "settings"});
+  let dialog =  new Promise((resolve, reject) => {
+    new Dialog({
+      title: `Import midi-qol settings`,
+      content: content,
+      buttons: {
+        import: {
+          icon: '<i class="fas fa-file-import"></i>',
+          label: "Import",
+          callback: html => {
+            //@ts-ignore
+            const form = html.find("form")[0];
+            if ( !form.data.files.length ) return ui.notifications?.error("You did not upload a data file!");
+            readTextFromFile(form.data.files[0]).then(json => {
+              importSettingsFromJSON(json)
+              resolve(true);
+            });
+          }
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "Cancel",
+          callback: html => resolve(false)
+        }
+      },
+      default: "import"
+    }, {
+      width: 400
+    }).render(true);
+  });
+  return await dialog;
 }
