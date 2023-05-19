@@ -1,5 +1,5 @@
 import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
-import { configSettings, autoRemoveTargets, checkRule, lateTargeting } from "./settings.js";
+import { configSettings, autoRemoveTargets, checkRule, lateTargeting, criticalDamage, criticalDamageGM } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { BetterRollsWorkflow, DummyWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
@@ -499,7 +499,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     }
     const uncannyDodge = getProperty(targetActor, "flags.midi-qol.uncanny-dodge") && workflow.item?.hasAttack;
     if (game.system.id === "sw5e" && targetActor?.type === "starship") {
-      // Starship damage resistance applies only to attacks
+      // Starship damage r esistance applies only to attacks
       if (item && ["mwak", "rwak"].includes(item?.system.actionType)) {
         // This should be a roll?
         DRAll = getProperty(t, "actor.system.attributes.equip.armor.dr") ?? 0;;
@@ -516,7 +516,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     magicalDamage = magicalDamage || (configSettings.requireMagical === "nonspell" && item?.type === "spell");
 
     const silverDamage = magicalDamage || (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties["sil"]);
-    const adamantineDamage = magicalDamage || (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties["ada"]);
+    const adamantineDamage = item?.system.properties?.ada;
 
     let AR = 0; // Armor reduction for challenge mode armor etc.
     const ac = targetActor.system.attributes.ac;
@@ -605,8 +605,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonAdamantineDRUsed && physicalDamage && !adamantineDamage && getProperty(targetActor, `flags.midi-qol.DR.non-adamantine`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-adamantine`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0
+        if (!nonAdamantineDRUsed && physicalDamage && !adamantineDamage && getProperty(targetActor, `flags.midi-qol.DR.non-adamant`)) {
+          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-adamant`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -655,7 +655,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DR = 0;
           }
         }
-        if (DR < damage && DRAllRemaining > 0 && !damageDetailItem.type.includes(["healing", "temphp"])) {
+        if (DR < damage && DRAllRemaining > 0 && !["healing", "temphp"].includes(damageDetailItem.type)) {
           damageDetailItem.DR = Math.min(damage, DR + DRAllRemaining);
           DRAllRemaining = Math.max(0, DRAllRemaining + DR - damage);
         }
@@ -756,7 +756,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       // Assumes workflow.undoData.chatCardUuids has been initialised
       if (workflow.undoData) {
         workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat(chatCardUuids);
-        socketlibSocket.executeAsGM("updateUndoChatCards", workflow.undoData);
+        socketlibSocket.executeAsGM("updateUndoChatCardUuids", workflow.undoData);
       }
     }
   }
@@ -1072,7 +1072,10 @@ export function midiCustomEffect(actor, change) {
     "flags.midi-qol.advantage",
     "flags.midi-qol.disadvantage",
     "flags.midi-qol.grants",
-    "flags.midi-qol.fails"
+    "flags.midi-qol.fails",
+    "flags.midi-qol.max.damage",
+    "flags.midi-qol.min.damage"
+
   ]; // These have trailing data in the change key change.key values and should always just be a string
   if (change.key === "flags.midi-qol.onUseMacroName") {
     const args = change.value.split(",")?.map(arg => arg.trim());
@@ -1235,7 +1238,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       const rollTypeString = details.rollType ?? "save";
       const rollType = (rollTypeString.includes("|") ? rollTypeString.split("|") : [rollTypeString]).map(s => s.trim().toLocaleLowerCase())
       const rollMode = details.rollMode;
-      const allowIncapacitated = JSON.parse(details.allowIncapacitated ?? "false");
+      const allowIncapacitated = JSON.parse(details.allowIncapacitated ?? "true");
 
       const killAnim = JSON.parse(details.killAnim ?? "false");
       const saveRemove = JSON.parse(details.saveRemove ?? "true");
@@ -1366,7 +1369,14 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       }
       try {
         const options = {
-          systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, saveDC, checkGMStatus: true, targetUuids: [theTargetUuid], rollMode,
+          systemCard: false, 
+          createWorkflow: true, 
+          versatile: false, 
+          configureDialog: false, 
+          saveDC, 
+          checkGMStatus: true, 
+          targetUuids: [theTargetUuid], 
+          rollMode,
           workflowOptions: { lateTargeting: "none", autoRollDamage: "onHit", autoFastDamage: true, isOverTime: true, allowIncapacitated },
         };
         await completeItemUse(ownedItem, {}, options); // worried about multiple effects in flight so do one at a time
@@ -1672,8 +1682,15 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
           if (wallblocking) {
             switch (configSettings.optionalRules.wallsBlockRange) {
               case "center":
-                //@ts-expect-error
-                const collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
+                let collisionCheck;
+                //@ts-expect-error version
+                if (isNewerVersion(game.version, "11.0")) {
+                  //@ts-expect-error polygonBackends
+                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
+                } else {
+                  //@ts-expect-error
+                  collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
+                }
                 if (collisionCheck) continue;
                 break;
               case "centerLevels":
@@ -1705,15 +1722,29 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                     }
                   }
                 } else {
-                  //@ts-expect-error
-                  const collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
+                  let collisionCheck;
+                  //@ts-expect-error version
+                  if (isNewerVersion(game.version, "11.0")) {
+                    //@ts-expect-error polygonBackends
+                    collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
+                  } else {
+                    //@ts-expect-error
+                    collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
+                  }
                   if (collisionCheck) continue;
                 }
                 break;
               case "simbuls-cover-calculator":
                 if (coverVisible === undefined) {
+                let collisionCheck;
+                //@ts-expect-error version
+                if (isNewerVersion(game.version, "11.0")) {
+                  //@ts-expect-error polygonBackends
+                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
+                } else {
                   //@ts-expect-error
-                  const collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
+                  collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
+                }
                   if (collisionCheck) continue;
                 } else if (coverVisible === false) continue;
                 break;
@@ -2172,11 +2203,13 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
  * @param {number|null} disposition. same(1), opposite(-1), neutral(0), ignore(null) token disposition
  * @param {Token} token The token to search around
  * @param {number} distance in game units to consider near
- * @param {options} canSee can potential target see the token, includeIcapacitated: boolean count incapacitated tokens
+ * @param {options} canSee Require that the potential target can sense the token
+ * @param {options} isSeen Require that the token can sense the potential target
+ * @param {options} includeIcapacitated: boolean count incapacitated tokens
  */
 
 
-export function findNearby(disposition: number | null, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false }): Token[] {
+export function findNearby(disposition: number | null, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined} = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false }): Token[] {
   if (!token) return [];
   if (typeof token === "string") token = MQfromUuid(token).object;
   if (!(token instanceof Token)) { throw new Error("find nearby token is not of type token or the token uuid is invalid") };
@@ -2184,6 +2217,7 @@ export function findNearby(disposition: number | null, token: any /*Token | uuui
   //@ts-ignore .disposition v10
   let targetDisposition = token.document.disposition * (disposition ?? 0);
   let nearby = canvas.tokens?.placeables.filter(t => {
+    if (getProperty(t, "actor.system.details.type.custom")?.includes("NoTarget")) return false;
     //@ts-ignore .height .width v10
     if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
     if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor, undefined, undefined)) return false;
@@ -2196,6 +2230,7 @@ export function findNearby(disposition: number | null, token: any /*Token | uuui
       inRange = 0 <= tokenDistance && tokenDistance <= distance
     } else return false; // wrong disposition
     if (inRange && options.canSee && !canSense(t, token)) return false; // Only do the canSee check if the token is inRange
+    if (inRange && options.isSeen && !canSense(token, t)) return false; 
     return inRange;
 
   });
@@ -2546,25 +2581,26 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
     const callback = async (dialog, button) => {
       let newRoll;
       let reRoll;
+      const rollMode = getProperty(this.actor, button.key)?.rollMode ?? game.settings.get("core", "rollMode");
       if (!hasEffectGranting(this.actor, button.key, flagSelector)) return;
       switch (button.value) {
         case "reroll": reRoll = await this[rollId].reroll({ async: true });
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId);
+          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId, rollMode);
           newRoll = reRoll; break;
         case "reroll-kh": reRoll = await this[rollId].reroll({ async: true });
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId === "attackRoll" ? "attackRollD20" : rollId);
+          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId === "attackRoll" ? "attackRollD20" : rollId, rollMode);
           newRoll = reRoll;
           if (reRoll.total <= this[rollId].total) newRoll = this[rollId]; break;
         case "reroll-kl": reRoll = await this[rollId].reroll({ async: true });
           newRoll = reRoll;
           if (reRoll.total > this[rollId].total) newRoll = this[rollId];
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId === "attackRoll" ? "attackRollD20" : rollId);
+          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId === "attackRoll" ? "attackRollD20" : rollId, rollMode);
           break;
         case "reroll-max": newRoll = await this[rollId].reroll({ async: true, maximize: true });
-          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId === "attackRoll" ? "attackRollD20" : rollId);
+          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId === "attackRoll" ? "attackRollD20" : rollId, rollMode);
           break;
         case "reroll-min": newRoll = await this[rollId].reroll({ async: true, minimize: true });
-          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId === "attackRoll" ? "attackRollD20" : rollId);
+          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId === "attackRoll" ? "attackRollD20" : rollId, rollMode);
           break;
         case "success": newRoll = await new Roll("99").evaluate({ async: true }); break;
         case "fail": newRoll = await new Roll("-1").evaluate({ async: true }); break;
@@ -2573,7 +2609,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             const rollParts = button.value.split(" ");
             newRoll = new Roll(rollParts.slice(1).join(" "), (this.item ?? this.actor).getRollData());
             newRoll = await newRoll.evaluate({ async: true });
-            if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId);
+            if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId, rollMode);
           } else if (flagSelector.startsWith("damage.") && getProperty(this.actor, `${button.key}.criticalDamage`)) {
             let rollOptions = duplicate(this[rollId].options);
             rollOptions.configured = false;
@@ -2584,7 +2620,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             //@ts-ignore DamageRoll
             const tempRoll = new CONFIG.Dice.DamageRoll(`${button.value}`, this.actor.getRollData(), rollOptions);
             await tempRoll.evaluate({ async: true });
-            if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId);
+            if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
             newRoll._total = this[rollId]._total + tempRoll.total;
             newRoll._formula = `${this[rollId]._formula} + ${tempRoll.formula}`
             newRoll.terms = newRoll.terms.concat(tempRoll.terms);
@@ -2600,7 +2636,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             } else {
               const tempRoll = new Roll(button.value, this.actor.getRollData());
               await tempRoll.evaluate({ async: true });
-              if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId);
+              if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
               newRoll._total = this[rollId]._total + tempRoll.total;
               newRoll._formula = `${this[rollId]._formula} + ${tempRoll.formula}`
               newRoll.terms = newRoll.terms.concat(tempRoll.terms);
@@ -2619,6 +2655,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           content: `${newRollHTML}`,
           whisper: [player]
         };
+        ChatMessage.applyRollMode(chatData, rollMode);
         const chatMessage = await ChatMessage.create(chatData);
       }
 
@@ -2650,8 +2687,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       bonusFlags = bonusFlags.filter(bf => bf !== button.key)
       // this.actor.reset();
       if (bonusFlags.length === 0) {
-
         dialog.close();
+        newRoll.options.rollMode = rollMode;
         resolve(newRoll);
         if (showRoll) {
           // const oldRollHTML = await originalRoll.render() ?? this[rollId].result
@@ -2663,6 +2700,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             content: `${oldRollHTML}<br>${newRollHTML}`,
             whisper: [player],
           };
+          ChatMessage.applyRollMode(chatData, rollMode);
           const chatMessage = ChatMessage.create(chatData);
         }
       }
@@ -2823,7 +2861,7 @@ export function hasEffectGranting(actor: globalThis.dnd5e.documents.Actor5e, key
   changeKey = `${key}.${allKey.join(".")}`;
   // return actor.effects.find(ef => ef.changes.some(c => c.key === changeKey) && getOptionalCountRemainingShortFlag(actor, key) > 0)
   hasKey = getProperty(actor, changeKey);
-  if (hasKey !== undefined) return true;
+  if (hasKey !== undefined) return hasKey;
   return false;
 
 }
@@ -2926,7 +2964,7 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
   }
 
   // TODO Check this for magic items if that makes it to v10
-  if (!await asyncHooksCall("midi-qol.ReactionFilter", reactions, options)) {
+  if (!await asyncHooksCall("midi-qol.ReactionFilter", reactions, options, triggerType)) {
     console.warn("midi-qol | Reaction processing cancelled by Hook");
     return { name: "Filter", ac: 0, uuid: undefined };
   } // else reactionItemUuidList = reactions.map(item => item.uuid);
@@ -2993,7 +3031,7 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
     const timeoutId = setTimeout(() => {
       warn("doReactions | player timeout expired ", player?.name)
       resolve(noResult);
-    }, (configSettings.reactionTimeout || 30) * 1000);
+    }, (configSettings.reactionTimeout || 30) * 1000 * 2);
 
     // Compiler does not realise player can't be undefined to get here
     player && requestReactions(target, player, triggerTokenUuid, content, triggerType, reactionItemUuidList, resolve, chatMessage, options).then(() => {
@@ -3045,31 +3083,32 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
   let reactionItemUuidList;
   try {
     enableNotifications(false);
+    /*
+    // camt do this since magic items don't return a valid uuid.
+ enableNotifications(false);
+ try {
+   reactionItems = reactionItemList.map(uuid => MQfromUuid(uuid));
+   // reactionItems = actor.items.filter(item => itemReaction(item, triggerType, maxLevel, usedReaction));
+   if (getReactionSetting(game?.user) === "allMI")
+     reactionItems = reactionItems.concat(await getMagicItemReactions(actor, triggerType));
+ } finally {
+   enableNotifications(true);
+ }
+*/
     reactionItems = target.actor?.items.filter(item => itemReaction(item, triggerType, maxLevel, usedReaction));
+
     if (target.actor && getReactionSetting(player) === "allMI") {
       reactionItems = reactionItems.concat(await getMagicItemReactions(target.actor, triggerType));
     }
   } finally {
     enableNotifications(true);
   }
-  /*
-  enableNotifications(false);
-  try {
-    reactionItems = reactionItemList.map(uuid => MQfromUuid(uuid));
-    // reactionItems = actor.items.filter(item => itemReaction(item, triggerType, maxLevel, usedReaction));
-    if (getReactionSetting(game?.user) === "allMI")
-      reactionItems = reactionItems.concat(await getMagicItemReactions(actor, triggerType));
-  } finally {
-    enableNotifications(true);
-  }
-*/
+
   if (reactionItems.length > 0) {
-    /*
-    if (!await asyncHooksCall("midi-qol.ReactionFilter", reactionItems, options )) {
+    if (!await asyncHooksCall("midi-qol.ReactionFilter", reactionItems, options, triggerType)) {
       console.warn("midi-qol | Reaction processing cancelled by Hook");
       return { name: "Filter" };
     }
-    */
     result = await reactionDialog(actor, triggerTokenUuid, reactionItems, reactionFlavor, triggerType, options);
     const endTime = Date.now();
     warn("prompt reactions reaction processing returned after ", endTime - startTime, result)
@@ -3133,7 +3172,7 @@ export function playerForActor(actor: Actor | undefined): User | undefined {
 }
 
 //@ts-ignore dnd5e v10
-export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, triggerTokenUuid: string | undefined, reactionItems: any[], rollFlavor: string, triggerType: string, options: any) {
+export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, triggerTokenUuid: string | undefined, reactionItems: Item[], rollFlavor: string, triggerType: string, options: any) {
   return new Promise((resolve, reject) => {
     let timeoutId = setTimeout(() => {
       dialog.close();
@@ -3142,23 +3181,27 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
     const callback = async function (dialog, button) {
       clearTimeout(timeoutId);
       const item = reactionItems.find(i => i.id === button.key);
-      // await setReactionUsed(actor);
-      // No need to set reaction effect since using item will do so.
-      dialog.close();
-      // options = mergeObject(options.workflowOptions ?? {}, {triggerTokenUuid, checkGMStatus: false}, {overwrite: true});
-      options.lateTargeting = "none";
-      const itemRollOptions = mergeObject(options, {
-        systemCard: false,
-        createWorkflow: true,
-        versatile: false,
-        configureDialog: true,
-        checkGMStatus: false,
-        targetUuids: [triggerTokenUuid],
-        isReaction: true
-      });
-      await completeItemUse(item, {}, itemRollOptions);
+      if (item) {
+        // await setReactionUsed(actor);
+        // No need to set reaction effect since using item will do so.
+        dialog.close();
+        // options = mergeObject(options.workflowOptions ?? {}, {triggerTokenUuid, checkGMStatus: false}, {overwrite: true});
+        options.lateTargeting = "none";
+        const itemRollOptions = mergeObject(options, {
+          systemCard: false,
+          createWorkflow: true,
+          versatile: false,
+          configureDialog: true,
+          checkGMStatus: false,
+          targetUuids: [triggerTokenUuid],
+          isReaction: true
+        });
+        let useTimeoutId = setTimeout(() => resolve({}), ((configSettings.reactionTimeout || 30) - 1) * 1000);
+        await completeItemUse(item, {}, itemRollOptions);
+        clearTimeout(useTimeoutId)
+      }
       // actor.reset();
-      resolve({ name: item.name, uuid: item.uuid })
+      resolve({ name: item?.name, uuid: item?.uuid })
     };
 
     const dialog = new ReactionDialog({
@@ -3239,14 +3282,14 @@ class ReactionDialog extends Application {
   _onClickButton(event) {
     const id = event.currentTarget.dataset.button;
     const button = this.data.buttons[id];
-    warn("Reaction dialog button clicked", id, button, Date.now() - this.startTime)
+    debug("Reaction dialog button clicked", id, button, Date.now() - this.startTime)
     this.submit(button);
   }
 
   _onKeyDown(event) {
     // Close dialog
     if (event.key === "Escape" || event.key === "Enter") {
-      warn("Reaction Dialog onKeyDown esc/enter pressed", event.key, Date.now() - this.startTime);
+      debug("Reaction Dialog onKeyDown esc/enter pressed", event.key, Date.now() - this.startTime);
       event.preventDefault();
       event.stopPropagation();
       this.data.completed = true;
@@ -3257,7 +3300,7 @@ class ReactionDialog extends Application {
 
   async submit(button) {
     try {
-      warn("ReactionDialog submit", Date.now() - this.startTime, button.callback)
+      debug("ReactionDialog submit", Date.now() - this.startTime, button.callback)
       if (button.callback) {
         this.data.completed = true;
         await button.callback(this, button)
@@ -3273,7 +3316,7 @@ class ReactionDialog extends Application {
   }
 
   async close() {
-    warn("Reaction Dialog close ", Date.now() - this.startTime, this.data.completed)
+    debug("Reaction Dialog close ", Date.now() - this.startTime, this.data.completed)
     if (!this.data.completed && this.data.close) {
       this.data.close({ name: "Close", uuid: undefined });
     }
@@ -3359,7 +3402,7 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
       if (rollData.target.details.type?.value) rollData.raceOrType = rollData.target.details.type?.value.toLocaleLowerCase() ?? "";
       else rollData.raceOrType = rollData.target.details.race?.toLocaleLowerCase() ?? "";
     }
-    rollData.humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "dwarf", "dwarven", "halfing", "gnome", "tiefling"];
+    rollData.humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "drow", "dwarf", "dwarven", "halfling", "gnome", "tiefling", "orc", "dragonborn", "half-orc"];
     rollData.tokenUuid = data.workflow?.tokenUuid;
     rollData.tokenId = data.workflow?.tokenId;
     rollData.workflow = {};
@@ -4050,7 +4093,7 @@ export async function doMidiConcentrationCheck(actor, saveDC) {
   setProperty(itemData, "system.save.scaling", "flat");
   setProperty(itemData, "name", concentrationCheckItemDisplayName);
   setProperty(itemData, "system.target.type", "self");
-  return doConcentrationCheck(actor, itemData)
+  return await doConcentrationCheck(actor, itemData)
 }
 
 export async function doConcentrationCheck(actor, itemData) {
@@ -4074,7 +4117,6 @@ export async function doConcentrationCheck(actor, itemData) {
     } else {
       //@ts-ignore
       result = await completeItemUse(ownedItem, {}, { systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { lateTargeting: "none" } })
-      // await ownedItem.roll({ systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { lateTargeting: "none" } })
     }
   } finally {
     if (saveTargets && game.user) game.user.targets = saveTargets;
@@ -4109,7 +4151,7 @@ export function procActorSaveBonus(actor: Actor, rollType: string, item: Item): 
 }
 
 
-export async function displayDSNForRoll(roll: Roll | undefined, rollType: string | undefined) {
+export async function displayDSNForRoll(roll: Roll | undefined, rollType: string | undefined, defaultRollMode: string | undefined = undefined) {
   if (!roll) return;
   /*
   "midi-qol.hideRollDetailsOptions": {
@@ -4125,7 +4167,7 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
   if (dice3dEnabled()) {
     const hideRollOption = configSettings.hideRollDetails;
     let whisperIds: User[] | null = null;
-    const rollMode = game.settings.get("core", "rollMode");
+    const rollMode = defaultRollMode || game.settings.get("core", "rollMode");
     let hideRoll = (["all"].includes(hideRollOption) && game.user?.isGM) ? true : false;
     if (!game.user?.isGM) hideRoll = false;
     else if (hideRollOption !== "none") {
@@ -4159,7 +4201,7 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
       hideRoll = false;
     } else {
       //@ts-expect-error seems this can get stuck?
-      roll.ghost = false;
+      roll.ghost = rollMode === "blindroll";
     }
 
     if (rollMode === "selfroll" || rollMode === "gmroll" || rollMode === "blindroll") {
@@ -4172,7 +4214,7 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
         if (term.options?.flavor) term.options.flavor = term.options.flavor.toLocaleLowerCase();
       });
       //@ts-expect-error game.dice3d mark all dice as shown - so that toMessage does not trigger additional display on other clients
-      await game.dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, rollMode === "blindroll" && !game.user.isGM)
+      await game.dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, !roll.ghost && rollMode === "blindroll" && !game.user.isGM)
     }
   }
   roll.dice.forEach(d => d.results.forEach(r => setProperty(r, "hidden", true)));
@@ -4183,3 +4225,6 @@ export function isReactionItem(item): boolean {
   return item.system.activation?.type?.includes("reaction");
 }
 
+export function getCriticalDamage() {
+  return game.user?.isGM ? criticalDamageGM : criticalDamage;
+}

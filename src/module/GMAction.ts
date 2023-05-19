@@ -1,10 +1,10 @@
 import { checkRule, configSettings } from "./settings.js";
-import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, geti18nOptions } from "../midi-qol.js";
+import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, geti18nOptions, debug } from "../midi-qol.js";
 import { canSense, completeItemUse, gmExpirePerTurnBonusActions, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions } from "./utils.js";
 import { ddbglPendingFired } from "./chatMesssageHandling.js";
 import { Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
-import { queueUndoData, recordUndoData, startUndoWorkflow, updateUndoChatCards, updateUndoConcentration, _undoMostRecentWorkflow } from "./undo.js";
+import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _undoMostRecentWorkflow } from "./undo.js";
 
 export var socketlibSocket: any = undefined;
 var traitList = { di: {}, dr: {}, dv: {} };
@@ -13,17 +13,33 @@ function paranoidCheck(action: string, actor: any, data: any): boolean {
   return true;
 }
 export async function removeEffects(data: { actorUuid: string; effects: string[]; options: {} }) {
-  const actor = MQfromActorUuid(data.actorUuid);
-  if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
-  return actor?.deleteEmbeddedDocuments("ActiveEffect", data.effects, data.options)
+  debug("removeEffects started");
+  let removeFunc = async() => {
+    try {
+    debug("removeFunc: remove effects started")
+    const actor = MQfromActorUuid(data.actorUuid);
+    if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
+    const effectIds = data.effects.filter(efId => actor.effects.find(effect => efId === effect.id));
+    if (effectIds?.length > 0) return actor?.deleteEmbeddedDocuments("ActiveEffect", effectIds, data.options)
+    } finally {
+      warn("removeFunc: remove effects completed")
+    }
+  };
+  if (globalThis.DAE?.actionQueue) return globalThis.DAE.actionQueue.add(removeFunc)
+  else return removeFunc();
 }
 
 export async function createEffects(data: { actorUuid: string, effects: any[] }) {
-  const actor = MQfromActorUuid(data.actorUuid);
-  for (let effect of data.effects) { // override default foundry behaviour of blank being transfer
-    if (effect.transfer === undefined) effect.transfer = false;
-  }
-  return actor?.createEmbeddedDocuments("ActiveEffect", data.effects)
+  const createEffectsFunc = async () => {
+    const actor = MQfromActorUuid(data.actorUuid);
+    for (let effect of data.effects) { // override default foundry behaviour of blank being transfer
+      if (effect.transfer === undefined) effect.transfer = false;
+    }
+    return actor?.createEmbeddedDocuments("ActiveEffect", data.effects)
+  };
+  if (globalThis.DAE?.actionQueue) return globalThis.DAE.actionQueue.add(createEffectsFunc)
+  else return createEffectsFunc();
+
 }
 
 export async function updateEffects(data: { actorUuid: string, updates: any[] }) {
@@ -82,9 +98,8 @@ export let setupSocket = () => {
   socketlibSocket.register("_gmSetFlag", _gmSetFlag);
   socketlibSocket.register("startUndoWorkflow", startUndoWorkflow);
   socketlibSocket.register("queueUndoData", queueUndoData);
+  socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids)
   socketlibSocket.register("undoMostRecentWorkflow", _undoMostRecentWorkflow);
-  socketlibSocket.register("updateUndoChatCards", updateUndoChatCards);
-  socketlibSocket.register("updateUndoConcentration", updateUndoConcentration)
 
   // socketlibSocket.register("canSense", _canSense);
 }
@@ -137,7 +152,7 @@ export async function _canSense(data: { tokenUuid, targetUuid }) {
 export async function _gmOverTimeEffect(data: { actorUuid, effectUuid, startTurn, options }) {
   const actor = MQfromActorUuid(data.actorUuid);
   const effect = MQfromUuid(data.effectUuid)
-  console.log("Called _gmOvertime", actor.name, effect.name ?? effect.label)
+  log("Called _gmOvertime", actor.name, effect.name ?? effect.label)
   return gmOverTimeEffect(actor, effect, data.startTurn, data.options)
 }
 
@@ -153,7 +168,7 @@ export async function _applyEffects(data: { workflowId: string, targets: string[
   try {
     const workflow = Workflow.getWorkflow(data.workflowId);
     if (!workflow) return result;
-    workflow.forceApplyEffects = true; // don't overwrite the application targets
+    workflow.forceApplyEffects = true;
     const targets: Set<Token> = new Set();
     //@ts-ignore
     for (let targetUuid of data.targets) targets.add(await fromUuid(targetUuid));
@@ -177,7 +192,6 @@ async function _completeItemUse(data: {
   //@ts-ignore v10
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor, keepId: true });
   const workflow = await completeItemUse(ownedItem, config, options);
-  workflow.createConditionData({ workflow, actor, ownedItem });
   if (data.options?.workflowData) return workflow.getMacroData(); // can't return the workflow
   else return true;
 }
@@ -193,29 +207,37 @@ async function deleteToken(data: { tokenUuid: string }) {
   }
 }
 export async function deleteItemEffects(data: { targets, origin: string, ignore: string[], ignoreTransfer: boolean }) {
-  let { targets, origin, ignore } = data;
-  for (let idData of targets) {
-    let actor = idData.tokenUuid ? MQfromActorUuid(idData.tokenUuid) : idData.actorUuid ? MQfromUuid(idData.actorUuid) : undefined;
-    if (actor?.actor) actor = actor.actor;
-    if (!actor) {
-      warn("could not find actor for ", idData.tokenUuid);
-      continue;
+  debug("deleteItemEffects: started", globalThis.DAE?.actionQueue)
+  let deleteFunc = async () => {
+    let { targets, origin, ignore } = data;
+    for (let idData of targets) {
+      let actor = idData.tokenUuid ? MQfromActorUuid(idData.tokenUuid) : idData.actorUuid ? MQfromUuid(idData.actorUuid) : undefined;
+      if (actor?.actor) actor = actor.actor;
+      if (!actor) {
+        warn("could not find actor for ", idData.tokenUuid);
+        continue;
+      }
+      const effectsToDelete = actor?.effects?.filter(ef => {
+        return ef.origin === origin && !ignore.includes(ef.uuid) && (!data.ignoreTransfer || ef.flags?.dae?.transfer !== true)
+      });
+      debug("deleteItemEffects: effectsToDelete ", actor.name, effectsToDelete)
+      if (effectsToDelete?.length > 0) {
+        try {
+          // for (let ef of effectsToDelete) ef.delete();
+          await ActiveEffect.deleteDocuments(effectsToDelete.map(ef=>ef.id), {parent: actor});
+          // await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id), {strict: false, invalid: false});
+        } catch (err) {
+          console.warn("delete item effects failed ", actor.name, err);
+        };
+      }
+      debug("deleteItemEffects: completed", actor.name)
     }
-    const effectsToDelete = actor?.effects?.filter(ef => {
-      return ef.origin === origin && !ignore.includes(ef.uuid) && (!data.ignoreTransfer || ef.flags?.dae?.transfer !== true)
-    });
-    if (effectsToDelete?.length > 0) {
-      try {
-        await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id));
-      } catch (err) {
-        console.warn("delete effects failed ", err);
-        if (debugEnabled > 0) warn("delete effects failed ", err)
-        // TODO can get thrown since more than one thing tries to delete an effect
-      };
-    }
+    if (globalThis.Sequencer) await globalThis.Sequencer.EffectManager.endEffects({ origin })
   }
-  if (globalThis.Sequencer) await globalThis.Sequencer.EffectManager.endEffects({ origin })
+  if (globalThis.DAE?.actionQueue) return globalThis.DAE.actionQueue.add(deleteFunc)
+  else return deleteFunc();
 }
+
 async function addConvenientEffect(options) {
   let { effectName, actorUuid, origin } = options;
   const actorToken: any = await fromUuid(actorUuid);

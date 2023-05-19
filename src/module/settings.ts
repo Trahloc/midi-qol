@@ -6,6 +6,7 @@ import { configureDamageRollDialog } from "./patching.js";
 
 export var itemRollButtons: boolean;
 export var criticalDamage: string;
+export var criticalDamageGM: string;
 export var nsaFlag: boolean;
 export var coloredBorders: string;
 export var saveRequests = {};
@@ -110,6 +111,9 @@ class ConfigSettings {
   rollNPCSaves: string = "auto";
   rollOtherDamage: string | boolean = "none";
   rollOtherSpellDamage: string | boolean = "none";
+  rollChecksBlind: boolean = false;
+  rollSavesBlind: boolean = false;
+  rollSkillsBlind: boolean = false;
   saveStatsEvery: number = 20;
   showFastForward: boolean = false;
   showItemDetails: string = "";
@@ -175,6 +179,7 @@ export function collectSettingData() {
     midiSoundSettings,
     itemRollButtons,
     criticalDamage,
+    criticalDamageGM,
     nsaFlag,
     coloredBorders,
     addChatDamageButtons,
@@ -250,6 +255,7 @@ export async function importSettingsFromJSON(json) {
   game.settings.set("midi-qol", "ConfigSettings", json.configSettings);
   game.settings.set("midi-qol", "ItemRollButtons", json.itemRollButtons);
   game.settings.set("midi-qol", "CriticalDamage", json.criticalDamage);
+  game.settings.set("midi-qol", "CriticalDamageGM", json.criticalDamageGM);
   game.settings.set("midi-qol", "showGM", json.nsaFlag);
   game.settings.set("midi-qol", "ColoredBorders", json.coloredBorders);
   game.settings.set("midi-qol", "AddChatDamageButtons", json.addChatDamageButtons);
@@ -288,6 +294,9 @@ export let fetchParams = () => {
   if (configSettings.rollOtherDamage === true) configSettings.rollOtherDamage = "ifSave";
   if (configSettings.rollOtherDamage === undefined) configSettings.rollOtherDamage = "none";
   if (!configSettings.rollOtherSpellDamage) configSettings.rollOtherSpellDamage = "none";
+  if (!configSettings.rollChecksBlind) configSettings.rollChecksBlind = false;
+  if (!configSettings.rollSavesBlind) configSettings.rollSavesBlind = false;
+  if (!configSettings.rollSkillsBlind) configSettings.rollSkillsBlind = false;
   if (configSettings.promptDamageRoll === undefined) configSettings.promptDamageRoll = false;
   if (configSettings.gmHide3dDice === undefined) configSettings.gmHide3dDice = false;
   if (configSettings.ghostRolls === undefined) configSettings.ghostRolls = false;
@@ -394,6 +403,8 @@ export let fetchParams = () => {
   
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
+  criticalDamageGM = String(game.settings.get("midi-qol", "CriticalDamageGM"));
+  if (criticalDamageGM === "none") criticalDamageGM = criticalDamage;
   nsaFlag = Boolean(game.settings.get("midi-qol", "showGM"));
   coloredBorders = String(game.settings.get("midi-qol", "ColoredBorders"));
   itemRollButtons = Boolean(game.settings.get("midi-qol", "ItemRollButtons"));
@@ -501,9 +512,31 @@ const settings = [
     config: false
   }
 ];
+
+export function readySettingsSetup() {
+  if (game.settings.get("midi-qol", "CriticalDamage") === "none") {
+    criticalDamage = "default;"
+    game.settings.set("midi-qol", "CriticalDamage", "default");
+  }
+  if (game.settings.get("midi-qol", "CriticalDamageGM") === "none") {
+    criticalDamageGM = criticalDamage;
+    game.settings.set("midi-qol", "CriticalDamageGM", criticalDamage);
+  }
+}
+
 export function registerSetupSettings() {
   const translations = geti18nTranslations();
 
+  game.settings.register("midi-qol","CriticalDamageGM", {
+    name: "midi-qol.CriticalDamageGM.Name",
+    // hint: "midi-qol.CriticalDamageGM.Hint",
+    scope: "world",
+    default: "none",
+    type: String,
+    config: true,
+    choices: translations["CriticalDamageChoices"],
+    onChange: fetchParams
+  });
   game.settings.register("midi-qol","CriticalDamage", {
     name: "midi-qol.CriticalDamage.Name",
     hint: "midi-qol.CriticalDamage.Hint",
@@ -514,7 +547,9 @@ export function registerSetupSettings() {
     choices: translations["CriticalDamageChoices"],
     onChange: fetchParams
   });
+
 }
+
 export const registerSettings = function() {
   const translations = geti18nTranslations();
   // Register any custom module settings here
@@ -534,9 +569,9 @@ export const registerSettings = function() {
     game.settings.register("midi-qol", setting.name, options);
   });
 
-  game.settings.register("midi-qol","CriticalDamage", {
-    name: "midi-qol.CriticalDamage.Name",
-    hint: "midi-qol.CriticalDamage.Hint",
+  game.settings.register("midi-qol","CriticalDamageGM", {
+    name: "midi-qol.CriticalDamageGM.Name",
+    // hint: "midi-qol.CriticalDamageGM.Hint",
     scope: "world",
     default: "none",
     type: String,
@@ -544,6 +579,17 @@ export const registerSettings = function() {
     choices: translations["CriticalDamageChoices"],
     onChange: fetchParams
   });
+  game.settings.register("midi-qol","CriticalDamage", {
+    name: "midi-qol.CriticalDamage.Name",
+    hint: "midi-qol.CriticalDamage.Hint",
+    scope: "world",
+    default: "default",
+    type: String,
+    config: true,
+    choices: translations["CriticalDamageChoices"],
+    onChange: fetchParams
+  });
+
 
   game.settings.register("midi-qol","AddChatDamageButtons", {
     name: "midi-qol.AddChatDamageButtons.Name",

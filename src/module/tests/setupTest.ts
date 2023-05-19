@@ -383,7 +383,7 @@ async function registerTests() {
             game.user?.updateTokenTargets([target2?.id ?? "", target3?.id ?? ""]);
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
-            await completeItemUse(actor.items.getName("MODTest")); // does 10 + 10 to undead
+            await completeItemUse(actor.items.getName("MODTest"), {} , {advantage: true}); // does 10 + 10 to undead
             const condition2 = target2.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             const condition3 = target3.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             if (condition2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", condition2.map(ae => ae.id))

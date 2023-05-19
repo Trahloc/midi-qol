@@ -5,8 +5,9 @@ import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRol
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { LateTargetingDialog } from "./apps/LateTargeting.js";
-import { defaultRollOptions } from "./patching.js";
+import { defaultRollOptions, removeConcentration } from "./patching.js";
 import { saveUndoData } from "./undo.js";
+import { socketlibSocket } from "./GMAction.js";
 
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
@@ -21,7 +22,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     Workflow.removeWorkflow(this.uuid);
     const lateTargetingSetting = getLateTargeting();
     let lateTargetingSet = lateTargetingSetting === "all" || (lateTargetingSetting === "noTargetsSelected" && game?.user?.targets.size === 0)
-    if (options.woprkflowOptions?.lateTargeting && options.workflowOptions?.lateTargeting !== "none") lateTargetingSet = true;
+    if (options.workflowOptions?.lateTargeting && options.workflowOptions?.lateTargeting !== "none") lateTargetingSet = true;
     if (game.user.targets.size === 0 && lateTargetingSet) await resolveLateTargeting(this, options, pressedKeys);
     const targets: Token[] = [];
     for (let target of game?.user?.targets) targets.push(target);
@@ -330,7 +331,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);
   if (needsConcentration && checkConcentration) {
     const concentrationEffect = getConcentrationEffect(this.actor);
-    if (concentrationEffect) await concentrationEffect.delete();
+    if (concentrationEffect) await removeConcentration(this.actor, concentrationEffect.uuid);
   }
   if (debugCallTiming) log(`wrapped item.roll() elapsed ${Date.now() - wrappedRollStart}ms`);
 
@@ -693,7 +694,15 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
     await displayDSNForRoll(result, "damageRoll");
     result = await processDamageRollBonusFlags.bind(workflow)();
     await workflow.setDamageRoll(result);
-    if (!configSettings.mergeCard) await result.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
+    let card;
+    if (!configSettings.mergeCard) card = await result.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
+    if (workflow && configSettings.undoWorkflow) {
+      // Assumes workflow.undoData.chatCardUuids has been initialised
+      if (workflow.undoData && card) {
+        workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat([card.uuid]);
+        socketlibSocket.executeAsGM("updateUndoChatCardUuids", workflow.undoData);
+      }
+    }
   }
   // await workflow.setDamageRoll(result);
   let otherResult: Roll | undefined = undefined;
@@ -1119,7 +1128,7 @@ export function templateTokens(templateDetails: { x: number, y: number, shape: a
     if (token.actor && isTokenInside(templateDetails, token, wallsBlockTargeting)) {
       // const actorData: any = token.actor?.data;
       // @ts-ignore .system v10
-      if (token.actor.system.details.type?.custom === "NoTarget") continue;
+      if (token.actor.system.details.type?.custom.includes("NoTarget")) continue;
       //@ts-ignore .system
       if (["wallsBlock", "always"].includes(configSettings.autoTarget) || !checkIncapacitated(token.actor)) {
         if (token.id) {
@@ -1222,7 +1231,6 @@ export function shouldRollOtherDamage(workflow: Workflow, conditionFlagWeapon: s
     conditionFlagToUse = "activation"
   }
 
-  // If there is only one target hit decide to roll other damage now, otherwise just roll it and choose which targets to apply it to.
   //@ts-ignore
   if (rollOtherDamage && conditionFlagToUse === "activation" && workflow?.hitTargets.size > 0) {
     rollOtherDamage = false;

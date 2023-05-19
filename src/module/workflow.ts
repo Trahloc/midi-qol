@@ -7,7 +7,7 @@ import { createDamageList, processDamageRoll, untargetDeadTokens, getSaveMultipl
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys, MidiKeyManager } from "./MidiKeyManager.js";
-import { saveTargetsUndoData, updateUndoConcentrationData } from "./undo.js";
+import { saveTargetsUndoData } from "./undo.js";
 export const shiftOnlyEvent = { shiftKey: true, altKey: false, ctrlKey: false, metaKey: false, type: "" };
 export function noKeySet(event) { return !(event?.shiftKey || event?.ctrlKey || event?.altKey || event?.metaKey) }
 export let allDamageTypes;
@@ -518,6 +518,13 @@ export class Workflow {
           const message = await this.attackRoll?.toMessage({
             speaker: getSpeaker(this.actor)
           });
+          if (configSettings.undoWorkflow) {
+            // Assumes workflow.undoData.chatCardUuids has been initialised
+            if (this.undoData && message) {
+              this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([message.uuid]);
+              socketlibSocket.executeAsGM("updateUndoChatCardUuids", this.undoData);
+            }
+          }
         }
         if (configSettings.autoCheckHit !== "none") {
           await this.displayAttackRoll(configSettings.mergeCard, { GMOnlyAttackRoll: true });
@@ -661,7 +668,9 @@ export class Workflow {
         this.initSaveResults();
         if (configSettings.allowUseMacro && this.item?.flags) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preSave"), "OnUse", "preSave");
+          await this.triggerTargetMacros(["isAboutToSave"]); // ??
         }
+
         if (this.workflowType === "Workflow" && !this.item?.hasAttack && this.item?.system.target?.type !== "self") { // Allow editing of targets if there is no attack that has already been processed.
           this.targets = new Set(game.user?.targets);
           this.hitTargets = new Set(this.targets);
@@ -957,8 +966,6 @@ export class Workflow {
               templateUuid: this.templateUuid
             };
             await addConcentration(this.actor, concentrationData);
-            // TODO update undo data with concentration data
-            if (configSettings.undoWorkflow) await updateUndoConcentrationData(this, concentrationData);
           } else if (installedModules.get("dae") && this.item?.hasAreaTarget && this.templateUuid && this.item?.system.duration?.units && configSettings.autoRemoveTemplate) { // create an effect to delete the template
             const itemDuration = this.item.system.duration;
             let selfTarget = this.item.actor.token ? this.item.actor.token.object : getSelfTarget(this.item.actor);
@@ -1329,11 +1336,19 @@ export class Workflow {
           "preApplyTargetDamage",
           { actor: target.actor, token: target });
       }
-      if (this.saveItem?.hasSave && triggerList.includes("preTargetSave") && this.saves.has(target)) {
+      if (this.saveItem?.hasSave && triggerList.includes("preTargetSave")) {
         await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("preTargetSave"),
           "OnUse",
           "preTargetSave",
+          { actor: target.actor, token: target });
+      }
+
+      if (this.saveItem?.hasSave && triggerList.includes("isAboutToSave")) {
+        await this.callMacros(this.item,
+          actorOnUseMacros?.getMacros("isAboutToSave"),
+          "OnUse",
+          "isAboutToSave",
           { actor: target.actor, token: target });
       }
 
@@ -1731,9 +1746,10 @@ export class Workflow {
       const AsyncFunction = (async function () { }).constructor;
       const v11args: any = {};
       for (let i = 0; i < args.length; i++) v11args[i] = args[i];
-      mergeObject(v11args, macroData);
+      // mergeObject(v11args, macroData);
       v11args["length"] = args.length;
       v11args.item = item;
+      v11args.workflow = this;
       //@ts-expect-error
       const fn = new AsyncFunction("speaker", "actor", "token", "character", "item", "args", macroCommand)
       // const fn = Function("{speaker, actor, token, character, item, args}={}", body);
@@ -2039,11 +2055,18 @@ export class Workflow {
           if (!whisper) setProperty(chatData, "flags.midi-qol.hideTag", "midi-qol-hits-display")
         }
         if (this.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", this.flagTags);
-        let returns;
+        let result;
         if (!game.user?.isGM)
-          returns = await timedAwaitExecuteAsGM("createChatMessage", { chatData });
+          result = await timedAwaitExecuteAsGM("createChatMessage", { chatData });
         else
-          returns = await ChatMessage.create(chatData);
+          result = await ChatMessage.create(chatData);
+        if (configSettings.undoWorkflow) {
+          // Assumes workflow.undoData.chatCardUuids has been initialised
+          if (this.undoData && result) {
+            this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([result.uuid]);
+            socketlibSocket.executeAsGM("updateUndoChatCardUuids", this.undoData);
+          }
+        }
       }
     }
   }
@@ -2121,7 +2144,14 @@ export class Workflow {
       if (this.flagTags) chatData.flags = mergeObject(chatData.flags ?? {}, this.flagTags);
       // await ChatMessage.create(chatData);
       // Non GMS don't have permission to create the message so hand it off to a gm client
-      await timedAwaitExecuteAsGM("createChatMessage", { chatData });
+      const result = await timedAwaitExecuteAsGM("createChatMessage", { chatData });
+      if (configSettings.undoWorkflow) {
+        // Assumes workflow.undoData.chatCardUuids has been initialised
+        if (this.undoData && result) {
+          this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([result.uuid]);
+          socketlibSocket.executeAsGM("updateUndoChatCardUuids", this.undoData);
+        }
+      }
     };
   }
 
@@ -2179,60 +2209,77 @@ export class Workflow {
       else { // no token to use so make a guess
         actorDisposition = this.actor?.type === "npc" ? -1 : 1;
       }
-      if (configSettings.allowUseMacro) await this.triggerTargetMacros(["preTargetSave"], allHitTargets);
 
       for (let target of allHitTargets) {
-        let isFriendly = target.document.disposition === actorDisposition;
+        const saveDetails: {
+          advantage: boolean | undefined,
+          disadvantage: boolean | undefined,
+          isFriendly: boolean | undefined,
+          isMagicSave: boolean | undefined,
+          isConcentrationCheck: boolean | undefined,
+          rollDC: number
+        } = {
+          advantage: undefined,
+          disadvantage: undefined,
+          isMagicSave: isMagicSave,
+          isFriendly: undefined,
+          isConcentrationCheck: undefined,
+          rollDC: rollDC,
+
+        };
+        saveDetails.isFriendly = target.document.disposition === actorDisposition;
         if (!target.actor) continue;  // no actor means multi levels or bugged actor - but we won't roll a save
-        let advantage: Boolean | undefined = undefined;
-        let disadvantage: Boolean | undefined = undefined;
+        saveDetails.advantage = undefined;
+        saveDetails.disadvantage = undefined;
+        saveDetails.isMagicSave = isMagicSave;
+        saveDetails.rollDC = rollDC;
         let magicResistance: Boolean = false;
         let magicVulnerability: Boolean = false;
         // If spell, check for magic resistance
         if (isMagicSave) {
           // check magic resistance in custom damage reduction traits
-          //@ts-ignore traits
-          advantage = (target?.actor?.system.traits?.dr?.custom || "").includes(i18n("midi-qol.MagicResistant").trim());
+          saveDetails.advantage = (target?.actor?.system.traits?.dr?.custom || "").includes(i18n("midi-qol.MagicResistant").trim());
           // check magic resistance as a feature (based on the SRD name as provided by the DnD5e system)
-          advantage = advantage || target?.actor?.items.find(a => a.type === "feat" && a.name === i18n("midi-qol.MagicResistanceFeat").trim()) !== undefined;
-          if (!advantage) advantage = undefined;
+          saveDetails.advantage = saveDetails.advantage || target?.actor?.items.find(a => a.type === "feat" && a.name === i18n("midi-qol.MagicResistanceFeat").trim()) !== undefined;
+          if (!saveDetails.advantage) saveDetails.advantage = undefined;
           const magicResistanceFlags = getProperty(target.actor, "flags.midi-qol.magicResistance");
           if (magicResistanceFlags && (magicResistanceFlags?.all || getProperty(magicResistanceFlags, rollAbility))) {
-            advantage = true;
+            saveDetails.advantage = true;
             magicResistance = true;
           }
           const magicVulnerabilityFlags = getProperty(target.actor, "flags.midi-qol.magicVulnerability");
           if (magicVulnerabilityFlags && (magicVulnerabilityFlags?.all || getProperty(magicVulnerabilityFlags, rollAbility))) {
-            disadvantage = true;
+            saveDetails.disadvantage = true;
             magicVulnerability = true;
           }
 
 
-          if (debugEnabled > 1) debug(`${target.actor.name} resistant to magic : ${advantage}`);
+          if (debugEnabled > 1) debug(`${target.actor.name} resistant to magic : ${saveDetails.advantage}`);
         }
         const settingsOptions = procAbilityAdvantage(target.actor, rollType, this.saveItem.system.save.ability, {});
-        if (settingsOptions.advantage) advantage = true;
-        if (settingsOptions.disadvantage) disadvantage = true;
-        if (this.saveItem.flags["midi-qol"]?.isConcentrationCheck) {
+        if (settingsOptions.advantage) saveDetails.advantage = true;
+        if (settingsOptions.disadvantage) saveDetails.disadvantage = true;
+        saveDetails.isConcentrationCheck = this.saveItem.flags["midi-qol"]?.isConcentrationCheck
+        if (saveDetails.isConcentrationCheck) {
           const concAdvFlag = getProperty(target.actor.flags, "midi-qol.advantage.concentration");
           const concDisadvFlag = getProperty(target.actor.flags, "midi-qol.disadvantage.concentration");
-          let concAdv = advantage;
-          let concDisadv = disadvantage;
+          let concAdv = saveDetails.advantage;
+          let concDisadv = saveDetails.disadvantage;
           if (concAdvFlag || concDisadvFlag) {
-            //@ts-ignore
+            //@ts-expect-error token: target
             const conditionData = createConditionData({ workflow: this, token: target, actor: target.actor });
             if (concAdvFlag && evalCondition(concAdvFlag, conditionData)) concAdv = true;
             if (concDisadvFlag && evalCondition(concDisadvFlag, conditionData)) concDisadv = true;
           }
 
           if (concAdv && !concDisadv) {
-            advantage = true;
+            saveDetails.advantage = true;
           } else if (!concAdv && concDisadv) {
-            disadvantage = true;
+            saveDetails.disadvantage = true;
           }
         }
-        if (advantage && !disadvantage) this.advantageSaves.add(target);
-        else if (disadvantage && !advantage) this.disadvantageSaves.add(target);
+        if (saveDetails.advantage && !saveDetails.disadvantage) this.advantageSaves.add(target);
+        else if (saveDetails.disadvantage && !saveDetails.advantage) this.disadvantageSaves.add(target);
         var player = playerFor(target);
         if (!player || !player.active) player = ChatMessage.getWhisperRecipients("GM").find(u => u.active);
         let promptPlayer = (!player?.isGM && configSettings.playerRollSaves !== "none");
@@ -2251,12 +2298,15 @@ export class Workflow {
             promptPlayer = false;
           }
         }
+        this.saveDetails = saveDetails;
+        //@ts-expect-error [target]
+        if (configSettings.allowUseMacro) await this.triggerTargetMacros(["preTargetSave"], [target]);
 
-        if (isFriendly &&
+        if (saveDetails.isFriendly &&
           (this.saveItem.system.description.value.toLowerCase().includes(i18n("midi-qol.autoFailFriendly").toLowerCase())
             || this.saveItem.flags.midiProperties?.autoFailFriendly)) {
           promises.push(new Roll("-1").roll({ async: true }));
-        } else if (isFriendly && this.saveItem.flags.midiProperties?.autoSaveFriendly) {
+        } else if (saveDetails.isFriendly && this.saveItem.flags.midiProperties?.autoSaveFriendly) {
           promises.push(new Roll("99").roll({ async: true }));
         } else if ((!player?.isGM && playerMonksTB) || (player?.isGM && gmMonksTB)) {
           promises.push(new Promise((resolve) => {
@@ -2265,14 +2315,14 @@ export class Workflow {
           }));
 
           if (isMagicSave) {
-            if (magicResistance && disadvantage) advantage = true;
-            if (magicVulnerability && advantage) disadvantage = true;
+            if (magicResistance && saveDetails.disadvantage) saveDetails.advantage = true;
+            if (magicVulnerability && saveDetails.advantage) saveDetails.disadvantage = true;
           }
           const requests = player?.isGM ? monkRequestsGM : monkRequestsPlayer;
           requests.push({
             token: target.id,
-            advantage,
-            disadvantage,
+            advantage: saveDetails.advantage,
+            disadvantage: saveDetails.disadvantage,
             // altKey: advantage === true,
             // ctrlKey: disadvantage === true,
             fastForward: false,
@@ -2288,7 +2338,7 @@ export class Workflow {
             if (player && installedModules.get("lmrtfy") && (playerLetme || gmLetme)) requestId = randomID();
             this.saveRequests[requestId] = resolve;
 
-            requestPCSave(this.saveItem.system.save.ability, rollType, player, target.actor, { advantage, disadvantage, flavor: this.saveItem.name, dc: rollDC, requestId, GMprompt, isMagicSave, magicResistance, magicVulnerability })
+            requestPCSave(this.saveItem.system.save.ability, rollType, player, target.actor, { advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, flavor: this.saveItem.name, dc: saveDetails.rollDC, requestId, GMprompt, isMagicSave, magicResistance, magicVulnerability })
 
             // set a timeout for taking over the roll
             if (configSettings.playerSaveTimeout > 0) {
@@ -2304,10 +2354,10 @@ export class Workflow {
                       request: rollType,
                       ability: this.saveItem.system.save.ability,
                       showRoll,
-                      options: { messageData: { user: playerId }, target: rollDC, chatMessage: showRoll, mapKeys: false, advantage, disadvantage, fastForward: true }
+                      options: { messageData: { user: playerId }, target: saveDetails.rollDC, chatMessage: showRoll, mapKeys: false, advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, fastForward: true }
                     });
                   } else {
-                    result = await rollAction.bind(target.actor)(this.saveItem.system.save.ability, { messageData: { user: playerId }, chatMessage: showRoll, mapKeys: false, advantage, disadvantage, fastForward: true, isMagicSave });
+                    result = await rollAction.bind(target.actor)(this.saveItem.system.save.ability, { messageData: { user: playerId }, chatMessage: showRoll, mapKeys: false, advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, fastForward: true, isMagicSave });
                   }
                   resolve(result);
                 }
@@ -2327,7 +2377,7 @@ export class Workflow {
             request: rollType,
             ability: this.saveItem.system.save.ability,
             // showRoll: whisper && !simulate,
-            options: { simulate, target: rollDC, messageData: { user: owner?.id }, chatMessage: showRoll, rollMode: whisper ? "gmroll" : "public", mapKeys: false, advantage, disadvantage, fastForward: true, isMagicSave },
+            options: { simulate, target: saveDetails.rollDC, messageData: { user: owner?.id }, chatMessage: showRoll, rollMode: whisper ? "gmroll" : "public", mapKeys: false, advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, fastForward: true, isMagicSave },
           }));
         }
       }
@@ -2380,6 +2430,8 @@ export class Workflow {
     }
     if (debugEnabled > 1) debug("check saves: requests are ", this.saveRequests)
     var results = await Promise.all(promises);
+    delete this.saveDetails;
+
     // replace betterrolls results (customRoll) with pseudo normal roll
     results = results.map(result => result.entries ? this.processCustomRoll(result) : result);
     this.saveResults = results;
@@ -2576,11 +2628,11 @@ export class Workflow {
     }
 
     if (rollType === "save")
-      this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility]} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}:`;
+      this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility]} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}:`;
     else if (rollType === "abil")
-      this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility]} ${i18n(allHitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:`;
+      this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility]} ${i18n(allHitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:`;
     else if (rollType === "skill") {
-      this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().skills[rollAbility]}`; // ${i18n(this.hitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:
+      this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().skills[rollAbility].label ?? getSystemCONFIG().skills[rollAbility]}`;
     }
   }
 
@@ -2657,6 +2709,10 @@ export class Workflow {
       delete this.saveRequests[requestId];
       delete this.saveTimeouts[requestId];
       const brFlags = message.flags?.betterrolls5e;
+      if (configSettings.undoWorkflow) {
+        this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([message.uuid]);
+        socketlibSocket.executeAsGM("updateUndoChatCardUuids", this.undoData);
+      }
 
       if (brFlags) {
         const rollEntry = brFlags.entries?.find((e) => e.type === "multiroll");

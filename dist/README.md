@@ -1,5 +1,6 @@
 ## Breaking News
 Added a ko-fi donation link https://ko-fi.com/tposney
+Discord link for my modules https://discord.gg/Xd4NEvw5d7
 
 ### Custom Sounds rewritten
 You will have to change your configuration
@@ -728,8 +729,8 @@ An optional attack bonus prompts the attacker after the attack roll is made, but
   - **@fields** - available if the @field > 0, decrements the @field on use. 
   You can specify a resource to consume in the count field, e.g. @resources.tertiary.value which will decrement the tertiary resource field until it is all used up (i.e. 0). Resources can be set to refresh on rests, so this will support the full uses per day definition.  
   - **ItemUses.ItemName** - Additional option for optional.NAME.count ItemUses.ItemName, which will use the value of the uses field for the item name ItemName (which must be on the actor), it means you don't need to use a resources entry for these any more. eg `ItemUses.my super duper item`
-
 * flags.midi-qol.optional.Name.ac	bonus to apply to AC of the target - prompted on the target's owner's client. (A bit like a reaction roll)  
+* flags.midi-qol.optional.Name.rollMode, any additional rolls are to be made with the specifid roll mode. Can be useful to hide rolls from the players.
 
 Values for the optional roll bonus flags include a dice expression (added to the roll), a number, reroll (rerolling the roll completely) reroll-max, reroll-min, reroll-kh (reroll with max dice, min dice, or reroll and keep the higher of the original/new roll) or success which changes the roll to 99 ensuring success.
 
@@ -889,7 +890,8 @@ The passed workflow is "live" so changes will affect subsequent actions. In part
   * Hooks.callAll("midi-qol.postCheckSaves", workflow) - called after auto checking saving throws but before displaying who saved. Allows modification of who did/did not save.
   * Hooks.call("midi-qol.preApplyDynamicEffects", workflow) - called before applying active effects. If the call returns false the rest of the workflow is marked complete.
   *  Hooks.callAll("midi-qol.RollComplete", workflow); - called after the workflow is completed.
-
+  * asyncHooksCall("midi-qol.ReactionFilter", reactions: Item[], options: any, triggerType: string). Reaction type will be one of reaction, reactiondamage, reactionattack. The hook will fire on both the attacking client and on the attackee client.
+  
 ## TrapWorkflow
 midi-qol supports a TrapWorkflow, triggered by
 ```
@@ -1011,20 +1013,31 @@ There are some addtional actor only onUse macro triggers that can be defined for
   ```
     isAttacked: the actor is a target of an attack
     isHit: the actor is a target of a hit
+    preSaveTarget: 
     isSave: the actor makes a successful save in response to being targeted
     isSaveSuccess: the actor makes a successful save in response to being targeted
     isSaveFailure: the actor makes a failed save in response to being targeted
     isDamaged: "the actor is damaged by an item roll
 ```
 
-  - For these calls only args[0].options.actor will be the actor that was attackd/hit/damaged etc
-  
+  - For these calls **only** args[0].options.actor will be the actor that was attackd/hit/damaged etc and args[0].options.token is the token.
+  - For the preTargetSave hook is called just before the save is made (direct roll/LMRTFY/MTB) the passed workflow includes saveDetails comprising
+```js
+saveDetails: { advantage: boolean | undefined,
+          disadvantage: boolean | undefined,
+          isFriendly: boolean | undefined,
+          isMagicSave: boolean | undefined,
+          isConcentrationCheck: boolean | undefined,
+          rollDC: number }
+```
+which can be changed in the preTargetSave Hook. Sample item Antitoxin in Midi sample items as a example.
+
   - The default pass is "preActiveEffects", to correspond to the original onUse macro behaviour.
   * Note: if you are creating a damage only workflow in your macro it is best to run it in "postActiveEffects".
   
   * If you wish to make changes to the workflow in these macros you will need to do: 
   ```
-  const workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid)
+  const workflow = args[0].workflow
   workflow.XXX = .....
   ```
 

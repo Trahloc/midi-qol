@@ -1,6 +1,34 @@
+### 10.0.42
+* Changed the preTargetSave hook call to be just before the roll is done and the passed workflow now includes saveDetails comprising
+```js
+saveDetails: { advantage: boolean | undefined,
+          disadvantage: boolean | undefined,
+          isFriendly: boolean | undefined,
+          isMagicSave: boolean | undefined,
+          isConcentrationCheck: boolean | undefined,
+          rollDC: number }
+```
+which can be changed in the preTargetSave Hook. Sample item Antitoxin in Midi sample items as an example for advantage against poison saves.
+* Added actionType to ReactionFilter hook call which be one of reaction, reactiondamage, reactionattack. As a reminder the hook will fire on both the attacking client and on the attackee client.
+* Reaction timeout changes. There is now a timeout for selecting the reaction and a timeout for finishing rolling the reaction item, both equal to the reaction timeout setting on the reaction tab.
+* findNearby will ignore tokens with system.details.type.custom set to "NoTarget".
+* findNearby now supports options canSee (the potential nearby token can see the designated token), and isSeen (the designated token can see the potential nearby token).
+* Changed the default for allowIncapacitated in overtime effects to true, rather than false.
+* Fix for flags.midi-qol.DR.all to not apply for healing/temphp - this is damage **reduction** not damage **resistance**.
+* Fix for flags.midi-qol.DR.non-adamant not working properly.
+* Effects that create a flags.midi-ol.onUseMacro can now just refer to ItemMacro in the change.value and midi will convert it to ItemMacro.ItemUuid when the effect is created. The ItemUuid is the uuid of the origin item (if there is one).
+* Added flags.midi-qol.optional.NAME.rollMode which will use the specified roll mode (pulbicroll, gmroll, blindroll, selfroll) for both the bonus and the save/check/skill roll that triggered it.
+* Added config setting All Player ability checks/save/skill checks are rolled blind. This allows you to force player rolls to be done as blind rolls. Useful if ask your players do do a perception roll, but don't want them to see the result and they forget to do the roll blind.
+* Critical Damage treatment is now configurable for players and GMs separately. GM setting will be copied form previous setting on first load.
+* Added ability to choose exploding critical dice for all, npcs only or characters only.
+* Merged change from @MrPrimate for Active Auras and not calling macros.
+* More work on undoing workflows. Should now delete most chat cards associated with a workflow, rather than just the item card and damage application card. Restoring concentration now works. Templates not looked at yet. Reminder this is EXPERIMENTAL and probably will do terrible things to your world. Always make a copy of any linked characters when testing.
+* There is now a dedicated discord server for my modules: https://discord.gg/Xd4NEvw5d7
+
 ### 10.0.41
 * Reverted original change that caused applyTokenDamage problems. Added applyTokenDamage to my test cases, so should not happen again.
 * Fix for undoWorkflow to remove flags that should be removed. Thanks @thatlonelybugbear
+* More enhancements to undoing workflows.
 
 ### 10.0.40
 * Fix for applyTokenDamageMany with a null/undefined item.

@@ -1,4 +1,4 @@
-import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation } from './module/settings.js';
+import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, criticalDamageGM, readySettingsSetup } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 import { checkModules, installedModules, setupModules } from './module/setupModules.js';
 import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
@@ -278,7 +278,9 @@ Hooks.once('ready', function () {
         game.settings.set("midi-qol", "last-run-version", newVersion);
         // look at sending a new version has been installed.
       }
+      readySettingsSetup()
     }
+
   }
 
   setupMidiQOLApi();

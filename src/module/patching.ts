@@ -1,11 +1,12 @@
 import { log, warn, debug, i18n, error, getCanvas, i18nFormat } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, preItemUseHook, preDisplayCardHook, preItemUsageConsumptionHook, useItemHook, displayCardHook, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, criticalDamage, checkRule } from "./settings.js";
-import { bonusDialog, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoRollAttack, getAutoRollDamage, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, hasUsedBonusAction, hasUsedReaction, isAutoFastAttack, isAutoFastDamage, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
+import { bonusDialog, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoRollAttack, getAutoRollDamage, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getCriticalDamage, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, hasUsedBonusAction, hasUsedReaction, isAutoFastAttack, isAutoFastDamage, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { socketlibSocket } from "./GMAction.js";
+import { data } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/module.mjs";
 let libWrapper;
 
 var d20Roll;
@@ -184,15 +185,18 @@ async function doRollSkill(wrapped, ...args) {
     //@ts-ignore
     result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
   }
-  if (chatMessage) displayDSNForRoll(result, "skill");
+  let rollMode: string = game.settings.get("core", "rollMode");
+  if (!game.user?.isGM && configSettings.rollSkillsBlind && rollMode === "publicroll") rollMode = "blindroll";
+  if (chatMessage) displayDSNForRoll(result, "skill", rollMode);
   if (!options.simulate) {
     result = await bonusCheck(this, result, "skill", skillId);
+    if (result.options.rollMode) rollMode = result.options.rollMode;
   }
   if (chatMessage !== false && result) {
     const args = { "speaker": getSpeaker(this), flavor };
     setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
     if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
-    await result.toMessage(args);
+    await result.toMessage(args, {rollMode});
   }
   let success: boolean | undefined = undefined;
   if (rollTarget !== undefined) success = result.total >= rollTarget;
@@ -220,7 +224,10 @@ export function addDiceTermModifiers() {
 }
 
 function configureDamage(wrapped) {
-  if (!this.isCritical || criticalDamage === "default") {
+  let useDefaultCritical = getCriticalDamage() === "default";
+  useDefaultCritical ||=  (getCriticalDamage() === "explodeCharacter" && this.data.actorType !== "character");
+  useDefaultCritical ||=  (getCriticalDamage() === "explodeNPC" && this.data.actorType !== "npc");
+  if (!this.isCritical || useDefaultCritical) {
     while (this.terms.length > 0 && this.terms[this.terms.length - 1] instanceof OperatorTerm)
       this.terms.pop();
     return wrapped();
@@ -230,18 +237,22 @@ function configureDamage(wrapped) {
   /* criticalDamage is one of 
     "default": "DND5e Settings Only",
     "maxDamage": "Max Normal Damage",
-    "maxCrit": "Max Critical Dice",
+    "maxCrit": "Max Critical Dice (flat number)",
+    "maxCritRoll": "Max Critical Dice (roll dice)",
     "maxAll": "Max All Dice",
     "doubleDice": "Double Rolled Damage",
-    "explode": "Explode critical dice",
-    "baseDamage": "No Bonus"
-  */
+    "explode": "Explode all critical dice",
+    "explodePlayer": "Explode Player critical dice",
+    "explodeGM": "Explode GM crtical dice",
+    "baseDamage": "Only Weapon Extra Critical"
+  },
+ */
   // if (criticalDamage === "doubleDice") this.options.multiplyNumeric = true;
 
   for (let [i, term] of this.terms.entries()) {
     let cm = this.options.criticalMultiplier ?? 2;
     let cb = (this.options.criticalBonusDice && (i === 0)) ? this.options.criticalBonusDice : 0;
-    switch (criticalDamage) {
+    switch (getCriticalDamage()) {
       case "maxDamage":
         if (term instanceof DiceTerm) term.modifiers.push(`min${term.faces}`);
         break;
@@ -250,7 +261,7 @@ function configureDamage(wrapped) {
         if (term instanceof DiceTerm) {
           let critTerm;
           bonusTerms.push(new OperatorTerm({ operator: "+" }));
-          if (criticalDamage === "maxCrit")
+          if (getCriticalDamage() === "maxCrit")
             critTerm = new NumericTerm({ number: (term.number + cb) * term.faces });
           else {
             critTerm = new Die({ number: term.number + cb, faces: term.faces });
@@ -280,6 +291,8 @@ function configureDamage(wrapped) {
         }
         break;
       case "explode":
+      case "explodeCharacter":
+      case "explodeNPC":
         if (term instanceof DiceTerm) {
           bonusTerms.push(new OperatorTerm({ operator: "+" }));
           //@ts-ignore
@@ -316,7 +329,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
   if (procAutoFail(this, rollType, abilityId)) {
     options.parts = ["-100"];
   }
-    // Hack for MTB bug
+  // Hack for MTB bug
   if (options.event?.advantage || options.event?.altKey) options.advantage = true;
   if (options.event?.disadvantage || options.event?.ctrlKey) options.disadvantage = true;
   if (options.fromMars5eChatCard) options.fastForward = autoFastForwardAbilityRolls;
@@ -359,15 +372,23 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     //@ts-ignore
     result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
   }
-  await displayDSNForRoll(result, rollType);
+  let rollMode: string = game.settings.get("core", "rollMode");
+  if (!game.user?.isGM && rollMode === "publicroll") switch (rollType) {
+    case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
+    case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break; 
+  }
+  await displayDSNForRoll(result, rollType, rollMode);
 
-  if (!options.simulate) result = await bonusCheck(this, result, rollType, abilityId);
+  if (!options.simulate) {
+    result = await bonusCheck(this, result, rollType, abilityId);
+    if (result.options.rollMode) rollMode = result.options.rollMode;
+  }
 
   if (chatMessage !== false && result) {
     const args: any = { "speaker": getSpeaker(this), flavor };
     setProperty(args, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
     args.template = "modules/midi-qol/templates/roll.html";
-    await result.toMessage(args);
+    await result.toMessage(args, {rollMode});
   }
   let success: boolean | undefined = undefined;
   if (rollTarget !== undefined) success = result.total >= rollTarget;
@@ -707,6 +728,7 @@ export function initPatching() {
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.prepareData", itemPrepareData, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.prepareData", actorPrepareData, "WRAPPER");
   libWrapper.register("midi-qol", "KeyboardManager.prototype._onFocusIn", _onFocusIn, "OVERRIDE");
+  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getRollData", getRollData, "WRAPPER");
 }
 
 export function _onFocusIn(event) {
@@ -738,6 +760,22 @@ export function prepareOnUseMacroData(actorOrItem) {
   } catch (err) {
     console.warn("midi-qol | failed to prepare onUse macro data", err)
   }
+}
+export function lookupItemMacro(...args) {
+  let [candidate, data, options, user] = args;
+  if (!candidate.origin || !data.changes) return true;
+  let newChanges = data.changes?.map(change => {
+    if (change.key === "flags.midi-qol.onUseMacroName") {
+      const parts = change.value.split(",").map(s => s.trim());
+      if (parts[0] === "ItemMacro") {
+        parts[0] = `ItemMacro.${candidate.origin}`;
+        change.value = parts.join(",");
+      }
+    }
+    return change;
+  })
+  candidate.updateSource({ "changes": newChanges });
+  return true;
 }
 
 export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user) {
@@ -864,6 +902,7 @@ export function _getInitiativeFormula(wrapped) {
 };
 
 async function _preDeleteActiveEffect(wrapped, ...args) {
+  return wrapped(...args);
   try {
     if ((this.parent instanceof CONFIG.Actor.documentClass)) {
       let [options, user] = args;
@@ -885,14 +924,14 @@ async function _preDeleteActiveEffect(wrapped, ...args) {
       if (installedModules.get("dfreds-convenient-effects")) {
         let concentrationId = "Convenient Effect: Concentrating";
         let statusEffect: any = CONFIG.statusEffects.find(se => se.id === concentrationId);
-        if (statusEffect) concentrationLabel = (statusEffect.name  || statusEffect.label);
+        if (statusEffect) concentrationLabel = (statusEffect.name || statusEffect.label);
       } else if (installedModules.get("combat-utility-belt")) {
         concentrationLabel = game.settings.get("combat-utility-belt", "concentratorConditionName")
       }
       let isConcentration = (effect.name || effect.label) === concentrationLabel;
       const origin = MQfromUuid(effect.origin);
-      if (isConcentration) await removeConcentration(effect.parent, this.uuid);
-      else if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
+      // if (isConcentration) await removeConcentration(effect.parent, this.uuid); else
+      if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
         const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
         if (concentrationData && effect.origin === concentrationData.uuid) {
           const allConcentrationTargets = concentrationData.targets.filter(target => {
@@ -948,21 +987,23 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
         if (template) await template.delete();
       }
     }
-    for (let removeUuid of concentrationData.removeUuids) {
+    if (concentrationData.removeUuids) for (let removeUuid of concentrationData.removeUuids) {
       const entity = await fromUuid(removeUuid);
-      if (entity) await entity.delete(); // TODO check if this needs to be run as GM
+      if (entity && globalThis.DAE?.actionQueue) await globalThis.DAE?.actionQueue.add(entity?.delete.bind(entity))
+      else if (entity) await entity.delete(); // TODO check if this needs to be run as GM
     }
-    //@ts-expect-error game.version This should just work in v11, but in v10 requires a delay to allow things to settle down.
-    if (actor.isToken && isNewerVersion("11.293", game.version))
-      setTimeout(() => socketlibSocket.executeAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true }), 200)
-    else result = await socketlibSocket.executeAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true });
+    if (concentrationData.targets) {
+      debug("About to remove concentration effects", actor?.name);
+      result = await socketlibSocket.executeAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true });
+      debug("finsihed remove concentration effects", actor?.name)
+    }
   } catch (err) {
     error("error when attempting to remove concentration ", err)
   }
   return result;
 }
 
-async function zeroHPExpiry(actor, update, options, user) {
+export async function zeroHPExpiry(actor, update, options, user) {
   const hpUpdate = getProperty(update, "system.attributes.hp.value");
   if (hpUpdate !== 0) return;
   const expiredEffects: string[] = [];
@@ -972,18 +1013,19 @@ async function zeroHPExpiry(actor, update, options, user) {
   if (expiredEffects.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", expiredEffects, { "expiry-reason": "midi-qol:zeroHP" })
 }
 
-async function checkWounded(actor, update, options, user) {
+export async function checkWounded(actor, update, options, user) {
   const hpUpdate = getProperty(update, "system.attributes.hp.value");
   const vitalityReosurce = checkRule("vitalityResource");
   let vitalityUpdate = vitalityReosurce && getProperty(update, vitalityReosurce.trim());
   // return wrapped(update,options,user);
   if (hpUpdate === undefined && (!vitalityReosurce || vitalityUpdate === undefined)) return;
   const attributes = actor.system.attributes;
-  if (configSettings.addWounded > 0 && hpUpdate) {
+  const needsDead = vitalityReosurce ? vitalityUpdate <= 0 : hpUpdate <= 0;
+  if (configSettings.addWounded > 0 && hpUpdate !== undefined) {
     //@ts-ignore
     const CEWounded = game.dfreds?.effects?._wounded
     const woundedLevel = attributes.hp.max * configSettings.addWounded / 100;
-    const needsWounded = hpUpdate > 0 && hpUpdate < woundedLevel
+    const needsWounded = hpUpdate > 0 && hpUpdate < woundedLevel && !needsDead;
     if (installedModules.get("dfreds-convenient-effects") && CEWounded) {
       const wounded = await ConvenientEffectsHasEffect((CEWounded.name || CEWounded.label), actor, false);
       if (wounded !== needsWounded) {
@@ -1000,10 +1042,9 @@ async function checkWounded(actor, update, options, user) {
     }
   }
   if (configSettings.addDead !== "none") {
-    const needsDead = vitalityReosurce ? vitalityUpdate <= 0 : hpUpdate <= 0;
     if (installedModules.get("dfreds-convenient-effects") && game.settings.get("dfreds-convenient-effects", "modifyStatusEffects") !== "none") {
-      let effectName = (actor.type === "character" || actor.hasPlayerOwner) 
-        ? (getConvenientEffectsUnconscious().name || getConvenientEffectsUnconscious().label) 
+      let effectName = (actor.type === "character" || actor.hasPlayerOwner)
+        ? (getConvenientEffectsUnconscious().name || getConvenientEffectsUnconscious().label)
         : (getConvenientEffectsDead().name || getConvenientEffectsDead().label)
       if (vitalityReosurce) { // token is dead rather than unconscious
         effectName = getConvenientEffectsDead().name || getConvenientEffectsDead().label;
@@ -1065,8 +1106,8 @@ export function readyPatching() {
   } else {
     libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
   }
-  libWrapper.register("midi-qol", "CONFIG.ActiveEffect.documentClass.prototype._preDelete", _preDeleteActiveEffect, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype._preUpdate", _preUpdateActor, "WRAPPER");
+  // libWrapper.register("midi-qol", "CONFIG.ActiveEffect.documentClass.prototype._preDelete", _preDeleteActiveEffect, "WRAPPER");
+  // libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype._preUpdate", _preUpdateActor, "WRAPPER");
   libWrapper.register("midi-qol", "game.system.applications.DamageTraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
 }
 
@@ -1593,5 +1634,16 @@ function preDamageTraitSelectorGetData(wrapped) {
   } finally {
     return wrapped();
   }
+}
 
+function getRollData(wrapped, ...args) {
+  const data = wrapped(...args);
+  data.actorType = this.type;
+  if (game.system.id === "dnd5e") {
+    data.cfg = {};
+    data.cfg.armorClasses = getSystemCONFIG().armorClasses;
+    data.cfg.actorSizes = getSystemCONFIG().actorSizes;
+    data.cfg.skills = getSystemCONFIG().skills;
+  }
+  return data;
 }
