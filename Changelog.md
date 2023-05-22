@@ -1,3 +1,15 @@
+### 10.0.43
+* **BREAKING** added dae as a dependency including a version number - so make sure they are updated in lockstep.
+* When using ghost rolls for the GM or blind rolls for players the GM will see the dice so nice dice being rolled.
+* midi macro calling is now compatible with v11 argument handling. "scope" is defined meaning scope.args, scope.theWorkflow and scope.item are all defined (also avaialable without the scope., so args, theWorkflow and item are all defined in the macro). args is, once again, an array.
+* Fix for an error when a save/check fails causing the workflow to fail instead of assuming 1 for the save. Should also fix the deadlock on concentration checks failing..
+* Added button color coding on the damage card - green the button is active, red the button is not.
+* Fix for inline rolls not working for unlinked tokens.
+* Added first cut of a UI for undoing workflows, start the app by calling MidiQOL.showUndoWorkflowApp() - only accessible to a GM client. 
+  - All undoable workflows will be displayed in the app. You may only undo/remove the top item from the list. Undoing the workflow will restore all affected actors/tokens to the state before the workflow started (including any changes done by hand after the workflow completed, e.g. adding an item to an actor, adjusting hit points etc) so keep that in mind. 
+  - You may remove the top item without undoing the workflow. However if you undo another workflow that references any of the same actors as the removed workflow, their backup was taken before the removed workflow, so undoing those workflows will undo any changes done by the removed workflow for those actors. Generally it is less confusing to undo to the point you want and then make any changes/rerolls from that point.
+  - Only the last 15 workflows are kept for undoing. The limit is arbitrary, but lots of data is kept so a limit seems prudent. Also after 15 completed workflows the likelihood is that there undoing changes is best handled by the GM.
+
 ### 10.0.42
 * Changed the preTargetSave hook call to be just before the roll is done and the passed workflow now includes saveDetails comprising
 ```js

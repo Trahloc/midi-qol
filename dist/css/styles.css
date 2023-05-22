@@ -88,6 +88,12 @@
   transition: opacity 0.2s ease-in-out 0s;
 }
 
+.midi-qol-enable-damage-button {
+  color: green
+}
+.midi-qol-disable-damage-button {
+  color: red
+}
 .xdice-total-full-damage-button,
 .xdice-total-half-damage-button,
 .xdice-total-double-damage-button,

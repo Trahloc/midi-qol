@@ -1653,6 +1653,7 @@ export class Workflow {
     // var item;
     if (!name) return undefined;
     let macroCommand;
+    let macro;
     try {
       if (name.startsWith("function.")) {
         macroCommand = `return await ${name.replace("function.", "").trim()}.bind(this)({ speaker, actor, token, character, item, args })`;
@@ -1692,7 +1693,6 @@ export class Workflow {
         }
         macroCommand = itemMacro?.command ?? itemMacro?.data?.command ?? `console.warn('midi-qol | no item macro found for ${name}')`;
       } else { // get a world/compendium macro.
-        let macro;
         if (name.startsWith("Compendium")) {
           const parts = name.split(".");
           parts.shift();
@@ -1743,17 +1743,26 @@ export class Workflow {
       const character = game.user?.character;
       const args = [macroData];
 
-      const AsyncFunction = (async function () { }).constructor;
-      const v11args: any = {};
-      for (let i = 0; i < args.length; i++) v11args[i] = args[i];
-      // mergeObject(v11args, macroData);
-      v11args["length"] = args.length;
-      v11args.item = item;
-      v11args.workflow = this;
-      //@ts-expect-error
-      const fn = new AsyncFunction("speaker", "actor", "token", "character", "item", "args", macroCommand)
-      // const fn = Function("{speaker, actor, token, character, item, args}={}", body);
-      return fn.call(this, speaker, actor, token, character, item, v11args);
+      const scope: any = {};
+      scope.theWorkflow = this;
+      scope.item = item;
+      scope.args = args;
+      scope.options = args[0].options;
+
+      // TODO if we only have a macro command create a temp macro to execute.
+      //@ts-expect-error .version
+      if (macro && isNewerVersion(game.version, "11.293")) {
+        return macro.execute({actor, token, scope})
+      } else { // don't have a real macro so fudge it
+        const AsyncFunction = (async function () { }).constructor;
+        // macroCommand = `try { ${macroCommand} } catch (err) { console.warn("midi-qol | Error executing macro", err) }`;
+        const argNames = Object.keys(scope);
+        const argValues = Object.values(scope);
+        //@ts-expect-error
+        const fn = new AsyncFunction("speaker", "actor", "token", "character", "scope", ...argNames, macroCommand)
+        // const fn = Function("{speaker, actor, token, character, item, args}={}", body);
+        return fn.call(this, speaker, actor, token, character, scope, ...argValues);
+      }
     } catch (err) {
       ui.notifications?.error(`There was an error running your macro. See the console (F12) for details`);
       error("Error evaluating macro ", err)
@@ -2445,7 +2454,10 @@ export class Workflow {
     for (let target of allHitTargets) {
       if (!target.actor) continue; // these were skipped when doing the rolls so they can be skipped now
       if (configSettings.allowUseMacro) await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], this.hitTargets);
-      if (!results[i]) error("Token ", target, "could not roll save/check assuming 0");
+      if (!results[i]) {
+        error("Token ", target, "could not roll save/check assuming 1");
+        results[i] = await new Roll("1").roll({ async: true });
+      }
       let result = results[i];
       let rollTotal = results[i]?.total || 0;
       let rollDetail = result;
@@ -3187,7 +3199,10 @@ export class Workflow {
     let i = 0;
     for (let target of this.targets) {
       if (!target.actor) continue; // these were skipped when doing the rolls so they can be skipped now
-      if (!results[i]) error("Token ", target, "could not roll active defence assuming 0");
+      if (!results[i]) {
+        error("Token ", target, "could not roll active defence assuming 1");
+        results[i] = await new Roll("1").roll({ async: true });
+      }
       const result = results[i];
       let rollTotal = results[i]?.total || 0;
       if (this.isCritical === undefined) this.isCritical = result.dice[0].total <= criticalTarget

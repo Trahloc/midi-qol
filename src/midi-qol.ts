@@ -344,7 +344,8 @@ Hooks.once('ready', function () {
 
 
 import { setupMidiTests } from './module/tests/setupTest.js';
-import { showUndoQueue, undoMostRecentWorkflow } from './module/undo.js';
+import { getUndoQueue, removeMostRecentWorkflow, showUndoQueue, undoMostRecentWorkflow } from './module/undo.js';
+import { showUndoWorkflowApp, UndoWorkflow } from './module/apps/UndowWorkflow.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -411,7 +412,10 @@ function setupMidiQOLApi() {
     Workflow,
     WORKFLOWSTATES,
     showUndoQueue,
-    undoMostRecentWorkflow
+    getUndoQueue,
+    undoMostRecentWorkflow,
+    removeMostRecentWorkflow,
+    showUndoWorkflowApp
   };
   globalThis.MidiQOL.actionQueue = new Semaphore();
 }

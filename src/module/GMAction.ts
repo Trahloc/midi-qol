@@ -4,7 +4,7 @@ import { canSense, completeItemUse, gmExpirePerTurnBonusActions, gmOverTimeEffec
 import { ddbglPendingFired } from "./chatMesssageHandling.js";
 import { Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
-import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _undoMostRecentWorkflow } from "./undo.js";
+import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _removeMostRecentWorkflow, _undoMostRecentWorkflow } from "./undo.js";
 
 export var socketlibSocket: any = undefined;
 var traitList = { di: {}, dr: {}, dv: {} };
@@ -14,13 +14,13 @@ function paranoidCheck(action: string, actor: any, data: any): boolean {
 }
 export async function removeEffects(data: { actorUuid: string; effects: string[]; options: {} }) {
   debug("removeEffects started");
-  let removeFunc = async() => {
+  let removeFunc = async () => {
     try {
-    debug("removeFunc: remove effects started")
-    const actor = MQfromActorUuid(data.actorUuid);
-    if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
-    const effectIds = data.effects.filter(efId => actor.effects.find(effect => efId === effect.id));
-    if (effectIds?.length > 0) return actor?.deleteEmbeddedDocuments("ActiveEffect", effectIds, data.options)
+      debug("removeFunc: remove effects started")
+      const actor = MQfromActorUuid(data.actorUuid);
+      if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
+      const effectIds = data.effects.filter(efId => actor.effects.find(effect => efId === effect.id));
+      if (effectIds?.length > 0) return actor?.deleteEmbeddedDocuments("ActiveEffect", effectIds, data.options)
     } finally {
       warn("removeFunc: remove effects completed")
     }
@@ -100,6 +100,8 @@ export let setupSocket = () => {
   socketlibSocket.register("queueUndoData", queueUndoData);
   socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids)
   socketlibSocket.register("undoMostRecentWorkflow", _undoMostRecentWorkflow);
+  socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
+
 
   // socketlibSocket.register("canSense", _canSense);
 }
@@ -224,7 +226,7 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
       if (effectsToDelete?.length > 0) {
         try {
           // for (let ef of effectsToDelete) ef.delete();
-          await ActiveEffect.deleteDocuments(effectsToDelete.map(ef=>ef.id), {parent: actor});
+          await ActiveEffect.deleteDocuments(effectsToDelete.map(ef => ef.id), { parent: actor });
           // await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id), {strict: false, invalid: false});
         } catch (err) {
           console.warn("delete item effects failed ", actor.name, err);
@@ -299,10 +301,10 @@ export function monksTokenBarSaves(data: { tokenData: any[]; request: any; silen
 }
 
 async function createReverseDamageCard(data: { damageList: any; autoApplyDamage: string; flagTags: any, sender: string, charName: string, actorId: string, updateContext: any, forceApply: boolean }): Promise<string[]> {
-  let cardIds:string[] = [];
+  let cardIds: string[] = [];
   let id = await createPlayerDamageCard(data);
   if (id) cardIds.push(id);
-  id =  await createGMReverseDamageCard(data);
+  id = await createGMReverseDamageCard(data);
   if (id) cardIds.push(id);
   return cardIds;
 }
@@ -469,10 +471,10 @@ async function createGMReverseDamageCard(data: { damageList: any; autoApplyDamag
   let promises: Promise<any>[] = [];
   let tokenIdList: any[] = [];
   let chatCardUuid;
+  const damageWasApplied = ["yes", "yesCard"].includes(data.autoApplyDamage) || data.forceApply;
   let templateData = {
-    damageApplied: (["yes", "yesCard"].includes(data.autoApplyDamage) || data.forceApply) ?
-      i18n("midi-qol.HPUpdated") :
-      data.autoApplyDamage === "yesCardNPC" ? i18n("midi-qol.HPNPCUpdated") : i18n("midi-qol.HPNotUpdated"),
+    damageWasApplied,
+    damageApplied: damageWasApplied ? i18n("midi-qol.HPUpdated") : data.autoApplyDamage === "yesCardNPC" ? i18n("midi-qol.HPNPCUpdated") : i18n("midi-qol.HPNotUpdated"),
     damageList: [],
     needsButtonAll: false
   };
@@ -534,6 +536,12 @@ export let processUndoDamageCard = (message, html, data) => {
       for (let { actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, oldVitality, newVitality, damageItem } of message.flags.midiqol.undoDamage) {
         //message.flags.midiqol.undoDamage.forEach(async ({ actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, damageItem }) => {
         if (!actorUuid) continue;
+        const applyButton = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
+        applyButton.children()[0].classList.add("midi-qol-enable-damage-button");
+        applyButton.children()[0].classList.remove("midi-qol-disable-damage-button");
+        const reverseButton = html.find(`#reverse-${actorUuid.replaceAll(".", "")}`);
+        reverseButton.children()[0].classList.remove("midi-qol-enable-damage-button");
+        reverseButton.children()[0].classList.add("midi-qol-disable-damage-button");
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, actor);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
@@ -556,6 +564,12 @@ export let processUndoDamageCard = (message, html, data) => {
       for (let { actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, damageItem, oldVitality, newVitality } of message.flags.midiqol.undoDamage) {
         if (!actorUuid) continue;
         let actor = MQfromActorUuid(actorUuid);
+        const applyButton = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
+        applyButton.children()[0].classList.add("midi-qol-disable-damage-button");
+        applyButton.children()[0].classList.remove("midi-qol-enable-damage-button");
+        const reverseButton = html.find(`#reverse-${actorUuid.replaceAll(".", "")}`);
+        reverseButton.children()[0].classList.remove("midi-qol-disable-damage-button");
+        reverseButton.children()[0].classList.add("midi-qol-enable-damage-button");
         log(`Setting HP to ${newTempHP} and ${newHP}`);
         const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
         const context = { dhp: newHP - actor.system.attributes.hp.value, damageItem };
@@ -574,7 +588,13 @@ export let processUndoDamageCard = (message, html, data) => {
     if (!actorUuid) return;
     // ids should not have "." in the or it's id.class
     let button = html.find(`#reverse-${actorUuid.replaceAll(".", "")}`);
-    button.click((ev: { stopPropagation: () => void; }) => {
+    // button.click((ev: { stopPropagation: () => void; }) => {
+    button.click((ev: { stopPropagation: () => void; currentTarget: any }) => {
+      ev.currentTarget.children[0].classList.add("midi-qol-disable-damage-button");
+      ev.currentTarget.children[0].classList.remove("midi-qol-enable-damage-button");
+      const otherButton = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
+      otherButton.children()[0].classList.remove("midi-qol-disable-damage-button");
+      otherButton.children()[0].classList.add("midi-qol-enable-damage-button");
       (async () => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, data.updateContext);
@@ -592,33 +612,49 @@ export let processUndoDamageCard = (message, html, data) => {
 
     // Default action of button is to do midi damage
     button = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
-    button.click((ev: { stopPropagation: () => void; }) => {
+    button.click((ev: { stopPropagation: () => void; currentTarget: any }) => {
+      ev.currentTarget.children[0].classList.add("midi-qol-disable-damage-button");
+      ev.currentTarget.children[0].classList.remove("midi-qol-enable-damage-button");
+      const otherButton = html.find(`#reverse-${actorUuid.replaceAll(".", "")}`);
+      otherButton.children()[0].classList.remove("midi-qol-disable-damage-button");
+      otherButton.children()[0].classList.add("midi-qol-enable-damage-button");
+      let multiplierString = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`).val();
+      const mults = { "-1": -1, "x1": 1, "x0.25": 0.25, "x0.5": 0.5, "x2": 2 };
+      let multiplier = 1;
       (async () => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP to ${newTempHP} and ${newHP}`, data.updateContext);
-        const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-        const context = { dhp: newHP - actor.system.attributes.hp.value, damageItem };
-        if (checkRule("vitalityResource")) {
-          const resource = checkRule("vitalityResource")?.trim();
-          update[resource] = newVitality;
-          context["dvital"] = oldVitality - newVitality;
+        if (mults[multiplierString]) {
+          multiplier = mults[multiplierString]
+          await actor.applyDamage(totalDamage, multiplier);
+        } else {
+          const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
+          const context = { dhp: newHP - actor.system.attributes.hp.value, damageItem };
+          if (checkRule("vitalityResource")) {
+            const resource = checkRule("vitalityResource")?.trim();
+            update[resource] = newVitality;
+            context["dvital"] = oldVitality - newVitality;
+          }
+          if (actor.isOwner) await actor.update(update, context);
         }
-        if (actor.isOwner) await actor.update(update, context);
         ev.stopPropagation();
       })();
     });
 
     let select = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`);
     select.change((ev: any) => {
+      return true;
       let multiplier = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`).val();
       button = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
       button.off('click');
 
       const mults = { "-1": -1, "x1": 1, "x0.25": 0.25, "x0.5": 0.5, "x2": 2 };
       if (multiplier === "calc")
-        button.click(async (ev: any) => await doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data));
+        // button.click(async (ev: any) => await doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data));
+        doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data);
       else if (mults[multiplier])
-        button.click(async (ev: any) => await doClick(ev, actorUuid, totalDamage, mults[multiplier], data));
+        // button.click(async (ev: any) => await doClick(ev, actorUuid, totalDamage, mults[multiplier], data));
+        doClick(ev, actorUuid, totalDamage, mults[multiplier], data);
     });
   })
   return true;

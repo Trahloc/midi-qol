@@ -4165,7 +4165,10 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
     "all": "Entire Roll"
   },*/
   if (dice3dEnabled()) {
+    //@ts-expect-error game.dice3d
+    const dice3d = game.dice3d;
     const hideRollOption = configSettings.hideRollDetails;
+    let ghostRoll = false;
     let whisperIds: User[] | null = null;
     const rollMode = defaultRollMode || game.settings.get("core", "rollMode");
     let hideRoll = (["all"].includes(hideRollOption) && game.user?.isGM) ? true : false;
@@ -4196,12 +4199,10 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
       }
     }
     if (hideRoll && configSettings.ghostRolls && game.user?.isGM && !configSettings.gmHide3dDice) {
-      //@ts-expect-error ghost
-      roll.ghost = true;
+      ghostRoll = true;
       hideRoll = false;
     } else {
-      //@ts-expect-error seems this can get stuck?
-      roll.ghost = rollMode === "blindroll";
+      ghostRoll = rollMode === "blindroll";
     }
 
     if (rollMode === "selfroll" || rollMode === "gmroll" || rollMode === "blindroll") {
@@ -4213,10 +4214,18 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
       displayRoll.terms.forEach(term => {
         if (term.options?.flavor) term.options.flavor = term.options.flavor.toLocaleLowerCase();
       });
-      //@ts-expect-error game.dice3d mark all dice as shown - so that toMessage does not trigger additional display on other clients
-      await game.dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, !roll.ghost && rollMode === "blindroll" && !game.user.isGM)
+      if (ghostRoll) {
+        const promises: Promise<any>[] = [];
+        promises.push(dice3d?.showForRoll(displayRoll, game.user, true, ChatMessage.getWhisperRecipients("GM"), !game.user?.isGM));
+        //@ts-expect-error .ghost
+        displayRoll.ghost = true;
+        promises.push(dice3d?.showForRoll(displayRoll, game.user, true, game.users?.players.map(u=>u.id), game.user?.isGM));
+        await Promise.allSettled(promises);
+      } else 
+        await dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, rollMode === "blindroll" && !game.user?.isGM)
     }
   }
+  //mark all dice as shown - so that toMessage does not trigger additional display on other clients
   roll.dice.forEach(d => d.results.forEach(r => setProperty(r, "hidden", true)));
 }
 

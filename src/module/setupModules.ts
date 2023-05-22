@@ -6,7 +6,7 @@ const modules = {
   "about-time": "0.0", 
   "anonymous": "0.0.0",
   "combat-utility-belt": "1.3.8",
-  "dae": "10.0.9",
+  "dae": "10.0.30",
   "ddb-game-log": "0.0.0",
   "df-templates": "1.0.0",
   "dfreds-convenient-effects": "4.1.0",

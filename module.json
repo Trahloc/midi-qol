@@ -35,6 +35,10 @@
       {
         "id": "lib-wrapper",
         "type": "module"
+      },
+      {
+        "id": "dae",
+        "type": "module"
       }
     ]
   },

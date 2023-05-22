@@ -1,6 +1,5 @@
-import { EffectChangeData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/effectChangeData";
-import { reduceEachTrailingCommentRange } from "typescript";
-import { debug, error, log, warn } from "../midi-qol.js";
+
+import { debugEnabled, error, log, warn } from "../midi-qol.js";
 import { socketlibSocket } from "./GMAction.js";
 import { busyWait } from "./tests/setupTest.js";
 import { isReactionItem } from "./utils.js";
@@ -11,9 +10,9 @@ Hooks.once("ready", () => {
   dae = globalThis.DAE;
 })
 
-let undoDataQueue: any[] = [];
+export var undoDataQueue: any[] = [];
 let startedUndoDataQueue: any[] = [];
-const MAXUNDO = 20;
+const MAXUNDO = 15;
 interface undoTokenActorEntry {
   actorUuid: string;
   tokenUuid: string | undefined,
@@ -30,6 +29,7 @@ export async function saveUndoData(workflow: Workflow): Promise<boolean> {
   workflow.undoData.userName = game.user?.name;
   workflow.undoData.tokendocUuid = workflow.token.uuid ?? workflow.token.document.uuid;
   workflow.undoData.actorUuid = workflow.actor?.uuid;
+  workflow.undoData.actorName = workflow.actor?.name;
   workflow.undoData.chatCardUuids = [];
   workflow.undoData.isReaction = workflow.options?.isReaction || isReactionItem(workflow.item);
   workflow.undoData.concentrationData = {};
@@ -40,34 +40,30 @@ export async function saveUndoData(workflow: Workflow): Promise<boolean> {
   return true;
 }
 
+export function createTargetData(tokenUuid) {
+  //@ts-expect-error
+  const tokendoc = fromUuidSync(tokenUuid);
+  const targetData = { tokenUuid, actorUuid: tokendoc?.actor?.uuid, actorData: tokendoc?.actor?.toObject(true), tokenData: tokendoc?.toObject(true) };
+  delete targetData.tokenData?.actorData;
+  delete targetData.tokenData?.delta;
+  return targetData;
+}
 // Called to save snapshots of workflow actor/token data
 export function startUndoWorkflow(undoData: any): boolean {
 
   //@ts-expect-error fromUuidSync
   let actor = fromUuidSync(undoData.actorUuid);
+  if (actor instanceof TokenDocument) actor = actor.actor;
   const actorData = actor?.toObject(true);
   //@ts-expect-error fromUuidSync
   const tokenData = actor?.isToken ? actor.token.toObject(true) : fromUuidSync(undoData.tokendocUuid ?? "")?.toObject(true);
   undoData.actorEntry = { actorUuid: undoData.actorUuid, tokenUuid: undoData.tokendocUuid, actorData, tokenData };
-  undoData.allTokenIds = new Set();
-  undoData.allActorIds = new Set();
-  undoData.allActorIds.add(actor.id);
   undoData.allTargets = new Collection; // every token referenced by the workflow
-  if (undoData.actorEntry.tokenData) undoData.allTokenIds.add(undoData.actorEntry.tokenData._id);
   const actorConcentrationTargets = getProperty(actor, "flags.midi-qol.concentration-data.targets");
   actorConcentrationTargets?.forEach(({ actorUuid, tokenUuid }) => {
     if (actorUuid === undoData.actorUuid) return;
-    //@ts-expect-error fromUuidSync
-    const actor = fromUuidSync(actorUuid);
-    const targetData = { tokenUuid, actorUuid, actorData: actor.toObject(true), tokenData };
-    if (actor.isToken) {
-      targetData["tokenData"] = actor.token.toObject(true);
-    } else if (tokenUuid) {
-      //@ts-expect-error fromUuidSync
-      targetData["tokenData"] = fromUuidSync(tokenUuid)?.toObject(true);
-    }
-    if (actor.id) undoData.allActorIds.add(actor.id);
-    if (targetData?.tokenData._id) undoData.allTokenIds.add(tokenData._id);
+    const targetData = createTargetData(tokenUuid);
+
     if (!undoData.allTargets.get(actorUuid)) undoData.allTargets.set(actorUuid, targetData)
   });
   addQueueEntry(startedUndoDataQueue, undoData);
@@ -77,7 +73,7 @@ export function startUndoWorkflow(undoData: any): boolean {
 export function updateUndoChatCardUuids(data) {
   const currentUndo = undoDataQueue.find(undoEntry => undoEntry.serverTime === data.serverTime && undoEntry.userId === data.userId);
   if (!currentUndo) {
-    warn("Could not find existing entry for ", data);
+    console.warn("Could not find existing entry for ", data);
     return;
   }
   currentUndo.chatCardUuids = data.chatCardUuids;
@@ -96,17 +92,28 @@ export async function saveTargetsUndoData(workflow: Workflow) {
   return socketlibSocket.executeAsGM("queueUndoData", workflow.undoData)
 }
 
-Hooks.on("createChatMessages", (message, data, options, user) => {
+Hooks.on("createChatMessage", (message, data, options, user) => {
   if ((undoDataQueue ?? []).length < 1) return;
   const currentUndo = undoDataQueue[0];
   const speaker = message.speaker;
   // if (currentUndo.userId !== user) return;
-  if (!currentUndo.allTokenIds.has(speaker.token) || !currentUndo.allActorIds.has(speaker.actor)) return;
-  currentUndo.chatCardUuids.push(message.uuid);
+  if (speaker.token) {
+    const tokenUuid = `Scene.${speaker.scene}.Token.${speaker.token}`;
+    if (currentUndo.allTargets.has(tokenUuid)) currentUndo.chatCardUuids.push(message.uuid);
+  } else if (speaker.actor) {
+    const actorUuid = `Actor.${speaker.actor}`;
+    if (currentUndo.allTargets.has(actorUuid)) currentUndo.chatCardUuids.push(message.uuid);
+  }
 });
 
 export function showUndoQueue() {
-  console.log(undoDataQueue)
+  console.log(undoDataQueue);
+  log("Undo queue size is ", new TextEncoder().encode(JSON.stringify(undoDataQueue)).length);
+  log("Started queue size is ", new TextEncoder().encode(JSON.stringify(startedUndoDataQueue)).length);
+}
+
+export function getUndoQueue() {
+  return undoDataQueue;
 }
 
 export function queueUndoData(data: any): boolean {
@@ -118,41 +125,25 @@ export function queueUndoData(data: any): boolean {
   inProgress = mergeObject(inProgress, data, { overwrite: false });
   startedUndoDataQueue = startedUndoDataQueue.filter(undoData => undoData.userId !== data.userId || undoData.itemUuid !== data.itemUuid);
 
-
   data.targets.forEach(undoEntry => {
-    //@ts-expect-error fromUuidSync
-    let tokendoc: TokenDocument = fromUuidSync(undoEntry.tokenUuid);
-    undoEntry["tokenData"] = tokendoc?.toObject(true);
-
-    //@ts-expect-error version
-    if (isNewerVersion(game.version, "11.0")) {
-      undoEntry["actorData"] = tokendoc?.actor?.toObject(true);
-    } else {
-      //@ts-expect-error actorLink
-      if (tokendoc?.actorLink) undoEntry["actorData"] = tokendoc.actor?.toObject(true);
+    if (!inProgress.allTargets.get(undoEntry.actorUuid)) {
+      const targetData = createTargetData(undoEntry.tokenUuid)
+      mergeObject(undoEntry, targetData, {inplace: true});
+      inProgress.allTargets.set(undoEntry.actorUuid, undoEntry);
     }
-    if (!inProgress.allTargets.get(tokendoc?.actor?.uuid ?? undoEntry.actorUuid))
-      inProgress.allTargets.set(tokendoc?.actor?.uuid ?? undoEntry.actorUuid, undoEntry);
-    const concentrationTargets = getProperty(tokendoc.actor ?? {}, "flags.midi-qol.concentration-data")?.targets;;
+    //@ts-expect-error
+    let actor = fromUuidSync(undoEntry.actorUuid);
+    if (actor instanceof TokenDocument) actor = actor.actor;
+    const concentrationTargets = getProperty(actor ?? {}, "flags.midi-qol.concentration-data")?.targets;;
     concentrationTargets?.forEach(({ actorUuid, tokenUuid }) => {
-      //@ts-expect-error fromUuidSync
-      const actor = fromUuidSync(actorUuid);
-      const targetData = { tokenUuid, actorUuid, actorData: actor.toObject(true) };
-      if (actor.isToken) {
-        targetData["tokenData"] = actor.token.toObject(true);
-      } else if (tokenUuid) {
-        //@ts-expect-error fromUuidSync
-        targetData["tokenData"] = fromUuidSync(tokenUuid)?.toObject(true);
+      const targetData = createTargetData(tokenUuid)
+      if (!inProgress.allTargets.get(actorUuid)) {
+        inProgress.allTargets.set(actorUuid, targetData)
       }
-      if (!inProgress.allTargets.get(actorUuid)) inProgress.allTargets.set(actorUuid, targetData)
-      if (actor.id) inProgress.allActorIds.add(actor.id);
-      //@ts-expect-error _id
-      if (targetData?.tokenData?._id) inProgress.allTokenIds.add(targetData.tokenData._id)
     });
   });
 
   addQueueEntry(undoDataQueue, inProgress);
-  log("Undo queue size is ", new TextEncoder().encode(JSON.stringify(inProgress)).length);
   return true;
 }
 
@@ -167,6 +158,7 @@ export function addQueueEntry(queue: any[], data: any) {
     }
   }
   if (!added) queue.push(data);
+  Hooks.callAll("midi-qol.addUndoEntry", data)
   if (queue.length > MAXUNDO) {
     log("Removed undoEntry due to overflow", queue.pop());
   }
@@ -175,112 +167,74 @@ export function addQueueEntry(queue: any[], data: any) {
 export async function undoMostRecentWorkflow() {
   return socketlibSocket.executeAsGM("undoMostRecentWorkflow")
 }
-
+export async function removeMostRecentWorkflow() {
+  return socketlibSocket.executeAsGM("removeMostRecentWorkflow")
+}
 export async function _undoMostRecentWorkflow() {
   if (undoDataQueue.length === 0) return false;
-  while (undoDataQueue.length > 0) {
-    let undoData = undoDataQueue.shift();
-    if (undoData.isReaction) await undoWorkflow(undoData);
-    else return undoWorkflow(undoData);
+  let undoData;
+  try {
+    while (undoDataQueue.length > 0) {
+      undoData = undoDataQueue.shift();
+      if (undoData.isReaction) await undoWorkflow(undoData);
+      else return undoWorkflow(undoData);
+    }
+  } finally {
+    if (undoData)Hooks.callAll("midi-qol.removeUndoEntry", undoData);
   }
   return;
 }
 
+export async function _removeMostRecentWorkflow() {
+  if (undoDataQueue.length === 0) return false;
+  let undoData;
+  try {
+    while (undoDataQueue.length > 0) {
+      let undoData = undoDataQueue.shift();
+      if (undoData.isReaction) continue;
+      else return undoData;
+    }
+  } finally {
+    if (undoData) Hooks.callAll("midi-qol.removeUndoEntry", undoData);
+  }
+  return;
+}
 export function _removeChatCards(data: { chatCardUuids: string[] }) {
   // TODO see if this might be async and awaited
   if (!data.chatCardUuids) return;
-  for (let uuid of data.chatCardUuids) {
-    //@ts-expect-error fromUuidSync
-    fromUuidSync(uuid)?.delete();
-  }
-}
-
-export async function _undoEntryChanges(data: any) {
-  let { actorChanges, tokenChanges, effectsToRemove, itemsToRemove, actor, tokendoc } = data;
-  if (!actor) actor = tokendoc.actor;
-
   try {
-    if (itemsToRemove?.length > 0) {
-      const removeItemsFunc = async () => {
-        itemsToRemove = itemsToRemove.filter(id => actor.items.some(item => item.id === id));
-        if (itemsToRemove?.length > 0) {
-          await actor.deleteEmbeddedDocuments("Item", itemsToRemove);
-          await busyWait(.1); // Allow some time for the item removal ripples to complete
-        }
-      }
-      if (dae?.actionQueue) await dae.actionQueue.add(removeItemsFunc);
-      else await removeItemsFunc();
-    }
-
-    if (effectsToRemove?.length > 0) {
-      const removeEffectsFunc = async () => {
-        if (effectsToRemove?.length) {
-          effectsToRemove = effectsToRemove.filter(_id => actor.effects.some(effect => effect._id === _id));
-          debug("_undoEntry: removeEffectsFunc: Effects to remove are ", effectsToRemove)
-          try {
-            if (effectsToRemove.length) {
-              await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToRemove, { noConcentrationCheck: true });
-              await busyWait(.1);
-            }
-            debug("undoEntry: removeEffectsFunc: completed")
-          } catch (err) { }
-        }
-      }
-
-      debug("undoEntry: calling removeEffectsFund: using actionQueue ", dae?.actionQueue !== undefined)
-      if (dae?.actionQueue) await dae.actionQueue.add(removeEffectsFunc);
-      else await removeEffectsFunc();
-      debug("_undoEntry: removeEffectsFunc complete")
-    }
-    let effectsToAdd;
-    if (tokendoc?.actor.isToken) { // a token, actor chanages are to tokendoc.actor and included in tokenChanges.actorData
-      // in v10 updating the token effects via actorData.effects does not work so need to do this by hand.
-      // This causes a problem since the creation of the effect causes duplicates of items from macro.createItem on the actor
-      const tokenChangeEffects = tokenChanges?.actorData?.effects;
-      if (tokenChangeEffects) delete tokenChanges.actorData.effects;
-      // Hack for created items since the effect will be recreated - check for v11
-      if (tokenChanges?.actorData?.items) tokenChanges.actorData.items = tokenChanges.actorData.items.filter(itemData => !itemData.flags?.dae?.DAECreated);
-      await tokendoc.update(tokenChanges);
-      await busyWait(.1);
-      effectsToAdd = tokenChangeEffects?.filter(efData => !tokendoc.actor.effects.some(effect => effect._id === efData._id)) ?? [];
-      debug("effects to add ", tokendoc.actor.name, effectsToAdd);
-      if (effectsToAdd?.length) {
-        if (globalThis.DAE) await globalThis.DAE.actionQueue.add(tokendoc.actor.createEmbeddedDocuments.bind(tokendoc.actor), "ActiveEffect", effectsToAdd, { keepId: true });
-        else await tokendoc.actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true });
-      }
-      debug("finished adding effects", tokendoc.actor.name, effectsToAdd)
-    } else {
-      //@ts-expect-error isEmpty
-      if (tokendoc && !isEmpty(tokenChanges ?? {})) {
-        delete tokenChanges.actorData;
-        await tokendoc.update(tokenChanges)
-      }
-      //@ts-expect-error isEmpty
-      if (actorChanges && !isEmpty(actorChanges)) {
-        return (tokendoc?.actor ?? actor)?.update(actorChanges)
-      }
+    for (let uuid of data.chatCardUuids) {
+      //@ts-expect-error fromUuidSync
+      fromUuidSync(uuid)?.delete();
     }
   } catch (err) {
-    error(err);
+    debugger;
   }
 }
 
 export function getRemoveUndoEffects(effectsData, actor): string[] {
+  if (!effectsData) return []; // should only hapoen for unlinked unmodified
   const effectsToRemove = actor.effects.filter(effect => {
-    return !effectsData.some(effectData => effect._id === effectData._id);
-  }).map(effect => effect._id) ?? [];
+    return !effectsData.some(effectData => effect.id === effectData._id);
+  }).map(effect => effect.id) ?? [];
   return effectsToRemove;
 }
 
 function getRemoveUndoItems(itemsData, actor): string[] {
+  if (!itemsData) return []; // Should only happen for unchanged unlinked actors
   const itemsToRemove = actor.items.filter(item => {
-    return !itemsData?.some(itemData => item._id === itemData._id);
-  }).map(item => item._id);
+    return !itemsData?.some(itemData => item.id === itemData._id);
+  }).map(item => item.id);
   return itemsToRemove;
 }
 
 function getChanges(newData, savedData): any {
   if (!newData && !savedData) return {};
+  delete newData.items;
+  delete newData.effects;
+  delete savedData.items;
+  delete savedData.effects;
+
   const changes = flattenObject(diffObject(newData, savedData));
   const tempChanges = flattenObject(diffObject(savedData, newData));
   const toDelete = {};
@@ -303,73 +257,61 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
   if (!actor) return;
   let actorChanges;
   let tokenChanges;
-  //@ts-expect-error version
-  if (isNewerVersion(game.version, "11.0")) {
-    warn("undoSingleActor: starting for ", actor.name);
-    const removeItemsFunc = async () => {
-      //@ts-expect-error
-      let actor = fromUuidSync(actorUuid ?? "");
-      const itemsToRemove = getRemoveUndoItems(actorData.items ?? [], actor);
-      if (itemsToRemove?.length > 0) await actor.deleteEmbeddedDocuments("Item", itemsToRemove);
-      warn("removeItemsFunc: items to remove ", actor.name, itemsToRemove);
-      // await busyWait(0.1);
-    }
-    if (dae.actionQueue) await dae.actionQueue.add(removeItemsFunc)
-    else await removeItemsFunc();
-    warn("undoSingleTokenActor: removeItemFunc completed")
+  if (debugEnabled > 0) warn("undoSingleActor: starting for ", actor.name);
 
-    warn("undoSingleActor: about to remove effects")
-    const removeEffectsFunc = async () => {
-      const effectsToRemove = getRemoveUndoEffects(actorData.effects ?? [], actor);
-      warn("effectsToRemoveFunc ", effectsToRemove);
-      if (effectsToRemove.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToRemove, { noConcentrationCheck: true });
+  const removeItemsFunc = async () => {
+    const itemsToRemove = getRemoveUndoItems(actorData.items ?? [], actor);
+    if (itemsToRemove?.length > 0) await actor.deleteEmbeddedDocuments("Item", itemsToRemove, {isUndo: true});
+    if (debugEnabled > 0) warn("removeItemsFunc: items to remove ", actor.name, itemsToRemove);
+    // await busyWait(0.1);
+  }
+  if (dae.actionQueue) await dae.actionQueue.add(removeItemsFunc)
+  else await removeItemsFunc();
+  if (debugEnabled > 0) warn("undoSingleTokenActor: removeItemFunc completed")
+
+  if (debugEnabled > 0) warn("undoSingleActor: about to remove effects")
+  const removeEffectsFunc = async () => {
+    const effectsToRemove = getRemoveUndoEffects(actorData.effects ?? [], actor);
+    if (debugEnabled > 0) warn("effectsToRemoveFunc ", effectsToRemove);
+    if (effectsToRemove.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToRemove, { noConcentrationCheck: true, isUndo: true });
+  }
+  if (dae?.actionQueue) await dae.actionQueue.add(removeEffectsFunc)
+  else await removeEffectsFunc();
+  if (debugEnabled > 0) warn("UndoSingleActor: remove effects completed")
+
+  const itemsToAdd = actorData?.items?.filter(itemData => /*!itemData.flags?.dae?.DAECreated && */ !actor.items.some(item => itemData._id === item.id));
+  if (debugEnabled > 0) warn("Items to add ", actor.name, itemsToAdd)
+  if (itemsToAdd?.length > 0) {
+    if (dae?.actionQueue) await dae.actionQueue.add(actor.createEmbeddedDocuments.bind(actor), "Item", itemsToAdd, { keepId: true, isUndo: true });
+    else await actor?.createEmbeddedDocuments("Item", itemsToAdd, { keepId: true, isUndo: true });
+    await busyWait(0.1);
+  }
+  let effectsToAdd = actorData?.effects?.filter(efData => !actor.effects.some(effect => efData._id === effect.id));
+  if (debugEnabled > 0) warn("Effects to add ", actor.name, effectsToAdd);
+  if (effectsToAdd?.length > 0) {
+    if (dae?.actionQueue) dae.actionQueue.add(async () => {
+      effectsToAdd = effectsToAdd.filter(efId => !actor.effects.some(effect => effect.id === efId))
+      if (debugEnabled > 0) warn("Effects to add are ", effectsToAdd, actor.name)
+      await actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true, isUndo: true })
+    });
+    else await actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true, isUndo: true });
+  }
+  actorChanges = actorData ? getChanges(actor.toObject(true), actorData) : {};
+  if (debugEnabled > 0) warn("Actor data ", actor.name, actorData, actorChanges);
+  //@ts-expect-error isEmpty
+  if (!isEmpty(actorChanges)) {
+    delete actorChanges.items;
+    delete actorChanges.effects;
+    await actor.update(actorChanges, { noConcentrationCheck: true })
+  }
+  if (tokendoc) {
+    tokenChanges = tokenData ? getChanges(tokendoc.toObject(true), tokenData) : {};
+    delete tokenChanges.actorData;
+    delete tokenChanges.delta;
+    //@ts-expect-error tokenChanges
+    if (!isEmpty(tokenChanges)) {
+      await tokendoc.update(tokenChanges, { noConcentrationCheck: true })
     }
-    if (dae?.actionQueue) await dae.actionQueue.add(removeEffectsFunc)
-    else await removeEffectsFunc();
-    warn("UndoSingleActor: remove effects completed")
-    const itemsToAdd = actorData?.items?.filter(itemData => !actor.items.some(item => itemData._id === item.id));
-    warn("Items to add ", actor.name, itemsToAdd)
-    if (itemsToAdd?.length > 0) {
-      if (dae?.actionQueue) await dae.actionQueue.add(actor.createEmbeddedDocuments.bind(actor), "Item", itemsToAdd, { keepId: true });
-      else await actor?.createEmbeddedDocuments("Item", itemsToAdd, { keepId: true });
-    }
-    const effectsToAdd = actorData?.effects?.filter(efData => !actor.effects.some(effect => efData._id === effect.id));
-    warn("Effects to add ", actor.name, effectsToAdd);
-    if (effectsToAdd?.length > 0) {
-      if (dae?.actionQueue) dae.actionQueue.add(actor.createEmbeddedDocuments, "ActiveEffect", "effectsToAdd", { keepId: true })
-      await actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true });
-    }
-    actorChanges = actorData ? getChanges(actor.toObject(true), actorData) : {};
-    warn("Actor data ", actor.name, actorData, actorChanges);
-    //@ts-expect-error isEmpty
-    if (!isEmpty(actorChanges)) {
-      delete actorChanges.items;
-      delete actorChanges.effects;
-      await actor.update(actorChanges, { noConcentrationCheck: true })
-    }
-    if (tokendoc) {
-      tokenChanges = tokenData ? getChanges(tokendoc.toObject(true), tokenData) : {};
-      //@ts-expect-error tokenChanges
-      if (!isEmpty(tokenChanges)) {
-        delete tokenChanges.delta;
-        await tokendoc.update(tokenChanges, { noConcentrationCheck: true })
-      }
-    }
-  } else {
-    let itemsToRemove;
-    let effectsToRemove;
-    if (tokendoc?.isLinked || !actor.isToken) {
-      itemsToRemove = getRemoveUndoItems(actorData.items ?? [], actor);
-      effectsToRemove = getRemoveUndoEffects(actorData.effects ?? [], actor);
-      tokenChanges = tokenData ? getChanges(tokendoc.toObject(true), tokenData) : {};
-      actorChanges = getChanges(actor.toObject(true), actorData);
-    } else {
-      itemsToRemove = getRemoveUndoItems(tokenData.actorData.items ?? [], tokendoc.actor);
-      effectsToRemove = getRemoveUndoEffects(tokenData.actorData.effects ?? [], tokendoc.actor);
-      tokenChanges = getChanges(tokendoc.toObject(true), tokenData);
-    }
-    log(`Undoing changes for ${actor.name} Token: ${tokendoc?.name}`, actorChanges, tokenChanges, itemsToRemove, effectsToRemove)
-    await _undoEntryChanges({ actor, tokenChanges, actorChanges, effectsToRemove, itemsToRemove, tokendoc });
   }
 }
 

@@ -764,7 +764,7 @@ export function prepareOnUseMacroData(actorOrItem) {
 export function lookupItemMacro(...args) {
   let [candidate, data, options, user] = args;
   if (!candidate.origin || !data.changes) return true;
-  let newChanges = data.changes?.map(change => {
+  let newChanges = candidate.changes?.map(change => {
     if (change.key === "flags.midi-qol.onUseMacroName") {
       const parts = change.value.split(",").map(s => s.trim());
       if (parts[0] === "ItemMacro") {
