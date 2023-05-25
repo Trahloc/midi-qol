@@ -1,5 +1,5 @@
 import { i18n } from "../../midi-qol.js";
-import { removeMostRecentWorkflow, undoDataQueue, undoMostRecentWorkflow, undoWorkflow } from "../undo.js";
+import { removeMostRecentWorkflow, undoDataQueue, undoMostRecentWorkflow } from "../undo.js";
 
 export class UndoWorkflow extends FormApplication {
   undoAddedHookId: number;
@@ -66,7 +66,7 @@ export class UndoWorkflow extends FormApplication {
 
 export function showUndoWorkflowApp() {
   if (game.user?.isGM) {
-    new UndoWorkflow({}).render(true)
+    new UndoWorkflow({}).render(true, {focus: true})
   } else {
     ui.notifications?.warn("midi-qol.UndowWorkflow.GMOnly")
   }

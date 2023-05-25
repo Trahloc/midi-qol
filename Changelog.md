@@ -1,3 +1,23 @@
+### 10.0.44
+* Fix for DR and slivered damage resistance. Incorrectly any item with a + to hit was considered silvered. Now obeys the midi config settings workflow tab.
+* Fix for incorrectly applying DR to temphp healing.
+* Support roll mode when presenting optional bonus dialogs, blindrolls won't display the dice roll that is being adjusted.
+* **BREAKING** Another change to macro execution. The workflow that triggered the macro is available via 'workflow' or 'scope.workflow'.
+  - Macros that reference the workflow via 'this' will throw a deprecation warning and will fail to execute after midi v11.1.0 is released.
+  - Macros that declare workflow [as in const workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid))] will throw a deprecation warning but still operate. This will fail in midi version 11.1.0 and later.
+  - Hopefully this is the last change. In midi v11.1.0 macro calling will switch to core foundry v11 macro calling.
+* **BREAKING** preApplyTargetDamage renamed to preTargetDamageApplication and remains a target onUse macro. That is, the macro to be called is looked up on the target not the actor rolling the attack. It is called for each target that was damaged by using the item, not just those that were hit. So you'll need to check that in your macros.
+  - workflow.damageItem has the details of the damage to be applied and can be modified by the macro. In particular setting damageItem.hpDamage will set how much damage is done to the actor. Don't use this feature when di/dr/dv or DR.XXX will do what you need since the changes won't be obvious from the damage card.
+  - Sample Broach of Shielding item to neutralise magic missile damage included.
+* Actor onUse preDamageApplication macro fetches macros from the actor doing the attack. workflow.damageList has the damage details for all tokens that are attacked. Updated Mace of disruption to show how it can be used.
+* Updated Fey Ancestry (Elven) to implement advantage for saves against charm. Thanks @thatlonelybugbear#4393
+* Updated shield spell to provide immunity to magic missile.
+* Added export of async function reactionDialog. See readme for details.
+* For onUse macros, item, damageBonus and actor onUse macros args[0].tagis  set to "OnUse" and for target onUse macros the tag will be "TargetOnUse". This allows you to have a single macro that deals with both sorts of calls.
+* Readme.md updated with more information on macros, arguments and when they are called.
+* Added a helper function for macro writers who want to assist midi in cleaning the chat log when undoing a workflow. Midi monitors created chat messages whilst until the workflow is complete and adds them to the list of things to be removed when undoing the workflow However, macros that create chat messages escape the list. You can add a message to be deleted by calling MidiQOL.addUndoChatMessage(message: ChatMessage | Promise<ChatMessage>).
+  - Updated the shillelagh spell as an example.
+
 ### 10.0.43
 * **BREAKING** added dae as a dependency.
 * When using ghost rolls for the GM or blind rolls for players the GM will see the dice so nice dice being rolled.

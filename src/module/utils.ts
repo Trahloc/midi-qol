@@ -286,7 +286,7 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.system.attackBonus > 0);
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.type !== "weapon");
     magicalDamage = magicalDamage || (configSettings.requireMagical === "nonspell" && item?.type === "spell");
-    const silverDamage = item?.system.properties?.sil;
+    const silverDamage = item?.system.properties?.sil || magicalDamage;
     const adamantineDamage = item?.system.properties?.ada;
     const physicalDamage = phsyicalDamageTypes.includes(dmgTypeString);
 
@@ -510,12 +510,12 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       DRAll += (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
     }
     // const magicalDamage = (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties["mgc"]);
-    let magicalDamage = item?.system.properties?.mgc || item?.system.midiProperties?.magicdam;
+    let magicalDamage = item?.system.properties?.mgc || item?.flags?.midiProperties?.magicdam;
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.system.attackBonus > 0);
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.type !== "weapon");
     magicalDamage = magicalDamage || (configSettings.requireMagical === "nonspell" && item?.type === "spell");
 
-    const silverDamage = magicalDamage || (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties["sil"]);
+    const silverDamage = magicalDamage || (item?.type === "weapon" && item?.system.properties["sil"]);
     const adamantineDamage = item?.system.properties?.ada;
 
     let AR = 0; // Armor reduction for challenge mode armor etc.
@@ -731,6 +731,13 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     ditem.damageDetail = duplicate(damageDetailArr);
     ditem.critical = workflow?.isCritical;
     await asyncHooksCallAll("midi-qol.damageApplied", t, { item, workflow, damageItem: ditem, ditem });
+    //@ts-expect-error isEmtpy
+    if (!isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
+      workflow.damageItem = ditem;
+      await workflow.triggerTargetMacros(["preTargetDamageApplication"], [t]);
+      ditem = workflow.damageItem;
+      delete workflow.damageItem
+    }
     damageList.push(ditem);
     targetNames.push(t.name)
   }
@@ -740,6 +747,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     if (!isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
       await workflow.callMacros(workflow.item, workflow.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
     }
+
     const chatCardUuids = await timedAwaitExecuteAsGM("createReverseDamageCard", {
       autoApplyDamage: configSettings.autoApplyDamage,
       sender: game.user?.name,
@@ -1369,13 +1377,13 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       }
       try {
         const options = {
-          systemCard: false, 
-          createWorkflow: true, 
-          versatile: false, 
-          configureDialog: false, 
-          saveDC, 
-          checkGMStatus: true, 
-          targetUuids: [theTargetUuid], 
+          systemCard: false,
+          createWorkflow: true,
+          versatile: false,
+          configureDialog: false,
+          saveDC,
+          checkGMStatus: true,
+          targetUuids: [theTargetUuid],
           rollMode,
           workflowOptions: { lateTargeting: "none", autoRollDamage: "onHit", autoFastDamage: true, isOverTime: true, allowIncapacitated },
         };
@@ -1736,15 +1744,15 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                 break;
               case "simbuls-cover-calculator":
                 if (coverVisible === undefined) {
-                let collisionCheck;
-                //@ts-expect-error version
-                if (isNewerVersion(game.version, "11.0")) {
-                  //@ts-expect-error polygonBackends
-                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
-                } else {
-                  //@ts-expect-error
-                  collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
-                }
+                  let collisionCheck;
+                  //@ts-expect-error version
+                  if (isNewerVersion(game.version, "11.0")) {
+                    //@ts-expect-error polygonBackends
+                    collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
+                  } else {
+                    //@ts-expect-error
+                    collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
+                  }
                   if (collisionCheck) continue;
                 } else if (coverVisible === false) continue;
                 break;
@@ -2209,7 +2217,7 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
  */
 
 
-export function findNearby(disposition: number | null, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined} = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false }): Token[] {
+export function findNearby(disposition: number | null, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false }): Token[] {
   if (!token) return [];
   if (typeof token === "string") token = MQfromUuid(token).object;
   if (!(token instanceof Token)) { throw new Error("find nearby token is not of type token or the token uuid is invalid") };
@@ -2230,7 +2238,7 @@ export function findNearby(disposition: number | null, token: any /*Token | uuui
       inRange = 0 <= tokenDistance && tokenDistance <= distance
     } else return false; // wrong disposition
     if (inRange && options.canSee && !canSense(t, token)) return false; // Only do the canSee check if the token is inRange
-    if (inRange && options.isSeen && !canSense(token, t)) return false; 
+    if (inRange && options.isSeen && !canSense(token, t)) return false;
     return inRange;
 
   });
@@ -2386,7 +2394,8 @@ class RollModifyDialog extends Application {
     rollHTML: string,
     callback: () => {},
     close: () => {},
-    buttons: any
+    buttons: any,
+    rollMode: string | undefined
   }
 
   constructor(data, options) {
@@ -2395,6 +2404,7 @@ class RollModifyDialog extends Application {
     super(options);
     this.data = data;
     this.rollExpanded = false;
+    if (!data.rollMode) data.rollMode = game.settings.get("core", "rollMode")
   }
 
   static get defaultOptions() {
@@ -2575,7 +2585,7 @@ export async function processDamageRollBonusFlags(): Promise<Roll> { // bound to
   return this.damageRoll;
 }
 
-export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rollId: string, rollTotalId: string, rollHTMLId: string) {
+export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rollId: string, rollTotalId: string, rollHTMLId: string, options?: any) {
   const showDiceSoNice = /* ["attackRoll", "damageRoll"].includes(rollId) && */ dice3dEnabled(); // && configSettings.mergeCard;
   return new Promise((resolve, reject) => {
     const callback = async (dialog, button) => {
@@ -2708,7 +2718,13 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       dialog.render(true);
       // dialog.close();
     }
-
+    let content;
+    let rollMode: any = options?.rollMode ?? game.settings.get("core", "rollMode");
+    if (game.user?.isGM) content = this[rollHTMLId];
+    else {
+      if (["publicroll", "gmroll", "selfroll"].includes(rollMode)) content = this[rollHTMLId];
+      else content = "Hidden Roll";
+    }
     const dialog = new RollModifyDialog(
       {
         actor: this.actor,
@@ -2719,9 +2735,10 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         rollTotalId,
         rollHTMLId,
         title,
-        content: this[rollHTMLId],
+        content,
         currentRoll: this[rollId],
         rollHTML: this[rollHTMLId],
+        rollMode,
         callback,
         close: resolve
       }, {
@@ -3172,7 +3189,7 @@ export function playerForActor(actor: Actor | undefined): User | undefined {
 }
 
 //@ts-ignore dnd5e v10
-export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, triggerTokenUuid: string | undefined, reactionItems: Item[], rollFlavor: string, triggerType: string, options: any) {
+export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, triggerTokenUuid: string | undefined, reactionItems: Item[], rollFlavor: string, triggerType: string, options: any = {}) {
   return new Promise((resolve, reject) => {
     let timeoutId = setTimeout(() => {
       dialog.close();
@@ -4219,9 +4236,9 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
         promises.push(dice3d?.showForRoll(displayRoll, game.user, true, ChatMessage.getWhisperRecipients("GM"), !game.user?.isGM));
         //@ts-expect-error .ghost
         displayRoll.ghost = true;
-        promises.push(dice3d?.showForRoll(displayRoll, game.user, true, game.users?.players.map(u=>u.id), game.user?.isGM));
+        promises.push(dice3d?.showForRoll(displayRoll, game.user, true, game.users?.players.map(u => u.id), game.user?.isGM));
         await Promise.allSettled(promises);
-      } else 
+      } else
         await dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, rollMode === "blindroll" && !game.user?.isGM)
     }
   }

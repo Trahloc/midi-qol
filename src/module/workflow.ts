@@ -749,7 +749,7 @@ export class Workflow {
             }
           }
         }
-        if (configSettings.allowUseMacro) await this.triggerTargetMacros(["preApplyTargetDamage"], this.hitTargets);
+        if (configSettings.allowUseMacro) await this.triggerTargetMacros(["preTargetDamageApplication"], this.hitTargets);
         if (this.damageDetail?.length || this.otherDamageDetail?.length) await processDamageRoll(this, this.damageDetail[0]?.type ?? this.defaultDamageType)
         if (configSettings.allowUseMacro) await this.triggerTargetMacros(["isDamaged"], this.hitTargets);
         if (debugEnabled > 1) debug("all rolls complete ", this.damageDetail)
@@ -1311,35 +1311,36 @@ export class Workflow {
         //@ts-ignore
         await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isAttacked"),
-          "OnUse",
+          "TargetOnUse",
           "isAttacked",
           { actor: target.actor, token: target });
       }
       if (wasDamaged && triggerList.includes("isDamaged")) {
         await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isDamaged"),
-          "OnUse",
+          "TargetOnUse",
           "isDamaged",
           { actor: target.actor, token: target });
       }
       if (wasHit && triggerList.includes("isHit")) {
         await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isHit"),
-          "OnUse",
+          "TargetOnUse",
           "isHit",
           { actor: target.actor, token: target });
       }
-      if (wasHit && triggerList.includes("preApplyTargetDamage")) {
+      if (triggerList.includes("preTargetDamageApplication")) {
         await this.callMacros(this.item,
-          actorOnUseMacros?.getMacros("preApplyTargetDamage"),
-          "OnUse",
-          "preApplyTargetDamage",
+          actorOnUseMacros?.getMacros("preTargetDamageApplication"),
+          "TargetOnUse",
+          "preTargetDamageApplication",
           { actor: target.actor, token: target });
       }
+
       if (this.saveItem?.hasSave && triggerList.includes("preTargetSave")) {
         await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("preTargetSave"),
-          "OnUse",
+          "TargetOnUse",
           "preTargetSave",
           { actor: target.actor, token: target });
       }
@@ -1347,7 +1348,7 @@ export class Workflow {
       if (this.saveItem?.hasSave && triggerList.includes("isAboutToSave")) {
         await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isAboutToSave"),
-          "OnUse",
+          "TargetOnUse",
           "isAboutToSave",
           { actor: target.actor, token: target });
       }
@@ -1357,7 +1358,7 @@ export class Workflow {
       if (this.saveItem?.hasSave && triggerList.includes("isSaveSuccess") && this.saves.has(target)) {
         await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isSaveSuccess"),
-          "OnUse",
+          "TargetOnUse",
           "isSaveSuccess",
           { actor: target.actor, token: target });
       }
@@ -1365,14 +1366,14 @@ export class Workflow {
         await this.callMacros(this.item,
 
           actorOnUseMacros?.getMacros("isSaveFailure"),
-          "OnUse",
+          "TargetOnUse",
           "isSaveFailure",
           { actor: target.actor, token: target });
       }
       if (this.saveItem?.hasSave && triggerList.includes("isSave")) {
         await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isSave"),
-          "OnUse",
+          "TargetOnUse",
           "isSave",
           { actor: target.actor, token: target });
       }
@@ -1656,7 +1657,7 @@ export class Workflow {
     let macro;
     try {
       if (name.startsWith("function.")) {
-        macroCommand = `return await ${name.replace("function.", "").trim()}.bind(this)({ speaker, actor, token, character, item, args })`;
+        macroCommand = `return await ${name.replace("function.", "").trim()}.bind(workflow)({ speaker, actor, token, character, item, args, scope, workflow: scope.workflow })`;
       } else if (name.startsWith(MQItemMacroLabel)) { // special short circuit eval for itemMacro since it can be execute as GM
         var itemMacro;
         //  item = this.item;
@@ -1744,24 +1745,61 @@ export class Workflow {
       const args = [macroData];
 
       const scope: any = {};
-      scope.theWorkflow = this;
+      scope.workflow = this;
       scope.item = item;
       scope.args = args;
       scope.options = args[0].options;
+        //@ts-expect-error version
+        const midiVersion = game.modules.get("midi-qol")?.version;
 
       // TODO if we only have a macro command create a temp macro to execute.
-      //@ts-expect-error .version
-      if (macro && isNewerVersion(game.version, "11.293")) {
-        return macro.execute({actor, token, scope})
+      if (macro && isNewerVersion(midiVersion, "11.1.0")) {
+        return macro.execute({ actor, token, workflow: this, item, args })
       } else { // don't have a real macro so fudge it
         const AsyncFunction = (async function () { }).constructor;
-        // macroCommand = `try { ${macroCommand} } catch (err) { console.warn("midi-qol | Error executing macro", err) }`;
+
+        // Create a proxy to this to catch macros using this as a workflow.
+        let newThis;
+        if (isNewerVersion("11.1.0", midiVersion)) {
+          newThis = new Proxy(this,
+            {
+              get(obj, prop, receiver) {
+                //@ts-expect-error logCompatibilityWarning
+                foundry.utils.logCompatibilityWarning("Midi-QOL: macro execution. Refrences to the workflow via 'this' are deprecated. Use 'workflow' instead", {
+                  since: "10.0.44", until: "11.1.0"
+                });
+                return Reflect.get(obj, prop, receiver);
+              }
+            });
+        }
+
         const argNames = Object.keys(scope);
         const argValues = Object.values(scope);
-        //@ts-expect-error
-        const fn = new AsyncFunction("speaker", "actor", "token", "character", "scope", ...argNames, macroCommand)
-        // const fn = Function("{speaker, actor, token, character, item, args}={}", body);
-        return fn.call(this, speaker, actor, token, character, scope, ...argValues);
+
+        try {
+          //@ts-expect-error
+          const fn = new AsyncFunction("speaker", "actor", "token", "character", "scope", ...argNames, macroCommand)
+          return fn.call(newThis, speaker, actor, token, character, scope, ...argValues);
+        } catch (err) { // wrap the command in {} to get rid of already delecared
+          if (isNewerVersion("11.1.0", midiVersion)) {
+            const rgx = /Identifier '(.*)' has already been declared/;
+            const match = err.message.match(rgx);
+            if (match) {
+              let source = "foundry";
+              if (["item", "workflow", "args", "options"].includes(match[1])) source = "midi-qol";
+              //@ts-expect-error logCompatibilityWarning
+              foundry.utils.logCompatibilityWarning(`midi-QOL: macro execution. '${match[1]}' is declared by ${source}. Don't declare it in the macro.`, {
+                since: "10.0.44", until: "11.1.0"
+              });
+              macroCommand = `{
+            ${macroCommand}
+          }`;
+              //@ts-expect-error AsncFunction
+              const fn = new AsyncFunction("speaker", "actor", "token", "character", "scope", ...argNames, macroCommand)
+              return fn.call(newThis, speaker, actor, token, character, scope, ...argValues);
+            }
+          } else throw(err);
+        }
       }
     } catch (err) {
       ui.notifications?.error(`There was an error running your macro. See the console (F12) for details`);

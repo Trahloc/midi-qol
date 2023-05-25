@@ -394,7 +394,7 @@ export let fetchParams = () => {
   if (configSettings.hidePlayerDamageCard === undefined) configSettings.hidePlayerDamageCard = true;
   if (configSettings.attackPerTarget === undefined) configSettings.attackPerTarget = false;
   if (configSettings.autoRemoveTemplate === undefined) configSettings.autoRemoveTemplate = true;
-  if (configSettings.removeConcentrationEffects === "undefined") configSettings.removeConcentrationEffects = "effects";
+  if (configSettings.removeConcentrationEffects === undefined) configSettings.removeConcentrationEffects = "effects";
   if (configSettings.undoWorkflow === undefined) configSettings.undoWorkflow = false;
   configSettings.hidePlayerDamageCard = true;
   configSettings.quickSettings = true;

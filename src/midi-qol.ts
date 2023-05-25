@@ -1,4 +1,4 @@
-import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, criticalDamageGM, readySettingsSetup } from './module/settings.js';
+import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, readySettingsSetup } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 import { checkModules, installedModules, setupModules } from './module/setupModules.js';
 import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
@@ -6,13 +6,15 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, WORKFLOWSTATES } from './module/workflow.js';
-import { addConcentration, applyTokenDamage, canSense, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTraitMult, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor } from './module/utils.js';
+import { addConcentration, applyTokenDamage, canSense, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTraitMult, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
 import { OnUseMacroOptions } from './module/apps/Item.js';
 import { MidiKeyManager } from './module/MidiKeyManager.js';
 import { MidiSounds } from './module/midi-sounds.js';
+import { addUndoChatMessage, getUndoQueue, removeMostRecentWorkflow, showUndoQueue, undoMostRecentWorkflow } from './module/undo.js';
+import { showUndoWorkflowApp } from './module/apps/UndowWorkflow.js';
 
 export let debugEnabled = 0;
 export let debugCallTiming: any = false;
@@ -249,7 +251,7 @@ Hooks.once('ready', function () {
     "isSave": "Actor rolled a save",
     "isSaveSuccess": "Actor rolled a successful save",
     "isSaveFailure": "Actor failed a saving throw",
-    "preApplyTargetDamage": "Target is about to be damaged by an item",
+    "preTargetDamageApplication": "Target is about to be damaged by an item",
     "isDamaged": "Actor is damaged by an attack",
     "all": "All"
   }
@@ -341,11 +343,7 @@ Hooks.once('ready', function () {
   Hooks.callAll("midi-qol.midiReady");
 });
 
-
-
 import { setupMidiTests } from './module/tests/setupTest.js';
-import { getUndoQueue, removeMostRecentWorkflow, showUndoQueue, undoMostRecentWorkflow } from './module/undo.js';
-import { showUndoWorkflowApp, UndoWorkflow } from './module/apps/UndowWorkflow.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -400,6 +398,7 @@ function setupMidiQOLApi() {
     overTimeJSONData,
     playerFor,
     playerForActor,
+    reactionDialog,
     reportMidiCriticalFlags: reportMidiCriticalFlags,
     selectTargetsForTemplate: templateTokens,
     setBonusActionUsed,
@@ -415,11 +414,16 @@ function setupMidiQOLApi() {
     getUndoQueue,
     undoMostRecentWorkflow,
     removeMostRecentWorkflow,
-    showUndoWorkflowApp
+    showUndoWorkflowApp,
+    addUndoChatMessage,
+    testfunc
   };
   globalThis.MidiQOL.actionQueue = new Semaphore();
 }
 
+export function testfunc(args) {
+  console.error(args);
+}
 
 export function checkConcentrationSettings() {
   const needToUpdateCubSettings = installedModules.get("combat-utility-belt") && (

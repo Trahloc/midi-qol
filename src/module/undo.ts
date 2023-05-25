@@ -1,6 +1,7 @@
 
 import { debugEnabled, error, log, warn } from "../midi-qol.js";
 import { socketlibSocket } from "./GMAction.js";
+import { configSettings } from "./settings.js";
 import { busyWait } from "./tests/setupTest.js";
 import { isReactionItem } from "./utils.js";
 import { Workflow } from "./workflow.js";
@@ -92,6 +93,16 @@ export async function saveTargetsUndoData(workflow: Workflow) {
   return socketlibSocket.executeAsGM("queueUndoData", workflow.undoData)
 }
 
+export async function addUndoChatMessage(message: ChatMessage) {
+  const currentUndo = undoDataQueue[0];
+  if (message instanceof Promise) message = await message;
+  if (configSettings.undoWorkflow && currentUndo && !currentUndo.chatCardUuids.some(uuid => uuid === message.uuid)) {
+  // Assumes workflow.undoData.chatCardUuids has been initialised
+    currentUndo.chatCardUuids = currentUndo.chatCardUuids.concat([message.uuid]);
+    socketlibSocket.executeAsGM("updateUndoChatCardUuids", currentUndo);
+  }
+}
+
 Hooks.on("createChatMessage", (message, data, options, user) => {
   if ((undoDataQueue ?? []).length < 1) return;
   const currentUndo = undoDataQueue[0];
@@ -170,6 +181,7 @@ export async function undoMostRecentWorkflow() {
 export async function removeMostRecentWorkflow() {
   return socketlibSocket.executeAsGM("removeMostRecentWorkflow")
 }
+
 export async function _undoMostRecentWorkflow() {
   if (undoDataQueue.length === 0) return false;
   let undoData;
@@ -190,7 +202,7 @@ export async function _removeMostRecentWorkflow() {
   let undoData;
   try {
     while (undoDataQueue.length > 0) {
-      let undoData = undoDataQueue.shift();
+      undoData = undoDataQueue.shift();
       if (undoData.isReaction) continue;
       else return undoData;
     }
@@ -199,6 +211,7 @@ export async function _removeMostRecentWorkflow() {
   }
   return;
 }
+
 export function _removeChatCards(data: { chatCardUuids: string[] }) {
   // TODO see if this might be async and awaited
   if (!data.chatCardUuids) return;
@@ -287,6 +300,8 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
     await busyWait(0.1);
   }
   let effectsToAdd = actorData?.effects?.filter(efData => !actor.effects.some(effect => efData._id === effect.id));
+  effectsToAdd = effectsToAdd.filter(efData => !efData?.flags?.dae?.transfer);
+  // revisit this for v11 and effects not transferred
   if (debugEnabled > 0) warn("Effects to add ", actor.name, effectsToAdd);
   if (effectsToAdd?.length > 0) {
     if (dae?.actionQueue) dae.actionQueue.add(async () => {
@@ -296,6 +311,10 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
     });
     else await actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true, isUndo: true });
   }
+
+  // const itemsToUpdate = getUpdateItems(actorData.items ?? [], actor);
+  actor.updateEmbeddedDocuments("Item", actorData.items, {keepId: true, isUndo: true});
+
   actorChanges = actorData ? getChanges(actor.toObject(true), actorData) : {};
   if (debugEnabled > 0) warn("Actor data ", actor.name, actorData, actorChanges);
   //@ts-expect-error isEmpty

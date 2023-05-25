@@ -97,8 +97,6 @@ You can probably survive without these but midi pretty much assumes they are ins
 * **Levels - Volumetric Templates**
 * **DnD5e Helpers.** if you want some help with a lot of misc 5e stuff
 * **Dice So Nice.** if you like 3d dice rolling it's pretty much the only choice.
-* **Better Rolls.** if you don't like the default dnd attack/damage roll cards. Better Rolls is **mostly** compatible with midi-qol, but there are some wrinkles. I don't use the module so tend to rely on community reports for errors.
-* **FVTTEncounterStats.** If you like to keep data about all the rolls done by players/GM this module goes a lot further than the built in midi-qol roll stats. Worth a look.
 * **Simbul's Cover Calculator** or **Levels Auto Cover** enables the automatic calculation of cover bonues for 1/2, 3/4 cover.
 
 # (In)Compatibilities? ##
@@ -137,8 +135,8 @@ There is an additional check box available on the item sheet, for items that hav
 ## Furnace (deprecated for Foundry 0.8.x - Use Advanced Macros)
 If you intend to make use of any of the macro features in midi-qol you will need to install the Advanced Macros module. As of 0.9.56 there is no dependency on advanced macros/furnace.
 
-## Better Rolls
-If you are using Better Rolls (which is a great module), midi-qol takes over once the hit/damage card is placed by Better Rolls. This means that resource consumption, template placement, critical/fumble determination are **all** handled by Better Rolls before midi-qol kicks in. Midi-qol checks hits, saves, applies damage, and calls active effects. When using Better rolls flags.midi-qol should be applied. As of foundry v10/dnd5e 2.0.0 better rolls is no longer supported. At some point I will look at supporting Ready, Set, Roll (the better rolls successor).
+## Better Rolls and Ready Set Roll
+Currently **not** compatible with midi-qol.
 
 ## Magic Items
 **(Thanks to @simone for his help)**
@@ -275,7 +273,6 @@ TL;DR: If you are just using standard items you can just leave things at the def
   * For weapons (only) the save multiplier applies to the whole damage roll **UNLESS**...
     * You have enabled "Roll other damage on mwak/rwak" (which is intended specifically to support attacks that have base damage + extra damage with a save - think spider bite). If the weapon has a save specified **AND** the weapon has an Other Damage formula, the saving throw multiplier applies to the Other damage and the base damage is applied as full damage.
     * Because of the way the SRD monsters have been set up, (i.e. extra damage as versatile damage and the versatile property not set) the versatile formula will be treated as Other Damage if there is no Other Damage formula and the weapon property "versatile" is not set. 
-    * For BetterRolls you have to enter the damage into the Other field and enable roll Other in the better rolls settings. Midi will pick up this damage and apply the saving throw result against it.
 
 For those who have a lot of weapons set up with a save and want the default damage on save to be full damage (which is what a previous version enabled when search spell description was enabled) just edit the items and set the save to full damage on save (preferred) or set the default save multiplier to 1.
 
@@ -381,7 +378,7 @@ Existing custom sounds will be disabled.
 * **DM sees all whispered messages** Copy the GM on all whispered messages.
 * **Untarget at end of turn** At the end of a players turn(i.e. combat tracker is advanced) all/dead targeted tokens are untargeted. There is a GM option since I regularly forget to untarget after an attack and break things on the next turn. If midi-qol is managing the roll then dead tokens are untargeted after an attack, so that players can avoid "flogging a dead horse" as it were.
 * **Players control invisible tokens** 0.7.1+. If enabled then players can both see and control tokens they own that are hidden.  Also, any token they own will **always** appear on their map. **Deprecated** Please use the excellent Your Tokens Visible instead.
-* **Force Hide Rolls** If enabled then private/blind/gm only rolls will only appear on the recipient’s chat log. This must be enabled if you are using Better Rolls and combo cards.  
+* **Force Hide Rolls** If enabled then private/blind/gm only rolls will only appear on the recipient’s chat log.
 
 ## Optional Rules
 Midi supports various optional rule settings that can be useful.
@@ -406,7 +403,7 @@ If making a ranged attack at a target whose size is less than that specified and
 * **Active Defence**
 Expirmental: Support for the Active Defence variant rule. Enable via optional rules setting Active Defence. 
 
-Requires LMRTFY and does **not** work with better rolls. 
+Requires LMRTFY.
   * Active defence has attacked players roll a defence roll instead of the GM rolling an attack roll, which is meant to keep player engagement up. https://media.wizards.com/2015/downloads/dnd/UA5_VariantRules.pdf
   - If active defence is enabled then when the GM attacks instead of rolling an attack roll for the attacker, the defender is prompted to make a defence roll. The DC of the roll is 11 + the attackers bonus and the roll formula is 1d20 + AC - 10, which means the outcome is identical to an attack roll but instead the defender rolls.
   - As released this had identical behaviour to the standard rolls with the exception that each player effectively has a individual attack roll made against them.
@@ -628,7 +625,7 @@ To help macro writers creating reaction items, args[0] contains an additional fi
 * If the midi-qol setting **"check spell text"** is enabled and the text "half damage on save" appears in the item description then saves will do 1/2 damage no matter what the default save modifier is set to. When set this means you can change the default modifier to whatever you like for various reasons.
 
 ## flags.midi-qol 
-Midi-qol supports a lot of flags values that alter how attacks/casts are rolled. They are supported by any modules that use item.rollI(), item.rollAttack(), item.rollDamage() or actor.useSpell() [the standard dnd5e rolls]. Usually you would apply these via active effects. Mostly they work with better rolls.
+Midi-qol supports a lot of flags values that alter how attacks/casts are rolled. They are supported by any modules that use item.rollI(), item.rollAttack(), item.rollDamage() or actor.useSpell() [the standard dnd5e rolls]. Usually you would apply these via active effects.
 
 There is a handy spreadsheet that has a table of flags plus explanation thanks to (dstein766) https://docs.google.com/spreadsheets/d/1Vze_sJhhMwLZDj1IKI5w1pvfuynUO8wxE2j8AwNbnHE/edit?usp=sharing
 
@@ -714,14 +711,14 @@ Optional flags cause a dialog to be raised when an opportunity to apply the effe
 
 An optional attack bonus prompts the attacker after the attack roll is made, but before the attack is adjudicated, giving the attacker the option to modify the roll. Effects last for one application unless the count flag is set.
 
-* flags.midi-qol.optional.Name.damage.all/mwak/rwak/msak/rsak	bonus to apply to damage done. This does not work with better rolls active.
+* flags.midi-qol.optional.Name.damage.all/mwak/rwak/msak/rsak	bonus to apply to damage done. 
 * flags.midi-qol.optional.Name.skill.all/fail/per/prc/item etc	bonus to apply to skill rolls
 * flags.midi-qol.optional.Name.attack.all/mwak/rwak/msak/rsak	the bonus is added after the attack roll		
 * flags.midi-qol.optional.Name.check.all/fail/str/dex/etc. the bonus is added after the ability check roll		
 * flags.midi-qol.optional.Name.save.all/fail/str/dex/etc	the bonus is added after the save roll. Requires auto fast-forward		
 * flags.midi-qol.optional.Name.label	label to use in the dialog		
 * flags.midi-qol.optional.Name.count	how many uses the effect has (think lucky which has 3), if absent the bonus will be single use (bardic inspiration), turn for once per turn.   
-* flags.midi-qol.optional.Name.criticalDaamge. If present in the effect then bonus damage will use the existing damage rolls critical damage status and roll bonus damage as critical using the game/midi critical damage settings.
+* flags.midi-qol.optional.Name.criticalDamage. If present in the effect then bonus damage will use the existing damage rolls critical damage status and roll bonus damage as critical using the game/midi critical damage settings.
   - **every** - you can use the optional effect on every occurence
   - **reaction** - behaves as a reaction roll, i.e. uses up your reaction
   - **a number** - how many times the effect can be used before expiring
@@ -733,8 +730,6 @@ An optional attack bonus prompts the attacker after the attack roll is made, but
 * flags.midi-qol.optional.Name.rollMode, any additional rolls are to be made with the specifid roll mode. Can be useful to hide rolls from the players.
 
 Values for the optional roll bonus flags include a dice expression (added to the roll), a number, reroll (rerolling the roll completely) reroll-max, reroll-min, reroll-kh (reroll with max dice, min dice, or reroll and keep the higher of the original/new roll) or success which changes the roll to 99 ensuring success.
-
-Generally options.Name fields do not work with better rolls due to the way it creates rolls.
 
 ## Enhanced traits.dr/di/dv
 * Available from the special traits actor settings, or via active effects.
@@ -942,9 +937,8 @@ You can use this feature to roll custom damage via a macro for any item - just l
 * midi-qol supports a DummyWorkflow which exists to allow you to create a workflow to call some of the workflow functions and supports two features
   - async simulateAttack(token: Token) - simulate an attack roll of the workflow item on the specified target, working out pluses/advantage/disadvantage and also setting workflow.expectedSaveRoll to be the expected value of the attack roll.
   - async simulateSaves(tokens: [Token]). Simulates saving throws for the passed array of tokens, will take into account bonuses/magic resistance/advantage etc. results returned as workflow.saveResults: [{saveRoll: Roll, saveAdvantage: boolean, saveDisadvantage: boolean, expectedSaveRoll: number}]
-  - the simulate functions won't work with BetterRolls
 
-## OnUse Macro(per Item) and Damage Bonus Macro (actor special traits) fields
+## OnUse Macro(per Item) Damage Bonus Macro (actor special traits) fields
 
 These field lets you specify a macro to call during the roll. 
 
@@ -954,7 +948,7 @@ Midi-qol supports item based onUse macros, which are called when the item is rol
 
 The interpretation of the field settings are identical in both actor and item onUse macros. For actor based onUse macros, ItemMacro will refer to the item being rolled, which is not useful, either specify a world macro or an `ItemMacro.item` name.
 
-For actor onUse macros you can specify to call the macro by setting actor flags by hand or active effects, 
+For actor onUse macros you can specify the macro to call by setting actor flags by hand or via active effects, 
 ```
 flags.midi-qol.onUseMacroName CUSTOM macroName,macroPass
 ```
@@ -1006,10 +1000,11 @@ There are some addtional actor only onUse macro triggers that can be defined for
     preDamageApplication
     preActiveEffects
     postActiveEffects
-
+```
   - [All] is special, being called with each value of macroPass. You can differentiate via args[0].macroPass to decide which ones to act on.
 
-  There are some additional actor onUse macro triggers (but NOT item triggers) available when the actor is the target of an attack/spell/feature use:
+  There are some additional **actor** onUse macro triggers (but NOT item triggers) available when the actor is the target of an attack/spell/feature use: These are called per target and the macros to be called are looked up on the  **target** of the attack, not the actor doing the attack
+
   ```
     isAttacked: the actor is a target of an attack
     isHit: the actor is a target of a hit
@@ -1018,10 +1013,11 @@ There are some addtional actor only onUse macro triggers that can be defined for
     isSaveSuccess: the actor makes a successful save in response to being targeted
     isSaveFailure: the actor makes a failed save in response to being targeted
     isDamaged: "the actor is damaged by an item roll
+    preTargetDamageApplication: this is ALSO called per target just before the damage is applied. workflow.damageItem has the details fo the damage to be applied and can be modified by the macro.
 ```
 
   - For these calls **only** args[0].options.actor will be the actor that was attackd/hit/damaged etc and args[0].options.token is the token.
-  - For the preTargetSave hook is called just before the save is made (direct roll/LMRTFY/MTB) the passed workflow includes saveDetails comprising
+  - For the preTargetSave hook, called just before the save is made (direct roll/LMRTFY/MTB) the passed workflow includes saveDetails comprising (access via workflow.saveDetails)
 ```js
 saveDetails: { advantage: boolean | undefined,
           disadvantage: boolean | undefined,
@@ -1031,7 +1027,9 @@ saveDetails: { advantage: boolean | undefined,
           rollDC: number }
 ```
 which can be changed in the preTargetSave Hook. Sample item Antitoxin in Midi sample items as a example.
-
+  - For the preTargetDamageApplication hoow, workflow.ditem is defined and has details of what damage is being applied to the target. workflow.ditem is "live" so any changes will afffect damage is applied and displayed on the damage card.
+    - the main field is ditem.hpDamage which reflects the amount of damage actually done to the target.
+    - 
   - The default pass is "preActiveEffects", to correspond to the original onUse macro behaviour.
   * Note: if you are creating a damage only workflow in your macro it is best to run it in "postActiveEffects".
   
@@ -1043,7 +1041,7 @@ which can be changed in the preTargetSave Hook. Sample item Antitoxin in Midi sa
 
   * Remember that if the macro is an "Execute as GM" macro the macro may execute on a different client and the workflow may not be defined, i.e. the Workflow.getWorkflow may return undefined.
 
-  * If you want to change the damage roll of a weapon have your macro run at the postDamageRoll onUse pass and do something like (this will work with better rolls - the damage will be changed, but the chat card for the item won't update)
+  * If you want to change the damage roll of a weapon have your macro run at the postDamageRoll onUse pass and do something like (the damage will be changed, but the chat card for the item won't update)
   ```js
   if (args[0].tag === "OnUse" && args[0].macroPass === "postDamageRoll") {
     let workflow = MidiQOL.Workflow.getWorkflow(args[0].uuid); // this gets a copy of the "live" workflow
@@ -1117,6 +1115,75 @@ content = content.replace(searchString, replaceString);
 chatMessage.update({content: content});
 ```
 hitContent is just html, so you could insert whatever you want in any of the divs above.
+
+Comparing **DAE** macros and **Midi-Qol** macros.
+Both Midi and DAE can cause macros to be called. 
+
+Both DAE and midi-qol can call macros, but there are significant differences to the data that is passed to the macro.
+
+DAE only calls macros when an effect is added to an actor (or toggled on/off - similar to how the module Effect Macros works, in fact with the exception that more info can be passed to a DAE macro you could simply use effectMacros to replace calling macros via DAE).
+
+DAE macros can function without midi being installed so by itself DAE cannot reference the workflow.
+
+midi only calls macros in response to using an item. [Note: the exception to this is that midi will also call Actor onUse macros in response to actors making saving throw/skill checks].
+
+DAE calls macros when an effect is applied to an actor, either because of equipping an item or because of an active effect being applied to an actor (via midi or Convenient Effects or similar). 
+<Tech note> Since the macro can be executed on another client the argument data must be able to be converted to a json string, so Actors, Tokens, Items are not valid things to be passed and DAE will either use a UUID (to allow looking up) or Class.toObject() to create a serializable object.
+
+DAE macros are always specified in an effect and the key is of the form macro.execute (references a world/compendium macro) or macro.ItemMacro (a macro stored on an item). DAE can call macros when there is no workflow associated with the macro call, so information passed to the macro is specified in the arguments part of the change value. The macro will always execute on a client that has ownership of the actor to which the effect is applied (the player or, if needed, a GM).
+
+Midi-qol calls macros based on phases in the workflow and are ALWAYS called on the client doing the workflow (rolling the item).
+
+When midi applies an effect to a target it uses DAE (or convenient effects) to do so, which in turn ill trigger DAE macro.execute or macro.itemMacro calls when DAE creates the effect, however midi passes additional information to DAE that allows you to reference various fields from the workflow (even though the workflow iteself is not available).
+
+Arguments are evaluated when the effect is created. (See the DAE note about @attribute versus ##attribute).
+
+So for example, if you have an item with an effect applied to the target via midi-qol, the DAE macro specification:
+Macro.execute CUSTOM myWorldMacro @targetUuid @actorUuid @attributes.hp.value ##attributes.hp.value means call the world macro myWorldMacro and set args to be
+args[0] = “on”
+args[1] = the uuid of the target token
+args[2] = the uuid of the actor applying the effect to the target.
+args[3] = the hp of the actor causing the effect to be apllied.
+args[4] = The hp of the actor who has the effect.
+Args[args.length - 1] = lastArg data.
+
+In preparation for v11, inside the macro, you can also refer to scope.lastArg or just lastArg.
+In preparation for v11 DAE allows you to specify arguments of the form name=@value, for example theTargetUuid=@targetUuid, will populate scope.theTargetUuid and theTargetUuid with the uuid of the target token as well as including theTargetUuid=Scene.id.Token.id in args.
+
+DAE is passed information when applying an effect, plus it knows both the actor and item being used to apply the effect (if they exist) and uses that information to populate the arguments passed to the macro.
+
+Midi onUse macros are always called while executing a workflow on the client doing the workflow. Item onUse macros (specified in the item details section) are called at various places in the workflow for just that item being rolled, actor onUseMacros are called when any item workflow reaches that point and finally DamageBonusMacros are called whenever a damage roll is made by any item and allow you to specify additional damage (or anything else for that matter) for the damage roll, e.g. sneak attack, hunter’s mark.
+
+Target onUse macros are executed in exactly the same way as actor onUse macros, but the macros to be called are looked up on the target of the workflow instead of the actor using the item.
+
+onUse macros can be specified as a world macro/compendium macro name, ItemMacro (the macro for the item specified) or ItemMacro.ItemUuid the item macro for an item that corresponds to the itemUuid. 
+
+For actor onUse macros and damageBonusMacros, there is a shorthand that if you just put ItemMacro, midi will lookup the uuid of the item that resulted in the effect being applied and replace ItemMacro with ItemMacro.ItemUuid of the item that applied the effect.
+
+For Item onUseMacros, ItemMacro refers to the item being rolled, but you can specify world macros or macros on other items via ItemMacro.ItemUuid.
+
+OnUse/damageBonus macros are passed the following data, 
+args[0] = macroData (a sanitized version of the workflow that triggered the macro being called). This in artefact of using advanced macros to call the macro (Since the data might be sent to another client for execution -it had to be data only, not objects). This is obsolete and it is recommended (version 10.0.44 and above) that you simply refer to workflow in your macro.
+And in preparation for v11 within the macro you can refer to:
+scope.workflow or just workflow, the workflow that triggered the macro to be called
+scope.item or just item, the item that triggered the macro to be called.
+actor, the actor that used the item that triggered the macro to be called.
+token, the token (if any) that used the item that triggered the macro to be called.
+For Actor onUse macros args[0].options.actor and args[0].options.token refer to the actor/token that was targeted by the item roll that triggered the macro being called (similarly scope.options and options are also supported).
+In previous versions of midi (10.0.43 and earlier) you could refer to 'this' which would be the workflow. Such use is deprecated in (10.0.44) and a warrning will be thrown, but still work. From version 11.1.0 the will no longer work.
+
+## reactionDialog
+If you want to create a dialog of items that can be called by clicking on the icon you can use MidiQOL.reactionDialog.
+
+```js
+async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, triggerTokenUuid: string | undefined, reactionItems: Item[], rollFlavor: string, triggerType: string, options: any = {})
+```
+  - actor is the actor who will be doing the item roll.
+  - triggerTokenUuid is the uuid of the target token of the item use.
+  - reactionItems is an array of items to be displayed
+  - rollFlavor the text/html to displayed as the dialog context
+  - triggerType - not relevant
+  - options to configure additional behaviour. Have a look at the code for what they can be.
 
 ## Some Tricks you can do...
 This is just a place where I'll write down some ideas that I think are cute. I'll assume that DAE/times-up is available as well.
