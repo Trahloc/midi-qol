@@ -1019,8 +1019,12 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
     //@ts-ignore - global variable
     LMRTFY.onMessage(socketData);
   } else { // display a chat message to the user telling them to save
-    let actorName = actor.name;
-    let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${getSystemCONFIG().abilities[ability]} ${i18n("midi-qol.saving-throw")}`;
+    const actorName = actor.name;
+    //@ts-expect-error .version
+    const abilityString = isNewerVersion(game.system.version, "2.1.5") 
+      ? getSystemCONFIG().abilities[ability].label
+      : getSystemCONFIG().abilities[ability]
+    let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityString} ${i18n("midi-qol.saving-throw")}`;
     if (advantage && !disadvantage) content = content + ` (${i18n("DND5E.Advantage")}) - ${flavor})`;
     else if (!advantage && disadvantage) content = content + ` (${i18n("DND5E.Disadvantage")}) - ${flavor})`;
     else content + ` - ${flavor})`;
@@ -3544,7 +3548,7 @@ export function isInCombat(actor: Actor) {
 }
 
 export async function setReactionUsed(actor: Actor) {
-  if (configSettings.enforceReactions !== "all" && configSettings.enforceReactions !== actor.type) return;
+  if (!["all", "displayOnly"].includes(configSettings.enforceReactions) && configSettings.enforceReactions !== actor.type) return;
   let effect;
   if (getConvenientEffectsReaction()) {
     //@ts-ignore
@@ -3557,7 +3561,7 @@ export async function setReactionUsed(actor: Actor) {
 }
 
 export async function setBonusActionUsed(actor: Actor) {
-  if (configSettings.enforceBonusActions !== "all" && configSettings.enforceBonusActions !== actor.type) return;
+  if (!["all", "displayOnly"].includes(configSettings.enforceBonusActions) && configSettings.enforceBonusActions !== actor.type) return;
   let effect;
   if (getConvenientEffectsBonusAction()) {
     //@ts-expect-error
@@ -3588,7 +3592,7 @@ export async function removeReactionUsed(actor: Actor, removeCEEffect = false) {
 
 
 export async function hasUsedReaction(actor: Actor) {
-  if (configSettings.enforceReactions !== "all" && configSettings.enforceReactions !== actor.type) return false;
+  // if (!["all", "displayOnly"].includes(configSettings.enforceReactions) && configSettings.enforceReactions !== actor.type) return false;
   if (actor.getFlag("midi-qol", "reactionCombatRound")) return true;
   if (getConvenientEffectsReaction()) {
     //@ts-expect-error .dfreds
@@ -3629,7 +3633,7 @@ export async function hasUsedBonusAction(actor: Actor) {
     if (await game.dfreds?.effectInterface.hasEffectApplied(getConvenientEffectsBonusAction().label, actor.uuid)) return true;
   }
   //@ts-expect-error .label
-  if (installedModules.get("combat-utility-belt") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"))) {
+  if (installedModules.get("combat-utility-belt") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"))) {
     return true;
   }
   return false;

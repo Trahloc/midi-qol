@@ -938,7 +938,7 @@ You can use this feature to roll custom damage via a macro for any item - just l
   - async simulateAttack(token: Token) - simulate an attack roll of the workflow item on the specified target, working out pluses/advantage/disadvantage and also setting workflow.expectedSaveRoll to be the expected value of the attack roll.
   - async simulateSaves(tokens: [Token]). Simulates saving throws for the passed array of tokens, will take into account bonuses/magic resistance/advantage etc. results returned as workflow.saveResults: [{saveRoll: Roll, saveAdvantage: boolean, saveDisadvantage: boolean, expectedSaveRoll: number}]
 
-## OnUse Macro(per Item) Damage Bonus Macro (actor special traits) fields
+## Item onUse Macro, Actor onUse macro and Damage Bonus Macro (actor special traits) fields
 
 These field lets you specify a macro to call during the roll. 
 
@@ -1033,11 +1033,12 @@ which can be changed in the preTargetSave Hook. Sample item Antitoxin in Midi sa
   - The default pass is "preActiveEffects", to correspond to the original onUse macro behaviour.
   * Note: if you are creating a damage only workflow in your macro it is best to run it in "postActiveEffects".
   
-  * If you wish to make changes to the workflow in these macros you will need to do: 
+  * If you wish to make changes to the workflow (in versions before 10.0.44) in these macros you will need to do: 
   ```
   const workflow = args[0].workflow
   workflow.XXX = .....
   ```
+  * For versions after 10.0.44 you **should not** declare workflow - it is set for you and you can just refer to workflow.
 
   * Remember that if the macro is an "Execute as GM" macro the macro may execute on a different client and the workflow may not be defined, i.e. the Workflow.getWorkflow may return undefined.
 

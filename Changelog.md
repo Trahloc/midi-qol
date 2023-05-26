@@ -1,3 +1,14 @@
+### 10.0.45
+* Fix for fey ancestry item macro typo - thanks @thatlonelybugber
+* Fix for shield macro typo - thanks @thatlonelybugear
+* Fix for broach of shielding and 10.0.45 argument calling.
+* Fix for erroneous preTargetdamageApplication macro call - thanks @Elwin
+* Fix for reaction/bonus action used icon not being added when enforce reactions set to display status icon.
+* (v11) Fix for unconscious/dead getting stuck on a token. Only fix once it occurs seems to be to delete and recreate the token.
+* fix dnd5e 2.2 generating deprecation warnings for CONFIG.DND5E.abilities.
+* Any items updated in the sample items compendium will have the version number moved to the description, rather than the name. This means you will need to watch the release notes/announcement for notification of changes.
+
+
 ### 10.0.44
 * Fix for DR and slivered damage resistance. Incorrectly any item with a + to hit was considered silvered. Now obeys the midi config settings workflow tab.
 * Fix for incorrectly applying DR to temphp healing.

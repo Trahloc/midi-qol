@@ -749,7 +749,6 @@ export class Workflow {
             }
           }
         }
-        if (configSettings.allowUseMacro) await this.triggerTargetMacros(["preTargetDamageApplication"], this.hitTargets);
         if (this.damageDetail?.length || this.otherDamageDetail?.length) await processDamageRoll(this, this.damageDetail[0]?.type ?? this.defaultDamageType)
         if (configSettings.allowUseMacro) await this.triggerTargetMacros(["isDamaged"], this.hitTargets);
         if (debugEnabled > 1) debug("all rolls complete ", this.damageDetail)
@@ -1749,8 +1748,8 @@ export class Workflow {
       scope.item = item;
       scope.args = args;
       scope.options = args[0].options;
-        //@ts-expect-error version
-        const midiVersion = game.modules.get("midi-qol")?.version;
+      //@ts-expect-error version
+      const midiVersion = game.modules.get("midi-qol")?.version;
 
       // TODO if we only have a macro command create a temp macro to execute.
       if (macro && isNewerVersion(midiVersion, "11.1.0")) {
@@ -1798,7 +1797,7 @@ export class Workflow {
               const fn = new AsyncFunction("speaker", "actor", "token", "character", "scope", ...argNames, macroCommand)
               return fn.call(newThis, speaker, actor, token, character, scope, ...argValues);
             }
-          } else throw(err);
+          } else throw (err);
         }
       }
     } catch (err) {
@@ -2376,7 +2375,7 @@ export class Workflow {
             isMagicSave
           })
         } else if (promptPlayer && player?.active) {
-          if (debugEnabled > 0) warn(`Player ${player?.name} controls actor ${target.actor.name} - requesting ${getSystemCONFIG().abilities[this.saveItem.system.save.ability]} save`);
+          if (debugEnabled > 0) warn(`Player ${player?.name} controls actor ${target.actor.name} - requesting ${this.saveItem.system.save.ability} save`);
           promises.push(new Promise((resolve) => {
             let requestId = target?.id ?? randomID();
             const playerId = player?.id;
@@ -2677,12 +2676,25 @@ export class Workflow {
       DCString = i18n("SW5E.AbbreviationDC");
     }
 
-    if (rollType === "save")
-      this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility]} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}:`;
-    else if (rollType === "abil")
-      this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility]} ${i18n(allHitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:`;
-    else if (rollType === "skill") {
-      this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().skills[rollAbility].label ?? getSystemCONFIG().skills[rollAbility]}`;
+    //@ts-expect-error
+    if (isNewerVersion(game.system.version, "2.1.5")) {
+      if (rollType === "save")
+        this.saveDisplayFlavor = `${this.saveItem.name} 4<label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}:`;
+      else if (rollType === "abil")
+        this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:`;
+      else if (rollType === "skill") {
+        this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().skills[rollAbility].label ?? getSystemCONFIG().skills[rollAbility]}`;
+      }
+
+    } else {
+      if (rollType === "save")
+        this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility]} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}:`;
+      else if (rollType === "abil")
+        this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility]} ${i18n(allHitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:`;
+      else if (rollType === "skill") {
+        this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().skills[rollAbility].label ?? getSystemCONFIG().skills[rollAbility]}`;
+      }
+
     }
   }
 
@@ -3197,7 +3209,7 @@ export class Workflow {
       //@ts-ignore
       var player = playerFor(target instanceof Token ? target : target.object);
       // if (!player || !player.active) player = ChatMessage.getWhisperRecipients("GM").find(u => u.active);
-      if (debugEnabled > 0) warn(`Player ${player?.name} controls actor ${target.actor.name} - requesting ${getSystemCONFIG().abilities[this.saveItem.system.save.ability]} save`);
+      if (debugEnabled > 0) warn(`Player ${player?.name} controls actor ${target.actor.name} - requesting ${this.saveItem.system.save.ability} save`);
       if (player && player.active && !player.isGM) {
         promises.push(new Promise((resolve) => {
           const requestId = target.actor?.uuid ?? randomID();

@@ -108,13 +108,25 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       let title;
       let config = getSystemCONFIG();
       let systemString = game.system.id.toUpperCase();
-      switch (category) {
-        case "check": title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
-          break;
-        case "save": title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail] ?? "" });
-          break;
-        case "skill": title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail] ?? "" });
-          break;
+      //@ts-expect-error
+      if (isNewerVersion(game.system.version, "2.1.5")) {
+        switch (category) {
+          case "check": title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
+            break;
+          case "save": title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
+            break;
+          case "skill": title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail].label ?? "" });
+            break;
+        }
+      } else {
+        switch (category) {
+          case "check": title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
+            break;
+          case "save": title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail] ?? "" });
+            break;
+          case "skill": title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail] ?? "" });
+            break;
+        }
       }
       await bonusDialog.bind(data)(
         bonusFlags,
@@ -196,7 +208,7 @@ async function doRollSkill(wrapped, ...args) {
     const args = { "speaker": getSpeaker(this), flavor };
     setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
     if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
-    await result.toMessage(args, {rollMode});
+    await result.toMessage(args, { rollMode });
   }
   let success: boolean | undefined = undefined;
   if (rollTarget !== undefined) success = result.total >= rollTarget;
@@ -225,8 +237,8 @@ export function addDiceTermModifiers() {
 
 function configureDamage(wrapped) {
   let useDefaultCritical = getCriticalDamage() === "default";
-  useDefaultCritical ||=  (getCriticalDamage() === "explodeCharacter" && this.data.actorType !== "character");
-  useDefaultCritical ||=  (getCriticalDamage() === "explodeNPC" && this.data.actorType !== "npc");
+  useDefaultCritical ||= (getCriticalDamage() === "explodeCharacter" && this.data.actorType !== "character");
+  useDefaultCritical ||= (getCriticalDamage() === "explodeNPC" && this.data.actorType !== "npc");
   if (!this.isCritical || useDefaultCritical) {
     while (this.terms.length > 0 && this.terms[this.terms.length - 1] instanceof OperatorTerm)
       this.terms.pop();
@@ -375,7 +387,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
   let rollMode: string = game.settings.get("core", "rollMode");
   if (!game.user?.isGM && rollMode === "publicroll") switch (rollType) {
     case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
-    case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break; 
+    case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
   }
   await displayDSNForRoll(result, rollType, rollMode);
 
@@ -388,7 +400,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     const args: any = { "speaker": getSpeaker(this), flavor };
     setProperty(args, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
     args.template = "modules/midi-qol/templates/roll.html";
-    await result.toMessage(args, {rollMode});
+    await result.toMessage(args, { rollMode });
   }
   let success: boolean | undefined = undefined;
   if (rollTarget !== undefined) success = result.total >= rollTarget;
@@ -1068,10 +1080,17 @@ export async function checkWounded(actor, update, options, user) {
       const controlled = tokens.filter(t => t._controlled);
       const token = controlled.length ? controlled.shift() : tokens.shift();
       if (token) {
-        if ((actor.type === "character" || actor.hasPlayerOwner) && vitalityUpdate !== 0) {
-          await token.toggleEffect("/icons/svg/unconscious.svg", { overlay: configSettings.addDead === "overlay", active: needsDead });
+        //@ts-expect-error .version
+        if (isNewerVersion(game.version, "1")) {
+          const effectId = actor.type === "character" ? "dead" : "unconscious";
+          const statusEffect = CONFIG.statusEffects.find(se => se.id === effectId);
+          if (statusEffect) token.toggleEffect(statusEffect, { overlay: configSettings.addDead === "overlay", active: needsDead });
         } else {
-          await token.toggleEffect(CONFIG.controlIcons.defeated, { overlay: configSettings.addDead === "overlay", active: needsDead });
+          if ((actor.type === "character" || actor.hasPlayerOwner) && vitalityUpdate !== 0) {
+            await token.toggleEffect("/icons/svg/unconscious.svg", { overlay: configSettings.addDead === "overlay", active: needsDead });
+          } else {
+            await token.toggleEffect(CONFIG.controlIcons.defeated, { overlay: configSettings.addDead === "overlay", active: needsDead });
+          }
         }
       }
     }
