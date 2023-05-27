@@ -138,7 +138,7 @@
   "midi-qol.noSaveTargets": "Pas de cibles à sauver",
   "midi-qol.UseTokenNames.Name": "Les cartes du tchat utilisent le nom du token",
   "midi-qol.UseTokenNames.Hint": "Les titres des cartes du tchat et les noms des cibles utilisent le nom du token plutôt que celui de l'acteur",
-  "midi-qol.CriticalDamage.Name": "Choisissez comment effectuer un jet de dégâts critiques",
+  "midi-qol.CriticalDamage.Name": "Choisir les dégâts critiques pour les joueurs",
   "midi-qol.CriticalDamage.Hint": "Défaut DND5e - jet critique standard dnd5e.\nDés d'arme max - dés d'arme de base seulement (pas de dés critiques) mais tous maximisés.\nDés critiques max - dés critiques maximisés.\nTout les dés max - armes + dés critiques maximisés.\nDouble valeur - résultat des dés x2.\nExplosion des dés critique - le jet critique normal fait exploser tous les dés de critique.\nArme extra critique uniquement - le seul bonus de dégâts pour le critique provient du champ \"Dégâts supplémentaire dus aux coups critiques\" de l'objet.",
   "midi-qol.CriticalDamageChoices": {
     "default": "DND5e defaut",
@@ -146,9 +146,11 @@
     "maxCrit": "Dés critiques max",
     "maxAll": "Tout les dés max",
     "doubleDice": "Double valeur",
-    "explode": "Explosion des dés critiques",
+    "explode": "Exploser tous les dés critiques",
     "baseDamage": "Aucun bonus",
-    "maxCritRoll": "Dés critique maximum(roulez les dès)"
+    "maxCritRoll": "Dés critique maximum(roulez les dès)",
+    "explodeCharacter": "Exploser les dés critiques du personnage",
+    "explodeNPC": "Exploser des dés critiques des PNJ"
   },
   "midi-qol.MergeCard.Name": "Fusionner les jets en une seule carte",
   "midi-qol.MergeCard.Hint": "Fusionner l'attaque, les coups, les dégâts et les sauvegardes sur une seule carte de tchat",
@@ -543,7 +545,7 @@
   "midi-qol._comment for translaters_ItemMacroText": "Le texte ci-dessous est recherché par midi dans le champ onUseMacro des données de l'élément. Si vous le changez, chaque élément avec un onUseMacro devra être modifié pour correspondre.",
   "midi-qol.ItemMacroText": "ItemMacro",
   "midi-qol.LateTargeting.Name": "Expérimental : Autoriser le ciblage après le jet",
-  "midi-qol.LateTargeting.Hint": "Lors d'un jet avec l'attaque automatique activé, les objets qui ne sont pas AoE, à distance ou autociblés se mettront en pause et attendront que les cibles soient sélectionnées. Désactiver le mode de ciblage dans le HUD des contrôles",
+  "midi-qol.LateTargeting.Hint": "Lorsque vous effectuez un jet d'attaque automatique, les objets qui ne sont pas AoE, à distance ou autociblés se mettent en pause et attendent que les cibles soient sélectionnées.",
   "midi-qol.LateTargeting.Blurb": "Choisissez {targetCount} cibles",
   "midi-qol.AddDead.Name": "Quand PV = 0 : PNJ ajouter Vaincu, PJ ajouter Inconscient de \"Convenient Effect\"",
   "midi-qol.Wounded": "Blessé",
@@ -721,5 +723,11 @@
   "midi-qol.reactionPreAttack": "Jet de pré-attaque",
   "midi-qol.AutoRerollInitiative.Name": "Relance automatique de l'initiative",
   "midi-qol.reactionFlavorPreAttack": "{actorName} est attaqué par {itemName} et peut utiliser une réaction",
-  "midi-qol.AutoRerollInitiative.Hint": "Relance automatique de l'initiative pour tous les combattants au début d'un nouveau round. Attention : peut interrompre les effets qui se finissent à la fin d'un tour/round"
+  "midi-qol.AutoRerollInitiative.Hint": "Relance automatique de l'initiative pour tous les combattants au début d'un nouveau round. Attention : peut interrompre les effets qui se finissent à la fin d'un tour/round",
+  "midi-qol.CriticalDamageGM.Name": "Choisir les dégâts critiques pour le MJ",
+  "midi-qol.UndoWorkflow.Name": "Expérimental : aide à l'annulation des jets d'objets",
+  "midi-qol.RollChecksBlind.Name": "Tous les tests de capacité des joueurs sont effectués à l'aveugle",
+  "midi-qol.RollSavesBlind.Name": "Tous les jets de sauvegarde des capacités des joueurs sont effectués à l'aveugle",
+  "midi-qol.RollSkillsBlind.Name": "Tous les tests de compétence des joueurs sont effectués en aveugle",
+  "midi-qol.UndoWorkflow.Hint": "Si cette option est activée, midi stockera les données d'annulation pour tous les jets d'objets. Ne convient pas pour le temps de jeu. Annulation via MidiQOL.undoMostRecentWorkflow()"
 }
