@@ -3436,7 +3436,7 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
     rollData.workflow = {};
     if (data.workflow) {
       Object.assign(rollData.workflow, data.workflow);
-      delete data.workflow.undoData;
+      delete rollData.workflow.undoData;
     }
     if (data.workflow?.actor) rollData.workflow.actor = data.workflow.actor.getRollData();
     if (data.workflow?.item) rollData.workflow.item = data.workflow.item.getRollData();

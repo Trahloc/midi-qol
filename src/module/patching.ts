@@ -106,7 +106,7 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       //@ts-expect-error
       if (isNewerVersion(game.system.version, "2.1.5")) {
         if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
-        else if (category.startwWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
+        else if (category.startswWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
         else if (category.startsWith("skill)")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail].label ?? "" });
       } else {
         if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
