@@ -1,13 +1,12 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
 import { colorChatMessageHandler, diceSoNiceHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateBetterRollsMessage, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
-import { processUndoDamageCard, socketlibSocket } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid } from "./utils.js";
+import { processUndoDamageCard } from "./GMAction.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed } from "./utils.js";
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, configSettings, dragDropTargeting } from "./settings.js";
 import { installedModules } from "./setupModules.js";
-import { checkWounded, lookupItemMacro, preDeleteTemplate, preRollAbilitySaveHook, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, rollAbilitySaveHook, rollAbilityTestHook, zeroHPExpiry } from "./patching.js";
-import { preItemUseHook, preDisplayCardHook, preItemUsageConsumptionHook, useItemHook, preRollAttackHook, preRollDamageHook, rollAttackHook, rollDamageHook } from "./itemhandling.js";
-import { Workflow } from "./workflow.js";
+import { checkWounded, lookupItemMacro, preDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
+import { preItemUsageConsumptionHook, preRollDamageHook } from "./itemhandling.js";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -232,6 +231,7 @@ export function restManager(actor, result) {
   if (!actor || !result) return;
   removeReactionUsed(actor); // remove reaction used for a rest
   removeBonusActionUsed(actor);
+  removeActionUsed(actor);
   const myExpiredEffects = actor.effects.filter(ef => {
     const specialDuration = getProperty(ef.flags, "dae.specialDuration");
     return specialDuration && ((result.longRest && specialDuration.includes(`longRest`))
@@ -325,12 +325,13 @@ export function initHooks() {
     if (configSettings.allowUseMacro) {
       const labelText = i18n("midi-qol.onUseMacroLabel");
       const macros = new OnUseMacros(getProperty(app.object, "flags.midi-qol.onUseMacroName"));
-      const macroField = `<h4 class="damage-header">${labelText}
-  <a class="macro-control damage-control add-macro"><i class="fas fa-plus"></i></a>
-</h4>
-  <ol class="damage-parts onusemacro-group form-group">
-    ${macros.selectListOptions}
-  </ol>`;
+      const macroField = `
+        <h4 class="damage-header">${labelText}
+          <a class="macro-control damage-control add-macro"><i class="fas fa-plus"></i></a>
+        </h4>
+        <ol class="damage-parts onusemacro-group form-group">
+        ${macros.selectListOptions}
+      </ol>`;
       element.append(macroField)
     }
     const labelText = i18n("midi-qol.EffectActivation");
@@ -392,7 +393,21 @@ export function initHooks() {
         <input type="checkbox" name="flags.midiProperties.${prop}" ${data.flags.midiProperties[prop] ? "checked" : ""} /> ${midiProps[prop]}
         </label>`;
       }
-      newHtml += "</div></div>"
+      newHtml += "</div></div>";
+      element.append(newHtml);
+      if (item.system.hasScalarTarget && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
+        const targetElement = html.find('select[name="system.target.type"]');
+        const targetUnitHTML = `
+        <select name="system.target.units" data-tooltip="${i18n(getSystemCONFIG().TargetUnits)}">
+          <option value="${item.system.target.units}"> </option>
+          <option value="ft" ${item.system.target.units === 'ft' ? "selected" : ''}>Feet</option>
+          <option value="mi " ${item.system.target.units === 'mi' ? "selected" : ''}>Miles</option>
+          <option value="m" ${item.system.target.units === 'm' ? "selected" : ''}>Meters</option>
+          <option value="km" ${item.system.target.units === 'km' ? "selected" : ''}>Kilometers</option>
+          </select>
+      `;
+        targetElement.before(targetUnitHTML);
+      }
       /*
       const templateData = {
          data: app.object,
@@ -404,7 +419,6 @@ export function initHooks() {
         element.append(template)
       })
       */
-      element.append(newHtml);
     }
     activateMacroListeners(app, html);
   })

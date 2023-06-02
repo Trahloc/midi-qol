@@ -1,3 +1,16 @@
+### 10.0.46
+* Fix for player save/check/skill checks blind rolls not working.
+* Added removing templates to undo workflow.
+* Removed some extraneous advantage labels when Advantage Reminder is in use.
+* Fix for self apply CE effects.
+* Added option for GM to see active defence rolls always.
+* Fixes for displaying saving throws too often for player rolls.
+* Fix for showing tool check dice for nice rolls twice.
+* Add another critical dice option, max base dice and explode critical dice.
+* Include player characters with race NoTarget in the check for ignorning those actors.
+* Stopgap fix for disappearing units in item target specification.
+* **Breaking** Actions/reactions and bonus actions are recorded in actor.flags["midi-qol"].actions.bonus/reaction/action true or false, the flag denoting the combat round the bonus action or reaction was use is stored in actor.flags["midi-qol"].actions.reactionCombatRound/bonusActionCombatRound.
+
 ### 10.0.45
 * Fix for fey ancestry item macro typo - thanks @thatlonelybugber
 * Fix for shield macro typo - thanks @thatlonelybugear

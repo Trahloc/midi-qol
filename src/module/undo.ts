@@ -1,4 +1,5 @@
 
+import { isThisTypeNode } from "typescript";
 import { debugEnabled, error, log, warn } from "../midi-qol.js";
 import { socketlibSocket } from "./GMAction.js";
 import { configSettings } from "./settings.js";
@@ -34,6 +35,8 @@ export async function saveUndoData(workflow: Workflow): Promise<boolean> {
   workflow.undoData.chatCardUuids = [];
   workflow.undoData.isReaction = workflow.options?.isReaction || isReactionItem(workflow.item);
   workflow.undoData.concentrationData = {};
+  workflow.undoData.templateUuids = [];
+  workflow.undoData.sequencerUuid = workflow.item?.uuid;
   if (!await socketlibSocket.executeAsGM("startUndoWorkflow", workflow.undoData)) {
     error("Could not startUndoWorkflow");
     return false;
@@ -42,13 +45,19 @@ export async function saveUndoData(workflow: Workflow): Promise<boolean> {
 }
 
 export function createTargetData(tokenUuid) {
-  //@ts-expect-error
+  if (!tokenUuid) return undefined;
+  //@ts-expect-error  
   const tokendoc = fromUuidSync(tokenUuid);
+  if (!tokendoc) {
+    error("undo | createTargetData could not fetch token document for ", tokenUuid);
+    return undefined;
+  }
   const targetData = { tokenUuid, actorUuid: tokendoc?.actor?.uuid, actorData: tokendoc?.actor?.toObject(true), tokenData: tokendoc?.toObject(true) };
   delete targetData.tokenData?.actorData;
   delete targetData.tokenData?.delta;
   return targetData;
 }
+
 // Called to save snapshots of workflow actor/token data
 export function startUndoWorkflow(undoData: any): boolean {
 
@@ -60,13 +69,14 @@ export function startUndoWorkflow(undoData: any): boolean {
   const tokenData = actor?.isToken ? actor.token.toObject(true) : fromUuidSync(undoData.tokendocUuid ?? "")?.toObject(true);
   undoData.actorEntry = { actorUuid: undoData.actorUuid, tokenUuid: undoData.tokendocUuid, actorData, tokenData };
   undoData.allTargets = new Collection; // every token referenced by the workflow
-  const actorConcentrationTargets = getProperty(actor, "flags.midi-qol.concentration-data.targets");
-  actorConcentrationTargets?.forEach(({ actorUuid, tokenUuid }) => {
+  const concentrationData = getProperty(actor, "flags.midi-qol.concentration-data.targets");
+  if (concentrationData && concentrationData.uuid == undoData.itemUuid) { // only add concentration targets if this item caused the concentration
+  concentrationData.targets?.forEach(({ actorUuid, tokenUuid }) => {
     if (actorUuid === undoData.actorUuid) return;
     const targetData = createTargetData(tokenUuid);
-
-    if (!undoData.allTargets.get(actorUuid)) undoData.allTargets.set(actorUuid, targetData)
+    if (!undoData.allTargets.get(actorUuid) && targetData) undoData.allTargets.set(actorUuid, targetData)
   });
+}
   addQueueEntry(startedUndoDataQueue, undoData);
   return true;
 }
@@ -81,6 +91,8 @@ export function updateUndoChatCardUuids(data) {
 }
 
 // Called after preamblecomplete so save references to all targets
+// This is a bit convoluted since we don't want to pass massive data elements over the wire.
+// The total data for an undo entry can be measred in megabytes, so just pass uuids to the gm client and they can look up the tokens/actors
 export async function saveTargetsUndoData(workflow: Workflow) {
   workflow.undoData.targets = [];
   workflow.targets.forEach(t => {
@@ -90,6 +102,7 @@ export async function saveTargetsUndoData(workflow: Workflow) {
   });
   workflow.undoData.serverTime = game.time.serverTime;
   workflow.undoData.itemCardId = workflow.itemCardId;
+  if (workflow.templateUuid) workflow.undoData.templateUuids.push(workflow.templateUuid);
   return socketlibSocket.executeAsGM("queueUndoData", workflow.undoData)
 }
 
@@ -97,7 +110,7 @@ export async function addUndoChatMessage(message: ChatMessage) {
   const currentUndo = undoDataQueue[0];
   if (message instanceof Promise) message = await message;
   if (configSettings.undoWorkflow && currentUndo && !currentUndo.chatCardUuids.some(uuid => uuid === message.uuid)) {
-  // Assumes workflow.undoData.chatCardUuids has been initialised
+    // Assumes workflow.undoData.chatCardUuids has been initialised
     currentUndo.chatCardUuids = currentUndo.chatCardUuids.concat([message.uuid]);
     socketlibSocket.executeAsGM("updateUndoChatCardUuids", currentUndo);
   }
@@ -139,8 +152,10 @@ export function queueUndoData(data: any): boolean {
   data.targets.forEach(undoEntry => {
     if (!inProgress.allTargets.get(undoEntry.actorUuid)) {
       const targetData = createTargetData(undoEntry.tokenUuid)
-      mergeObject(undoEntry, targetData, {inplace: true});
-      inProgress.allTargets.set(undoEntry.actorUuid, undoEntry);
+      if (targetData) {
+        mergeObject(undoEntry, targetData, { inplace: true });
+        inProgress.allTargets.set(undoEntry.actorUuid, undoEntry);
+      }
     }
     //@ts-expect-error
     let actor = fromUuidSync(undoEntry.actorUuid);
@@ -148,7 +163,7 @@ export function queueUndoData(data: any): boolean {
     const concentrationTargets = getProperty(actor ?? {}, "flags.midi-qol.concentration-data")?.targets;;
     concentrationTargets?.forEach(({ actorUuid, tokenUuid }) => {
       const targetData = createTargetData(tokenUuid)
-      if (!inProgress.allTargets.get(actorUuid)) {
+      if (targetData && !inProgress.allTargets.get(actorUuid)) {
         inProgress.allTargets.set(actorUuid, targetData)
       }
     });
@@ -192,7 +207,7 @@ export async function _undoMostRecentWorkflow() {
       else return undoWorkflow(undoData);
     }
   } finally {
-    if (undoData)Hooks.callAll("midi-qol.removeUndoEntry", undoData);
+    if (undoData) Hooks.callAll("midi-qol.removeUndoEntry", undoData);
   }
   return;
 }
@@ -274,7 +289,7 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
 
   const removeItemsFunc = async () => {
     const itemsToRemove = getRemoveUndoItems(actorData.items ?? [], actor);
-    if (itemsToRemove?.length > 0) await actor.deleteEmbeddedDocuments("Item", itemsToRemove, {isUndo: true});
+    if (itemsToRemove?.length > 0) await actor.deleteEmbeddedDocuments("Item", itemsToRemove, { isUndo: true });
     if (debugEnabled > 0) warn("removeItemsFunc: items to remove ", actor.name, itemsToRemove);
     // await busyWait(0.1);
   }
@@ -313,7 +328,7 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
   }
 
   // const itemsToUpdate = getUpdateItems(actorData.items ?? [], actor);
-  actor.updateEmbeddedDocuments("Item", actorData.items, {keepId: true, isUndo: true});
+  actor.updateEmbeddedDocuments("Item", actorData.items, { keepId: true, isUndo: true });
 
   actorChanges = actorData ? getChanges(actor.toObject(true), actorData) : {};
   if (debugEnabled > 0) warn("Actor data ", actor.name, actorData, actorChanges);
@@ -336,6 +351,11 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
 
 export async function undoWorkflow(undoData: any) {
   log(`Undoing workflow for Player ${undoData.userName} Token: ${undoData.actorEntry.actorData.name} Item: ${undoData.itemName ?? ""}`)
+  for (let templateUuid of undoData.templateUuids)
+    //@ts-expect-error fromUuidSync
+    await fromUuidSync(templateUuid)?.delete();
+    if (globalThis.Sequencer && undoData.sequencerUuid) await globalThis.Sequencer.EffectManager.endEffects({ origin: undoData.sequencerUuid })
+
   for (let undoEntry of undoData.allTargets) {
     log("undoing target ", undoEntry.actorData?.name ?? undoEntry.tokenData?.name, undoEntry)
     await undoSingleTokenActor(undoEntry)

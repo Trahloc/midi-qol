@@ -654,7 +654,8 @@
       <div class="midi-qol-box">
         <div class="form-group">
           <label>{{localize "midi-qol.RollChecksBlind.Name"}}</label>
-          <input type="checkbox" name="rollChecksBlind" data-dtype="Boolean" {{checked configSettings.rollChecksBlind}} />
+          <input type="checkbox" name="rollChecksBlind" data-dtype="Boolean" {{checked
+            configSettings.rollChecksBlind}} />
         </div>
         <div class="form-group">
           <label>{{localize "midi-qol.RollSavesBlind.Name"}}</label>
@@ -662,7 +663,8 @@
         </div>
         <div class="form-group">
           <label>{{localize "midi-qol.RollSkillsBlind.Name"}}</label>
-          <input type="checkbox" name="rollSkillsBlind" data-dtype="Boolean" {{checked configSettings.rollSkillsBlind}} />
+          <input type="checkbox" name="rollSkillsBlind" data-dtype="Boolean" {{checked
+            configSettings.rollSkillsBlind}} />
         </div>
       </div>
 
@@ -737,14 +739,13 @@
         <div class="midi-qol-faint">{{localize "midi-qol.AutoRerollInitiative.Hint"}}</div>
       </div>
 
-    <div class="midi-qol-box">
-      <div class="form-group">
-        <label>{{localize "midi-qol.UndoWorkflow.Name"}}</label>
-        <input type="checkbox" name="undoWorkflow" data-dtype="Boolean" {{checked
-          configSettings.undoWorkflow}} />
+      <div class="midi-qol-box">
+        <div class="form-group">
+          <label>{{localize "midi-qol.UndoWorkflow.Name"}}</label>
+          <input type="checkbox" name="undoWorkflow" data-dtype="Boolean" {{checked configSettings.undoWorkflow}} />
+        </div>
+        <div class="midi-qol-faint">{{localize "midi-qol.UndoWorkflow.Hint"}}</div>
       </div>
-      <div class="midi-qol-faint">{{localize "midi-qol.UndoWorkflow.Hint"}}</div>
-    </div>
     </div>
 
     <!-- Optional Rules Tab-->
@@ -843,6 +844,15 @@
               </span>
             </div>
             <div class="midi-qol-faint">{{localize "midi-qol.ActiveDefence.Hint"}}</div>
+
+            <div class="form-fields">
+              <span>
+                <label>{{localize "midi-qol.ActiveDefenceShowGM.Name"}}</label>
+                <input type="checkbox" style="width:40px;" name="optionalRules.activeDefenceShowGM" data-dtype="Boolean"
+                  {{checked configSettings.optionalRules.activeDefenceShowGM}}
+                  value="{{configSettings.optionalRules.activeDefenceShowGM}}" data-dtype="Boolean" />
+              </span>
+            </div>
           </div>
 
           <div class="midi-qol-box">

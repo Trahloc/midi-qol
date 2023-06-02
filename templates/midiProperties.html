@@ -1,10 +1,27 @@
-<<!-- Midi Properties -->>
-<div class="form-group stacked midi-properties">
-    <label>{{ localize "DND5E.ItemWeaponProperties" }}</label>
-    {{#each config.midiProperties as |name prop|}}
-    {{name}} {{prop}} {{../data.midiProperties}} {{../midiProperties}}
-    <label class="checkbox">
-        <input type="checkbox" name="data.midiProperties.{{prop}}" {{checked (lookup ../midiProperties prop)}}/> {{ name }}
-    </label>
-    {{/each}}
+<div class="midi-qol-tab">
+  <h3 class="form-header">Midi Qol Fields</h3>'
+  <div class="form-group input-select-select">
+    <label>{{ localize "DND5E.Target" }}</label>
+    <div class="form-fields">
+      {{#if system.hasScalarTarget}}
+      <input type="number" step="any" name="system.target.value" value="{{system.target.value}}" placeholder="&mdash;">
+      {{/if}}
+      {{#if system.hasAreaTarget}}
+      <select name="system.target.units" data-tooltip="DND5E.TargetUnits">
+        {{selectOptions config.movementUnits selected=system.target.units blank=""}}
+      </select>
+      {{/if}}
+      <select name="system.target.type" data-tooltip="DND5E.TargetType">
+        {{#select system.target.type}}
+        <option value="">{{localize "DND5E.None"}}</option>
+        <optgroup label="{{localize 'DND5E.TargetTypeIndividual'}}">
+          {{selectOptions config.individualTargetTypes}}
+        </optgroup>
+        <optgroup label="{{localize 'DND5E.TargetTypeArea'}}">
+          {{selectOptions config.areaTargetTypes labelAttr="label"}}
+        </optgroup>
+        {{/select}}
+      </select>
+    </div>
+  </div>
 </div>

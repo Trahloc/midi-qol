@@ -1117,7 +1117,7 @@ chatMessage.update({content: content});
 ```
 hitContent is just html, so you could insert whatever you want in any of the divs above.
 
-Comparing **DAE** macros and **Midi-Qol** macros.
+## Comparing **DAE** macros and **Midi-Qol** macros.
 Both Midi and DAE can cause macros to be called. 
 
 Both DAE and midi-qol can call macros, but there are significant differences to the data that is passed to the macro.

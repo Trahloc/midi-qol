@@ -265,6 +265,13 @@ Hooks.once('ready', function () {
       type: Boolean
     };
 
+    //@ts-expect-error
+    CONFIG.DND5E.areaTargetTypes.selfRadius = {label: "Self Radius", template: null};
+    Hooks.on("dnd5e.preItemUse", (item, config, options) => {
+      if (item?.system.target?.type === "selfRadius") {
+        config.createMeasuredTemplate = false;
+      }
+    })
     if (game.user?.isGM) {
       const instanceId = game.settings.get("midi-qol", "instanceId");
       //@ts-expect-error instanceId
@@ -341,6 +348,7 @@ Hooks.once('ready', function () {
     setTimeout(disableWorkflowAutomation, 2000)
   }
   Hooks.callAll("midi-qol.midiReady");
+
 });
 
 import { setupMidiTests } from './module/tests/setupTest.js';
@@ -582,7 +590,9 @@ function setupMidiFlags() {
     midiFlags.push(`flags.midi-qol.max.ability.check.${abl}`);
     midiFlags.push(`flags.midi-qol.min.ability.check.${abl}`);
     midiFlags.push(`flags.midi-qol.optional.NAME.save.${abl}`);
+    midiFlags.push(`flags.midi-qol.optional.NAME.save.fail.${abl}`);
     midiFlags.push(`flags.midi-qol.optional.NAME.check.${abl}`);
+    midiFlags.push(`flags.midi-qol.optional.NAME.check.fail.${abl}`);
     midiFlags.push(`flags.midi-qol.magicResistance.${abl}`);
     midiFlags.push(`flags.midi-qol.magicVulnerability.all.${abl}`);
   })

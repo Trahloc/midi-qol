@@ -43,7 +43,7 @@ export function getActorItem(actor, itemName) {
 export function setupMidiTests() {
   if (!game?.user?.isGM) return;
   //@ts-ignore .title v10
-  if (game.world.title !== "midi tests - quench") return;
+  if (!game.world.title.toLocaleLowerCase().includes("quench")) return;
   const actor1 = getActor(actor1Name);
   const actor2 = getActor(actor2Name);
   const token1 = getToken(target1Name);

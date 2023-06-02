@@ -1,12 +1,13 @@
 import { log, warn, debug, i18n, error, getCanvas, i18nFormat } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, preItemUseHook, preDisplayCardHook, preItemUsageConsumptionHook, useItemHook, displayCardHook, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, criticalDamage, checkRule } from "./settings.js";
-import { bonusDialog, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoRollAttack, getAutoRollDamage, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getCriticalDamage, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, hasUsedBonusAction, hasUsedReaction, isAutoFastAttack, isAutoFastDamage, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
+import { bonusDialog, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoRollAttack, getAutoRollDamage, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getCriticalDamage, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, hasUsedAction, hasUsedBonusAction, hasUsedReaction, isAutoFastAttack, isAutoFastDamage, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { socketlibSocket } from "./GMAction.js";
 import { data } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/module.mjs";
+import { getCommonBasePathOfArray } from "gulp-typescript/release/utils";
 let libWrapper;
 
 var d20Roll;
@@ -89,12 +90,6 @@ export function collectBonusFlags(actor, category, detail): any[] {
 export async function bonusCheck(actor, result: Roll, category, detail): Promise<Roll> {
   if (!installedModules.get("betterrolls5e")) {
     let bonusFlags = collectBonusFlags(actor, category, detail);
-    /* causes strange behaviour when enabled 
-    if (category === "skill") {
-      const abl = actor.system.skills[detail].ability;
-      bonusFlags = bonusFlags.concat(collectBonusFlags(actor, "check", "abl"));
-    }
-    */
 
     if (bonusFlags.length > 0) {
       const data = {
@@ -110,23 +105,13 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       let systemString = game.system.id.toUpperCase();
       //@ts-expect-error
       if (isNewerVersion(game.system.version, "2.1.5")) {
-        switch (category) {
-          case "check": title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
-            break;
-          case "save": title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
-            break;
-          case "skill": title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail].label ?? "" });
-            break;
-        }
+        if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
+        else if (category.startwWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
+        else if (category.startsWith("skill)")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail].label ?? "" });
       } else {
-        switch (category) {
-          case "check": title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
-            break;
-          case "save": title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail] ?? "" });
-            break;
-          case "skill": title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail] ?? "" });
-            break;
-        }
+        if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
+        else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail] ?? "" });
+        else if (category.srartsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail] ?? "" });
       }
       await bonusDialog.bind(data)(
         bonusFlags,
@@ -198,17 +183,23 @@ async function doRollSkill(wrapped, ...args) {
     result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
   }
   let rollMode: string = game.settings.get("core", "rollMode");
-  if (!game.user?.isGM && configSettings.rollSkillsBlind && rollMode === "publicroll") rollMode = "blindroll";
   if (chatMessage) displayDSNForRoll(result, "skill", rollMode);
   if (!options.simulate) {
     result = await bonusCheck(this, result, "skill", skillId);
     if (result.options.rollMode) rollMode = result.options.rollMode;
   }
   if (chatMessage !== false && result) {
+    const saveRollMode = game.settings.get("core", "rollMode");
+    if (!game.user?.isGM && configSettings.rollSkillsBlind && ["publicroll", "roll"].includes(rollMode)) {
+      rollMode = "blindroll";
+      game.settings.set("core", "rollMode", "blindroll");
+    }
+    await displayDSNForRoll(result, "skill", rollMode);
     const args = { "speaker": getSpeaker(this), flavor };
     setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
     if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
     await result.toMessage(args, { rollMode });
+    game.settings.set("core", "rollMode", saveRollMode);
   }
   let success: boolean | undefined = undefined;
   if (rollTarget !== undefined) success = result.total >= rollTarget;
@@ -267,6 +258,18 @@ function configureDamage(wrapped) {
     switch (getCriticalDamage()) {
       case "maxDamage":
         if (term instanceof DiceTerm) term.modifiers.push(`min${term.faces}`);
+        break;
+      case "maxDamageExplode":
+        if (term instanceof DiceTerm) term.modifiers.push(`min${term.faces}`);
+        if (term instanceof DiceTerm) {
+          bonusTerms.push(new OperatorTerm({ operator: "+" }));
+          //@ts-ignore
+          const newTerm = new Die({ number: term.number + cb, faces: term.faces })
+          newTerm.modifiers.push(`x${term.faces}`);
+          newTerm.options = term.options;
+          // setProperty(newTerm.options, "sourceTerm", term);
+          bonusTerms.push(newTerm);
+        }
         break;
       case "maxCrit":  // Powerful critical
       case "maxCritRoll":
@@ -384,8 +387,8 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     //@ts-ignore
     result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
   }
-  let rollMode: string = game.settings.get("core", "rollMode");
-  if (!game.user?.isGM && rollMode === "publicroll") switch (rollType) {
+  let rollMode: string = options.rollMode ?? game.settings.get("core", "rollMode");
+  if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
     case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
     case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
   }
@@ -393,14 +396,23 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
 
   if (!options.simulate) {
     result = await bonusCheck(this, result, rollType, abilityId);
-    if (result.options.rollMode) rollMode = result.options.rollMode;
+    if (result.options.rollMode === "blindroll") rollMode = "blindroll";
   }
 
   if (chatMessage !== false && result) {
     const args: any = { "speaker": getSpeaker(this), flavor };
     setProperty(args, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
     args.template = "modules/midi-qol/templates/roll.html";
+    if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
+      case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
+      case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
+    }
+    const saveRollMode = game.settings.get("core", "rollMode");
+    if (rollMode === "blindroll") {
+      game.settings.set("core", "rollMode", rollMode);
+    }
     await result.toMessage(args, { rollMode });
+    game.settings.set("core", "rollMode", saveRollMode);
   }
   let success: boolean | undefined = undefined;
   if (rollTarget !== undefined) success = result.total >= rollTarget;
@@ -922,12 +934,12 @@ async function _preDeleteActiveEffect(wrapped, ...args) {
 
       // Handle removal of reaction effect
       if (installedModules.get("dfreds-convenient-effects") && getConvenientEffectsReaction()?._id === this.flags?.core?.statusId) {
-        await this.parent.unsetFlag("midi-qol", "reactionCombatRound");
+        await removeReactionUsed(this);
       }
 
       // Handle removal of bonus action effect
       if (installedModules.get("dfreds-convenient-effects") && getConvenientEffectsBonusAction()?._id === this.flags?.core?.statusId) {
-        await this.parent.unsetFlag("midi-qol", "bonusActionCombatRound");
+        await removeBonusActionUsed(this);
       }
 
       const checkConcentration = globalThis.MidiQOL?.configSettings()?.concentrationAutomation;
@@ -1219,7 +1231,7 @@ export async function rollToolCheck(wrapped, options: any = {}) {
   const chatMessage = options.chatMessage;
   options.chatMessage = false;
   let result = await wrapped(options);
-  displayDSNForRoll(result, "toolCheck");
+  await displayDSNForRoll(result, "toolCheck");
   result = await bonusCheck(this.actor, result, "check", this.system.ability ?? "")
   if (chatMessage !== false && result) {
     const title = `${this.name} - ${game.i18n.localize("DND5E.ToolCheck")}`;
@@ -1334,6 +1346,7 @@ export async function _preDeleteCombat(wrapped, ...args) {
       if (combatant.actor) {
         if (await hasUsedReaction(combatant.actor)) await removeReactionUsed(combatant.actor, true);
         if (await hasUsedBonusAction(combatant.actor)) await removeBonusActionUsed(combatant.actor, true);
+        if (await hasUsedAction(combatant.actor)) await removeActionUsed(combatant.actor);
       }
     }
   } catch (err) {

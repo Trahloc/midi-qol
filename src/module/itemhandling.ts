@@ -424,19 +424,27 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
   }
   let advantage = options.advantage || workflow.options.advantage || workflow?.advantage || workflow?.rollOptions.advantage || workflow?.workflowOptions.advantage || workflow.flankingAdvantage;
   // if (options.advantage)
-  // workflow.attackAdvAttribution[`options.advantage`] = true;
-  if (workflow.rollOptions.advantage)
-    workflow.attackAdvAttribution[`ADV:rollOptions`] = true;
-  if (workflow.flankingAdvantage)
-    workflow.attackAdvAttribution[`ADV:flanking`] = true;
+  // workflow.attackAdvAttribution.add(`options.advantage`);
+  if (workflow.rollOptions.advantage) {
+    // workflow.attackAdvAttribution.add(`ADV:rollOptions`);
+    workflow.attackAdvAttribution.add(`ADV:keyPress`);
+    workflow.advReminderAttackAdvAttribution.add(`ADV:keyPress`);
+  }
+  if (workflow.flankingAdvantage) {
+    workflow.attackAdvAttribution.add(`ADV:flanking`);
+    workflow.advReminderAttackAdvAttribution.add(`ADV:Flanking`);
+  }
 
   let disadvantage = options.disadvantage || workflow.options.disadvantage || workflow?.disadvantage || workflow?.workflowOptions.disadvantage || workflow.rollOptions.disadvantage;
   // if (options.disadvantage)
-  //  workflow.attackAdvAttribution[`options.disadvantage`] = true;
-  if (workflow.rollOptions.disadvantage)
-    workflow.attackAdvAttribution[`DIS:rollOptions`] = true;
+  //  workflow.attackAdvAttribution.add(`options.disadvantage`);
+  if (workflow.rollOptions.disadvantage) {
+    // workflow.attackAdvAttribution.add(`DIS:rollOptions`);
+    workflow.attackAdvAttribution.add(`DIS:keyPress`);
+    workflow.advReminderAttackAdvAttribution.add(`DIS:keyPress`);
+  }
   if (workflow.workflowOptions.disadvantage)
-    workflow.attackAdvAttribution[`DIS:workflowOptions`] = true;
+    workflow.attackAdvAttribution.add(`DIS:workflowOptions`);
 
   if (advantage && disadvantage) {
     advantage = false;
@@ -455,13 +463,12 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     { insertKeys: true, overwrite: true });
   if (advantage) wrappedOptions.advantage = true;
   if (disadvantage) wrappedOptions.disadvantage = true;
-  //@ts-ignore .isEmpty v10
-  if (!isEmpty(workflow.attackAdvAttribution)) {
-    wrappedOptions.dialogOptions = {
-      "adv-reminder": { advantageLabels: Object.keys(workflow.attackAdvAttribution) }
-    }
-  }
-  //TODO WTF is this
+  // Setup labels for advantage reminder
+  const advantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("ADV:")).map(s =>s .replace("ADV:", ""));;
+  if (advantageLabels.length > 0) setProperty(wrappedOptions, "dialogOptions.adv-reminder.advantageLabels", advantageLabels);
+  const disadvantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("DIS:")).map(s => s.replace("DIS:", ""));
+  if (disadvantageLabels.length > 0) setProperty(wrappedOptions, "dialogOptions.adv-reminder.disadvantageLabels", disadvantageLabels);
+  // It seems that sometimes the option is true/false but when passed to the roll the critical threshold needs to be a number
   if (wrappedOptions.critical === true || wrappedOptions.critical === false)
     wrappedOptions.critical = this.getCriticalThreshold();
   if (wrappedOptions.fumble === true || wrappedOptions.fumble === false)
@@ -748,8 +755,8 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
           if (otherResult2?.total && otherResult?.total) {
             if ((getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") && (otherResult2?.total > otherResult?.total)) ||
               (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl") && (otherResult2?.total < otherResult?.total))) {
-                [otherResult, otherResult2] = [otherResult2, otherResult];
-              }
+              [otherResult, otherResult2] = [otherResult2, otherResult];
+            }
             // display roll not being used
             await displayDSNForRoll(otherResult2, "damageRoll");
             await otherResult2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
@@ -1127,8 +1134,10 @@ export function templateTokens(templateDetails: { x: number, y: number, shape: a
   for (const token of tokens) {
     if (token.actor && isTokenInside(templateDetails, token, wallsBlockTargeting)) {
       // const actorData: any = token.actor?.data;
-      // @ts-ignore .system v10
-      if (token.actor.system.details.type?.custom.includes("NoTarget")) continue;
+      //@ts-expect-error .system v10
+      if (token.actor.system.details.type?.custom.toLocaleLowerCase().includes("notarget")
+      //@ts-expect-error system
+      || token.actor.system.details.race?.toLocaleLowerCase().includes("notarget")) continue;
       //@ts-ignore .system
       if (["wallsBlock", "always"].includes(configSettings.autoTarget) || !checkIncapacitated(token.actor)) {
         if (token.id) {

@@ -9,6 +9,7 @@ import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTim
 import { OnUseMacros } from "./apps/Item.js";
 import { actorAbilityRollPatching, Options } from "./patching.js";
 import { isEmptyBindingElement } from "typescript";
+import { activationConditionToUse } from "./itemhandling.js";
 
 export function getDamageType(flavorString): string | undefined {
   const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
@@ -989,7 +990,7 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
     }
     //@ts-ignore
     let mode = isNewerVersion(game.version ?? game.version, "0.9.236") ? "publicroll" : "roll";
-    if (player.isGM && configSettings.autoCheckSaves !== "allShow") {
+    if (configSettings.autoCheckSaves !== "allShow") {
       mode = "blindroll";
     }
     let message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${i18n("midi-qol.saving-throw")} ${flavor}`;
@@ -1021,7 +1022,7 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
   } else { // display a chat message to the user telling them to save
     const actorName = actor.name;
     //@ts-expect-error .version
-    const abilityString = isNewerVersion(game.system.version, "2.1.5") 
+    const abilityString = isNewerVersion(game.system.version, "2.1.5")
       ? getSystemCONFIG().abilities[ability].label
       : getSystemCONFIG().abilities[ability]
     let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityString} ${i18n("midi-qol.saving-throw")}`;
@@ -1048,16 +1049,20 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
   }
   //@ts-ignore
   let mode = isNewerVersion(game.version ?? game.version, "0.9.236") ? "publicroll" : "roll";
-  if (player.isGM && configSettings.autoCheckSaves !== "allShow") {
-    mode = "selfroll";
-  }
+  if (configSettings.autoCheckSaves !== "allShow") {
+    if (checkRule("activeDefenceShowGM"))
+      mode = "gmroll"
+    else
+      mode = "selfroll";
+  } else mode = "publicroll";
+
   let message = `${saveItemName} ${configSettings.displaySaveDC ? "DC " + rollDC : ""} ${i18n("midi-qol.ActiveDefenceString")}`;
   // Send a message for LMRTFY to do a save.
   const socketData = {
     "abilities": [],
     "saves": [],
     "skills": [],
-    mode: "selfroll",
+    mode,
     "title": i18n("midi-qol.ActiveDefenceString"),
     message,
     "tables": [],
@@ -1065,13 +1070,14 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
     actors: [actorId],
     advantage,
     formula,
-    attach: { requestId, disableMessage: true },
+    attach: { requestId, mode },
     deathsave: false,
     initiative: false
   }
   if (debugEnabled > 1) debug("process player save ", socketData)
   game.socket?.emit('module.lmrtfy', socketData);
-  //@ts-ignore - global variable
+  // LMRTFY does not emit to self so in case it needs to be handled by the locl client pretend we received it.
+  //@ts-expect-error - LMRTFY
   LMRTFY.onMessage(socketData);
 }
 
@@ -1422,6 +1428,7 @@ export async function _processOverTime(combat, data, options, user) {
     if (actor && toTest !== prev) {
       if (await hasUsedReaction(actor)) await removeReactionUsed(actor);
       if (await hasUsedBonusAction(actor)) await removeBonusActionUsed(actor);
+      if (await hasUsedAction(actor)) await removeActionUsed(actor);
     }
 
     // Remove any per turn optional bonus effects
@@ -2229,7 +2236,8 @@ export function findNearby(disposition: number | null, token: any /*Token | uuui
   //@ts-ignore .disposition v10
   let targetDisposition = token.document.disposition * (disposition ?? 0);
   let nearby = canvas.tokens?.placeables.filter(t => {
-    if (getProperty(t, "actor.system.details.type.custom")?.includes("NoTarget")) return false;
+    if (getProperty(t, "actor.system.details.type.custom")?.toLocaleLowerCase().includes("notarget")
+    || getProperty(t, "actor.system.details.race")?.toLocaleLowerCase().includes("notarget")) return false;
     //@ts-ignore .height .width v10
     if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
     if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor, undefined, undefined)) return false;
@@ -2771,7 +2779,7 @@ export function getOptionalCountRemaining(actor: globalThis.dnd5e.documents.Acto
     if (getProperty(actor, usedFlag)) return 0;
   } else if (countValue === "reaction") {
     // return await hasUsedReaction(actor)
-    return actor.getFlag("midi-qol", "reactionCombatRound") && needsReactionCheck(actor) ? 0 : 1;
+    return actor.getFlag("midi-qol", "actions.reactionCombatRound") && needsReactionCheck(actor) ? 0 : 1;
   } else if (countValue === "every") return 1;
   if (Number.isNumeric(countValue)) return countValue;
   if (countValue.startsWith("ItemUses.")) {
@@ -2861,10 +2869,7 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
     await actor.setFlag("midi-qol", flagKey, true);
   }
 
-  if (count.value === "reaction") {
-    setReactionUsed(actor);
-  }
-  if (countAlt?.value === "reaction") {
+  if (count.value === "reaction" || countAlt?.value === "reactopm") {
     setReactionUsed(actor);
   }
 }
@@ -3429,7 +3434,10 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
     rollData.workflow = {};
     rollData.effects = actor?.effects;
     rollData.workflow = {};
-    if (data.workflow) Object.assign(rollData.workflow, data.workflow);
+    if (data.workflow) {
+      Object.assign(rollData.workflow, data.workflow);
+      delete data.workflow.undoData;
+    }
     if (data.workflow?.actor) rollData.workflow.actor = data.workflow.actor.getRollData();
     if (data.workflow?.item) rollData.workflow.item = data.workflow.item.getRollData();
     rollData.CONFIG = CONFIG;
@@ -3547,17 +3555,43 @@ export function isInCombat(actor: Actor) {
   return (combats?.length ?? 0) > 0;
 }
 
+export async function tempCEaddEffectWith(args) {
+  const { effectData, origin, metaData, uuid } = args;
+
+  if (effectData.statuses instanceof Set) {
+    if (effectData.statuses.size === 0) effectData.statuses.add(effectData.flags?.core?.statusId ?? effectData.name ?? effectData.label);
+    effectData.statuses = Array.from(effectData.statuses)
+  } else if (effectData.statuses && effectData.statuses.length === 0 && effectData.flags?.core?.statusId) {
+    effectData.statuses.push(effectData.flags?.core?.statusId)
+  }
+  //@ts-expect-error
+  const effectInterface = game.dfreds.effectInterface;
+  await effectInterface?.addEffectWith({ effectData, uuid, metaData, origin });
+}
+
+export async function setActionUsed(actor: Actor) {
+  await actor.setFlag("midi-qol", "actions.action", true);
+}
+
 export async function setReactionUsed(actor: Actor) {
   if (!["all", "displayOnly"].includes(configSettings.enforceReactions) && configSettings.enforceReactions !== actor.type) return;
   let effect;
-  if (getConvenientEffectsReaction()) {
+  const reactionEffect = getConvenientEffectsReaction();
+  if (reactionEffect) {
+    //@ts-expect-error
+    const effectInterface = game.dfreds.effectInterface;
+    await tempCEaddEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
+    // await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
+
     //@ts-ignore
-    await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), uuid: actor.uuid });
+    // await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), uuid: actor.uuid });
   } //@ts-ignore
   else if (installedModules.get("combat-utility-belt") && (effect = CONFIG.statusEffects.find(se => (se.name || se.label) === i18n("DND5E.Reaction")))) {
     actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
-  await actor.setFlag("midi-qol", "reactionCombatRound", game.combat?.round);
+  await actor.setFlag("midi-qol", "actions.reactionCombatRound", game.combat?.round);
+  await actor.setFlag("midi-qol", "actions.reaction", true);
+
 }
 
 export async function setBonusActionUsed(actor: Actor) {
@@ -3570,7 +3604,12 @@ export async function setBonusActionUsed(actor: Actor) {
     // TODO V11 check se.label
     actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
-  await actor.setFlag("midi-qol", "bonusActionCombatRound", game.combat?.round);
+  await actor.setFlag("midi-qol", "actions.bonusActionCombatRound", game.combat?.round);
+  return actor.setFlag("midi-qol", "actions.bonus", true);
+}
+
+export async function removeActionUsed(actor: Actor) {
+  return await actor?.setFlag("midi-qol", "actions.action", false);
 }
 
 export async function removeReactionUsed(actor: Actor, removeCEEffect = false) {
@@ -3587,19 +3626,27 @@ export async function removeReactionUsed(actor: Actor, removeCEEffect = false) {
     const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"));
     await effect?.delete();
   }
-  return await actor?.unsetFlag("midi-qol", "reactionCombatRound");
+  await actor?.unsetFlag("midi-qol", "actions.reactionCombatRound");
+  return actor?.setFlag("midi-qol", "actions.reaction", false);
 }
 
+export async function hasUsedAction(actor: Actor) {
+  return actor?.getFlag("midi-qol", "actions.action")
+}
 
 export async function hasUsedReaction(actor: Actor) {
   // if (!["all", "displayOnly"].includes(configSettings.enforceReactions) && configSettings.enforceReactions !== actor.type) return false;
-  if (actor.getFlag("midi-qol", "reactionCombatRound")) return true;
+  if (actor.getFlag("midi-qol", "actions.reaction")) return true;
   if (getConvenientEffectsReaction()) {
     //@ts-expect-error .dfreds
-    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), actor.uuid)) return true;
+    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), actor.uuid)) {
+      await actor?.setFlag("midi-qol", "actions.reaction", false);
+      return true;
+    }
   }
   //@ts-expect-error .label
   if (installedModules.get("combat-utility-belt") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"))) {
+    await actor?.setFlag("midi-qol", "actions.reaction", false);
     return true;
   }
   return false;
@@ -3625,15 +3672,18 @@ export async function gmExpirePerTurnBonusActions(data: { combatUuid: string }) 
 }
 
 export async function hasUsedBonusAction(actor: Actor) {
-  if (configSettings.enforceBonusActions !== "all" && configSettings.enforceBonusActions !== actor.type) return false;
-
-  if (actor.getFlag("midi-qol", "bonusActionCombatRound")) return true;
+  // if (configSettings.enforceBonusActions !== "all" && configSettings.enforceBonusActions !== actor.type) return false;
+  if (actor.getFlag("midi-qol", "actions.bonus")) return true;
   if (getConvenientEffectsBonusAction()) {
     //@ts-ignore
-    if (await game.dfreds?.effectInterface.hasEffectApplied(getConvenientEffectsBonusAction().label, actor.uuid)) return true;
+    if (await game.dfreds?.effectInterface.hasEffectApplied(getConvenientEffectsBonusAction().label, actor.uuid)) {
+      await actor.setFlag("midi-qol", "actions.bonus", true);
+      return true;
+    }
   }
   //@ts-expect-error .label
   if (installedModules.get("combat-utility-belt") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"))) {
+    await actor.setFlag("midi-qol", "actions.bonus", true);
     return true;
   }
   return false;
@@ -3652,7 +3702,8 @@ export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false
       await effect?.delete();
     }
   }
-  return await actor?.unsetFlag("midi-qol", "bonusActionCombatRound");
+  await actor.setFlag("midi-qol", "actions.bonus", false);
+  return  actor?.unsetFlag("midi-qol", "actions.bonusActionCombatRound");
 }
 
 export function needsReactionCheck(actor) {
@@ -3733,11 +3784,11 @@ function hookCall(entry, args) {
   }
 }
 
-export function addAdvAttribution(html: any, advAttribution: any = undefined) {
+export function addAdvAttribution(html: any, advAttribution: Set<string>) {
   // <section class="tooltip-part">
   let advHtml: string = "";
-  if (advAttribution && Object.keys(advAttribution).length > 0) {
-    advHtml = Object.keys(advAttribution).reduce((prev, s) => prev += `${s}<br>`, "");
+  if (advAttribution && advAttribution.size > 0) {
+    advHtml = Array.from(advAttribution).reduce((prev, s) => prev += `${s}<br>`, "");
     html = html.replace(`<section class="tooltip-part">`, `<section class="tooltip-part">${advHtml}`);
   }
   return html;

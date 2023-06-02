@@ -37,9 +37,11 @@ export async function createEffects(data: { actorUuid: string, effects: any[] })
     }
     return actor?.createEmbeddedDocuments("ActiveEffect", data.effects)
   };
+  return await createEffectsFunc();
+  /* This seems to cause a deadlock 
   if (globalThis.DAE?.actionQueue) return globalThis.DAE.actionQueue.add(createEffectsFunc)
   else return createEffectsFunc();
-
+  */
 }
 
 export async function updateEffects(data: { actorUuid: string, updates: any[] }) {
