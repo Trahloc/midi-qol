@@ -33,7 +33,6 @@ export function setupSheetQol() {
 let enableSheetQOL = (app, html, data) => {
   // find out how to reinstate the original handler later.
   const defaultTag = ".item .item-image";
-  //Add a check for item deletion
 
   let rollTag = knownSheets[app.constructor.name] ? knownSheets[app.constructor.name] : defaultTag;
   if (itemRollButtons) {
