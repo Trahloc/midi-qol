@@ -213,54 +213,6 @@ export let processCreateBetterRollsMessage = (message: ChatMessage, user: string
   return true;
 }
 
-export let diceSoNiceHandler = async (message, html, data) => {
-  return;
-  //@ts-ignore game.dice3d
-  if (!dice3dEnabled()) return;
-  if (debugEnabled > 1) debug("Dice so nice handler ", message, html, data);
-  // Roll the 3d dice if we are a gm, or the message is not blind and we are the author or a recipient (includes public)
-  let rollDice = game.user?.isGM ||
-    (!message.blind && (message.isAuthor || message.whisper.length === 0 || message.whisper?.includes(game.user?.id)));
-  if (!rollDice) {
-    return;
-  }
-
-  if (configSettings.mergeCard) {
-    return;
-  }
-
-  if (!getProperty(message, "flags.midi-qol.waitForDiceSoNice")) return;
-  if (debugEnabled > 1) debug("dice so nice handler - non-merge card", html)
-
-  // better rolls handles delaying the chat card until complete.
-  if (!configSettings.mergeCard && installedModules.get("betterrolls5e")) return;
-  html.hide();
-  Hooks.once("diceSoNiceRollComplete", (id) => {
-    let savesDisplay = $(html).find(".midi-qol-saves-display").length === 1;
-    let hitsDisplay = configSettings.mergeCard ?
-      $(html).find(".midi-qol-hits-display").length === 1
-      : $(html).find(".midi-qol-single-hit-card").length === 1;
-    if (savesDisplay) {
-      if (game.user?.isGM || (configSettings.autoCheckSaves !== "whisper" && !message.blind))
-        html.show()
-    } else if (hitsDisplay) {
-      if (game.user?.isGM || (configSettings.autoCheckHit !== "whisper" && !message.blind))
-        html.show()
-    } else {
-      html.show();
-      //@ts-ignore
-      ui.chat.scrollBottom()
-
-      setTimeout(() => {
-        html.show();
-        //@ts-ignore
-        ui.chat.scrollBottom()
-      }, 3000); // backup display of messages
-    }
-  });
-  return true;
-}
-
 export let colorChatMessageHandler = (message, html, data) => {
   if (coloredBorders === "none") return true;
   let actorId = message.speaker.actor;

@@ -99,16 +99,17 @@ async function _onMacroControl(event){
     const macros = getCurrentSourceMacros(this.object);
     await this._onSubmit(event);  // Submit any unsaved changes
     macros.items.push(new OnUseMacro());
-    return this.object.update({"flags.midi-qol.onUseMacroName":  macros.toString()});
+    await this.object.update({"flags.midi-qol.onUseMacroName":  macros.toString()});
+
   }
 
   // Remove a macro component
   if ( a.classList.contains("delete-macro") ) {
     const macros = getCurrentSourceMacros(this.object);
-    await this._onSubmit(event);  // Submit any unsaved changes
     const li = a.closest(".damage-part");
+    await this._onSubmit(event);  // Submit any unsaved changes
     macros.items.splice(Number(li.dataset.midiqolMacroPart), 1);
-    return this.object.update({"flags.midi-qol.onUseMacroName": macros.toString()});
+    await this.object.update({"flags.midi-qol.onUseMacroName": macros.toString()});
   }
 }
 

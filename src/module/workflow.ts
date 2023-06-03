@@ -2596,21 +2596,22 @@ export class Workflow {
         //@ts-ignore
         if (!(result instanceof CONFIG.Dice.D20Roll)) result = CONFIG.Dice.D20Roll.fromJSON(JSON.stringify(result));
         // const newRoll = await bonusCheck(target.actor, result, rollType, "fail")
-        if (collectBonusFlags(target.actor, rollType, "fail").length > 0 
-            || collectBonusFlags(target.actor, rollType, `fail.${rollAbility}`)) {
+        const failFlagsLength = collectBonusFlags(target.actor, rollType, "fail.all").length;
+        const failAbilityFlagsLength = collectBonusFlags(target.actor, rollType, `fail.${rollAbility}`).length
+        if (failFlagsLength || failAbilityFlagsLength ) {
           // If the roll fails and there is an flags.midi-qol.save.fail then apply the bonus
           let owner: User | undefined = playerFor(target);
           if (!owner?.active) owner = game.users?.find((u: User) => u.isGM && u.active);
           if (owner) {
             let newRoll;
             if (owner?.isGM && game.user?.isGM) {
-              newRoll = await bonusCheck(target.actor, result, rollType, "fail")
+              newRoll = await bonusCheck(target.actor, result, rollType, failAbilityFlagsLength ? `fail.${rollAbility}` : "fail");
             } else {
               newRoll = await socketlibSocket.executeAsUser("bonusCheck", owner?.id, {
                 actorUuid: target.actor.uuid,
                 result: JSON.stringify(result.toJSON()),
                 rollType,
-                selector: "fail"
+                selector: failFlagsLength ? "fail" : `fail.${rollAbility}`
               });
 
             }

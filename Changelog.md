@@ -1,3 +1,9 @@
+### 10.0.47
+* Various fixes for the units field that was reinstated in 10.0.46
+* Fix for deleting then re-adding the same onUse macro
+* **Breaking** flags.midi-qol.optional.Name.save.fail now needs to be flags.midi-qol.optional.Name.save.fail.all. Added support for flags.midi-qol.optional.Name.save.fail.str/dex etc. e.g. flags.midi-qol.optional.Name.save.fail.dex OVERRIDE success will alow the saver to optionally convert a failed dex save to a success.
+* A patch so the LMRTFY 3.1.7 will work with dnd 2.2x - temporary until LMRTFY issues it's own fix.
+
 ### 10.0.46
 * Fix for player save/check/skill checks blind rolls not working.
 * Added removing templates to undo workflow.

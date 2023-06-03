@@ -73,7 +73,11 @@ export function collectBonusFlags(actor, category, detail): any[] {
       .filter(flag => {
         const checkFlag = actor.flags["midi-qol"].optional[flag][category];
         if (checkFlag === undefined) return false;
-        if (!(typeof checkFlag === "string" || checkFlag[detail] || (detail !== "fail" && checkFlag["all"]) !== undefined)) return false;
+        if (detail.startsWith("fail")) {
+          const [_, type] = detail.split(".");
+          return checkFlag.fail?.[type];
+        } else 
+        if (!(typeof checkFlag === "string" || checkFlag[detail] || checkFlag["all"]) !== undefined) return false;
         if (actor.flags["midi-qol"].optional[flag].count === undefined) return true;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
       })
@@ -105,11 +109,13 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       let systemString = game.system.id.toUpperCase();
       //@ts-expect-error
       if (isNewerVersion(game.system.version, "2.1.5")) {
-        if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
-        else if (category.startswWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
+        if (detail.startsWith("fail")) title = "Fialed Save Check";
+        else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
+        else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
         else if (category.startsWith("skill)")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail].label ?? "" });
       } else {
-        if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
+        if (detail.startsWith("fail")) title = "Fialed Save Check";
+        else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
         else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail] ?? "" });
         else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail] ?? "" });
       }

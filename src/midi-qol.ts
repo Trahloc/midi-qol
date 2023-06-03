@@ -266,7 +266,7 @@ Hooks.once('ready', function () {
     };
 
     //@ts-expect-error
-    CONFIG.DND5E.areaTargetTypes.selfRadius = {label: "Self Radius", template: null};
+    CONFIG.DND5E.areaTargetTypes.selfRadius = { label: "Self Radius", template: null };
     Hooks.on("dnd5e.preItemUse", (item, config, options) => {
       if (item?.system.target?.type === "selfRadius") {
         config.createMeasuredTemplate = false;
@@ -348,6 +348,27 @@ Hooks.once('ready', function () {
     setTimeout(disableWorkflowAutomation, 2000)
   }
   Hooks.callAll("midi-qol.midiReady");
+  if (
+    installedModules.get("lmrtfy") 
+    //@ts-expect-error
+    && isNewerVersion("3.1.8", game.modules.get("lmrtfy").version) 
+    //@ts-expect-error
+    && isNewerVersion(game.system.version, "2.1.99")) {
+    let abbr = {};
+
+    //@ts-expect-error
+    for (let key in CONFIG.DND5E.abilities) {
+      //@ts-expect-error
+      let abb = game.i18n.localize(CONFIG.DND5E.abilities[key].abbreviation);
+      let upperFirstLetter = abb.charAt(0).toUpperCase() + abb.slice(1);
+      abbr[`${abb}`] = `DND5E.Ability${upperFirstLetter}`;
+    }
+    //@ts-expect-error
+    LMRTFY.saves = abbr;
+    //@ts-expect-error
+    LMRTFY.abilities = abbr;
+  }
+
 
 });
 
@@ -648,11 +669,11 @@ function setupMidiFlags() {
   midiFlags.push(`flags.midi-qol.optional.NAME.damage.all`);
   midiFlags.push(`flags.midi-qol.optional.NAME.check.all`);
   midiFlags.push(`flags.midi-qol.optional.NAME.save.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.check.fail`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.save.fail`);
+  midiFlags.push(`flags.midi-qol.optional.NAME.check.fail.all`);
+  midiFlags.push(`flags.midi-qol.optional.NAME.save.fail.all`);
   midiFlags.push(`flags.midi-qol.optional.NAME.label`);
   midiFlags.push(`flags.midi-qol.optional.NAME.skill.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.skill.fail`);
+  midiFlags.push(`flags.midi-qol.optional.NAME.skill.fail.all`);
   midiFlags.push(`flags.midi-qol.optional.NAME.count`);
   midiFlags.push(`flags.midi-qol.optional.NAME.countAlt`);
   midiFlags.push(`flags.midi-qol.optional.NAME.ac`);

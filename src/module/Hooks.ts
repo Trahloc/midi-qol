@@ -1,5 +1,5 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
-import { colorChatMessageHandler, diceSoNiceHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateBetterRollsMessage, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
+import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateBetterRollsMessage, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed } from "./utils.js";
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
@@ -91,11 +91,6 @@ export let readyHooks = async () => {
       }
     }
     return true;
-  });
-
-  Hooks.on("renderChatMessage", (message, html, data) => {
-    if (debugEnabled > 1) debug("render message hook ", message.id, message, html, data);
-    diceSoNiceHandler(message, html, data);
   });
 
   Hooks.on("renderActorArmorConfig", (app, html, data) => {
@@ -312,6 +307,7 @@ export function initHooks() {
     if (combatant.actor && updates.initiative) expireRollEffect.bind(combatant.actor)("Initiative", "none");
     return true;
   });
+
   Hooks.on("renderItemSheet", (app, html, data) => {
     const element = html.find('input[name="system.chatFlavor"]').parent().parent();
     const criticalElement = html.find('input[name="system.critical.threshold"]');
@@ -395,18 +391,22 @@ export function initHooks() {
       }
       newHtml += "</div></div>";
       element.append(newHtml);
-      if (item.system.hasScalarTarget && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
-        const targetElement = html.find('select[name="system.target.type"]');
-        const targetUnitHTML = `
-        <select name="system.target.units" data-tooltip="${i18n(getSystemCONFIG().TargetUnits)}">
-          <option value="${item.system.target.units}"> </option>
-          <option value="ft" ${item.system.target.units === 'ft' ? "selected" : ''}>Feet</option>
-          <option value="mi " ${item.system.target.units === 'mi' ? "selected" : ''}>Miles</option>
-          <option value="m" ${item.system.target.units === 'm' ? "selected" : ''}>Meters</option>
-          <option value="km" ${item.system.target.units === 'km' ? "selected" : ''}>Kilometers</option>
-          </select>
-      `;
-        targetElement.before(targetUnitHTML);
+
+      //@ts-expect-error
+      if (isNewerVersion(game.system.version, "2.2") && game.system.id === "dnd5e") {
+        if (item.system.hasScalarTarget && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
+          const targetElement = html.find('select[name="system.target.type"]');
+          const targetUnitHTML = `
+            <select name="system.target.units" data-tooltip="${i18n(getSystemCONFIG().TargetUnits)}">
+            <option value="" ${item.system.target.units === '' ? "selected" : ''}></option>
+            <option value="ft" ${item.system.target.units === 'ft' ? "selected" : ''}>Feet</option>
+            <option value="mi " ${item.system.target.units === 'mi' ? "selected" : ''}>Miles</option>
+            <option value="m" ${item.system.target.units === 'm' ? "selected" : ''}>Meters</option>
+            <option value="km" ${item.system.target.units === 'km' ? "selected" : ''}>Kilometers</option>
+            </select>
+          `;
+          targetElement.before(targetUnitHTML);
+        }
       }
       /*
       const templateData = {

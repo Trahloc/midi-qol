@@ -712,10 +712,14 @@ Optional flags cause a dialog to be raised when an opportunity to apply the effe
 An optional attack bonus prompts the attacker after the attack roll is made, but before the attack is adjudicated, giving the attacker the option to modify the roll. Effects last for one application unless the count flag is set.
 
 * flags.midi-qol.optional.Name.damage.all/mwak/rwak/msak/rsak	bonus to apply to damage done. 
-* flags.midi-qol.optional.Name.skill.all/fail/per/prc/item etc	bonus to apply to skill rolls
+* flags.midi-qol.optional.Name.skill.all/per/prc/item etc	bonus to apply to skill rolls
 * flags.midi-qol.optional.Name.attack.all/mwak/rwak/msak/rsak	the bonus is added after the attack roll		
-* flags.midi-qol.optional.Name.check.all/fail/str/dex/etc. the bonus is added after the ability check roll		
-* flags.midi-qol.optional.Name.save.all/fail/str/dex/etc	the bonus is added after the save roll. Requires auto fast-forward		
+* flags.midi-qol.optional.Name.check.all/str/dex/etc. the bonus is added after the ability check roll		
+* flags.midi-qol.optional.Name.save.all/str/dex/etc	the bonus is added after the save roll. Requires auto fast-forward		
+* flags.midi-qol.optional.Name.save.fail.all/str/dex etc
+* flags.midi-qol.optional.Name.check.fail.all/str/dex etc
+* flags.midi-qol.optional.Name.skill.fail.all/str/dex etc. If the actor is forced to make a saving throw from an item use the optional bonus will be activated. 
+  - e.g. flags.midi-qol.optional.Name.save.fail.dex OVERRIDE success will alow the saver to convert a failed save to a success.
 * flags.midi-qol.optional.Name.label	label to use in the dialog		
 * flags.midi-qol.optional.Name.count	how many uses the effect has (think lucky which has 3), if absent the bonus will be single use (bardic inspiration), turn for once per turn.   
 * flags.midi-qol.optional.Name.criticalDamage. If present in the effect then bonus damage will use the existing damage rolls critical damage status and roll bonus damage as critical using the game/midi critical damage settings.
