@@ -729,5 +729,14 @@
   "midi-qol.RollChecksBlind.Name": "Tous les tests de capacité des joueurs sont effectués à l'aveugle",
   "midi-qol.RollSavesBlind.Name": "Tous les jets de sauvegarde des capacités des joueurs sont effectués à l'aveugle",
   "midi-qol.RollSkillsBlind.Name": "Tous les tests de compétence des joueurs sont effectués en aveugle",
-  "midi-qol.UndoWorkflow.Hint": "Si cette option est activée, midi stockera les données d'annulation pour tous les jets d'objets. Ne convient pas pour le temps de jeu. Annulation via MidiQOL.undoMostRecentWorkflow()"
+  "midi-qol.UndoWorkflow.Hint": "Si cette option est activée, midi stockera les données d'annulation pour tous les jets d'objets. Ne convient pas pour le temps de jeu. Annulation via MidiQOL.undoMostRecentWorkflow()",
+  "midi-qol.UndoWorkflow": {
+    "actorName": "Nom de l'acteur",
+    "itemName": "Nom de l'objet",
+    "targetName": "Nom de la cible",
+    "title": "Annuler le flux de travail",
+    "undoFirstWorkflow": "Annuler le flux de travail le plus important/le plus récent de la liste",
+    "GMOnly": "Seul le GM peut annuler les flux de travail",
+    "removeFirstWorkflow": "Supprimer le flux de travail le plus récent de la liste (ATTENTION)"
+  }
 }
