@@ -1,13 +1,11 @@
-import { log, warn, debug, i18n, error, getCanvas, i18nFormat } from "../midi-qol.js";
-import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, preItemUseHook, preDisplayCardHook, preItemUsageConsumptionHook, useItemHook, displayCardHook, wrappedDisplayCard } from "./itemhandling.js";
-import { configSettings, autoFastForwardAbilityRolls, criticalDamage, checkRule } from "./settings.js";
-import { bonusDialog, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoRollAttack, getAutoRollDamage, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getCriticalDamage, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, hasUsedAction, hasUsedBonusAction, hasUsedReaction, isAutoFastAttack, isAutoFastDamage, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
+import { log, debug, i18n, error, i18nFormat } from "../midi-qol.js";
+import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
+import { configSettings, autoFastForwardAbilityRolls, checkRule } from "./settings.js";
+import { bonusDialog, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getCriticalDamage, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { socketlibSocket } from "./GMAction.js";
-import { data } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/module.mjs";
-import { getCommonBasePathOfArray } from "gulp-typescript/release/utils";
 let libWrapper;
 
 var d20Roll;
@@ -76,8 +74,7 @@ export function collectBonusFlags(actor, category, detail): any[] {
         if (detail.startsWith("fail")) {
           const [_, type] = detail.split(".");
           return checkFlag.fail?.[type];
-        } else 
-        if (!(typeof checkFlag === "string" || checkFlag[detail] || checkFlag["all"]) !== undefined) return false;
+        } else if (!(typeof checkFlag === "string" || checkFlag[detail] || checkFlag["all"] !== undefined)) return false;
         if (actor.flags["midi-qol"].optional[flag].count === undefined) return true;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
       })
@@ -109,12 +106,12 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       let systemString = game.system.id.toUpperCase();
       //@ts-expect-error
       if (isNewerVersion(game.system.version, "2.1.5")) {
-        if (detail.startsWith("fail")) title = "Fialed Save Check";
+        if (detail.startsWith("fail")) title = "Failed Save Check";
         else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
         else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
         else if (category.startsWith("skill)")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail].label ?? "" });
       } else {
-        if (detail.startsWith("fail")) title = "Fialed Save Check";
+        if (detail.startsWith("fail")) title = "Failed Save Check";
         else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
         else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail] ?? "" });
         else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail] ?? "" });
@@ -189,7 +186,7 @@ async function doRollSkill(wrapped, ...args) {
     result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
   }
   let rollMode: string = game.settings.get("core", "rollMode");
-  if (chatMessage) displayDSNForRoll(result, "skill", rollMode);
+  if (chatMessage !== false) await displayDSNForRoll(result, "skill", rollMode);
   if (!options.simulate) {
     result = await bonusCheck(this, result, "skill", skillId);
     if (result.options.rollMode) rollMode = result.options.rollMode;
@@ -200,7 +197,6 @@ async function doRollSkill(wrapped, ...args) {
       rollMode = "blindroll";
       game.settings.set("core", "rollMode", "blindroll");
     }
-    await displayDSNForRoll(result, "skill", rollMode);
     const args = { "speaker": getSpeaker(this), flavor };
     setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
     if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
@@ -344,6 +340,7 @@ function configureDamage(wrapped) {
   this._formula = this.constructor.getFormula(this.terms);
   this.options.configured = true;
 }
+
 async function doAbilityRoll(wrapped, rollType: string, ...args) {
   let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false }] = args;
   const rollTarget = options.targetValue;
@@ -406,9 +403,11 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
   }
 
   if (chatMessage !== false && result) {
-    const args: any = { "speaker": getSpeaker(this), flavor };
-    setProperty(args, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
-    args.template = "modules/midi-qol/templates/roll.html";
+    const messageData: any = { "speaker": getSpeaker(this), flavor };
+    setProperty(messageData, "flags", options.flags ?? {} )
+    setProperty(messageData, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
+    setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
+    messageData.template = "modules/midi-qol/templates/roll.html";
     if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
       case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
       case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
@@ -417,7 +416,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     if (rollMode === "blindroll") {
       game.settings.set("core", "rollMode", rollMode);
     }
-    await result.toMessage(args, { rollMode });
+    await result.toMessage(messageData, { rollMode });
     game.settings.set("core", "rollMode", saveRollMode);
   }
   let success: boolean | undefined = undefined;
@@ -1252,11 +1251,8 @@ export async function rollToolCheck(wrapped, options: any = {}) {
 export function patchLMRTFY() {
   if (installedModules.get("lmrtfy")) {
     log("Patching lmrtfy")
-    // libWrapper.register("midi-qol", "LMRTFYRoller.prototype._makeRoll", _makeRoll, "OVERRIDE");
+    libWrapper.register("midi-qol", "LMRTFYRoller.prototype._makeRoll", LMRTFYMakeRoll, "OVERRIDE");
     libWrapper.register("midi-qol", "LMRTFY.onMessage", LMRTFYOnMessage, "OVERRIDE");
-
-    // the _tagMessage has been updated in LMRTFY libWrapper.register("midi-qol", "LMRTFYRoller.prototype._tagMessage", _tagMessage, "OVERRIDE");
-    // libWrapper.register("midi-qol", "ChatMessage.create", filterChatMessageCreate, "WRAPPER")
   }
 }
 
@@ -1289,6 +1285,28 @@ function LMRTFYOnMessage(data: any) {
   //@ts-ignore
   new LMRTFYRoller(actors, data).render(true);
 }
+
+async function LMRTFYMakeRoll(event, rollMethod, failRoll, ...args) {
+  let options = this._getRollOptions(event, failRoll);                
+  // save the current roll mode to reset it after this roll
+  const rollMode = game.settings.get("core", "rollMode");
+  game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
+  for (let actor of this.actors) {
+      Hooks.once("preCreateChatMessage", this._tagMessage.bind(this));
+
+      // system specific roll handling
+      switch (game.system.id) {
+          default: {
+            setProperty(options, "flags.lmrtfy", {"message": this.data.message, "data": this.data.attach})
+            actor[rollMethod].call(actor, ...args, options);
+          }
+      }
+  }
+  game.settings.set("core", "rollMode", rollMode);
+  this._disableButtons(event);
+  this._checkClose();
+}
+
 function filterChatMessageCreate(wrapped, data: any, context: any) {
   if (!(data instanceof Array)) data = [data]
   for (let messageData of data) {

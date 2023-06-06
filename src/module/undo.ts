@@ -29,7 +29,7 @@ export async function saveUndoData(workflow: Workflow): Promise<boolean> {
   workflow.undoData.itemName = workflow.item?.name;
   workflow.undoData.itemUuid = workflow.item?.uuid;
   workflow.undoData.userName = game.user?.name;
-  workflow.undoData.tokendocUuid = workflow.token.uuid ?? workflow.token.document.uuid;
+  workflow.undoData.tokendocUuid = workflow.token?.uuid ?? workflow.token?.document.uuid;
   workflow.undoData.actorUuid = workflow.actor?.uuid;
   workflow.undoData.actorName = workflow.actor?.name;
   workflow.undoData.chatCardUuids = [];

@@ -408,17 +408,6 @@ export function initHooks() {
           targetElement.before(targetUnitHTML);
         }
       }
-      /*
-      const templateData = {
-         data: app.object,
-         //@ts-ignore
-         config
-      }
-      
-      renderTemplate("modules/midi-qol/templates/midiProperties.html", templateData).then(template => {
-        element.append(template)
-      })
-      */
     }
     activateMacroListeners(app, html);
   })

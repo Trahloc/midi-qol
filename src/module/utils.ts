@@ -1471,7 +1471,8 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
     // TODO magic items fetch the item call - see when v10 supported
     theItem = new CONFIG.Item.documentClass(await item.item.data(), { parent: item.actor })
   }
-
+  // delete any existing workflow - complete item use always is fresh.
+  Workflow.removeWorkflow(item.uuid);
   if (game.user?.isGM || !options.checkGMStatus) {
     return new Promise((resolve) => {
       let saveTargets = Array.from(game.user?.targets ?? []).map(t => { return t.id });
@@ -2029,8 +2030,10 @@ export function getAutoRollDamage(workflow: Workflow | undefined = undefined): s
 }
 
 export function getAutoRollAttack(workflow: Workflow | undefined = undefined): boolean {
-  if (workflow?.workflowOptions?.autoRollAttack !== undefined)
+  if (workflow?.workflowOptions?.autoRollAttack !== undefined) {
     return workflow.workflowOptions.autoRollAttack;
+  }
+
   return game.user?.isGM ? configSettings.gmAutoAttack : configSettings.autoRollAttack;
 }
 

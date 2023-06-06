@@ -367,9 +367,9 @@ Hooks.once('ready', function () {
     LMRTFY.saves = abbr;
     //@ts-expect-error
     LMRTFY.abilities = abbr;
+    //@ts-expect-error
+    LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
   }
-
-
 });
 
 import { setupMidiTests } from './module/tests/setupTest.js';

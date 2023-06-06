@@ -1,3 +1,14 @@
+### 10.0.48
+* Monkey patch of lmrtfy causing lmrtfy rolls to be ignored.
+* Fix for optional.name not rolling for saves/checks.
+* Pass additional damage information to DAE macro.execute and DAE macro.ItemMacro effects. 
+  - Arguments @damageComponents.damage type are supported, e.g. @damageComponents.necrotic.
+  - Correct @damage to be all of the damage done in the attack (base, other and bonus damage).
+  - Added @damageApplied which is the amount of damage applied to the token after reisitances etc.
+* Changed missing module messages to be flagged as optional module missing.
+* Fix for skill rolls dice so nice display being out of synch with the display.
+* Fix for completeItemUse ignoring autoRollAtttack, fastForwardAttack, autoRollDamage, fastForwardDamage
+
 ### 10.0.47
 * Various fixes for the units field that was reinstated in 10.0.46
 * Fix for deleting then re-adding the same onUse macro

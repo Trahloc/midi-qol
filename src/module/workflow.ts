@@ -159,7 +159,7 @@ export class Workflow {
   public processAttackEventOptions() { }
 
   get shouldRollDamage(): boolean {
-    // if ((this.itemRollToggle && getAutoRollDamage()) || !getAutoRollDamage())  return false;
+    // if ((this.itemRollToggle && getAutoRollDamage(this)) || !getAutoRollDamage(this))  return false;
     if (this.systemCard) return false;
     const normalRoll = getAutoRollDamage(this) === "always"
       || (getAutoRollDamage(this) === "saveOnly" && this.item.hasSave && !this.item.hasAttack)
@@ -218,8 +218,6 @@ export class Workflow {
     this.event = options?.event;
     this.capsLock = options?.event?.getModifierState && options?.event.getModifierState("CapsLock");
     this.pressedKeys = options?.pressedKeys;
-    if (options.pressedKeys) this.rollOptions = mapSpeedKeys(options.pressedKeys, "attack");
-    this.rollOptions = mergeObject(this.rollOptions ?? defaultRollOptions, { autoRollAttack: getAutoRollAttack() || options?.pressedKeys?.rollToggle, autoRollDamage: getAutoRollDamage() || options?.pressedKeys?.rollToggle }, { overwrite: true });
     this.itemRollToggle = options?.pressedKeys?.rollToggle ?? false;
     this.noOptionalRules = options?.noOptionalRules ?? false;
     this.attackRollCount = 0;
@@ -250,6 +248,8 @@ export class Workflow {
     this.damageRolled = false;
     this.flagTags = undefined;
     this.workflowOptions = options?.workflowOptions ?? {};
+    if (options.pressedKeys) this.rollOptions = mapSpeedKeys(options.pressedKeys, "attack");
+    this.rollOptions = mergeObject(this.rollOptions ?? defaultRollOptions, { autoRollAttack: getAutoRollAttack(this) || options?.pressedKeys?.rollToggle, autoRollDamage: getAutoRollDamage() || options?.pressedKeys?.rollToggle }, { overwrite: true });
     this.attackAdvAttribution = new Set();
     this.advReminderAttackAdvAttribution = new Set();
     this.systemString = game.system.id.toUpperCase();
@@ -430,7 +430,7 @@ export class Workflow {
         if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preambleComplete"), "OnUse", "preambleComplete");
         }
-        if (!getAutoRollAttack() && this.item?.hasAttack) {
+        if (!getAutoRollAttack(this) && this.item?.hasAttack) {
           const rollMode = game.settings.get("core", "rollMode");
           this.whisperAttackCard = configSettings.autoCheckHit === "whisper" || rollMode === "blindroll" || rollMode === "gmroll";
           await this.displayTargets(this.whisperAttackCard);
@@ -465,10 +465,10 @@ export class Workflow {
         this.autoRollAttack = this.rollOptions.advantage || this.rollOptions.disadvantage || this.rollOptions.autoRollAttack;
         //        if (this.rollOptions?.fastForwardSet) this.autoRollAttack = true;
         //        if (this.rollOptions.rollToggle) this.autoRollAttack = !this.autoRollAttack;
-        // if (!this.autoRollAttack) this.autoRollAttack = (getAutoRollAttack() && !this.rollOptions.rollToggle) || (!getAutoRollAttack() && this.rollOptions.rollToggle)
+        // if (!this.autoRollAttack) this.autoRollAttack = (getAutoRollAttack(this) && !this.rollOptions.rollToggle) || (!getAutoRollAttack(this) && this.rollOptions.rollToggle)
         if (!this.autoRollAttack) {
           const chatMessage: ChatMessage | undefined = game.messages?.get(this.itemCardId ?? "");
-          const isFastRoll = this.rollOptions.fastForwarAttack ?? isAutoFastAttack();
+          const isFastRoll = this.rollOptions.fastForwarAttack ?? isAutoFastAttack(this);
           if (chatMessage && (!this.autoRollAttack || !isFastRoll)) {
             // provide a hint as to the type of roll expected.
             //@ts-ignore .content v10
@@ -557,7 +557,7 @@ export class Workflow {
         }
 
         if (
-          (["onHit"].includes(getAutoRollDamage()) && this.hitTargetsEC.size === 0 && this.hitTargets.size === 0 && this.targets.size !== 0)
+          (["onHit"].includes(getAutoRollDamage(this)) && this.hitTargetsEC.size === 0 && this.hitTargets.size === 0 && this.targets.size !== 0)
           // This actually causes an issue when the attack missed but GM might want to turn it into a hit.
           // || (configSettings.autoCheckHit !== "none" && this.hitTargets.size === 0 && this.hitTargetsEC.size === 0 && this.targets.size !== 0)
         ) {
@@ -837,18 +837,31 @@ export class Workflow {
               anyActivationTrue = anyActivationTrue || applyCondition;
               if (applyCondition || this.forceApplyEffects) {
                 if (hasItemTargetEffects && (!ceTargetEffect || ["none", "both", "itempri"].includes(useCE))) {
+                  let damageComponents = {};
+                  let damageListItem = this.damageList?.find(entry => entry.tokenUuid === (token.uuid ?? token.document.uuid));
+                  if (damageListItem) {
+                    for (let dde of [...damageListItem.damageDetail[0], ...damageListItem.damageDetail[1]]) {
+                      if (!dde?.damage) continue;
+                      damageComponents[dde.type] = dde.damage + (damageComponents[dde.type] ?? 0);
+                    };
+                  }
                   await globalThis.DAE.doEffects(theItem, true, [token], {
-                    toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
-                    whisper: false,
-                    spellLevel: this.itemLevel,
-                    damageTotal: this.damageTotal,
+                    damageTotal: damageListItem?.totalDamage,
                     critical: this.isCritical,
                     fumble: this.isFumble,
                     itemCardId: this.itemCardId,
-                    tokenId: this.tokenId,
-                    workflowOptions: this.workflowOptions,
+                    metaData,
                     selfEffects: "none",
-                    metaData
+                    spellLevel: (this.item.level  ?? 0),
+                    toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
+                    tokenId: this.tokenId,
+                    whisper: false,
+                    workflowOptions: this.workflowOptions,
+                    context: {
+                      damageComponents,
+                      damageApplied: damageListItem?.appliedDamage,
+                      damage: damageListItem?.totalDamage  // this is curently ignored see damageTotal above
+                    }
                   })
                 }
 
@@ -893,7 +906,20 @@ export class Workflow {
           }
 
           if (selfEffectsToApply !== "none" && hasItemSelfEffects && (!ceSelfEffectToApply || ["none", "both", "itempri"].includes(useCE))) {
-            await globalThis.DAE.doEffects(theItem, true, [tokenForActor(this.actor)], { toggleEffect: this.item?.flags.midiProperties?.toggleEffect, whisper: false, spellLevel: this.itemLevel, damageTotal: this.damageTotal, critical: this.isCritical, fumble: this.isFumble, itemCardId: this.itemCardId, tokenId: this.tokenId, workflowOptions: this.workflowOptions, selfEffects: selfEffectsToApply, metaData })
+            await globalThis.DAE.doEffects(theItem, true, [tokenForActor(this.actor)], 
+              { 
+                toggleEffect: this.item?.flags.midiProperties?.toggleEffect, 
+                whisper: false, 
+                spellLevel: this.itemLevel, 
+                critical: this.isCritical, 
+                fumble: this.isFumble, 
+                itemCardId: this.itemCardId, 
+                tokenId: this.tokenId, 
+                workflowOptions: this.workflowOptions, 
+                selfEffects: selfEffectsToApply, 
+                metaData,
+                damageTotal: (this.damageTotal ?? 0) + (this.otherDamageTotal ?? 0) + (this.bonusDamageTotal ?? 0)
+              })
           }
           if (selfEffectsToApply !== "none" && ceSelfEffectToApply && theItem && this.actor) {
             if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemSelfEffects)) {
@@ -1153,7 +1179,7 @@ export class Workflow {
       this.rollOptions.fastForward = true;
       this.rollOptions.autoRollAttack = true;
       this.rollOptions.fastForwardAttack = true;
-      this.rollOptions.autoRollDamage = true;
+      this.rollOptions.autoRollDamage = "always";
       this.rollOptions.fastForwardDamage = true;
     }
   }
@@ -2797,8 +2823,11 @@ export class Workflow {
     const isLMRTFY = message.flags?.lmrtfy?.data && message.rolls;
     const ddbglFlags = message.flags && message.flags["ddb-game-log"];
     const isDDBGL = ddbglFlags?.cls === "save" && !ddbglFlags?.pending;
-    if (!isLMRTFY && !isDDBGL && message.flags?.dnd5e?.roll?.type !== "save") return true;
+    const midiFlags = message.flags && message.flags["midi-qol"];
+
+    if (!midiFlags?.lmrtfy?.requestId && !isLMRTFY && !isDDBGL && message.flags?.dnd5e?.roll?.type !== "save") return true;
     let requestId = isLMRTFY ? message.flags.lmrtfy.data.requestId : message?.speaker?.token;
+    if (midiFlags?.lmrtfy.requestId) requestId = midiFlags.lmrtfy.requestId;
     if (!requestId && isDDBGL) requestId = message?.speaker?.actor;
     if (debugEnabled > 0) warn("processSaveRoll", isLMRTFY, requestId, this.saveRequests)
     if (!requestId) return true;

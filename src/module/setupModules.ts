@@ -11,7 +11,7 @@ const modules = {
   "df-templates": "1.0.0",
   "dfreds-convenient-effects": "4.1.0",
   "dice-so-nice": "4.1.1", 
-  "itemacro": "1.0.0", 
+  "itemacro": "0.0.0", 
   "levels": "3.0.6", 
   "levelsautocover": "1.4",
   "levelsvolumetrictemplates": "0.0.0",
@@ -41,7 +41,7 @@ export let setupModules = () => {
         //@ts-ignore game.module.version
         error(`midi-qol requires ${name} to be of version ${modules[name]} or later, but it is version ${game.modules.get(name)?.version}`);
         if (name === "dfreds-convenient-effects") ui.notifications?.warn(`You must upgrade convenient effects t0 4.0.2 or later`, {permanent: true});
-      } else console.warn(`midi-qol | module ${name} not active - some features disabled`)
+      } else console.warn(`midi-qol | optional module ${name} not active - some features disabled`)
     }
   }
   if (debugEnabled > 0) {

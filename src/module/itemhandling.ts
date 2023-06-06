@@ -2,7 +2,7 @@ import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEna
 import { BetterRollsWorkflow, DummyWorkflow, TrapWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { configSettings, enableWorkflow, checkRule, checkMechanic } from "./settings.js";
 import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getLateTargeting, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageList, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll } from "./utils.js";
-import { dice3dEnabled, installedModules } from "./setupModules.js";
+import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { LateTargetingDialog } from "./apps/LateTargeting.js";
 import { defaultRollOptions, removeConcentration } from "./patching.js";
@@ -14,7 +14,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
   let tokenToUse;
   //  if (configSettings.mergeCard && (configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true) && this.hasAttack && options?.singleTarget !== true && game?.user?.targets) {
-  if ((configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true)
+  if (((configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true) && options.workflowOptions?.attackPerTarget !== false)
     && this.hasAttack
     && options?.singleTarget !== true
     && game?.user?.targets
@@ -47,7 +47,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     configureDialog: true,
     createMessage: true,
     workflowOptions: { lateTargeting: undefined, notReaction: false }
-  }, options);
+  }, options, {insertKeys: true, insertValues: true, overWrite: true});
   const itemRollStart = Date.now()
   let systemCard = options?.systemCard ?? false;
   let createWorkflow = options?.createWorkflow ?? true;
@@ -55,7 +55,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   if (!enableWorkflow || createWorkflow === false) {
     return await wrapped(config, options);
   }
-
   if (!options.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor, this, null)) {
     ui.notifications?.warn(`${this.actor.name} is incapacitated`)
     return;
@@ -344,7 +343,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 }
 
 // export async function doAttackRoll(wrapped, options = { event: { shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }, versatile: false, resetAdvantage: false, chatMessage: undefined, createWorkflow: true, fastForward: false, advantage: false, disadvantage: false, dialogOptions: {}, isDummy: false }) {
-
+// workflow.advantage/disadvantage/fastforwrd set by settings and conditions
+// workflow.rollOptions advantage/disadvantage/fastforward set by keyboard moeration
+// workflow.workflowOptions set by options passed to do item.use/item.attackRoll
 export async function doAttackRoll(wrapped, options: any = { versatile: false, resetAdvantage: false, chatMessage: undefined, createWorkflow: true, fastForward: false, advantage: false, disadvantage: false, dialogOptions: {}, isDummy: false }) {
   let workflow: Workflow | undefined = options.isDummy ? undefined : Workflow.getWorkflow(this.uuid);
   // if rerolling the attack re-record the rollToggle key.
@@ -374,18 +375,16 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     if (this.system.target?.type === self) {
       workflow.targets = getSelfTargetSet(this.actor)
     } else if (game.user?.targets?.size ?? 0 > 0) workflow.targets = validTargetTokens(game.user?.targets);
-    if (workflow?.attackRoll && workflow.currentState === WORKFLOWSTATES.ROLLFINISHED) { // we are re-rolling the attack.
+
+    if (workflow?.attackRoll && workflow.currentState === WORKFLOWSTATES.ROLLFINISHED) { 
+      // we are re-rolling the attack.
       workflow.damageRoll = undefined;
       await Workflow.removeAttackDamageButtons(this.id);
       if (workflow.damageRollCount > 0) { // re-rolling damage counts as new damage
-        //workflow.itemCardId = (await showItemCard.bind(this)(false, workflow, false, true)).id;
         const itemCard = await this.displayCard(mergeObject(options, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
         workflow.itemCardId = itemCard.id;
       }
     }
-  } else if (workflow.workflowType === "BetterRollsWorkflow") {
-    workflow.rollOptions = options;
-    workflow.rollOptions.fastForwardAttack = options.fastForward;
   }
 
   if (options.resetAdvantage) {
@@ -393,24 +392,30 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     workflow.disadvantage = false;
     workflow.rollOptions = deepClone(defaultRollOptions);
   }
-  for (let targetToken of workflow.targets) {
-    //@ts-expect-error targetToken Type
-    const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this.item, workflow, workflowOptions: mergeObject(workflow.workflowOptions, { sourceActorUuid: this.actor.uuid, sourceItemUuid: this.item?.uuid }, { inplace: false, overwrite: true }) });
-    if (result?.name) {
-      targetToken.actor?.prepareData(); // allow for any items applied to the actor - like shield spell
-    }
-  }
-  // workflow.processAttackEventOptions();
-  await workflow.checkAttackAdvantage();
-
   if (workflow.workflowType === "TrapWorkflow") workflow.rollOptions.fastForward = true;
+
+  const promises: Promise<any>[] = [];
+  for (let targetToken of workflow.targets) {
+    promises.push(new Promise(async resolve => {
+      //@ts-expect-error targetToken Type
+      const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this.item, workflow, workflowOptions: mergeObject(workflow.workflowOptions, { sourceActorUuid: this.actor.uuid, sourceItemUuid: this.item?.uuid }, { inplace: false, overwrite: true }) });
+      if (result?.name) {
+        targetToken.actor?.prepareData(); // allow for any items applied to the actor - like shield spell
+      }
+      resolve(result);
+    }));
+  }
+  await Promise.allSettled(promises);
+
+  // Compute advantage
+  await workflow.checkAttackAdvantage();
   if (await asyncHooksCall("midi-qol.preAttackRoll", workflow) === false || await asyncHooksCall(`midi-qol.preAttackRoll.${this.uuid}`, workflow) === false) {
     console.warn("midi-qol | attack roll blocked by preAttackRoll hook");
     return;
   }
 
-  //@ts-ignore
-  if (game.user.isGM && workflow.useActiveDefence) {
+  // Active defence resolves by triggering saving throws and returns early
+  if (game.user?.isGM && workflow.useActiveDefence) {
     let result: Roll = await wrapped(mergeObject(options, {
       advantage: false,
       disadvantage: workflow.rollOptions.disadvantage,
@@ -422,11 +427,12 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     }, { overwrite: true, insertKeys: true, insertValues: true }));
     return workflow.activeDefence(this, result);
   }
+
+  // Advantage is true if any of the sources of advantage are true;
   let advantage = options.advantage || workflow.options.advantage || workflow?.advantage || workflow?.rollOptions.advantage || workflow?.workflowOptions.advantage || workflow.flankingAdvantage;
-  // if (options.advantage)
-  // workflow.attackAdvAttribution.add(`options.advantage`);
+
+  // Attribute advantaage
   if (workflow.rollOptions.advantage) {
-    // workflow.attackAdvAttribution.add(`ADV:rollOptions`);
     workflow.attackAdvAttribution.add(`ADV:keyPress`);
     workflow.advReminderAttackAdvAttribution.add(`ADV:keyPress`);
   }
@@ -436,10 +442,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
   }
 
   let disadvantage = options.disadvantage || workflow.options.disadvantage || workflow?.disadvantage || workflow?.workflowOptions.disadvantage || workflow.rollOptions.disadvantage;
-  // if (options.disadvantage)
-  //  workflow.attackAdvAttribution.add(`options.disadvantage`);
   if (workflow.rollOptions.disadvantage) {
-    // workflow.attackAdvAttribution.add(`DIS:rollOptions`);
     workflow.attackAdvAttribution.add(`DIS:keyPress`);
     workflow.advReminderAttackAdvAttribution.add(`DIS:keyPress`);
   }
@@ -450,24 +453,30 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     advantage = false;
     disadvantage = false;
   }
+
   const wrappedRollStart = Date.now();
   workflow.attackRollCount += 1;
   if (workflow.attackRollCount > 1) workflow.damageRollCount = 0;
+
+  // create an options object to pass to the roll.
+  // advantage/disadvantage are already set (in options)
   const wrappedOptions = mergeObject(options, {
     chatMessage: (["TrapWorkflow", "Workflow"].includes(workflow.workflowType)) ? false : options.chatMessage,
-    fastForward: workflow.rollOptions.fastForwardAttack || options.fastForward,
+    fastForward: workflow.workflowOptions.fastForwardAttack ?? workflow.rollOptions.fastForwardAttack ?? options.fastForward,
     messageData: {
       speaker: getSpeaker(this.actor)
     }
   },
     { insertKeys: true, overwrite: true });
-  if (advantage) wrappedOptions.advantage = true;
-  if (disadvantage) wrappedOptions.disadvantage = true;
+  if (advantage) wrappedOptions.advantage = true; // advantage passed to the roll takes precedence
+  if (disadvantage) wrappedOptions.disadvantage = true; // disadvantage passed to the roll takes precedence
+
   // Setup labels for advantage reminder
   const advantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("ADV:")).map(s =>s .replace("ADV:", ""));;
   if (advantageLabels.length > 0) setProperty(wrappedOptions, "dialogOptions.adv-reminder.advantageLabels", advantageLabels);
   const disadvantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("DIS:")).map(s => s.replace("DIS:", ""));
   if (disadvantageLabels.length > 0) setProperty(wrappedOptions, "dialogOptions.adv-reminder.disadvantageLabels", disadvantageLabels);
+
   // It seems that sometimes the option is true/false but when passed to the roll the critical threshold needs to be a number
   if (wrappedOptions.critical === true || wrappedOptions.critical === false)
     wrappedOptions.critical = this.getCriticalThreshold();
@@ -479,16 +488,10 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     wrappedOptions,
     // dialogOptions: { default: defaultOption } TODO Enable this when supported in core
   );
-  workflow.attackExpression = "d20+".concat(this.getAttackToHit().parts.join("+"));
-  if (debugCallTiming) log(`wrapped item.rollAttack():  elapsed ${Date.now() - wrappedRollStart}ms`);
 
   if (!result) return result;
-  console.warn("testing: advantage/disadvantage", workflow.attackAdvAttribution);
   result = Roll.fromJSON(JSON.stringify(result.toJSON()))
-  if (workflow.workflowType === "BetterRollsWorkflow") {
-    // we are rolling this for better rolls
-    return result;
-  }
+
   const maxflags = getProperty(workflow.actor.flags, "midi-qol.max") ?? {};
   if ((maxflags.attack && (maxflags.attack.all || maxflags.attack[this.system.actionType])) ?? false)
     result = await result.reroll({ maximize: true });
@@ -496,6 +499,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
   if ((minflags.attack && (minflags.attack.all || minflags.attack[this.system.actionType])) ?? false)
     result = await result.reroll({ minimize: true })
   await workflow.setAttackRoll(result);
+
   workflow.ammo = this._ammo;
 
   await displayDSNForRoll(result, "attackRollD20");
@@ -515,10 +519,12 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
   if (workflow.targets?.size === 0) {// no targets recorded when we started the roll grab them now
     workflow.targets = validTargetTokens(game.user?.targets);
   }
+
   if (!result) { // attack roll failed.
     error("itemhandling.rollAttack failed")
     return;
   }
+  
   if (["formulaadv", "adv"].includes(configSettings.rollAlternate))
     workflow.attackRollHTML = addAdvAttribution(workflow.attackRollHTML, workflow.attackAdvAttribution)
   if (debugCallTiming) log(`final item.rollAttack():  elapsed ${Date.now() - attackRollStart}ms`);
@@ -532,13 +538,10 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
   let workflow = Workflow.getWorkflow(this.uuid);
 
   if (workflow && systemCard) workflow.systemCard = true;
-  if (workflow?.workflowType === "BetterRollsWorkflow") {
-    workflow.rollOptions = options;
-    //@ts-ignore .fastForward
-    if (options.fastForward) workflow.rollOptions.fastForwardDamage = options.fastForward;
-  } else if (workflow && !workflow.shouldRollDamage) // if we did not auto roll then process any keys
+  if (workflow && !workflow.shouldRollDamage) // if we did not auto roll then process any keys
     workflow.rollOptions = mergeObject(workflow.rollOptions, mapSpeedKeys(pressedKeys, "damage", workflow.rollOptions?.rollToggle), { insertKeys: true, insertValues: true, overwrite: true });
-  //@ts-ignore
+  
+  //@ts-expect-error
   if (CONFIG.debug.keybindings) {
     log("itemhandling: workflow.rolloptions", workflow.rollOption);
     log("item handling newOptions", mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow.rollOptions?.rollToggle));
@@ -551,6 +554,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
     if (!workflow && debugEnabled > 0) warn("Roll Damage: No workflow for item ", this.name);
     return await wrapped({ event, versatile, spellLevel, powerLevel, options })
   }
+
   const midiFlags = workflow.actor.flags["midi-qol"]
   if (workflow.currentState !== WORKFLOWSTATES.WAITFORDAMAGEROLL && workflow.noAutoAttack) {
     // allow damage roll to go ahead if it's an ordinary roll
@@ -591,6 +595,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
   };
 
   workflow.processDamageEventOptions();
+
   // Allow overrides form the caller
   if (spellLevel) workflow.rollOptions.spellLevel = spellLevel;
   if (powerLevel) workflow.rollOptions.spellLevel = powerLevel;
@@ -608,12 +613,12 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
   let result2: Roll;
   if (!workflow.rollOptions.other) {
     const damageRollOptions = mergeObject(options, {
-      fastForward: workflow.rollOptions.fastForwardDamage || workflow.workflowOptions.autoFastDamage,
+      fastForward:  workflow.workflowOptions.fastForwardDamage ?? workflow.rollOptions.fastForwardDamage ,
       chatMessage: false
     },
       { overwrite: true, insertKeys: true, insertValues: true });
     const damageRollData = {
-      critical: workflow.rollOptions.critical || workflow.isCritical || workflow.workflowOptions?.critical,
+      critical: workflow.workflowOptions?.critical ?? workflow.rollOptions.critical ?? workflow.isCritical,
       spellLevel: workflow.rollOptions.spellLevel,
       powerLevel: workflow.rollOptions.spellLevel,
       versatile: workflow.rollOptions.versatile,
@@ -877,7 +882,7 @@ export async function wrappedDisplayCard(wrapped, options) {
   let token = tokenForActor(this.actor);
 
   let needAttackButton = !getRemoveAttackButtons() ||
-    (!workflow.someAutoRollEventKeySet() && !getAutoRollAttack() && !workflow.rollOptions.autoRollAttack);
+    (!workflow.someAutoRollEventKeySet() && !getAutoRollAttack(workflow) && !workflow.rollOptions.autoRollAttack);
   const needDamagebutton = itemHasDamage(this) && (
     (["none", "saveOnly"].includes(getAutoRollDamage(workflow)) || workflow.rollOptions?.rollToggle)
     || !getRemoveDamageButtons()
