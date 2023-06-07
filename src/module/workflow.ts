@@ -840,7 +840,7 @@ export class Workflow {
                   let damageComponents = {};
                   let damageListItem = this.damageList?.find(entry => entry.tokenUuid === (token.uuid ?? token.document.uuid));
                   if (damageListItem) {
-                    for (let dde of [...damageListItem.damageDetail[0], ...damageListItem.damageDetail[1]]) {
+                    for (let dde of [...(damageListItem.damageDetail[0] ?? []), ...(damageListItem.damageDetail[1] ?? [])]) {
                       if (!dde?.damage) continue;
                       damageComponents[dde.type] = dde.damage + (damageComponents[dde.type] ?? 0);
                     };

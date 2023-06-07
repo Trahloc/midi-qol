@@ -1,3 +1,6 @@
+### 10.0.48.1
+* Fix for occasional damageListItem.damageDetail[1] is not iterable.
+
 ### 10.0.48
 * Monkey patch of lmrtfy causing lmrtfy rolls to be ignored.
 * Fix for optional.name not rolling for saves/checks.
