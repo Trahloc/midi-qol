@@ -1346,7 +1346,7 @@ export class Workflow {
     this.disadvantage = this.disadvantage || grantsDisadvantage;
   }
 
-  async triggerTargetMacros(triggerList: string[], targets = this.targets) {
+  async triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets) {
     for (let target of targets) {
       const actorOnUseMacros = getProperty(target.actor ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
 
@@ -1411,7 +1411,6 @@ export class Workflow {
       }
       if (this.saveItem?.hasSave && triggerList.includes("isSaveFailure") && !this.saves.has(target)) {
         await this.callMacros(this.item,
-
           actorOnUseMacros?.getMacros("isSaveFailure"),
           "TargetOnUse",
           "isSaveFailure",
@@ -2538,7 +2537,6 @@ export class Workflow {
     }
     for (let target of allHitTargets) {
       if (!target.actor) continue; // these were skipped when doing the rolls so they can be skipped now
-      if (configSettings.allowUseMacro) await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], this.hitTargets);
       if (!results[i]) {
         error("Token ", target, "could not roll save/check assuming 1");
         results[i] = await new Roll("1").roll({ async: true });
@@ -2677,6 +2675,7 @@ export class Workflow {
         this.saves.add(target);
         this.failedSaves.delete(target);
       }
+      if (configSettings.allowUseMacro) await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], new Set([target]));
 
       if (game.user?.isGM) log(`Ability save/check: ${target.name} rolled ${rollTotal} vs ${rollAbility} DC ${rollDC}`);
       let saveString = i18n(saved ? "midi-qol.save-success" : "midi-qol.save-failure");

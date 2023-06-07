@@ -3583,8 +3583,8 @@ export async function setReactionUsed(actor: Actor) {
   if (reactionEffect) {
     //@ts-expect-error
     const effectInterface = game.dfreds.effectInterface;
-    await tempCEaddEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
-    // await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
+    // await tempCEaddEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
+    await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
 
     //@ts-ignore
     // await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), uuid: actor.uuid });

@@ -1,3 +1,8 @@
+## 10.0.48.2
+* Fix for critical rolls not working
+* Fix for token macros isSave, isSaveSuccess and isSaveFail
+* Fix for concentration being removed on template removal even if the item placed no template.
+
 ### 10.0.48.1
 * Fix for occasional damageListItem.damageDetail[1] is not iterable.
 

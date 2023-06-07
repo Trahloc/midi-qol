@@ -265,13 +265,6 @@ Hooks.once('ready', function () {
       type: Boolean
     };
 
-    //@ts-expect-error
-    CONFIG.DND5E.areaTargetTypes.selfRadius = { label: "Self Radius", template: null };
-    Hooks.on("dnd5e.preItemUse", (item, config, options) => {
-      if (item?.system.target?.type === "selfRadius") {
-        config.createMeasuredTemplate = false;
-      }
-    })
     if (game.user?.isGM) {
       const instanceId = game.settings.get("midi-qol", "instanceId");
       //@ts-expect-error instanceId

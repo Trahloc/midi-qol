@@ -1195,15 +1195,13 @@ export async function preDeleteTemplate(templateDocument, options, user) {
     const actor = MQfromUuid(uuid)?.actor;
     if (!(actor instanceof CONFIG.Actor.documentClass)) return true;
     const concentrationData = getProperty(actor, "flags.midi-qol.concentration-data");
-    if (!concentrationData) return true;
+    if (!concentrationData || concentrationData.templates.length === 0) return true;
     const concentrationTemplates = concentrationData.templates.filter(templateUuid => templateUuid !== templateDocument.uuid);
-    // if (concentrationTemplates.length === concentrationData.templates.length) return true;
-    if (concentrationTemplates.length === 0
-      && concentrationData.targets.length === 1
-      && concentrationData.removeUuids.length === 0
+    if (concentrationTemplates.length === 0 // no templates left
+      && concentrationData.targets.length === 1 // only one target left - me
+      && concentrationData.removeUuids.length === 0 // no remove uuids left
       && ["effectsTemplates"].includes(configSettings.removeConcentrationEffects)
     ) {
-      // non concentration effects left
       await removeConcentration(actor, "no ignore");
     } else if (concentrationData.templates.length >= 1) {
       // update the concentration templates

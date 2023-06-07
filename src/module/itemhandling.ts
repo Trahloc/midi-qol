@@ -618,7 +618,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
     },
       { overwrite: true, insertKeys: true, insertValues: true });
     const damageRollData = {
-      critical: workflow.workflowOptions?.critical ?? workflow.rollOptions.critical ?? workflow.isCritical,
+      critical: workflow.workflowOptions?.critical || (workflow.rollOptions.critical || workflow.isCritical),
       spellLevel: workflow.rollOptions.spellLevel,
       powerLevel: workflow.rollOptions.spellLevel,
       versatile: workflow.rollOptions.versatile,
