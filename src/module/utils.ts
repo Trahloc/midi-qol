@@ -737,7 +737,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       workflow.damageItem = ditem;
       await workflow.triggerTargetMacros(["preTargetDamageApplication"], [t]);
       ditem = workflow.damageItem;
-      delete workflow.damageItem
+      // delete workflow.damageItem
     }
     damageList.push(ditem);
     targetNames.push(t.name)
@@ -2120,20 +2120,24 @@ export async function addConcentration(actor, concentrationData: ConcentrationDa
 // Add the concentration marker to the character and update the duration if possible
 export async function addConcentrationEffect(actor, concentrationData: ConcentrationData) {
   const item = concentrationData.item;
+  //@ts-expect-error .dfreds
+  const dfreds = game.dfreds;
   // await item.actor.unsetFlag("midi-qol", "concentration-data");
   let selfTarget = actor.token ? actor.token.object : getSelfTarget(actor);
   if (!selfTarget) return;
   let statusEffect;
-  if (installedModules.get("dfreds-convenient-effects")) {
-    statusEffect = CONFIG.statusEffects.find(se => se.id === "Convenient Effect: Concentrating");
+  if (dfreds) {
+    statusEffect = dfreds.effects._concentrating.toObject();
   }
   if (!statusEffect && installedModules.get("combat-utility-belt")) {
-    const conditionName = game.settings.get("combat-utility-belt", "concentratorConditionName")
-    statusEffect = CONFIG.statusEffects.find(se => se.id.startsWith("combat-utility-belt") && se.label == conditionName);
+    const conditionName = game.settings.get("combat-utility-belt", "concentratorConditionName");
+    //@ts-expect-error se.name
+    statusEffect = CONFIG.statusEffects.find(se => se.id.startsWith("combat-utility-belt") && (se.name ?? se.label) == conditionName);
   }
   if (statusEffect) { // found a cub or convenient status effect.
     const itemDuration = item?.system.duration;
-    statusEffect = duplicate(statusEffect);
+    if (statusEffect.toObject) statusEffect = statusEffect.toObject(); // v11
+    else statusEffect = duplicate(statusEffect);
     // set the token as concentrating
     if (installedModules.get("dae")) {
       const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget.id));
@@ -2153,17 +2157,10 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     setProperty(statusEffect.flags, "midi-qol.isConcentration", statusEffect.origin);
     setProperty(statusEffect.flags, "dae.transfer", false);
     setProperty(statusEffect, "transfer", false);
-
-    const existing = selfTarget.actor?.effects.find(e => e.getFlag("core", "statusId") === statusEffect.id);
-    if (!existing) {
-      return await selfTarget.toggleEffect(statusEffect, { active: true })
-      setTimeout(
-        () => {
-          selfTarget.toggleEffect(statusEffect, { active: true })
-        }, 100);
-      // return await selfTarget.toggleEffect(statusEffect, { active: true })
-    }
-    return true;
+    const existing = selfTarget.actor?.effects.find(e => (e.name ?? e.label) === (statusEffect.name ?? statusEffect.label));
+    if (existing) await existing.delete();
+    return await actor.createEmbeddedDocuments("ActiveEffect", [statusEffect]);
+    // return await selfTarget.toggleEffect(statusEffect, { active: true })
   } else {
     let concentrationName = i18n("midi-qol.Concentrating");
     const existing = selfTarget.actor?.effects.find(e => (e.name || e.label) === concentrationName);
@@ -2231,7 +2228,7 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
  */
 
 
-export function findNearby(disposition: number | null, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false }): Token[] {
+export function findNearby(disposition: number | null, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false }): Token[] {
   if (!token) return [];
   if (typeof token === "string") token = MQfromUuid(token).object;
   if (!(token instanceof Token)) { throw new Error("find nearby token is not of type token or the token uuid is invalid") };
@@ -2246,7 +2243,7 @@ export function findNearby(disposition: number | null, token: any /*Token | uuui
     if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor, undefined, undefined)) return false;
     let inRange = false;
     if (t.actor &&
-      t.id !== token.id && // not the token
+      (t.id !== token.id || options?.includeToken) && // not the token
       //@ts-ignore .disposition v10      
       (disposition === null || t.document.disposition === targetDisposition)) {
       const tokenDistance = getDistance(t, token, true);

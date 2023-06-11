@@ -1,3 +1,8 @@
+## 10.0.48.3
+* find nearby has an additional option, includeToken whcih when set will include the source token in the returned array of tokens.
+* fix for Concentration in v11. Midi requires Convenient effects v5.0.1
+
+
 ## 10.0.48.2
 * Fix for critical rolls not working
 * Fix for token macros isSave, isSaveSuccess and isSaveFail

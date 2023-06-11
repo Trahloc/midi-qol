@@ -884,9 +884,9 @@ export class Workflow {
                         delete effectData.duration.seconds;
                       }
                       effectData.origin = this.itemUuid;
-                      await tempCEaddEffectWith({ effectData, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+                      // await tempCEaddEffectWith({ effectData, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
                       //@ts-ignore
-                      // await game.dfreds.effectInterface?.addEffectWith({ effectData, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+                      await game.dfreds.effectInterface?.addEffectWith({ effectData, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
                     }
                   }
                 }
@@ -936,10 +936,10 @@ export class Workflow {
                 }
                 const effectData = mergeObject(ceSelfEffectToApply.toObject(), metaData);
                 effectData.origin = this.itemUuid;
-                await tempCEaddEffectWith({ effectData, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+                // await tempCEaddEffectWith({ effectData, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
 
                 //@ts-ignore
-                // await game.dfreds.effectInterface?.addEffectWith({ effectData, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+                await game.dfreds.effectInterface?.addEffectWith({ effectData, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
               }
             }
           }
@@ -1276,7 +1276,8 @@ export class Workflow {
     this.flankingAdvantage = false;
     if (this.item && !(["mwak", "msak", "mpak"].includes(this.item?.system.actionType))) return false;
     const token = MQfromUuid(this.tokenUuid ?? null)?.object;
-    const target: Token = this.targets.values().next().value;
+    //@ts-expect-error first
+    const target: Token = this.targets.first();
 
     const needsFlanking = await markFlanking(token, target,);
     if (needsFlanking) {
@@ -1537,9 +1538,7 @@ export class Workflow {
       this.bonusDamageDetail = [];
     }
     if (this.bonusDamageRoll !== null) {
-      if (!installedModules.get("betterrolls5e")) { // exclude better rolls since it does the roll itself
         await displayDSNForRoll(this.bonusDamageRoll, "damageRoll");
-      }
     }
     return;
   }

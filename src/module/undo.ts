@@ -69,9 +69,11 @@ export function startUndoWorkflow(undoData: any): boolean {
   const tokenData = actor?.isToken ? actor.token.toObject(true) : fromUuidSync(undoData.tokendocUuid ?? "")?.toObject(true);
   undoData.actorEntry = { actorUuid: undoData.actorUuid, tokenUuid: undoData.tokendocUuid, actorData, tokenData };
   undoData.allTargets = new Collection; // every token referenced by the workflow
-  const concentrationData = getProperty(actor, "flags.midi-qol.concentration-data.targets");
-  if (concentrationData && concentrationData.uuid == undoData.itemUuid) { // only add concentration targets if this item caused the concentration
-  concentrationData.targets?.forEach(({ actorUuid, tokenUuid }) => {
+  const concentrationData = getProperty(actor, "flags.midi-qol.concentration-data");
+  // if (concentrationData && concentrationData.uuid == undoData.itemUuid) { // only add concentration targets if this item caused the concentration
+  if (concentrationData) { // only add concentration targets if this item caused the concentration
+    concentrationData.targets?.forEach(({ actorUuid, tokenUuid }) => {
+
     if (actorUuid === undoData.actorUuid) return;
     const targetData = createTargetData(tokenUuid);
     if (!undoData.allTargets.get(actorUuid) && targetData) undoData.allTargets.set(actorUuid, targetData)

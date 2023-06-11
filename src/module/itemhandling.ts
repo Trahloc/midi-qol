@@ -838,7 +838,7 @@ export function preItemUsageConsumptionHook(item, config, options): boolean {
   /* Spell level can be fetched in preItemUsageConsumption */
   const workflow = Workflow.getWorkflow(item.uuid);
   if (!workflow) {
-    console.error("Failed to find workflow in preItemUsageConsumption");
+    if (!game.settings.get("midi-qol", "EnableWorkflow")) console.error("Failed to find workflow in preItemUsageConsumption");
     return true;
   }
   // need to get spell level from the html returned in result
