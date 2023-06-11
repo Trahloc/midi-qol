@@ -150,7 +150,8 @@
     "baseDamage": "Aucun bonus",
     "maxCritRoll": "Dés critique maximum(roulez les dès)",
     "explodeCharacter": "Exploser les dés critiques du personnage",
-    "explodeNPC": "Exploser des dés critiques des PNJ"
+    "explodeNPC": "Exploser des dés critiques des PNJ",
+    "maxDamageExplode": "Max dégâts de base et exploser les dés critiques"
   },
   "midi-qol.MergeCard.Name": "Fusionner les jets en une seule carte",
   "midi-qol.MergeCard.Hint": "Fusionner l'attaque, les coups, les dégâts et les sauvegardes sur une seule carte de tchat",
@@ -738,5 +739,6 @@
     "undoFirstWorkflow": "Annuler le flux de travail le plus important/le plus récent de la liste",
     "GMOnly": "Seul le GM peut annuler les flux de travail",
     "removeFirstWorkflow": "Supprimer le flux de travail le plus récent de la liste (ATTENTION)"
-  }
+  },
+  "midi-qol.ActiveDefenceShowGM.Name": "Le MJ voit des jets de défense actifs"
 }
