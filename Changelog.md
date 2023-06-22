@@ -9,7 +9,7 @@
 * Fix for skills not respecting roll mode in the roll options for skill rolls.
 * Added warning for Combat Utility Belt not being supported in foundry v11 and midi dropping support in midi v11.1
   - Anonymous is supported by midi and replaces the CUB token name hiding.
-  - condition-lab-triggler is supported by midi and provides a direct replacement for CUB enhanced conditions
+  - condition-lab-triggler is supported by midi (first midi release so may have bugs) and provides a direct replacement for CUB enhanced conditions.
   - CE is supported by midi and provides an alternative to most features of CUB enhanced conditions
 * This will probably be the last found v10 release with new features. I still push updates for bug fixes but otherwise no more work on v10.
 
