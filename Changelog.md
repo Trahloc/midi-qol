@@ -1,3 +1,18 @@
+## 10.0.49
+* Add "isMiss" target onUse macro call - called when an attack misses a target, called for each missed target.
+* Fix for @spellLevel arguments always being 0.
+* Fix for auto concentration not using CE custom effect.
+* Fix for occasional deadlock in removing removing effects.
+* Clean up for marking dead/wounded tokens.
+* Fix for toggle keyboard shortcut not overriding roll fast forward.
+* Added option to have long range attacks roll at disadvantage rather than failing.
+* Fix for skills not respecting roll mode in the roll options for skill rolls.
+* Added warning for Combat Utility Belt not being supported in foundry v11 and midi dropping support in midi v11.1
+  - Anonymous is supported by midi and replaces the CUB token name hiding.
+  - condition-lab-triggler is supported by midi and provides a direct replacement for CUB enhanced conditions
+  - CE is supported by midi and provides an alternative to most features of CUB enhanced conditions
+* This will probably be the last found v10 release with new features. I still push updates for bug fixes but otherwise no more work on v10.
+
 ## 10.0.48.3
 * find nearby has an additional option, includeToken whcih when set will include the source token in the returned array of tokens.
 * fix for Concentration in v11. Midi requires Convenient effects v5.0.1

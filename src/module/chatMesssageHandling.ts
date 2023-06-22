@@ -2,7 +2,7 @@ import { debug, warn, i18n, error, gameStats, debugEnabled, MQdefaultDamageType,
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { BetterRollsWorkflow, DDBGameLogWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll } from "./settings.js";
-import { createDamageList, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat } from "./utils.js";
+import { createDamageList, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat, getConcentrationLabel } from "./utils.js";
 import { shouldRollOtherDamage } from "./itemhandling.js";
 import { socketlibSocket } from "./GMAction.js";
 export const MAESTRO_MODULE_NAME = "maestro";
@@ -174,13 +174,11 @@ export let processCreateBetterRollsMessage = (message: ChatMessage, user: string
   workflow.disadvantage = disadvantage;
   if (!workflow.tokenId) workflow.tokenId = token?.id;
   if (configSettings.concentrationAutomation) {
-    const concentrationName = installedModules.get("combat-utility-belt")
-      ? game.settings.get("combat-utility-belt", "concentratorConditionName")
-      : i18n("midi-qol.Concentrating");
+    const concentrationLabel = getConcentrationLabel();
     const needsConcentration = workflow.item?.system.components?.concentration || workflow.item?.system.activation?.condition?.includes("Concentration");
     const checkConcentration = configSettings.concentrationAutomation;
     if (needsConcentration && checkConcentration) {
-      const concentrationCheck = item.actor.effects.find(i => (i.name || i.label) === concentrationName);
+      const concentrationCheck = item.actor.effects.find(i => (i.name || i.label) === concentrationLabel);
       if (concentrationCheck) concentrationCheck.delete();
       // if (needsConcentration)addConcentration({workflow});
     }

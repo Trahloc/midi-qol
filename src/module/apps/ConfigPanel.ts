@@ -103,7 +103,8 @@ export class ConfigPanel extends FormApplication {
       ConsumeResourceOptions: geti18nOptions("ConsumeResourceOptions"),
       AddDeadOptions: geti18nOptions("AddDeadOptions"),
       LateTargetingOptions: geti18nOptions("LateTargetingOptions"),
-      RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions")
+      RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions"),
+      CheckRangeOptions: geti18nOptions("CheckRangeOptions")
     };
 
     if (debugEnabled > 0) warn("Config Panel: getData ", data)

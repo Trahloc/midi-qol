@@ -185,11 +185,10 @@ async function doRollSkill(wrapped, ...args) {
     //@ts-ignore
     result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
   }
-  let rollMode: string = game.settings.get("core", "rollMode");
+  let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
   if (chatMessage !== false) await displayDSNForRoll(result, "skill", rollMode);
   if (!options.simulate) {
     result = await bonusCheck(this, result, "skill", skillId);
-    if (result.options.rollMode) rollMode = result.options.rollMode;
   }
   if (chatMessage !== false && result) {
     const saveRollMode = game.settings.get("core", "rollMode");
@@ -390,7 +389,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     //@ts-ignore
     result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
   }
-  let rollMode: string = options.rollMode ?? game.settings.get("core", "rollMode");
+  let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
   if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
     case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
     case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
@@ -404,7 +403,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
 
   if (chatMessage !== false && result) {
     const messageData: any = { "speaker": getSpeaker(this), flavor };
-    setProperty(messageData, "flags", options.flags ?? {} )
+    setProperty(messageData, "flags", options.flags ?? {})
     setProperty(messageData, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
     setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
     messageData.template = "modules/midi-qol/templates/roll.html";
@@ -949,14 +948,8 @@ async function _preDeleteActiveEffect(wrapped, ...args) {
 
       const checkConcentration = globalThis.MidiQOL?.configSettings()?.concentrationAutomation;
       if (!checkConcentration) return;
-      let concentrationLabel: any = i18n("midi-qol.Concentrating");
-      if (installedModules.get("dfreds-convenient-effects")) {
-        let concentrationId = "Convenient Effect: Concentrating";
-        let statusEffect: any = CONFIG.statusEffects.find(se => se.id === concentrationId);
-        if (statusEffect) concentrationLabel = (statusEffect.name || statusEffect.label);
-      } else if (installedModules.get("combat-utility-belt")) {
-        concentrationLabel = game.settings.get("combat-utility-belt", "concentratorConditionName")
-      }
+      const concentrationLabel = getConvenientEffectsBonusAction();
+
       let isConcentration = (effect.name || effect.label) === concentrationLabel;
       const origin = MQfromUuid(effect.origin);
       // if (isConcentration) await removeConcentration(effect.parent, this.uuid); else
@@ -1005,6 +998,9 @@ async function _preDeleteActiveEffect(wrapped, ...args) {
 export async function removeConcentration(actor: Actor, concentrationUuid: string) {
   let result;
   try {
+    //@ts-expect-error fromUuidSync
+    const concentrationEffect = fromUuidSync(concentrationUuid);
+    if (concentrationEffect) await concentrationEffect.delete();
     const concentrationData: any = actor.getFlag("midi-qol", "concentration-data");
     if (!concentrationData) {
       return;
@@ -1044,22 +1040,25 @@ export async function zeroHPExpiry(actor, update, options, user) {
 
 export async function checkWounded(actor, update, options, user) {
   const hpUpdate = getProperty(update, "system.attributes.hp.value");
-  const vitalityReosurce = checkRule("vitalityResource");
-  let vitalityUpdate = vitalityReosurce && getProperty(update, vitalityReosurce.trim());
+  const vitalityResource = checkRule("vitalityResource");
+  //@ts-expect-error
+  const dfreds = game.dfreds;
+  let vitalityUpdate = vitalityResource && getProperty(update, vitalityResource.trim());
   // return wrapped(update,options,user);
-  if (hpUpdate === undefined && (!vitalityReosurce || vitalityUpdate === undefined)) return;
+  if (hpUpdate === undefined && (!vitalityResource || vitalityUpdate === undefined)) return;
   const attributes = actor.system.attributes;
-  const needsDead = vitalityReosurce ? vitalityUpdate <= 0 : hpUpdate <= 0;
+  const needsBeaten = vitalityResource ? vitalityUpdate <= 0 : hpUpdate <= 0;
   if (configSettings.addWounded > 0 && hpUpdate !== undefined) {
-    //@ts-ignore
-    const CEWounded = game.dfreds?.effects?._wounded
     const woundedLevel = attributes.hp.max * configSettings.addWounded / 100;
-    const needsWounded = hpUpdate > 0 && hpUpdate < woundedLevel && !needsDead;
-    if (installedModules.get("dfreds-convenient-effects") && CEWounded) {
-      const wounded = await ConvenientEffectsHasEffect((CEWounded.name || CEWounded.label), actor, false);
+    const needsWounded = hpUpdate > 0 && hpUpdate < woundedLevel && !needsBeaten;
+    if (installedModules.get("dfreds-convenient-effects")) {
+      const CEWoundedName = dfreds?.effects?._wounded.name ?? dfreds?.effects?._wounded.label;
+      const CEWounded = dfreds.effectInterface.findEffectByName(CEWoundedName)?.toObject();
+      const wounded = await ConvenientEffectsHasEffect((CEWoundedName), actor, false);
       if (wounded !== needsWounded) {
-        //@ts-ignore
-        await game.dfreds?.effectInterface.toggleEffect((CEWounded.name || CEWounded.label), { overlay: false, uuids: [actor.uuid] });
+        if (needsWounded) await actor.createEmbeddedDocuments("ActiveEffect", [CEWounded])
+        else await actor.effects.find(ef => (ef.name ?? ef.label) === CEWoundedName)?.delete();
+        //await dfreds?.effectInterface.toggleEffect((CEWounded.name ?? CEWounded.label), { overlay: false, uuids: [actor.uuid] });
       }
     } else {
       const tokens = actor.getActiveTokens();
@@ -1070,45 +1069,50 @@ export async function checkWounded(actor, update, options, user) {
         await token.toggleEffect(bleeding.icon, { overlay: false, active: needsWounded })
     }
   }
-  if (configSettings.addDead !== "none") {
-    if (installedModules.get("dfreds-convenient-effects") && game.settings.get("dfreds-convenient-effects", "modifyStatusEffects") !== "none") {
-      let effectName = (actor.type === "character" || actor.hasPlayerOwner)
-        ? (getConvenientEffectsUnconscious().name || getConvenientEffectsUnconscious().label)
-        : (getConvenientEffectsDead().name || getConvenientEffectsDead().label)
-      if (vitalityReosurce) { // token is dead rather than unconscious
-        effectName = getConvenientEffectsDead().name || getConvenientEffectsDead().label;
-      }
 
-      const hasEffect = await ConvenientEffectsHasEffect(effectName, actor, false);
-      if ((needsDead !== hasEffect)) {
-        if (actor.type !== "character" && !actor.hasPlayerOwner) { // For CE dnd5e does not treat dead as dead for the combat tracker so update it by hand as well
-          let combatant;
-          if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
-          //@ts-ignore
-          else combatant = game.combat?.getCombatantByActor(actor.id);
-          if (combatant) await combatant.update({ defeated: needsDead })
-        }
-        //@ts-ignore
-        await game.dfreds?.effectInterface.toggleEffect(effectName, { overlay: configSettings.addDead === "overlay", uuids: [actor.uuid] });
+  if (configSettings.addDead !== "none" && installedModules.get("dfreds-convenient-effects")) {
+    let effect;
+    let useDefeated;
+    if ((actor.type === "character" || actor.hasPlayerOwner) && !vitalityResource) {
+      effect = getConvenientEffectsUnconscious();
+      useDefeated = false;
+    } else {
+      effect = getConvenientEffectsDead();
+      useDefeated = true;
+    }
+
+    // TODO this relies on the defeated condition having the sanme name/label as the CE dead condition
+    const isBeaten = actor.effects.find(ef => (ef.name || ef.label) === (effect.name ?? effect.label)) !== undefined;
+
+    if ((needsBeaten !== isBeaten)) {
+      let combatant;
+      if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
+      //@ts-ignore
+      else combatant = game.combat?.getCombatantByActor(actor.id);
+      if (combatant && useDefeated) {
+        await combatant.update({ defeated: needsBeaten })
+      } 
+      if (needsBeaten) {
+        await dfreds.effectInterface?.addEffectWith({ effectData: effect.toObject(), uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
+      } else { // remove beaten condition
+        await dfreds.effectInterface.removeEffect({ effectName: (effect.name ?? effect.label), uuid: actor.uuid })
       }
     }
-    else {
-      const tokens = actor.getActiveTokens();
-      const controlled = tokens.filter(t => t._controlled);
-      const token = controlled.length ? controlled.shift() : tokens.shift();
-      if (token) {
-        //@ts-expect-error .version
-        if (isNewerVersion(game.version, "1")) {
-          const effectId = actor.type === "character" ? "dead" : "unconscious";
-          const statusEffect = CONFIG.statusEffects.find(se => se.id === effectId);
-          if (statusEffect) token.toggleEffect(statusEffect, { overlay: configSettings.addDead === "overlay", active: needsDead });
-        } else {
-          if ((actor.type === "character" || actor.hasPlayerOwner) && vitalityUpdate !== 0) {
-            await token.toggleEffect("/icons/svg/unconscious.svg", { overlay: configSettings.addDead === "overlay", active: needsDead });
-          } else {
-            await token.toggleEffect(CONFIG.controlIcons.defeated, { overlay: configSettings.addDead === "overlay", active: needsDead });
-          }
-        }
+  } else if (configSettings.addDead !== "none") {
+    const tokens = actor.getActiveTokens();
+    const controlled = tokens.filter(t => t._controlled);
+    const token = controlled.length ? controlled.shift() : tokens.shift();
+    const effectId = actor.type === "character" ? "unconscious" : "dead";
+    const effect = CONFIG.statusEffects.find(se => se.id === effectId);
+    if (token && effect) {
+      const isBeaten = actor.effects.find(ef => (ef.name || ef.label) === (i18n(effect?.label ?? ""))) !== undefined;
+      if (isBeaten !== needsBeaten) {
+        let combatant;
+        if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
+        //@ts-expect-error
+        else combatant = game.combat?.getCombatantByActor(actor.id);
+        if (combatant && effectId === "dead") await combatant.update({ defeated: needsBeaten });
+        await token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: needsBeaten });
       }
     }
   }
@@ -1285,20 +1289,20 @@ function LMRTFYOnMessage(data: any) {
 }
 
 async function LMRTFYMakeRoll(event, rollMethod, failRoll, ...args) {
-  let options = this._getRollOptions(event, failRoll);                
+  let options = this._getRollOptions(event, failRoll);
   // save the current roll mode to reset it after this roll
   const rollMode = game.settings.get("core", "rollMode");
   game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
   for (let actor of this.actors) {
-      Hooks.once("preCreateChatMessage", this._tagMessage.bind(this));
+    Hooks.once("preCreateChatMessage", this._tagMessage.bind(this));
 
-      // system specific roll handling
-      switch (game.system.id) {
-          default: {
-            setProperty(options, "flags.lmrtfy", {"message": this.data.message, "data": this.data.attach})
-            actor[rollMethod].call(actor, ...args, options);
-          }
+    // system specific roll handling
+    switch (game.system.id) {
+      default: {
+        setProperty(options, "flags.lmrtfy", { "message": this.data.message, "data": this.data.attach })
+        actor[rollMethod].call(actor, ...args, options);
       }
+    }
   }
   game.settings.set("core", "rollMode", rollMode);
   this._disableButtons(event);

@@ -71,7 +71,7 @@ export function startUndoWorkflow(undoData: any): boolean {
   undoData.allTargets = new Collection; // every token referenced by the workflow
   const concentrationData = getProperty(actor, "flags.midi-qol.concentration-data");
   // if (concentrationData && concentrationData.uuid == undoData.itemUuid) { // only add concentration targets if this item caused the concentration
-  if (concentrationData) { // only add concentration targets if this item caused the concentration
+  if (concentrationData) { 
     concentrationData.targets?.forEach(({ actorUuid, tokenUuid }) => {
 
     if (actorUuid === undoData.actorUuid) return;

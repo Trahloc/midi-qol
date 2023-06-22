@@ -1,5 +1,5 @@
 import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
-import { configSettings, autoRemoveTargets, checkRule, lateTargeting, criticalDamage, criticalDamageGM } from "./settings.js";
+import { configSettings, autoRemoveTargets, checkRule, lateTargeting, criticalDamage, criticalDamageGM, checkMechanic } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { BetterRollsWorkflow, DummyWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
@@ -10,6 +10,7 @@ import { OnUseMacros } from "./apps/Item.js";
 import { actorAbilityRollPatching, Options } from "./patching.js";
 import { isEmptyBindingElement } from "typescript";
 import { activationConditionToUse } from "./itemhandling.js";
+import { EffectDurationData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/effectDurationData";
 
 export function getDamageType(flavorString): string | undefined {
   const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
@@ -1888,9 +1889,16 @@ export function checkRange(itemIn, tokenIn, targetsIn): { result: string, attack
 
       if ((longRange !== 0 && distance > longRange) || (distance > range && longRange === 0)) {
         log(`${target.name} is too far ${distance} from your character you cannot hit`)
-        return {
-          result: "fail",
-          reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
+        if (checkMechanic("checkRange") === "longdisadv" && ["rwak", "rsak", "rpak"].includes(item.system.actionType)) {
+          return {
+            result: "dis",
+            reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
+          }
+        } else {
+          return {
+            result: "fail",
+            reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
+          }
         }
       }
       if (distance > range) return {
@@ -2112,6 +2120,7 @@ export interface ConcentrationData {
   item: any;
   targets: Set<Token>;
   templateUuid: string;
+  removeUuids?: string[];
 }
 export async function addConcentration(actor, concentrationData: ConcentrationData) {
   await addConcentrationEffect(actor, concentrationData);
@@ -2125,19 +2134,21 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   // await item.actor.unsetFlag("midi-qol", "concentration-data");
   let selfTarget = actor.token ? actor.token.object : getSelfTarget(actor);
   if (!selfTarget) return;
+  const concentrationLabel = getConcentrationLabel();
   let statusEffect;
   if (dfreds) {
-    statusEffect = dfreds.effects._concentrating.toObject();
+    statusEffect = dfreds.effectInterface.findEffectByName(concentrationLabel).toObject();
   }
   if (!statusEffect && installedModules.get("combat-utility-belt")) {
-    const conditionName = game.settings.get("combat-utility-belt", "concentratorConditionName");
     //@ts-expect-error se.name
-    statusEffect = CONFIG.statusEffects.find(se => se.id.startsWith("combat-utility-belt") && (se.name ?? se.label) == conditionName);
+    statusEffect = duplicate(CONFIG.statusEffects.find(se => se.id.startsWith("combat-utility-belt") && (se.name ?? se.label) == concentrationLabel));
+  }
+  if (!statusEffect && installedModules.get("condition-lab-triggler")) {
+    //@ts-expect-error se.name
+    statusEffect = duplicate(CONFIG.statusEffects.find(se => se.id.startsWith("condition-lab-triggler") && (se.name ?? se.label) == concentrationLabel));
   }
   if (statusEffect) { // found a cub or convenient status effect.
     const itemDuration = item?.system.duration;
-    if (statusEffect.toObject) statusEffect = statusEffect.toObject(); // v11
-    else statusEffect = duplicate(statusEffect);
     // set the token as concentrating
     if (installedModules.get("dae")) {
       const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget.id));
@@ -2157,14 +2168,20 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     setProperty(statusEffect.flags, "midi-qol.isConcentration", statusEffect.origin);
     setProperty(statusEffect.flags, "dae.transfer", false);
     setProperty(statusEffect, "transfer", false);
+    if (statusEffect.tint === null) delete statusEffect.tint;
     const existing = selfTarget.actor?.effects.find(e => (e.name ?? e.label) === (statusEffect.name ?? statusEffect.label));
     if (existing) await existing.delete();
-    return await actor.createEmbeddedDocuments("ActiveEffect", [statusEffect]);
-    // return await selfTarget.toggleEffect(statusEffect, { active: true })
+    //@ts-expect-error
+    if (isNewerVersion(game.version, "11.0") && !statusEffect.id && statusEffect.statuses?.length > 0) {
+      statusEffect.id = statusEffect.statuses[0];
+    } else if (!statusEffect.id) {
+      statusEffect.id = statusEffect.flags?.core?.statusId;
+    }
+    return await actor.createEmbeddedDocuments("ActiveEffect", [statusEffect])
+    // return await selfTarget.document.toggleActiveEffect(statusEffect, { active: true })
   } else {
-    let concentrationName = i18n("midi-qol.Concentrating");
-    const existing = selfTarget.actor?.effects.find(e => (e.name || e.label) === concentrationName);
-    if (existing) return undefined; // make sure that we don't double apply concentration
+    const existing = selfTarget.actor?.effects.find(e => (e.name || e.label) === concentrationLabel);
+    if (existing) await existing.delete(); // make sure that we don't double apply concentration
 
     const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget.id));
     const effectData = {
@@ -2172,12 +2189,19 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
       origin: item.uuid, //flag the effect as associated to the spell being cast
       disabled: false,
       icon: itemJSONData.img,
-      label: concentrationName,
+      label: concentrationLabel,
+      id: concentrationLabel,
       duration: {},
       flags: {
         "midi-qol": { isConcentration: item?.uuid },
         "dae": { transfer: false }
       }
+    }
+    //@ts-expect-error
+    if (isNewerVersion(game.version, "11.0")) {
+      setProperty(effectData, "statuses", [concentrationLabel]);
+    } else {
+      setProperty(effectData, "flags.core.statusId", concentrationLabel);
     }
     if (installedModules.get("dae")) {
       const convertedDuration = globalThis.DAE.convertDuration(item.system.duration, inCombat);
@@ -2213,7 +2237,12 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
       targets.push({ tokenUuid: selfTarget.uuid, actorUuid: actor.uuid })
     }
     let templates = concentrationData.templateUuid ? [concentrationData.templateUuid] : [];
-    await actor.setFlag("midi-qol", "concentration-data", { uuid: concentrationData.item.uuid, targets: targets, templates: templates, removeUuids: [] })
+    await actor.setFlag("midi-qol", "concentration-data", { 
+      uuid: concentrationData.item.uuid, 
+      targets, 
+      templates, 
+      removeUuids: concentrationData.removeUuids ?? [] 
+    })
   }
 }
 
@@ -2237,7 +2266,7 @@ export function findNearby(disposition: number | null, token: any /*Token | uuui
   let targetDisposition = token.document.disposition * (disposition ?? 0);
   let nearby = canvas.tokens?.placeables.filter(t => {
     if (getProperty(t, "actor.system.details.type.custom")?.toLocaleLowerCase().includes("notarget")
-    || getProperty(t, "actor.system.details.race")?.toLocaleLowerCase().includes("notarget")) return false;
+      || getProperty(t, "actor.system.details.race")?.toLocaleLowerCase().includes("notarget")) return false;
     //@ts-ignore .height .width v10
     if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
     if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor, undefined, undefined)) return false;
@@ -2272,6 +2301,8 @@ export function hasCondition(token /* Token | TokenDoucment */, condition: strin
   const cub = game.cub;
   if (installedModules.get("combat-utility-belt") && condition === "invisible" && cub.hasCondition("Invisible", [token], { warn: false })) return true;
   if (installedModules.get("combat-utility-belt") && condition === "hidden" && cub.hasCondition("Hidden", [token], { warn: false })) return true;
+  if (installedModules.get("condition-lab-triggler") && condition === "invisible" && cub.hasCondition("Invisible", [token], { warn: false })) return true;
+  if (installedModules.get("condition-lab-triggler") && condition === "hidden" && cub.hasCondition("Hidden", [token], { warn: false })) return true;
   //@ts-ignore
   const CEInt = game.dfreds?.effectInterface;
   if (installedModules.get("dfreds-convenient-effects")) {
@@ -2893,10 +2924,8 @@ export function hasEffectGranting(actor: globalThis.dnd5e.documents.Actor5e, key
 }
 //@ts-expect-error dnd5e
 export function isConcentrating(actor: globalThis.dnd5e.documents.Actor5e): undefined | ActiveEffect {
-  const concentrationName = installedModules.get("combat-utility-belt") && !installedModules.get("dfreds-convenient-effects")
-    ? game.settings.get("combat-utility-belt", "concentratorConditionName")
-    : i18n("midi-qol.Concentrating");
-  return actor.effects.contents.find(e => (e.name || e.label) === concentrationName && !e.disabled && !e.isSuppressed);
+  let concentrationLabel = getConcentrationLabel();
+  return actor.effects.contents.find(e => (e.name || e.label) === concentrationLabel && !e.disabled && !e.isSuppressed);
 }
 
 function maxCastLevel(actor) {
@@ -3373,21 +3402,26 @@ export function reportMidiCriticalFlags() {
   console.log("Items with midi critical flags set are\n", ...(report.map(s => s + "\n")));
 }
 
+export function getConcentrationLabel(): string {
+  let concentrationLabel: string = i18n("midi-qol.Concentrating");
+  if (installedModules.get("dfreds-convenient-effects")) {
+    //@ts-expect-error .dfreds
+    const dfreds = game.dfreds;
+    concentrationLabel = dfreds.effects._concentrating.name ?? dfreds.effects._concentrating.label
+  } else if (installedModules.get("combat-utility-belt")) {
+    //@ts-expect-error unknow -> string
+    concentrationLabel = game.settings.get("combat-utility-belt", "concentratorConditionName")
+  }
+  return concentrationLabel
+}
 /**
  * 
  * @param actor the actor to check
  * @returns the concentration effect if present and null otherwise
  */
 export function getConcentrationEffect(actor): ActiveEffect | undefined {
-  let concentrationLabel: any = i18n("midi-qol.Concentrating");
-  if (game.modules.get("dfreds-convenient-effects")?.active) {
-    let concentrationId = "Convenient Effect: Concentrating";
-    let statusEffect: any = CONFIG.statusEffects.find(se => se.id === concentrationId);
-    if (statusEffect) concentrationLabel = statusEffect.name || statusEffect.label;
-  } else if (game.modules.get("combat-utility-belt")?.active) {
-    concentrationLabel = game.settings.get("combat-utility-belt", "concentratorConditionName")
-  }
-  const result = actor.effects.contents.find(i => (i.name || i.label) === concentrationLabel);
+  let concentrationLabel = getConcentrationLabel();
+  const result = actor.effects.find(i => (i.name || i.label) === concentrationLabel);
   return result;
 }
 
@@ -3477,22 +3511,43 @@ export function computeTemplateShapeDistance(templateDocument: MeasuredTemplateD
   width *= dimensions.size / dimensions.distance;
   direction = Math.toRadians(direction);
   let shape: any;
-  //@ts-ignore .t v10
-  switch (templateDocument.t) {
-    case "circle":
-      shape = new PIXI.Circle(0, 0, distance);
-      break;
-    case "cone":
-      //@ts-ignore
-      shape = templateDocument._object._getConeShape(direction, angle, distance);
-      break;
-    case "rect":
-      //@ts-ignore
-      shape = templateDocument._object._getRectShape(direction, distance);
-      break;
-    case "ray":
-      //@ts-ignore
-      shape = templateDocument._object._getRayShape(direction, distance, width);
+  //@ts-expect-error .version
+  if (isNewerVersion(game.version, "11.300")) {
+    //@ts-expect-error .t v11
+    switch (templateDocument.t) {
+      case "circle":
+        shape = new PIXI.Circle(0, 0, distance);
+        break;
+      case "cone":
+        //@ts-expect-error getConeShape
+        shape = templateDocument.constructor.getConeShape(direction, angle, distance);
+        break;
+      case "rect":
+        //@ts-expect-error getRectShape
+        shape = templateDocument.constructor.getRectShape(direction, distance);
+        break;
+      case "ray":
+        //@ts-expect-error getRayShape
+        shape = templateDocument.constructor.getRayShape(direction, distance, width);
+    }
+  } else {
+    //@ts-expect-error .t v10
+    switch (templateDocument.t) {
+      case "circle":
+        shape = new PIXI.Circle(0, 0, distance);
+        break;
+      case "cone":
+        //@ts-ignore
+        shape = templateDocument._object._getConeShape(direction, angle, distance);
+        break;
+      case "rect":
+        //@ts-ignore
+        shape = templateDocument._object._getRectShape(direction, distance);
+        break;
+      case "ray":
+        //@ts-ignore
+        shape = templateDocument._object._getRayShape(direction, distance, width);
+    }
   }
   //@ts-ignore distance v10
   return { shape, distance: templateDocument.distance };
@@ -3518,12 +3573,19 @@ export function getConvenientEffectsBonusAction() {
   return game.dfreds?.effects?._bonusAction;
 }
 export function getConvenientEffectsUnconscious() {
-  //@ts-ignore
-  return game.dfreds?.effects?._unconscious;
+  //@ts-expect-error .dfreds
+  const dfreds = game.dfreds;
+  const unConsciousName = dfreds?.effects?._unconscious.name ?? dfreds?.effects?._unconscious.label;
+  if (unConsciousName) return dfreds.effects.all.find(ef => (ef.name ?? ef.label) === unConsciousName);
+  return undefined;
 }
+
 export function getConvenientEffectsDead() {
-  //@ts-ignore
-  return game.dfreds?.effects?._dead;
+  //@ts-expect-error .dfreds
+  const dfreds = game.dfreds;
+  const deadName = dfreds?.effects?._dead.name ?? dfreds?.effects?._dead.label;
+  if (deadName) return dfreds.effects.all.find(ef => (ef.name ?? ef.label) === deadName);
+  return undefined;
 }
 
 export async function ConvenientEffectsHasEffect(effectName: string, actor: Actor, ignoreInactive: boolean = true) {
@@ -3582,11 +3644,11 @@ export async function setReactionUsed(actor: Actor) {
     const effectInterface = game.dfreds.effectInterface;
     // await tempCEaddEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
     await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
-
-    //@ts-ignore
-    // await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), uuid: actor.uuid });
-  } //@ts-ignore
+  } //@ts-expect-error se.name
   else if (installedModules.get("combat-utility-belt") && (effect = CONFIG.statusEffects.find(se => (se.name || se.label) === i18n("DND5E.Reaction")))) {
+    actor.createEmbeddedDocuments("ActiveEffect", [effect]);
+    //@ts-expect-error se.name
+  } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name || se.label) === i18n("DND5E.Reaction")))) {
     actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
   await actor.setFlag("midi-qol", "actions.reactionCombatRound", game.combat?.round);
@@ -3602,6 +3664,8 @@ export async function setBonusActionUsed(actor: Actor) {
     await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
   } else if (installedModules.get("combat-utility-belt") && (effect = CONFIG.statusEffects.find(se => se.label === i18n("DND5E.BonusAction")))) {
     // TODO V11 check se.label
+    actor.createEmbeddedDocuments("ActiveEffect", [effect]);
+  } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => se.label === i18n("DND5E.BonusAction")))) {
     actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
   await actor.setFlag("midi-qol", "actions.bonusActionCombatRound", game.combat?.round);
@@ -3626,6 +3690,11 @@ export async function removeReactionUsed(actor: Actor, removeCEEffect = false) {
     const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"));
     await effect?.delete();
   }
+  if (installedModules.get("condition-lab-triggler")) {
+    //@ts-expect-error
+    const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"));
+    await effect?.delete();
+  }
   await actor?.unsetFlag("midi-qol", "actions.reactionCombatRound");
   return actor?.setFlag("midi-qol", "actions.reaction", false);
 }
@@ -3646,6 +3715,11 @@ export async function hasUsedReaction(actor: Actor) {
   }
   //@ts-expect-error .label
   if (installedModules.get("combat-utility-belt") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"))) {
+    await actor?.setFlag("midi-qol", "actions.reaction", false);
+    return true;
+  }
+  //@ts-expect-error .label
+  if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"))) {
     await actor?.setFlag("midi-qol", "actions.reaction", false);
     return true;
   }
@@ -3686,6 +3760,12 @@ export async function hasUsedBonusAction(actor: Actor) {
     await actor.setFlag("midi-qol", "actions.bonus", true);
     return true;
   }
+
+  //@ts-expect-error .label
+  if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"))) {
+    await actor.setFlag("midi-qol", "actions.bonus", true);
+    return true;
+  }
   return false;
 }
 
@@ -3701,9 +3781,14 @@ export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false
       const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"));
       await effect?.delete();
     }
+    if (installedModules.get("condition-lab-triggler")) {
+      //@ts-ignore
+      const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"));
+      await effect?.delete();
+    }
   }
   await actor.setFlag("midi-qol", "actions.bonus", false);
-  return  actor?.unsetFlag("midi-qol", "actions.bonusActionCombatRound");
+  return actor?.unsetFlag("midi-qol", "actions.bonusActionCombatRound");
 }
 
 export function needsReactionCheck(actor) {

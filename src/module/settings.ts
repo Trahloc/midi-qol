@@ -138,7 +138,7 @@ class ConfigSettings {
   rollAlternate: string = "off";
   optionalRules: any = {
     invisAdvantage: true,
-    checkRange: true,
+    checkRange: "longFail",
     wallsBlockRange: "center",
     coverCalculation: "none",
     nearbyFoe: 5,
@@ -162,7 +162,7 @@ class ConfigSettings {
 
 export var configSettings = new ConfigSettings();
 
-export function checkMechanic(mechanic: string): boolean {
+export function checkMechanic(mechanic: string): any {
   if (configSettings.toggleOptionalRules) return false;
   return configSettings.optionalRules[mechanic];
 }
@@ -205,6 +205,8 @@ export function collectSettingData() {
     betterRollsVersion: game.modules.get("ready-set-roll-5e")?.version,
     //@ts-ignore version v10
     cubVersion: game.modules.get("combat-utility-belt")?.version,
+    //@ts-expect-error .version
+    cltVersion: game.modules.get("condition-lab-triggler")?.version,
     //@ts-ignore version v10
     daeVersion: game.modules.get("dae")?.version,
     //@ts-ignore version v10
@@ -350,7 +352,7 @@ export let fetchParams = () => {
   if (configSettings.highlightSuccess === undefined) configSettings.highlightSuccess = false;
   configSettings.optionalRules = mergeObject({ // eventually split this into mechanics and rules
       invisAdvantage: true,
-      checkRange: true,
+      checkRange: "longfail",
       wallsBlockRange: "center",
       coverCalculation: "none",
       nearbyFoe: 5,
@@ -374,6 +376,8 @@ export let fetchParams = () => {
   if (!configSettings.optionalRules.coverCalculation) configSettings.optionalRules.coverCalculation = "none";
 
   if (configSettings.optionalRules.checkFlanking === false) configSettings.optionalRules.checkFlanking = "off";
+  if (configSettings.optionalRules.checkRange === true) configSettings.optionalRules.checkRange = "longfail";
+  if (!configSettings.optionalRules.checkRange) configSettings.optionalRules.checkRange = "none";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical !== true) configSettings.requireMagical = "off";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical === true) configSettings.requireMagical = "nonspell";
 

@@ -47,7 +47,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     configureDialog: true,
     createMessage: true,
     workflowOptions: { lateTargeting: undefined, notReaction: false }
-  }, options, {insertKeys: true, insertValues: true, overWrite: true});
+  }, options, { insertKeys: true, insertValues: true, overWrite: true });
   const itemRollStart = Date.now()
   let systemCard = options?.systemCard ?? false;
   let createWorkflow = options?.createWorkflow ?? true;
@@ -194,7 +194,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   const needsConcentration = this.system.components?.concentration
     || this.flags.midiProperties?.concentration
     || this.system.activation?.condition?.toLocaleLowerCase().includes(i18n("midi-qol.concentrationActivationCondition").toLocaleLowerCase());
-  const checkConcentration = configSettings.concentrationAutomation; // installedModules.get("combat-utility-belt") && configSettings.concentrationAutomation;
+  const checkConcentration = configSettings.concentrationAutomation;
   if (needsConcentration && checkConcentration) {
     const concentrationEffect = getConcentrationEffect(this.actor);
     if (concentrationEffect) {
@@ -376,7 +376,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.targets = getSelfTargetSet(this.actor)
     } else if (game.user?.targets?.size ?? 0 > 0) workflow.targets = validTargetTokens(game.user?.targets);
 
-    if (workflow?.attackRoll && workflow.currentState === WORKFLOWSTATES.ROLLFINISHED) { 
+    if (workflow?.attackRoll && workflow.currentState === WORKFLOWSTATES.ROLLFINISHED) {
       // we are re-rolling the attack.
       workflow.damageRoll = undefined;
       await Workflow.removeAttackDamageButtons(this.id);
@@ -468,11 +468,12 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     }
   },
     { insertKeys: true, overwrite: true });
+  if (workflow.rollOptions.rollToggle) wrappedOptions.fastForward = !wrappedOptions.fastForward;
   if (advantage) wrappedOptions.advantage = true; // advantage passed to the roll takes precedence
   if (disadvantage) wrappedOptions.disadvantage = true; // disadvantage passed to the roll takes precedence
 
   // Setup labels for advantage reminder
-  const advantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("ADV:")).map(s =>s .replace("ADV:", ""));;
+  const advantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("ADV:")).map(s => s.replace("ADV:", ""));;
   if (advantageLabels.length > 0) setProperty(wrappedOptions, "dialogOptions.adv-reminder.advantageLabels", advantageLabels);
   const disadvantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("DIS:")).map(s => s.replace("DIS:", ""));
   if (disadvantageLabels.length > 0) setProperty(wrappedOptions, "dialogOptions.adv-reminder.disadvantageLabels", disadvantageLabels);
@@ -502,7 +503,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
   workflow.ammo = this._ammo;
 
-  await displayDSNForRoll(result, "attackRollD20");
+  if (workflow.workflowOptions.attackRollDSN !== false) await displayDSNForRoll(result, "attackRollD20");
 
   result = await processAttackRollBonusFlags.bind(workflow)();
 
@@ -524,7 +525,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     error("itemhandling.rollAttack failed")
     return;
   }
-  
+
   if (["formulaadv", "adv"].includes(configSettings.rollAlternate))
     workflow.attackRollHTML = addAdvAttribution(workflow.attackRollHTML, workflow.attackAdvAttribution)
   if (debugCallTiming) log(`final item.rollAttack():  elapsed ${Date.now() - attackRollStart}ms`);
@@ -540,7 +541,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
   if (workflow && systemCard) workflow.systemCard = true;
   if (workflow && !workflow.shouldRollDamage) // if we did not auto roll then process any keys
     workflow.rollOptions = mergeObject(workflow.rollOptions, mapSpeedKeys(pressedKeys, "damage", workflow.rollOptions?.rollToggle), { insertKeys: true, insertValues: true, overwrite: true });
-  
+
   //@ts-expect-error
   if (CONFIG.debug.keybindings) {
     log("itemhandling: workflow.rolloptions", workflow.rollOption);
@@ -613,7 +614,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
   let result2: Roll;
   if (!workflow.rollOptions.other) {
     const damageRollOptions = mergeObject(options, {
-      fastForward:  workflow.workflowOptions.fastForwardDamage ?? workflow.rollOptions.fastForwardDamage ,
+      fastForward: workflow.workflowOptions.fastForwardDamage ?? workflow.rollOptions.fastForwardDamage,
       chatMessage: false
     },
       { overwrite: true, insertKeys: true, insertValues: true });
@@ -685,7 +686,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
         [result, result2] = [result2, result];
       }
       // display roll not being used.
-      await displayDSNForRoll(result2, "damageRoll");
+      if (workflow.workflowOptions.damageRollDSN !== false) await displayDSNForRoll(result2, "damageRoll");
       await result2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
     }
   }
@@ -703,7 +704,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
 
     workflow.damageDetail = createDamageList({ roll: result, item: this, ammo: workflow.ammo, versatile: workflow.rollOptions.versatile, defaultType: workflow.defaultDamageType });
     await workflow.setDamageRoll(result);
-    await displayDSNForRoll(result, "damageRoll");
+    if (workflow.workflowOptions.damageRollDSN !== false) await displayDSNForRoll(result, "damageRoll");
     result = await processDamageRollBonusFlags.bind(workflow)();
     await workflow.setDamageRoll(result);
     let card;
@@ -763,7 +764,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
               [otherResult, otherResult2] = [otherResult2, otherResult];
             }
             // display roll not being used
-            await displayDSNForRoll(otherResult2, "damageRoll");
+            if (workflow.workflowOptions.damageRollDSN !== false) await displayDSNForRoll(otherResult2, "damageRoll");
             await otherResult2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
 
           }
@@ -818,7 +819,7 @@ export function rollAttackHook(item, roll, ammoUpdate) { }
 // in use
 export function preRollDamageHook(item, rollConfig) {
   if (item.flags.midiProperties?.offHandWeapon) {
-    rollConfig.data.mod = 0;
+    rollConfig.data.mod = Math.max(0, rollConfig.data.mod);
   }
   return true;
 }
@@ -1119,8 +1120,13 @@ function isTokenInside(templateDetails: { x: number, y: number, shape: any, dist
           //@ts-ignore
         } else if (!installedModules.get("levelsvolumetrictemplates")) {
           //@ts-expect-error
-          contains = !CONFIG.Canvas.losBackend.testCollision({ x: tx, y: ty }, { x: currGrid.x + templatePos.x, y: currGrid.y + templatePos.y }, { mode: "any", type: "move" })
-          // contains = !canvas?.walls?.checkCollision(r, { mode: "any" });
+          if (isNewerVersion(game.version, "11.0")) {
+            //@ts-expect-error polygonBackends
+            contains = !CONFIG.Canvas.polygonBackends.sight.testCollision({ x: tx, y: ty }, { x: currGrid.x + templatePos.x, y: currGrid.y + templatePos.y }, { mode: "any", type: "move" })
+          } else {
+            //@ts-expect-error
+            contains = !CONFIG.Canvas.losBackend.testCollision({ x: tx, y: ty }, { x: currGrid.x + templatePos.x, y: currGrid.y + templatePos.y }, { mode: "any", type: "move" })
+          }
         }
       }
       // Check the distance from origin.
@@ -1141,8 +1147,8 @@ export function templateTokens(templateDetails: { x: number, y: number, shape: a
       // const actorData: any = token.actor?.data;
       //@ts-expect-error .system v10
       if (token.actor.system.details.type?.custom.toLocaleLowerCase().includes("notarget")
-      //@ts-expect-error system
-      || token.actor.system.details.race?.toLocaleLowerCase().includes("notarget")) continue;
+        //@ts-expect-error system
+        || token.actor.system.details.race?.toLocaleLowerCase().includes("notarget")) continue;
       //@ts-ignore .system
       if (["wallsBlock", "always"].includes(configSettings.autoTarget) || !checkIncapacitated(token.actor)) {
         if (token.id) {

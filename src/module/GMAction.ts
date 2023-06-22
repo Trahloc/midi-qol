@@ -25,8 +25,11 @@ export async function removeEffects(data: { actorUuid: string; effects: string[]
       warn("removeFunc: remove effects completed")
     }
   };
-  if (globalThis.DAE?.actionQueue) return globalThis.DAE.actionQueue.add(removeFunc)
-  else return removeFunc();
+  // Using the seamphore queue leads to quite a few potential cases of deadlock - disabling for now
+  // if (globalThis.DAE?.actionQueue) return globalThis.DAE.actionQueue.add(removeFunc)
+  // else return removeFunc();
+  return removeFunc();
+
 }
 
 export async function createEffects(data: { actorUuid: string, effects: any[] }) {

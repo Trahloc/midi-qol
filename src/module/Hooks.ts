@@ -1,7 +1,7 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateBetterRollsMessage, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel } from "./utils.js";
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, configSettings, dragDropTargeting } from "./settings.js";
 import { installedModules } from "./setupModules.js";
@@ -71,9 +71,9 @@ export let readyHooks = async () => {
         await checkWounded(actor, update, options, user);
         await zeroHPExpiry(actor, update, options, user);
       }
-      if (globalThis.DAE?.actionQueue) await globalThis.DAE.actionQueue.add(hpUpdateFunc);
-      else await hpUpdateFunc();
-
+      // if (globalThis.DAE?.actionQueue && !globalThis.DAE.actionQueue.remaining) await globalThis.DAE.actionQueue.add(hpUpdateFunc);
+      // else await hpUpdateFunc();
+      await hpUpdateFunc();
       if (configSettings.concentrationAutomation && !configSettings.noConcnetrationDamageCheck && hpDiff > 0 && !options.noConcentrationCheck) {
         // expireRollEffect.bind(actor)("Damaged", ""); - not this simple - need to think about specific damage types
         concentrationCheckItemDisplayName = i18n("midi-qol.concentrationCheckName");
@@ -113,14 +113,7 @@ export let readyHooks = async () => {
     if (gmToUse?.id !== game.user?.id) return;
     if (!(deletedEffect.parent instanceof CONFIG.Actor.documentClass)) return;
 
-    let concentrationLabel: any = i18n("midi-qol.Concentrating");
-    if (installedModules.get("dfreds-convenient-effects")) {
-      let concentrationId = "Convenient Effect: Concentrating";
-      let statusEffect: any = CONFIG.statusEffects.find(se => se.id === concentrationId);
-      if (statusEffect) concentrationLabel = (statusEffect.name || statusEffect.label);
-    } else if (installedModules.get("combat-utility-belt")) {
-      concentrationLabel = game.settings.get("combat-utility-belt", "concentratorConditionName")
-    }
+    const concentrationLabel: any = getConcentrationLabel();
     let isConcentration = (deletedEffect.name || deletedEffect.label) === concentrationLabel;
     const origin = MQfromUuid(deletedEffect.origin);
     async function changefunc() {

@@ -96,9 +96,9 @@
     }
   ],
   "compatibility": {
-    "minimum": 10.286,
-    "verified": 10,
-    "maximum": 11
+    "minimum": "10.286",
+    "verified": "11.301",
+    "maximum": "11.999"
   },
   "bugs": "https://gitlab.com/tposney/midi-qol/-/issues",
   "flags": {

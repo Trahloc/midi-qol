@@ -397,7 +397,7 @@ export class Workflow {
 
       case WORKFLOWSTATES.VALIDATEROLL:
         // do pre roll checks
-        if (checkMechanic("checkRange") && !this.AoO && this.tokenId) {
+        if (checkMechanic("checkRange") !== "none" && !this.AoO && this.tokenId) {
           const { result, attackingToken } = checkRange(this.item, canvas?.tokens?.get(this.tokenId), this.targets);
           switch (result) {
             case "fail": return this.next(WORKFLOWSTATES.ROLLFINISHED);
@@ -852,7 +852,7 @@ export class Workflow {
                     itemCardId: this.itemCardId,
                     metaData,
                     selfEffects: "none",
-                    spellLevel: (this.item.level  ?? 0),
+                    spellLevel: (this.item.system.level  ?? 0),
                     toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
                     tokenId: this.tokenId,
                     whisper: false,
@@ -989,12 +989,12 @@ export class Workflow {
           )
             hasConcentration = false;
           // items that leave a template laying around for an extended period generally should have concentration
-          const checkConcentration = configSettings.concentrationAutomation; // installedModules.get("combat-utility-belt") && configSettings.concentrationAutomation;
+          const checkConcentration = configSettings.concentrationAutomation;
           if (hasConcentration && checkConcentration) {
             const concentrationData: ConcentrationData = {
               item: this.item,
               targets: this.applicationTargets,
-              templateUuid: this.templateUuid
+              templateUuid: this.templateUuid,
             };
             await addConcentration(this.actor, concentrationData);
           } else if (installedModules.get("dae") && this.item?.hasAreaTarget && this.templateUuid && this.item?.system.duration?.units && configSettings.autoRemoveTemplate) { // create an effect to delete the template
@@ -1155,7 +1155,7 @@ export class Workflow {
       && (["rwak", "rsak", "rpak"].includes(actType) || this.item.system.properties?.thr)) {
       let nearbyFoe;
       // special case check for thrown weapons within 5 feet, treat as a melee attack - (players will forget to set the property)
-      if (this.item.system.properties?.thr) {
+      if (this.item.system.properties?.thr && actType === "rwak") {
         //@ts-expect-error
         const firstTarget: Token = this.targets.first();
         const me = canvas?.tokens?.get(this.tokenId);
@@ -1353,6 +1353,7 @@ export class Workflow {
 
       const wasAttacked = this.item?.hasAttack;
       const wasHit = (this.item ? wasAttacked : true) && (this.hitTargets?.has(target) || this.hitTargetsEC?.has(target));
+      const wasMissed = (this.item ? wasAttacked : true) && !this.hitTargets?.has(target) && !this.hitTargetsEC?.has(target);
       //@ts-ignore token.document
       const wasDamaged = this.damageList && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
       if (wasAttacked && triggerList.includes("isAttacked")) {
@@ -1375,6 +1376,13 @@ export class Workflow {
           actorOnUseMacros?.getMacros("isHit"),
           "TargetOnUse",
           "isHit",
+          { actor: target.actor, token: target });
+      }
+      if (wasMissed && triggerList.includes("isMissed")) {
+        await this.callMacros(this.item,
+          actorOnUseMacros?.getMacros("isMissed"),
+          "TargetOnUse",
+          "isMissed",
           { actor: target.actor, token: target });
       }
       if (triggerList.includes("preTargetDamageApplication")) {
@@ -3138,6 +3146,7 @@ export class Workflow {
       };
     }
     if (configSettings.allowUseMacro) await this.triggerTargetMacros(["isHit"], new Set([...this.hitTargets, ...this.hitTargetsEC]));
+    if (configSettings.allowUseMacro) await this.triggerTargetMacros(["isMissed"], this.targets);
   }
 
   setRangedTargets(targetDetails) {
