@@ -313,7 +313,6 @@ Hooks.once('ready', function () {
     noDamageSaves = i18n("midi-qol.noDamageonSaveSpells")?.map(name => cleanSpellName(name));
   }
   checkModules();
-  checkConcentrationSettings();
   readyHooks();
   readyPatching();
   if (midiSoundSettingsBackup) game.settings.set("midi-qol", "MidiSoundSettings-backup", midiSoundSettingsBackup)
@@ -445,38 +444,6 @@ function setupMidiQOLApi() {
 
 export function testfunc(args) {
   console.error(args);
-}
-
-export function checkConcentrationSettings() {
-  const needToUpdateCubSettings = installedModules.get("combat-utility-belt") && (
-    game.settings.get("combat-utility-belt", "enableConcentrator")
-  );
-  if (game.user?.isGM && configSettings.concentrationAutomation && needToUpdateCubSettings) {
-    let d = new Dialog({
-      // localize this text
-      title: i18n("dae.confirm"),
-      content: `<p>You have enabled midi-qol concentration automation.</p><p>This requires Combat Utility Belt Concentration to be disabled.</p><p>Choose which concentration automation to disable</p>`,
-      buttons: {
-        one: {
-          icon: '<i class="fas fa-cross"></i>',
-          label: "Disable CUB",
-          callback: () => {
-            game.settings.set("combat-utility-belt", "enableConcentrator", false);
-          }
-        },
-        two: {
-          icon: '<i class="fas fa-cross"></i>',
-          label: "Disable Midi",
-          callback: () => {
-            configSettings.concentrationAutomation = false;
-            game.settings.set("midi-qol", "ConfigSettings", configSettings)
-          }
-        }
-      },
-      default: "one"
-    });
-    d.render(true);
-  }
 }
 
 // Minor-qol compatibility patching

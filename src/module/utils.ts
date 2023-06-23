@@ -1704,14 +1704,9 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
             switch (configSettings.optionalRules.wallsBlockRange) {
               case "center":
                 let collisionCheck;
-                //@ts-expect-error version
-                if (isNewerVersion(game.version, "11.0")) {
-                  //@ts-expect-error polygonBackends
-                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
-                } else {
-                  //@ts-expect-error
-                  collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
-                }
+
+                //@ts-expect-error polygonBackends
+                collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
                 if (collisionCheck) continue;
                 break;
               case "centerLevels":
@@ -1744,28 +1739,17 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                   }
                 } else {
                   let collisionCheck;
-                  //@ts-expect-error version
-                  if (isNewerVersion(game.version, "11.0")) {
-                    //@ts-expect-error polygonBackends
-                    collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
-                  } else {
-                    //@ts-expect-error
-                    collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
-                  }
+                  //@ts-expect-error polygonBackends
+                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
                   if (collisionCheck) continue;
                 }
                 break;
               case "simbuls-cover-calculator":
                 if (coverVisible === undefined) {
                   let collisionCheck;
-                  //@ts-expect-error version
-                  if (isNewerVersion(game.version, "11.0")) {
-                    //@ts-expect-error polygonBackends
-                    collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
-                  } else {
-                    //@ts-expect-error
-                    collisionCheck = CONFIG.Canvas.losBackend.testCollision(origin, dest, { mode: "any", type: "sight" })
-                  }
+
+                  //@ts-expect-error polygonBackends
+                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
                   if (collisionCheck) continue;
                 } else if (coverVisible === false) continue;
                 break;
@@ -2082,28 +2066,6 @@ export function getTokenPlayerName(token: TokenDocument | Token) {
     if (api.playersSeeName(token.actor)) return token.name;
     else return api.getName(token.actor);
   }
-  if (!installedModules.get("combat-utility-belt")) return token.name;
-  if (!game.settings.get("combat-utility-belt", "enableHideNPCNames")) return token.name;
-  //@ts-ignore .flags v10
-  if (getProperty(token.actor?.flags ?? {}, "combat-utility-belt.enableHideName"))
-    //@ts-ignore .flags v10
-    return getProperty(token.actor?.flags ?? {}, "combat-utility-belt.hideNameReplacement")
-  if (token.actor?.hasPlayerOwner) return token.name;
-  //@ts-ignore .disposition
-  switch ((token.document ?? token).disposition) {
-    case -1:
-      if (game.settings.get("combat-utility-belt", "enableHideHostileNames"))
-        return game.settings.get("combat-utility-belt", "hostileNameReplacement")
-      break;
-    case 1:
-
-      if (game.settings.get("combat-utility-belt", "enableHideFriendlyNames"))
-        return game.settings.get("combat-utility-belt", "friendlyNameReplacement")
-    default:
-    case 0:
-      if (game.settings.get("combat-utility-belt", "enableHideNeutralNames"))
-        return game.settings.get("combat-utility-belt", "neutralNameReplacement")
-  }
   return token.name;
 }
 
@@ -2122,6 +2084,7 @@ export interface ConcentrationData {
   templateUuid: string;
   removeUuids?: string[];
 }
+
 export async function addConcentration(actor, concentrationData: ConcentrationData) {
   await addConcentrationEffect(actor, concentrationData);
   await setConcentrationData(actor, concentrationData);
@@ -2138,10 +2101,6 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   let statusEffect;
   if (dfreds) {
     statusEffect = dfreds.effectInterface.findEffectByName(concentrationLabel).toObject();
-  }
-  if (!statusEffect && installedModules.get("combat-utility-belt")) {
-    //@ts-expect-error se.name
-    statusEffect = duplicate(CONFIG.statusEffects.find(se => se.id.startsWith("combat-utility-belt") && (se.name ?? se.label) == concentrationLabel));
   }
   if (!statusEffect && installedModules.get("condition-lab-triggler")) {
     //@ts-expect-error se.name
@@ -2171,11 +2130,8 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     if (statusEffect.tint === null) delete statusEffect.tint;
     const existing = selfTarget.actor?.effects.find(e => (e.name ?? e.label) === (statusEffect.name ?? statusEffect.label));
     if (existing) await existing.delete();
-    //@ts-expect-error
-    if (isNewerVersion(game.version, "11.0") && !statusEffect.id && statusEffect.statuses?.length > 0) {
+    if (!statusEffect.id && statusEffect.statuses?.length > 0) {
       statusEffect.id = statusEffect.statuses[0];
-    } else if (!statusEffect.id) {
-      statusEffect.id = statusEffect.flags?.core?.statusId;
     }
     return await actor.createEmbeddedDocuments("ActiveEffect", [statusEffect])
     // return await selfTarget.document.toggleActiveEffect(statusEffect, { active: true })
@@ -2197,12 +2153,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
         "dae": { transfer: false }
       }
     }
-    //@ts-expect-error
-    if (isNewerVersion(game.version, "11.0")) {
-      setProperty(effectData, "statuses", [concentrationLabel]);
-    } else {
-      setProperty(effectData, "flags.core.statusId", concentrationLabel);
-    }
+    setProperty(effectData, "statuses", [concentrationLabel]);
     if (installedModules.get("dae")) {
       const convertedDuration = globalThis.DAE.convertDuration(item.system.duration, inCombat);
       if (convertedDuration?.type === "seconds") {
@@ -2237,11 +2188,11 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
       targets.push({ tokenUuid: selfTarget.uuid, actorUuid: actor.uuid })
     }
     let templates = concentrationData.templateUuid ? [concentrationData.templateUuid] : [];
-    await actor.setFlag("midi-qol", "concentration-data", { 
-      uuid: concentrationData.item.uuid, 
-      targets, 
-      templates, 
-      removeUuids: concentrationData.removeUuids ?? [] 
+    await actor.setFlag("midi-qol", "concentration-data", {
+      uuid: concentrationData.item.uuid,
+      targets,
+      templates,
+      removeUuids: concentrationData.removeUuids ?? []
     })
   }
 }
@@ -2299,8 +2250,6 @@ export function hasCondition(token /* Token | TokenDoucment */, condition: strin
 
   //@ts-ignore
   const cub = game.cub;
-  if (installedModules.get("combat-utility-belt") && condition === "invisible" && cub.hasCondition("Invisible", [token], { warn: false })) return true;
-  if (installedModules.get("combat-utility-belt") && condition === "hidden" && cub.hasCondition("Hidden", [token], { warn: false })) return true;
   if (installedModules.get("condition-lab-triggler") && condition === "invisible" && cub.hasCondition("Invisible", [token], { warn: false })) return true;
   if (installedModules.get("condition-lab-triggler") && condition === "hidden" && cub.hasCondition("Hidden", [token], { warn: false })) return true;
   //@ts-ignore
@@ -3408,10 +3357,8 @@ export function getConcentrationLabel(): string {
     //@ts-expect-error .dfreds
     const dfreds = game.dfreds;
     concentrationLabel = dfreds.effects._concentrating.name ?? dfreds.effects._concentrating.label
-  } else if (installedModules.get("combat-utility-belt")) {
-    //@ts-expect-error unknow -> string
-    concentrationLabel = game.settings.get("combat-utility-belt", "concentratorConditionName")
   }
+  // for condition-lab-trigger there is no module specific way to specify the concentration effect so just use the label
   return concentrationLabel
 }
 /**
@@ -3511,43 +3458,23 @@ export function computeTemplateShapeDistance(templateDocument: MeasuredTemplateD
   width *= dimensions.size / dimensions.distance;
   direction = Math.toRadians(direction);
   let shape: any;
-  //@ts-expect-error .version
-  if (isNewerVersion(game.version, "11.300")) {
-    //@ts-expect-error .t v11
-    switch (templateDocument.t) {
-      case "circle":
-        shape = new PIXI.Circle(0, 0, distance);
-        break;
-      case "cone":
-        //@ts-expect-error getConeShape
-        shape = templateDocument.constructor.getConeShape(direction, angle, distance);
-        break;
-      case "rect":
-        //@ts-expect-error getRectShape
-        shape = templateDocument.constructor.getRectShape(direction, distance);
-        break;
-      case "ray":
-        //@ts-expect-error getRayShape
-        shape = templateDocument.constructor.getRayShape(direction, distance, width);
-    }
-  } else {
-    //@ts-expect-error .t v10
-    switch (templateDocument.t) {
-      case "circle":
-        shape = new PIXI.Circle(0, 0, distance);
-        break;
-      case "cone":
-        //@ts-ignore
-        shape = templateDocument._object._getConeShape(direction, angle, distance);
-        break;
-      case "rect":
-        //@ts-ignore
-        shape = templateDocument._object._getRectShape(direction, distance);
-        break;
-      case "ray":
-        //@ts-ignore
-        shape = templateDocument._object._getRayShape(direction, distance, width);
-    }
+
+  //@ts-expect-error .t v11
+  switch (templateDocument.t) {
+    case "circle":
+      shape = new PIXI.Circle(0, 0, distance);
+      break;
+    case "cone":
+      //@ts-expect-error getConeShape
+      shape = MeasuredTemplate.getConeShape(direction, angle, distance);
+      break;
+    case "rect":
+      //@ts-expect-error getRectShape
+      shape = MeasuredTemplate.getRectShape(direction, distance);
+      break;
+    case "ray":
+      //@ts-expect-error getRayShape
+      shape = MeasuredTemplate.getRayShape(direction, distance, width);
   }
   //@ts-ignore distance v10
   return { shape, distance: templateDocument.distance };
@@ -3644,9 +3571,6 @@ export async function setReactionUsed(actor: Actor) {
     const effectInterface = game.dfreds.effectInterface;
     // await tempCEaddEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
     await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
-  } //@ts-expect-error se.name
-  else if (installedModules.get("combat-utility-belt") && (effect = CONFIG.statusEffects.find(se => (se.name || se.label) === i18n("DND5E.Reaction")))) {
-    actor.createEmbeddedDocuments("ActiveEffect", [effect]);
     //@ts-expect-error se.name
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name || se.label) === i18n("DND5E.Reaction")))) {
     actor.createEmbeddedDocuments("ActiveEffect", [effect]);
@@ -3662,9 +3586,6 @@ export async function setBonusActionUsed(actor: Actor) {
   if (getConvenientEffectsBonusAction()) {
     //@ts-expect-error
     await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
-  } else if (installedModules.get("combat-utility-belt") && (effect = CONFIG.statusEffects.find(se => se.label === i18n("DND5E.BonusAction")))) {
-    // TODO V11 check se.label
-    actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => se.label === i18n("DND5E.BonusAction")))) {
     actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
@@ -3684,12 +3605,7 @@ export async function removeReactionUsed(actor: Actor, removeCEEffect = false) {
       await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), uuid: actor.uuid });
     }
   }
-  if (installedModules.get("combat-utility-belt")) {
-    // TODO V11 check se.label
-    //@ts-expect-error
-    const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"));
-    await effect?.delete();
-  }
+
   if (installedModules.get("condition-lab-triggler")) {
     //@ts-expect-error
     const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"));
@@ -3713,11 +3629,7 @@ export async function hasUsedReaction(actor: Actor) {
       return true;
     }
   }
-  //@ts-expect-error .label
-  if (installedModules.get("combat-utility-belt") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"))) {
-    await actor?.setFlag("midi-qol", "actions.reaction", false);
-    return true;
-  }
+
   //@ts-expect-error .label
   if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"))) {
     await actor?.setFlag("midi-qol", "actions.reaction", false);
@@ -3755,11 +3667,6 @@ export async function hasUsedBonusAction(actor: Actor) {
       return true;
     }
   }
-  //@ts-expect-error .label
-  if (installedModules.get("combat-utility-belt") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"))) {
-    await actor.setFlag("midi-qol", "actions.bonus", true);
-    return true;
-  }
 
   //@ts-expect-error .label
   if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"))) {
@@ -3776,11 +3683,7 @@ export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false
       //@ts-ignore
       await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
     }
-    if (installedModules.get("combat-utility-belt")) {
-      //@ts-ignore
-      const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"));
-      await effect?.delete();
-    }
+
     if (installedModules.get("condition-lab-triggler")) {
       //@ts-ignore
       const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"));
@@ -4374,9 +4277,11 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
       if (ghostRoll) {
         const promises: Promise<any>[] = [];
         promises.push(dice3d?.showForRoll(displayRoll, game.user, true, ChatMessage.getWhisperRecipients("GM"), !game.user?.isGM));
-        //@ts-expect-error .ghost
-        displayRoll.ghost = true;
-        promises.push(dice3d?.showForRoll(displayRoll, game.user, true, game.users?.players.map(u => u.id), game.user?.isGM));
+        if (game.settings.get("dice-so-nice", "showGhostDice")) {
+          //@ts-expect-error .ghost
+          displayRoll.ghost = true;
+          promises.push(dice3d?.showForRoll(displayRoll, game.user, true, game.users?.players.map(u => u.id), game.user?.isGM));
+        }
         await Promise.allSettled(promises);
       } else
         await dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, rollMode === "blindroll" && !game.user?.isGM)

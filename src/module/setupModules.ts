@@ -68,8 +68,7 @@ export function checkModules() {
 }
 
 export function checkCubInstalled() {
-  //@ts-expect-error game.version
-  if (game.user?.isGM && installedModules.get("combat-utility-belt") && isNewerVersion(game.version, "11.0")) {
+  if (game.user?.isGM && installedModules.get("combat-utility-belt")) {
     ui.notifications?.warn("midi-qol.cubNotSupported", {permanent: true, localize: true})
   }
 }

@@ -315,8 +315,7 @@ async function registerTests() {
               await cubInterface.removeCondition("Blinded", [target]);
             assert.ok(!cubInterface.hasCondition("Blinded", [target]));
             assert.ok(!!(await completeItemUse(actor.items.getName("Cub Test"))));
-            //@ts-expect-error game.version
-            if (isNewerVersion("11.293", game.version)) await busyWait(0.5);
+            await busyWait(0.5);
             assert.ok(cubInterface.hasCondition("Blinded", [target]));
             //@ts-ignore .label v10
             const effect: ActiveEffect | undefined = target?.actor?.effects.find(e => (e.name || e.label) === "Cub Test");

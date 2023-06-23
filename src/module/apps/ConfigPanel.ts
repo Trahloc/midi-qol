@@ -490,10 +490,6 @@ let quickSettingsDetails: any = {
       singleConcentrationRoll: true,
     },
     codeChecks: (current, settings) => {
-      if (installedModules.get("combat-utility-belt") && game.settings.get("combat-utility-belt", "enableConcentrator")) {
-        ui.notifications?.warn("`Combat Utility Belt Concentration' is not compatible with midi-qol concentration. CUB concentration has been disabled")
-        game.settings.set("combat-utility-belt", "enableConcentrator", false);
-      }
     }
   },
   NoDamageApplication: {
@@ -532,7 +528,7 @@ let quickSettingsDetails: any = {
     codeChecks: (current, settings) => {
       if (current.autoCheckHit !== "none") settings.autoCheckHit = "whisper";
       if (current.autoCheckSaves !== "none") settings.autoCheckSaves = "whisper";
-      if (!installedModules.get("combat-utility-belt")) ui.notifications?.warn("'Combat Utility Belt' is recommended to hide creature names for normal dnd5e rolls")
+      if (!installedModules.get("anonymous")) ui.notifications?.warn("'Anonymous' is recommended to hide creature names for normal dnd5e rolls")
     }
   },
   FullDisclosure: {

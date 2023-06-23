@@ -1,5 +1,5 @@
 import { _mergeUpdate } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/utils/helpers.mjs";
-import { debug, setDebugLevel, warn, i18n, checkConcentrationSettings, debugEnabled, geti18nTranslations } from "../midi-qol.js";
+import { debug, setDebugLevel, warn, i18n, debugEnabled, geti18nTranslations } from "../midi-qol.js";
 import { ConfigPanel} from "./apps/ConfigPanel.js"
 import { SoundConfigPanel } from "./apps/SoundConfigPanel.js";
 import { configureDamageRollDialog } from "./patching.js";
@@ -441,7 +441,6 @@ export let fetchParams = () => {
       console.warn("Concentration requires On Use Macro to be enabled. Enabling")
       configSettings.allowUseMacro = true;
     }
-    if (promptDamageRoll !== configSettings.promptDamageRoll) checkConcentrationSettings();
   }
 }
 

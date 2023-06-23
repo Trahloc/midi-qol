@@ -1,3 +1,8 @@
+## 11.0.0
+* Removed Combat utility belt support
+* Fix for non-circular template placement throwing an error.
+* Midi now respects the dice so nice setting for ghost rolls. If ghost rolls is not enabled in dice so nice midi won't display ghost dice.
+
 ## 10.0.49
 * Add "isMiss" target onUse macro call - called when an attack misses a target, called for each missed target.
 * Fix for @spellLevel arguments always being 0.

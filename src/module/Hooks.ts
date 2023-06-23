@@ -205,14 +205,7 @@ export let readyHooks = async () => {
 
   Hooks.on("dnd5e.preRollDeathSave", preRollDeathSaveHook);
   // Concentration Check is rolled as an item roll so we need an item.
-  if (installedModules.get("combat-utility-belt")) {
-    //@ts-ignore game.cub
-    const concentrationCondition = game.cub.getCondition(game.settings.get("combat-utility-belt", "concentratorConditionName"))
-    itemJSONData.name = concentrationCheckItemName
-    itemJSONData.img = concentrationCondition?.icon;
-  } else {
-    itemJSONData.name = concentrationCheckItemName;
-  }
+  itemJSONData.name = concentrationCheckItemName;
 }
 
 export function restManager(actor, result) {
