@@ -3454,31 +3454,18 @@ export function evalCondition(condition: string, conditionData: any): boolean {
 
 export function computeTemplateShapeDistance(templateDocument: MeasuredTemplateDocument): { shape: string, distance: number } {
   //@ts-ignore direction etc v10
-  let { direction, distance, angle, width } = templateDocument;
+  let {x,y,direction, distance} = templateDocument;
+  // let { direction, distance, angle, width } = templateDocument;
   if (!canvas || !canvas.scene) return { shape: "none", distance: 0 };
-  const dimensions = canvas.dimensions || { size: 1, distance: 1 };
-  distance *= dimensions.size / dimensions.distance;
-  width *= dimensions.size / dimensions.distance;
+  //@ts-expect-error distancePixels
+  distance *= canvas.dimensions?.distancePixels;
   direction = Math.toRadians(direction);
+  //@ts-expect-error
+  if (templateDocument.object) templateDocument.object.ray = Ray.fromAngle(x, y, direction, distance);
+  else return { shape: "none", distance: 0 };
   let shape: any;
-
-  //@ts-expect-error .t v11
-  switch (templateDocument.t) {
-    case "circle":
-      shape = new PIXI.Circle(0, 0, distance);
-      break;
-    case "cone":
-      //@ts-expect-error getConeShape
-      shape = MeasuredTemplate.getConeShape(direction, angle, distance);
-      break;
-    case "rect":
-      //@ts-expect-error getRectShape
-      shape = MeasuredTemplate.getRectShape(direction, distance);
-      break;
-    case "ray":
-      //@ts-expect-error getRayShape
-      shape = MeasuredTemplate.getRayShape(direction, distance, width);
-  }
+  //@ts-expect-error ._computeShape
+  shape = templateDocument.object._computeShape();
   //@ts-ignore distance v10
   return { shape, distance: templateDocument.distance };
 }
@@ -4042,9 +4029,12 @@ export function getChanges(actorOrItem, key: string) {
 export function canSense(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument): boolean {
   //@ts-ignore
   let target: Token = targetEntity instanceof TokenDocument ? targetEntity.object : targetEntity;
+
   //@ts-ignore
   let token: Token = tokenEntity instanceof TokenDocument ? tokenEntity.object : tokenEntity;
   if (!token || !target) return true;
+  //@ts-expect-error .hidden
+  if (target.document?.hidden || token.document?.hidden) return false;
   if (!token.hasSight) return true;
   if (!token.vision.active) {
     const sourceId = token.sourceId;
@@ -4128,6 +4118,7 @@ export function canSense(tokenEntity: Token | TokenDocument, targetEntity: Token
   }
   return false;
 }
+
 export function getSystemCONFIG(): any {
   switch (game.system.id) {
     //@ts-ignore .

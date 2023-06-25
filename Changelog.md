@@ -1,3 +1,9 @@
+## 11.0.2
+* Fix for off hand attack still adding dex/str bonus to damage for off hand attacks.
+* Little change to thrown weapons. If the weapon is marked as a melee weapon, then using it at a range greater than touch will be treated as a ranged attack and nearby foe will cause disadvantage. If used within 5 feet then it will be treated as a melee weapon attack and disadvantage will not apply.
+* Tokens that are gm Hidden (from the token HUD) will not be treated as visiable by canSense - so will not cause disadvantage for nearby foes and ranged attacks etc.
+* GM Hidden tokens (i.e. hidden from token HUD) cannot be targeted in AoE templates. This highlighted that foundry has (again) changed visibility of MeasuredTemplate shape functions. I think this version gets around the problems - but have not tested with levels volumetric templates etc.
+
 ## 11.0.1
 * Moved concentration effect removal after dependent effects/items removal
 * With dae 10.0.36 ghost effects should be fixed.

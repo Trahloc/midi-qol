@@ -819,7 +819,7 @@ export function rollAttackHook(item, roll, ammoUpdate) { }
 // in use
 export function preRollDamageHook(item, rollConfig) {
   if (item.flags.midiProperties?.offHandWeapon) {
-    rollConfig.data.mod = Math.max(0, rollConfig.data.mod);
+    rollConfig.data.mod = Math.min(0, rollConfig.data.mod);
   }
   return true;
 }
@@ -1137,6 +1137,8 @@ export function templateTokens(templateDetails: { x: number, y: number, shape: a
   let targets: string[] = [];
   const targetTokens: Token[] = [];
   for (const token of tokens) {
+    //@ts-expect-error .hidden
+    if (token.document?.hidden) continue;
     if (token.actor && isTokenInside(templateDetails, token, wallsBlockTargeting)) {
       // const actorData: any = token.actor?.data;
       //@ts-expect-error .system v10
