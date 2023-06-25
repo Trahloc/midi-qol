@@ -998,9 +998,7 @@ async function _preDeleteActiveEffect(wrapped, ...args) {
 export async function removeConcentration(actor: Actor, concentrationUuid: string) {
   let result;
   try {
-    //@ts-expect-error fromUuidSync
-    const concentrationEffect = fromUuidSync(concentrationUuid);
-    if (concentrationEffect) await concentrationEffect.delete();
+
     const concentrationData: any = actor.getFlag("midi-qol", "concentration-data");
     if (!concentrationData) {
       return;
@@ -1014,8 +1012,7 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
     }
     if (concentrationData.removeUuids) for (let removeUuid of concentrationData.removeUuids) {
       const entity = await fromUuid(removeUuid);
-      if (entity && globalThis.DAE?.actionQueue) await globalThis.DAE?.actionQueue.add(entity?.delete.bind(entity))
-      else if (entity) await entity.delete(); // TODO check if this needs to be run as GM
+      await entity?.delete();
     }
     if (concentrationData.targets) {
       debug("About to remove concentration effects", actor?.name);
@@ -1024,8 +1021,11 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
     }
   } catch (err) {
     error("error when attempting to remove concentration ", err)
+  } finally {
+    //@ts-expect-error fromUuidSync
+    const concentrationEffect = fromUuidSync(concentrationUuid);
+    return await concentrationEffect?.delete();
   }
-  return result;
 }
 
 export async function zeroHPExpiry(actor, update, options, user) {
@@ -1091,7 +1091,7 @@ export async function checkWounded(actor, update, options, user) {
       else combatant = game.combat?.getCombatantByActor(actor.id);
       if (combatant && useDefeated) {
         await combatant.update({ defeated: needsBeaten })
-      } 
+      }
       if (needsBeaten) {
         await dfreds.effectInterface?.addEffectWith({ effectData: effect.toObject(), uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
       } else { // remove beaten condition

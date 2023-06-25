@@ -1,3 +1,7 @@
+## 11.0.1
+* Moved concentration effect removal after dependent effects/items removal
+* With dae 10.0.36 ghost effects should be fixed.
+
 ## 11.0.0
 * Removed Combat utility belt support
 * Fix for non-circular template placement throwing an error.

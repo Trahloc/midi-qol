@@ -2133,8 +2133,10 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     if (!statusEffect.id && statusEffect.statuses?.length > 0) {
       statusEffect.id = statusEffect.statuses[0];
     }
-    return await actor.createEmbeddedDocuments("ActiveEffect", [statusEffect])
+
     // return await selfTarget.document.toggleActiveEffect(statusEffect, { active: true })
+    const result = await actor.createEmbeddedDocuments("ActiveEffect", [statusEffect]);
+    return result;
   } else {
     const existing = selfTarget.actor?.effects.find(e => (e.name || e.label) === concentrationLabel);
     if (existing) await existing.delete(); // make sure that we don't double apply concentration
@@ -2167,6 +2169,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
         }
       }
     }
+    if (debugEnabled > 1) debug("adding concentration", actor.name)
     return await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
   }
 }
