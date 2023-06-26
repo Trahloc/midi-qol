@@ -2099,7 +2099,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   if (!selfTarget) return;
   const concentrationLabel = getConcentrationLabel();
   let statusEffect;
-  if (dfreds) {
+  if (installedModules.get("dfreds-convenient-effects")) {
     statusEffect = dfreds.effectInterface.findEffectByName(concentrationLabel).toObject();
   }
   if (!statusEffect && installedModules.get("condition-lab-triggler")) {
@@ -3508,7 +3508,7 @@ export function getConvenientEffectsDead() {
 export async function ConvenientEffectsHasEffect(effectName: string, actor: Actor, ignoreInactive: boolean = true) {
   if (ignoreInactive) {
     //@ts-ignore
-    return game.dfreds.effectInterface.hasEffectApplied(effectName, actor.uuid);
+    return game.dfreds?.effectInterface?.hasEffectApplied(effectName, actor.uuid);
   } else {
     //@ts-expect-error .label
     return actor.effects.find(ef => (ef.name || ef.label) === effectName) !== undefined;
@@ -3544,7 +3544,7 @@ export async function tempCEaddEffectWith(args) {
     effectData.statuses.push(effectData.flags?.core?.statusId)
   }
   //@ts-expect-error
-  const effectInterface = game.dfreds.effectInterface;
+  const effectInterface = game.dfreds?.effectInterface;
   await effectInterface?.addEffectWith({ effectData, uuid, metaData, origin });
 }
 
