@@ -3563,10 +3563,10 @@ export async function setReactionUsed(actor: Actor) {
     await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
     //@ts-expect-error se.name
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name || se.label) === i18n("DND5E.Reaction")))) {
-    actor.createEmbeddedDocuments("ActiveEffect", [effect]);
+    await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
   await actor.setFlag("midi-qol", "actions.reactionCombatRound", game.combat?.round);
-  await actor.setFlag("midi-qol", "actions.reaction", true);
+  return await actor.setFlag("midi-qol", "actions.reaction", true);
 
 }
 
@@ -3577,7 +3577,7 @@ export async function setBonusActionUsed(actor: Actor) {
     //@ts-expect-error
     await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => se.label === i18n("DND5E.BonusAction")))) {
-    actor.createEmbeddedDocuments("ActiveEffect", [effect]);
+    await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
   await actor.setFlag("midi-qol", "actions.bonusActionCombatRound", game.combat?.round);
   return actor.setFlag("midi-qol", "actions.bonus", true);
