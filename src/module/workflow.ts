@@ -852,7 +852,7 @@ export class Workflow {
                     itemCardId: this.itemCardId,
                     metaData,
                     selfEffects: "none",
-                    spellLevel: (this.item.system.level  ?? 0),
+                    spellLevel: (this.itemLevel  ?? 0),
                     toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
                     tokenId: this.tokenId,
                     whisper: false,
