@@ -721,8 +721,8 @@ An optional attack bonus prompts the attacker after the attack roll is made, but
 * flags.midi-qol.optional.Name.skill.fail.all/str/dex etc. If the actor is forced to make a saving throw from an item use the optional bonus will be activated. 
   - e.g. flags.midi-qol.optional.Name.save.fail.dex OVERRIDE success will alow the saver to convert a failed save to a success.
 * flags.midi-qol.optional.Name.label	label to use in the dialog		
-* flags.midi-qol.optional.Name.count	how many uses the effect has (think lucky which has 3), if absent the bonus will be single use (bardic inspiration), turn for once per turn.   
 * flags.midi-qol.optional.Name.criticalDamage. If present in the effect then bonus damage will use the existing damage rolls critical damage status and roll bonus damage as critical using the game/midi critical damage settings.
+* flags.midi-qol.optional.Name.count	how many uses the effect has (think lucky which has 3), if absent the bonus will be single use (bardic inspiration), turn for once per turn.   
   - **every** - you can use the optional effect on every occurence
   - **reaction** - behaves as a reaction roll, i.e. uses up your reaction
   - **a number** - how many times the effect can be used before expiring
