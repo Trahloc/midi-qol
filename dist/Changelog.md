@@ -1,3 +1,6 @@
+## 10.0.51
+* Fix for spell level being passed to macros thanks @thatlonelybugbear
+
 ## 10.0.50
 * Fix for clearing of unlinked token flags when creating a token.
 
