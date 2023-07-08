@@ -2099,7 +2099,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   if (!selfTarget) return;
   const concentrationLabel = getConcentrationLabel();
   let statusEffect;
-  if (dfreds) {
+  if (installedModules.get("dfreds-convenient-effects")) {
     statusEffect = dfreds.effectInterface.findEffectByName(concentrationLabel).toObject();
   }
   if (!statusEffect && installedModules.get("condition-lab-triggler")) {
@@ -3508,7 +3508,7 @@ export function getConvenientEffectsDead() {
 export async function ConvenientEffectsHasEffect(effectName: string, actor: Actor, ignoreInactive: boolean = true) {
   if (ignoreInactive) {
     //@ts-ignore
-    return game.dfreds.effectInterface.hasEffectApplied(effectName, actor.uuid);
+    return game.dfreds?.effectInterface?.hasEffectApplied(effectName, actor.uuid);
   } else {
     //@ts-expect-error .label
     return actor.effects.find(ef => (ef.name || ef.label) === effectName) !== undefined;
@@ -3544,7 +3544,7 @@ export async function tempCEaddEffectWith(args) {
     effectData.statuses.push(effectData.flags?.core?.statusId)
   }
   //@ts-expect-error
-  const effectInterface = game.dfreds.effectInterface;
+  const effectInterface = game.dfreds?.effectInterface;
   await effectInterface?.addEffectWith({ effectData, uuid, metaData, origin });
 }
 
@@ -3563,10 +3563,10 @@ export async function setReactionUsed(actor: Actor) {
     await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
     //@ts-expect-error se.name
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name || se.label) === i18n("DND5E.Reaction")))) {
-    actor.createEmbeddedDocuments("ActiveEffect", [effect]);
+    await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
   await actor.setFlag("midi-qol", "actions.reactionCombatRound", game.combat?.round);
-  await actor.setFlag("midi-qol", "actions.reaction", true);
+  return await actor.setFlag("midi-qol", "actions.reaction", true);
 
 }
 
@@ -3577,7 +3577,7 @@ export async function setBonusActionUsed(actor: Actor) {
     //@ts-expect-error
     await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => se.label === i18n("DND5E.BonusAction")))) {
-    actor.createEmbeddedDocuments("ActiveEffect", [effect]);
+    await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
   await actor.setFlag("midi-qol", "actions.bonusActionCombatRound", game.combat?.round);
   return actor.setFlag("midi-qol", "actions.bonus", true);
