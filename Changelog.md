@@ -1,3 +1,6 @@
+## 10.0.50
+* Fix for clearing of unlinked token flags when creating a token.
+
 ## 10.0.49
 * Add "isMiss" target onUse macro call - called when an attack misses a target, called for each missed target.
 * Fix for @spellLevel arguments always being 0.

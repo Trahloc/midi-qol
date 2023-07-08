@@ -19,17 +19,20 @@ export let readyHooks = async () => {
   Hooks.on("preUpdateActor", (actor, update, options, user) => {
     const hpUpdate = getProperty(update, "system.attributes.hp.value");
     const temphpUpdate = getProperty(update, "system.attributes.hp.temp");
-    let concHPDiff = 0;
+    let concHPDiff: number | undefined = undefined;
     if (hpUpdate !== undefined) {
       let hpChange = actor.system.attributes.hp.value - hpUpdate;
       // if (hpUpdate >= (actor.system.attributes.hp.tempmax ?? 0) + actor.system.attributes.hp.max) hpChange = 0;
-      if (hpChange > 0) concHPDiff += hpChange;
+      if (hpChange > 0) concHPDiff = (concHPDiff ?? 0) + hpChange;
     }
     if (configSettings.tempHPDamageConcentrationCheck && temphpUpdate !== undefined) {
       let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
-      if (temphpDiff > 0) concHPDiff += temphpDiff
+      if (temphpDiff > 0) concHPDiff = (concHPDiff ?? 0) + temphpDiff
     }
-    setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff);
+    if (concHPDiff !== undefined) {
+      update.flags = duplicate(actor.flags);
+      setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff);
+    }
     return true;
   })
 
