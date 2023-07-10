@@ -2965,7 +2965,7 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
     if (getReactionSetting(player) === "allMI") {
       reactions = reactions.concat(await getMagicItemReactions(target.actor, triggerType));
     }
-    reactionCount = reactions.length;
+
   } finally {
     enableNotifications(true);
   }
@@ -2975,7 +2975,7 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
     console.warn("midi-qol | Reaction processing cancelled by Hook");
     return { name: "Filter", ac: 0, uuid: undefined };
   } // else reactionItemUuidList = reactions.map(item => item.uuid);
-
+  reactionCount = reactions?.length ?? 0;
   // if (usedReaction) return noResult;
   if (!usedReaction) {
     //@ts-ignore .flags v10
@@ -3417,7 +3417,6 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
     rollData.tokenId = data.workflow?.tokenId;
     rollData.workflow = {};
     rollData.effects = actor?.effects;
-    rollData.workflow = {};
     if (data.workflow) {
       Object.assign(rollData.workflow, data.workflow);
       delete rollData.workflow.undoData;
@@ -3454,7 +3453,7 @@ export function evalCondition(condition: string, conditionData: any): boolean {
 
 export function computeTemplateShapeDistance(templateDocument: MeasuredTemplateDocument): { shape: string, distance: number } {
   //@ts-ignore direction etc v10
-  let {x,y,direction, distance} = templateDocument;
+  let { x, y, direction, distance } = templateDocument;
   // let { direction, distance, angle, width } = templateDocument;
   if (!canvas || !canvas.scene) return { shape: "none", distance: 0 };
   //@ts-expect-error distancePixels
@@ -3480,15 +3479,28 @@ export function enableNotifications(enable: boolean) {
   _enableNotifications = enable;
 }
 
-export function getConvenientEffectsReaction() {
-  //@ts-ignore
-  return game.dfreds?.effects?._reaction;
+export function getConvenientEffectsReaction(): ActiveEffect | undefined {
+  if (!installedModules.get("dfreds-convenient-effects")) return undefined;
+  //@ts-expect-error
+  const dfreds = game.dfreds;
+  const reactionName = dfreds?.effects?._reaction?.name;
+  if (reactionName) {
+    const effect = dfreds.effects.all.find(ef => ef.name === reactionName);
+    if (effect.flags?.statusId !== undefined) delete effect.flags.statusId;
+    return effect;
+  }
+  return undefined;
 }
 
-export function getConvenientEffectsBonusAction() {
-  //@ts-ignore
-  return game.dfreds?.effects?._bonusAction;
+export function getConvenientEffectsBonusAction(): ActiveEffect | undefined {
+  if (!installedModules.get("dfreds-convenient-effects")) return undefined;
+  //@ts-expect-error
+  const dfreds = game.dfreds;
+  const bonusName = dfreds?.effects?._bonusAction.name;
+  if (bonusName) return dfreds.effects.all.find(ef => ef.name === bonusName);
+  return undefined;
 }
+
 export function getConvenientEffectsUnconscious() {
   //@ts-expect-error .dfreds
   const dfreds = game.dfreds;
@@ -3567,7 +3579,6 @@ export async function setReactionUsed(actor: Actor) {
   }
   await actor.setFlag("midi-qol", "actions.reactionCombatRound", game.combat?.round);
   return await actor.setFlag("midi-qol", "actions.reaction", true);
-
 }
 
 export async function setBonusActionUsed(actor: Actor) {
@@ -3575,12 +3586,12 @@ export async function setBonusActionUsed(actor: Actor) {
   let effect;
   if (getConvenientEffectsBonusAction()) {
     //@ts-expect-error
-    await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
+    await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsBonusAction().name ?? getConvenientEffectsBonusAction().label), uuid: actor.uuid });
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => se.label === i18n("DND5E.BonusAction")))) {
     await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
   await actor.setFlag("midi-qol", "actions.bonusActionCombatRound", game.combat?.round);
-  return actor.setFlag("midi-qol", "actions.bonus", true);
+  return await actor.setFlag("midi-qol", "actions.bonus", true);
 }
 
 export async function removeActionUsed(actor: Actor) {
@@ -3590,9 +3601,9 @@ export async function removeActionUsed(actor: Actor) {
 export async function removeReactionUsed(actor: Actor, removeCEEffect = false) {
   if (removeCEEffect && getConvenientEffectsReaction()) {
     //@ts-expect-error
-    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), actor.uuid)) {
+    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name ?? getConvenientEffectsReaction().label), actor.uuid)) {
       //@ts-expect-error
-      await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), uuid: actor.uuid });
+      await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsReaction().name ?? getConvenientEffectsReaction().label), uuid: actor.uuid });
     }
   }
 
@@ -3610,21 +3621,18 @@ export async function hasUsedAction(actor: Actor) {
 }
 
 export async function hasUsedReaction(actor: Actor) {
-  // if (!["all", "displayOnly"].includes(configSettings.enforceReactions) && configSettings.enforceReactions !== actor.type) return false;
-  if (actor.getFlag("midi-qol", "actions.reaction")) return true;
   if (getConvenientEffectsReaction()) {
     //@ts-expect-error .dfreds
-    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), actor.uuid)) {
-      await actor?.setFlag("midi-qol", "actions.reaction", false);
+    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name ?? getConvenientEffectsReaction().label), actor.uuid)) {
       return true;
     }
   }
 
   //@ts-expect-error .label
   if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"))) {
-    await actor?.setFlag("midi-qol", "actions.reaction", false);
     return true;
   }
+  if (actor.getFlag("midi-qol", "actions.reaction")) return true;
   return false;
 }
 
@@ -3648,21 +3656,19 @@ export async function gmExpirePerTurnBonusActions(data: { combatUuid: string }) 
 }
 
 export async function hasUsedBonusAction(actor: Actor) {
-  // if (configSettings.enforceBonusActions !== "all" && configSettings.enforceBonusActions !== actor.type) return false;
-  if (actor.getFlag("midi-qol", "actions.bonus")) return true;
   if (getConvenientEffectsBonusAction()) {
     //@ts-ignore
     if (await game.dfreds?.effectInterface.hasEffectApplied(getConvenientEffectsBonusAction().label, actor.uuid)) {
-      await actor.setFlag("midi-qol", "actions.bonus", true);
       return true;
     }
   }
 
   //@ts-expect-error .label
   if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"))) {
-    await actor.setFlag("midi-qol", "actions.bonus", true);
     return true;
   }
+
+  if (actor.getFlag("midi-qol", "actions.bonus")) return true;
   return false;
 }
 
@@ -3673,12 +3679,11 @@ export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false
       //@ts-ignore
       await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
     }
-
-    if (installedModules.get("condition-lab-triggler")) {
-      //@ts-ignore
-      const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"));
-      await effect?.delete();
-    }
+  }
+  if (installedModules.get("condition-lab-triggler")) {
+    //@ts-ignore
+    const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"));
+    await effect?.delete();
   }
   await actor.setFlag("midi-qol", "actions.bonus", false);
   return actor?.unsetFlag("midi-qol", "actions.bonusActionCombatRound");

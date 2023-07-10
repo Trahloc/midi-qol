@@ -766,13 +766,14 @@ export class Workflow {
         const specialExpiries = [
           "isAttacked",
           "isDamaged",
+          "isHealed",
           // XXX "1Reaction",
           "isSaveSuccess",
           "isSaveFailure",
           "isSave",
           "isHit"
         ];
-        await this.expireTargetEffects(specialExpiries)
+        await this.expireTargetEffects(specialExpiries);
         if (configSettings.autoItemEffects === "off" && !this.forceApplyEffects) return this.next(WORKFLOWSTATES.ROLLFINISHED); // TODO see if there is a better way to do this.
 
         items = [];
@@ -852,7 +853,7 @@ export class Workflow {
                     itemCardId: this.itemCardId,
                     metaData,
                     selfEffects: "none",
-                    spellLevel: (this.itemLevel  ?? 0),
+                    spellLevel: (this.itemLevel ?? 0),
                     toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
                     tokenId: this.tokenId,
                     whisper: false,
@@ -906,17 +907,17 @@ export class Workflow {
           }
 
           if (selfEffectsToApply !== "none" && hasItemSelfEffects && (!ceSelfEffectToApply || ["none", "both", "itempri"].includes(useCE))) {
-            await globalThis.DAE.doEffects(theItem, true, [tokenForActor(this.actor)], 
-              { 
-                toggleEffect: this.item?.flags.midiProperties?.toggleEffect, 
-                whisper: false, 
-                spellLevel: this.itemLevel, 
-                critical: this.isCritical, 
-                fumble: this.isFumble, 
-                itemCardId: this.itemCardId, 
-                tokenId: this.tokenId, 
-                workflowOptions: this.workflowOptions, 
-                selfEffects: selfEffectsToApply, 
+            await globalThis.DAE.doEffects(theItem, true, [tokenForActor(this.actor)],
+              {
+                toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
+                whisper: false,
+                spellLevel: this.itemLevel,
+                critical: this.isCritical,
+                fumble: this.isFumble,
+                itemCardId: this.itemCardId,
+                tokenId: this.tokenId,
+                workflowOptions: this.workflowOptions,
+                selfEffects: selfEffectsToApply,
                 metaData,
                 damageTotal: (this.damageTotal ?? 0) + (this.otherDamageTotal ?? 0) + (this.bonusDamageTotal ?? 0)
               })
@@ -955,6 +956,7 @@ export class Workflow {
         if (!this.aborted) {
           const specialExpiries = [
             "isDamaged",
+            "isHealed",
             "1Reaction",
           ];
           await this.expireTargetEffects(specialExpiries)
@@ -1043,8 +1045,8 @@ export class Workflow {
             await this.callMacros(this.item, this.onUseMacros?.getMacros("postActiveEffects"), "OnUse", "postActiveEffects");
           }
           if (this.item)
-          // delete Workflow._workflows[this.itemId];
-          await asyncHooksCallAll("minor-qol.RollComplete", this); // just for the macro writers.
+            // delete Workflow._workflows[this.itemId];
+            await asyncHooksCallAll("minor-qol.RollComplete", this); // just for the macro writers.
           await asyncHooksCallAll("midi-qol.RollComplete", this);
           if (this.item) await asyncHooksCallAll(`midi-qol.RollComplete.${this.item?.uuid}`, this);
           if (autoRemoveTargets !== "none") setTimeout(untargetDeadTokens, 500); // delay to let the updates finish
@@ -1332,6 +1334,14 @@ export class Workflow {
       grantsAdvantage = true;
       this.attackAdvAttribution.add(`ADV:grants.attack.${actionType}`);
     }
+    if (grants.fail?.advantage?.attack?.all && evalCondition(grants.fail.attack.advantage.all, conditionData)) {
+      grantsAdvantage = false;
+      this.advantage = false;
+    }
+    if (grants.fail?.advantage?.attack && grants.fail.advantage.attack[actionType] && evalCondition(grants.fail.advantage.attack[actionType], conditionData)) {
+      grantsAdvantage = false;
+      this.advantage = false;
+    }
 
     const attackDisadvantage = grants.disadvantage?.attack || {};
     let grantsDisadvantage;
@@ -1347,8 +1357,17 @@ export class Workflow {
       grantsDisadvantage = true;
       this.attackAdvAttribution.add(`DIS:grants.attack.${actionType}`);
     }
+    if (grants.fail?.disadvantage?.attack?.all && evalCondition(grants.fail.attack.disadvantage.all, conditionData)) {
+      grantsDisadvantage = false;
+      this.disadvantage = false;
+    }
+    if (grants.fail?.disadvantage?.attack && grants.fail.disadvantage.attack[actionType] && evalCondition(grants.fail.disadvantage.attack[actionType], conditionData)) {
+      grantsDisadvantage = false;
+      this.disadvantage = false;
+    }
     this.advantage = this.advantage || grantsAdvantage;
     this.disadvantage = this.disadvantage || grantsDisadvantage;
+
   }
 
   async triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets) {
@@ -1450,8 +1469,10 @@ export class Workflow {
         const wasAttacked = this.item?.hasAttack;
         //TODO this test will fail for damage only workflows - need to check the damage rolled instead
         const wasHit = (this.item ? wasAttacked : true) && (this.hitTargets?.has(target) || this.hitTargetsEC?.has(target));
-        //@ts-ignore token.document
+        //@ts-expect-error token.document
         const wasDamaged = wasHit && this.damageList && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
+        //@ts-expect-error target.dcoument
+        const wasHealed = this.damageList && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage < 0))
         //TODO this is going to grab all the special damage types as well which is no good.
         if (wasAttacked && expireList.includes("isAttacked") && specialDuration.includes("isAttacked")) {
           wasExpired = true;
@@ -1460,6 +1481,10 @@ export class Workflow {
         if (wasDamaged && expireList.includes("isDamaged") && specialDuration.includes("isDamaged")) {
           wasExpired = true;
           expriryReason.push("isDamaged");
+        }
+        if (wasHealed && expireList.includes("isHealed") && specialDuration.includes("isHealed")) {
+          wasExpired = true;
+          expriryReason.push("isHealed");
         }
         if (wasHit && expireList.includes("isHit") && specialDuration.includes("isHit")) {
           wasExpired = true;
@@ -1471,7 +1496,7 @@ export class Workflow {
           expriryReason.push("1Reaction");
         }
         for (let dt of this.damageDetail) {
-          if (expireList.includes(`isDamaged`) && wasDamaged && specialDuration.includes(`isDamaged.${dt.type}`)) {
+          if (expireList.includes(`isDamaged`) && (wasDamaged || dt.type === "healing") && specialDuration.includes(`isDamaged.${dt.type}`)) {
             wasExpired = true;
             expriryReason.push(`isDamaged.${dt.type}`);
             break;
@@ -1550,7 +1575,7 @@ export class Workflow {
       this.bonusDamageDetail = [];
     }
     if (this.bonusDamageRoll !== null) {
-        await displayDSNForRoll(this.bonusDamageRoll, "damageRoll");
+      await displayDSNForRoll(this.bonusDamageRoll, "damageRoll");
     }
     return;
   }
@@ -2601,7 +2626,7 @@ export class Workflow {
               }
             }, target, this.saveItem);
           } else if (configSettings.optionalRules.coverCalculation === "simbuls-cover-calculator"
-            && globalThis.CoverCalculator.checkCoverViaCoordinates) {
+            && installedModules.get("simbuls-cover-calculator")) {
             // Special case for templaes
             coverSaveBonus = 0;
             const coverData = await globalThis.CoverCalculator.checkCoverViaCoordinates(
@@ -2633,7 +2658,7 @@ export class Workflow {
         // const newRoll = await bonusCheck(target.actor, result, rollType, "fail")
         const failFlagsLength = collectBonusFlags(target.actor, rollType, "fail.all").length;
         const failAbilityFlagsLength = collectBonusFlags(target.actor, rollType, `fail.${rollAbility}`).length
-        if (failFlagsLength || failAbilityFlagsLength ) {
+        if (failFlagsLength || failAbilityFlagsLength) {
           // If the roll fails and there is an flags.midi-qol.save.fail then apply the bonus
           let owner: User | undefined = playerFor(target);
           if (!owner?.active) owner = game.users?.find((u: User) => u.isGM && u.active);
@@ -3175,10 +3200,10 @@ export class Workflow {
     if (canvas.tokens?.placeables && canvas.grid) {
       for (let target of canvas.tokens.placeables) {
         const ray = new Ray(target.center, token.center);
-              //@ts-expect-error .system v10
-      if (target.actor.system.details.type?.custom.toLocaleLowerCase().includes("notarget")
-      //@ts-expect-error system
-      || target.actor.system.details.race?.toLocaleLowerCase().includes("notarget")) continue;
+        //@ts-expect-error .system v10
+        if (target.actor.system.details.type?.custom.toLocaleLowerCase().includes("notarget")
+          //@ts-expect-error system
+          || target.actor.system.details.race?.toLocaleLowerCase().includes("notarget")) continue;
         const wallsBlocking = ["wallsBlock", "wallsBlockIgnoreDefeated"].includes(configSettings.rangeTarget)
         //@ts-ignore .system v10
         let inRange = target.actor && target.actor?.system.details.race !== "trigger"

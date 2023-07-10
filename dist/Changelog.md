@@ -1,3 +1,11 @@
+## 11.0.3
+* Various fixes from @thatlonelybugbear for Convenient Effects/Condition Lab and Triggler.
+* Fixes for reaction/bonus action recording getting out of synch when CE/CLT effect is removed by hand.
+* Fix for always checking range even if disabled in options->mechanics.
+* Fix for item-piles (and others) where the flags for an actor would get cleared when first creating a token.
+* Added isHealed special duration - will expire if the result of an item roll increases the HP of the target
+* Added isDamaged.healing special duration - will expire if there is any damage of type healing present in the items applied damage.
+
 ## 11.0.2
 * Fix for off hand attack still adding dex/str bonus to damage for off hand attacks.
 * Little change to thrown weapons. If the weapon is marked as a melee weapon, then using it at a range greater than touch will be treated as a ranged attack and nearby foe will cause disadvantage. If used within 5 feet then it will be treated as a melee weapon attack and disadvantage will not apply.

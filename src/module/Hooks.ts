@@ -1,7 +1,7 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateBetterRollsMessage, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction } from "./utils.js";
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, configSettings, dragDropTargeting } from "./settings.js";
 import { installedModules } from "./setupModules.js";
@@ -151,6 +151,14 @@ export let readyHooks = async () => {
             await origin.parent.setFlag("midi-qol", "concentration-data", concentrationData);
           }
         }
+      }
+      if (getConvenientEffectsReaction() && deletedEffect.name === getConvenientEffectsReaction()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
+        await deletedEffect.parent?.unsetFlag("midi-qol", "actions.reactionCombatRound");
+        await deletedEffect.parent?.setFlag("midi-qol", "actions.reaction", false);
+      }
+      if (getConvenientEffectsBonusAction() && deletedEffect.name === getConvenientEffectsBonusAction()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
+        await deletedEffect.parent.setFlag("midi-qol", "actions.bonus", false);
+        await deletedEffect.parent.unsetFlag("midi-qol", "actions.bonusActionCombatRound");
       }
     }
     // if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(changefunc);

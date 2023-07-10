@@ -154,7 +154,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   }
 
   // do pre roll checks
-  if (checkRule("checkRange") && !isAoESpell && !isRangeSpell && !AoO && speaker.token) {
+  if (checkRule("checkRange") !== "none" && !isAoESpell && !isRangeSpell && !AoO && speaker.token) {
     tokenToUse = canvas?.tokens?.get(speaker.token)
     const { result, attackingToken } = checkRange(this, tokenToUse, myTargets)
     if (speaker.token && result === "fail")

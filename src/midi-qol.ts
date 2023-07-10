@@ -489,11 +489,14 @@ function setupMidiFlags() {
   midiFlags.push(`flags.midi-qol.min.damage.all`);
   midiFlags.push(`flags.midi-qol.grants.max.damage.all`);
   midiFlags.push(`flags.midi-qol.grants.min.damage.all`);
-  midiFlags.push("flags.midi-qol.noCritical.all")
-  midiFlags.push("flags.midi-qol.fail.all")
-  midiFlags.push("flags.midi-qol.fail.attack.all")
+  midiFlags.push("flags.midi-qol.noCritical.all");
+  midiFlags.push("flags.midi-qol.fail.all");
+  midiFlags.push("flags.midi-qol.fail.attack.all");
   midiFlags.push(`flags.midi-qol.grants.advantage.attack.all`);
   midiFlags.push(`flags.midi-qol.grants.disadvantage.attack.all`);
+  midiFlags.push(`flags.midi-qol.grants.fail.advantage.attack.all`);
+  midiFlags.push(`flags.midi-qol.grants.fail.disadvantage.attack.all`);
+
   // TODO work out how to do grants damage.max
   midiFlags.push(`flags.midi-qol.grants.attack.success.all`);
   midiFlags.push(`flags.midi-qol.grants.attack.fail.all`);
@@ -523,7 +526,9 @@ function setupMidiFlags() {
     midiFlags.push(`flags.midi-qol.critical.${at}`);
     midiFlags.push(`flags.midi-qol.noCritical.${at}`);
     midiFlags.push(`flags.midi-qol.grants.advantage.attack.${at}`);
+    midiFlags.push(`flags.midi-qol.grants.fail.advantage.attack.${at}`);
     midiFlags.push(`flags.midi-qol.grants.disadvantage.attack.${at}`);
+    midiFlags.push(`flags.midi-qol.grants.fail.disadvantage.attack.${at}`);
     midiFlags.push(`flags.midi-qol.grants.critical.${at}`);
     midiFlags.push(`flags.midi-qol.fail.critical.${at}`);
     midiFlags.push(`flags.midi-qol.grants.attack.bonus.${at}`);
