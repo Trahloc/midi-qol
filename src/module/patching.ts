@@ -833,7 +833,7 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
     let macroString = OnUseMacros.parseParts(macroParts).items.map(oum => oum.toString()).join(",");
     changes.flags["midi-qol"].onUseMacroName = macroString;
     delete changes.flags["midi-qol"].onUseMacroParts;
-    itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
+    // itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
   } catch (err) {
     delete changes.flags["midi-qol"].onUseMacroParts;
     itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });

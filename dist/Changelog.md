@@ -1,3 +1,6 @@
+## 10.0.52
+* Fix for duplicating of onUse macros applied via active effects.
+
 ## 10.0.51
 * Fix for spell level being passed to macros thanks @thatlonelybugbear
 

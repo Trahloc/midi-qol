@@ -15,27 +15,6 @@ export var midiFlagTypes: {} = {};
 
 
 export let readyHooks = async () => {
-  // need to record the damage done since it is not available in the update actor hook
-  Hooks.on("preUpdateActor", (actor, update, options, user) => {
-    const hpUpdate = getProperty(update, "system.attributes.hp.value");
-    const temphpUpdate = getProperty(update, "system.attributes.hp.temp");
-    let concHPDiff: number | undefined = undefined;
-    if (hpUpdate !== undefined) {
-      let hpChange = actor.system.attributes.hp.value - hpUpdate;
-      // if (hpUpdate >= (actor.system.attributes.hp.tempmax ?? 0) + actor.system.attributes.hp.max) hpChange = 0;
-      if (hpChange > 0) concHPDiff = (concHPDiff ?? 0) + hpChange;
-    }
-    if (configSettings.tempHPDamageConcentrationCheck && temphpUpdate !== undefined) {
-      let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
-      if (temphpDiff > 0) concHPDiff = (concHPDiff ?? 0) + temphpDiff
-    }
-    if (concHPDiff !== undefined) {
-      update.flags = duplicate(actor.flags);
-      setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff);
-    }
-    return true;
-  })
-
   // Handle removing effects when the token is moved.
   Hooks.on("updateToken", (tokenDocument, update, diff, userId) => {
     if (game.user?.id !== userId) return;
@@ -297,7 +276,27 @@ export function initHooks() {
   Hooks.on("preCreateActiveEffect", lookupItemMacro);
   // Hooks.on("preCreateActiveEffect", checkImmunity); Disabled in lieu of having effect marked suppressed
   Hooks.on("preUpdateItem", preUpdateItemActorOnUseMacro);
-  Hooks.on("preUpdateActor", preUpdateItemActorOnUseMacro);
+  Hooks.on("preUpdateActor", (actor, update, options, user) => {
+    // need to record the damage done since it is not available in the update actor hook
+    const hpUpdate = getProperty(update, "system.attributes.hp.value");
+    const temphpUpdate = getProperty(update, "system.attributes.hp.temp");
+    let concHPDiff: number | undefined = undefined;
+    if (hpUpdate !== undefined) {
+      let hpChange = actor.system.attributes.hp.value - hpUpdate;
+      if (hpChange > 0) concHPDiff = (concHPDiff ?? 0) + hpChange;
+    }
+    if (configSettings.tempHPDamageConcentrationCheck && temphpUpdate !== undefined) {
+      let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
+      if (temphpDiff > 0) concHPDiff = (concHPDiff ?? 0) + temphpDiff
+    }
+    if (concHPDiff !== undefined) {
+      update.flags = mergeObject(update.flags ?? {}, actor.flags, {overwrite: false});
+      setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff);
+    }
+    preUpdateItemActorOnUseMacro(actor, update, options, user); // This needs to run second so there is no duplication
+    return true;
+  });
+
   Hooks.on("updateCombatant", (combatant, updates, options, user) => {
     if (game?.user?.id !== user) return true;
     if (combatant.actor && updates.initiative) expireRollEffect.bind(combatant.actor)("Initiative", "none");
