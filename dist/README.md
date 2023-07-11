@@ -819,7 +819,7 @@ where specification is a comma separated list of fields.
 
   Effects transferred via item usage, require DAE and use its evaluation to resolve the problem. Fields written as simple @ fields (``@attributes.spelldc``) ALWAYS refer to the caster.  
 
-  If you want the @field to refer to the target, that requires use of a DAE feature, ``##field`` will not be evaluated on the caster, but will be converted to an ``@field`` after the effect is applied to the target. The example ``appplyCondition=@attributes.hp.value > 0`` would be written ``appplyCondition=##attributes.hp.value > 0``.
+  If you want the @field to refer to the target, that requires use of a DAE feature, ``##field`` will not be evaluated on the caster, but will be converted to an ``@field`` after the effect is applied to the target. The example ``applyCondition=@attributes.hp.value > 0`` would be written ``applyCondition=##attributes.hp.value > 0``.
 
   Here's an example, if I add the following effect to a weapon, so that the effect is applied to the target when the weapon hits:
   ```
@@ -962,7 +962,7 @@ The field should contain ONLY the macro name, or the string "ItemMacro" or "Item
   - "ItemMacro" means it will call the item macro for the item for the workflow. 
   - "ItemMacro.ItemName" allows you to lookup by name another item that the actor for the workflow has.  
   - Compendium.scope.compendiumName.macroName/macroId means fetch the macro form the specified compendium, either by name or Id.
-  - funciton.functionName where functionName is any globally accessible function, this is bound to the worklow and the following arguments are passed
+  - function.functionName where functionName is any globally accessible function, this is bound to the worklow and the following arguments are passed
     ```js
     functionName.bind(workflow)({ speaker, actor, token, character, item, args })
     ```
@@ -972,20 +972,20 @@ The macro will be called with args[0] containing the current state information f
 There are some controls for macro writers to decide when their macro should get executed. 
 ```
     preItemRoll: Called before the item is rolled (*)
-    templatePlaced: Only callled once a template is placed
+    templatePlaced: Only called once a template is placed
     preambleComplete: Called after all targeting is complete
-		preAttackRoll: Called before the attack roll is made
-		preCheckHits: Called after the attack roll is made but before hits are adjudicated
-		postAttackRoll: Called after the attack is adjudicated
-		preDamageRoll: Called before damage is rolled
-		postDamageRoll: Called after the damage roll is made
+    preAttackRoll: Called before the attack roll is made
+    preCheckHits: Called after the attack roll is made but before hits are adjudicated
+    postAttackRoll: Called after the attack is adjudicated
+    preDamageRoll: Called before damage is rolled
+    postDamageRoll: Called after the damage roll is made
     preSave: Called before saving throws are rolled
-		postSave: Called after saves are rolled
+    postSave: Called after saves are rolled
     damageBonus: Called when computing the actor damage bonus but the macro is only called when the specific item is rolled
-		preDamageApplication: Called before Damage Application
-		preActiveEffects: Called before applying active effects
-		postActiveEffects: Called after applying active effects
-		all: Called at each of the above
+    preDamageApplication: Called before Damage Application
+    preActiveEffects: Called before applying active effects
+    postActiveEffects: Called after applying active effects
+    all: Called at each of the above
 ```
 There are some addtional actor only onUse macro triggers that can be defined for an actor that trigger when the actor is the target of an attack/spell/feature use
 
@@ -1012,15 +1012,15 @@ There are some addtional actor only onUse macro triggers that can be defined for
   ```
     isAttacked: the actor is a target of an attack
     isHit: the actor is a target of a hit
-    preSaveTarget: 
+    preSaveTarget: the target actor is about to roll a save
     isSave: the actor makes a successful save in response to being targeted
     isSaveSuccess: the actor makes a successful save in response to being targeted
     isSaveFailure: the actor makes a failed save in response to being targeted
-    isDamaged: "the actor is damaged by an item roll
-    preTargetDamageApplication: this is ALSO called per target just before the damage is applied. workflow.damageItem has the details fo the damage to be applied and can be modified by the macro.
+    isDamaged: the actor is damaged by an item roll
+    preTargetDamageApplication: this is ALSO called per target just before the damage is applied. workflow.damageItem has the details of the damage to be applied and can be modified by the macro.
 ```
 
-  - For these calls **only** args[0].options.actor will be the actor that was attackd/hit/damaged etc and args[0].options.token is the token.
+  - For these calls **only** `args[0].options.actor` will be the actor that was attackd/hit/damaged etc and `args[0].options.token` is the token.
   - For the preTargetSave hook, called just before the save is made (direct roll/LMRTFY/MTB) the passed workflow includes saveDetails comprising (access via workflow.saveDetails)
 ```js
 saveDetails: { advantage: boolean | undefined,
@@ -1031,7 +1031,7 @@ saveDetails: { advantage: boolean | undefined,
           rollDC: number }
 ```
 which can be changed in the preTargetSave Hook. Sample item Antitoxin in Midi sample items as a example.
-  - For the preTargetDamageApplication hoow, workflow.ditem is defined and has details of what damage is being applied to the target. workflow.ditem is "live" so any changes will afffect damage is applied and displayed on the damage card.
+  - For the preTargetDamageApplication hook, `workflow.damageItem` is defined and has details of what damage is being applied to the target. `workflow.damageItem` is "live" so any changes will affect damage applied and displayed on the damage card.
     - the main field is ditem.hpDamage which reflects the amount of damage actually done to the target.
     - 
   - The default pass is "preActiveEffects", to correspond to the original onUse macro behaviour.
