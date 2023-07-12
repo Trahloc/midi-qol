@@ -3059,7 +3059,8 @@ export class Workflow {
             const result = await doReactions(targetToken, this.tokenUuid, this.attackRoll, "reaction", { item: this.item, workflow: this, workflowOptions: mergeObject(this.workflowOptions, { sourceActorUuid: this.actor.uuid, sourceItemUuid: this.item?.uuid }, { inplace: false, overwrite: true }) });
 
             if (result?.name) {
-              targetActor.prepareData(); // allow for any items applied to the actor - like shield spell
+              targetActor._initialize();
+              // targetActor.prepareData(); // allow for any items applied to the actor - like shield spell
             }
             targetAC = Number.parseInt(targetActor.system.attributes.ac.value) + bonusAC;
             if (targetEC) targetEC = targetActor.system.attributes.ac.EC + bonusAC;

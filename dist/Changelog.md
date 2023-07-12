@@ -1,3 +1,6 @@
+## 11.0.4
+* Temp fix for calling actor.prepareData when doing reactions which causes add effects to accumulate on the actor, which I think is a foundry/dnd5e bug.
+
 ## 11.0.3
 * Various fixes from @thatlonelybugbear for Convenient Effects/Condition Lab and Triggler.
 * Fixes for reaction/bonus action recording getting out of synch when CE/CLT effect is removed by hand.
