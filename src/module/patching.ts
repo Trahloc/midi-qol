@@ -684,9 +684,9 @@ function _midiATIRefresh(template) {
       const maxExtension = (1 + Math.max(tk.document.width, tk.document.height)) * dimensions.size;
       const centerDist = r.distance;
       if (centerDist > distance + maxExtension) return false;
-      //@ts-ignore
-      if (["alwaysIgnoreDefeated", "wallsBlockIgnoreDefeated"].includes(configSettings.autoTarget) && checkIncapacitated(tk.actor, undefined, undefined));
-      return false;
+      //@ts-expect-error tk.actor
+      if (["alwaysIgnoreDefeated", "wallsBlockIgnoreDefeated"].includes(configSettings.autoTarget) && checkIncapacitated(tk.actor, undefined, undefined))
+        return false;
       return true;
     })
 
@@ -929,72 +929,6 @@ export function _getInitiativeFormula(wrapped) {
   return parts.filter(p => p !== null).join(" + ");
 };
 
-async function _preDeleteActiveEffect(wrapped, ...args) {
-  return wrapped(...args);
-  try {
-    if ((this.parent instanceof CONFIG.Actor.documentClass)) {
-      let [options, user] = args;
-      const effect = this;
-
-      // Handle removal of reaction effect
-      if (installedModules.get("dfreds-convenient-effects") && getConvenientEffectsReaction()?._id === this.flags?.core?.statusId) {
-        await removeReactionUsed(this);
-      }
-
-      // Handle removal of bonus action effect
-      if (installedModules.get("dfreds-convenient-effects") && getConvenientEffectsBonusAction()?._id === this.flags?.core?.statusId) {
-        await removeBonusActionUsed(this);
-      }
-
-      const checkConcentration = globalThis.MidiQOL?.configSettings()?.concentrationAutomation;
-      if (!checkConcentration) return;
-      const concentrationLabel = getConvenientEffectsBonusAction();
-
-      let isConcentration = (effect.name || effect.label) === concentrationLabel;
-      const origin = MQfromUuid(effect.origin);
-      // if (isConcentration) await removeConcentration(effect.parent, this.uuid); else
-      if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
-        const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
-        if (concentrationData && effect.origin === concentrationData.uuid) {
-          const allConcentrationTargets = concentrationData.targets.filter(target => {
-            let actor = MQfromActorUuid(target.actorUuid);
-            const hasEffects = actor.effects.some(effect =>
-              effect.origin === concentrationData.uuid
-              && !effect.flags.dae.transfer
-              && effect.uuid !== this.uuid);
-            return hasEffects;
-          });
-          const concentrationTargets = concentrationData.targets.filter(target => {
-            let actor = MQfromActorUuid(target.actorUuid);
-            const hasEffects = actor.effects.some(effect =>
-              effect.origin === concentrationData.uuid
-              && !effect.flags.dae.transfer
-              && effect.uuid !== this.uuid
-              && (effect.name || effect.label) !== concentrationLabel);
-            return hasEffects;
-          });
-          if (["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
-            && concentrationTargets.length < 1
-            && concentrationTargets.length < concentrationData.targets.length
-            && concentrationData.templates.length === 0
-            && concentrationData.removeUuids.length === 0) {
-            // non concentration effects left
-            await removeConcentration(origin.parent, this.uuid);
-          } else if (concentrationData.targets.length !== allConcentrationTargets.length) {
-            // update the concentration data
-            concentrationData.targets = allConcentrationTargets;
-            await origin.parent.setFlag("midi-qol", "concentration-data", concentrationData);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("midi-qol | error deleting effect: ", err)
-  } finally {
-    return wrapped(...args);
-  }
-}
-
 export async function removeConcentration(actor: Actor, concentrationUuid: string) {
   let result;
   try {
@@ -1146,8 +1080,6 @@ export function readyPatching() {
   } else {
     libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
   }
-  // libWrapper.register("midi-qol", "CONFIG.ActiveEffect.documentClass.prototype._preDelete", _preDeleteActiveEffect, "WRAPPER");
-  // libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype._preUpdate", _preUpdateActor, "WRAPPER");
   libWrapper.register("midi-qol", "game.system.applications.DamageTraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
 }
 

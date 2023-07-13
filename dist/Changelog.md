@@ -1,3 +1,7 @@
+## 11.0.5
+* Added MidiQOL.getTokenPlayerName(token: TokenDocument | Token, checkGM: boolean = false) which returns the player (or GM is asGM true) version of the thoken's name. if checkGM is true and the player is a GM just returns the tokens name. Mainly a shim to the anonymous module.
+* Added new player saving throw option "Auto roll but show roll dialog". This option will auto roll the save on the player's client but show the roll configuration dialog before doing the roll. This is an alternative to LMRTFY/Monks TB.
+
 ## 11.0.4
 * Temp fix for calling actor.prepareData when doing reactions which causes add effects to accumulate on the actor, which I think is a foundry/dnd5e bug.
 

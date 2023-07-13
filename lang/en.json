@@ -275,12 +275,14 @@
   "midi-qol.rollNPCSavesOptions": {
     "none": "Chat Message",
     "auto": "Auto",
+    "autoDialog": "Auto roll and show roll dialog",
     "letme": "Let Me Roll That For You",
     "letmeQuery": "LMRTFY + Query",
     "mtb": "Monks Token Bar"
   },
   "midi-qol.playerRollSavesOptions": {
     "none": "None",
+    "noneDialog": "Auto roll and show roll dialog",
     "letme": "Let Me Roll That For You",
     "letmeQuery": "LMRTFY + Query",
     "chat": "Chat Message",

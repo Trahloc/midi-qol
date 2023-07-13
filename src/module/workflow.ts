@@ -1157,7 +1157,7 @@ export class Workflow {
       && (["rwak", "rsak", "rpak"].includes(actType) || this.item.system.properties?.thr)) {
       let nearbyFoe;
       // special case check for thrown weapons within 5 feet, treat as a melee attack - (players will forget to set the property)
-      const me = canvas?.tokens?.get(this.tokenId);
+      const me = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
       if (this.item.system.properties?.thr && actType === "rwak") {
         //@ts-expect-error
         const firstTarget: Token = this.targets.first();
@@ -2411,7 +2411,7 @@ export class Workflow {
         else if (saveDetails.disadvantage && !saveDetails.advantage) this.disadvantageSaves.add(target);
         var player = playerFor(target);
         if (!player || !player.active) player = ChatMessage.getWhisperRecipients("GM").find(u => u.active);
-        let promptPlayer = (!player?.isGM && configSettings.playerRollSaves !== "none");
+        let promptPlayer = !player?.isGM && !(["none", "noneDialog"].includes(configSettings.playerRollSaves));
         if (simulate) promptPlayer = false;
         let GMprompt;
         let gmMonksTB;
@@ -2420,7 +2420,7 @@ export class Workflow {
           const monksTBSetting = targetDocument.isLinked ? configSettings.rollNPCLinkedSaves === "mtb" : configSettings.rollNPCSaves === "mtb"
           gmMonksTB = installedModules.get("monks-tokenbar") && monksTBSetting;
           GMprompt = (targetDocument.isLinked ? configSettings.rollNPCLinkedSaves : configSettings.rollNPCSaves);
-          promptPlayer = GMprompt !== "auto";
+          promptPlayer = !["auto", "autoDialog"].includes(GMprompt);
           if (simulate) {
             gmMonksTB = false;
             GMprompt = false;
@@ -2506,7 +2506,7 @@ export class Workflow {
             request: rollType,
             ability: this.saveItem.system.save.ability,
             // showRoll: whisper && !simulate,
-            options: { simulate, target: saveDetails.rollDC, messageData: { user: owner?.id }, chatMessage: showRoll, rollMode: whisper ? "gmroll" : "public", mapKeys: false, advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, fastForward: true, isMagicSave },
+            options: { simulate, target: saveDetails.rollDC, messageData: { user: owner?.id }, chatMessage: showRoll, rollMode: whisper ? "gmroll" : "public", mapKeys: false, advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, fastForward: simulate || configSettings.playerRollSaves === "none", isMagicSave },
           }));
         }
       }

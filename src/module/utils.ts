@@ -2058,8 +2058,9 @@ export function getReactionSetting(player: User | null | undefined): string {
   return player.isGM ? configSettings.gmDoReactions : configSettings.doReactions;
 }
 
-export function getTokenPlayerName(token: TokenDocument | Token) {
+export function getTokenPlayerName(token: TokenDocument | Token, checkGM: boolean = false) {
   if (!token) return game.user?.name;
+  if (checkGM && game.user?.isGM) return token.name;
   if (installedModules.get("anonymous")) {
     //@ts-expect-error .api
     const api = game.modules.get("anonymous")?.api;
