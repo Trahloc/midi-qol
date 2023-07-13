@@ -1,3 +1,6 @@
+### 10.0.54
+* Fix for save.fail bonus dialog being displayed even if there are not optional bonuses with useage left.
+
 ## 10.0.53
 * Fix for healing triggering concentration checks
 * Temp Fix for reaction processing causing "ADD" effects to be applied multiple times pending resolution in dnd5e.

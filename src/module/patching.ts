@@ -73,7 +73,7 @@ export function collectBonusFlags(actor, category, detail): any[] {
         if (checkFlag === undefined) return false;
         if (detail.startsWith("fail")) {
           const [_, type] = detail.split(".");
-          return checkFlag.fail?.[type];
+          return checkFlag.fail && checkFlag.fail[type] ? getOptionalCountRemainingShortFlag(actor, flag) > 0 : false;
         } else if (!(typeof checkFlag === "string" || checkFlag[detail] || checkFlag["all"] !== undefined)) return false;
         if (actor.flags["midi-qol"].optional[flag].count === undefined) return true;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
