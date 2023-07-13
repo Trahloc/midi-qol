@@ -789,6 +789,7 @@ export function prepareOnUseMacroData(actorOrItem) {
     console.warn("midi-qol | failed to prepare onUse macro data", err)
   }
 }
+
 export function lookupItemMacro(...args) {
   let [candidate, data, options, user] = args;
   if (!candidate.origin || !data.changes) return true;

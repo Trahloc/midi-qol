@@ -397,7 +397,7 @@ export class Workflow {
 
       case WORKFLOWSTATES.VALIDATEROLL:
         // do pre roll checks
-        if (checkMechanic("checkRange") !== "none" && !this.AoO && this.tokenId) {
+        if (checkMechanic("checkRange") !== "none" && (!this.AoO || ["rwak", "rsak", "rpak"].includes(this.item.actionType)) && this.tokenId) {
           const { result, attackingToken } = checkRange(this.item, canvas?.tokens?.get(this.tokenId), this.targets);
           switch (result) {
             case "fail": return this.next(WORKFLOWSTATES.ROLLFINISHED);
@@ -406,17 +406,6 @@ export class Workflow {
               this.advReminderAttackAdvAttribution.add("DIS:Long Range");
           }
           this.attackingToken = attackingToken;
-          /*
-          if (attackingToken && attackingToken !== this.tokenId) {
-            // Remove the attacking token from the targets
-            this.targets.forEach(t => {
-              if (t === attackingToken) {
-                //@ts-ignore
-                t.setTarget(false, { releaseOthers: false });
-              }
-            });
-          }
-          */
         }
         if (!this.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor, this.item, null)) return this.next(WORKFLOWSTATES.ROLLFINISHED);
 
@@ -1152,7 +1141,7 @@ export class Workflow {
     // Nearby foe gives disadvantage on ranged attacks
     if (checkRule("nearbyFoe")
       && !getProperty(this.actor, "flags.midi-qol.ignoreNearbyFoes")
-      && (["rwak", "rsak", "rpak"].includes(actType) || this.item.system.properties?.thr)) {
+      && (["rwak", "rsak", "rpak"].includes(actType) || (this.item.system.properties?.thr && actType !== "mwak"))) {
       let nearbyFoe;
       // special case check for thrown weapons within 5 feet, treat as a melee attack - (players will forget to set the property)
       if (this.item.system.properties?.thr && actType === "rwak") {
@@ -3030,7 +3019,8 @@ export class Workflow {
             const result = await doReactions(targetToken, this.tokenUuid, this.attackRoll, "reaction", { item: this.item, workflow: this, workflowOptions: mergeObject(this.workflowOptions, { sourceActorUuid: this.actor.uuid, sourceItemUuid: this.item?.uuid }, { inplace: false, overwrite: true }) });
 
             if (result?.name) {
-              targetActor.prepareData(); // allow for any items applied to the actor - like shield spell
+              // targetActor.prepareData(); // allow for any items applied to the actor - like shield spell
+              targetActor._initialize();
             }
             targetAC = Number.parseInt(targetActor.system.attributes.ac.value) + bonusAC;
             if (targetEC) targetEC = targetActor.system.attributes.ac.EC + bonusAC;

@@ -68,6 +68,7 @@ export let readyHooks = async () => {
             const saveDC = Math.max(10, Math.floor(hpDiff / 2));
             if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(doMidiConcentrationCheck, actor, saveDC);
             else await doMidiConcentrationCheck(actor, saveDC);
+            await doMidiConcentrationCheck(actor, saveDC);
           }
         }
       }
@@ -289,10 +290,8 @@ export function initHooks() {
       let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
       if (temphpDiff > 0) concHPDiff = (concHPDiff ?? 0) + temphpDiff
     }
-    if (concHPDiff !== undefined) {
-      update.flags = mergeObject(update.flags ?? {}, actor.flags, {overwrite: false});
-      setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff);
-    }
+    update.flags = mergeObject(update.flags ?? {}, actor.flags, {overwrite: false});
+    setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff ?? 0);
     preUpdateItemActorOnUseMacro(actor, update, options, user); // This needs to run second so there is no duplication
     return true;
   });

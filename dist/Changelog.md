@@ -1,3 +1,8 @@
+## 10.0.53
+* Fix for healing triggering concentration checks
+* Temp Fix for reaction processing causing "ADD" effects to be applied multiple times pending resolution in dnd5e.
+* Fix for "When checking nearby foes, thrown weapons being used to do a mwak are getting flagged with disadvantage"
+
 ## 10.0.52
 * Fix for duplicating of onUse macros applied via active effects.
 
