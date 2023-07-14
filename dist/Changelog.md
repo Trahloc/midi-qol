@@ -1,3 +1,6 @@
+### 10.0.55
+* Fix for flags not being unset. Thanks @thatlonelybugbear
+
 ### 10.0.54
 * Fix for save.fail bonus dialog being displayed even if there are not optional bonuses with useage left.
 

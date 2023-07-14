@@ -832,7 +832,7 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
       }
     }
     let macroString = OnUseMacros.parseParts(macroParts).items.map(oum => oum.toString()).join(",");
-    changes.flags["midi-qol"].onUseMacroName = macroString;
+    changes["flags.midi-qol.onUseMacroName"] = macroString;
     delete changes.flags["midi-qol"].onUseMacroParts;
     // itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
   } catch (err) {
@@ -929,72 +929,6 @@ export function _getInitiativeFormula(wrapped) {
   if (tiebreaker) parts.push(actor.system.abilities.dex.value / 100);
   return parts.filter(p => p !== null).join(" + ");
 };
-
-async function _preDeleteActiveEffect(wrapped, ...args) {
-  return wrapped(...args);
-  try {
-    if ((this.parent instanceof CONFIG.Actor.documentClass)) {
-      let [options, user] = args;
-      const effect = this;
-
-      // Handle removal of reaction effect
-      if (installedModules.get("dfreds-convenient-effects") && getConvenientEffectsReaction()?._id === this.flags?.core?.statusId) {
-        await removeReactionUsed(this);
-      }
-
-      // Handle removal of bonus action effect
-      if (installedModules.get("dfreds-convenient-effects") && getConvenientEffectsBonusAction()?._id === this.flags?.core?.statusId) {
-        await removeBonusActionUsed(this);
-      }
-
-      const checkConcentration = globalThis.MidiQOL?.configSettings()?.concentrationAutomation;
-      if (!checkConcentration) return;
-      const concentrationLabel = getConvenientEffectsBonusAction();
-
-      let isConcentration = (effect.name || effect.label) === concentrationLabel;
-      const origin = MQfromUuid(effect.origin);
-      // if (isConcentration) await removeConcentration(effect.parent, this.uuid); else
-      if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
-        const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
-        if (concentrationData && effect.origin === concentrationData.uuid) {
-          const allConcentrationTargets = concentrationData.targets.filter(target => {
-            let actor = MQfromActorUuid(target.actorUuid);
-            const hasEffects = actor.effects.some(effect =>
-              effect.origin === concentrationData.uuid
-              && !effect.flags.dae.transfer
-              && effect.uuid !== this.uuid);
-            return hasEffects;
-          });
-          const concentrationTargets = concentrationData.targets.filter(target => {
-            let actor = MQfromActorUuid(target.actorUuid);
-            const hasEffects = actor.effects.some(effect =>
-              effect.origin === concentrationData.uuid
-              && !effect.flags.dae.transfer
-              && effect.uuid !== this.uuid
-              && (effect.name || effect.label) !== concentrationLabel);
-            return hasEffects;
-          });
-          if (["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
-            && concentrationTargets.length < 1
-            && concentrationTargets.length < concentrationData.targets.length
-            && concentrationData.templates.length === 0
-            && concentrationData.removeUuids.length === 0) {
-            // non concentration effects left
-            await removeConcentration(origin.parent, this.uuid);
-          } else if (concentrationData.targets.length !== allConcentrationTargets.length) {
-            // update the concentration data
-            concentrationData.targets = allConcentrationTargets;
-            await origin.parent.setFlag("midi-qol", "concentration-data", concentrationData);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("midi-qol | error deleting effect: ", err)
-  } finally {
-    return wrapped(...args);
-  }
-}
 
 export async function removeConcentration(actor: Actor, concentrationUuid: string) {
   let result;
