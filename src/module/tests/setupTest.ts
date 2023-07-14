@@ -84,7 +84,7 @@ async function registerTests() {
             if (target?.actor) await target.actor.setFlag("midi-qol", "fail.ability.save.all", true);
             try {
               const workflow = await completeItemUse(item)
-              target?.actor?.unsetFlag("midi-qol", "fail.ability.save.all");
+              await target?.actor?.unsetFlag("midi-qol", "fail.ability.save.all");
               assert.ok(!!workflow);
             } catch (err) {
               console.error("Damage Only Workflow Error", err);

@@ -4268,10 +4268,12 @@ export async function doConcentrationCheck(actor, itemData) {
   try {
     //@ts-ignore version v10
     if (installedModules.get("betterrolls5e") && isNewerVersion(game.modules.get("betterrolls5e")?.version ?? "", "1.3.10")) { // better rolls breaks the normal roll process
+      await actor.setFlag("midi-qol", "concentration-damage", 0);
       //@ts-ignore
       // await ownedItem.roll({ vanilla: false, systemCard: false, createWorkflow: true, versatile: false, configureDialog: false })
       await globalThis.BetterRolls.rollItem(ownedItem, { itemData: ownedItem.toObject(), vanilla: false, adv: 0, disadv: 0, midiSaveDC: saveDC, workflowOptions: { lateTargeting: "none" } }).toMessage();
     } else {
+      await actor.setFlag("midi-qol", "concentration-damage", 0);
       //@ts-ignore
       result = await completeItemUse(ownedItem, {}, { systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { lateTargeting: "none" } })
     }

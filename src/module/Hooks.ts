@@ -273,6 +273,7 @@ export function initHooks() {
   });
 
   setupMidiFlagTypes();
+
   Hooks.on("applyActiveEffect", midiCustomEffect);
   Hooks.on("preCreateActiveEffect", lookupItemMacro);
   // Hooks.on("preCreateActiveEffect", checkImmunity); Disabled in lieu of having effect marked suppressed
@@ -291,7 +292,10 @@ export function initHooks() {
       if (temphpDiff > 0) concHPDiff = (concHPDiff ?? 0) + temphpDiff
     }
     // update.flags = mergeObject(actor.flags, update.flags ?? {}, {overwrite: true}); // For some reason without this flags are trashed
-    setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff ?? 0);
+    if (concHPDiff !== getProperty(actor, "falgs.midi-qol.concentration-damage")) {
+      if (!actor.isToken) setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff ?? 0);
+      else actor.setFlag("midi-qol", "concentration-damage", concHPDiff ?? 0);
+    }
     preUpdateItemActorOnUseMacro(actor, update, options, user); // This needs to run second so there is no duplication
     return true;
   });

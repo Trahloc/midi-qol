@@ -1,5 +1,18 @@
+### 10.0.57
+* Fix for the duplicating flags/macros/effects stuck on/not being able to delete flags/item piles not working etc
+**BEFORE UPGRADING take a backup of your world - even if it is broken** We can always find out the problem and fix it but once you run the supplied macros there is no going back
+* Once you upgrade to 10.0.57 no further damage should be done, but any existing issues won't be resolved.
+  - Accordingly midi will create 3 macros for you (in your Macros Directory):
+    - MidiQOL.FixFlagsSelectedTokens - this will fix flags.midi-qol on any selected tokens
+    - MidiQOL.FixFlagsAllSceneTokens - this will fix flags.midi-qol on all scene tokens
+    - MidiQOL.FixFlagsAllWorldActors - this will fix flags.midi-qol for all world actors
+  - I strongly suggest you test with an unlinked token or two (FixFlagsSelectedTokens) in a scene you know has problems. Once you've verified that works for you you can run FixFlagsAllWorldActors then for each scene that has issues FixFlagsAllSceneTokens. 
+  - If you have not accessed a scene with one of the broken versions of mid (10.0.52->10.0.55) then you don't need to fix the tokens.
+  - The macros take a heavy handed approach to removing flags.midi-qol from tokens/actors so if they are not broken, don't fix them.
+  
 ### 10.0.56
 * Undo the change in 10.0.55 so flags won't duplicate but item-piles will have a problem
+
 ### 10.0.55
 * Fix for flags not being unset. Thanks @thatlonelybugbear
 

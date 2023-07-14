@@ -282,7 +282,7 @@ Hooks.once('ready', function () {
       }
       readySettingsSetup()
     }
-
+    createMidiMacros();
   }
 
   setupMidiQOLApi();
@@ -342,9 +342,9 @@ Hooks.once('ready', function () {
   }
   Hooks.callAll("midi-qol.midiReady");
   if (
-    installedModules.get("lmrtfy") 
+    installedModules.get("lmrtfy")
     //@ts-expect-error
-    && isNewerVersion("3.1.8", game.modules.get("lmrtfy").version) 
+    && isNewerVersion("3.1.8", game.modules.get("lmrtfy").version)
     //@ts-expect-error
     && isNewerVersion(game.system.version, "2.1.99")) {
     let abbr = {};
@@ -716,32 +716,88 @@ const MQMacros = [
     const theActor = await fromUuid(args[0]);
     if (!theActor || isNaN(args[1])) return;
     await theActor.update({"system.attributes.hp.value": Number(args[1])}, {onUpdateCalled: true});`
-  }
+  }, {
+    name: "MidiQOL.FixFlagsSelectedTokens",
+    commandText: `
+    console.warn("Clearing midi-qol flags for all selected tokens")
 
-]
-export function createMidiMacros() {
+    for (let token of canvas.tokens.controlled) {
+      const actor = token.actor;
+      if (!actor) continue;
+        console.log("Chekcing ", actor.name);
+      if (!(actor?._source.flags && actor._source.flags["midi-qol"])) continue;
+      keys = Object.keys(actor._source.flags["midi-qol"]);
+      for (let key of keys) {
+        if (["concentration-data", "concentration-damage", "actions"].includes(key)) continue;
+        result = await actor.unsetFlag("midi-qol", key);
+        console.warn("Removing key ", key, "from", actor.name)
+      }
+    }`
+  }, 
+  {
+    name: "MidiQOL.FixFlagsAllSceneTokens",
+    commandText: `
+    console.warn("Clearing midi-qol flags for all tokens in the current scene")
+    for (let token of canvas.tokens.placeables) {
+      const actor = token.actor;
+      if (!actor) continue;
+        console.log("Chekcing ", actor.name);
+      if (!(actor?._source.flags && actor._source.flags["midi-qol"])) continue;
+      keys = Object.keys(actor._source.flags["midi-qol"]);
+      for (let key of keys) {
+        if (["concentration-data", "concentration-damage", "actions"].includes(key)) continue;
+        result = await actor.unsetFlag("midi-qol", key);
+        console.warn("Removing key ", key, "from", actor.name)
+      }
+    }`
+  },
+  {
+    name: "MidiQOL.FixFlagsAllWorldActors",
+    commandText: `  
+    console.warn("Clearing midi-qol flags for all world actors")
+    for (let actor of game.actors) {
+      console.log("Chekcing ", actor.name);
+	    if (!(actor?._source.flags && actor._source.flags["midi-qol"])) continue;
+	    keys = Object.keys(actor._source.flags["midi-qol"]);
+	    for (let key of keys) {
+		    if (["concentration-data", "concentration-damage", "actions"].includes(key)) continue;
+		    result = await actor.unsetFlag("midi-qol", key);
+		    console.warn("Removing key ", key, "from", actor.name)
+	    }
+    }`
+  }
+];
+
+export async function createMidiMacros() {
   if (game?.user?.isGM) {
     for (let macroSpec of MQMacros) {
       let macro = game.macros?.getName(macroSpec.name);
-      while (macro) {
-        macro.delete();
-        macro = game.macros?.getName(macroSpec.name);
+      try {
+        while (macro) {
+          await macro.delete();
+          macro = game.macros?.getName(macroSpec.name);
+        }
+        const macroData = {
+          _id: null,
+          name: macroSpec.name,
+          type: "script",
+          author: game.user.id,
+          img: 'icons/svg/dice-target.svg',
+          scope: 'global',
+          command: macroSpec.commandText,
+          folder: null,
+          sort: 0,
+          permission: {
+            default: 0,
+          },
+          flags: {},
+        };
+        //@ts-expect-error
+        await Macro.createDocuments([macroData]);
+      } catch (err) {
+        console.error("Failed to create ", macroSpec.name)
       }
-      const macroData = {
-        _id: null,
-        name: macroSpec.name,
-        type: 'script',
-        author: game.user.id,
-        img: 'icons/svg/dice-target.svg',
-        scope: 'global',
-        command: macroSpec.commandText,
-        folder: null,
-        sort: 0,
-        permission: {
-          default: 0,
-        },
-        flags: {},
-      };
     }
   }
+  
 }

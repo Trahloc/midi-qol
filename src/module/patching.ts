@@ -808,7 +808,6 @@ export function lookupItemMacro(...args) {
 }
 
 export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user) {
-  return true;
   try {
     const macros = getProperty(itemOrActor._source, "flags.midi-qol.onUseMacroName");
     const macroParts = new OnUseMacros(macros ?? null);

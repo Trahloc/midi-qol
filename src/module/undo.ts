@@ -238,7 +238,7 @@ export function _removeChatCards(data: { chatCardUuids: string[] }) {
       fromUuidSync(uuid)?.delete();
     }
   } catch (err) {
-    debugger;
+    console.error("Undo Error is ", err);
   }
 }
 
