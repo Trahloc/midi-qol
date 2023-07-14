@@ -172,7 +172,7 @@ async function doRollSkill(wrapped, ...args) {
 
   const flavor = result.options?.flavor;
   const maxflags = getProperty(this.flags, "midi-qol.max") ?? {};
-  const maxValue = (maxflags.skill && (maxflags.skill.all || maxflags.check[skillId])) ?? false;
+  const maxValue = (maxflags.skill && (maxflags.skill.all || (maxflags.check && maxflags.check[skillId]))) ?? false;
   if (maxValue && Number.isNumeric(maxValue)) {
     result.terms[0].modifiers.unshift(`max${maxValue}`);
     //@ts-ignore
@@ -808,6 +808,7 @@ export function lookupItemMacro(...args) {
 }
 
 export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user) {
+  return true;
   try {
     const macros = getProperty(itemOrActor._source, "flags.midi-qol.onUseMacroName");
     const macroParts = new OnUseMacros(macros ?? null);
@@ -833,7 +834,7 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
     }
     let macroString = OnUseMacros.parseParts(macroParts).items.map(oum => oum.toString()).join(",");
     changes["flags.midi-qol.onUseMacroName"] = macroString;
-    delete changes.flags["midi-qol"].onUseMacroParts;
+    // delete changes.flags["midi-qol"].onUseMacroParts;
     // itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
   } catch (err) {
     delete changes.flags["midi-qol"].onUseMacroParts;

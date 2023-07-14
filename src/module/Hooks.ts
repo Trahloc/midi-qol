@@ -290,7 +290,7 @@ export function initHooks() {
       let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
       if (temphpDiff > 0) concHPDiff = (concHPDiff ?? 0) + temphpDiff
     }
-    update.flags = mergeObject(actor.flags, update.flags ?? {}, {overwrite: true}); // For some reason without this flags are trashed
+    // update.flags = mergeObject(actor.flags, update.flags ?? {}, {overwrite: true}); // For some reason without this flags are trashed
     setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff ?? 0);
     preUpdateItemActorOnUseMacro(actor, update, options, user); // This needs to run second so there is no duplication
     return true;

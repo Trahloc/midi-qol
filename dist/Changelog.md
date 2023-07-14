@@ -1,3 +1,5 @@
+### 10.0.56
+* Undo the change in 10.0.55 so flags won't duplicate but item-piles will have a problem
 ### 10.0.55
 * Fix for flags not being unset. Thanks @thatlonelybugbear
 
