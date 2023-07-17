@@ -387,7 +387,7 @@ function setupMidiQOLApi() {
     // 'detectPoisonAndDisease', 
     // 'detectThoughts',
     'devilsSight', 
-    'divineSense', 
+    // 'divineSense', 
     'echolocation', 
     'ghostlyGaze', 
     // 'hearing', 
@@ -395,7 +395,7 @@ function setupMidiQOLApi() {
     'seeInvisibility', 
     'senseAll', 
     'senseInvisibility', 
-    'feelTremor', 
+    // 'feelTremor', 
     'seeAll'];
 
   //@ts-ignore
