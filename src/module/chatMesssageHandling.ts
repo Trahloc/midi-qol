@@ -178,7 +178,7 @@ export let processCreateBetterRollsMessage = (message: ChatMessage, user: string
     const needsConcentration = workflow.item?.system.components?.concentration || workflow.item?.system.activation?.condition?.includes("Concentration");
     const checkConcentration = configSettings.concentrationAutomation;
     if (needsConcentration && checkConcentration) {
-      const concentrationCheck = item.actor.effects.find(i => (i.name || i.label) === concentrationLabel);
+      const concentrationCheck = item.actor.effects.find(i => i.name === concentrationLabel);
       if (concentrationCheck) concentrationCheck.delete();
       // if (needsConcentration)addConcentration({workflow});
     }
@@ -261,6 +261,8 @@ export function checkOverTimeSaves(message, data, options, user) {
       }
     };
     func(actor, data.flags.dnd5e.roll, message.rolls[0]);
+  } catch (err) {
+    warn("checkOverTimeSaves error ", err)
   } finally {
     return true;
   }

@@ -3,7 +3,7 @@ import { activationConditionToUse, selectTargets, shouldRollOtherDamage, templat
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageList, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getSelfTargetSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, getSystemCONFIG, tokenForActor, getSelfTarget, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, tempCEaddEffectWith, setActionUsed, findNearby } from "./utils.js"
+import { createDamageList, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getSelfTargetSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, getSystemCONFIG, tokenForActor, getSelfTarget, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, findNearby, canSenseModes } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -397,7 +397,7 @@ export class Workflow {
 
       case WORKFLOWSTATES.VALIDATEROLL:
         // do pre roll checks
-        if (checkMechanic("checkRange") !== "none" && !this.AoO && this.tokenId) {
+        if (checkMechanic("checkRange") !== "none" && (!this.AoO || ["rwak", "rsak", "rpak"].includes(this.item.actionType))  && this.tokenId) {
           const { result, attackingToken } = checkRange(this.item, canvas?.tokens?.get(this.tokenId), this.targets);
           switch (result) {
             case "fail": return this.next(WORKFLOWSTATES.ROLLFINISHED);
@@ -799,7 +799,7 @@ export class Workflow {
           else if (midiFlags?.forceCEOn && ["none", "itempri"].includes(useCE)) useCE = "cepri";
           const hasCE = installedModules.get("dfreds-convenient-effects")
           //@ts-ignore
-          const ceEffect = hasCE ? game.dfreds.effects.all.find(e => (e.name || e.label) === theItem?.name) : undefined;
+          const ceEffect = hasCE ? game.dfreds.effects.all.find(e => e.name === theItem?.name) : undefined;
           const ceTargetEffect = ceEffect && !(ceEffect?.flags.dae?.selfTarget || ceEffect?.flags.dae?.selfTargetAlways);
           const hasItemEffect = hasDAE(this) && theItem?.effects.some(ef => ef.transfer !== true);
           const itemSelfEffects = theItem?.effects.filter(ef => (ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) && !ef.transfer) ?? [];
@@ -868,7 +868,7 @@ export class Workflow {
 
                 if (ceTargetEffect && theItem && token.actor) {
                   if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemTargetEffects)) {
-                    const targetHasEffect = token.actor.effects.find(ef => (ef.name || ef.label) === theItem.name);
+                    const targetHasEffect = token.actor.effects.find(ef => ef.name === theItem.name);
                     if (this.item?.flags.midiProperties?.toggleEffect && targetHasEffect) {
                       //@ts-ignore
                       await game.dfreds.effectInterface?.toggleEffect(theItem.name, { uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
@@ -924,7 +924,7 @@ export class Workflow {
           }
           if (selfEffectsToApply !== "none" && ceSelfEffectToApply && theItem && this.actor) {
             if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemSelfEffects)) {
-              const actorHasEffect = this.actor.effects.find(ef => (ef.name || ef.label) === theItem.name);
+              const actorHasEffect = this.actor.effects.find(ef => ef.name === theItem.name);
               if (this.item?.flags.midiProperties?.toggleEffect && actorHasEffect) {
                 //@ts-ignore
                 await game.dfreds.effectInterface?.toggleEffect(theItem.name, { uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
@@ -1006,7 +1006,7 @@ export class Workflow {
             let effectData;
             const templateString = " " + i18n("midi-qol.MeasuredTemplate");
             if (selfTarget) {
-              let effect = this.item.actor.effects.find(ef => (ef.name || ef.label) === this.item.name + templateString);
+              let effect = this.item.actor.effects.find(ef => ef.name === this.item.name + templateString);
               if (effect) { // effect already applied
                 const newChanges = duplicate(effect.changes);
                 newChanges.push({ key: "flags.dae.deleteUuid", mode: 5, value: this.templateUuid, priority: 20 });
@@ -1127,11 +1127,18 @@ export class Workflow {
       // if we are using a proxy token to attack use that for hidden invisible
       const token: Token | undefined = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
       const target: Token | undefined = this.targets.values().next().value;
-      let isHidden = false;
+      let isHiddenToken = false;
       if (token && target) { // preferentially check CV isHidden
-        const hidden = hasCondition(token, "hidden");
-        isHidden = hidden || !canSense(target, token); // check normal foundry sight rules
-        if (!canSense(token, target)) {
+
+        //@ts-expect-error detectionModes
+        const detectionModes = CONFIG.Canvas.detectionModes;
+        const hiddenToken = hasCondition(token, "hidden");
+        const hiddenTarget = hasCondition(target, "hidden");
+        const targetCanDetect = canSense(target, token, globalThis.MidiQOL.InvisibleDisadvantageVisionModes);
+        const tokenCanDetect = canSense(token, target, globalThis.MidiQOL.InvisibleDisadvantageVisionModes);
+        isHiddenToken = hiddenToken || !targetCanDetect; // check normal foundry sight rules
+        let isHiddenTarget = hiddenTarget || !tokenCanDetect;
+        if (isHiddenTarget) {
           // Attacker can't see target so disadvantage
           log(`Disadvantage given to ${this.actor.name} due to hidden/invisible target`);
           this.attackAdvAttribution.add("DIS:hidden");
@@ -1139,22 +1146,22 @@ export class Workflow {
           this.disadvantage = true;
         }
       } else if (token) {
-        const hidden = hasCondition(token, "hidden");
+        const hiddenToken = hasCondition(token, "hidden");
         //@ts-ignore specialStatusEffects
         const invisible = hasCondition(token, "invisible");
-        isHidden = hidden || invisible;
+        isHiddenToken = hiddenToken || invisible;
       }
-      this.advantage = this.advantage || isHidden;
-      if (isHidden) {
+      this.advantage = this.advantage || isHiddenToken;
+      if (isHiddenToken) {
         this.attackAdvAttribution.add("ADV:hidden");
         this.advReminderAttackAdvAttribution.add("ADV:Hidden");
       }
-      if (isHidden) log(`Advantage given to ${this.actor.name} due to hidden/invisible`);
+      if (isHiddenToken) log(`Advantage given to ${this.actor.name} due to hidden/invisible`);
     }
     // Nearby foe gives disadvantage on ranged attacks
     if (checkRule("nearbyFoe")
       && !getProperty(this.actor, "flags.midi-qol.ignoreNearbyFoes")
-      && (["rwak", "rsak", "rpak"].includes(actType) || this.item.system.properties?.thr)) {
+      && (["rwak", "rsak", "rpak"].includes(actType) || (this.item.system.properties?.thr && actType !== "mwak"))) {
       let nearbyFoe;
       // special case check for thrown weapons within 5 feet, treat as a melee attack - (players will forget to set the property)
       const me = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
@@ -2245,7 +2252,8 @@ export class Workflow {
           chatMessage.content = content;
       }
     } else {
-      const gmUser = game.users?.find((u: User) => u.isGM && u.active);
+      //@ts-expect-error .activeGM
+      const gmUser = game.users?.activeGM;
       //@ts-ignore _getSpeakerFromuser
       let speaker = ChatMessage._getSpeakerFromUser({ user: gmUser });
       speaker.scene = canvas?.scene?.id ?? "";
@@ -2497,8 +2505,8 @@ export class Workflow {
           // Find a player owner for the roll if possible
           let owner: User | undefined = playerFor(target);
           if (!owner?.isGM && owner?.active) showRoll = true; // Always show player save rolls
-          // If no player owns the token, find an active GM
-          if (!owner?.active) owner = game.users?.find((u: User) => u.isGM && u.active);
+          //@ts-expect-error ,.activeGM - If no player owns the token, find an active GM
+          if (!owner?.active) owner = game.users?.activeGM;
           // Fall back to rolling as the current user
           if (!owner) owner = game.user ?? undefined;
           promises.push(socketlibSocket.executeAsUser("rollAbility", owner?.id, {

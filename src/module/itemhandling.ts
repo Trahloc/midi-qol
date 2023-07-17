@@ -898,6 +898,7 @@ export async function wrappedDisplayCard(wrapped, options) {
   if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) dmgBtnText += ` ${i18n("midi-qol.fastForward")}`;
   let versaBtnText = i18n(`${systemString}.Versatile`);
   if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) versaBtnText += ` ${i18n("midi-qol.fastForward")}`;
+
   const templateData = {
     actor: this.actor,
     // tokenId: token?.id,
@@ -905,7 +906,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     tokenUuid: token?.document?.uuid ?? token?.uuid ?? null,
     item: this, // TODO check this v10
     itemUuid: this.uuid,
-    data: await this.getChatData(),
+    data: await getChatData.bind(this)(),
     labels: this.labels,
     condensed: this.hasAttack && configSettings.mergeCardCondensed,
     hasAttack: !minimalCard && this.hasAttack && (systemCard || needAttackButton),
@@ -931,6 +932,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     PlaceTemplate: i18n(`${systemString}.PlaceTemplate`),
     Use: i18n(`${systemString}.Use`)
   }
+
   const templateType = ["tool"].includes(this.type) ? this.type : "item";
   const template = `modules/midi-qol/templates/${templateType}-card.html`;
   const html = await renderTemplate(template, templateData);
@@ -978,6 +980,24 @@ export async function wrappedDisplayCard(wrapped, options) {
   const card = createMessage !== false ? ChatMessage.create(chatData) : chatData;
   Hooks.callAll("dnd5e.displayCard", this, card);
   return card;
+}
+
+async function getChatData() {
+  if (!this.system.activation?.condition) return this.getChatData();
+  const cond = this.system.activation.condition;
+  let result;
+  try {
+  const matchList = ["includes\\(", "<", ">", "==", "!=", '"', '@', 'raceOrType', 'true', 'false'];
+  let regex = new RegExp('\\b(' + matchList.join('|') + ')\\b', 'gi');
+  const match = this.system.activation.condition.match(regex);
+  if (match) this.system.activation.condition = "...";
+  result = await this.getChatData();
+  } catch (err) {
+    result = this.getChatData();
+  } finally {
+    if (cond) this.system.activation.condition = cond;
+  }
+  return result;
 }
 
 async function resolveLateTargeting(item, options: any, pressedKeys: any): Promise<boolean> {

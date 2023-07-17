@@ -21,6 +21,8 @@ export async function removeEffects(data: { actorUuid: string; effects: string[]
       if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
       const effectIds = data.effects.filter(efId => actor.effects.find(effect => efId === effect.id));
       if (effectIds?.length > 0) return actor?.deleteEmbeddedDocuments("ActiveEffect", effectIds, data.options)
+    } catch (err) {
+      warn("GMACTION: remove effects error", err)
     } finally {
       warn("removeFunc: remove effects completed")
     }
@@ -159,7 +161,7 @@ export async function _canSense(data: { tokenUuid, targetUuid }) {
 export async function _gmOverTimeEffect(data: { actorUuid, effectUuid, startTurn, options }) {
   const actor = MQfromActorUuid(data.actorUuid);
   const effect = MQfromUuid(data.effectUuid)
-  log("Called _gmOvertime", actor.name, effect.name ?? effect.label)
+  log("Called _gmOvertime", actor.name, effect.name)
   return gmOverTimeEffect(actor, effect, data.startTurn, data.options)
 }
 

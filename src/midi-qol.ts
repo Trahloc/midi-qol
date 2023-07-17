@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, WORKFLOWSTATES } from './module/workflow.js';
-import { addConcentration, applyTokenDamage, canSense, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenPlayerName, getTraitMult, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor } from './module/utils.js';
+import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenPlayerName, getTraitMult, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -379,11 +379,31 @@ function setupMidiQOLApi() {
     doRoll: () => { console.error("MinorQOL is no longer supported please use MidiQOL.doRoll") },
     applyTokenDamage: () => { console.error("MinorQOL is no longer supported please use MidiQOL.applyTokenDamage") },
   }
+  let InvisibleDisadvantageVisionModes = [
+    'blindsight', 
+    'basicSight', 
+    // 'detectEvilAndGood', 
+    // 'detectMagic', 
+    // 'detectPoisonAndDisease', 
+    // 'detectThoughts',
+    'devilsSight', 
+    'divineSense', 
+    'echolocation', 
+    'ghostlyGaze', 
+    // 'hearing', 
+    'lightPerception', 
+    'seeInvisibility', 
+    'senseAll', 
+    'senseInvisibility', 
+    'feelTremor', 
+    'seeAll'];
+
   //@ts-ignore
   globalThis.MidiQOL = {
     addConcentration,
     applyTokenDamage,
     canSense,
+    canSenseModes,
     checkNearby,
     checkRange,
     checkRule: checkRule,
@@ -438,7 +458,8 @@ function setupMidiQOLApi() {
     removeMostRecentWorkflow,
     showUndoWorkflowApp,
     addUndoChatMessage,
-    testfunc
+    testfunc,
+    InvisibleDisadvantageVisionModes
   };
   globalThis.MidiQOL.actionQueue = new Semaphore();
 }
@@ -480,7 +501,6 @@ function doRoll(event = { shiftKey: false, ctrlKey: false, altKey: false, metaKe
 
 function setupMidiFlags() {
   let config = getSystemCONFIG();
-  midiFlags.push("system.test.this")
   midiFlags.push("flags.midi-qol.advantage.all")
   midiFlags.push("flags.midi-qol.disadvantage.all")
   midiFlags.push("flags.midi-qol.advantage.attack.all")

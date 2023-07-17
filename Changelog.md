@@ -1,3 +1,27 @@
+## 11.0.6
+* Fix for fail optional bonuses still creating a dialog even if no effects with charges is available.
+* Fix for concentration checks being triggered when player is healed - same fix as in v10 but no reported error.
+* If a save/check/skill roll is made with a target value the resultant roll.options.success will be set to true/false. If there is no target value roll.options. success wil be undefined,
+* Fix for nearby foes check when using a thrown weapon of type mwak (midi was checking the nearby foes and should not).
+* First cut of hiding activation condition expressions in the chat card.
+* Added checkNearby to the functions available in condition evaluation
+* Additional options for checkNearby/FindNearby, as well as -1, 0, 1 for HOSTILE, NEUTRAL, FRIENDY you can use the strings "Hostile", "Neutral", "Friendly". You can use "all" instead of passing null. You can mix and match between strings or numbers.
+* You may pass an array of dispositions to check, e.g. ["Friendly", "Neutral"] will return friendly and neutral tokens.
+* Additonal option, relative (defaults to true) which means use the token disposition to identify potential nearby tokens. If the target has a HOSTILE disposition, asking for "Friendly" with relative set to true will return tokens with a HOSTILE disposition. This is the same behaviour as previously, but you can specify relative: false to find tokens with a specific disposition.
+  - MidiQOL.checkNearby("Friendly", token, 5) find all tokens friendly to the token within 5 feet
+  - MidiQOL.checkNearby("Friendly", token, 5 , {relative: false}) find all tokens with a disposition of friendly within 5 feet
+  - MidiQOL.checkNearby(["Friendly", 0], token, 5) find all tokens friendly or neutral towards the token within 5 feet
+* Enhancement to MidiQOL.canSense(target, token) you can pass an array of detection modes to limit which of the tokens vsion modes to check. Any of 
+['basicSight', 'seeInvisibility', 'senseInvisibility', 'feelTremor', 'seeAll', 'senseAll'] can be used
+  - If you have detection/vision modes installed you can pass any of
+['blindsight', 'basicSight', 'detectEvilAndGood', 'detectMagic', 'detectPoisonAndDisease', 'detectThoughts', 'devilsSight', 'divineSense', 'echolocation', 'ghostlyGaze', 'hearing', 'lightPerception', 'seeInvisibility', 'senseAll', 'senseInvisibility', 'feelTremor', 'seeAll']
+  - example MidiQOL.canSense(token, target, ["basicSight"]) will test if the token can see the token with basic sight. The token must have the specified detetion mode for canSense to returnt true;
+* Added casnSenseModes(token, target) will return all of the modes that the token can see the target with, you can also pass an array of modes to check against. 
+* When checking for disadvantage against invisible foes midi only checks 
+          'blindsight', 'basicSight', 'devilsSight', 'divineSense', 'echolocation', 'ghostlyGaze', 'lightPerception', 'seeInvisibility', 'senseAll', 'senseInvisibility', 'feelTremor', 'seeAll'. 
+  - if you can only hear your opponent you will still get disadvantage
+  - This list of modes that midi will check when determining disadvantage is stored in MidiQOL.InvisibleDisadvantageVisionModes and is modifiable.
+
 ## 11.0.5
 * Added MidiQOL.getTokenPlayerName(token: TokenDocument | Token, checkGM: boolean = false) which returns the player (or GM is asGM true) version of the thoken's name. if checkGM is true and the player is a GM just returns the tokens name. Mainly a shim to the anonymous module.
 * Added new player saving throw option "Auto roll but show roll dialog". This option will auto roll the save on the player's client but show the roll configuration dialog before doing the roll. This is an alternative to LMRTFY/Monks TB.

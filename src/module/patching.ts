@@ -73,7 +73,7 @@ export function collectBonusFlags(actor, category, detail): any[] {
         if (checkFlag === undefined) return false;
         if (detail.startsWith("fail")) {
           const [_, type] = detail.split(".");
-          return checkFlag.fail?.[type];
+          return checkFlag.fail && checkFlag.fail[type] ? getOptionalCountRemainingShortFlag(actor, flag) > 0 : false;
         } else if (!(typeof checkFlag === "string" || checkFlag[detail] || checkFlag["all"] !== undefined)) return false;
         if (actor.flags["midi-qol"].optional[flag].count === undefined) return true;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
@@ -203,7 +203,10 @@ async function doRollSkill(wrapped, ...args) {
     game.settings.set("core", "rollMode", saveRollMode);
   }
   let success: boolean | undefined = undefined;
-  if (rollTarget !== undefined) success = result.total >= rollTarget;
+  if (rollTarget !== undefined) {
+    success = result.total >= rollTarget;
+    result.options.success = success;
+  }
   await expireRollEffect.bind(this)("Skill", skillId, success);
   return result;
 }
@@ -419,7 +422,10 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     game.settings.set("core", "rollMode", saveRollMode);
   }
   let success: boolean | undefined = undefined;
-  if (rollTarget !== undefined) success = result.total >= rollTarget;
+  if (rollTarget !== undefined) {
+    success = result.total >= rollTarget;
+    result.options.success = success;
+  }
   await expireRollEffect.bind(this)(rollType, abilityId, success);
   return result;
 }
@@ -986,13 +992,13 @@ export async function checkWounded(actor, update, options, user) {
     const woundedLevel = attributes.hp.max * configSettings.addWounded / 100;
     const needsWounded = hpUpdate > 0 && hpUpdate < woundedLevel && !needsBeaten;
     if (installedModules.get("dfreds-convenient-effects")) {
-      const CEWoundedName = dfreds?.effects?._wounded.name ?? dfreds?.effects?._wounded.label;
+      const CEWoundedName = dfreds?.effects?._wounded.name;
       const CEWounded = dfreds.effectInterface.findEffectByName(CEWoundedName)?.toObject();
       const wounded = await ConvenientEffectsHasEffect((CEWoundedName), actor, false);
       if (wounded !== needsWounded) {
         if (needsWounded) await actor.createEmbeddedDocuments("ActiveEffect", [CEWounded])
-        else await actor.effects.find(ef => (ef.name ?? ef.label) === CEWoundedName)?.delete();
-        //await dfreds?.effectInterface.toggleEffect((CEWounded.name ?? CEWounded.label), { overlay: false, uuids: [actor.uuid] });
+        else await actor.effects.find(ef => ef.name === CEWoundedName)?.delete();
+        //await dfreds?.effectInterface.toggleEffect(CEWounded.name, { overlay: false, uuids: [actor.uuid] });
       }
     } else {
       const tokens = actor.getActiveTokens();
@@ -1016,7 +1022,7 @@ export async function checkWounded(actor, update, options, user) {
     }
 
     // TODO this relies on the defeated condition having the sanme name/label as the CE dead condition
-    const isBeaten = actor.effects.find(ef => (ef.name || ef.label) === (effect.name ?? effect.label)) !== undefined;
+    const isBeaten = actor.effects.find(ef => ef.name === effect.name) !== undefined;
 
     if ((needsBeaten !== isBeaten)) {
       let combatant;
@@ -1029,7 +1035,7 @@ export async function checkWounded(actor, update, options, user) {
       if (needsBeaten) {
         await dfreds.effectInterface?.addEffectWith({ effectData: effect.toObject(), uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
       } else { // remove beaten condition
-        await dfreds.effectInterface.removeEffect({ effectName: (effect.name ?? effect.label), uuid: actor.uuid })
+        await dfreds.effectInterface.removeEffect({ effectName: effect.name, uuid: actor.uuid })
       }
     }
   } else if (configSettings.addDead !== "none") {
@@ -1039,7 +1045,8 @@ export async function checkWounded(actor, update, options, user) {
     const effectId = actor.type === "character" ? "unconscious" : "dead";
     const effect = CONFIG.statusEffects.find(se => se.id === effectId);
     if (token && effect) {
-      const isBeaten = actor.effects.find(ef => (ef.name || ef.label) === (i18n(effect?.label ?? ""))) !== undefined;
+      //@ts-expect-error need to have .name & .label since condition-lab-triggler uses label core statuseffects use name
+      const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect.name ?? effect?.label ?? ""))) !== undefined;
       if (isBeaten !== needsBeaten) {
         let combatant;
         if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);

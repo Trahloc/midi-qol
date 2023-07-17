@@ -7,10 +7,7 @@ import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
 import { OnUseMacros } from "./apps/Item.js";
-import { actorAbilityRollPatching, Options } from "./patching.js";
-import { isEmptyBindingElement } from "typescript";
-import { activationConditionToUse } from "./itemhandling.js";
-import { EffectDurationData } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/effectDurationData";
+import { Options } from "./patching.js";
 
 export function getDamageType(flavorString): string | undefined {
   const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
@@ -1141,7 +1138,7 @@ export function checkImmunity(candidate, data, options, user) {
 
   //@ts-ignore .traits
   const ci = parent.system.traits?.ci?.value;
-  const statusId = (data.name || data.label || "no effect").toLocaleLowerCase();
+  const statusId = (data.name ?? (data.label ?? "no effect")).toLocaleLowerCase(); // TODO 11 chck this
   const returnvalue = !(ci.length && ci.some(c => c === statusId));
   return returnvalue;
 }
@@ -1270,9 +1267,9 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         let content;
         if (options.saveToUse.total >= saveDC) {
           await actor.deleteEmbeddedDocuments("ActiveEffect", [effect.id]), { "expiry-reason": "midi-qol:overTime:actionSave" };
-          content = `${(effect.name || effect.label)} ${i18n("midi-qol.saving-throw")} ${i18n("midi-qol.save-success")}`;
+          content = `${effect.name} ${i18n("midi-qol.saving-throw")} ${i18n("midi-qol.save-success")}`;
         } else
-          content = `${(effect.name || effect.label)} ${i18n("midi-qol.saving-throw")} ${i18n("midi-qol.save-failure")}`;
+          content = `${effect.name} ${i18n("midi-qol.saving-throw")} ${i18n("midi-qol.save-failure")}`;
         ChatMessage.create({ content, speaker: ChatMessage.getSpeaker({ actor }) });
         return effect.id;
       }
@@ -2106,6 +2103,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   if (!statusEffect && installedModules.get("condition-lab-triggler")) {
     //@ts-expect-error se.name
     statusEffect = duplicate(CONFIG.statusEffects.find(se => se.id.startsWith("condition-lab-triggler") && (se.name ?? se.label) == concentrationLabel));
+    if (!statusEffect.name) statusEffect.name = statusEffect.label;
   }
   if (statusEffect) { // found a cub or convenient status effect.
     const itemDuration = item?.system.duration;
@@ -2129,7 +2127,8 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     setProperty(statusEffect.flags, "dae.transfer", false);
     setProperty(statusEffect, "transfer", false);
     if (statusEffect.tint === null) delete statusEffect.tint;
-    const existing = selfTarget.actor?.effects.find(e => (e.name ?? e.label) === (statusEffect.name ?? statusEffect.label));
+    // condition-lab-triggler has a name in the label field
+    const existing = selfTarget.actor?.effects.find(e => e.name === (statusEffect.name ?? statusEffect.label)); // TODO should be able to remove this .label
     if (existing) await existing.delete();
     if (!statusEffect.id && statusEffect.statuses?.length > 0) {
       statusEffect.id = statusEffect.statuses[0];
@@ -2139,7 +2138,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     const result = await actor.createEmbeddedDocuments("ActiveEffect", [statusEffect]);
     return result;
   } else {
-    const existing = selfTarget.actor?.effects.find(e => (e.name || e.label) === concentrationLabel);
+    const existing = selfTarget.actor?.effects.find(e => e.name === concentrationLabel);
     if (existing) await existing.delete(); // make sure that we don't double apply concentration
 
     const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget.id));
@@ -2211,37 +2210,86 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
  * @param {options} includeIcapacitated: boolean count incapacitated tokens
  */
 
-
-export function findNearby(disposition: number | null, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false }): Token[] {
-  if (!token) return [];
-  if (typeof token === "string") token = MQfromUuid(token).object;
-  if (!(token instanceof Token)) { throw new Error("find nearby token is not of type token or the token uuid is invalid") };
-  if (!canvas || !canvas.scene) return [];
-  //@ts-ignore .disposition v10
-  let targetDisposition = token.document.disposition * (disposition ?? 0);
-  let nearby = canvas.tokens?.placeables.filter(t => {
-    if (getProperty(t, "actor.system.details.type.custom")?.toLocaleLowerCase().includes("notarget")
-      || getProperty(t, "actor.system.details.race")?.toLocaleLowerCase().includes("notarget")) return false;
-    //@ts-ignore .height .width v10
-    if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
-    if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor, undefined, undefined)) return false;
-    let inRange = false;
-    if (t.actor &&
-      (t.id !== token.id || options?.includeToken) && // not the token
-      //@ts-ignore .disposition v10      
-      (disposition === null || t.document.disposition === targetDisposition)) {
-      const tokenDistance = getDistance(t, token, true);
-      inRange = 0 <= tokenDistance && tokenDistance <= distance
-    } else return false; // wrong disposition
-    if (inRange && options.canSee && !canSense(t, token)) return false; // Only do the canSee check if the token is inRange
-    if (inRange && options.isSeen && !canSense(token, t)) return false;
-    return inRange;
-
-  });
-  return nearby ?? [];
+function mapTokenString(disposition: string | number): number | null{
+  if (typeof disposition === "number") return disposition
+  if (disposition.toLocaleLowerCase().trim() === i18n("TOKEN.DISPOSITION.FRIENDLY").toLocaleLowerCase()) return 1;
+  else if (disposition.toLocaleLowerCase().trim() === i18n("TOKEN.DISPOSITION.HOSTILE").toLocaleLowerCase()) return -1;
+  else if (disposition.toLocaleLowerCase().trim() === i18n("TOKEN.DISPOSITION.NEUTRAL").toLocaleLowerCase()) return 0;
+  else if (disposition.toLocaleLowerCase().trim() === i18n("TOKEN.DISPOSITION.SECRET").toLocaleLowerCase()) return -2;
+  else if (disposition.toLocaleLowerCase().trim() === i18n("all").toLocaleLowerCase()) return null;
+  const validStrings = ["TOKEN.DISPOSITION.FRIENDLY", "TOKEN.DISPOSITION.HOSTILE", "TOKEN.DISPOSITION.NEUTRAL", "TOKEN.DISPOSITION.SECRET", "all"].map(s => i18n(s))
+  throw new Error(`Midi-qol | findNearby ${disposition} is invalid. Disposition must be one of "${validStrings}"`)
 }
 
-export function checkNearby(disposition: number | null, token: Token | undefined, distance: number, options: any = {}): boolean {
+/**
+ * findNearby
+ * @param {number} [disposition]          What disposition to match - one of CONST.TOKEN.DISPOSITIONS
+ 
+ * @param {string} [disposition]          What disposition to match - one of (localize) Friendly, Neutral, Hostile, Secret, all
+ * @param {null} [disposition]            Match any disposition
+ * @param {Array<string>} [disposition]   Match any of the dispostion strings
+ * @param {Array<number>} [disposition]   Match any of the disposition numbers
+ * @param {Token} [token]                 The token to use for the search
+ * @param {string} [token]                A token UUID
+ * @param {number} [distance]             The distance from token that will match
+ * @param {object} [options]
+ * @param {number} [options.MaxSize]      Only match tokens whose width * length < MaxSize
+ * @param {boolean} [includeIncapacitated]  Should incapacitated actors be include?
+ * @param {boolean} [canSee]              Must the potential target be able to see the token?
+ * @param {boolean} isSeen                Must the token token be able to see the potential target?
+ * @param {boolean} [includeToken]        Include token in the return array?
+ * @param {boolean} [relative]            If set, the specified disposition is compared with the token disposition. 
+ *  A specified dispostion of HOSTILE and a token disposition of HOSTILE means find tokens whose disposition is FRIENDLY
+
+*/
+
+export function findNearby(disposition: number | string | null | Array<string | number>, token: any /*Token | uuuidString */, distance: number,
+  options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined, relative: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false, relative: true }): Token[] {
+  if (!token) return [];
+  if (!canvas || !canvas.scene) return [];
+  if (typeof token === "string") token = MQfromUuid(token).object;
+  try {
+    if (!(token instanceof Token)) { throw new Error("find nearby token is not of type token or the token uuid is invalid") };
+    let relative = options.relative ?? true;
+    let targetDisposition;
+    if (typeof disposition === "string") disposition = mapTokenString(disposition);
+    if (disposition instanceof Array) {
+        if (disposition.some(s => s === "all")) disposition = [-1, 0, 1];
+        else disposition = disposition.map(s => mapTokenString(s) ?? 0);
+        targetDisposition = disposition.map(i => typeof i === "number" && [-1, 0, 1].includes(i) && relative ? token.document.disposition * i : i);
+    } else if (typeof disposition === "number" && [-1, 0, 1].includes(disposition)) {
+      //@ts-expect-error token.document.dispostion
+      targetDisposition = relative ? [token.document.disposition * disposition] : [disposition];
+    } else targetDisposition = [CONST.TOKEN_DISPOSITIONS.HOSTILE, CONST.TOKEN_DISPOSITIONS.NEUTRAL, CONST.TOKEN_DISPOSITIONS.FRIENDLY];
+
+    let nearby = canvas.tokens?.placeables.filter(t => {
+      if (getProperty(t, "actor.system.details.type.custom")?.toLocaleLowerCase().includes("notarget")
+        || getProperty(t, "actor.system.details.race")?.toLocaleLowerCase().includes("notarget")) return false;
+      //@ts-ignore .height .width v10
+      if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
+      if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor, undefined, undefined)) return false;
+      let inRange = false;
+      if (t.actor &&
+        (t.id !== token.id || options?.includeToken) && // not the token
+        //@ts-ignore .disposition v10      
+        (disposition === null || targetDisposition.includes(t.document.disposition))) {
+        const tokenDistance = getDistance(t, token, true);
+        inRange = 0 <= tokenDistance && tokenDistance <= distance
+      } else return false; // wrong disposition
+      if (inRange && options.canSee && !canSense(t, token)) return false; // Only do the canSee check if the token is inRange
+      if (inRange && options.isSeen && !canSense(token, t)) return false;
+      return inRange;
+
+    });
+
+    return nearby ?? [];
+  } catch (err) {
+    error(err);
+    return [];
+  }
+}
+
+export function checkNearby(disposition: number | null | string, token: Token | undefined, distance: number, options: any = {}): boolean {
   return findNearby(disposition, token, distance, options).length !== 0;
 }
 
@@ -2290,8 +2338,7 @@ export async function removeHidden() {
 
 export async function removeTokenCondition(token: Token, condition: string) {
   if (!token) return;
-  //@ts-ignore .label v10
-  const hasEffect = token.actor?.effects.find(ef => (ef.name || ef.label) === condition);
+  const hasEffect = token.actor?.effects.find(ef => ef.name === condition);
   if (hasEffect) await hasEffect.delete();
 }
 
@@ -2878,7 +2925,7 @@ export function hasEffectGranting(actor: globalThis.dnd5e.documents.Actor5e, key
 //@ts-expect-error dnd5e
 export function isConcentrating(actor: globalThis.dnd5e.documents.Actor5e): undefined | ActiveEffect {
   let concentrationLabel = getConcentrationLabel();
-  return actor.effects.contents.find(e => (e.name || e.label) === concentrationLabel && !e.disabled && !e.isSuppressed);
+  return actor.effects.contents.find(e => e.name === concentrationLabel && !e.disabled && !e.isSuppressed);
 }
 
 function maxCastLevel(actor) {
@@ -3175,7 +3222,8 @@ export function playerForActor(actor: Actor | undefined): User | undefined {
     user = game.users?.players.find(p => p.active && ownwership[p.id] === OWNERSHIP_LEVELS.INHERIT)
   }
   // if all else fails it's an active gm.
-  if (!user) user = game.users?.find(p => p.isGM && p.active);
+  //@ts-expect-error activeGM
+  if (!user) user = game.users?.activeGM
   return user;
 }
 
@@ -3360,7 +3408,7 @@ export function getConcentrationLabel(): string {
   if (installedModules.get("dfreds-convenient-effects")) {
     //@ts-expect-error .dfreds
     const dfreds = game.dfreds;
-    concentrationLabel = dfreds.effects._concentrating.name ?? dfreds.effects._concentrating.label
+    concentrationLabel = dfreds.effects._concentrating.name ?? dfreds.effects._concentrating.name
   }
   // for condition-lab-trigger there is no module specific way to specify the concentration effect so just use the label
   return concentrationLabel
@@ -3372,7 +3420,7 @@ export function getConcentrationLabel(): string {
  */
 export function getConcentrationEffect(actor): ActiveEffect | undefined {
   let concentrationLabel = getConcentrationLabel();
-  const result = actor.effects.find(i => (i.name || i.label) === concentrationLabel);
+  const result = actor.effects.find(ef => ef.name === concentrationLabel);
   return result;
 }
 
@@ -3383,7 +3431,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: boolean | u
     const src = 'with (sandbox) { return ' + expression + '}';
     const evl = new Function('sandbox', src);
     sandbox = mergeObject(sandbox, Roll.MATH_PROXY);
-    sandbox = mergeObject(sandbox, { findNearby });
+    sandbox = mergeObject(sandbox, { findNearby, checkNearby });
     result = evl(sandbox);
   } catch (err) {
     console.warn("midi-qol | expression evaluation failed ", expression, err);
@@ -3505,16 +3553,16 @@ export function getConvenientEffectsBonusAction(): ActiveEffect | undefined {
 export function getConvenientEffectsUnconscious() {
   //@ts-expect-error .dfreds
   const dfreds = game.dfreds;
-  const unConsciousName = dfreds?.effects?._unconscious.name ?? dfreds?.effects?._unconscious.label;
-  if (unConsciousName) return dfreds.effects.all.find(ef => (ef.name ?? ef.label) === unConsciousName);
+  const unConsciousName = dfreds?.effects?._unconscious.name;
+  if (unConsciousName) return dfreds.effects.all.find(ef => ef.name === unConsciousName);
   return undefined;
 }
 
 export function getConvenientEffectsDead() {
   //@ts-expect-error .dfreds
   const dfreds = game.dfreds;
-  const deadName = dfreds?.effects?._dead.name ?? dfreds?.effects?._dead.label;
-  if (deadName) return dfreds.effects.all.find(ef => (ef.name ?? ef.label) === deadName);
+  const deadName = dfreds?.effects?._dead.name;
+  if (deadName) return dfreds.effects.all.find(ef => ef.name === deadName);
   return undefined;
 }
 
@@ -3523,8 +3571,7 @@ export async function ConvenientEffectsHasEffect(effectName: string, actor: Acto
     //@ts-ignore
     return game.dfreds?.effectInterface?.hasEffectApplied(effectName, actor.uuid);
   } else {
-    //@ts-expect-error .label
-    return actor.effects.find(ef => (ef.name || ef.label) === effectName) !== undefined;
+    return actor.effects.find(ef => ef.name === effectName) !== undefined;
   }
 }
 
@@ -3547,20 +3594,6 @@ export function isInCombat(actor: Actor) {
   return (combats?.length ?? 0) > 0;
 }
 
-export async function tempCEaddEffectWith(args) {
-  const { effectData, origin, metaData, uuid } = args;
-
-  if (effectData.statuses instanceof Set) {
-    if (effectData.statuses.size === 0) effectData.statuses.add(effectData.flags?.core?.statusId ?? effectData.name ?? effectData.label);
-    effectData.statuses = Array.from(effectData.statuses)
-  } else if (effectData.statuses && effectData.statuses.length === 0 && effectData.flags?.core?.statusId) {
-    effectData.statuses.push(effectData.flags?.core?.statusId)
-  }
-  //@ts-expect-error
-  const effectInterface = game.dfreds?.effectInterface;
-  await effectInterface?.addEffectWith({ effectData, uuid, metaData, origin });
-}
-
 export async function setActionUsed(actor: Actor) {
   await actor.setFlag("midi-qol", "actions.action", true);
 }
@@ -3575,7 +3608,7 @@ export async function setReactionUsed(actor: Actor) {
     // await tempCEaddEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
     await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
     //@ts-expect-error se.name
-  } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name || se.label) === i18n("DND5E.Reaction")))) {
+  } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name ?? se.label) === i18n("DND5E.Reaction")))) {
     await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
   await actor.setFlag("midi-qol", "actions.reactionCombatRound", game.combat?.round);
@@ -3587,10 +3620,12 @@ export async function setBonusActionUsed(actor: Actor) {
   let effect;
   if (getConvenientEffectsBonusAction()) {
     //@ts-expect-error
-    await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsBonusAction().name ?? getConvenientEffectsBonusAction().label), uuid: actor.uuid });
-  } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => se.label === i18n("DND5E.BonusAction")))) {
-    await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
-  }
+    await game.dfreds?.effectInterface.addEffect({ effectName: getConvenientEffectsBonusAction().name, uuid: actor.uuid });
+  } else
+    //@ts-expect-error
+    if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name ?? se.label) === i18n("DND5E.BonusAction")))) {
+      await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
+    }
   await actor.setFlag("midi-qol", "actions.bonusActionCombatRound", game.combat?.round);
   return await actor.setFlag("midi-qol", "actions.bonus", true);
 }
@@ -3602,15 +3637,14 @@ export async function removeActionUsed(actor: Actor) {
 export async function removeReactionUsed(actor: Actor, removeCEEffect = false) {
   if (removeCEEffect && getConvenientEffectsReaction()) {
     //@ts-expect-error
-    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name ?? getConvenientEffectsReaction().label), actor.uuid)) {
+    if (await game.dfreds?.effectInterface.hasEffectApplied(getConvenientEffectsReaction().name, actor.uuid)) {
       //@ts-expect-error
-      await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsReaction().name ?? getConvenientEffectsReaction().label), uuid: actor.uuid });
+      await game.dfreds.effectInterface?.removeEffect({ effectName: getConvenientEffectsReaction().name, uuid: actor.uuid });
     }
   }
 
   if (installedModules.get("condition-lab-triggler")) {
-    //@ts-expect-error
-    const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"));
+    const effect = actor.effects.contents.find(ef => ef.name === i18n("DND5E.Reaction"));
     await effect?.delete();
   }
   await actor?.unsetFlag("midi-qol", "actions.reactionCombatRound");
@@ -3624,13 +3658,12 @@ export async function hasUsedAction(actor: Actor) {
 export async function hasUsedReaction(actor: Actor) {
   if (getConvenientEffectsReaction()) {
     //@ts-expect-error .dfreds
-    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name ?? getConvenientEffectsReaction().label), actor.uuid)) {
+    if (await game.dfreds?.effectInterface.hasEffectApplied(getConvenientEffectsReaction().name, actor.uuid)) {
       return true;
     }
   }
 
-  //@ts-expect-error .label
-  if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.Reaction"))) {
+  if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => ef.name === i18n("DND5E.Reaction"))) {
     return true;
   }
   if (actor.getFlag("midi-qol", "actions.reaction")) return true;
@@ -3659,13 +3692,12 @@ export async function gmExpirePerTurnBonusActions(data: { combatUuid: string }) 
 export async function hasUsedBonusAction(actor: Actor) {
   if (getConvenientEffectsBonusAction()) {
     //@ts-ignore
-    if (await game.dfreds?.effectInterface.hasEffectApplied(getConvenientEffectsBonusAction().label, actor.uuid)) {
+    if (await game.dfreds?.effectInterface.hasEffectApplied(getConvenientEffectsBonusAction().name, actor.uuid)) {
       return true;
     }
   }
 
-  //@ts-expect-error .label
-  if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"))) {
+  if (installedModules.get("condition-lab-triggler") && actor.effects.contents.some(ef => ef.name === i18n("DND5E.BonusAction"))) {
     return true;
   }
 
@@ -3676,14 +3708,14 @@ export async function hasUsedBonusAction(actor: Actor) {
 export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false) {
   if (removeCEEffect && getConvenientEffectsBonusAction()) {
     //@ts-ignore
-    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), actor.uuid)) {
+    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsBonusAction().name), actor.uuid)) {
       //@ts-ignore
-      await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
+      await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsBonusAction().name), uuid: actor.uuid });
     }
   }
   if (installedModules.get("condition-lab-triggler")) {
     //@ts-ignore
-    const effect = actor.effects.contents.find(ef => (ef.name || ef.label) === i18n("DND5E.BonusAction"));
+    const effect = actor.effects.contents.find(ef => ef.name === i18n("DND5E.BonusAction"));
     await effect?.delete();
   }
   await actor.setFlag("midi-qol", "actions.bonus", false);
@@ -3828,7 +3860,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
         //@ts-ignore
         const CEFlanked = game.dfreds.effects._flanked;
         //@ts-ignore
-        const hasFlanked = token.actor && CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.label, token.actor.uuid);
+        const hasFlanked = token.actor && CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, token.actor.uuid);
         if (hasFlanked) continue;
       }
       // Loop through each square covered by attacker and ally
@@ -3841,13 +3873,13 @@ export async function computeFlankedStatus(target): Promise<boolean> {
         if (!heightIntersects(target.document, ally.document)) continue;
         if (installedModules.get("dfreds-convenient-effects")) {
           //@ts-ignore
-          if (actor?.effects.some(ef => (ef.name || ef.label) === (game.dfreds.effects._incapacitated.name || game.dfreds.effects._incapacitated.label))) continue;
+          if (actor?.effects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
         }
         if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
           //@ts-ignore
           const CEFlanked = game.dfreds.effects._flanked;
           //@ts-ignore
-          const hasFlanked = CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied((CEFlanked.name || CEFlanked.label), ally.actor.uuid);
+          const hasFlanked = CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, ally.actor.uuid);
           if (hasFlanked) continue;
         }
         const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
@@ -3919,7 +3951,7 @@ export function computeFlankingStatus(token, target): boolean {
       if (checkIncapacitated(actor, undefined, undefined)) continue;
       if (installedModules.get("dfreds-convenient-effects")) {
         //@ts-ignore
-        if (actor?.effects.some(ef => ef.label === (game.dfreds.effects._incapacitated.name || game.dfreds.effects._incapacitated.label))) continue;
+        if (actor?.effects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
       }
 
       const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
@@ -3973,13 +4005,13 @@ export async function markFlanking(token, target): Promise<boolean> {
       const CEFlanking = game.dfreds.effects._flanking;
       if (!CEFlanking) return needsFlanking;
       //@ts-ignore
-      const hasFlanking = token.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanking.label, token.actor.uuid)
+      const hasFlanking = token.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanking.name, token.actor.uuid)
       if (needsFlanking && !hasFlanking && token.actor) {
         //@ts-ignore
-        await game.dfreds.effectInterface?.addEffect({ effectName: (CEFlanking.name || CEFlanking.label), uuid: token.actor.uuid });
+        await game.dfreds.effectInterface?.addEffect({ effectName: CEFlanking.name, uuid: token.actor.uuid });
       } else if (!needsFlanking && hasFlanking && token.actor) {
         //@ts-ignore
-        await game.dfreds.effectInterface?.removeEffect({ effectName: (CEFlanking.name || CEFlanking.label), uuid: token.actor.uuid });
+        await game.dfreds.effectInterface?.removeEffect({ effectName: CEFlanking.name, uuid: token.actor.uuid });
       }
     }
   } else if (checkRule("checkFlanking") === "advonly") {
@@ -3993,13 +4025,13 @@ export async function markFlanking(token, target): Promise<boolean> {
       if (!CEFlanked) return false;
       const needsFlanked = await computeFlankedStatus(target);
       //@ts-ignore
-      const hasFlanked = target.actor && await game.dfreds.effectInterface?.hasEffectApplied((CEFlanked.name || CEFlanked.label), target.actor.uuid);
+      const hasFlanked = target.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, target.actor.uuid);
       if (needsFlanked && !hasFlanked && target.actor) {
         //@ts-ignore
-        await game.dfreds.effectInterface?.addEffect({ effectName: (CEFlanked.name || CEFlanked.label), uuid: target.actor.uuid });
+        await game.dfreds.effectInterface?.addEffect({ effectName: CEFlanked.name, uuid: target.actor.uuid });
       } else if (!needsFlanked && hasFlanked && token.actor) {
         //@ts-ignore
-        await game.dfreds.effectInterface?.removeEffect({ effectName: (CEFlanked.name || CEFlanked.label), uuid: target.actor.uuid });
+        await game.dfreds.effectInterface?.removeEffect({ effectName: CEFlanked.name, uuid: target.actor.uuid });
       }
       return false;
     }
@@ -4031,17 +4063,23 @@ export function getChanges(actorOrItem, key: string) {
  * 
  * @returns {boolean}
  */
+export function canSense(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument, validModes: Array<string> = ["all"]): boolean {
+  return canSenseModes(tokenEntity, targetEntity, validModes).length > 0;
+}
 
-export function canSense(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument): boolean {
+export function canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument, validModesParam: Array<string> = ["all"]): Array<string> {
   //@ts-ignore
   let target: Token = targetEntity instanceof TokenDocument ? targetEntity.object : targetEntity;
-
+  //@ts-expect-error detectionModes
+  const detectionModes = CONFIG.Canvas.detectionModes;
+  //@ts-expect-error DetectionMode
+  const DetectionModeCONST = DetectionMode;
   //@ts-ignore
   let token: Token = tokenEntity instanceof TokenDocument ? tokenEntity.object : tokenEntity;
-  if (!token || !target) return true;
+  if (!token || !target) return ["noToken"];
   //@ts-expect-error .hidden
-  if (target.document?.hidden || token.document?.hidden) return false;
-  if (!token.hasSight) return true;
+  if (target.document?.hidden || token.document?.hidden) return [];
+  if (!token.hasSight) return ["noSight"];
   if (!token.vision.active) {
     const sourceId = token.sourceId;
     token.vision.initialize({
@@ -4076,13 +4114,11 @@ export function canSense(tokenEntity: Token | TokenDocument, targetEntity: Token
     canvas?.effects?.visionSources.set(sourceId, token.vision);
     if (!token.vision.los && game.modules.get("perfect-vision")?.active) {
       error(`canSense los not calcluated. Can't check if ${token.name} can see ${target.name}`, token.vision);
-      return true;
+      return ["noSight"];
     }
     // Seems we Don't need to do this on the GM side - return await socketlibSocket.executeAsGM("canSense", { tokenUuid: token.document.uuid, targetUuid: target.document.uuid })
   }
-  //@ts-expect-error specialStatusEffects
-  const specialStatuses = CONFIG.specialStatusEffects;
-
+  const matchedModes: Set<string> = new Set();
   // Determine the array of offset points to test
   const t = Math.min(target.w, target.h) / 4;
   const targetPoint = target.center;
@@ -4092,37 +4128,41 @@ export function canSense(tokenEntity: Token | TokenDocument, targetEntity: Token
     los: new Map()
   }));
   const config = { tests, object: targetEntity };
+  //@ts-ignore
+  const tokenDetectionModes = token.detectionModes;
+  //@ts-ignore
+  const modes = CONFIG.Canvas.detectionModes;
+  let validModes = new Set(validModesParam);
 
   // First test basic detection for light sources which specifically provide vision
   //@ts-ignore
   for (const lightSource of canvas?.effects?.lightSources.values() ?? []) {
     if (/*!lightSource.data.vision ||*/ !lightSource.active || lightSource.disabled) continue;
+    if (!validModes.has(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID) && !validModes.has("all")) continue;
     const result = lightSource.testVisibility(config);
-    if (result === true) return true;
+    if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
   }
 
-  //@ts-ignore
-  const tokenDetectionModes = token.detectionModes;
-  //@ts-ignore
-  const modes = CONFIG.Canvas.detectionModes;
-  //@ts-ignore v10
-  const DetectionModeCONST = DetectionMode;
   const basic = tokenDetectionModes.find(m => m.id === DetectionModeCONST.BASIC_MODE_ID);
   if (basic /*&& token.vision.active*/) {
+    if (["basicSight", "lightPerception", "all"].some(mode => validModes.has(mode))) {
     const result = modes.basicSight.testVisibility(token.vision, basic, config);
-    if (result === true) return true;
+    if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
+    }
   }
 
   for (const detectionMode of tokenDetectionModes) {
     if (detectionMode.id === DetectionModeCONST.BASIC_MODE_ID) continue;
     if (!detectionMode.enabled) continue;
     const dm = modes[detectionMode.id];
-    const result = dm?.testVisibility(token.vision, detectionMode, config)
-    if (result === true) {
-      return true;
+    if (validModes.has("all") || validModes.has(detectionMode.id)) {
+      const result = dm?.testVisibility(token.vision, detectionMode, config)
+      if (result === true) {
+        matchedModes.add(detectionMode.id);
+      }
     }
   }
-  return false;
+  return Array.from(matchedModes);
 }
 
 export function getSystemCONFIG(): any {

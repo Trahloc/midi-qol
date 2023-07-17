@@ -109,12 +109,12 @@ export let readyHooks = async () => {
     debug("Deleted effects is ", deletedEffect, options);
     if (!checkConcentration || options.noConcentrationCheck) return;
 
-    let gmToUse = game.users?.find(u => u.isGM && u.active);
-    if (gmToUse?.id !== game.user?.id) return;
+    //@ts-expect-error activeGM
+    if ( !game.users?.activeGM?.isSelf ) return;
     if (!(deletedEffect.parent instanceof CONFIG.Actor.documentClass)) return;
 
     const concentrationLabel: any = getConcentrationLabel();
-    let isConcentration = (deletedEffect.name || deletedEffect.label) === concentrationLabel;
+    let isConcentration = deletedEffect.name === concentrationLabel;
     const origin = MQfromUuid(deletedEffect.origin);
     async function changefunc() {
       if (isConcentration) return await removeConcentration(deletedEffect.parent, deletedEffect.uuid);
@@ -135,7 +135,7 @@ export let readyHooks = async () => {
               effect.origin === concentrationData.uuid
               && !effect.flags.dae.transfer
               && effect.uuid !== deletedEffect.uuid
-              && (effect.name || effect.label) !== concentrationLabel);
+              && effect.name !== concentrationLabel);
             return hasEffects;
           });
           if (["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
@@ -332,7 +332,7 @@ export function initHooks() {
 
     if (installedModules.get("dfreds-convenient-effects")) {
       //@ts-ignore dfreds
-      const ceForItem = game.dfreds.effects.all.find(e => (e.name || e.label) === app.object.name);
+      const ceForItem = game.dfreds.effects.all.find(e => e.name === app.object.name);
       if (ceForItem) {
         const element = html.find('input[name="system.chatFlavor"]').parent().parent();
         if (["both", "cepri", "itempri"].includes(configSettings.autoCEEffects)) {
