@@ -1,3 +1,7 @@
+### 10.0.58
+* Fix for double concentration check - thanks @thatlonelybugbear
+* Fix for missing concentration sometimes on unlinked tokens.
+
 ### 10.0.57
 * Fix for the duplicating flags/macros/effects stuck on/not being able to delete flags/item piles not working etc
 **BEFORE running the macros take a backup of your world - even if it is broken** We can always find out the problem and fix it but once you run the supplied macros there is no going back
