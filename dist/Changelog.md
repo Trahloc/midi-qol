@@ -1,6 +1,6 @@
 ### 10.0.57
 * Fix for the duplicating flags/macros/effects stuck on/not being able to delete flags/item piles not working etc
-**BEFORE UPGRADING take a backup of your world - even if it is broken** We can always find out the problem and fix it but once you run the supplied macros there is no going back
+**BEFORE running the macros take a backup of your world - even if it is broken** We can always find out the problem and fix it but once you run the supplied macros there is no going back
 * Once you upgrade to 10.0.57 no further damage should be done, but any existing issues won't be resolved.
   - Accordingly midi will create 3 macros for you (in your Macros Directory):
     - MidiQOL.FixFlagsSelectedTokens - this will fix flags.midi-qol on any selected tokens

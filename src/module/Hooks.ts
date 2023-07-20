@@ -53,8 +53,6 @@ export let readyHooks = async () => {
         await checkWounded(actor, update, options, user);
         await zeroHPExpiry(actor, update, options, user);
       }
-      // if (globalThis.DAE?.actionQueue && !globalThis.DAE.actionQueue.remaining) await globalThis.DAE.actionQueue.add(hpUpdateFunc);
-      // else await hpUpdateFunc();
       await hpUpdateFunc();
       if (configSettings.concentrationAutomation && !configSettings.noConcnetrationDamageCheck && hpDiff > 0 && !options.noConcentrationCheck) {
         // expireRollEffect.bind(actor)("Damaged", ""); - not this simple - need to think about specific damage types
@@ -66,8 +64,6 @@ export let readyHooks = async () => {
             else await concentrationEffect.delete();
           } else {
             const saveDC = Math.max(10, Math.floor(hpDiff / 2));
-            if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(doMidiConcentrationCheck, actor, saveDC);
-            else await doMidiConcentrationCheck(actor, saveDC);
             await doMidiConcentrationCheck(actor, saveDC);
           }
         }
@@ -282,19 +278,20 @@ export function initHooks() {
     // need to record the damage done since it is not available in the update actor hook
     const hpUpdate = getProperty(update, "system.attributes.hp.value");
     const temphpUpdate = getProperty(update, "system.attributes.hp.temp");
-    let concHPDiff: number | undefined = undefined;
-    if (hpUpdate !== undefined) {
-      let hpChange = actor.system.attributes.hp.value - hpUpdate;
-      if (hpChange > 0) concHPDiff = (concHPDiff ?? 0) + hpChange;
-    }
-    if (configSettings.tempHPDamageConcentrationCheck && temphpUpdate !== undefined) {
-      let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
-      if (temphpDiff > 0) concHPDiff = (concHPDiff ?? 0) + temphpDiff
-    }
-    // update.flags = mergeObject(actor.flags, update.flags ?? {}, {overwrite: true}); // For some reason without this flags are trashed
-    if (concHPDiff !== getProperty(actor, "falgs.midi-qol.concentration-damage")) {
-      if (!actor.isToken) setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff ?? 0);
-      else actor.setFlag("midi-qol", "concentration-damage", concHPDiff ?? 0);
+    let concHPDiff: number = 0;
+    if (hpUpdate !== undefined || temphpUpdate !== undefined) {
+      if (hpUpdate !== undefined) {
+        let hpChange = actor.system.attributes.hp.value - hpUpdate;
+        if (hpChange > 0) concHPDiff = concHPDiff + hpChange;
+      }
+      if (configSettings.tempHPDamageConcentrationCheck && temphpUpdate !== undefined) {
+        let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
+        if (temphpDiff > 0) concHPDiff = concHPDiff + temphpDiff
+      }
+      if (concHPDiff !== getProperty(actor, "flags.midi-qol.concentration-damage")) {
+        if (!actor.isToken) setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff ?? 0);
+        else setProperty(update, "flags", mergeObject({"midi-qol.concentration-damage": concHPDiff ?? 0}, actor._source.flags, {overwrite: false}));
+      }
     }
     preUpdateItemActorOnUseMacro(actor, update, options, user); // This needs to run second so there is no duplication
     return true;

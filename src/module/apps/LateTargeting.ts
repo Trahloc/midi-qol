@@ -15,7 +15,7 @@ export class LateTargetingDialog extends Application {
   hookId: number;
 
   //@ts-ignore .Actor, .Item
-  constructor(actor: CONFIG.Actor.documentClass, item: CONFIG.Item.documentClass, user, options: any = {}): Application {
+  constructor(actor: CONFIG.Actor.documentClass, item: CONFIG.Item.documentClass, user, options: any = {}) {
     super(options);
     this.data = { actor, item, user, targets: [] }
 

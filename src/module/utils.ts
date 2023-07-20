@@ -947,7 +947,7 @@ export let getSaveMultiplierForItem = (item: Item) => {
     if (midiFlags?.potentCantrip) return 0.5;
   }
 
-  //@ts-ignore item.falgs v10
+  //@ts-ignore item.flags v10
   const itemProperties: any = item.flags.midiProperties;
   if (itemProperties?.nodam) return 0;
   if (itemProperties?.fulldam) return 1;

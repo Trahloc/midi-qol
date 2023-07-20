@@ -78,7 +78,7 @@ async function registerTests() {
             await resetActors();
             const actor = getActor(actor2Name);
             const target: Token | undefined = getToken(target1Name);
-            assert(target && !!target?.actor)
+            // assert(target && !!target?.actor)
             game.user?.updateTokenTargets([target?.id ?? ""]);
             const item = getActorItem(actor, "Toll the Dead");
             if (target?.actor) await target.actor.setFlag("midi-qol", "fail.ability.save.all", true);

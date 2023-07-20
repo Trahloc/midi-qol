@@ -3657,11 +3657,13 @@ export class BetterRollsWorkflow extends Workflow {
   get roll() {
     if (this._roll) return this._roll;
 
+    /*
     const message = game.messages?.get(this.itemCardId ?? "") ?? {} as object;
     if ("BetterRollsCardBinding" in message) {
       this._roll = message["BetterRollsCardBinding"].roll;
       return this._roll;
     }
+    */
   }
 
   async _next(newState) {

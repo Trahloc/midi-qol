@@ -832,7 +832,8 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
       }
     }
     let macroString = OnUseMacros.parseParts(macroParts).items.map(oum => oum.toString()).join(",");
-    changes["flags.midi-qol.onUseMacroName"] = macroString;
+    if (!itemOrActor.isToken) changes["flags.midi-qol.onUseMacroName"] = macroString;
+    else changes.flags = mergeObject({"midi-qol.onUseMacroName": macroString}, itemOrActor._source.flags, {overwrite: false})
     // delete changes.flags["midi-qol"].onUseMacroParts;
     // itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
   } catch (err) {
