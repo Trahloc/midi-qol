@@ -756,10 +756,14 @@ where specification is a comma separated list of fields.
 
   #### Overtime parameters
   * `turn=start/end` (check at the start or end of the actor's turn) The only required field.
+
   * `label=string` - displayed on the relevant roll.
+
   * `allowIncapacitated = true | false`. If true allow the item roll even if the token with the effect is incapacitated, useful for things like power word stun.
+
   * `applyCondition=expression`, if present must evaluate to true or rest of the processing will be aborted.
   e.g. applyCondition=@attributes.hp.value > 0 - for regeneration.
+
   * `removeCondition=expression`, if present and evaluates to true the effect is removed after the rest of the processing.
 
   #### Overtime rolls: 
@@ -770,15 +774,19 @@ where specification is a comma separated list of fields.
   * `saveDamage=halfdamage/nodamage/fulldamage` - default nodamage
   * `saveRemove=true/false` - remove effect on save - default true.
   * `saveMagic=true/false` (default false) The saving throw is treated as a "magic saving throw" for the purposes of magic resistance.
-  * `actionSave=true/false`. If true midi won't roll the save but leave it to the player. For actionSaves you can specify more than one save type, e.g. <br>`saveAbility=dex|con`, means check dex or con saving throws, <br>`saveAbility=acr|ath` to allow an athletics or acrobatics roll. [See also](https://gitlab.com/tposney/midi-qol/-/edit/v11/README.md?ref_type=heads#overtime-effects-action-save). <br>
-  
+  * `actionSave=true/false`. If true midi won't roll the save but leave it to the player. For actionSaves you can specify more than one save type, e.g.
+    * `saveAbility=dex|con`, means check dex or con saving throws, 
+    * `saveAbility=acr|ath` to allow an athletics or acrobatics roll. [See example](https://gitlab.com/tposney/midi-qol/-/edit/v11/README.md?ref_type=heads#overtime-effects-action-save).
+
  * `damageBeforeSave=true/false` - true means the damage will be applied before the save is adjudicated (Sword of Wounding) and false means the damage will only apply if the save is failed. 
   
   #### Overtime Damage:
   * `damageRoll=roll expression`, e.g. 3d6
+
   * `damageType=piercing/bludgeoning` etc. 
     * You can specify "healing" or "temphp" which apply healing or temphp. temphp will only apply if the rolled temphp > exisiting temphp. overtime healing is a way to implement regeneration.
-  * `rollMode=gmroll/blindroll/publicroll/selfroll` - the rollmode will be applied to the overtime item roll.
+
+  * `rollMode=gmroll/blindroll/publicroll/selfroll`, the rollmode will be applied to the overtime item roll.
   
   #### Overtime Macros:
   * `macro=<macro to call>` - call a macro as part of the damage application stage, with available arguments the results of rolling the overTime item, which will include damage done, saving throws made etc., as if it were an OnUse macro of the Overtime item roll. These macros can be:
@@ -786,16 +794,16 @@ where specification is a comma separated list of fields.
     * linked to the Item Macro of an Item by using `ItemMacro.ItemUUID`,
     * macros provided by modules in which case MidiQOL will `bind` the relevant arguments to that function, using for example `function.MidiQOL.log`.
 
-  If the effect is configured to be stackable with a stack count, of say 2, the damage will 3d6 + 3d6.
-  
-
-  The most common use for overtime effects is damage over time effects. However you can include an OverTime effect with just a save can be used to apply any other changes (in the same active effect) until a save is made (Hold Person).
-
-  You can use @field references, e.g.
+  #### Overtime hints and tips
+  * If the effect is configured to be stackable with a stack count, of say 2, the damage will 3d6 + 3d6.
+  * The most common use for overtime effects is damage over time effects. However you can include an OverTime effect with just a save can be used to apply any other changes (in the same active effect) until a save is made (Hold Person).
+  * You can use @field references, e.g.
   ```
   saveDC=@attributes.spelldc
   damageRoll=1d6+@abilities.str.mod
   ```
+  * There are several "traps" for use of @fields. If the effect is created on the actor via transfer effects or hand editing of the effect the @ fields refer to the actor which has the effect. See more [here](https://gitlab.com/tposney/midi-qol/-/edit/v11/README.md#overtime-using-fields)
+
   #### Overtime Examples: 
   * Longsword of Wounding (Non-transfer effect, should have stackable set to "each stack increases stack count by 1")
   ```
@@ -811,7 +819,7 @@ where specification is a comma separated list of fields.
   StatusEffect OVERRIDE Convenient Effect: Paralyzed
   ```
 
-  There several "traps" for use of @fields. If the effect is created on the actor via transfer effects or hand editing of the effect the @ fields refer to the actor which has the effect.
+
 
   #### OverTime Effects: Action Save.
   There are quite a lot of effects that require a target to use its action to try and save against the effect. You can add `actionSave=true` which means overtime effects won't auto roll the save, rather it waits for the actor to roll an appropriate save when it is the actor's turn (just roll the save from the character sheet). This allows you to support "the character can use its action to save against the effect". Simply add `actionSave=true` to the overtime effect definiton and MidiQOL will watch for saving throws on the actors turn (rather than rolling the save automatically) and if the type matches the overtime effect it will check the roll versus the saveDC and remove the effect if the save is successful.
@@ -826,7 +834,8 @@ where specification is a comma separated list of fields.
 
  The effect does not need to be present on the actor to be processed.
  
-  **If you are applying the effect via using an item** @ fields are ambiguous, should they refer to the caster or the target? There are reasons to have both interpretations, an ongoing saving throw should refer to the caster, e.g. ```saveDC=@attributes.spelldc```. Regeneration has applyCondition=@attributes.hp.value > 0, which should refer to the target.
+  #### Overtime using @fields.
+  If you are applying the effect via using an item, `@fields` are ambiguous, should they refer to the caster or the target? There are reasons to have both interpretations, an ongoing saving throw should refer to the caster, e.g. ```saveDC=@attributes.spelldc```. Regeneration has applyCondition=@attributes.hp.value > 0, which should refer to the target.
 
   Effects transferred via item usage, require DAE and use its evaluation to resolve the problem. Fields written as simple @ fields (``@attributes.spelldc``) ALWAYS refer to the caster.  
 
