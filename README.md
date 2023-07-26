@@ -784,7 +784,7 @@ where specification is a comma separated list of fields.
   * `damageRoll=roll expression`, e.g. 3d6
 
   * `damageType=piercing/bludgeoning` etc. 
-    * You can specify "healing" or "temphp" which apply healing or temphp. temphp will only apply if the rolled temphp > exisiting temphp. overtime healing is a way to implement regeneration.
+    * You can specify `healing` or `temphp` which apply healing or temphp. temphp will only apply if the rolled temphp > exisiting temphp. overtime healing is a way to implement regeneration.
 
   * `rollMode=gmroll/blindroll/publicroll/selfroll`, the rollmode will be applied to the overtime item roll.
   
