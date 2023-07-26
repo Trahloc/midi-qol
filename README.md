@@ -776,7 +776,7 @@ where specification is a comma separated list of fields.
   * `saveMagic=true/false` (default false) The saving throw is treated as a "magic saving throw" for the purposes of magic resistance.
   * `actionSave=true/false`. If true midi won't roll the save but leave it to the player. For actionSaves you can specify more than one save type, e.g.
     * `saveAbility=dex|con`, means check dex or con saving throws, 
-    * `saveAbility=acr|ath` to allow an athletics or acrobatics roll. [See example](https://gitlab.com/tposney/midi-qol/-/edit/v11/README.md?ref_type=heads#overtime-effects-action-save).
+    * `saveAbility=acr|ath` to allow an athletics or acrobatics roll. [See more](https://gitlab.com/tposney/midi-qol/-/tree/v11#overtime-effects-action-save).
 
  * `damageBeforeSave=true/false` - true means the damage will be applied before the save is adjudicated (Sword of Wounding) and false means the damage will only apply if the save is failed. 
   
@@ -802,7 +802,7 @@ where specification is a comma separated list of fields.
   saveDC=@attributes.spelldc
   damageRoll=1d6+@abilities.str.mod
   ```
-  * There are several "traps" for use of @fields. If the effect is created on the actor via transfer effects or hand editing of the effect the @ fields refer to the actor which has the effect. See more [here](https://gitlab.com/tposney/midi-qol/-/edit/v11/README.md#overtime-using-fields)
+  * There are several "traps" for use of @fields. If the effect is created on the actor via transfer effects or hand editing of the effect the @ fields refer to the actor which has the effect. See more [here](https://gitlab.com/tposney/midi-qol/-/tree/v11#overtime-using-fields)
 
   #### Overtime Examples: 
   * Longsword of Wounding (Non-transfer effect, should have stackable set to "each stack increases stack count by 1")
@@ -854,7 +854,7 @@ where specification is a comma separated list of fields.
 ### Overtime effects and macros. 
   There are two ways to have a macro effect applied to a target when using Overtime effects.
   * The first is to have the macro as an additional change in an active effect (macro.execute/macro.ItemMacro). The macro as an additional change is called once when the effect is applied and once when it is removed (with args[0]==="on"/"off" respectively - the normal macro.execute/macro.itemMacro behaviour).
-  * The second is as part of the overtime effect with `macro=some macro` as explained [above](https://gitlab.com/tposney/midi-qol/-/edit/v11/README.md?ref_type=heads#overtime-macros). The macro is called each turn with the results of the save/targets etc. (see OnUse Macro data for details).
+  * The second is as part of the overtime effect with `macro=some macro` as explained [above](https://gitlab.com/tposney/midi-qol/-/tree/v11#overtime-macros). The macro is called each turn with the results of the save/targets etc. (see OnUse Macro data for details).
 
 # Bugs
 probably many however....
