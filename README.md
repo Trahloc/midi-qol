@@ -795,7 +795,7 @@ where specification is a comma separated list of fields.
     * macros provided by modules in which case MidiQOL will `bind` the relevant arguments to that function, using for example `function.MidiQOL.log`.
 
   #### Overtime hints and tips
-  * If the effect is configured to be stackable with a stack count, of say 2, the damage will 3d6 + 3d6.
+  * If the effect is configured to be stackable with a stack count, of say 2 and a base `damageRoll=3d6`, the damage will become `3d6 + 3d6`(for items like Longsword of Wounding or Devil's Glaive).
   * The most common use for overtime effects is damage over time effects. However you can include an OverTime effect with just a save can be used to apply any other changes (in the same active effect) until a save is made (Hold Person).
   * You can use @field references, e.g.
   ```
@@ -804,7 +804,8 @@ where specification is a comma separated list of fields.
   ```
   * There are several "traps" for use of @fields. If the effect is created on the actor via transfer effects or hand editing of the effect the @ fields refer to the actor which has the effect. See more [here](https://gitlab.com/tposney/midi-qol/-/tree/v11#overtime-using-fields)
 
-  #### Overtime Examples: 
+  #### Overtime Examples:
+  *(non-transfer effects are the ones that are NOT set to "Transfer to actor on item equip")*<br>
   * Longsword of Wounding (Non-transfer effect, should have stackable set to "each stack increases stack count by 1")
   ```
   flags.midi-qol.OverTime OVERRIDE turn=start,damageBeforeSave=true,label=Wounded,damageRoll=1d4,damageType=necrotic,saveDC=15,saveAbility=con
@@ -839,7 +840,7 @@ where specification is a comma separated list of fields.
 
   Effects transferred via item usage, require DAE and use its evaluation to resolve the problem. Fields written as simple @ fields (``@attributes.spelldc``) ALWAYS refer to the caster.  
 
-  If you want the @field to refer to the target, that requires use of a DAE feature, ``##field`` will not be evaluated on the caster, but will be converted to an ``@field`` after the effect is applied to the target. The example ``appplyCondition=@attributes.hp.value > 0`` would be written ``appplyCondition=##attributes.hp.value > 0``.
+  If you want the @field to refer to the target, that requires use of a DAE feature, ``##field`` will not be evaluated on the caster, but will be converted to an ``@field`` after the effect is applied to the target. The example ``applyCondition=@attributes.hp.value > 0`` would be written ``applyCondition=##attributes.hp.value > 0``.
 
   Here's an example, if I add the following effect to a weapon, so that the effect is applied to the target when the weapon hits:
   ```
