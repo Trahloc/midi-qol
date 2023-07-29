@@ -134,7 +134,14 @@ async function doRollSkill(wrapped, ...args) {
   const chatMessage = options.chatMessage;
   const rollTarget = options.targetValue;
   // options = foundry.utils.mergeObject(options, mapSpeedKeys(null, "ability"), { inplace: false, overwrite: true });
-  mergeKeyboardOptions(options, mapSpeedKeys(undefined, "ability"));
+  const keyOptions = mapSpeedKeys(undefined, "ability");
+  if (options.mapKeys !== false) {
+    if (keyOptions?.advantage === true) options.advantage = options.advantage || keyOptions.advantage;
+    if (keyOptions?.disadvantage === true) options.disadvantage = options.disadvantage || keyOptions.disadvantage;
+    if (keyOptions?.fastForwardAbility === true) options.fastForward = options.fastForward || keyOptions.fastForwardAbility;
+    if (keyOptions?.advantage || keyOptions?.disadvantage) options.fastForward = true;
+  }
+  // mergeKeyboardOptions(options, mapSpeedKeys(undefined, "ability"));
   options.event = {};
   let procOptions = options;
   if (configSettings.skillAbilityCheckAdvantage) {
@@ -1636,6 +1643,7 @@ function preDamageTraitSelectorGetData(wrapped) {
 function getRollData(wrapped, ...args) {
   const data = wrapped(...args);
   data.actorType = this.type;
+  data.midiFlags = (this.flags && this.flags["midi-qol"]) ?? {};
   if (game.system.id === "dnd5e") {
     data.cfg = {};
     data.cfg.armorClasses = getSystemCONFIG().armorClasses;

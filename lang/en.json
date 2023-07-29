@@ -63,6 +63,7 @@
   "midi-qol.misses": "misses",
   "midi-qol.save-success": " succeeds",
   "midi-qol.save-failure": " fails",
+  "midi-qol.save-drawn": "drawn",
   "midi-qol.damage-applied": "Hit Points Updated",
   "midi-qol.noItemNamed": "Your selected token does not have an item named",
   "midi-qol.noTokens": "Cannot apply effect - no token targeted",
@@ -379,6 +380,7 @@
     "isSaveSuccess": "Actor rolled a successful save",
     "isSaveFailure": "Actor failed a saving throw",
     "preApplyTargetDamage": "Target is about to be damaged by an item",
+    "postTargetEffectApplication": "Target has an effect applied by a rolled item",
     "isDamaged": "Actor is damaged by an attack",
     "all": "All"
   },
@@ -437,7 +439,14 @@
   "midi-qol.Mechanics": "Mechanics",
   "midi-qol.OptionalRules.Name": "Optional Game Rules",
   "midi-qol.OptionalRules.Hint": "DND5E Game rules that you may wish to enable. Generally don't work with better rolls.",
-  "midi-qol.InvisAdvantage.Name": "Hidden/Invisible attackers have advantage (disadvantage if they cannot see their target) on attacks (use CV/CE/CUB and core foundy vision)",
+  "midi-qol.InvisAdvantage.Name": "Hidden/Invisible attackers have advantage/disadvantage on attacks",
+  "midi-qol.InvisAdvantage.Hint": "(Rules as written) Invisible attackers have advantage on attacks. Disadvantage if the target is invisible",
+  "midi-qol.InvisAdvantageOptions": {
+    "none": "Do not apply",
+    "RAW": "Rules as written",
+    "vision": "Use Token Vision"
+  },
+  "midi-qol.CantSeeAdvantage.Hint": "(Use Token Vision) Invisible attackers have advantage on targets who can't see them. Disadvantage if they can't see the target",
   "midi-qol.CheckRange.Name": "Check weapon range when attacking",
   "midi-qol.CheckRangeOptions": {
     "none": "Do not check range",
@@ -475,6 +484,7 @@
   "midi-qol.MaxDRValue.Name": "(House rule) Enabling this means that only the most effective Damage Reduction will apply. Off means DR accumulates",
   "midi-qol.invisible": "Invisible",
   "midi-qol.hidden": "Hidden",
+  "midi-qol.nevertarget": "Never Target",
   "midi-qol.DamageCardMultHeader": "Mult",
   "midi-qol.DamageCardUndoHeader": "Undo",
   "midi-qol.DamageCardApplyHeader": "Apply",
@@ -578,7 +588,9 @@
   "midi-qol.LateTargetingOptions": {
     "none": "No Late Targeting",
     "noTargetsSelected": "Late Target only if none selected",
-    "all": "Always display late targeting"
+    "all": "Display late targeting except AoE and Ranged Area",
+    "onlyArea": "Display late targeting for AoE and Ranged Area Only",
+    "allArea": "Always display late targeting"
   },
   "midi-qol.AddDead.Name": "Add effect When HP = 0",
   "midi-qol.AddDead.Hint": "NPC Add Defeated, PC Add Convenient Effect Unconscious",
@@ -740,6 +752,12 @@
     "undoFirstWorkflow": "Undo Top/Most Recent Workflow From List",
     "GMOnly": "Only the GM can undo workflows"
   },
-  "midi-qol.cubNotSupported": "Combat Utility Belt will not be migrated to version 11. Midi will remove support for CUB in midi version 11.1.0"
-
+  "midi-qol.cubNotSupported": "Combat Utility Belt will not be migrated to version 11. Midi will remove support for CUB in midi version 11.1.0",
+  "miidi-qol.ContestedRoll": "Contested Roll",
+  "midi-qol.versus": "versus",
+  "midi-qol.Skipped": "Skipped",
+  "midi-qol.ExportTroubleShooting": "Export Trouble Shooting Data",
+  "midi-qol.TroubleShooter.Name": "Open Trouble Shooter",
+  "midi-qol.TroubleShooter.Hint": "(VERY EARLY) trouble shooter to help diagnose problems",
+  "midi-qol.TroubleShooter.Label": "Troubleshooter"
 }

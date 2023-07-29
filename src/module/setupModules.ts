@@ -5,6 +5,7 @@ import { configSettings } from "./settings.js";
 const modules = {
   "about-time": "0.0", 
   "anonymous": "0.0.0",
+  "chris-premades": "0.5.52",
   "combat-utility-belt": "1.3.8",
   "condition-lab-triggler": "1.4",
   "dae": "10.0.30",

@@ -46,7 +46,7 @@
     {
       "name": "midiqol-sample-items",
       "label": "MidiQOL Sample Items",
-      "path": "./packs/sampleitems.db",
+      "path": "./packs/sampleitems",
       "module": "world",
       "type": "Item",
       "system": "dnd5e",
@@ -97,7 +97,7 @@
   ],
   "compatibility": {
     "minimum": "11.302",
-    "verified": "11.302",
+    "verified": "11.306",
     "maximum": "11.999"
   },
   "bugs": "https://gitlab.com/tposney/midi-qol/-/issues",

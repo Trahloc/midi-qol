@@ -1,6 +1,6 @@
 import { checkRule, configSettings } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, geti18nOptions, debug } from "../midi-qol.js";
-import { canSense, completeItemUse, gmExpirePerTurnBonusActions, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, gmExpirePerTurnBonusActions, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions } from "./utils.js";
 import { ddbglPendingFired } from "./chatMesssageHandling.js";
 import { Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
@@ -8,6 +8,42 @@ import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _removeMostR
 
 export var socketlibSocket: any = undefined;
 var traitList = { di: {}, dr: {}, dv: {} };
+
+export let setupSocket = () => {
+  socketlibSocket = globalThis.socketlib.registerModule("midi-qol");
+  socketlibSocket.register("createReverseDamageCard", createReverseDamageCard);
+  socketlibSocket.register("removeEffects", removeEffects);
+  socketlibSocket.register("createEffects", createEffects);
+  socketlibSocket.register("updateEffects", updateEffects);
+  socketlibSocket.register("updateEntityStats", GMupdateEntityStats)
+  socketlibSocket.register("removeStatsForActorId", removeActorStats);
+  socketlibSocket.register("monksTokenBarSaves", monksTokenBarSaves);
+  socketlibSocket.register("rollAbility", rollAbility);
+  socketlibSocket.register("createChatMessage", createChatMessage);
+  socketlibSocket.register("chooseReactions", localDoReactions);
+  socketlibSocket.register("addConvenientEffect", addConvenientEffect);
+  socketlibSocket.register("deleteItemEffects", deleteItemEffects);
+  socketlibSocket.register("createActor", createActor);
+  socketlibSocket.register("deleteToken", deleteToken);
+  socketlibSocket.register("ddbglPendingFired", ddbglPendingFired);
+  socketlibSocket.register("completeItemUse", _completeItemUse);
+  socketlibSocket.register("applyEffects", _applyEffects);
+  socketlibSocket.register("bonusCheck", _bonusCheck);
+  socketlibSocket.register("gmOverTimeEffect", _gmOverTimeEffect);
+  socketlibSocket.register("_gmExpirePerTurnBonusActions", gmExpirePerTurnBonusActions);
+  socketlibSocket.register("_gmUnsetFlag", _gmUnsetFlag);
+  socketlibSocket.register("_gmSetFlag", _gmSetFlag);
+  socketlibSocket.register("startUndoWorkflow", startUndoWorkflow);
+  socketlibSocket.register("queueUndoData", queueUndoData);
+  socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids)
+  socketlibSocket.register("undoMostRecentWorkflow", _undoMostRecentWorkflow);
+  socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
+  socketlibSocket.register("moveToken", _moveToken);
+  socketlibSocket.register("moveTokenAwayFromPoint", _moveTokenAwayFromPoint);
+
+
+  // socketlibSocket.register("canSense", _canSense);
+}
 
 function paranoidCheck(action: string, actor: any, data: any): boolean {
   return true;
@@ -79,39 +115,6 @@ export async function timedAwaitExecuteAsGM(toDo: string, data: any) {
   return returnValue;
 }
 
-export let setupSocket = () => {
-  socketlibSocket = globalThis.socketlib.registerModule("midi-qol");
-  socketlibSocket.register("createReverseDamageCard", createReverseDamageCard);
-  socketlibSocket.register("removeEffects", removeEffects);
-  socketlibSocket.register("createEffects", createEffects);
-  socketlibSocket.register("updateEffects", updateEffects);
-  socketlibSocket.register("updateEntityStats", GMupdateEntityStats)
-  socketlibSocket.register("removeStatsForActorId", removeActorStats);
-  socketlibSocket.register("monksTokenBarSaves", monksTokenBarSaves);
-  socketlibSocket.register("rollAbility", rollAbility);
-  socketlibSocket.register("createChatMessage", createChatMessage);
-  socketlibSocket.register("chooseReactions", localDoReactions);
-  socketlibSocket.register("addConvenientEffect", addConvenientEffect);
-  socketlibSocket.register("deleteItemEffects", deleteItemEffects);
-  socketlibSocket.register("createActor", createActor);
-  socketlibSocket.register("deleteToken", deleteToken);
-  socketlibSocket.register("ddbglPendingFired", ddbglPendingFired);
-  socketlibSocket.register("completeItemUse", _completeItemUse);
-  socketlibSocket.register("applyEffects", _applyEffects);
-  socketlibSocket.register("bonusCheck", _bonusCheck);
-  socketlibSocket.register("gmOverTimeEffect", _gmOverTimeEffect);
-  socketlibSocket.register("_gmExpirePerTurnBonusActions", gmExpirePerTurnBonusActions);
-  socketlibSocket.register("_gmUnsetFlag", _gmUnsetFlag);
-  socketlibSocket.register("_gmSetFlag", _gmSetFlag);
-  socketlibSocket.register("startUndoWorkflow", startUndoWorkflow);
-  socketlibSocket.register("queueUndoData", queueUndoData);
-  socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids)
-  socketlibSocket.register("undoMostRecentWorkflow", _undoMostRecentWorkflow);
-  socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
-
-
-  // socketlibSocket.register("canSense", _canSense);
-}
 
 export async function _gmUnsetFlag(data: { base: string, key: string, actorUuid: string }) {
   //@ts-expect-error
@@ -282,14 +285,32 @@ export async function createChatMessage(data: { chatData: any; }) {
 }
 
 export async function rollAbility(data: { request: string; targetUuid: string; ability: string; options: any; }) {
+  if(data.request === "test") data.request = "abil";
   const actor = MQfromActorUuid(data.targetUuid);
-  let result;
-  if (data.request === "save") result = await actor.rollAbilitySave(data.ability, data.options)
-  else if (data.request === "abil") result = await actor.rollAbilityTest(data.ability, data.options);
-  else if (data.request === "skill") result = await actor.rollSkill(data.ability, data.options)
-  const resultObject = duplicate(result); // Since the return value is being sent over the wire make sure the result field is set
-  resultObject.result = result.result;
-  return resultObject;
+  if (!actor) {
+    error(`GMAction.rollAbility | no actor for ${data.targetUuid}`)
+    return {};
+  }
+  const requestedChatMessage = data.options?.chatMessage ?? true;
+  return new Promise(async (resolve) => {
+    let timeoutId;
+    let result;
+    if (configSettings.playerSaveTimeout > 0) timeoutId = setTimeout(async () => {
+      warn(`Roll request for {actor.name}timed out. Doing roll`);
+      console.warn("Roll request timed out. Doing roll", data.options);
+      data.options.fastForward = true; // assume player is asleep force roll without dialog
+      data.options.chatMessage = requestedChatMessage;
+      if (data.request === "save") result = await actor.rollAbilitySave(data.ability, data.options)
+      else if (data.request === "abil") result = await actor.rollAbilityTest(data.ability, data.options);
+      else if (data.request === "skill") result = await actor.rollSkill(data.ability, data.options);
+      resolve(result ?? {});
+    }, configSettings.playerSaveTimeout * 1000);
+    if (data.request === "save") result = await actor.rollAbilitySave(data.ability, data.options)
+    else if (data.request === "abil") result = await actor.rollAbilityTest(data.ability, data.options);
+    else if (data.request === "skill") result = await actor.rollSkill(data.ability, data.options);
+    if (timeoutId) clearTimeout(timeoutId);
+    resolve(result ?? {})
+  });
 }
 
 export function monksTokenBarSaves(data: { tokenData: any[]; request: any; silent: any; rollMode: string; dc: number | undefined, isMagicSave: boolean | undefined }) {
@@ -666,4 +687,22 @@ export let processUndoDamageCard = (message, html, data) => {
     });
   })
   return true;
+}
+
+async function _moveToken(data: {tokenUuid: string, newCenter: {x: number, y: number}}) : Promise<any> {
+  const token = MQfromUuid(data.tokenUuid);
+  if (!token) return;
+  return token.update({x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0});
+}
+
+async function _moveTokenAwayFromPoint(data: {targetUuid: string, point: {x: number, y: number}, distance: number}): Promise<void> {
+const targetToken = getToken(data.targetUuid);
+const targetTokenDocument = getTokenDocument(targetToken);
+if (!canvas || !canvas.dimensions || !canvas.grid || !targetToken || !data.point) return;
+let ray = new Ray(data.point, targetToken.center);
+let distance = data.distance / canvas.dimensions.distance * canvas.dimensions.size;
+let newCenter = ray.project(1 + distance / ray.distance);
+newCenter = canvas.grid.getSnappedPosition(newCenter.x - targetToken.w/2, newCenter.y - targetToken.h/2, 1);
+//@ts-expect-error
+return targetTokenDocument.update({x: newCenter?.x ?? 0, y: newCenter?.y ?? 0});
 }

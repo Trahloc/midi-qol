@@ -783,9 +783,17 @@
 
           <div class="form-group">
             <label>{{localize "midi-qol.InvisAdvantage.Name"}}</label>
-            <input type="checkbox" name="optionalRules.invisAdvantage" data-dtype="Boolean" {{checked
-              configSettings.optionalRules.invisAdvantage}} />
+            <select name="optionalRules.invisAdvantage" data-dtype="String">
+              {{#select configSettings.optionalRules.invisAdvantage}}
+              {{#each InvisAdvantageOptions as |label val|}}
+              <option value="{{val}}">{{label}}</option>
+              {{/each}}
+              {{/select}}
+            </select>
           </div>
+          <div class="midi-qol-faint">{{localize "midi-qol.InvisAdvantage.Hint"}}</div>
+          <div class="midi-qol-faint">{{localize "midi-qol.CantSeeAdvantage.Hint"}}</div>
+
           <div class="form-group">
             <label>{{localize "midi-qol.RemoveHiddenInvis.Name"}}</label>
             <input type="checkbox" name="optionalRules.removeHiddenInvis" data-dtype="Boolean" {{checked

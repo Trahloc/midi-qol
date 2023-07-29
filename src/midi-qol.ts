@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, WORKFLOWSTATES } from './module/workflow.js';
-import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenPlayerName, getTraitMult, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor } from './module/utils.js';
+import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, validRolAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -252,6 +252,7 @@ Hooks.once('ready', function () {
     "isSaveSuccess": "Actor rolled a successful save",
     "isSaveFailure": "Actor failed a saving throw",
     "preTargetDamageApplication": "Target is about to be damaged by an item",
+    "postTargetEffectApplication": "Target has an effect applied by a rolled item",
     "isDamaged": "Actor is damaged by an attack",
     "all": "All"
   }
@@ -397,6 +398,15 @@ function setupMidiQOLApi() {
     'senseInvisibility', 
     // 'feelTremor', 
     'seeAll'];
+    let NeverTargetConditions = [
+      "nevertarget"
+    ]
+    let WallsBlockConditions = [
+      ...[
+        "burrow",
+      ],
+      ...NeverTargetConditions
+    ];
 
   //@ts-ignore
   globalThis.MidiQOL = {
@@ -413,6 +423,7 @@ function setupMidiQOLApi() {
     computeDistance: getDistanceSimple,
     ConfigPanel,
     configSettings: () => { return configSettings },
+    contestedRoll,
     DamageOnlyWorkflow,
     debug,
     doConcentrationCheck,
@@ -427,6 +438,7 @@ function setupMidiQOLApi() {
     getDistance: getDistanceSimpleOld,
     getTokenPlayerName,
     getTraitMult: getTraitMult,
+    hasCondition,
     hasUsedBonusAction,
     hasUsedReaction,
     log,
@@ -459,7 +471,19 @@ function setupMidiQOLApi() {
     showUndoWorkflowApp,
     addUndoChatMessage,
     testfunc,
-    InvisibleDisadvantageVisionModes
+    InvisibleDisadvantageVisionModes,
+    WallsBlockConditions,
+    NeverTargetConditions,
+    moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: {x: number, y: number}) => {
+      const tokenUuid = getTokenDocument(tokenRef)?.uuid;
+      if (tokenUuid) return socketlibSocket.executeAsGM("moveToken", {tokenUuid, newCenter});
+    },
+    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: {x: number, y: number}) => {
+      const targetUuid = getTokenDocument(targetRef)?.uuid;
+      if (point && targetUuid && distance )
+        return socketlibSocket.executeAsGM("moveTokenAwayFromPoint", {targetUuid, distance, point })
+    },
+    validRolAbility
   };
   globalThis.MidiQOL.actionQueue = new Semaphore();
 }
@@ -517,7 +541,8 @@ function setupMidiFlags() {
   midiFlags.push(`flags.midi-qol.grants.disadvantage.attack.all`);
   midiFlags.push(`flags.midi-qol.grants.fail.advantage.attack.all`);
   midiFlags.push(`flags.midi-qol.grants.fail.disadvantage.attack.all`);
-
+  midiFlags.push(`flags.midi-qol.neverTarget`);
+  
   // TODO work out how to do grants damage.max
   midiFlags.push(`flags.midi-qol.grants.attack.success.all`);
   midiFlags.push(`flags.midi-qol.grants.attack.fail.all`);

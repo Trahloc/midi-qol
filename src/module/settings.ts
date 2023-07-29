@@ -1,7 +1,8 @@
 import { _mergeUpdate } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/utils/helpers.mjs";
 import { debug, setDebugLevel, warn, i18n, debugEnabled, geti18nTranslations } from "../midi-qol.js";
-import { ConfigPanel} from "./apps/ConfigPanel.js"
+import { ConfigPanel } from "./apps/ConfigPanel.js"
 import { SoundConfigPanel } from "./apps/SoundConfigPanel.js";
+import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configureDamageRollDialog } from "./patching.js";
 
 export var itemRollButtons: boolean;
@@ -23,8 +24,8 @@ export var midiSoundSettingsBackup: any = undefined;
 
 
 const defaultKeyMapping = {
-  "DND5E.Advantage": "altKey", 
-  "DND5E.Disadvantage": "ctrlKey", 
+  "DND5E.Advantage": "altKey",
+  "DND5E.Disadvantage": "ctrlKey",
   "DND5E.Critical": "altKey",
   "DND5E.Versatile": "shiftKey"
 };
@@ -61,7 +62,7 @@ class ConfigSettings {
   damageVulnerabilityMultiplier: number = 2;
   defaultSaveMult: number = 0.5;
   diceSound: string = "";
-  displayHitResultNumeric:boolean = true;
+  displayHitResultNumeric: boolean = true;
   displaySaveAdvantage: boolean = true;
   displaySaveDC: boolean = true;
   doReactions: string = "all";
@@ -75,12 +76,12 @@ class ConfigSettings {
   gmAutoAttack: boolean = false;
   gmAutoDamage: string = "none";
   gmAutoFastForwardAttack: boolean = false;
-  gmAutoFastForwardDamage: boolean =  false;
+  gmAutoFastForwardDamage: boolean = false;
   gmConsumeResource: string = "none";
   gmDoReactions: string = "all";
   gmHide3dDice: boolean = false;
   gmLateTargeting: string = "none";
-  gmRemoveButtons: string = "all"; 
+  gmRemoveButtons: string = "all";
   hideRollDetails: string = "none";
   ignoreSpellReactionRestriction: boolean = false;
   itemRollStartWorkflow: boolean = false;
@@ -92,7 +93,7 @@ class ConfigSettings {
   mergeCardCondensed: boolean = false;
   highlightSuccess: boolean = false;
   optionalRulesEnabled: boolean = false;
-  paranoidGM : boolean = false;
+  paranoidGM: boolean = false;
   playerRollSaves: string = "none";
   playerSaveTimeout: number = 0;
   playerStatsOnly: boolean = false;
@@ -115,6 +116,7 @@ class ConfigSettings {
   rollSavesBlind: boolean = false;
   rollSkillsBlind: boolean = false;
   saveStatsEvery: number = 20;
+  showDSN: boolean = true;
   showFastForward: boolean = false;
   showItemDetails: string = "";
   showReactionAttackRoll: string = "all";
@@ -137,7 +139,7 @@ class ConfigSettings {
   weaponUseSoundRanged: string = "";
   rollAlternate: string = "off";
   optionalRules: any = {
-    invisAdvantage: true,
+    invisAdvantage: "RAW",
     checkRange: "longFail",
     wallsBlockRange: "center",
     coverCalculation: "none",
@@ -174,6 +176,34 @@ export function checkRule(rule: string) {
   return rulesEnabled && configSettings.optionalRules[rule];
 }
 
+export const checkedModuleList = [
+  "about-time",
+  "anonymous",
+  "chris-premades",
+  "combat-utility-belt",
+  "condition-lab-triggler",
+  "dae",
+  "ddb-game-log",
+  "df-templates",
+  "dfreds-convenient-effects",
+  "dice-so-nice",
+  "itemacro",
+  "levels",
+  "levelsautocover",
+  "levelsvolumetrictemplates",
+  "lib-changelogs",
+  "lib-wrapper",
+  "lmrtfy",
+  "monks-tokenbar",
+  "multilevel-tokens",
+  "ready-set-roll-5e",
+  "simbuls-cover-calculator",
+  "socketlib",
+  "times-up",
+  "walledtemplates",
+  "warpgate",
+  "wjmaia"
+]
 export function collectSettingData() {
   let data = {
     configSettings,
@@ -198,39 +228,20 @@ export function collectSettingData() {
     //@ts-ignore version v10
     systemVersion: game.system.version
   };
-  data.flags["modules"] = {
-    //@ts-ignore version v10
-    abouttimeVersion: game.modules.get("about-time")?.version,
-    //@ts-ignore version v10
-    betterRollsVersion: game.modules.get("ready-set-roll-5e")?.version,
-    //@ts-ignore version v10
-    cubVersion: game.modules.get("combat-utility-belt")?.version,
-    //@ts-expect-error .version
-    cltVersion: game.modules.get("condition-lab-triggler")?.version,
-    //@ts-ignore version v10
-    daeVersion: game.modules.get("dae")?.version,
-    //@ts-ignore version v10
-    DSNversion: game.modules.get("dice-so-nice")?.version,
-    //@ts-ignore version v10
-    dndhelpersVersions: game.modules.get("dnd5e-helpers")?.version,
-    //@ts-ignore version v10
-    itemMacroVersion: game.modules.get("itemacro")?.version,
-    //@ts-ignore version v10
-    lmrtfyVersion: game.modules.get("lmrtfy")?.version,
-    //@ts-ignore version v10
-    midiQolVersion: game.modules.get("midi-qol")?.version,
-    //@ts-ignore version v10
-    monksVersion: game.modules.get("monks-tokenbar")?.version,
-    //@ts-ignore version v10
-    socketlibVersion: game.modules.get("socketlib")?.version,
-    //@ts-ignore version v10
-    simpleCalendarVersion: game.modules.get("foundryvtt-simple-calendar")?.version,
-    //@ts-ignore version v10
-    timesUpVersion: game.modules.get("times-up")?.version
-  };
-  data.flags["all-modules"] = 
-  //@ts-ignore
-    game.modules.filter(m=>m.active).map(m => {
+
+  data.flags["modules"] = {};
+  checkedModuleList.forEach(moduleName => {
+    if (game.modules.get(moduleName)?.active)
+      //@ts-expect-error .version
+      setProperty(data.flags["modules"], moduleName, game.modules.get(moduleName)?.version)
+    else
+      setProperty(data.flags["modules"], moduleName, "not installed");
+  });
+
+  // TODO remove this when trouble shooter is up and running
+  data.flags["all-modules"] =
+    //@ts-ignore
+    game.modules.filter(m => m.active).map(m => {
       const mdata = m.toObject();
       return {
         name: mdata.name,
@@ -245,7 +256,7 @@ export function collectSettingData() {
         socket: mdata.socket
       }
     });
-    return data;
+  return data;
 }
 export function exportSettingsToJSON() {
   const filename = `fvtt-midi-qol-settings.json`;
@@ -273,7 +284,7 @@ export let fetchSoundSettings = () => {
   midiSoundSettings = game.settings.get("midi-qol", "MidiSoundSettings") ?? {};
   if (midiSoundSettings.version === undefined) {
     midiSoundSettingsBackup = duplicate(midiSoundSettings);
-    midiSoundSettings = {"any": midiSoundSettings};
+    midiSoundSettings = { "any": midiSoundSettings };
     midiSoundSettings.version = "0.9.48";
   }
 }
@@ -332,15 +343,15 @@ export let fetchParams = () => {
   if (configSettings.rollAlternate === true) configSettings.rollAlternate = "formula";
   if (configSettings.allowActorUseMacro === undefined) configSettings.allowActorUseMacro = configSettings.allowUseMacro;
   if (configSettings.skillAbilityCheckAdvantage === undefined) configSettings.skillAbilityCheckAdvantage = true;
-  if (!configSettings.keyMapping 
-    || !configSettings.keyMapping["DND5E.Advantage"] 
+  if (!configSettings.keyMapping
+    || !configSettings.keyMapping["DND5E.Advantage"]
     || !configSettings.keyMapping["DND5E.Disadvantage"]
     || !configSettings.keyMapping["DND5E.Critical"]) {
-      configSettings.keyMapping = defaultKeyMapping;
+    configSettings.keyMapping = defaultKeyMapping;
   }
 
- // MidiSounds.setupBasicSounds();
- // migrateExistingSounds();
+  // MidiSounds.setupBasicSounds();
+  // migrateExistingSounds();
 
   if (configSettings.addWounded === undefined) configSettings.addWounded = 0;
   if (!configSettings.addDead) configSettings.addDead = "none";
@@ -348,29 +359,30 @@ export let fetchParams = () => {
   if (configSettings.paranoidGM === undefined) configSettings.paranoidGM = false;
   if (typeof configSettings.requiresTargets !== "string") configSettings.requiresTargets = "none";
   if (configSettings.tempHPDamageConcentrationCheck === undefined) configSettings.tempHPDamageConcentrationCheck = false;
+  if (configSettings.showDSN === undefined) configSettings.showDSN = true;
   if (configSettings.showFastForward === undefined) configSettings.showFastForward = true;
   if (configSettings.highlightSuccess === undefined) configSettings.highlightSuccess = false;
   configSettings.optionalRules = mergeObject({ // eventually split this into mechanics and rules
-      invisAdvantage: true,
-      checkRange: "longfail",
-      wallsBlockRange: "center",
-      coverCalculation: "none",
-      nearbyFoe: 5,
-      nearbyAllyRanged: 0,
-      incapacitated: true,
-      removeHiddenInvis: true,
-      maxDRValue: false,
-      distanceIncludesHeight: false,
-      criticalSaves: false,
-      activeDefence: false,
-      activeDefenceShowGM: false,
-      challengeModeArmor: false,
-      challengeModeArmorScale: false,
-      checkFlanking: "off",
-      optionalCritRule: -1,
-      criticalNat20: false,
-      actionSpecialDurationImmediate: false
-    }, configSettings.optionalRules ?? {}, {overwrite: true, insertKeys: true, insertValues: true});
+    invisAdvantage: "RAW",
+    checkRange: "longfail",
+    wallsBlockRange: "center",
+    coverCalculation: "none",
+    nearbyFoe: 5,
+    nearbyAllyRanged: 0,
+    incapacitated: true,
+    removeHiddenInvis: true,
+    maxDRValue: false,
+    distanceIncludesHeight: false,
+    criticalSaves: false,
+    activeDefence: false,
+    activeDefenceShowGM: false,
+    challengeModeArmor: false,
+    challengeModeArmorScale: false,
+    checkFlanking: "off",
+    optionalCritRule: -1,
+    criticalNat20: false,
+    actionSpecialDurationImmediate: false
+  }, configSettings.optionalRules ?? {}, { overwrite: true, insertKeys: true, insertValues: true });
   if (!configSettings.optionalRules.wallsBlockRange) configSettings.optionalRules.wallsBlockRange = "center";
   if (configSettings.optionalRules.checkFlanking === true) configSettings.optionalRules.checkFlanking = "ceadv";
   if (!configSettings.optionalRules.coverCalculation) configSettings.optionalRules.coverCalculation = "none";
@@ -378,6 +390,8 @@ export let fetchParams = () => {
   if (configSettings.optionalRules.checkFlanking === false) configSettings.optionalRules.checkFlanking = "off";
   if (configSettings.optionalRules.checkRange === true) configSettings.optionalRules.checkRange = "longfail";
   if (!configSettings.optionalRules.checkRange) configSettings.optionalRules.checkRange = "none";
+  if (!configSettings.optionalRules.invisAdvantage) configSettings.optionalRules.invisAdvantage = "none";
+  if (configSettings.optionalRules.invisAdvantage === true) configSettings.optionalRules.invisAdvantage = "RAW";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical !== true) configSettings.requireMagical = "off";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical === true) configSettings.requireMagical = "nonspell";
 
@@ -406,7 +420,7 @@ export let fetchParams = () => {
   configSettings.quickSettings = true;
   enableWorkflow = Boolean(game.settings.get("midi-qol", "EnableWorkflow"));
   if (debugEnabled > 0) warn("Fetch Params Loading", configSettings);
-  
+
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
   criticalDamageGM = String(game.settings.get("midi-qol", "CriticalDamageGM"));
@@ -474,7 +488,7 @@ const settings = [
     default: true,
     type: Boolean,
     choices: [],
-    config:true,
+    config: true,
     onChange: fetchParams
   },
   {
@@ -532,7 +546,7 @@ export function readySettingsSetup() {
 export function registerSetupSettings() {
   const translations = geti18nTranslations();
 
-  game.settings.register("midi-qol","CriticalDamageGM", {
+  game.settings.register("midi-qol", "CriticalDamageGM", {
     name: "midi-qol.CriticalDamageGM.Name",
     // hint: "midi-qol.CriticalDamageGM.Hint",
     scope: "world",
@@ -542,7 +556,7 @@ export function registerSetupSettings() {
     choices: translations["CriticalDamageChoices"],
     onChange: fetchParams
   });
-  game.settings.register("midi-qol","CriticalDamage", {
+  game.settings.register("midi-qol", "CriticalDamage", {
     name: "midi-qol.CriticalDamage.Name",
     hint: "midi-qol.CriticalDamage.Hint",
     scope: "world",
@@ -555,26 +569,26 @@ export function registerSetupSettings() {
 
 }
 
-export const registerSettings = function() {
+export const registerSettings = function () {
   const translations = geti18nTranslations();
   // Register any custom module settings here
   settings.forEach((setting, i) => {
     let MODULE = "midi-qol"
     let options = {
-        name: game.i18n.localize(`${MODULE}.${setting.name}.Name`),
-        hint: game.i18n.localize(`${MODULE}.${setting.name}.Hint`),
-        scope: setting.scope,
-        config: (setting.config === undefined) ? true : setting.config,
-        default: setting.default,
-        type: setting.type,
-        onChange: setting.onChange
+      name: game.i18n.localize(`${MODULE}.${setting.name}.Name`),
+      hint: game.i18n.localize(`${MODULE}.${setting.name}.Hint`),
+      scope: setting.scope,
+      config: (setting.config === undefined) ? true : setting.config,
+      default: setting.default,
+      type: setting.type,
+      onChange: setting.onChange
     };
     //@ts-ignore - too tedious to define undefined in each of the settings defs
     if (setting.choices) options.choices = setting.choices;
     game.settings.register("midi-qol", setting.name, options);
   });
 
-  game.settings.register("midi-qol","CriticalDamageGM", {
+  game.settings.register("midi-qol", "CriticalDamageGM", {
     name: "midi-qol.CriticalDamageGM.Name",
     // hint: "midi-qol.CriticalDamageGM.Hint",
     scope: "world",
@@ -584,7 +598,7 @@ export const registerSettings = function() {
     choices: translations["CriticalDamageChoices"],
     onChange: fetchParams
   });
-  game.settings.register("midi-qol","CriticalDamage", {
+  game.settings.register("midi-qol", "CriticalDamage", {
     name: "midi-qol.CriticalDamage.Name",
     hint: "midi-qol.CriticalDamage.Hint",
     scope: "world",
@@ -596,7 +610,7 @@ export const registerSettings = function() {
   });
 
 
-  game.settings.register("midi-qol","AddChatDamageButtons", {
+  game.settings.register("midi-qol", "AddChatDamageButtons", {
     name: "midi-qol.AddChatDamageButtons.Name",
     hint: "midi-qol.AddChatDamageButtons.Hint",
     scope: "world",
@@ -607,29 +621,29 @@ export const registerSettings = function() {
     onChange: fetchParams
   });
 
-  game.settings.register("midi-qol", "ColoredBorders", 
-  {
-    name: "midi-qol.ColoredBorders.Name",
-    hint: "midi-qol.ColoredBorders.Hint",
-    scope: "world",
-    default: "None",
-    type: String,
-    config: true,
-    choices: translations["ColoredBordersOptions"],
-    onChange: fetchParams
-  });
+  game.settings.register("midi-qol", "ColoredBorders",
+    {
+      name: "midi-qol.ColoredBorders.Name",
+      hint: "midi-qol.ColoredBorders.Hint",
+      scope: "world",
+      default: "None",
+      type: String,
+      config: true,
+      choices: translations["ColoredBordersOptions"],
+      onChange: fetchParams
+    });
 
   game.settings.register("midi-qol", "LateTargeting",
-  {
-    name: "midi-qol.LateTargeting.Name",
-    hint: "midi-qol.LateTargeting.Hint",
-    scope: "client",
-    default: "none",
-    type: String,
-    config:true,
-    choices: translations["LateTargetingOptions"],
-    onChange: fetchParams
-  });
+    {
+      name: "midi-qol.LateTargeting.Name",
+      hint: "midi-qol.LateTargeting.Hint",
+      scope: "client",
+      default: "none",
+      type: String,
+      config: true,
+      choices: translations["LateTargetingOptions"],
+      onChange: fetchParams
+    });
 
   game.settings.register("midi-qol", "AutoRemoveTargets", {
     name: "midi-qol.AutoRemoveTargets.Name",
@@ -709,6 +723,19 @@ export const registerSettings = function() {
     config: false,
     default: true
   })
+
+  /* Not ready for prime time
+
+  game.settings.registerMenu("midi-qol", "troubleShooter", {
+    name: i18n("midi-qol.TroubleShooter.Name"),
+    label: "midi-qol.TroubleShooter",
+    hint: i18n("midi-qol.TroubleShooter.Hint"),
+    // icon: "fas fa-dice-d20",
+    type: TroubleShooter,
+    restricted: false
+  });
+  Hooks.on("renderTroubleShooter", TroubleShooter.troubleShooter);
+*/
 
   game.settings.register("midi-qol", "itemUseHooks", {
     name: "midi-qol.itemUseHooks.Name",

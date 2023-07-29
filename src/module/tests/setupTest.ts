@@ -76,7 +76,8 @@ async function registerTests() {
             await resetActors();
             const actor = getActor(actor2Name);
             const target: Token | undefined = getToken(target1Name);
-            assert(target && !!target?.actor)
+            //@ts-ignore
+            assert(target && target?.actor)
             game.user?.updateTokenTargets([target?.id ?? ""]);
             const item = getActorItem(actor, "Toll the Dead");
             if (target?.actor) await target.actor.setFlag("midi-qol", "fail.ability.save.all", true);
@@ -159,8 +160,12 @@ async function registerTests() {
                 resolve(chatMessage.rolls[0])
               });
             });
-            const combat = await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
-            await combat.delete();
+            const cls = getDocumentClass("Combat");
+            let scene = canvas?.scene;
+            const combat = await cls.create({scene: scene?.id, active: true}, {render: true});
+            await combat?.startCombat();
+            await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
+            await combat?.delete();
             const roll: Roll = await rollResult;
             //@ts-ignore
             assert.equal(roll.terms[0].results.length, 1);
@@ -173,8 +178,12 @@ async function registerTests() {
               });
 
             });
-            const combat = await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
-            await combat.delete();
+            const cls = getDocumentClass("Combat");
+            let scene = canvas?.scene;
+            const combat = await cls.create({scene: scene?.id, active: true}, {render: true});
+            await combat?.startCombat();
+            await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
+            await combat?.delete();
             const roll: Roll = await rollResult;
             await actor.unsetFlag(game.system.id, "initiativeAdv");
             //@ts-ignore
@@ -189,8 +198,12 @@ async function registerTests() {
               });
 
             });
-            const combat = await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
-            await combat.delete();
+            const cls = getDocumentClass("Combat");
+            let scene = canvas?.scene;
+            const combat = await cls.create({scene: scene?.id, active: true}, {render: false});
+            await combat?.startCombat();
+            await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
+            await combat?.delete();
             const roll: Roll = await rollResult;
             await actor.unsetFlag(game.system.id, "initiativeDisadv");
             //@ts-ignore
@@ -501,7 +514,7 @@ async function registerTests() {
           it("Calls item onUseMacros", async function () {
             const actor = getActor(actor2Name);
             const macroPasses: string[] = [];
-            const expectedPasses = ['preTargeting', 'preItemRoll', 'templatePlaced', 'preambleComplete', 'preSave', 'postSave', 'preActiveEffects', 'postActiveEffects'];
+            const expectedPasses = ['preTargeting', 'preItemRoll', 'preambleComplete', 'preSave', 'postSave', 'preActiveEffects', 'postActiveEffects'];
             const hookid = Hooks.on("Item OnUseMacroTest", (pass: string) => macroPasses.push(pass));
             await completeItemUse(actor.items.getName("Item OnUseMacroTest"));
             Hooks.off("OnUseMacroTest", hookid);
@@ -561,7 +574,8 @@ async function registerTests() {
             this.timeout(20000);
             let scene = canvas?.scene;
             const cls = getDocumentClass("Combat");
-            const combat = await cls.create({scene: scene?.id});
+            const combat = await cls.create({scene: scene?.id, active: true}, {render: true});
+            await combat?.startCombat();
             assert.ok(combat);
             const token = getToken(target2Name);
             assert.ok(token);
@@ -578,7 +592,6 @@ async function registerTests() {
             //@ts-ignore
             const hp = actor?.system.attributes.hp.value;
             await combat?.createEmbeddedDocuments("Combatant", [createData]);
-            await combat?.activate();
 
             const effectData = { 
               label: "test over time", 

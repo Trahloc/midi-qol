@@ -1,3 +1,81 @@
+## 
+11.0.7
+### Bug fixes
+* Fix for some convenient effects throwing an error because effect.flags may not be defined.
+* Fix for anomalous behaviour if you both set hide save rolls and then roll the save as a public roll (overriding the midi specified blind roll).
+* Check number of tokens targeted before checking token range. Should be more obvious that you have multiple tokens targeted.
+* Range AoE, template AoE and normal targeting won't throw an error if there are tokens with no actor attached to them, the token just won't be targeted.
+* Fix so that RAW invisibility advantage/disadvantage really is Rules as written. Thanks @Krigsmaskine
+* Updated Banishment spell
+* Updated Absorb Elements spell
+* Update Chill Touch Spell
+* Updated Melf's Minute Meteors
+
+### New Stuff
+* Invisibility advantage/disadvantage checking now supports 3 options,
+	- none - don't check (but if using Convenient Effects advantage/disadvantage is always applied via the invisible convenient effect),
+	- Rules as Written - being invisible/hidden will ALWAYS give advantage. Attacks against an invisible foe will have disadvantage if the foe cannot be seen by the attacker. Hidden foes will be attacked with disadvantage.
+	- Use Token Vision - an invisible attacker will have advtantage if the defender can't see them (hearing, detect Evil and Good, detect Magic, detect poision and disiease and detect thoughts) do not prevent advantage or disadvantage.
+	- If using "Use Token Vision" or "Rules as Written" and Convenient effects you will need to edit the convenient effect Invisible to remove the automatically granted advantage/disadvantage changes.
+* Change to default behaviour of flags.midi-qol.* CUSTOM.
+	- Fields that are not deffered evaluation fields will be evaluated via midi's evalCondition code, meaning that most of the time the condition will be evaluated according to the expression passed in the change.value.
+	- Deferred evaluation fields will be left as text and evaluated when accessed for a roll.
+* Some additional modes for late targeting, "all including AoE/Ranged Area" items, "all ONLY for AoE/Ranged Area" items.
+* First try at checking invisibility for advantage/disadvantage even if the token does not have vision enabled (will use the tokens vision settings as if vision was enabled). As far as I can see it works, but I'm certain I have not considered all edge cases - so treat it as experimental.
+* Added support for MidiQOL.WallsBlockConditions (an array of string condition names) that if targeting has walls block set, targets with these conditions won't be targeted. Current list is "burrowing", so ranged attacks, AoE or range area of effects won't target these tokens. (e.g. you can't fireball someone who is underground).
+* Added support for flags.midi-qol.neverTarget, if set on an actor midi won't target it. Over time this will replace the previous race/type setting trigger.
+	- Added sample feature in NeverTarget in Midi Qol Sample Items/Misc which when dropped on an actor means midi won't target it.
+
+### For macro writers:
+* Added MidiQOL.configSettings().showDSN, which can be altered by macro to enable or disable/denable all midi dsn rolls, defaults to true.
+* flags.midi-qol.grants.criticalThreshold is now be evaluated as an expression when checking if an attack is critical.
+* Added another target onUseMacro postTargetEffectApplication called after effects are applied to a token. Only called for tokens that have effects applied by the used item.
+* Added midiFlags to actor.getRollData() as a shorthand, meaning effects expressions can reference midiFlags.advantage.all etc. instead of flags["midi-qol]. and do check for defined i.e. ``midiFlags?.yourFlag`` instead of ``flags["midi-qol"] && flags["midi-qol"].yourFlag``
+* Added ``async MidiQOL.moveToken(token: TokenRef, {x: number, y: number})``
+	- move the specified token to the specified position on the canvas. Executes as GM so no permission issues.
+	- TokenRef is one of Token | TokenDocument | TokenDoucment.uuid
+* Added async ``MidiQOL.moveTokenFromPoint(token: TokenRef, distance: number, {x: number, y: number})``
+	- Move the token "distance" feet (or meters depending on the grid) on a line drawn between the token's center and the specified point. For example to move a token 5 feet away from your token 
+	- `` MidiQOL.moveTokenFromPoint(targetToken, 5, myToken.center)``.
+	- TokenRef as above.
+* Added support for contested rolls.
+```js
+async Added MidiQOL.contestedRoll(
+  source: {token: TokenRef, rollType: "test" | "save" | "skill", ability: string, rollOptions: any},
+  target: {token: TokenRef, rollType: "test" | "save" | "skill", ability: stringm, rollOptions: any},
+  displayResults: boolean, // Should the results of contest be displayed to chat
+  itemCardId: string, // the itemCardId of a merge card item card to put the results in (if absent a new chat message is created)
+  flavor: string, // The name of the contested roll - e.g. Shove, if not passed Contested Roll will be used
+  rollOptions: any, // controls how the roll is displayed,
+// fastForward: false display the roll configuration dialog
+// chatMessage: true/false display the roll chat card.
+  success, failure, drawn // call back functions called by midi.
+});
+```
+- ability can be str/dex/con etc for test/save, and acr/ath etc for skills. You can also use the long name forms, Strength/Dexterity or Athletics/Percpetion if you prefer.
+- When called midi will find the player for the token and prompt them to make the appropriate roll (or just do the roll if fastForward is true) and compare the roll results, calling the appropriate callbacks as needed and displaying the result of the roll if requested.
+- rollOptions can be passed in the main call or specified per token, token specific rollOptions take precedence.
+- The result of the roll {result: number, rolls: [Roll]} is returned by the function. The result is the first roll results - the second , so +ve is success, -ve failure and 0 is drawn. The rolls return has the rolls done by the tokens.
+- You don't have to use the callback functions, you can just await the contested roll and examine the results.
+- If one of the players closes the roll dialog without rolling the contested roll is aborted.
+- Midi will also use the players roll saves timeout and auto roll if the player does not roll in the required timeframe
+- Here's an example from the sample Shove Item in the midi sample items compendium
+```js
+const  targetSkill = target.actor.system.skills.ath.total > target.actor.system.skills.acr.total ? "ath" : "acr";
+await  MidiQOL.contestedRoll({
+	source: {token, rollType:  "skill", ability:  "Acrobatics"},
+	target: {token:  target, rollType:  "skill", ability:  targetSkill},
+	flavor:  item.name, 
+	success:  success.bind(this, token, target), 
+	displayResults: true,
+	itemCardId:  workflow.itemCardId,
+	rollOptions: {fastForward:  false, chatMessage:  true}
+});
+```
+* Which says, roll an acrobatics check for token and an athletics or acrobatics check for the target token.   
+The flavor is the item name (in this case Shove), on success call the function success, display the results to a chat message (and since this is an item onUse macro wtih merge cards enabled I pass in the itecCardId) of the item chat card and the results will be displayed in that card.  
+The rolls are not fastForwarded so the appropriate players get presented with a roll configuration dialog and the results of each roll are displayed as ability/skill chat cards.
+
 ## 11.0.6
 * Fix for fail optional bonuses still creating a dialog even if no effects with charges is available.
 * Fix for concentration checks being triggered when player is healed - same fix as in v10 but no reported error.

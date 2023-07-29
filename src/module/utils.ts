@@ -2,12 +2,13 @@ import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamag
 import { configSettings, autoRemoveTargets, checkRule, lateTargeting, criticalDamage, criticalDamageGM, checkMechanic } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { BetterRollsWorkflow, DummyWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
-import { socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
+import { rollAbility, socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
 import { OnUseMacros } from "./apps/Item.js";
 import { Options } from "./patching.js";
+import { resolveLateTargeting } from "./itemhandling.js";
 
 export function getDamageType(flavorString): string | undefined {
   const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
@@ -1082,7 +1083,7 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
 export function midiCustomEffect(actor, change) {
   if (typeof change?.key !== "string") return true;
   if (!change.key?.startsWith("flags.midi-qol")) return true;
-  const variableKeys = [
+  const deferredEvaluation = [
     "flags.midi-qol.OverTime",
     "flags.midi-qol.optional",
     "flags.midi-qol.advantage",
@@ -1090,8 +1091,8 @@ export function midiCustomEffect(actor, change) {
     "flags.midi-qol.grants",
     "flags.midi-qol.fails",
     "flags.midi-qol.max.damage",
-    "flags.midi-qol.min.damage"
-
+    "flags.midi-qol.min.damage",
+    "flags.critical"
   ]; // These have trailing data in the change key change.key values and should always just be a string
   if (change.key === "flags.midi-qol.onUseMacroName") {
     const args = change.value.split(",")?.map(arg => arg.trim());
@@ -1105,7 +1106,7 @@ export function midiCustomEffect(actor, change) {
       macroString = [currentFlag, extraFlag].join(",");
     setProperty(actor, "flags.midi-qol.onUseMacroName", macroString)
     return true;
-  } else if (variableKeys.some(k => change.key.startsWith(k))) {
+  } else if (deferredEvaluation.some(k => change.key.startsWith(k))) {
     if (typeof change.value !== "string") setProperty(actor, change.key, change.value);
     else if (["true", "1"].includes(change.value.trim())) setProperty(actor, change.key, true);
     else if (["false", "0"].includes(change.value.trim())) setProperty(actor, change.key, false);
@@ -1119,7 +1120,7 @@ export function midiCustomEffect(actor, change) {
         case "number":
           val = Number.isNumeric(change.value) ? JSON.parse(change.value) : 0; break;
         default: // boolean by default
-          val = JSON.parse(change.value) ? true : false;
+          val = evalCondition(change.value, actor.getRollData())
       }
       setProperty(actor, change.key, val);
     } catch (err) {
@@ -1373,7 +1374,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         let value = replaceAtFields(details.removeCondition, rollData, { blankValue: 0, maxIterations: 3 });
         let remove;
         try {
-          remove = evalCondition(value, rollData);
+          remove = evalCondition(value, rollData, true);
           // remove = Roll.safeEval(value);
         } catch (err) {
           console.warn("midi-qol | error when evaluating overtime remove condition - assuming true", value, err)
@@ -1865,6 +1866,14 @@ export function checkRange(itemIn, tokenIn, targetsIn): { result: string, attack
     if (["mwak", "msak", "mpak"].includes(item.system.actionType) && !item.system.properties?.thr) longRange = 0;
     for (let target of targets) {
       if (target === token) continue;
+      // check if target is burrowing
+      if (configSettings.optionalRules.wallsBlockRange !== 'none'
+        && globalThis.MidiQOL.WallsBlockConditions.some(status => hasCondition(target, status))) {
+        return {
+          result: "fail",
+          reason: `${actor.name}'s has one or more of ${globalThis.MidiQOL.WallsBlockConditions} so can't be targeted`,
+        }
+      }
       // check the range
       const distance = getDistance(token, target, configSettings.optionalRules.wallsBlockRange);
 
@@ -2026,7 +2035,7 @@ export function getAutoRollAttack(workflow: Workflow | undefined = undefined): b
   return game.user?.isGM ? configSettings.gmAutoAttack : configSettings.autoRollAttack;
 }
 
-export function getLateTargeting(workflow: Workflow | undefined = undefined): String {
+export function getLateTargeting(workflow: Workflow | undefined = undefined): string {
   if (workflow?.workflowOptions?.lateTargeting !== undefined) return workflow?.workflowOptions?.lateTargeting;
   return game.user?.isGM ? configSettings.gmLateTargeting : lateTargeting;
 }
@@ -2210,7 +2219,7 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
  * @param {options} includeIcapacitated: boolean count incapacitated tokens
  */
 
-function mapTokenString(disposition: string | number): number | null{
+function mapTokenString(disposition: string | number): number | null {
   if (typeof disposition === "number") return disposition
   if (disposition.toLocaleLowerCase().trim() === i18n("TOKEN.DISPOSITION.FRIENDLY").toLocaleLowerCase()) return 1;
   else if (disposition.toLocaleLowerCase().trim() === i18n("TOKEN.DISPOSITION.HOSTILE").toLocaleLowerCase()) return -1;
@@ -2254,9 +2263,9 @@ export function findNearby(disposition: number | string | null | Array<string | 
     let targetDisposition;
     if (typeof disposition === "string") disposition = mapTokenString(disposition);
     if (disposition instanceof Array) {
-        if (disposition.some(s => s === "all")) disposition = [-1, 0, 1];
-        else disposition = disposition.map(s => mapTokenString(s) ?? 0);
-        targetDisposition = disposition.map(i => typeof i === "number" && [-1, 0, 1].includes(i) && relative ? token.document.disposition * i : i);
+      if (disposition.some(s => s === "all")) disposition = [-1, 0, 1];
+      else disposition = disposition.map(s => mapTokenString(s) ?? 0);
+      targetDisposition = disposition.map(i => typeof i === "number" && [-1, 0, 1].includes(i) && relative ? token.document.disposition * i : i);
     } else if (typeof disposition === "number" && [-1, 0, 1].includes(disposition)) {
       //@ts-expect-error token.document.dispostion
       targetDisposition = relative ? [token.document.disposition * disposition] : [disposition];
@@ -2289,26 +2298,71 @@ export function findNearby(disposition: number | string | null | Array<string | 
   }
 }
 
-export function checkNearby(disposition: number | null | string, token: Token | undefined, distance: number, options: any = {}): boolean {
-  return findNearby(disposition, token, distance, options).length !== 0;
+export function checkNearby(disposition: number | null | string, tokenRef: Token | TokenDocument | string | undefined, distance: number, options: any = {}): boolean {
+  return findNearby(disposition, tokenRef, distance, options).length !== 0;
 }
 
-export function hasCondition(token /* Token | TokenDoucment */, condition: string) {
-  if (!token) return false;
-
-  //@ts-ignore specialStatusEffects
-  if (condition === "invisible" && (token.document ?? token).hasStatusEffect(CONFIG.specialStatusEffects.INVISIBLE)) return true;
-  if ((token.document ?? token).hasStatusEffect(condition)) return true;
+export function hasCondition(tokenRef: Token | TokenDocument | string | undefined, condition: string) {
+  const td = getTokenDocument(tokenRef)
+  if (!td) return false;
+  //@ts-expect-error specialStatusEffects
+  const specials = CONFIG.specialStatusEffects;
+  switch (condition.toLocaleLowerCase()) {
+    case "blind":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect(specials.BLIND)) return true;
+      break;
+    case "burrow":
+    case "burrowing":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect(specials.BURROW)) return true;
+      break;
+    case "dead":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect(specials.DEFEATED)) return true;
+      break
+    case "deaf":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect(specials.DEAF)) return true;
+      break;
+    case "disease":
+    case "disieased":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect(specials.DISEASE)) return true;
+      break;
+    case "fly":
+    case "flying":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect(specials.FLY)) return true;
+      break;
+    case "inaudible":
+    case "silent":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect(specials.INAUDIBLE)) return true;
+      break;
+    case "invisible":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect(specials.INVISIBLE)) return true;
+      break;
+    case "poison":
+    case "poisoned":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect(specials.POISON)) return true;
+      break;
+  }
+  //@ts-expect-error hasStatusEffect
+  if (td.hasStatusEffect(condition.toLocaleLowerCase())) return true;
 
   //@ts-ignore
   const cub = game.cub;
-  if (installedModules.get("condition-lab-triggler") && condition === "invisible" && cub.hasCondition("Invisible", [token], { warn: false })) return true;
-  if (installedModules.get("condition-lab-triggler") && condition === "hidden" && cub.hasCondition("Hidden", [token], { warn: false })) return true;
+  if (installedModules.get("condition-lab-triggler") && condition === "invisible" && cub.hasCondition("Invisible", [td.object], { warn: false })) return true;
+  if (installedModules.get("condition-lab-triggler") && condition === "hidden" && cub.hasCondition("Hidden", [td.object], { warn: false })) return true;
   //@ts-ignore
   const CEInt = game.dfreds?.effectInterface;
   if (installedModules.get("dfreds-convenient-effects")) {
     const localCondition = i18n(`midi-qol.${condition}`);
-    if (CEInt.hasEffectApplied(localCondition, token.actor.uuid)) return true;
+    if (CEInt.hasEffectApplied(localCondition, td.actor?.uuid)) return true;
+    if (CEInt.hasEffectApplied(condition, td.actor?.uuid)) return true;
   }
   return false;
 }
@@ -2318,10 +2372,10 @@ export async function removeInvisible() {
   const token: Token | undefined = canvas.tokens?.get(this.tokenId);
   if (!token) return;
   // 
-  await removeTokenCondition(token, i18n(`midi-qol.${"invisible"}`));
+  await removeTokenCondition(token, i18n(`midi-qol.invisible`));
   //@ts-ignore
-  await (token.document ?? token).toggleActiveEffect({ id: CONFIG.specialStatusEffects.INVISIBLE }, { active: false });
-  log(`Hidden/Invisibility removed for ${this.actor.name} due to attack`)
+  await token.document.toggleActiveEffect({ id: CONFIG.specialStatusEffects.INVISIBLE }, { active: false });
+  log(`Hidden/Invisibility removed for ${this.actor.name}`)
 }
 
 export async function removeHidden() {
@@ -2329,11 +2383,10 @@ export async function removeHidden() {
   const token: Token | undefined = canvas.tokens?.get(this.tokenId);
   if (!token) return;
   // 
-  await removeTokenCondition(token, i18n(`midi-qol.${"hidden"}`));
-  await removeTokenCondition(token, "Stealth (CV)");
-  await removeTokenCondition(token, "Stealthed (CV)");
+  await removeTokenCondition(token, i18n(`midi-qol.hidden`));
+
   //@ts-ignore
-  log(`Hidden removed for ${this.actor.name} due to attack`)
+  log(`Hidden removed for ${this.actor.name}`)
 }
 
 export async function removeTokenCondition(token: Token, condition: string) {
@@ -2585,24 +2638,24 @@ export async function processAttackRollBonusFlags() { // bound to workflow
   if (bonusFlags.length > 0) {
     this.attackRollHTML = await midiRenderRoll(this.attackRoll);
     await bonusDialog.bind(this)(bonusFlags, attackBonus, false, `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
-  }
-  if (this.targets.size === 1) {
-    const targetAC = this.targets.entries().next().value[0].actor.system.attributes.ac.value;
-    this.processAttackRoll();
-    const isMiss = this.isFumble || this.attackRoll.total < targetAC;
-    if (isMiss) {
-      bonusFlags = Object.keys(this.actor.flags["midi-qol"]?.optional ?? [])
-        .filter(flag => {
-          const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.fail`) !== undefined;
-          if (!hasAttackFlag) return false;
-          if (!this.actor.flags["midi-qol"].optional[flag].count) return true;
-          return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
-        })
-        .map(flag => `flags.midi-qol.optional.${flag}`);
-      attackBonus = "attack.fail"
-      if (bonusFlags.length > 0) {
-        this.attackRollHTML = await midiRenderRoll(this.attackRoll);
-        await bonusDialog.bind(this)(bonusFlags, attackBonus, true, `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
+    if (this.targets.size === 1) {
+      const targetAC = this.targets.entries().next().value[0].actor.system.attributes.ac.value;
+      this.processAttackRoll();
+      const isMiss = this.isFumble || this.attackRoll.total < targetAC;
+      if (isMiss) {
+        bonusFlags = Object.keys(this.actor.flags["midi-qol"]?.optional ?? [])
+          .filter(flag => {
+            const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.fail`) !== undefined;
+            if (!hasAttackFlag) return false;
+            if (!this.actor.flags["midi-qol"].optional[flag].count) return true;
+            return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
+          })
+          .map(flag => `flags.midi-qol.optional.${flag}`);
+        attackBonus = "attack.fail"
+        if (bonusFlags.length > 0) {
+          this.attackRollHTML = await midiRenderRoll(this.attackRoll);
+          await bonusDialog.bind(this)(bonusFlags, attackBonus, true, `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
+        }
       }
     }
   }
@@ -2998,7 +3051,7 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
   // TODO if hasUsedReactions only allow 0 activation cost reactions
   const usedReaction = await hasUsedReaction(target.actor);
   // if (usedReaction && needsReactionCheck(target.actor)) return noResult;
-  let player = playerFor(target.document ?? target);
+  let player = playerFor(getTokenDocument(target));
   if (getReactionSetting(player) === "none") return noResult;
   if (!player || !player.active) player = ChatMessage.getWhisperRecipients("GM").find(u => u.active);
   if (!player) return noResult;
@@ -3124,7 +3177,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
   const startTime = Date.now();
   const target: Token = MQfromUuid(tokenUuid);
   const actor: Actor | null = target.actor;
-  let player = playerFor(target.document ?? target);
+  let player = playerFor(getTokenDocument(target));
   if (!actor) return;
   const usedReaction = await hasUsedReaction(actor);
   // if ( usedReaction && needsReactionCheck(actor)) return false;
@@ -3197,12 +3250,11 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
   return { name: "None" };
 }
 
-export function playerFor(target: TokenDocument | Token): User | undefined {
-  //@ts-expect-error
-  return playerForActor(target.document?.actor ?? target.actor ?? undefined); // just here for syntax checker
+export function playerFor(target: TokenDocument | Token | undefined): User | undefined {
+  return playerForActor(target?.actor); // just here for syntax checker
 }
 
-export function playerForActor(actor: Actor | undefined): User | undefined {
+export function playerForActor(actor: Actor | undefined | null): User | undefined {
   if (!actor) return undefined;
   let user;
   //@ts-ignore DOCUMENT_PERMISSION_LEVELS.OWNER v10
@@ -3424,7 +3476,7 @@ export function getConcentrationEffect(actor): ActiveEffect | undefined {
   return result;
 }
 
-function mySafeEval(expression: string, sandbox: any, onErrorReturn: boolean | undefined = undefined) {
+function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined) {
   let result;
   try {
 
@@ -3444,7 +3496,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: boolean | u
 export function evalActivationCondition(workflow: Workflow, condition: string | undefined, target: Token | TokenDocument): boolean {
   if (condition === undefined || condition === "") return true;
   createConditionData({ workflow, target, actor: workflow.actor });
-  const returnValue = evalCondition(condition, workflow.conditionData);
+  const returnValue = evalCondition(condition, workflow.conditionData, true);
   return returnValue;
 }
 
@@ -3458,6 +3510,8 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
       if (data.target instanceof Token) rollData.targetUuid = data.target.document.uuid
       else rollData.targetUuid = data.target.uuid;
       rollData.targetId = data.target.id;
+      rollData.targetActorUuid = data.target.actor?.uuid;
+      rollData.targetActorId = data.target.actor?.id;
       if (rollData.target.details.type?.value) rollData.raceOrType = rollData.target.details.type?.value.toLocaleLowerCase() ?? "";
       else rollData.raceOrType = rollData.target.details.race?.toLocaleLowerCase() ?? "";
     }
@@ -3482,7 +3536,7 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
   return rollData;
 }
 
-export function evalCondition(condition: string, conditionData: any): boolean {
+export function evalCondition(condition: string, conditionData: any, errorReturn: any = true): any {
   if (condition === undefined || condition === "") return true;
   if (typeof condition !== "string") return condition;
   let returnValue;
@@ -3490,11 +3544,11 @@ export function evalCondition(condition: string, conditionData: any): boolean {
     if (condition.includes("@")) {
       condition = Roll.replaceFormulaData(condition, conditionData, { missing: "0" });
     }
-    returnValue = mySafeEval(condition, conditionData, true);
+    returnValue = mySafeEval(condition, conditionData, errorReturn);
     warn("evalActivationCondition ", returnValue, condition, conditionData);
 
   } catch (err) {
-    returnValue = true;
+    returnValue = errorReturn;
     console.warn(`midi-qol | activation condition (${condition}) error `, err, conditionData)
   }
   return returnValue;
@@ -4079,7 +4133,7 @@ export function canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: 
   if (!token || !target) return ["noToken"];
   //@ts-expect-error .hidden
   if (target.document?.hidden || token.document?.hidden) return [];
-  if (!token.hasSight) return ["noSight"];
+  // if (!token.hasSight) return ["noSight"];
   if (!token.vision.active) {
     const sourceId = token.sourceId;
     token.vision.initialize({
@@ -4118,6 +4172,44 @@ export function canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: 
     }
     // Seems we Don't need to do this on the GM side - return await socketlibSocket.executeAsGM("canSense", { tokenUuid: token.document.uuid, targetUuid: target.document.uuid })
   }
+  if (!target.vision.active) {
+    const sourceId = target.sourceId;
+    target.vision.initialize({
+      x: target.center.x,
+      y: target.center.y,
+      //@ts-expect-error
+      radius: Math.clamped(target.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
+      //@ts-expect-error
+      externalRadius: Math.max(target.mesh.width, target.mesh.height) / 2,
+      //@ts-expect-error
+      angle: target.document.sight.angle,
+      //@ts-expect-error
+      contrast: target.document.sight.contrast,
+      //@ts-expect-error
+      saturation: target.document.sight.saturation,
+      //@ts-expect-error
+      brightness: target.document.sight.brightness,
+      //@ts-expect-error
+      attenuation: target.document.sight.attenuation,
+      //@ts-expect-error
+      rotation: target.document.rotation,
+      //@ts-expect-error
+      visionMode: target.document.sight.visionMode,
+      //@ts-expect-error
+      color: globalThis.Color.from(target.document.sight.color),
+      //@ts-expect-error
+      isPreview: !!target._original,
+      //@ts-expect-error specialStatusEffects
+      blinded: target.document.hasStatusEffect(CONFIG.specialStatusEffects.BLIND)
+    });
+    //@ts-expect-error
+    canvas?.effects?.visionSources.set(sourceId, target.vision);
+    if (!target.vision.los && game.modules.get("perfect-vision")?.active) {
+      error(`canSense los not calcluated. Can't check if ${target.name} can see ${target.name}`, target.vision);
+      return ["noSight"];
+    }
+    // Seems we Don't need to do this on the GM side - return await socketlibSocket.executeAsGM("canSense", { targetUuid: target.document.uuid, targetUuid: target.document.uuid })
+  }
   const matchedModes: Set<string> = new Set();
   // Determine the array of offset points to test
   const t = Math.min(target.w, target.h) / 4;
@@ -4146,8 +4238,8 @@ export function canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: 
   const basic = tokenDetectionModes.find(m => m.id === DetectionModeCONST.BASIC_MODE_ID);
   if (basic /*&& token.vision.active*/) {
     if (["basicSight", "lightPerception", "all"].some(mode => validModes.has(mode))) {
-    const result = modes.basicSight.testVisibility(token.vision, basic, config);
-    if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
+      const result = modes.basicSight.testVisibility(token.vision, basic, config);
+      if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
     }
   }
 
@@ -4338,4 +4430,159 @@ export function isReactionItem(item): boolean {
 
 export function getCriticalDamage() {
   return game.user?.isGM ? criticalDamageGM : criticalDamage;
+}
+
+export function isTargetable(target: any /*Token*/): boolean {
+  if (!target.actor) return false;
+  if (target.actor.flgs && target.actor.flags["midi-qol"].neverTarget) return false;
+  const targetDocument = getTokenDocument(target);
+  //@ts-expect-error hiddien
+  if (targetDocument?.hidden) return false;
+  return true;
+}
+
+export function hasWallBlockingCondition(target: any /*Token*/): boolean {
+  return globalThis.MidiQOL.WallsBlockConditions.some(cond => hasCondition(target, cond));
+}
+
+function contestedRollFlavor(baseFlavor: string | undefined, rollType: string, ability: string): string {
+  const config = getSystemCONFIG();
+  let flavor;
+  let title;
+  if (rollType === "test" || rollType === "abil") {
+    const label = config.abilities[ability]?.label ?? ability;
+    flavor = game.i18n.format("DND5E.AbilityPromptTitle", { ability: label });
+  } else if (rollType === "save") {
+    const label = config.abilities[ability].label;
+    flavor = game.i18n.format("DND5E.SavePromptTitle", { ability: label });
+  } else if (rollType === "skill") {
+    flavor = game.i18n.format("DND5E.SkillPromptTitle", { skill: config.skills[ability]?.label ?? "" });
+  }
+  return `${baseFlavor ?? i18n("midi-qol.ContestedRoll")} ${flavor}`;
+}
+export function validRolAbility(rollType: string, ability: string): string | undefined {
+  const config = getSystemCONFIG();
+  if (typeof ability !== "string") return undefined;
+  ability = ability.toLocaleLowerCase().trim();
+  switch (rollType) {
+    case "test":
+    case "abil":
+    case "save":
+      if (config.abilities[ability]) return ability;
+      return Object.keys(config.abilities).find(abl => config.abilities[abl].label.toLocaleLowerCase() === ability.trim().toLocaleLowerCase())
+    case "skill":
+      if (config.skills[ability]) return ability;
+      return Object.keys(config.skills).find(skl => config.skills[skl].label.toLocaleLowerCase() === ability.trim().toLocaleLowerCase())
+    default: return undefined;
+  }
+}
+export async function contestedRoll(data: {
+  source: {rollType: string, ability: string, token: any, rollOptions: any},
+  target: {rollType: string, ability: string, token: any, rollOptions: any},
+  displayResults: boolean,
+  itemCardId: string,
+  flavor: string,
+  rollOptions: any, 
+  success: (results) => {}, failure: (results) => {}, drawn: (results) => {}
+}): Promise<{result: number | undefined, rolls: any[]}> {
+  const source = data.source;
+  const target = data.target;
+  const { rollOptions, success, failure, drawn, displayResults, itemCardId, flavor } = data;
+
+  let canProceed = true;
+  if (!source || !target || !source.token || !target.token || !source.rollType || !target.rollType || !source.ability || !target.ability || !validRolAbility(source.rollType, source.ability) || !validRolAbility(target.rollType, target.ability)) {
+    error(`contestRoll | source[${source?.token?.name}], target[${target?.token?.name}], source.rollType[${source.rollType}], target.rollType[${target?.rollType}], source.ability[${source.ability}], target.ability[${target?.ability}] must all be defined`);
+    canProceed = false;
+  }
+  if (!["test", "abil", "save", "skill"].includes(source?.rollType ?? "")) {
+    error(`contestedRoll | sourceRollType must be one of test/abil/skill/save not ${source.rollType}`);
+    canProceed = false;
+  }
+  if (!["test", "abil", "save", "skill"].includes(target?.rollType ?? "")) {
+    error(`contestedRoll | target.rollType must be one of test/abil/skill/save not ${target.rollType}`);
+    canProceed = false;
+  }
+
+  const sourceDocument = getTokenDocument(source?.token);
+  const targetDocument = getTokenDocument(target?.token);
+
+  if (!sourceDocument || !targetDocument) canProceed = false;
+  if (!canProceed) return {result: undefined, rolls: []}
+  source.ability = validRolAbility(source.rollType, source.ability) ?? "";
+  target.ability = validRolAbility(target.rollType, target.ability) ?? "";
+
+  let player1 = playerFor(source.token);
+  //@ts-expect-error activeGM
+  if (!player1?.active) player1 = game.users?.activeGM;
+  let player2 = playerFor(target.token);
+  //@ts-expect-error activeGM
+  if (!player2?.active) player2 = game.users?.activeGM;
+  console.error(player1, player2);
+  if (!player1 || !player2) return {result: undefined, rolls: []};
+  const sourceFlavor = contestedRollFlavor(flavor, source.rollType, source.ability)
+  const sourceOptions = mergeObject(duplicate(source.rollOptions ?? rollOptions ?? {}), {
+    mapKeys: false,
+    flavor: sourceFlavor,
+    title: `${sourceFlavor}: ${source.token.name} vs ${target.token.name}`
+  });
+  const targetFlavor = contestedRollFlavor(flavor, target.rollType, target.ability);
+  const targetOptions = mergeObject(duplicate(target.rollOptions ?? rollOptions ?? {}), {
+    mapKeys: false,
+    flavor: targetFlavor,
+    title: `${targetFlavor}: ${target.token.name} vs ${source.token.name}`
+  });
+  const resultPromises = [
+    socketlibSocket.executeAsUser("rollAbility", player1.id, { request: source.rollType.trim(), targetUuid: sourceDocument?.uuid, ability: source.ability.trim(), options: sourceOptions }),
+    socketlibSocket.executeAsUser("rollAbility", player2.id, { request: target.rollType.trim(), targetUuid: targetDocument?.uuid, ability: target.ability.trim(), options: targetOptions }),
+  ];
+
+  let results = await Promise.all(resultPromises);
+  let result: number | undefined = results[0].total - results[1].total;
+  if (isNaN(result)) result = undefined;
+  if (displayResults !== false) {
+    let resultString;
+    if (result === undefined) resultString = "";
+    else resultString = result > 0 ? i18n("midi-qol.save-success") : result < 0 ? i18n("midi-qol.save-failure") : result === 0 ? i18n("midi-qol.save-drawn") : "no result";
+    const skippedString = i18n("midi-qol.Skipped");
+    const content = `${flavor ?? i18n("miidi-qol:ContestedRoll")} ${resultString} ${results[0].total ?? skippedString} ${i18n("midi-qol.versus")} ${results[1].total ?? skippedString}`;
+    displayContestedResults(itemCardId, content, ChatMessage.getSpeaker({ token: source.token }), flavor);
+  }
+
+  if (result === undefined) return {result, rolls: results};
+  if ( result > 0 && success) success(results);
+  else if (result < 0 && failure) failure(results);
+  else if (result === 0 && drawn) drawn(results)
+  return {result, rolls: results};
+}
+
+function displayContestedResults(chatCardId: string | undefined, resultContent: string, speaker, flavor: string | undefined) {
+  let itemCard = game.messages?.get(chatCardId ?? "");
+  if (itemCard && configSettings.mergeCard) {
+    //@ts-expect-error content
+    let content = duplicate(itemCard.content ?? "")
+    const searchRE = /<div class="midi-qol-saves-display">[\s\S]*?<div class="end-midi-qol-saves-display">/;
+    const replaceString = `<div class="midi-qol-saves-display">${resultContent}<div class="end-midi-qol-saves-display">`;
+    content = content.replace(searchRE, replaceString);
+    itemCard.update({ "content": content });
+  } else {
+    // const title = `${flavor ?? i18n("miidi-qol:ContestedRoll")} results`;
+    ChatMessage.create({ content: `<p>${resultContent}</p>`, speaker});
+  }
+
+}
+export function getTokenDocument(tokenRef: Token | TokenDocument | string | undefined): TokenDocument | undefined {
+  if (!tokenRef) return undefined;
+  if (tokenRef instanceof TokenDocument) return tokenRef;
+  if (typeof tokenRef === "string") return MQfromUuid(tokenRef);
+  if (tokenRef instanceof Token) return tokenRef.document;
+  return undefined;
+}
+
+export function getToken(tokenRef: Token | TokenDocument | string | undefined): Token | undefined {
+  if (!tokenRef) return undefined;
+  if (tokenRef instanceof Token) return tokenRef;
+  if (typeof tokenRef === "string") return MQfromUuid(tokenRef)?.object;
+  //@ts-expect-error retrn cast
+  if (tokenRef instanceof TokenDocument) return tokenRef.object;
+  return undefined;
 }

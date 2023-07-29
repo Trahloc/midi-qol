@@ -104,7 +104,8 @@ export class ConfigPanel extends FormApplication {
       AddDeadOptions: geti18nOptions("AddDeadOptions"),
       LateTargetingOptions: geti18nOptions("LateTargetingOptions"),
       RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions"),
-      CheckRangeOptions: geti18nOptions("CheckRangeOptions")
+      CheckRangeOptions: geti18nOptions("CheckRangeOptions"),
+      InvisAdvantageOptions: geti18nOptions("InvisAdvantageOptions")
     };
 
     if (debugEnabled > 0) warn("Config Panel: getData ", data)
@@ -142,6 +143,7 @@ export class ConfigPanel extends FormApplication {
     html.find(".import-quick-setting").on("click", async function (event) {
       const key = event.currentTarget.id;
       await applySettings.bind(this)(key);
+      // this.close();
       this.render();
     }.bind(this))
   }
