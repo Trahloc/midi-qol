@@ -178,15 +178,19 @@ export function checkRule(rule: string) {
 
 export const checkedModuleList = [
   "about-time",
+  "ActiveAuras",
+  "autoanimations",
   "anonymous",
+  "babonus",
   "chris-premades",
-  "combat-utility-belt",
   "condition-lab-triggler",
   "dae",
+  "ddb-importer",
   "ddb-game-log",
   "df-templates",
   "dfreds-convenient-effects",
   "dice-so-nice",
+  "effect-macro",
   "itemacro",
   "levels",
   "levelsautocover",
@@ -194,12 +198,14 @@ export const checkedModuleList = [
   "lib-changelogs",
   "lib-wrapper",
   "lmrtfy",
+  "midi-qol",
   "monks-tokenbar",
   "multilevel-tokens",
-  "ready-set-roll-5e",
+  "sequencer",
   "simbuls-cover-calculator",
   "socketlib",
   "times-up",
+  "tokenmagic",
   "walledtemplates",
   "warpgate",
   "wjmaia"
@@ -724,18 +730,17 @@ export const registerSettings = function () {
     default: true
   })
 
-  /* Not ready for prime time
-
+  /*
   game.settings.registerMenu("midi-qol", "troubleShooter", {
     name: i18n("midi-qol.TroubleShooter.Name"),
-    label: "midi-qol.TroubleShooter",
+    label: "midi-qol.TroubleShooter.Label",
     hint: i18n("midi-qol.TroubleShooter.Hint"),
     // icon: "fas fa-dice-d20",
     type: TroubleShooter,
     restricted: false
   });
   Hooks.on("renderTroubleShooter", TroubleShooter.troubleShooter);
-*/
+  */
 
   game.settings.register("midi-qol", "itemUseHooks", {
     name: "midi-qol.itemUseHooks.Name",

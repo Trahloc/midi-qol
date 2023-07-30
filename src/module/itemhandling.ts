@@ -1100,7 +1100,7 @@ function isTokenInside(templateDetails: { x: number, y: number, shape: any, dist
   const templatePos = { x: templateDetails.x, y: templateDetails.y };
   if (configSettings.optionalRules.wallsBlockRange !== "none" && hasWallBlockingCondition(token))
     return false;
-  if (isTargetable(token)) return false;
+  if (!isTargetable(token)) return false;
 
   // Check for center of  each square the token uses.
   // e.g. for large tokens all 4 squares

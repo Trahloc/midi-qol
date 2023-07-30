@@ -1,5 +1,7 @@
-## 
-11.0.7
+## 11.0.7.1
+* Fix for AoE targeting broken.
+
+## 11.0.7
 ### Bug fixes
 * Fix for some convenient effects throwing an error because effect.flags may not be defined.
 * Fix for anomalous behaviour if you both set hide save rolls and then roll the save as a public roll (overriding the midi specified blind roll).

@@ -759,5 +759,9 @@
   "midi-qol.ExportTroubleShooting": "Export Trouble Shooting Data",
   "midi-qol.TroubleShooter.Name": "Open Trouble Shooter",
   "midi-qol.TroubleShooter.Hint": "(VERY EARLY) trouble shooter to help diagnose problems",
-  "midi-qol.TroubleShooter.Label": "Troubleshooter"
+  "midi-qol.TroubleShooter.Label": "Troubleshooter",
+  "midi-qol.Summary": "Summary",
+  "midi-qol.Modules": "Modules",
+  "midi-qol.Problems": "Problems",
+  "midi-qol.AllModules": "AllModules"
 }

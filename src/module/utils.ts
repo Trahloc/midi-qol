@@ -4434,7 +4434,7 @@ export function getCriticalDamage() {
 
 export function isTargetable(target: any /*Token*/): boolean {
   if (!target.actor) return false;
-  if (target.actor.flgs && target.actor.flags["midi-qol"].neverTarget) return false;
+  if (target.actor.flags && target.actor.flags["midi-qol"].neverTarget) return false;
   const targetDocument = getTokenDocument(target);
   //@ts-expect-error hiddien
   if (targetDocument?.hidden) return false;

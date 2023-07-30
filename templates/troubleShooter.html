@@ -1,7 +1,202 @@
 <div class="midi-trouble-shooter trouble-shooter flexcol">
-  <div class="dialog-content">
-    <form>
-      <strong>Exporting Trouble Shooting Data</strong>
-    </form>
-  </div>
+  <!-- Config Settings Configuration Tabs -->
+  <nav class="sheet-tabs tabs" data-group="sections">
+    <a class="item" data-tab="summary"><i class="fas fa-cogs"></i> {{localize "midi-qol.Summary"}}</a>
+    <a class="item" data-tab="modules"><i class="fas fa-cogs"></i> {{localize "midi-qol.Modules"}}</a>
+    <a class="item" data-tab="problems"> {{localize "midi-qol.Problems"}}</a>
+    <a class="item" data-tab="allModules"><i class="fas fa-cogs"></i> {{localize "midi-qol.AllModules"}}</a>
+  </nav>
+  <section id="trouble=shooter-tabs" class="content">
+    <!-- Summary -->
+    <div class="tab" data-tab="summary" data-group="sections">
+      <div class="midi-qol-box">
+        <table>
+          <tr>
+            <td>Foundry Version</td>
+            <td>{{summary.[foundry-version]}}</td>
+          </tr>
+          <td>DND Version</td>
+          <td>{{summary.[DND5E Version]}}</td>
+          </tr>
+          <tr>
+            <td>Midi Version</td>
+            <td>{{summary.[midi-qol-version]}}</td>
+          </tr>
+          <tr>
+            <td>Dynamic Active Effects Version</td>
+            <td>{{summary.[Dynamic Active Effects Version]}}</td>
+          </tr>
+        </table>
+      </div>
+      <div class="midi-qol-box">
+        <table>
+          <tr>
+            Core Settings
+          </tr>
+          {{#each summary.coreSettings as |value key|}}
+          <tr>
+            <td>{{key}}</td>
+            <td>{{value}}</td>
+          </tr>
+          {{/each}}
+        </table>
+      </div>
+      <div class="midi-qol-box">
+        <table>
+          <tr>{{summary.[Game System]}} Settings</tr>
+          {{#each summary.gameSystemSettings as |value key|}}
+          <tr>
+            <td>{{key}}</td>
+            <td>{{value}}</td>
+          </tr>
+          {{/each}}
+        </table>
+      </div>
+    </div>
+    <!-- Modules Tab -->
+    <div class="tab" data-tab="modules" data-group="sections">
+      <div class="midi-qol-box">
+        <div>
+          <table>
+            <tr>
+              <td>Module ID</td>
+              <td>Module Name</td>
+              <td>Module version</td>
+              <td>Foundry Compatible Version</td>
+            </tr>
+            {{#each summary.knownModules as |versionInfo moduleId|}}
+            <tr>
+              <td>{{moduleId}}</td>
+              <td>{{versionInfo.title}}</td>
+              <td>{{versionInfo.moduleVersion}}</td>
+              <td>{{versionInfo.foundryVersion}}</td>
+            </tr>
+            {{/each}}
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- Problems Tab -->
+    <div class="tab" data-tab="problems" data-group="sections">
+      <div class="midi-qol-box">
+        {{#if hasProblems}}
+        <table>
+          <tr>Common Problems</tr>
+          <tr>
+            <td>Severity</td>
+            <td>Module Id</td>
+            <td>Problem</td>
+            <td>Fix</td>
+          </tr>
+          {{#each problems as |problem moudleId|}}
+            <tr>
+              <td>{{problem.severity}}</td>
+              <td>{{moduleId}}</td>
+              <td>{{problem.problemSummary}}</td>
+              <td>{{problem.fixer}}</td>
+              {{#if problem.problemDetail}}
+                <tr>
+                  <td></td>
+                  <td>Details</td>
+                  <td>{{problem.problemDetail}}</td>
+                </tr>
+              {{/if}}
+            </tr>
+          {{/each}}
+        </table>
+        {{else}}
+        No Problems detected
+        {{/if}}
+      </div>
+      <div class="midi-qol-box">
+        {{#if hasIncompatible}}
+        <table>
+          <tr>Incompatible Modules Installed</tr>
+          <tr>
+            <td>Module Id</td>
+            <td>Module Name</td>
+          </tr>
+          {{#each summary.incompatible as |module|}}
+          <tr>
+            <td>{{module.key}}</td>
+            <td>{{module.title}}</td>
+          </tr>
+          {{/each}}
+        </table>
+        {{else}}
+        <div>No Incompatible Modules Installed</div>
+        {{/if}}
+      </div>
+      <div class="midi-qol-box">
+        {{#if hasOutOfDate}}
+        <table>
+          <tr>
+            Out of date modules installed
+          </tr>
+          <tr>
+            <td>Module Id</td>
+            <td>Module Title</td>
+            <td>Module Version</td>
+            <td>Compatible Foundry Version</td>
+          </tr>
+          {{#each summary.outOfDate as |moduleVersion|}}
+          <tr>
+            <td>{{moduleVersion.key}}</td>
+            <td>{{moduleVersion.title}}</td>
+            <td>{{moduleVersion.moduleVersion}}</td>
+            <td>{{moduleVersion.foundryVersion}}</td>
+          </tr>
+          {{/each}}
+        </table>
+        {{else}}
+        <div>No Out of Date Modules Installed</div>
+        {{/if}}
+      </div>
+
+    </div>
+    <!-- All Modules Tab -->
+    <div class="tab" data-tab="allModules" data-group="sections">
+      <div class="midi-qol-box">
+        <table>
+          <tr>All Installed Modules</tr>
+          <tr>
+            <td>Module id</td>
+            <td>Module Title</td>
+            <td>Active</td>
+            <td>Module Version</td>
+            <td>Foundry Compatible Version</td>
+          </tr>
+          {{#each modules as |detail moduleId|}}
+          <tr>
+            <td>{{moduleId}}</td>
+            <td>{{detail.title}}</td>
+            <td>{{detail.active}}</td>
+            <td>{{detail.version}}</td>
+            <td>{{detail.compatibility}}</td>
+          </tr>
+          {{#if detail.settings}}
+          <tr>
+            <td></td>
+            <td>Setting Name</td>
+            <td>Setting Value</td>
+          </tr>
+          {{#each detail.settings as |value key|}}
+          <tr>
+            <td></td>
+            <td>{{key}}</td>
+            <td>{{value}}</td>
+          </tr>
+          {{/each}}
+          {{/if}}
+          {{/each}}
+        </table>
+      </div>
+    </div>
+  </section>
+  <footer class="sheet-footer flexrow">
+    <button type="submit" name="submit">
+      <i class="fas fa-save"></i> {{localize "midi-qol.Save"}}
+    </button>
+  </footer>
+  </form>
 </div>
