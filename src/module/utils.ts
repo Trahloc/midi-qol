@@ -2137,7 +2137,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   const concentrationLabel = getConcentrationLabel();
   let statusEffect;
   if (dfreds) {
-    statusEffect = dfreds.effectInterface.findEffectByName(concentrationLabel).toObject();
+    statusEffect = dfreds.effectInterface?.findEffectByName(concentrationLabel).toObject();
   }
   if (!statusEffect && installedModules.get("combat-utility-belt")) {
     //@ts-expect-error se.name
@@ -3591,7 +3591,7 @@ export function getConvenientEffectsDead() {
 export async function ConvenientEffectsHasEffect(effectName: string, actor: Actor, ignoreInactive: boolean = true) {
   if (ignoreInactive) {
     //@ts-ignore
-    return game.dfreds.effectInterface.hasEffectApplied(effectName, actor.uuid);
+    return game.dfreds.effectInterface?.hasEffectApplied(effectName, actor.uuid);
   } else {
     //@ts-expect-error .label
     return actor.effects.find(ef => (ef.name || ef.label) === effectName) !== undefined;
@@ -3661,7 +3661,7 @@ export async function setBonusActionUsed(actor: Actor) {
   let effect;
   if (getConvenientEffectsBonusAction()) {
     //@ts-expect-error
-    await game.dfreds?.effectInterface.addEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
+    await game.dfreds?.effectInterface?.addEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
   } else if (installedModules.get("combat-utility-belt") && (effect = CONFIG.statusEffects.find(se => se.label === i18n("DND5E.BonusAction")))) {
     // TODO V11 check se.label
     actor.createEmbeddedDocuments("ActiveEffect", [effect]);
@@ -3679,7 +3679,7 @@ export async function removeActionUsed(actor: Actor) {
 export async function removeReactionUsed(actor: Actor, removeCEEffect = false) {
   if (removeCEEffect && getConvenientEffectsReaction()) {
     //@ts-expect-error
-    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), actor.uuid)) {
+    if (await game.dfreds?.effectInterface?.hasEffectApplied((getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), actor.uuid)) {
       //@ts-expect-error
       await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), uuid: actor.uuid });
     }
@@ -3708,7 +3708,7 @@ export async function hasUsedReaction(actor: Actor) {
   if (actor.getFlag("midi-qol", "actions.reaction")) return true;
   if (getConvenientEffectsReaction()) {
     //@ts-expect-error .dfreds
-    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), actor.uuid)) {
+    if (await game.dfreds?.effectInterface?.hasEffectApplied((getConvenientEffectsReaction().name || getConvenientEffectsReaction().label), actor.uuid)) {
       await actor?.setFlag("midi-qol", "actions.reaction", false);
       return true;
     }
@@ -3750,7 +3750,7 @@ export async function hasUsedBonusAction(actor: Actor) {
   if (actor.getFlag("midi-qol", "actions.bonus")) return true;
   if (getConvenientEffectsBonusAction()) {
     //@ts-ignore
-    if (await game.dfreds?.effectInterface.hasEffectApplied(getConvenientEffectsBonusAction().label, actor.uuid)) {
+    if (await game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsBonusAction().label, actor.uuid)) {
       await actor.setFlag("midi-qol", "actions.bonus", true);
       return true;
     }
@@ -3772,7 +3772,7 @@ export async function hasUsedBonusAction(actor: Actor) {
 export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false) {
   if (removeCEEffect && getConvenientEffectsBonusAction()) {
     //@ts-ignore
-    if (await game.dfreds?.effectInterface.hasEffectApplied((getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), actor.uuid)) {
+    if (await game.dfreds?.effectInterface?.hasEffectApplied((getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), actor.uuid)) {
       //@ts-ignore
       await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsBonusAction().name || getConvenientEffectsBonusAction().label), uuid: actor.uuid });
     }
@@ -4395,4 +4395,21 @@ export function isReactionItem(item): boolean {
 
 export function getCriticalDamage() {
   return game.user?.isGM ? criticalDamageGM : criticalDamage;
+}
+
+export function isTargetable(target: any /*Token*/): boolean {
+  if (!target.actor) return false;
+  if (target.actor.flags && target.actor.flags["midi-qol"].neverTarget) return false;
+  const targetDocument = getTokenDocument(target);
+  //@ts-expect-error .hidden
+  if (targetDocument?.hidden) return false;
+  return true;
+}
+
+export function getTokenDocument(tokenRef: Token | TokenDocument | string | undefined): TokenDocument | undefined {
+  if (!tokenRef) return undefined;
+  if (tokenRef instanceof TokenDocument) return tokenRef;
+  if (typeof tokenRef === "string") return MQfromUuid(tokenRef);
+  if (tokenRef instanceof Token) return tokenRef.document;
+  return undefined;
 }

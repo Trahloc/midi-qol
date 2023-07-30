@@ -1,5 +1,5 @@
 import { log, debug, i18n, error, warn, geti18nOptions, i18nFormat } from "../../midi-qol.js";
-import { getAutoRollAttack, getTokenPlayerName, isAutoFastAttack } from "../utils.js";
+import { getAutoRollAttack, getTokenPlayerName, isAutoFastAttack, isTargetable } from "../utils.js";
 import { Workflow } from "../workflow.js";
 
 export class LateTargetingDialog extends Application {
@@ -73,6 +73,12 @@ export class LateTargetingDialog extends Application {
     if (!this.hookId) {
       this.hookId = Hooks.on("targetToken", (user, token, targeted) => {
         if (user !== game.user) return;
+        if (game.user?.targets) {
+          const validTargets: Array<string> = [];
+          for (let target of game?.user?.targets)
+            if (isTargetable(target)) validTargets.push(target.id);
+          game.user?.updateTokenTargets(validTargets);
+        }
         this.data.targets = Array.from(game.user?.targets ?? [])
         this.render();
       });
