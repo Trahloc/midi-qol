@@ -1,3 +1,9 @@
+### 10.0.59
+* Fix for targeting failing when tokens with no actor are present in the world.
+* Implement flags["midi-qol"].neverTarget which when true means midi will never target the token
+* If a token is "hidden" (from the token hud top right) it will not be targeted
+* Fix for dfreds convenient effects throwing errors is other modules (besides dfreds convenient effects are installed).
+
 ### 10.0.58
 * Fix for double concentration check - thanks @thatlonelybugbear
 * Fix for missing concentration sometimes on unlinked tokens.
