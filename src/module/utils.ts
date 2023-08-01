@@ -1022,10 +1022,8 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
     LMRTFY.onMessage(socketData);
   } else { // display a chat message to the user telling them to save
     const actorName = actor.name;
-    //@ts-expect-error .version
-    const abilityString = isNewerVersion(game.system.version, "2.1.5")
-      ? getSystemCONFIG().abilities[ability].label
-      : getSystemCONFIG().abilities[ability]
+    let abilityString = getSystemCONFIG().abilities[ability]
+    if (abilityString?.label) abilityString = abilityString.label;
     let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityString} ${i18n("midi-qol.saving-throw")}`;
     if (advantage && !disadvantage) content = content + ` (${i18n("DND5E.Advantage")}) - ${flavor})`;
     else if (!advantage && disadvantage) content = content + ` (${i18n("DND5E.Disadvantage")}) - ${flavor})`;

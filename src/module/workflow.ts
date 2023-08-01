@@ -2722,8 +2722,7 @@ export class Workflow {
       DCString = i18n("SW5E.AbbreviationDC");
     }
 
-    //@ts-expect-error
-    if (isNewerVersion(game.system.version, "2.1.5")) {
+    if (getSystemCONFIG().abilities[rollAbility]?.label) {
       if (rollType === "save")
         this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}:`;
       else if (rollType === "abil")

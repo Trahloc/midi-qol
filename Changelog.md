@@ -1,3 +1,6 @@
+### 10.0.60
+* Fix for sw5e getting "undefined" for ability strings (Wisdom etc).
+
 ### 10.0.59
 * Fix for targeting failing when tokens with no actor are present in the world.
 * Implement flags["midi-qol"].neverTarget which when true means midi will never target the token

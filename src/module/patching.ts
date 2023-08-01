@@ -104,8 +104,7 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       let title;
       let config = getSystemCONFIG();
       let systemString = game.system.id.toUpperCase();
-      //@ts-expect-error
-      if (isNewerVersion(game.system.version, "2.1.5")) {
+      if (config.abilities[detail]?.label) {
         if (detail.startsWith("fail")) title = "Failed Save Check";
         else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
         else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
