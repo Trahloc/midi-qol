@@ -5,6 +5,7 @@ import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHid
 import { createDamageList, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat, getConcentrationLabel } from "./utils.js";
 import { shouldRollOtherDamage } from "./itemhandling.js";
 import { socketlibSocket } from "./GMAction.js";
+import { TroubleShooter } from "./apps/TroubleShooter.js";
 export const MAESTRO_MODULE_NAME = "maestro";
 export const MODULE_LABEL = "Maestro";
 
@@ -262,7 +263,9 @@ export function checkOverTimeSaves(message, data, options, user) {
     };
     func(actor, data.flags.dnd5e.roll, message.rolls[0]);
   } catch (err) {
-    warn("checkOverTimeSaves error ", err)
+    const message = `checkOverTimeSaves error for ${actor?.name} ${actor.uuid}`;
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
   } finally {
     return true;
   }

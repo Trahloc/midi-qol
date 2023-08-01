@@ -118,6 +118,9 @@ Hooks.once('init', async function () {
   addDiceTermModifiers();
   globalThis.MidiKeyManager = new MidiKeyManager();
   globalThis.MidiKeyManager.initKeyMappings();
+  Hooks.on("error", (...args) => {
+    console.warn("midi-qol detected error", ...args)
+  });
 });
 
 /* ------------------------------------ */
@@ -342,9 +345,9 @@ Hooks.once('ready', function () {
   }
   Hooks.callAll("midi-qol.midiReady");
   if (
-    installedModules.get("lmrtfy") 
+    installedModules.get("lmrtfy")
     //@ts-expect-error
-    && isNewerVersion("3.1.8", game.modules.get("lmrtfy").version) 
+    && isNewerVersion("3.1.8", game.modules.get("lmrtfy").version)
     //@ts-expect-error
     && isNewerVersion(game.system.version, "2.1.99")) {
     let abbr = {};
@@ -366,6 +369,7 @@ Hooks.once('ready', function () {
 });
 
 import { setupMidiTests } from './module/tests/setupTest.js';
+import { TroubleShooter } from './module/apps/TroubleShooter.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -381,32 +385,26 @@ function setupMidiQOLApi() {
     applyTokenDamage: () => { console.error("MinorQOL is no longer supported please use MidiQOL.applyTokenDamage") },
   }
   let InvisibleDisadvantageVisionModes = [
-    'blindsight', 
-    'basicSight', 
+    'blindsight',
+    'basicSight',
     // 'detectEvilAndGood', 
     // 'detectMagic', 
     // 'detectPoisonAndDisease', 
     // 'detectThoughts',
-    'devilsSight', 
+    'devilsSight',
     // 'divineSense', 
-    'echolocation', 
-    'ghostlyGaze', 
+    'echolocation',
+    'ghostlyGaze',
     // 'hearing', 
-    'lightPerception', 
-    'seeInvisibility', 
-    'senseAll', 
-    'senseInvisibility', 
+    'lightPerception',
+    'seeInvisibility',
+    'senseAll',
+    'senseInvisibility',
     // 'feelTremor', 
     'seeAll'];
-    let NeverTargetConditions = [
-      "nevertarget"
-    ]
-    let WallsBlockConditions = [
-      ...[
-        "burrow",
-      ],
-      ...NeverTargetConditions
-    ];
+  let WallsBlockConditions = [
+    "burrow"
+  ];
 
   //@ts-ignore
   globalThis.MidiQOL = {
@@ -461,6 +459,7 @@ function setupMidiQOLApi() {
     socket: () => { return socketlibSocket },
     tokenForActor,
     TrapWorkflow,
+    TroubleShooter,
     warn,
     Workflow,
     WORKFLOWSTATES,
@@ -473,15 +472,14 @@ function setupMidiQOLApi() {
     testfunc,
     InvisibleDisadvantageVisionModes,
     WallsBlockConditions,
-    NeverTargetConditions,
-    moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: {x: number, y: number}) => {
+    moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
-      if (tokenUuid) return socketlibSocket.executeAsGM("moveToken", {tokenUuid, newCenter});
+      if (tokenUuid) return socketlibSocket.executeAsGM("moveToken", { tokenUuid, newCenter });
     },
-    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: {x: number, y: number}) => {
+    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }) => {
       const targetUuid = getTokenDocument(targetRef)?.uuid;
-      if (point && targetUuid && distance )
-        return socketlibSocket.executeAsGM("moveTokenAwayFromPoint", {targetUuid, distance, point })
+      if (point && targetUuid && distance)
+        return socketlibSocket.executeAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point })
     },
     validRolAbility
   };
@@ -763,3 +761,12 @@ export function createMidiMacros() {
     }
   }
 }
+
+const midiOldErrorHandler = globalThis.onerror;
+function midiOnerror(event: string | Event, source?: string | undefined, lineno?: number | undefined, colno?: number | undefined, error?: Error) {
+  console.warn("midi-qol detected error", event, source, lineno, colno, error);
+  TroubleShooter.recordError(error, "uncaught global error");
+  if (midiOldErrorHandler) return midiOldErrorHandler(event, source, lineno, colno, error);
+  return false;
+}
+globalThis.onerror = midiOnerror;

@@ -143,6 +143,10 @@
   color: #606060;
 }
 
+.midi-qol-very-faint {
+  color: #A0A0A0;
+}
+
 #midi-qol-item-selector .item-list {
   list-style: none;
   margin: 0;

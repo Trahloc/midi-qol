@@ -190,7 +190,7 @@ export const checkedModuleList = [
   "df-templates",
   "dfreds-convenient-effects",
   "dice-so-nice",
-  "effect-macro",
+  "effectmacro",
   "itemacro",
   "levels",
   "levelsautocover",
@@ -730,7 +730,6 @@ export const registerSettings = function () {
     default: true
   })
 
-  /*
   game.settings.registerMenu("midi-qol", "troubleShooter", {
     name: i18n("midi-qol.TroubleShooter.Name"),
     label: "midi-qol.TroubleShooter.Label",
@@ -739,9 +738,7 @@ export const registerSettings = function () {
     type: TroubleShooter,
     restricted: false
   });
-  Hooks.on("renderTroubleShooter", TroubleShooter.troubleShooter);
-  */
-
+  
   game.settings.register("midi-qol", "itemUseHooks", {
     name: "midi-qol.itemUseHooks.Name",
     hint: "midi-qol.itemUseHooks.Hint",

@@ -8,6 +8,7 @@ import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { saveTargetsUndoData } from "./undo.js";
+import { TroubleShooter } from "./apps/TroubleShooter.js";
 
 export const shiftOnlyEvent = { shiftKey: true, altKey: false, ctrlKey: false, metaKey: false, type: "" };
 export function noKeySet(event) { return !(event?.shiftKey || event?.ctrlKey || event?.altKey || event?.metaKey) }
@@ -324,7 +325,16 @@ export class Workflow {
 
   // TODO get rid of this - deal with return type issues
   async next(nextState: number) {
-    return await this._next(nextState);
+    try {
+      return await this._next(nextState).catch(err => {
+        const message = `Uncaught error ${err.message} in worfklow ${stateToLabel(nextState)}`
+        TroubleShooter.recordError(err, message);
+      });
+    } catch (err) {
+      const message = `Uncaught error ${err.message} in worfklow ${stateToLabel(nextState)}`
+      console.warn(message, err);
+      TroubleShooter.recordError(err, message);
+    }
   }
 
   async _next(newState: number) {
@@ -490,7 +500,11 @@ export class Workflow {
             let replaceString = `<button data-action="attack">${attackString}</button>`
             content = content.replace(searchRe, replaceString);
             await chatMessage?.update({ "content": content });
-          } else if (!chatMessage) error("no chat message")
+          } else if (!chatMessage) {
+            const message = `WaitForAttackRoll | no chat message`;
+            error(message);
+            TroubleShooter.recordError(new Error(message), message);
+          }
         }
 
         if (configSettings.allowUseMacro) {
@@ -704,6 +718,8 @@ export class Workflow {
           let monksId = Hooks.on("updateChatMessage", this.monksSavingCheck.bind(this));
           try {
             await this.checkSaves(configSettings.autoCheckSaves !== "allShow");
+          } catch (err) { 
+            TroubleShooter.recordError(err);
           } finally {
             Hooks.off("renderChatMessage", hookId);
             // Hooks.off("renderChatMessage", brHookId);
@@ -1080,7 +1096,9 @@ export class Workflow {
         return undefined;
 
       default:
-        error("invalid state in workflow")
+        const message = `invalid state in workflow`;
+        error(message);
+        TroubleShooter.recordError(new Error(message), message);
         return undefined;
     }
   }
@@ -1606,6 +1624,7 @@ export class Workflow {
       this.bonusDamageFlavor = flavor ?? "";
       this.bonusDamageDetail = createDamageList({ roll: this.bonusDamageRoll, item: null, ammo: null, versatile: false, defaultType: this.defaultDamageType });
     } catch (err) {
+      TroubleShooter.recordError(err, `midi-qol | error in evaluating${formula} in bonus damage`);
       console.warn(`midi-qol | error in evaluating${formula} in bonus damage`, err);
       this.bonusDamageRoll = null;
       this.bonusDamageDetail = [];
@@ -1761,7 +1780,11 @@ export class Workflow {
     macroData.macroPass = macroPass;
     if (debugEnabled > 0) warn("macro data ", macroData)
     for (let macro of macroNames) {
-      values.push(this.callMacro(item, macro, macroData))
+      values.push(this.callMacro(item, macro, macroData).catch((err) => {
+        const message = `midi-qol | called macro error in ${item?.name} ${item?.uuid} macro ${macro}`;
+        console.warn(message, err);
+        TroubleShooter.recordError(err, message);
+      }));
     }
     results = await Promise.all(values);
     return results;
@@ -1816,14 +1839,18 @@ export class Workflow {
           const parts = name.split(".");
           parts.shift();
           if (parts.length !== 3) {
-            error(`getmacro | Could not find macro ${name} - invalid syntax.`);
+            const message = `getmacro | Could not find macro ${name} - invalid syntax.`;
+            error(message);
+            TroubleShooter.recordError(new Error(message), message);
             ui.notifications?.error(`Could not find macro ${name} - invalid syntax.`)
             return undefined;
           }
           const [scope, packName, idOrName] = parts;
           const collection = game.packs.get(`${scope}.${packName}`);
           if (!collection) {
-            error(`Could not find compendium ${scope}, ${packName}`);
+            const message = `Could not find compendium ${scope}, ${packName}`;
+            error(message);
+            TroubleShooter.recordError(new Error(message), message);
             ui.notifications?.error(`midi-qol | get macro - Could not find compendium ${scope}, ${packName}`)
             return undefined;
           }
@@ -1837,7 +1864,9 @@ export class Workflow {
             }
           }
           if (!macro) {
-            error(`Could not find macro ${name} - invalid syntax.`);
+            const message = `Could not find macro ${name} - invalid syntax.`;
+            error(message);
+            TroubleShooter.recordError(new Error(message), message);
             ui.notifications?.error(`Could not find macro ${name} - ${idOrName} does not exist`)
             return undefined;
           }
@@ -1920,6 +1949,7 @@ export class Workflow {
         }
       }
     } catch (err) {
+      TroubleShooter.recordError(err, "callMacro: Error evaluating macro");
       ui.notifications?.error(`There was an error running your macro. See the console (F12) for details`);
       error("Error evaluating macro ", err)
     }
@@ -2562,6 +2592,7 @@ export class Workflow {
         }
       }
     } catch (err) {
+      TroubleShooter.recordError(err);
       console.warn(err)
     } finally {
     }
@@ -2625,7 +2656,9 @@ export class Workflow {
     for (let target of allHitTargets) {
       if (!target.actor) continue; // these were skipped when doing the rolls so they can be skipped now
       if (!results[i] || results[i].total === undefined) {
-        error("Token ", target, "could not roll save/check assuming 1");
+        const message = `Token ${target?.name} could not roll save/check assuming 1`;
+        error(message, target);
+        TroubleShooter.recordError(new Error(message), message);
         results[i] = await new Roll("1").roll({ async: true });
       }
       let result = results[i];
@@ -2813,8 +2846,7 @@ export class Workflow {
       DCString = i18n("SW5E.AbbreviationDC");
     }
 
-    //@ts-expect-error
-    if (isNewerVersion(game.system.version, "2.1.5")) {
+    if (getSystemCONFIG().abilities[rollAbility]?.label) {
       if (rollType === "save")
         this.saveDisplayFlavor = `${this.saveItem.name} <label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${getSystemCONFIG().abilities[rollAbility].label ?? getSystemCONFIG().abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}:`;
       else if (rollType === "abil")
@@ -3303,7 +3335,9 @@ export class Workflow {
 
   async removeItemEffects(uuid: Item | string = this.item?.uuid) {
     if (!uuid) {
-      error("Cannot remove effects when no item specified")
+      const message = `removeItemEffects | Cannot remove effects when no item specified`;
+      error(message);
+      TroubleShooter.recordError(new Error(message), message);
       return;
     }
     if (uuid instanceof Item) uuid = uuid.uuid;
@@ -3330,6 +3364,8 @@ export class Workflow {
       // Get the attack bonus for the attack
       const attackBonus = roll.total - roll.dice[0].total; // TODO see if there is a better way to work out roll plusses
       await this.checkActiveAttacks(attackBonus, false, 20 - (roll.options.fumble ?? 1) + 1, 20 - (roll.options.critical ?? 20) + 1);
+    } catch(err) {
+      TroubleShooter.recordError(err);
     } finally {
       Hooks.off("renderChatMessage", hookId);
     }
@@ -3415,7 +3451,9 @@ export class Workflow {
     for (let target of this.targets) {
       if (!target.actor) continue; // these were skipped when doing the rolls so they can be skipped now
       if (!results[i]) {
-        error("Token ", target, "could not roll active defence assuming 1");
+        const message = `Token ${target?.name} ${getTokenDocument(target)?.uuid}, "could not roll active defence assuming 1`;
+        error(message, target);
+        TroubleShooter.recordError(new Error(message), message);
         results[i] = await new Roll("1").roll({ async: true });
       }
       const result = results[i];
@@ -3662,6 +3700,8 @@ export class TrapWorkflow extends Workflow {
         let monksId = Hooks.on("updateChatMessage", this.monksSavingCheck.bind(this));
         try {
           await this.checkSaves(configSettings.autoCheckSaves !== "allShow");
+        } catch(err) {
+          TroubleShooter.recordError(err);
         } finally {
           Hooks.off("renderChatMessage", hookId);
           //          Hooks.off("renderChatMessage", brHookId);
@@ -4035,6 +4075,8 @@ export class DummyWorkflow extends Workflow {
     const hookId = Hooks.on("preUpdateItem", (item, update, options, user) => { return update.system?.quantity === undefined });
     try {
       this.attackRoll = await this.item?.rollAttack({ fastForward: true, chatMessage: false, isDummy: true })
+    } catch(err) {
+      TroubleShooter.recordError(err);
     } finally {
       Hooks.off("preUpdateItem", hookId)
     }
