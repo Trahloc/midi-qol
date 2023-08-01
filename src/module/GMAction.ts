@@ -5,6 +5,7 @@ import { ddbglPendingFired } from "./chatMesssageHandling.js";
 import { Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
 import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _removeMostRecentWorkflow, _undoMostRecentWorkflow } from "./undo.js";
+import { TroubleShooter } from "./apps/TroubleShooter.js";
 
 export var socketlibSocket: any = undefined;
 var traitList = { di: {}, dr: {}, dv: {} };
@@ -58,7 +59,9 @@ export async function removeEffects(data: { actorUuid: string; effects: string[]
       const effectIds = data.effects.filter(efId => actor.effects.find(effect => efId === effect.id));
       if (effectIds?.length > 0) return actor?.deleteEmbeddedDocuments("ActiveEffect", effectIds, data.options)
     } catch (err) {
-      warn("GMACTION: remove effects error", err)
+      const message = `GMACTION: remove effects error for ${data?.actorUuid}`;
+      console.warn(message, err);
+      TroubleShooter.recordError(err, message);
     } finally {
       warn("removeFunc: remove effects completed")
     }
@@ -189,7 +192,9 @@ export async function _applyEffects(data: { workflowId: string, targets: string[
     if (workflow.applicationTargets.size > 0) result = await workflow.next(WORKFLOWSTATES.APPLYDYNAMICEFFECTS);
     return result;
   } catch (err) {
-    warn("remote apply effects error", error);
+    const message = `_applyEffects | remote apply effects error`;
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
   }
   return result;
 }
@@ -239,7 +244,9 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
           await ActiveEffect.deleteDocuments(effectsToDelete.map(ef => ef.id), { parent: actor });
           // await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id), {strict: false, invalid: false});
         } catch (err) {
-          console.warn("delete item effects failed ", actor.name, err);
+          const message = `delete item effects failed for ${actor?.name} ${actor?.uuid}`;
+          console.warn(message, err);
+          TroubleShooter.recordError(err, message);
         };
       }
       debug("deleteItemEffects: completed", actor.name)

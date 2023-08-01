@@ -761,7 +761,10 @@
   "midi-qol.TroubleShooter.Hint": "(VERY EARLY) trouble shooter to help diagnose problems",
   "midi-qol.TroubleShooter.Label": "Troubleshooter",
   "midi-qol.Summary": "Summary",
-  "midi-qol.Modules": "Modules",
+  "midi-qol.CommonModules": "Common Modules",
   "midi-qol.Problems": "Problems",
-  "midi-qol.AllModules": "AllModules"
+  "midi-qol.AllModules": "All Modules",
+  "midi-qol.Errors": "Errors",
+  "midi-qol.Inactive": "Inactive",
+  "midi-qol.Active": "Active"
 }

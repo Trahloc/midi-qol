@@ -7,6 +7,7 @@ import { checkMechanic, configSettings, dragDropTargeting } from "./settings.js"
 import { installedModules } from "./setupModules.js";
 import { checkWounded, lookupItemMacro, preDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook } from "./itemhandling.js";
+import { TroubleShooter } from "./apps/TroubleShooter.js";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -430,7 +431,11 @@ export function initHooks() {
       return true;
     }
     const item = MQfromUuid(dropData.uuid)
-    if (!item) error("actor / item broke ", item);
+    if (!item) {
+      const message = `actor / item broke for ${dropData?.uuid}`;
+      error(message);
+      TroubleShooter.recordError(new Error(message), message);
+    }
     item?.use();
     return true;
   })

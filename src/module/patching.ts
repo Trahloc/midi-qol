@@ -6,6 +6,7 @@ import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { socketlibSocket } from "./GMAction.js";
+import { TroubleShooter } from "./apps/TroubleShooter.js";
 let libWrapper;
 
 var d20Roll;
@@ -104,8 +105,7 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       let title;
       let config = getSystemCONFIG();
       let systemString = game.system.id.toUpperCase();
-      //@ts-expect-error
-      if (isNewerVersion(game.system.version, "2.1.5")) {
+      if (config.abilities[detail]?.label) {
         if (detail.startsWith("fail")) title = "Failed Save Check";
         else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
         else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
@@ -130,92 +130,98 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
 }
 
 async function doRollSkill(wrapped, ...args) {
-  let [skillId, options = { event: {}, parts: [], advantage: false, disadvantage: false, simulate: false, targetValue: undefined }] = args;
-  const chatMessage = options.chatMessage;
-  const rollTarget = options.targetValue;
-  // options = foundry.utils.mergeObject(options, mapSpeedKeys(null, "ability"), { inplace: false, overwrite: true });
-  const keyOptions = mapSpeedKeys(undefined, "ability");
-  if (options.mapKeys !== false) {
-    if (keyOptions?.advantage === true) options.advantage = options.advantage || keyOptions.advantage;
-    if (keyOptions?.disadvantage === true) options.disadvantage = options.disadvantage || keyOptions.disadvantage;
-    if (keyOptions?.fastForwardAbility === true) options.fastForward = options.fastForward || keyOptions.fastForwardAbility;
-    if (keyOptions?.advantage || keyOptions?.disadvantage) options.fastForward = true;
-  }
-  // mergeKeyboardOptions(options, mapSpeedKeys(undefined, "ability"));
-  options.event = {};
-  let procOptions = options;
-  if (configSettings.skillAbilityCheckAdvantage) {
-    procOptions = procAbilityAdvantage(this, "check", this.system.skills[skillId].ability, options)
-
-    // options = procAbilityAdvantage(actor, "check", actor.system.skills[skillId].ability, options)
-  }
-  // let procOptions: Options = procAbilityAdvantage(this, "check", this.system.skills[skillId].ability, options)
-  procOptions = procAdvantageSkill(this, skillId, procOptions);
-  if (procOptions.advantage && procOptions.disadvantage) {
-    procOptions.advantage = false;
-    procOptions.disadvantage = false;
-  }
-  if (procAutoFailSkill(this, skillId)
-    || (configSettings.skillAbilityCheckAdvantage && procAutoFail(this, "check", this.system.skills[skillId].ability))) {
-    options.parts = ["-100"];
-  }
-
-  let result;
-  if (installedModules.get("betterrolls5e")) {
-    let event = {};
-    if (procOptions.advantage) { options.advantage = true; event = { shiftKey: true } };
-    if (procOptions.disadvantage) { options.disadvantage = true; event = { ctrlKey: true } };
-    options.event = event;
-    result = wrapped(skillId, options);
-    if (chatMessage !== false) return result;
-    result = await result;
-  } else {
-    procOptions.chatMessage = false;
-    if (!procOptions.parts || procOptions.parts.length === 0) delete procOptions.parts;
-    // result = await wrapped.call(this, skillId, procOptions);
-    result = await wrapped(skillId, procOptions);
-  }
-  if (!result) return result;
-
-  const flavor = result.options?.flavor;
-  const maxflags = getProperty(this.flags, "midi-qol.max") ?? {};
-  const maxValue = (maxflags.skill && (maxflags.skill.all || maxflags.check[skillId])) ?? false;
-  if (maxValue && Number.isNumeric(maxValue)) {
-    result.terms[0].modifiers.unshift(`max${maxValue}`);
-    //@ts-ignore
-    result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
-  }
-  const minflags = getProperty(this.flags, "midi-qol.min") ?? {};
-  const minValue = (minflags.skill && (minflags.skill.all || minflags.skill[skillId])) ?? false
-  if (minValue && Number.isNumeric(minValue)) {
-    result.terms[0].modifiers.unshift(`min${minValue}`);
-    //@ts-ignore
-    result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
-  }
-  let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
-  if (chatMessage !== false) await displayDSNForRoll(result, "skill", rollMode);
-  if (!options.simulate) {
-    result = await bonusCheck(this, result, "skill", skillId);
-  }
-  if (chatMessage !== false && result) {
-    const saveRollMode = game.settings.get("core", "rollMode");
-    if (!game.user?.isGM && configSettings.rollSkillsBlind && ["publicroll", "roll"].includes(rollMode)) {
-      rollMode = "blindroll";
-      game.settings.set("core", "rollMode", "blindroll");
+  try {
+    let [skillId, options = { event: {}, parts: [], advantage: false, disadvantage: false, simulate: false, targetValue: undefined }] = args;
+    const chatMessage = options.chatMessage;
+    const rollTarget = options.targetValue;
+    // options = foundry.utils.mergeObject(options, mapSpeedKeys(null, "ability"), { inplace: false, overwrite: true });
+    const keyOptions = mapSpeedKeys(undefined, "ability");
+    if (options.mapKeys !== false) {
+      if (keyOptions?.advantage === true) options.advantage = options.advantage || keyOptions.advantage;
+      if (keyOptions?.disadvantage === true) options.disadvantage = options.disadvantage || keyOptions.disadvantage;
+      if (keyOptions?.fastForwardAbility === true) options.fastForward = options.fastForward || keyOptions.fastForwardAbility;
+      if (keyOptions?.advantage || keyOptions?.disadvantage) options.fastForward = true;
     }
-    const args = { "speaker": getSpeaker(this), flavor };
-    setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
-    if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
-    await result.toMessage(args, { rollMode });
-    game.settings.set("core", "rollMode", saveRollMode);
+    // mergeKeyboardOptions(options, mapSpeedKeys(undefined, "ability"));
+    options.event = {};
+    let procOptions = options;
+    if (configSettings.skillAbilityCheckAdvantage) {
+      procOptions = procAbilityAdvantage(this, "check", this.system.skills[skillId].ability, options)
+
+      // options = procAbilityAdvantage(actor, "check", actor.system.skills[skillId].ability, options)
+    }
+    // let procOptions: Options = procAbilityAdvantage(this, "check", this.system.skills[skillId].ability, options)
+    procOptions = procAdvantageSkill(this, skillId, procOptions);
+    if (procOptions.advantage && procOptions.disadvantage) {
+      procOptions.advantage = false;
+      procOptions.disadvantage = false;
+    }
+    if (procAutoFailSkill(this, skillId)
+      || (configSettings.skillAbilityCheckAdvantage && procAutoFail(this, "check", this.system.skills[skillId].ability))) {
+      options.parts = ["-100"];
+    }
+
+    let result;
+    if (installedModules.get("betterrolls5e")) {
+      let event = {};
+      if (procOptions.advantage) { options.advantage = true; event = { shiftKey: true } };
+      if (procOptions.disadvantage) { options.disadvantage = true; event = { ctrlKey: true } };
+      options.event = event;
+      result = wrapped(skillId, options);
+      if (chatMessage !== false) return result;
+      result = await result;
+    } else {
+      procOptions.chatMessage = false;
+      if (!procOptions.parts || procOptions.parts.length === 0) delete procOptions.parts;
+      // result = await wrapped.call(this, skillId, procOptions);
+      result = await wrapped(skillId, procOptions);
+    }
+    if (!result) return result;
+
+    const flavor = result.options?.flavor;
+    const maxflags = getProperty(this.flags, "midi-qol.max") ?? {};
+    const maxValue = (maxflags.skill && (maxflags.skill.all || maxflags.check[skillId])) ?? false;
+    if (maxValue && Number.isNumeric(maxValue)) {
+      result.terms[0].modifiers.unshift(`max${maxValue}`);
+      //@ts-ignore
+      result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
+    }
+    const minflags = getProperty(this.flags, "midi-qol.min") ?? {};
+    const minValue = (minflags.skill && (minflags.skill.all || minflags.skill[skillId])) ?? false
+    if (minValue && Number.isNumeric(minValue)) {
+      result.terms[0].modifiers.unshift(`min${minValue}`);
+      //@ts-ignore
+      result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
+    }
+    let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
+    if (chatMessage !== false) await displayDSNForRoll(result, "skill", rollMode);
+    if (!options.simulate) {
+      result = await bonusCheck(this, result, "skill", skillId);
+    }
+    if (chatMessage !== false && result) {
+      const saveRollMode = game.settings.get("core", "rollMode");
+      if (!game.user?.isGM && configSettings.rollSkillsBlind && ["publicroll", "roll"].includes(rollMode)) {
+        rollMode = "blindroll";
+        game.settings.set("core", "rollMode", "blindroll");
+      }
+      const args = { "speaker": getSpeaker(this), flavor };
+      setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
+      if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
+      await result.toMessage(args, { rollMode });
+      game.settings.set("core", "rollMode", saveRollMode);
+    }
+    let success: boolean | undefined = undefined;
+    if (rollTarget !== undefined) {
+      success = result.total >= rollTarget;
+      result.options.success = success;
+    }
+    await expireRollEffect.bind(this)("Skill", skillId, success);
+    return result;
+  } catch (err) {
+    const message = `doRollSkill error ${this.name}, ${this.uuid}`;
+    TroubleShooter.recordError(err, message)
+    throw err;
   }
-  let success: boolean | undefined = undefined;
-  if (rollTarget !== undefined) {
-    success = result.total >= rollTarget;
-    result.options.success = success;
-  }
-  await expireRollEffect.bind(this)("Skill", skillId, success);
-  return result;
 }
 
 
@@ -352,89 +358,95 @@ function configureDamage(wrapped) {
 
 async function doAbilityRoll(wrapped, rollType: string, ...args) {
   let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false }] = args;
-  const rollTarget = options.targetValue;
-  if (procAutoFail(this, rollType, abilityId)) {
-    options.parts = ["-100"];
-  }
-  // Hack for MTB bug
-  if (options.event?.advantage || options.event?.altKey) options.advantage = true;
-  if (options.event?.disadvantage || options.event?.ctrlKey) options.disadvantage = true;
-  if (options.fromMars5eChatCard) options.fastForward = autoFastForwardAbilityRolls;
+  try {
+    const rollTarget = options.targetValue;
+    if (procAutoFail(this, rollType, abilityId)) {
+      options.parts = ["-100"];
+    }
+    // Hack for MTB bug
+    if (options.event?.advantage || options.event?.altKey) options.advantage = true;
+    if (options.event?.disadvantage || options.event?.ctrlKey) options.disadvantage = true;
+    if (options.fromMars5eChatCard) options.fastForward = autoFastForwardAbilityRolls;
 
-  const chatMessage = options.chatMessage;
-  const keyOptions = mapSpeedKeys(undefined, "ability");
-  if (options.mapKeys !== false) {
-    if (keyOptions?.advantage === true) options.advantage = options.advantage || keyOptions.advantage;
-    if (keyOptions?.disadvantage === true) options.disadvantage = options.disadvantage || keyOptions.disadvantage;
-    if (keyOptions?.fastForwardAbility === true) options.fastForward = options.fastForward || keyOptions.fastForwardAbility;
-    if (keyOptions?.advantage || keyOptions?.disadvantage) options.fastForward = true;
-  }
+    const chatMessage = options.chatMessage;
+    const keyOptions = mapSpeedKeys(undefined, "ability");
+    if (options.mapKeys !== false) {
+      if (keyOptions?.advantage === true) options.advantage = options.advantage || keyOptions.advantage;
+      if (keyOptions?.disadvantage === true) options.disadvantage = options.disadvantage || keyOptions.disadvantage;
+      if (keyOptions?.fastForwardAbility === true) options.fastForward = options.fastForward || keyOptions.fastForwardAbility;
+      if (keyOptions?.advantage || keyOptions?.disadvantage) options.fastForward = true;
+    }
 
-  options.event = {};
+    options.event = {};
 
-  let procOptions: any = procAbilityAdvantage(this, rollType, abilityId, options);
-  if (procOptions.advantage && procOptions.disadvantage) {
-    procOptions.advantage = false;
-    procOptions.disadvantage = false;
-  }
+    let procOptions: any = procAbilityAdvantage(this, rollType, abilityId, options);
+    if (procOptions.advantage && procOptions.disadvantage) {
+      procOptions.advantage = false;
+      procOptions.disadvantage = false;
+    }
 
-  let result;
-  if (!options.parts || procOptions.parts.length === 0) delete options.parts;
-  procOptions.chatMessage = false;
-  result = await wrapped(abilityId, procOptions);
-  if (!result) return result;
-  const maxFlags = getProperty(this.flags, "midi-qol.max.ability") ?? {};
-  const flavor = result.options?.flavor;
-  const maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId])) ?? false
-  if (maxValue && Number.isNumeric(maxValue)) {
-    result.terms[0].modifiers.unshift(`max${maxValue}`);
-    //@ts-ignore
-    result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
-  }
+    let result;
+    if (!options.parts || procOptions.parts.length === 0) delete options.parts;
+    procOptions.chatMessage = false;
+    result = await wrapped(abilityId, procOptions);
+    if (!result) return result;
+    const maxFlags = getProperty(this.flags, "midi-qol.max.ability") ?? {};
+    const flavor = result.options?.flavor;
+    const maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId])) ?? false
+    if (maxValue && Number.isNumeric(maxValue)) {
+      result.terms[0].modifiers.unshift(`max${maxValue}`);
+      //@ts-ignore
+      result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
+    }
 
-  const minFlags = getProperty(this.flags, "midi-qol.min.ability") ?? {};
-  const minValue = (minFlags[rollType] && (minFlags[rollType].all || minFlags[rollType][abilityId])) ?? false;
-  if (minValue && Number.isNumeric(minValue)) {
-    result.terms[0].modifiers.unshift(`min${minValue}`);
-    //@ts-ignore
-    result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
-  }
-  let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
-  if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
-    case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
-    case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
-  }
-  await displayDSNForRoll(result, rollType, rollMode);
-
-  if (!options.simulate) {
-    result = await bonusCheck(this, result, rollType, abilityId);
-    if (result.options.rollMode === "blindroll") rollMode = "blindroll";
-  }
-
-  if (chatMessage !== false && result) {
-    const messageData: any = { "speaker": getSpeaker(this), flavor };
-    setProperty(messageData, "flags", options.flags ?? {})
-    setProperty(messageData, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
-    setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
-    messageData.template = "modules/midi-qol/templates/roll.html";
+    const minFlags = getProperty(this.flags, "midi-qol.min.ability") ?? {};
+    const minValue = (minFlags[rollType] && (minFlags[rollType].all || minFlags[rollType][abilityId])) ?? false;
+    if (minValue && Number.isNumeric(minValue)) {
+      result.terms[0].modifiers.unshift(`min${minValue}`);
+      //@ts-ignore
+      result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
+    }
+    let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
     if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
       case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
       case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
     }
-    const saveRollMode = game.settings.get("core", "rollMode");
-    if (rollMode === "blindroll") {
-      game.settings.set("core", "rollMode", rollMode);
+    await displayDSNForRoll(result, rollType, rollMode);
+
+    if (!options.simulate) {
+      result = await bonusCheck(this, result, rollType, abilityId);
+      if (result.options.rollMode === "blindroll") rollMode = "blindroll";
     }
-    await result.toMessage(messageData, { rollMode });
-    game.settings.set("core", "rollMode", saveRollMode);
+
+    if (chatMessage !== false && result) {
+      const messageData: any = { "speaker": getSpeaker(this), flavor };
+      setProperty(messageData, "flags", options.flags ?? {})
+      setProperty(messageData, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
+      setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
+      messageData.template = "modules/midi-qol/templates/roll.html";
+      if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
+        case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
+        case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
+      }
+      const saveRollMode = game.settings.get("core", "rollMode");
+      if (rollMode === "blindroll") {
+        game.settings.set("core", "rollMode", rollMode);
+      }
+      await result.toMessage(messageData, { rollMode });
+      game.settings.set("core", "rollMode", saveRollMode);
+    }
+    let success: boolean | undefined = undefined;
+    if (rollTarget !== undefined) {
+      success = result.total >= rollTarget;
+      result.options.success = success;
+    }
+    await expireRollEffect.bind(this)(rollType, abilityId, success);
+    return result;
+  } catch (err) {
+    const message = `doAbilityRoll error ${this.name} ${abilityId} ${rollType} ${this.uuid}`;
+    TroubleShooter.recordError(err, message);
+    throw err;
   }
-  let success: boolean | undefined = undefined;
-  if (rollTarget !== undefined) {
-    success = result.total >= rollTarget;
-    result.options.success = success;
-  }
-  await expireRollEffect.bind(this)(rollType, abilityId, success);
-  return result;
 }
 
 export async function rollAbilitySave(wrapped, ...args) {
@@ -758,7 +770,9 @@ export function _prepareDerivedData(wrapped, ...args) {
       }
     }
   } catch (err) {
-    console.warn("midi-qol failed to prepare derived data", err)
+    const message = "midi-qol failed to prepare derived data";
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
   }
 }
 
@@ -785,6 +799,8 @@ export function actorPrepareData(wrapped) {
     wrapped();
     prepareOnUseMacroData(this);
   } catch (err) {
+    const message = `actor prepare data ${this?.name}`;
+    TroubleShooter.recordError(err, message);
   }
 }
 
@@ -799,7 +815,9 @@ export function prepareOnUseMacroData(actorOrItem) {
     const macros = getProperty(actorOrItem, 'flags.midi-qol.onUseMacroName');
     setProperty(actorOrItem, "flags.midi-qol.onUseMacroParts", new OnUseMacros(macros ?? null));
   } catch (err) {
-    console.warn("midi-qol | failed to prepare onUse macro data", err)
+    const message = `midi-qol | failed to prepare onUse macro data ${actorOrItem?.name}`;
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
   }
 }
 export function lookupItemMacro(...args) {
@@ -850,7 +868,9 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
   } catch (err) {
     delete changes.flags["midi-qol"].onUseMacroParts;
     itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
-    console.warn("midi-qol | failed in preUpdateItemActor onUse Macro", err)
+    const message = `midi-qol | failed in preUpdateItemActor onUse Macro for ${itemOrActor?.name} ${itemOrActor?.uuid}`
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
   }
   return true;
 };
@@ -945,11 +965,8 @@ export function _getInitiativeFormula(wrapped) {
 export async function removeConcentration(actor: Actor, concentrationUuid: string) {
   let result;
   try {
-
     const concentrationData: any = actor.getFlag("midi-qol", "concentration-data");
-    if (!concentrationData) {
-      return;
-    }
+    if (!concentrationData) return;
     await actor.unsetFlag("midi-qol", "concentration-data");
     if (concentrationData.templates) {
       for (let templateUuid of concentrationData.templates) {
@@ -967,7 +984,9 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
       debug("finsihed remove concentration effects", actor?.name)
     }
   } catch (err) {
-    error("error when attempting to remove concentration ", err)
+    const message = `error when attempting to remove concentration for ${actor?.name}`;
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
   } finally {
     //@ts-expect-error fromUuidSync
     const concentrationEffect = fromUuidSync(concentrationUuid);
@@ -1000,12 +1019,12 @@ export async function checkWounded(actor, update, options, user) {
     const needsWounded = hpUpdate > 0 && hpUpdate < woundedLevel && !needsBeaten;
     if (installedModules.get("dfreds-convenient-effects")) {
       const CEWoundedName = dfreds?.effects?._wounded.name;
-      const CEWounded = dfreds.effectInterface.findEffectByName(CEWoundedName)?.toObject();
+      const CEWounded = dfreds.effectInterface?.findEffectByName(CEWoundedName)?.toObject();
       const wounded = await ConvenientEffectsHasEffect((CEWoundedName), actor, false);
       if (wounded !== needsWounded) {
         if (needsWounded) await actor.createEmbeddedDocuments("ActiveEffect", [CEWounded])
         else await actor.effects.find(ef => ef.name === CEWoundedName)?.delete();
-        //await dfreds?.effectInterface.toggleEffect(CEWounded.name, { overlay: false, uuids: [actor.uuid] });
+        //await dfreds?.effectInterface?.toggleEffect(CEWounded.name, { overlay: false, uuids: [actor.uuid] });
       }
     } else {
       const tokens = actor.getActiveTokens();
@@ -1042,7 +1061,7 @@ export async function checkWounded(actor, update, options, user) {
       if (needsBeaten) {
         await dfreds.effectInterface?.addEffectWith({ effectData: effect.toObject(), uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
       } else { // remove beaten condition
-        await dfreds.effectInterface.removeEffect({ effectName: effect.name, uuid: actor.uuid })
+        await dfreds.effectInterface?.removeEffect({ effectName: effect.name, uuid: actor.uuid })
       }
     }
   } else if (configSettings.addDead !== "none") {
@@ -1071,7 +1090,9 @@ async function _preUpdateActor(wrapped, update, options, user) {
     await checkWounded(this, update, options, user);
     await zeroHPExpiry(this, update, options, user);
   } catch (err) {
-    console.warn("midi-qol | preUpdateActor failed ", err)
+    const message = `midi-qol | _preUpdateActor failed `;
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
   }
   finally {
     return wrapped(update, options, user);
@@ -1117,9 +1138,13 @@ export function configureDamageRollDialog() {
   try {
     if (configSettings.promptDamageRoll) libWrapper.register("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", CustomizeDamageFormula.configureDialog, "MIXED");
     else {
-      libWrapper.unregister("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog");
+      libWrapper.unregister("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", false);
     }
-  } catch (err) { }
+  } catch (err) {
+    const message = `error when registering configureDamageRollDialog`;
+    TroubleShooter.recordError(err, message);
+
+  }
 }
 
 export let itemPatching = () => {
@@ -1159,6 +1184,8 @@ export async function preDeleteTemplate(templateDocument, options, user) {
       await actor.setFlag("midi-qol", "concentration-data", concentrationData);
     }
   } catch (err) {
+    const message = `preDeleteTemplate failed for ${templateDocument?.uuid}`;
+    TroubleShooter.recordError(err, message);
   } finally {
     return true;
   }
@@ -1322,7 +1349,9 @@ export async function _preDeleteCombat(wrapped, ...args) {
       }
     }
   } catch (err) {
-    console.warn("midi-qol | error in preDeleteCombat ", err);
+    const message = `midi-qol | error in preDeleteCombat`;
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
   } finally {
     return wrapped(...args)
   }
@@ -1368,7 +1397,15 @@ class CustomizeDamageFormula {
           },
           default: defaultCritical ? "critical" : "normal",
           // Inject the formula customizer - this is the only line that differs from the original
-          render: (html) => { try { CustomizeDamageFormula.injectFormulaCustomizer(this, html) } catch (e) { error(e) } },
+          render: (html) => {
+            try {
+              CustomizeDamageFormula.injectFormulaCustomizer(this, html)
+            } catch (err) {
+              const message = `injectFormulaCustomizer`
+              error(message, err);
+              TroubleShooter.recordError(err, message);
+            }
+          },
           close: () => resolve(null),
         },
         options
@@ -1594,7 +1631,9 @@ export function migrateTraits(actor) {
     }
 
   } catch (err) {
-    console.warn("midi-qol | migrate traits error ", this, err)
+    const message = `midi-qol | migrateTraits error for ${actor?.name}`;
+    console.warn(message, this, err);
+    TroubleShooter.recordError(err, message);
   } finally {
   }
 }
@@ -1634,7 +1673,9 @@ function preDamageTraitSelectorGetData(wrapped) {
     // migrate di/dr/dv and strip out active effect data.
     if (this.object instanceof Actor) migrateTraits(this.object);
   } catch (err) {
-    console.error("migrate traits error", err)
+    const message = `preDamageTraitSelectorGetData | migrate traits error`;
+    error(message, err);
+    TroubleShooter.recordError(err, message);
   } finally {
     return wrapped();
   }

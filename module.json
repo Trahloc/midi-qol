@@ -106,6 +106,6 @@
   },
   "url": "https://gitlab.com/tposney/midi-qol",
   "manifest": "https://gitlab.com/tposney/midi-qol/raw/v11/package/module.json",
-  "download": "https://gitlab.com/tposney/midi-qol/raw/v11/package/midi-qol-v{{version}}.zip",
+  "download": "https://gitlab.com/tposney/midi-qol/raw/v11dev/package/midi-qol-v{{version}}.zip",
   "changelog": "https://gitlab.com/tposney/midi-qol/raw/v11/Changelog.md"
 }
