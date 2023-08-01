@@ -1,12 +1,14 @@
-## 11.0.8
+## 11.0.9
 * Added trouble shooter app. At this stage it is mainly a tool to report your settings and loaded modules (and their settings).
-* There are two modes Local Client Settings (visible on the summary tab) and Settings from File. Local Client settings means the data reported is from the current foundry client, Settings from File means the display is a snapshot from then another client exported from the TroubleShooter app.
-  - There are a handful of "problems" that the app can diagnose, more to come.
+* There are two modes Local Client Settings (visible on the summary tab) and Settings from File. Local Client settings means the data reported is from the current foundry client, Settings from File means the display is a snapshot from  another client exported from the TroubleShooter app and then imported.
+  - There are a small handful of "problems" that the app can diagnose, more to come.
   - Midi has been reworked to log some/most errors (errors logged will improve as time progresses) it encounters to the trouble shooter app and the last 10 errors are displayed in the app.
   - next release of DAE will have some (not much) support for logging errors into the midi-qol TroubleShooter app
   - Error display updates as new errors are recorded if in Local Client Settings mode.
   - Data can be exported and loaded on another client - to help the support guys looking at the status of a user's setting/modules.
-  - An option to clear errors (which resest to Local Client Settings mode), so you can see the errors from a single midi action in the error display, by clearing and then running the failing action. To report a specific problem to one of the helpers, clear errors, run the problem workflow and then export the data which should include the error.
+  - An option to clear errors (which resets to Local Client Settings mode), so you can see the errors from a single midi action in the error display, by clearing and then running the failing action. To report a specific problem to one of the helpers, clear errors, run the problem workflow and then export the data which should include the error.
+
+## 11.0.8 testing versions
 
 ## 11.0.7.1
 * Fix for AoE targeting broken.
