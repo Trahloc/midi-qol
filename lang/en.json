@@ -766,5 +766,7 @@
   "midi-qol.AllModules": "All Modules",
   "midi-qol.Errors": "Errors",
   "midi-qol.Inactive": "Inactive",
-  "midi-qol.Active": "Active"
+  "midi-qol.Active": "Active",
+  "midi-qol.EnforceSingleWeaponTarget.Name":  "Weapons attack single target",
+  "midi-qol.EnforceSingleWeaponTarget.Hint": "Wepaons with no target specification can only attack one target"
 }

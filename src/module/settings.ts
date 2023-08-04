@@ -70,6 +70,7 @@ class ConfigSettings {
   enableddbGL: boolean = false;
   enforceReactions = "none";
   enforceBonusActions = "none";
+  enforceSingleWeaponTarget: boolean = false;
   fixStickyKeys: boolean = true;
   fumbleSound: string = "";
   ghostRolls: boolean = false;
@@ -395,6 +396,7 @@ export let fetchParams = () => {
   if (configSettings.autoRemoveTemplate === undefined) configSettings.autoRemoveTemplate = true;
   if (configSettings.removeConcentrationEffects === undefined) configSettings.removeConcentrationEffects = "effects";
   if (configSettings.undoWorkflow === undefined) configSettings.undoWorkflow = false;
+  if (configSettings.enforceSingleWeaponTarget == undefined) configSettings.enforceSingleWeaponTarget = false;
   configSettings.hidePlayerDamageCard = true;
   configSettings.quickSettings = true;
   enableWorkflow = Boolean(game.settings.get("midi-qol", "EnableWorkflow"));

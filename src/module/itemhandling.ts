@@ -136,7 +136,13 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       return false;
     }
     // only allow weapon attacks against at most the specified number of targets
-    let allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999
+    let allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
+    if (configSettings.enforceSingleWeaponTarget 
+          && this.system.target?.type === null
+          && allAttackTypes.includes(this.system.actionType)) {
+            // we have a weapon with no creature limit set.
+            allowedTargets = 1;
+          }
     const inCombat = isInCombat(this.actor);
     let AoO = false;
     let activeCombatants = game.combats?.combats.map(combat => combat.combatant?.token?.id)

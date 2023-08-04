@@ -1,3 +1,7 @@
+## 11.0.10
+* New setting, "Enforce Single Weapon Target". When set weapons can only target a single creature if the target definition is empty. (This allows you to use weapons from the SRD unchanged without having to set a creature spec to enforce target counts). You can always set a number of creatures in the item if it needs to able to target more than 1.
+* Fix for **bad** bug of not processing fumble attacks correctly.
+
 ## 11.0.9.1
 * Fix for "Chat Message saves" not working.
 This release mainly adds to the TroubleShoorter Functions

@@ -201,18 +201,26 @@
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.RangeTarget.Hint"}}</div>
 
-        <div class="form-group">
-          <label>{{localize "midi-qol.RequiresTargets.Name"}}</label>
-          <select name="requiresTargets" data-dtype="String">
-            {{#select configSettings.requiresTargets}}
-            {{#each requiresTargetsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
-          </select>
-        </div>
-        <div class="midi-qol-faint">{{localize "midi-qol.RequiresTargets.Hint"}}</div>
+        <div class="midi-qol-box">
+          <div class="form-group">
+            <label>{{localize "midi-qol.RequiresTargets.Name"}}</label>
+            <select name="requiresTargets" data-dtype="String">
+              {{#select configSettings.requiresTargets}}
+              {{#each requiresTargetsOptions as |label val|}}
+              <option value="{{val}}">{{label}}</option>
+              {{/each}}
+              {{/select}}
+            </select>
+          </div>
+          <div class="midi-qol-faint">{{localize "midi-qol.RequiresTargets.Hint"}}</div>
 
+          <div class="form-group">
+            <label>{{localize "midi-qol.EnforceSingleWeaponTarget.Name"}}</label>
+            <input id="enforceSingleWeaponTarget" type="checkbox" name="enforceSingleWeaponTarget" data-dtype="Boolean"
+              {{checked configSettings.enforceSingleWeaponTarget}} />
+          </div>
+          <div class="midi-qol-faint">{{localize "midi-qol.EnforceSingleWeaponTarget.Hint"}}</div>
+        </div>
       </div>
       <!-- Specials -->
       <div class="midi-qol-box"> {{ localize "midi-qol.Special"}}

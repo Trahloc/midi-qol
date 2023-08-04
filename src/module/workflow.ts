@@ -3067,7 +3067,7 @@ export class Workflow {
     const midiFumble = this.item && getProperty(this.item, "flags.midi-qol.fumbleThreshold");
     //@ts-expect-error .funble
     let fumbleTarget = this.attackRoll.terms[0].options.fumble ?? 1;
-    if (!Number.isNumeric(midiFumble)) fumbleTarget = midiFumble;
+    if (Number.isNumeric(midiFumble)) fumbleTarget = midiFumble;
     this.isFumble = this.diceRoll <= fumbleTarget;
     this.attackTotal = this.attackRoll.total ?? 0;
     if (debugEnabled > 1) debug("processAttackRoll: ", this.diceRoll, this.attackTotal, this.isCritical, this.isFumble);
