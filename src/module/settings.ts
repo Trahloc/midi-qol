@@ -188,18 +188,12 @@ export const checkedModuleList = [
   "ddb-importer",
   "ddb-game-log",
   "df-templates",
-  "dfreds-convenient-effects",
   "dice-so-nice",
   "effectmacro",
   "itemacro",
-  "levels",
-  "levelsautocover",
-  "levelsvolumetrictemplates",
-  "lib-changelogs",
+  /levels/,
   "lib-wrapper",
   "lmrtfy",
-  "midi-qol",
-  "monks-tokenbar",
   "multilevel-tokens",
   "sequencer",
   "simbuls-cover-calculator",
@@ -208,7 +202,14 @@ export const checkedModuleList = [
   "tokenmagic",
   "walledtemplates",
   "warpgate",
-  "wjmaia"
+  "wjmaia",
+]
+
+export const CheckedAuthorsList = [
+  "hell",
+  "dfreds",
+  // "theripper93", - just too many modules :)
+  "ironmonk"
 ]
 export function collectSettingData() {
   let data = {
@@ -234,34 +235,6 @@ export function collectSettingData() {
     //@ts-ignore version v10
     systemVersion: game.system.version
   };
-
-  data.flags["modules"] = {};
-  checkedModuleList.forEach(moduleName => {
-    if (game.modules.get(moduleName)?.active)
-      //@ts-expect-error .version
-      setProperty(data.flags["modules"], moduleName, game.modules.get(moduleName)?.version)
-    else
-      setProperty(data.flags["modules"], moduleName, "not installed");
-  });
-
-  // TODO remove this when trouble shooter is up and running
-  data.flags["all-modules"] =
-    //@ts-ignore
-    game.modules.filter(m => m.active).map(m => {
-      const mdata = m.toObject();
-      return {
-        name: mdata.name,
-        title: mdata.title,
-        description: mdata.description,
-        url: mdata.url,
-        version: mdata.version,
-        compatibility: mdata.compatibility,
-        relationships: mdata.relationships,
-        scripts: mdata.scripts,
-        esmodules: mdata.esmodules,
-        socket: mdata.socket
-      }
-    });
   return data;
 }
 export function exportSettingsToJSON() {

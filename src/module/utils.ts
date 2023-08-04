@@ -67,7 +67,7 @@ export function createDamageList({ roll, item, versatile, defaultType = MQdefaul
     } catch (err) {
       const message = `midi-qol | createDamageList | DmgSpec not valid ${formula}`;
       TroubleShooter.recordError(err, message);
-      console.warn(message)
+      error(message, err)
       dmgSpec = undefined;
       break;
     }
@@ -979,63 +979,68 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
   const gmLetmeQuery = "letmeQuery" === GMprompt;
   const gmLetme = player.isGM && ["letme", "letmeQuery"].includes(GMprompt);
   let rollAdvantage: number = 0;
-  if (player && installedModules.get("lmrtfy") && (playerLetme || gmLetme)) {
-    if (((!player.isGM && playerLetMeQuery) || (player.isGM && gmLetmeQuery))) {
-      // TODO - reinstated the LMRTFY patch so that the event is properly passed to the roll
-      rollAdvantage = 2;
-    } else {
-      rollAdvantage = (advantage && !disadvantage ? 1 : (!advantage && disadvantage) ? -1 : 0);
+  try {
+    if (player && installedModules.get("lmrtfy") && (playerLetme || gmLetme)) {
+      if (((!player.isGM && playerLetMeQuery) || (player.isGM && gmLetmeQuery))) {
+        // TODO - reinstated the LMRTFY patch so that the event is properly passed to the roll
+        rollAdvantage = 2;
+      } else {
+        rollAdvantage = (advantage && !disadvantage ? 1 : (!advantage && disadvantage) ? -1 : 0);
+      }
+      if (isMagicSave) { // rolls done via LMRTFY won't pick up advantage when passed through and we can't pass both advantage and disadvantage
+        if (magicResistance && disadvantage) rollAdvantage = 1; // This will make the LMRTFY display wrong
+        if (magicVulnerability && advantage) rollAdvantage = -1; // This will make the LMRTFY display wrong
+      }
+      //@ts-ignore
+      let mode = isNewerVersion(game.version ?? game.version, "0.9.236") ? "publicroll" : "roll";
+      if (configSettings.autoCheckSaves !== "allShow") {
+        mode = "blindroll";
+      }
+      let message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${i18n("midi-qol.saving-throw")} ${flavor}`;
+      if (rollType === "abil")
+        message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${i18n("midi-qol.ability-check")} ${flavor}`;
+      if (rollType === "skill")
+        message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${flavor}`;
+      // Send a message for LMRTFY to do a save.
+      const socketData = {
+        user: player.id,
+        actors: [actorId],
+        abilities: rollType === "abil" ? [ability] : [],
+        saves: rollType === "save" ? [ability] : [],
+        skills: rollType === "skill" ? [ability] : [],
+        advantage: rollAdvantage,
+        mode,
+        title: i18n("midi-qol.saving-throw"),
+        message,
+        formula: "",
+        attach: { requestId },
+        deathsave: false,
+        initiative: false,
+        isMagicSave
+      }
+      if (debugEnabled > 1) debug("process player save ", socketData)
+      game.socket?.emit('module.lmrtfy', socketData);
+      //@ts-ignore - global variable
+      LMRTFY.onMessage(socketData);
+    } else { // display a chat message to the user telling them to save
+      const actorName = actor.name;
+      let abilityString = getSystemCONFIG().abilities[ability];
+      if (abilityString.label) abilityString = abilityString.label;
+      let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityString} ${i18n("midi-qol.saving-throw")}`;
+      if (advantage && !disadvantage) content = content + ` (${i18n("DND5E.Advantage")}) - ${flavor})`;
+      else if (!advantage && disadvantage) content = content + ` (${i18n("DND5E.Disadvantage")}) - ${flavor})`;
+      else content + ` - ${flavor})`;
+      const chatData = {
+        content,
+        whisper: [player]
+      }
+      // think about how to do this if (workflow?.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", workflow.flagTags);
+      ChatMessage.create(chatData);
     }
-    if (isMagicSave) { // rolls done via LMRTFY won't pick up advantage when passed through and we can't pass both advantage and disadvantage
-      if (magicResistance && disadvantage) rollAdvantage = 1; // This will make the LMRTFY display wrong
-      if (magicVulnerability && advantage) rollAdvantage = -1; // This will make the LMRTFY display wrong
-    }
-    //@ts-ignore
-    let mode = isNewerVersion(game.version ?? game.version, "0.9.236") ? "publicroll" : "roll";
-    if (configSettings.autoCheckSaves !== "allShow") {
-      mode = "blindroll";
-    }
-    let message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${i18n("midi-qol.saving-throw")} ${flavor}`;
-    if (rollType === "abil")
-      message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${i18n("midi-qol.ability-check")} ${flavor}`;
-    if (rollType === "skill")
-      message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${flavor}`;
-    // Send a message for LMRTFY to do a save.
-    const socketData = {
-      user: player.id,
-      actors: [actorId],
-      abilities: rollType === "abil" ? [ability] : [],
-      saves: rollType === "save" ? [ability] : [],
-      skills: rollType === "skill" ? [ability] : [],
-      advantage: rollAdvantage,
-      mode,
-      title: i18n("midi-qol.saving-throw"),
-      message,
-      formula: "",
-      attach: { requestId },
-      deathsave: false,
-      initiative: false,
-      isMagicSave
-    }
-    if (debugEnabled > 1) debug("process player save ", socketData)
-    game.socket?.emit('module.lmrtfy', socketData);
-    //@ts-ignore - global variable
-    LMRTFY.onMessage(socketData);
-  } else { // display a chat message to the user telling them to save
-    const actorName = actor.name;
-    //@ts-expect-error .version
-    let abilityString = getSystemCONFIG.abilities[abl];
-    if (abilityString.label) abilityString = abilityString.label;
-    let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityString} ${i18n("midi-qol.saving-throw")}`;
-    if (advantage && !disadvantage) content = content + ` (${i18n("DND5E.Advantage")}) - ${flavor})`;
-    else if (!advantage && disadvantage) content = content + ` (${i18n("DND5E.Disadvantage")}) - ${flavor})`;
-    else content + ` - ${flavor})`;
-    const chatData = {
-      content,
-      whisper: [player]
-    }
-    // think about how to do this if (workflow?.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", workflow.flagTags);
-    ChatMessage.create(chatData);
+  } catch (err) {
+    const message = `midi-qol | request PC save`;
+    TroubleShooter.recordError(err, message);
+    error(message, err);
   }
 }
 
@@ -1413,6 +1418,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       } catch (err) {
         const message = "completeItemUse error";
         TroubleShooter.recordError(err, message);
+        console.warn(message, err);
       } finally {
       }
     }
@@ -2628,7 +2634,6 @@ class RollModifyDialog extends Application {
       const message = "midi-qol | Optional flag roll error see console for details ";
       ui.notifications?.error(message);
       TroubleShooter.recordError(err, message);
-
       error(err);
     }
   }
@@ -3033,7 +3038,9 @@ async function getMagicItemReactions(actor: Actor, triggerType: string): Promise
       }
     }
   } catch (err) {
-    console.warn(`midi-qol | Fetching magic item spells/features on ${actor.name} failed - ignoring`, err)
+    const message = `midi-qol | Fetching magic item spells/features on ${actor.name} failed - ignoring`;
+    TroubleShooter.recordError(err, message);
+    console.warn(message, err);
   }
   return items;
 }
@@ -3581,6 +3588,7 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
   } catch (err) {
     const message = `create condition data`;
     TroubleShooter.recordError(err, message);
+    console.warn(message, err);
   } finally {
     if (data.workflow) data.workflow.conditionData = rollData;
   }
@@ -3603,6 +3611,7 @@ export function evalCondition(condition: string, conditionData: any, errorReturn
     const message = `midi-qol | activation condition (${condition}) error `;
     console.warn(message, conditionData, err);
     TroubleShooter.recordError(err, message);
+    console.warn(message, err);
   }
   return returnValue;
 }
@@ -3889,10 +3898,10 @@ export async function asyncHooksCall(hook, ...args) {
       //@ts-ignore
       callAdditional = await hookCall(entry, args);
     } catch (err) {
-      const message = `hooked function for hook ${hook} error`;
+      const message = `midi-qol | hooked function for hook ${hook} error`;
       error(message, err);
       TroubleShooter.recordError(err, message);
-
+      error(message, err);
       callAdditional = true;
     }
     if (callAdditional === false) return false;
@@ -3907,7 +3916,7 @@ function hookCall(entry, args) {
   } catch (err) {
     const message = `Error thrown in hooked function '${fn?.name}' for hook '${hook}'`;
     TroubleShooter.recordError(err, message);
-    console.warn(`midi | ${message}`);
+    error(`midi | ${message}`);
     //@ts-ignore Hooks.onError v10
     if (hook !== "error") Hooks.onError("Hooks.#call", err, { message, hook, fn, log: "error" });
   }
@@ -4370,8 +4379,9 @@ export async function doConcentrationCheck(actor, itemData) {
       result = await completeItemUse(ownedItem, {}, { systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { lateTargeting: "none" } })
     }
   } catch (err) {
-    const message = "doConcentrationCheck";
+    const message = "midi-qol | doConcentrationCheck";
     TroubleShooter.recordError(err, message);
+    console.warn(message, err);
   } finally {
     if (saveTargets && game.user) game.user.targets = saveTargets;
     return result;

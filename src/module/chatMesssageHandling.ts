@@ -283,7 +283,6 @@ export let nsaMessageHandler = (message, data, ...args) => {
 let _highlighted: Token | null = null;
 
 let _onTargetHover = (event) => {
-
   event.preventDefault();
   if (!canvas?.scene?.active) return;
   const token: Token | undefined = canvas?.tokens?.get(event.currentTarget.id);
@@ -297,7 +296,7 @@ let _onTargetHover = (event) => {
 /* -------------------------------------------- */
 
 /**
- * Handle mouse-unhover events for a combatant in the tracker
+ * Handle mouse-unhover events for a combatant in the chat card
  * @private
  */
 let _onTargetHoverOut = (event) => {

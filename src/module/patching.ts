@@ -1136,14 +1136,12 @@ export let visionPatching = () => {
 
 export function configureDamageRollDialog() {
   try {
+  libWrapper.unregister("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", false);
     if (configSettings.promptDamageRoll) libWrapper.register("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", CustomizeDamageFormula.configureDialog, "MIXED");
-    else {
-      libWrapper.unregister("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", false);
-    }
   } catch (err) {
-    const message = `error when registering configureDamageRollDialog`;
+    const message = `midi-qol | error when registering configureDamageRollDialog`;
     TroubleShooter.recordError(err, message);
-
+    error(message, err);
   }
 }
 

@@ -1,6 +1,6 @@
 import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, readySettingsSetup } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
-import { checkModules, installedModules, setupModules } from './module/setupModules.js';
+import { checkModules, DAE_REQUIRED_VERSION, installedModules, setupModules } from './module/setupModules.js';
 import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
 import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Hooks.js';
 import { initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
@@ -15,6 +15,7 @@ import { MidiKeyManager } from './module/MidiKeyManager.js';
 import { MidiSounds } from './module/midi-sounds.js';
 import { addUndoChatMessage, getUndoQueue, removeMostRecentWorkflow, showUndoQueue, undoMostRecentWorkflow } from './module/undo.js';
 import { showUndoWorkflowApp } from './module/apps/UndowWorkflow.js';
+import { TroubleShooter } from './module/apps/TroubleShooter.js';
 
 export let debugEnabled = 0;
 export let debugCallTiming: any = false;
@@ -218,6 +219,7 @@ Hooks.once('setup', function () {
     };
   };
   setupSheetQol();
+  createMidiMacros();
 
 });
 
@@ -225,9 +227,6 @@ Hooks.once('setup', function () {
 /* When ready							*/
 /* ------------------------------------ */
 Hooks.once('ready', function () {
-  const exclusionMacro = game.macros?.getName("Warning Exclusions for Midi");
-  if (exclusionMacro) exclusionMacro?.execute();
-
   gameStats = new RollStats();
   actorAbilityRollPatching();
   // has to be done before setup api.
@@ -302,7 +301,7 @@ Hooks.once('ready', function () {
   }
   if (game.settings.get("midi-qol", "splashWarnings") && game.user?.isGM) {
     if (game.user?.isGM && !installedModules.get("dae")) {
-      ui.notifications?.warn("Midi-qol requires DAE to be installed and at least version 10.0.9 or many automation effects won't work");
+      ui.notifications?.warn(`Midi-qol requires DAE to be installed and at least version ${DAE_REQUIRED_VERSION} or many automation effects won't work`);
     }
     if (game.user?.isGM && game.modules.get("betterrolls5e")?.active && !installedModules.get("betterrolls5e")) {
       ui.notifications?.warn("Midi QOL requires better rolls to be version 1.6.6 or later");
@@ -369,7 +368,6 @@ Hooks.once('ready', function () {
 });
 
 import { setupMidiTests } from './module/tests/setupTest.js';
-import { TroubleShooter } from './module/apps/TroubleShooter.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -726,42 +724,68 @@ function setupMidiFlags() {
 // Revisit to find out how to set execute as GM
 const MQMacros = [
   {
-    name: "MidiQOL.UpdateHP",
+    name: "MidiQOL.showTroubleShooter",
+    checkVersion: true,
+    version: "11.0.9",
+    permission: { default: 1 },
     commandText: `
-    // Macro Auto created by midi-qol
-    const theActor = await fromUuid(args[0]);
-    if (!theActor || isNaN(args[1])) return;
-    await theActor.update({"system.attributes.hp.value": Number(args[1])}, {onUpdateCalled: true});`
+    new MidiQOL.TroubleShooter().render(true)`
+  },
+  {
+    name: "MidiQOL.exportTroubleShooterData",
+    checkVersion: true,
+    version: "11.0.9.1",
+    permission: { default: 1 },
+    commandText: `MidiQOL.TroubleShooter.exportTroubleShooterData()`
   }
-
 ]
-export function createMidiMacros() {
+export async function createMidiMacros() {
+  const midiVersion = "11.0.9"
   if (game?.user?.isGM) {
     for (let macroSpec of MQMacros) {
-      let macro = game.macros?.getName(macroSpec.name);
-      while (macro) {
-        macro.delete();
-        macro = game.macros?.getName(macroSpec.name);
+      try {
+        let existingMacros = game.macros?.filter(m => m.name === macroSpec.name) ?? [];
+        if (existingMacros.length > 0) {
+          for (let macro of existingMacros) {
+            if (macroSpec.checkVersion
+              //@ts-expect-error .flags
+              && !isNewerVersion(macroSpec.version, (macro.flags["midi-version"] ?? "0.0.0")))
+              continue; // already up to date
+            await macro.update({
+              command: macroSpec.commandText,
+              "flags.midi-version": macroSpec.version
+            });
+          }
+        } else {
+          const macroData = {
+            _id: null,
+            name: macroSpec.name,
+            type: "script",
+            author: game.user.id,
+            img: 'icons/svg/dice-target.svg',
+            scope: 'global',
+            command: macroSpec.commandText,
+            folder: null,
+            sort: 0,
+            permission: {
+              default: 1,
+            },
+            flags: { "midi-version": macroSpec.version ?? "midiVersion" }
+          };
+          //@ts-expect-error
+          await Macro.createDocuments([macroData]);
+          log(`Macro ${macroData.name} created`);
+        }
+      } catch (err) {
+        const message = `createMidiMacros | falied to create macro ${macroSpec.name}`
+        TroubleShooter.recordError(err, message);
+        error(err, message);
       }
-      const macroData = {
-        _id: null,
-        name: macroSpec.name,
-        type: 'script',
-        author: game.user.id,
-        img: 'icons/svg/dice-target.svg',
-        scope: 'global',
-        command: macroSpec.commandText,
-        folder: null,
-        sort: 0,
-        permission: {
-          default: 0,
-        },
-        flags: {},
-      };
     }
   }
 }
 
+/*
 const midiOldErrorHandler = globalThis.onerror;
 function midiOnerror(event: string | Event, source?: string | undefined, lineno?: number | undefined, colno?: number | undefined, error?: Error) {
   console.warn("midi-qol detected error", event, source, lineno, colno, error);
@@ -770,3 +794,4 @@ function midiOnerror(event: string | Event, source?: string | undefined, lineno?
   return false;
 }
 globalThis.onerror = midiOnerror;
+*/

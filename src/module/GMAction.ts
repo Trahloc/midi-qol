@@ -118,7 +118,6 @@ export async function timedAwaitExecuteAsGM(toDo: string, data: any) {
   return returnValue;
 }
 
-
 export async function _gmUnsetFlag(data: { base: string, key: string, actorUuid: string }) {
   //@ts-expect-error
   let actor = fromUuidSync(data.actorUuid);

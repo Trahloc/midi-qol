@@ -3,24 +3,25 @@ import { log } from "../midi-qol.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configSettings } from "./settings.js";
 
+export const DAE_REQUIRED_VERSION = "11.0.7.2";
 const modules = {
   "about-time": "0.0", 
   "anonymous": "0.0.0",
   "chris-premades": "0.5.52",
   "combat-utility-belt": "1.3.8",
   "condition-lab-triggler": "1.4",
-  "dae": "10.0.30",
+  "dae": DAE_REQUIRED_VERSION,
   "ddb-game-log": "0.0.0",
   "df-templates": "1.0.0",
-  "dfreds-convenient-effects": "5.0.3",
+  "dfreds-convenient-effects": "5.0.4",
   "dice-so-nice": "4.1.1", 
-  "itemacro": "0.0.0", 
+  "itemacro": "1.9.0", 
   "levels": "3.0.6", 
   "levelsautocover": "1.4",
   "levelsvolumetrictemplates": "0.0.0",
   "lib-changelogs": "0.0.0",
   "lib-wrapper": "1.3.5",
-  "lmrtfy": "3.1.2",
+  "lmrtfy": "0.0.0",
   "monks-tokenbar": "1.0.55",
   "multilevel-tokens": "1.6.0",
   "ready-set-roll-5e": "1.2.0",

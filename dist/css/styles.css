@@ -245,3 +245,25 @@
   background: rgba(0, 0, 0, 0.05);
   border: 2px groove var(--color-border-light-secondary);
 }
+
+/* ----------------------------------------- */
+/* midi-trouble-shooter
+/* ----------------------------------------- */
+.trouble-shooter-action-label:hover {
+  text-shadow: 0 0 4px red;
+}
+.midi-trouble-shooter .contents .scrollable {
+  flex: 1;
+  overflow: hidden auto;
+}
+/*
+.midi-trouble-shooter .window-content > div {
+  height: 90%;
+  flex-wrap: nowrap;
+}
+
+
+.midi-trouble-shooter .contents footer {
+  flex: 0;
+}
+*/

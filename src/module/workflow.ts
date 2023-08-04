@@ -719,7 +719,9 @@ export class Workflow {
           try {
             await this.checkSaves(configSettings.autoCheckSaves !== "allShow");
           } catch (err) { 
-            TroubleShooter.recordError(err);
+            const message =("midi-qol | checkSaves error")
+            TroubleShooter.recordError(err, message);
+            error(message, err)
           } finally {
             Hooks.off("renderChatMessage", hookId);
             // Hooks.off("renderChatMessage", brHookId);

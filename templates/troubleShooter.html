@@ -1,16 +1,16 @@
-<div class="midi-trouble-shooter trouble-shooter flexcol">
+<div ">
   <!-- Config Settings Configuration Tabs -->
-  <nav class="sheet-tabs tabs" data-group="sections">
-    <a class="item" data-tab="summary"><i class="fas fa-cogs"></i> {{localize "midi-qol.Summary"}}</a>
-    <a class="item" data-tab="commonModules"><i class="fas fa-cogs"></i> {{localize "midi-qol.CommonModules"}}</a>
-    <a class="item" data-tab="problems"> {{localize "midi-qol.Problems"}}</a>
-    <a class="item" data-tab="errors"> {{localize "midi-qol.Errors"}}</a>
-    <a class="item" data-tab="allModules"><i class="fas fa-cogs"></i> {{localize "midi-qol.AllModules"}}</a>
+  <nav class=" sheet-tabs tabs" data-group="sections">
+  <a class="item" data-tab="summary"><i class="fas fa-cogs"></i> {{localize "midi-qol.Summary"}}</a>
+  <a class="item" data-tab="commonModules"><i class="fas fa-cogs"></i> {{localize "midi-qol.CommonModules"}}</a>
+  <a class="item" data-tab="problems"> {{localize "midi-qol.Problems"}}</a>
+  <a class="item" data-tab="errors"> {{localize "midi-qol.Errors"}}</a>
+  <a class="item" data-tab="allModules"><i class="fas fa-cogs"></i> {{localize "midi-qol.AllModules"}}</a>
 
   </nav>
   <form class="flexcol">
     <div class="scrollable">
-      <section id="trouble=shooter-tabs" class="content">
+      <section id="trouble=shooter-tabs" class="midi-contents">
         <!-- Summary -->
         <div class="tab" data-tab="summary" data-group="sections">
           <div class="midi-qol-box">
@@ -50,10 +50,10 @@
           </div>
           <div class="midi-qol-box">
             <table>
-              <col width="70%">
               <col width="30%">
+              <col width="70%">
               <tr>
-                <th style="text-align: center" colspan="2">Core Settings</th>
+                <th style="text-align: center" colspan="2">Foundry Data</th>
               </tr>
               {{#each summary.coreSettings as |value key|}}
               <tr>
@@ -141,10 +141,10 @@
             <table>
               <th style="text-align: center" colspan="4">Common Problems</th>
               <tr>
-                <td>Severity</td>
-                <td>Module Id</td>
-                <td>Problem</td>
-                <td>Fix</td>
+                <th>Severity</th>
+                <th>Module Id</th>
+                <th>Problem</th>
+                <th>Fix</th>
               </tr>
               {{#each problems as |problem moudleId|}}
               <tr>
@@ -152,14 +152,29 @@
                 <td>{{moduleId}}</td>
                 <td>{{problem.problemSummary}}</td>
                 <td>{{problem.fixer}}</td>
-                {{#if problem.problemDetail}}
+              </tr>
+
+              {{#if problem.hasFixerFunc}}
+              <tr>
+                <td></td>
+                <td></td>
+                <td style="text-align: center">
+                  <div class="midi-qol-box">
+                    <div class="trouble-shooter-action-label" id="fixer-{{problem.fixerid}}"><strong>{{localize "Auto
+                        Fix"}}</strong></div>
+                  </div>
+                </td>
+                <td style="text-align: center;">Click on Auto Fix to resolve the problem</td>
+              </tr>
+              {{/if}}
+              {{#if problem.problemDetail}}
               <tr>
                 <td></td>
                 <td>Details</td>
-                <td>{{problem.problemDetail}}</td>
+                <td colspan=3>{{problem.problemDetail}}</td>
               </tr>
               {{/if}}
-              </tr>
+
               {{/each}}
             </table>
             {{else}}
@@ -183,6 +198,50 @@
             </table>
             {{else}}
             <div style="text-align: center">No Incompatible Modules Active</div>
+            {{/if}}
+          </div>
+          <div class="midi-qol-box">
+            {{#if hasFoundryModuleProblems}}
+            <table>
+              <col width="15%">
+              <col width="15%">
+              <col width="70%">
+              <th style="text-align: center" colspan="3">
+                Foundry Identified Compatibility Issues
+              </th>
+              <tr>
+                <th style="text-align: left">Id</th>
+                <th style="text-align: left">Type</th>
+                <th style="text-align: left">Title</th>
+              </tr>
+              {{#each summary.foundryModuleIssues as |foundryDetail key|}}
+              <tr>
+                <td><strong>{{key}}</strong></td>
+                <td>{{foundryDetail.type}}</td>
+                <td>{{foundryDetail.title}}</td>
+              </tr>
+              {{#each foundryDetail.error as |error|}}
+              <tr>
+                <td></td>
+                <td>Error</td>
+                <td colspan=1>
+                  {{error}}
+                </td>
+              </tr>
+              {{/each}}
+              {{#each foundryDetail.warning as |warning|}}
+              <tr>
+                <td></td>
+                <td>Warning</td>
+                <td colspan=1>
+                  {{warning}}
+                </td>
+              </tr>
+              {{/each}}
+              {{/each}}
+            </table>
+            {{else}}
+            <div style="text-align: center">No Foundry module issues reported</div>
             {{/if}}
           </div>
           <div class="midi-qol-box">
@@ -216,7 +275,6 @@
             <div style="text-align: center">No Out of Date Modules Installed</div>
             {{/if}}
           </div>
-
         </div>
         <!-- Errors Tab -->
         <div class="tab" data-tab="errors" data-group="sections">
@@ -224,8 +282,10 @@
             {{#if hasErrors}}
             <table>
               <col width="25%">
-              <col width="75%>"
-              <tr><th colspan="=2">>Recorded Errors</th></tr>
+              <col width="75%">
+              <tr>
+                <th colspan="=2">Recorded Errors</th>
+              </tr>
               <tr>
                 <td>Time</td>
                 <td>Error</td>
@@ -291,20 +351,22 @@
         </div>
       </section>
     </div>
-  </form>
-  <footer class="sheet-footer flexrow">
-    <button type="submit" name="submit" id="midi-qol-regenerate-troubleshooter">
-      <i class="fas fa-cogs"></i> {{localize "MENU.Reload"}}
-    </button>
-    <button type="submit" name="submit" id="midi-qol-clear-errors-troubleshooter">
-      <i class="fas fa-cogs"></i> {{localize "Clear Errors"}}
-    </button>
-    <button type="submit" name="submit" id="midi-qol-export-troubleshooter">
-      <i class="fas fa-save"></i> {{localize "SIDEBAR.Export"}}
-    </button>
-    <button type="submit" name="submit" id="midi-qol-import-troubleshooter">
-      <i class="fas fa-load"></i> {{localize "SIDEBAR.Import"}}
-    </button>
-  </footer>
+    <footer class="sheet-footer flexrow">
+      <button type="submit" name="submit" id="midi-qol-regenerate-troubleshooter">
+        <i class="fas fa-cogs"></i> {{localize "MENU.Reload"}}
+      </button>
+      <button type="submit" name="submit" id="midi-qol-clear-errors-troubleshooter">
+        <i class="fas fa-cogs"></i> {{localize "Clear Errors"}}
+      </button>
+      <button type="submit" name="submit" id="midi-qol-export-troubleshooter">
+        <i class="fas fa-save"></i> {{localize "SIDEBAR.Export"}}
+      </button>
+      <button type="submit" name="submit" id="midi-qol-import-troubleshooter">
+        <i class="fas fa-load"></i> {{localize "SIDEBAR.Import"}}
+      </button>
+      <button type="submit" name="submit" id="midi-qol-overwrite-midi-settings">
+        <i class="fas fa-load"></i> {{localize "Overwrite Midi Settings"}}
+      </button>
+    </footer>
   </form>
 </div>

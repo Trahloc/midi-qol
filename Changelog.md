@@ -1,3 +1,15 @@
+## 11.0.9.1
+* Fix for "Chat Message saves" not working.
+This release mainly adds to the TroubleShoorter Functions
+* Added MidiQOL.``TroubleShooter.exportTroubleShooterData()`` which will create and export trouble shooter data.
+* Midi will auto create two world accessible macros ``MidiQOL.showTroubleShooter`` and ``MidiQOL.exportTroubleShooterData`` which can be dragged to the hotbar and run by any client.
+* Added midi settings data to exported Trouble Shooter data.
+* Added option to overwrite local midi settings with the settings from a loaded trouble shooter file. (This means you no longer need to have users export midi settings, just the trouble shooter file).
+* Added first two auto fix problems. ItemMacro charsheet setting and midi enable workflow (more to come). Clicking on Auto Fix will fix the settings.
+* Report some more details about the world and current scene.
+* Report foundry identified module problems (same data as displayed in the foundry support tool) on the problems tab.
+* Sanitize any urls in the trouble shooter data.
+
 ## 11.0.9
 * Added trouble shooter app. At this stage it is mainly a tool to report your settings and loaded modules (and their settings).
 * There are two modes Local Client Settings (visible on the summary tab) and Settings from File. Local Client settings means the data reported is from the current foundry client, Settings from File means the display is a snapshot from  another client exported from the TroubleShooter app and then imported.
