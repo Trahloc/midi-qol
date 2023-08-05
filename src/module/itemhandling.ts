@@ -96,7 +96,8 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         return;
       }
     }
-    if (!existingWorkflow) Workflow.removeWorkflow(theWorkflow.id);
+    if (!existingWorkflow) Workflow.removeWorkflow(theWorkflow.id); // get rid of the dummy workflow
+    if (existingWorkflow) Workflow.removeWorkflow(existingWorkflow.id); // new roll so get rid of old workflow?
 
     if (shouldCheckLateTargeting && !isRangeTargeting && !isAoETargeting) {
 

@@ -1,3 +1,7 @@
+## 11.0.10.1
+* Fix for throwing error when checking for disadvantage when there is a nearby ally (houe rule).
+* Slight change for late targetting when using an item with ammunition and dnd5e-scriptlets to respect late targeting settings.
+
 ## 11.0.10
 * New setting, "Enforce Single Weapon Target". When set weapons can only target a single creature if the target definition is empty. (This allows you to use weapons from the SRD unchanged without having to set a creature spec to enforce target counts). You can always set a number of creatures in the item if it needs to able to target more than 1.
 * Fix for **bad** bug of not processing fumble attacks correctly.

@@ -2,13 +2,12 @@ import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamag
 import { configSettings, autoRemoveTargets, checkRule, lateTargeting, criticalDamage, criticalDamageGM, checkMechanic } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { BetterRollsWorkflow, DummyWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
-import { rollAbility, socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
+import { socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
 import { OnUseMacros } from "./apps/Item.js";
 import { Options } from "./patching.js";
-import { resolveLateTargeting } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 
 export function getDamageType(flavorString): string | undefined {
@@ -2276,9 +2275,9 @@ function mapTokenString(disposition: string | number): number | null {
 
 export function findNearby(disposition: number | string | null | Array<string | number>, token: any /*Token | uuuidString */, distance: number,
   options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined, relative: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false, relative: true }): Token[] {
+  token = getToken(token);
   if (!token) return [];
   if (!canvas || !canvas.scene) return [];
-  if (typeof token === "string") token = MQfromUuid(token).object;
   try {
     if (!(token instanceof Token)) { throw new Error("find nearby token is not of type token or the token uuid is invalid") };
     let relative = options.relative ?? true;
