@@ -6,7 +6,13 @@ This guide is intended for new users to midi-qol who need some guidance on setti
 ## What can midi-qol do?
 Here is a spider attacking a goblin using the base dnd5e system.  
 ![dnd5e spider bite](GettingStartedPics/Base%20Spider%20Bite.png)
-
+Foundry has displayed a chat card with buttons on it for attack and damage and doing the saving through. You go through the following steps
+  * Press the attack button which prompts you to decide if the attack is made with advantage or disadvantage and whether there are any special bonuses, like luck/bardic inspiration.
+  * Decide if the attack hit remembering to deal with any reactions the target might take, like a shield spell.
+  * If the attack hit roll hit roll the damage remembering to check if it is a critical hit and if there are any special bonuses for the damage, like a mace of disruption/drgon slayer sword.
+  * Roll the saving throw.
+    - Decide if the saving throw was successful or not - remembering to add any special bonuses and wheter the save should be with advantage or disadvantage.
+  * Work out how much damage to apply to the token, rembering to factor in resistance/immunities/the saving throw
 Here is the same spider biting the same goblin with midi-qol automation enabled and configured
 | Spider Bite | Extra actions generated with same click |
 | ------ | ------ |
@@ -17,27 +23,23 @@ Midi-qol is a fairly complex module with many configuration options and dependen
 2. Configure midi-qol to work the way you want.
 3. Get some midi-compatible items to make all this automation stuff work.
 
+
 ## Prequisites
 ### Modules you must also install
 #### libsocket
 #### libwrapper
+#### Dynamic Active Effects
 #### Advanced Macros
-Whilst not always required, just install it and be done with it.
+No longer required or supported.
 ### Modules you really should install
-#### Dynamic Effects using Active Effects.
-This is not strictly required but your life will be easier with it installed and is assumed for the rest of this dcoument.
-
 #### Times-up
 Required if you want effects to automatically be removed on expiry, either world time on combat turn/round. If you want time to advance in your world both **Simple Calendar** and **Small Time** are highly recommended.
 
 ### Modules that are nice to have
-#### Combat Utility Belt or Convenient Effects
+#### Convenient Effects or Condition Lab and Triggler
 Convenient Effects provides status effects, like blinded charmed and so pre-configured and can be applied to targets as the result of using an item. In addition, when using an item midi can automatically apply the convenient effects defined effects for that spell.
 
-Combat utility belt (CUB) allows configuration of status effects which you can apply with midi-qol.
-CUB allows hiding of target names in chat cards for the standard rolls (attack/damage/saves) and complements midis hiding of target names. Midi uses the CUB settings for which actors should be hidden.
-
-CUB Concentration automation and midi-qol concentration automation are not compatible - choose one.
+Condition Lab and triggler (CLT) allows configuration of status effects which you can apply with midi-qol.
 
 ### Monks Token Bar/Let Me Roll That for You.
 When automating saving throws both of these modules allow you to have players roll their own saving throws and midi-qol will interact with them to prompt for and record the saving throws. Both are recommended. The only "issue" is that monk's token bar will not hide the monster names when displayed.
@@ -62,6 +64,8 @@ The next sections cover configuring how that combat automation works, midi refer
 
 #### Configure attack and damage rolls
 Midi has several concepts that can be confusing to first time users.
+##### Rolling Attacks and Damage.
+Normally when you roll an item it displays a chat card with attack and damage buttons. There are Midi settings 
 * FastForward - if a roll is fastforwarded the configuration dialog for that roll will be skipped when midi does the roll. For attack and damage that means the advantage/disadvantage/normal/critial dialog is skipped.
 * Auto roll - dnd5e creates a chat card with attack and damage buttons when you roll an item (click on the icon next to the item in the character sheet). If a roll is "auto rolled" midi will behave as if the button had been clicked.
 * Modifier keys (formerly known as speed keys). When you click on a chat card button (let assume attack) you can hold Control (disadvantage) or Alt (advantage) to skip the roll dialog and use the modifier key settings. Midi allows you to press the alt/ctrl key when clicking on the character sheet icon to auto roll the attack with advantage/disadvantage. You can configure the midi-qol keys from Configure Controls in foundry settings section.
