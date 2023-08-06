@@ -13,16 +13,28 @@ Foundry has displayed a chat card with buttons on it for attack and damage and d
   * Roll the saving throw.
     - Decide if the saving throw was successful or not - remembering to add any special bonuses and wheter the save should be with advantage or disadvantage.
   * Work out how much damage to apply to the token, rembering to factor in resistance/immunities/the saving throw
-Here is the same spider biting the same goblin with midi-qol automation enabled and configured
+Here is the same spider biting the same goblin with midi-qol automation enabled and configured.
+  * Apply any sepcial effects that the attack mid have, e.g. the posisoned condition.
+
+Midi-qol exists to help you automate the some or all of these steps. Before going through the detail of how to set this up here is the same attack done with midi-qol with full automation, all accomplished with a single cick of the item button.
+
 | Spider Bite | Extra actions generated with same click |
 | ------ | ------ |
 | ![midi-qol spider bite](GettingStartedPics/Auto%20Spider%20Bite.png) | <ul><li>The attack and damage rolls have been made</li><li>A check has been made to see if the attack hit the target</li><li>The damage has been rolled, the bite damage and the poison damage</li><li>The goblin has rolled the consitution save</li><li>The save has been checked and the goblin failed</li><li>The damage has been calculated and applied to the goblin. (midi knows about damage resistance and takes that into account)</li><li>A GM only summary damage card has been displayed showing what damage was done and giving the option to revise it.</li></ul> |
 ## I've installed it but it does not do anything....
 Midi-qol is a fairly complex module with many configuration options and dependencies on other modules. To make it work you have to go through a setup process where you configure it to work the way you want.
+
+If you are too impatient to read a getting started guide, here is the quickest way to get something working. 
+  1. Install the prerequisite modules (libsocket, libwrapper and Dynami Active Effects), midi-qol won't activate without them.
+  2. Got to configure settings and for midi-qol tick "Enable Combat Automation".
+  3. Navigate to the midi-qol settings and click on the workflow button.
+  4. Go to the quick settings tab and click full automation and confirm the changes. Midi will now do most things out of the box when you target an opponent and roll the sword.
+
+Once you've done that come back and read through the rest of the configuation guide.
+
 1. Install the prerequisite modules plus any nice to haves you want.
 2. Configure midi-qol to work the way you want.
 3. Get some midi-compatible items to make all this automation stuff work.
-
 
 ## Prequisites
 ### Modules you must also install
@@ -61,20 +73,32 @@ This allows effects to be applied to nearby tokens without having to trigger any
 ### Conguration overview
 First enable combat automation in the midi-qol settings.
 The next sections cover configuring how that combat automation works, midi refers to a attack or spell cast as a workflow. You need to click on the workflow settings to manage the next set of settings.
+The steps are:
+1. Configure Attack/Damage rolls
+2. Configure the Workflow Tab
+3. Look and feel
+4. Configure Other optional settings
+  * Reactions
+  * Concentration
+  * Optional rules
+  * Mechanics.
+
+Most setings are configured on the configuratin application (the workflow button on configure settings) and is accessible only to a GM. Some settings available to all users are on the configuration settings application from the foundry sidebar.
 
 #### Configure attack and damage rolls
 Midi has several concepts that can be confusing to first time users.
 ##### Rolling Attacks and Damage.
-Normally when you roll an item it displays a chat card with attack and damage buttons. There are Midi settings 
-* FastForward - if a roll is fastforwarded the configuration dialog for that roll will be skipped when midi does the roll. For attack and damage that means the advantage/disadvantage/normal/critial dialog is skipped.
+Normally when you roll an item it displays a chat card with attack and damage buttons. There are Midi settings to alter that process.
 * Auto roll - dnd5e creates a chat card with attack and damage buttons when you roll an item (click on the icon next to the item in the character sheet). If a roll is "auto rolled" midi will behave as if the button had been clicked.
-* Modifier keys (formerly known as speed keys). When you click on a chat card button (let assume attack) you can hold Control (disadvantage) or Alt (advantage) to skip the roll dialog and use the modifier key settings. Midi allows you to press the alt/ctrl key when clicking on the character sheet icon to auto roll the attack with advantage/disadvantage. You can configure the midi-qol keys from Configure Controls in foundry settings section.
+* FastForward - if a roll is fastforwarded the configuration dialog for that roll will be skipped when midi does the roll. For attack and damage that means the advantage/disadvantage normal/critial dialog is skipped.
+
+* Modifier keys. When you click on a chat card button (let's assume attack) you can hold Control (disadvantage) or Alt (advantage) to skip the roll dialog and use the modifier key settings. Midi allows you to press the alt/ctrl key when clicking on the character sheet icon to auto roll the attack with advantage/disadvantage. You can configure the midi-qol keys from Configure Controls in foundry settings section.
 
 Both of GM and Player tab lets you configure how rolling an item behaves.
-Auto Roll attack, when the item is rolled the attack is automatically rolled.
-Auto Roll damage, never, only roll if the attack hits or always.
-FastForward attack - skip the configuration dialog.
-FastForward damage - skip the damage configuration dialog.
+* Auto Roll attack, when the item is rolled the attack is automatically rolled.
+* Auto Roll damage, never, only roll if the attack hits or always.
+* FastForward attack - skip the configuration dialog.
+* FastForward damage - skip the damage configuration dialog.
 
 This works fine if you are doing an ordinary attack, but sometimes you want to do some hand editing of the roll and not do everything automatically. The rollToggle key allows you to do this (dfault T). If you hold T when clicking on the item icon the normal sense of fastForwarding and auto roll is reversed. So if you were doing automatic rolls pressing T will display the Chat card for the item with attack and damage buttons ready for you to click.
 
@@ -82,13 +106,33 @@ This works fine if you are doing an ordinary attack, but sometimes you want to d
 ![GM Attack](GettingStartedPics/GM_Settings.png)  
 Auto Roll Attack: if ticked GM attack rolls will be auto rolled.
 Skip Consume resource dialog: If ticked the resource consumption dialog will be skipped and default answers used, for spells this means casting at the base level.
-Late Targeting: By default midi uses the targets selected when you click the attack button. Late targeting allows you to modify the targets after the 
+Late Targeting: By default midi uses the targets selected when you click the attack button. Late targeting allows you to modify the targets after the roll is started
 ##### Player Tab
 ![Player Attack](GettingStartedPics/Player Settings.png)
+Similar to the GM tab but applies for non-gm players. The sae settings apply to all players.
+#### Configuring the workflow.
+Midi has the concept of a workflow, when you start the attack/cast the spell midi goes through a set of steps to determine the outcome of the roll, starting with targeting and finishing with applying status conditons (like poisoned).
+The workflow tab alows you to configure how each of those steps are performed and if they are automated or not.
 #### Configure targeting
+Midi expects you to target who you want to hit before clicking the weapon/spell you want to attack with. This can be tedious for Area of Effect Spells (fire ball) or Ranged Spells (Mass Healing Word). Midi can automate targeting for those spells if you wish.
+As players have been known to forget to target when it is their turn and this results in having to target then roll again. Midi supports late targeting, configurable per player to present a dialog after you hit the roll item button and assists in setting the targets correctly. (On the GM tab for the GM and in the configure settings foundry application per player)
+
 ![Targeting](GettingStartedPics/Targeting.png)
+
+Template spells are spells like Fireball. If auto targeting for template spells midi will highlight the potential targets while the template preview is active, once placed midi will use the tokens inside the template as the targets for the spell.
+
+Midi supports a few additional modules for determining how templates behave.
+#### Automating Attack Roll
+When an attack roll is made midi will work out what sources of advantage/disadvantage there are (midi flags - more on this later, nearby foes etc - various optional rules settings and any applicable bonus).
+
 #### Configure checking hits
 ![Hits](GettingStartedPics/Hits.png)
+Midi can automate the process of checking hits. If enabled midi will compare the attack roll with the AC of the target and determine if the attack is a hit.
+
+Optionally midi will process bonus effects on the attacker and reaction items on the target before adjudicating the results of the attack. For example, if the target has a shield spell (which can be cast as a reaction) midi can prompt the player controlling the target if they wish to use their reaction to cast the shield spell and adjudicate the attack based on the revised AC of the target.
+
+If enabled attacks that hit will proceed to checking saves/damage application.
+
 #### Configure checking saves
 ![Saves](GettingStartedPics/Saves.png)
 #### Configure applying damage
