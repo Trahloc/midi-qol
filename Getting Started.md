@@ -5,15 +5,14 @@
 This guide is intended for new users to midi-qol who need some guidance on setting the very many options that exist.
 ## What can midi-qol do?
 Here is a spider attacking a goblin using the base dnd5e system.  
-![dnd5e spider bite](GettingStartedPics/Base%20Spider%20Bite.png)
-Foundry has displayed a chat card with buttons on it for attack and damage and doing the saving through. You go through the following steps
+![dnd5e spider bite](GettingStartedPics/Base%20Spider%20Bite.png)  
+Foundry has displayed a chat card with buttons on it for attack and damage and doing the saving throw. You go through the following steps
   * Press the attack button which prompts you to decide if the attack is made with advantage or disadvantage and whether there are any special bonuses, like luck/bardic inspiration.
   * Decide if the attack hit remembering to deal with any reactions the target might take, like a shield spell.
   * If the attack hit roll hit roll the damage remembering to check if it is a critical hit and if there are any special bonuses for the damage, like a mace of disruption/drgon slayer sword.
-  * Roll the saving throw.
-    - Decide if the saving throw was successful or not - remembering to add any special bonuses and wheter the save should be with advantage or disadvantage.
-  * Work out how much damage to apply to the token, rembering to factor in resistance/immunities/the saving throw
-Here is the same spider biting the same goblin with midi-qol automation enabled and configured.
+  * Roll the saving throw remembering if the save is made with advantage/disadvantage and any bonuses to apply
+  * Decide if the saving throw was successful.
+  * Work out how much damage to apply to the token, remembering to factor in resistance/immunities/the saving throw.
   * Apply any sepcial effects that the attack mid have, e.g. the posisoned condition.
 
 Midi-qol exists to help you automate the some or all of these steps. Before going through the detail of how to set this up here is the same attack done with midi-qol with full automation, all accomplished with a single cick of the item button.
@@ -65,6 +64,12 @@ If you like 3d dice rolled to the screen this is a must have. It is mostly compa
 #### Active Token Effects 
 This adds to the list of effects you can apply for things like vision lighting and so on.
 
+#### Effect Macros
+Allows you run a macro when an effect is applied/created/toggled.
+
+#### Template Macros
+Allows you to run a macro when a template is created/entered/exited.
+
 #### Active Auras
 This allows effects to be applied to nearby tokens without having to trigger any items. Think Paladin's Aura of Protection
 
@@ -104,17 +109,18 @@ This works fine if you are doing an ordinary attack, but sometimes you want to d
 
 ##### GM Tab
 ![GM Attack](GettingStartedPics/GM_Settings.png)  
-Auto Roll Attack: if ticked GM attack rolls will be auto rolled.
-Skip Consume resource dialog: If ticked the resource consumption dialog will be skipped and default answers used, for spells this means casting at the base level.
-Late Targeting: By default midi uses the targets selected when you click the attack button. Late targeting allows you to modify the targets after the roll is started
+Auto Roll Attack: if ticked GM attack rolls will be auto rolled.  
+Skip Consume resource dialog: If ticked the resource consumption dialog will be skipped and default answers used, for spells this means casting at the base level.  
+Late Targeting: By default midi uses the targets selected when you click the attack button. Late targeting allows you to modify the targets after the roll is started  
 ##### Player Tab
 ![Player Attack](GettingStartedPics/Player Settings.png)
-Similar to the GM tab but applies for non-gm players. The sae settings apply to all players.
+Similar to the GM tab but applies for non-gm players. The sae settings apply to all players.  
 #### Configuring the workflow.
 Midi has the concept of a workflow, when you start the attack/cast the spell midi goes through a set of steps to determine the outcome of the roll, starting with targeting and finishing with applying status conditons (like poisoned).
 The workflow tab alows you to configure how each of those steps are performed and if they are automated or not.
 #### Configure targeting
-Midi expects you to target who you want to hit before clicking the weapon/spell you want to attack with. This can be tedious for Area of Effect Spells (fire ball) or Ranged Spells (Mass Healing Word). Midi can automate targeting for those spells if you wish.
+Midi expects you to target who you want to hit before clicking the weapon/spell you want to attack with. This can be tedious for Area of Effect Spells (fire ball) or Ranged Spells (Mass Healing Word). Midi can automate targeting for those spells if you wish.  
+
 As players have been known to forget to target when it is their turn and this results in having to target then roll again. Midi supports late targeting, configurable per player to present a dialog after you hit the roll item button and assists in setting the targets correctly. (On the GM tab for the GM and in the configure settings foundry application per player)
 
 ![Targeting](GettingStartedPics/Targeting.png)
@@ -122,7 +128,7 @@ As players have been known to forget to target when it is their turn and this re
 Template spells are spells like Fireball. If auto targeting for template spells midi will highlight the potential targets while the template preview is active, once placed midi will use the tokens inside the template as the targets for the spell.
 
 Midi supports a few additional modules for determining how templates behave.
-#### Automating Attack Roll
+#### Automated Attack Roll
 When an attack roll is made midi will work out what sources of advantage/disadvantage there are (midi flags - more on this later, nearby foes etc - various optional rules settings and any applicable bonus).
 
 #### Configure checking hits
@@ -134,6 +140,7 @@ Optionally midi will process bonus effects on the attacker and reaction items on
 If enabled attacks that hit will proceed to checking saves/damage application.
 
 #### Configure checking saves
+Midi can automate the process of requesting and adjudicating saves.
 ![Saves](GettingStartedPics/Saves.png)
 #### Configure applying damage
 ![Damage](GettingStartedPics/Damage.png)
