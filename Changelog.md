@@ -1,3 +1,38 @@
+## 11.0.11
+### Bug Fixes
+* Fix for badly specified language files that leave blank the text fields use to check the spell description for 1/2, none or full damage. A blank string for "full damage" in the language file would always match and spells would do full damage on a save.
+* Updated es.json to include english names for spells that do no damage on saves.
+* Fix for checking advantage/disadvantage using RAW/sight checking.
+* Fix for flags.midi-qol.fail.all/flags.midi-qol.fail.attack.XXX not working for attacks.
+* Forcing all player skill rolls to be blind was still displaying the dice so nice dice, this has been fixed.
+
+
+### New Features
+* Added optional rule setting: Invisibility Vision. Checked => tokens behave as if vision is enabled when checking if they can sense another token, unchecked => tokens without vision can sense everything.
+* **Breaking** When using an item with ammunition midi will now also call item macros for the ammunition, if present, as well as calling macros for the item using the ammunition.
+* Troubleshooter will now display any detected problems on foundry load as notification errors on the GM client.
+* completeItemuse will now accept an item uuid as well as an item.
+* Added workflowOptions.otherDamageRollDSN, false means don't show dice so nice dice rolls when rolling other damage, only works with merge card.
+* Support for "Alternative Token Visibility". Out of the box support by ATV for midi is excellent, so you may not need to do anything.
+  - You can choose to use ATV for walls block targeting calculations (TOTAL/HIGH) cover blocks an attack.
+  - You can also choose to let midi use ATV for cover calculations. Disabling midi support in ATV means that midi will call ATV when it needs to check a cover bonus using the dnd5e definitions for the AV/Save bonus granted. If you have customised your cover bonuses in ATV then do NOT disable midi support, since midi will not pick up the changes you have made.
+* Verified the support for "Walled Templates".
+  - The correct way to set this up is to set midi's template targeting to Walled Templates and turn **ON** auto targeting in walled templates, anything else can cause odd effects and is not supported. If you don't want to have walled templates auto target disable the module.
+  - Trouble shooter will detect incorrect settings and display this in the trouble shooter.
+* Support for a slightly different workflow when an AoE spell is cast with template type **radius**. midi interprets that to mean a circular AoE whose template is centered on the caster and the template will be auto placed on cast (ignoring the place template setting in the configure usage dialog).
+  - A range of **Special** means ignore the caster when targeting. **Self** and **Any** will include the caster as a target.
+  - Midi will auto place the template centered on the caster.  If Walled Templates is enabled the template will be attached to the token and move with the token. Allowing for ongoing AoE activation via (for example) the module Template Macros.
+* ``MidiQOL.resolveTlatetargeting(item, {title: string, forceDisplay: boolean): boolean`` added to api, which will display a late targeting dialog (forceDisplay to override midi-qol settings) which will update game.user.targets with the selected targets. This can be used to encourage the user to select a specified group of targets (used in the new Spirit Guardians to choose immune tokens). A return of false means the user closed the dialog rather than choosing roll.
+* ``MidiQOL.isTargetable(token: Token): boolean`` added to the api. Checks if midi thinks the token can be targeted, checks core **hidden**, any of the midi specific settings (flags.midi-qol.neverTarget etc) and that it has an attached actor.
+
+### New Items
+* New version of Spirit Guardians. This **requires** template macros and **dae 11.0.8** to operate. This utilises the new midi-qol feature for ranged templates to create a template around the actor, that moves with the actor and applies the spirit guardians' slow feature and does damage when tokens enter the template or start their turn in the template.
+  - When cast the caster is prompted to select targets that are immune to the spell.
+  - Supports walled templates for templates that are blocked by walls, wrap around corners and so on.
+  - Supports casting at a higher level for the damage done.
+  - Can be used as a template for lots of other similar spells that are centered on the casting token.
+  - Requires walled templates (to attach the template to the token) and template macros to do the various effect/damage application. The code highlights a couple of gotchas for template macros, especially when the template is created/moved. Overall template macros is a nice way to do some of these spells.
+
 ## 11.0.10.1
 * Fix for throwing error when checking for disadvantage when there is a nearby ally (houe rule).
 * Slight change for late targetting when using an item with ammunition and dnd5e-scriptlets to respect late targeting settings.

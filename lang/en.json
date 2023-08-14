@@ -220,7 +220,7 @@
     "wallsBlock": "Walls Block",
     "wallsBlockIgnoreDefeated": "Walls Block - Ignore Defeated",
     "dftemplates": "Use DF Template Enhancements",
-    "dfwalledTemplates": "Use Walled Templates"
+    "walledtemplates": "Use Walled Templates"
   },
   "midi-qol.autoCheckSavesOptions": {
     "none": "Off",
@@ -373,15 +373,15 @@
     "preDamageApplication": "Before Damage Application",
     "preActiveEffects": "Before Active Effects",
     "postActiveEffects": "After Active Effects ",
-    "isAttacked": "Actor is target of an attack",
-    "isHit": "Actor is target of a hit",
+    "isAttacked": "Target is attacked attack",
+    "isHit": "Target of a hit",
     "preTargetSsave": "Target is about to roll a saving throw",
-    "isSave": "Actor rolled a save",
-    "isSaveSuccess": "Actor rolled a successful save",
-    "isSaveFailure": "Actor failed a saving throw",
+    "isSave": "Target rolled a save",
+    "isSaveSuccess": "Target rolled a successful save",
+    "isSaveFailure": "target failed a saving throw",
     "preApplyTargetDamage": "Target is about to be damaged by an item",
     "postTargetEffectApplication": "Target has an effect applied by a rolled item",
-    "isDamaged": "Actor is damaged by an attack",
+    "isDamaged": "Target is damaged by an attack",
     "all": "All"
   },
   "midi-qol.DragDropTarget.Name": "Drag and Drop Targeting",
@@ -446,6 +446,8 @@
     "RAW": "Rules as written",
     "vision": "Use Token Vision"
   },
+  "midi-qol.InvisVision.Name": "Force vision when checking",
+  "midi-qol.InvisVision.Hint": "Checked behave as if all tokens have vision enabled. Unchecked: tokens without vision can see everything",
   "midi-qol.CantSeeAdvantage.Hint": "(Use Token Vision) Invisible attackers have advantage on targets who can't see them. Disadvantage if they can't see the target",
   "midi-qol.CheckRange.Name": "Check weapon range when attacking",
   "midi-qol.CheckRangeOptions": {
@@ -455,13 +457,19 @@
   },
   "midi-qol.NearbyFoe.Name": "Ranged attacks when a foe is closer than this have disadvantage. 0 disables",
   "midi-qol.WallsBlockRange.Name": "Walls block ranged attacks",
-  "midi-qol.WallsBlockRange.Hint": "Walls block ranged attacks \n No = no effect, center = check center to center line, center + Levels = center check but use the 'levels' module to determine wall blocking. Center + Levels also means use levels volumetric templates for template targeting",
+  "midi-qol.WallsBlockRange.Hint1": "No = wall do not block range checks", 
+  "midi-qol.WallsBlockRange.Hint2": "center = check center to center line",
+  "midi-qol.WallsBlockRange.Hint3": "center + Levels = center check but use the 'levels' module to determine wall blocking LOS. Also use levels volumetric templates for template targeting",
+  "midi-qol.WallsBlockRange.Hint4": "levels Auto Cover = Use levelsautocover to test and block for full cover",
+  "midi-qol.WallsBlockRange.Hint5": "Alternative Token Visibility = Use Alternative Token Visibility to test and block for full cover",
+
   "midi-qol.WallsBlockRangeOptionsNew": {
     "none": "No",
     "center": "Center Check",
     "centerLevels": "Center + Levels",
     "levelsautocover": "Levels Auto Cover",
-    "simbuls-cover-calculator": "Simbuls Cover Calculator"
+    "simbuls-cover-calculator": "Simbuls Cover Calculator",
+    "alternative": "Alternative Token Visibility"
   },
 
   "midi-qol.NearbyAllyRanged.Name": "(House Rule) Ranged Attacks at foes near allies have disadvantage.",
@@ -475,7 +483,8 @@
   "midi-qol.CoverCalculationOptions": {
     "none": "None",
     "simbuls-cover-calculator": "Simbul's Cover Calculator",
-    "levelsautocover": "Levels Auto Cover"
+    "levelsautocover": "Levels Auto Cover",
+    "alternative": "Alternative Token Visibility"
   },
   "midi-qol.NearbyAllyRanged.Hint": "Ranged Attacks with allies nearby (5 feet) to the target have disadvantage for targets smaller than this (w*h). 0 disables",
   "midi-qol.Incapacitated.Name": "Incapacitated actors can't take actions or reactions",

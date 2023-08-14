@@ -28,6 +28,7 @@ const modules = {
   "simbuls-cover-calculator":  "1.0.2",
   "socketlib": "0.0",
   "times-up": "0.1.2",
+  "tokenvisibility": "0.5.3",
   "walledtemplates": "0.0.0",
   "wjmais": "0.0.0",
 };

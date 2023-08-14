@@ -748,6 +748,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     //@ts-expect-error isEmpty
     if (!isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
       await workflow.callMacros(workflow.item, workflow.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
+      if (workflow.ammo) await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
     }
 
     const chatCardUuids = await timedAwaitExecuteAsGM("createReverseDamageCard", {
@@ -952,20 +953,36 @@ export let getSaveMultiplierForItem = (item: Item) => {
   if (itemProperties?.nodam) return 0;
   if (itemProperties?.fulldam) return 1;
   if (itemProperties?.halfdam) return 0.5;
+
+  if (!configSettings.checkSaveText) return configSettings.defaultSaveMult;
   //@ts-ignore item.system v10
   let description = TextEditor.decodeHTML((item.system.description?.value || "")).toLocaleLowerCase();
-  if (description.includes(i18n("midi-qol.fullDamage").toLocaleLowerCase().trim()) || description.includes(i18n("midi-qol.fullDamageAlt").toLocaleLowerCase().trim())) {
-    return 1;
-  }
-  //@ts-ignore item.name v10
-  if (noDamageSaves.includes(cleanSpellName(item.name))) return 0;
-  if (description?.includes(i18n("midi-qol.noDamage").toLocaleLowerCase().trim()) || description?.includes(i18n("midi-qol.noDamageAlt").toLocaleLowerCase().trim())) {
+
+  let noDamageText = i18n("midi-qol.noDamage").toLocaleLowerCase().trim();
+  if (!noDamageText || noDamageText === "") noDamageText = "midi-qol.noDamage";
+  let noDamageTextAlt = i18n("midi-qol.noDamageAlt").toLocaleLowerCase().trim();
+  if (!noDamageTextAlt || noDamageTextAlt === "") noDamageTextAlt = "midi-qol.noDamageAlt";
+  if (description?.includes(noDamageText) || description?.includes(noDamageTextAlt)) {
     return 0.0;
   }
-  if (!configSettings.checkSaveText) return configSettings.defaultSaveMult;
-  if (description?.includes(i18n("midi-qol.halfDamage").toLocaleLowerCase().trim()) || description?.includes(i18n("midi-qol.halfDamageAlt").toLocaleLowerCase().trim())) {
+
+  let fullDamageText = i18n("midi-qol.fullDamage").toLocaleLowerCase().trim();
+  if (!fullDamageText || fullDamageText === "") fullDamageText = "midi-qol.fullDamage";
+  let fullDamageTextAlt = i18n("midi-qol.fullDamageAlt").toLocaleLowerCase().trim();
+  if (!fullDamageTextAlt || fullDamageTextAlt === "") fullDamageText = "midi-qol.fullDamageAlt";
+  if (description.includes(fullDamageText) || description.includes(fullDamageTextAlt)) {
+    return 1;
+  }
+
+  let halfDamageText = i18n("midi-qol.halfDamage").toLocaleLowerCase().trim();
+  if (!halfDamageText || halfDamageText === "") halfDamageText = "midi-qol.halfDamage";
+  let halfDamageTextAlt = i18n("midi-qol.halfDamageAlt").toLocaleLowerCase().trim();
+  if (!halfDamageTextAlt || halfDamageTextAlt === "") halfDamageTextAlt = "midi-qol.halfDamageAlt";
+  if (description?.includes(halfDamageText) || description?.includes(halfDamageTextAlt)) {
     return 0.5;
   }
+  //@ts-ignore item.name v10 - allow the default list to be overridden by item settings.
+  if (noDamageSaves.includes(cleanSpellName(item.name))) return 0;
   //  Think about this. if (checkSavesText true && item.hasSave) return 0; // A save is specified but the half-damage is not specified.
   return configSettings.defaultSaveMult;
 };
@@ -1095,7 +1112,7 @@ export function midiCustomEffect(actor, change) {
     "flags.midi-qol.advantage",
     "flags.midi-qol.disadvantage",
     "flags.midi-qol.grants",
-    "flags.midi-qol.fails",
+    "flags.midi-qol.fail",
     "flags.midi-qol.max.damage",
     "flags.midi-qol.min.damage",
     "flags.critical"
@@ -1486,13 +1503,15 @@ export async function completeItemRoll(item, options: any) {
 }
 
 export async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false },) {
-  let theItem = item;
-  if (!(item instanceof CONFIG.Item.documentClass)) {
+  let theItem: any;
+  if (typeof item === "string") {
+    theItem = MQfromUuid(item);
+  } else if (!(item instanceof CONFIG.Item.documentClass)) {
     // TODO magic items fetch the item call - see when v10 supported
     theItem = new CONFIG.Item.documentClass(await item.item.data(), { parent: item.actor })
-  }
+  } else theItem = item;
   // delete any existing workflow - complete item use always is fresh.
-  Workflow.removeWorkflow(item.uuid);
+  Workflow.removeWorkflow(theItem.uuid);
   if (game.user?.isGM || !options.checkGMStatus) {
     return new Promise((resolve) => {
       let saveTargets = Array.from(game.user?.targets ?? []).map(t => { return t.id });
@@ -1694,10 +1713,9 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   const t1TopElevation = t1Elevation + Math.max(t1.document.height, t1.document.width) * (canvas?.dimensions?.distance ?? 5);
   const t2TopElevation = t2Elevation + Math.min(t2.document.height, t2.document.width) * (canvas?.dimensions?.distance ?? 5); // assume t2 is trying to make itself small
   let coverVisible;
-  // For levels autocover and simbul's cover calculator pre-comput token cover - full cover means no attack and so return -1
+  // For levels autocover and simbul's cover calculator pre-compute token cover - full cover means no attack and so return -1
   // otherwise don't bother doing los checks they are overruled by the cover check
   if (installedModules.get("levelsautocover") && game.settings.get("levelsautocover", "apiMode") && wallblocking && configSettings.optionalRules.wallsBlockRange == "levelsautocover") {
-
     //@ts-expect-error
     const levelsautocoverData = AutoCover.calculateCover(t1, t2, getLevelsAutoCoverOptions());
     coverVisible = levelsautocoverData.rawCover > 0;
@@ -1709,6 +1727,10 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
     console.warn("simbuls cover calculator ", t1.name, t2.name, coverData);
     if (coverData?.data.results.cover === 3) return -1;
     coverVisible = true;
+  } else if (installedModules.get("tokenvisibility") && configSettings.optionalRules.wallsBlockRange === "alternative") {
+    const coverValue = calcTokenVisibilityCover(t1, t2);
+    coverVisible = coverValue !== 3;
+    if (!coverVisible) return -1;
   }
 
   var x, x1, y, y1, d, r, segments: { ray: Ray }[] = [], rdistance, distance;
@@ -1746,15 +1768,13 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                       //@ts-ignore
                       z: t2Elevation
                     }
-                    if (coverVisible === undefined) {
-                      //@ts-ignore
-                      const baseToBase = CONFIG.Levels.API.testCollision(p1, p2, "sight");
-                      p1.z = t1TopElevation;
-                      p2.z = t2TopElevation;
-                      //@ts-ignore
-                      const topToBase = CONFIG.Levels.API.testCollision(p1, p2, "sight");
-                      if (baseToBase && topToBase) continue;
-                    }
+                    //@ts-ignore
+                    const baseToBase = CONFIG.Levels.API.testCollision(p1, p2, "sight");
+                    p1.z = t1TopElevation;
+                    p2.z = t2TopElevation;
+                    //@ts-ignore
+                    const topToBase = CONFIG.Levels.API.testCollision(p1, p2, "sight");
+                    if (baseToBase && topToBase) continue;
                   }
                 } else {
                   let collisionCheck;
@@ -1763,15 +1783,16 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                   if (collisionCheck) continue;
                 }
                 break;
+              case "alternative":
               case "simbuls-cover-calculator":
                 if (coverVisible === undefined) {
                   let collisionCheck;
-
                   //@ts-expect-error polygonBackends
                   collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
                   if (collisionCheck) continue;
-                } else if (coverVisible === false) continue;
+                }
                 break;
+
               case "none":
               default:
             }
@@ -2006,6 +2027,27 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
         if (coverData?.data?.results.cover === 3) coverBonus = FULL_COVER;
         else coverBonus = -coverData?.data?.results.value ?? 0;
         console.log("midi-qol | ComputeCover Bonus - For token ", attacker.name, " attacking ", target.name, " cover data is ", coverBonus, coverData)
+      }
+      break;
+    case "alternative":
+      if (!installedModules.get("tokenvisibility")) coverBonus = 0;
+      if (game.settings.get("tokenvisibility", "midiqol-covercheck") === "midiqol-covercheck-none") {
+        const coverValue = calcTokenVisibilityCover(attacker, target);
+        console.error("check ac bonus cover is ", coverValue);
+        switch (coverValue) {
+          case 1:
+            coverBonus = HALF_COVER;
+            break;
+          case 2:
+            coverBonus = THREE_QUARTERS_COVER;
+            break;
+          case 3:
+            coverBonus = FULL_COVER;
+            break;
+          case 0:
+          default:
+            coverBonus = 0;
+        }
       }
       break;
     case "none":
@@ -2293,8 +2335,7 @@ export function findNearby(disposition: number | string | null | Array<string | 
     } else targetDisposition = [CONST.TOKEN_DISPOSITIONS.HOSTILE, CONST.TOKEN_DISPOSITIONS.NEUTRAL, CONST.TOKEN_DISPOSITIONS.FRIENDLY];
 
     let nearby = canvas.tokens?.placeables.filter(t => {
-      if (getProperty(t, "actor.system.details.type.custom")?.toLocaleLowerCase().includes("notarget")
-        || getProperty(t, "actor.system.details.race")?.toLocaleLowerCase().includes("notarget")) return false;
+      if (!isTargetable(t)) return false;
       //@ts-ignore .height .width v10
       if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
       if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor, undefined, undefined)) return false;
@@ -2475,7 +2516,7 @@ export async function expireRollEffect(rolltype: string, abilityId: string, succ
 }
 
 export function validTargetTokens(tokenSet: Set<Token> | undefined | any): Set<Token> {
-  return tokenSet.filter(tk => tk.actor);
+  return tokenSet.filter(tk => tk.actor).filter(tk => isTargetable(tk));
 }
 
 export function MQfromUuid(uuid): any | null {
@@ -4200,83 +4241,63 @@ export function canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: 
   if (!token || !target) return ["noToken"];
   //@ts-expect-error .hidden
   if (target.document?.hidden || token.document?.hidden) return [];
+  if (!configSettings.optionalRules.invisVision) return ["senseAll"];
   // if (!token.hasSight) return ["noSight"];
-  if (!token.vision.active) {
-    const sourceId = token.sourceId;
-    token.vision.initialize({
-      x: token.center.x,
-      y: token.center.y,
-      //@ts-expect-error
-      radius: Math.clamped(token.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
-      //@ts-expect-error
-      externalRadius: Math.max(token.mesh.width, token.mesh.height) / 2,
-      //@ts-expect-error
-      angle: token.document.sight.angle,
-      //@ts-expect-error
-      contrast: token.document.sight.contrast,
-      //@ts-expect-error
-      saturation: token.document.sight.saturation,
-      //@ts-expect-error
-      brightness: token.document.sight.brightness,
-      //@ts-expect-error
-      attenuation: token.document.sight.attenuation,
-      //@ts-expect-error
-      rotation: token.document.rotation,
-      //@ts-expect-error
-      visionMode: token.document.sight.visionMode,
-      //@ts-expect-error
-      color: globalThis.Color.from(token.document.sight.color),
-      //@ts-expect-error
-      isPreview: !!token._original,
-      //@ts-expect-error specialStatusEffects
-      blinded: token.document.hasStatusEffect(CONFIG.specialStatusEffects.BLIND)
-    });
+  for (let tk of [token]) {
     //@ts-expect-error
-    canvas?.effects?.visionSources.set(sourceId, token.vision);
-    if (!token.vision.los && game.modules.get("perfect-vision")?.active) {
-      error(`canSense los not calcluated. Can't check if ${token.name} can see ${target.name}`, token.vision);
-      return ["noSight"];
+    if (!tk.document.sight.enabled) {
+      //@ts-expect-error
+      tk.document.sight.enabled = true;
+      //@ts-expect-error
+      tk.document._prepareDetectionModes();
+      const sourceId = tk.sourceId;
+      tk.vision.initialize({
+        x: tk.center.x,
+        y: tk.center.y,
+        //@ts-expect-error
+        radius: Math.clamped(tk.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
+        //@ts-expect-error
+        externalRadius: Math.max(tk.mesh.width, tk.mesh.height) / 2,
+        //@ts-expect-error
+        angle: tk.document.sight.angle,
+        //@ts-expect-error
+        contrast: tk.document.sight.contrast,
+        //@ts-expect-error
+        saturation: tk.document.sight.saturation,
+        //@ts-expect-error
+        brightness: tk.document.sight.brightness,
+        //@ts-expect-error
+        attenuation: tk.document.sight.attenuation,
+        //@ts-expect-error
+        rotation: tk.document.rotation,
+        //@ts-expect-error
+        visionMode: tk.document.sight.visionMode,
+        //@ts-expect-error
+        color: globalThis.Color.from(tk.document.sight.color),
+        //@ts-expect-error
+        isPreview: !!tk._original,
+        //@ts-expect-error specialStatusEffects
+        blinded: tk.document.hasStatusEffect(CONFIG.specialStatusEffects.BLIND)
+      });
+
+      if (!tk.vision.los && game.modules.get("perfect-vision")?.active) {
+        error(`canSense los not calcluated. Can't check if ${token.name} can see ${target.name}`, token.vision);
+        return ["noSight"];
+      } else if (!tk.vision.los) {
+        //@ts-expect-error
+        tk.vision.shape = token.vision._createRestrictedPolygon();
+        //@ts-expect-error
+        tk.vision.los = token.vision.shape;
+      }
+      //@ts-expect-error
+      tk.vision.anmimated = false;
+      //@ts-expect-error
+      canvas?.effects?.visionSources.set(sourceId, tk.vision);
+      //@ts-expect-error
+      tk.document.sight.enabled = false;
     }
-    // Seems we Don't need to do this on the GM side - return await socketlibSocket.executeAsGM("canSense", { tokenUuid: token.document.uuid, targetUuid: target.document.uuid })
   }
-  if (!target.vision.active) {
-    const sourceId = target.sourceId;
-    target.vision.initialize({
-      x: target.center.x,
-      y: target.center.y,
-      //@ts-expect-error
-      radius: Math.clamped(target.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
-      //@ts-expect-error
-      externalRadius: Math.max(target.mesh.width, target.mesh.height) / 2,
-      //@ts-expect-error
-      angle: target.document.sight.angle,
-      //@ts-expect-error
-      contrast: target.document.sight.contrast,
-      //@ts-expect-error
-      saturation: target.document.sight.saturation,
-      //@ts-expect-error
-      brightness: target.document.sight.brightness,
-      //@ts-expect-error
-      attenuation: target.document.sight.attenuation,
-      //@ts-expect-error
-      rotation: target.document.rotation,
-      //@ts-expect-error
-      visionMode: target.document.sight.visionMode,
-      //@ts-expect-error
-      color: globalThis.Color.from(target.document.sight.color),
-      //@ts-expect-error
-      isPreview: !!target._original,
-      //@ts-expect-error specialStatusEffects
-      blinded: target.document.hasStatusEffect(CONFIG.specialStatusEffects.BLIND)
-    });
-    //@ts-expect-error
-    canvas?.effects?.visionSources.set(sourceId, target.vision);
-    if (!target.vision.los && game.modules.get("perfect-vision")?.active) {
-      error(`canSense los not calcluated. Can't check if ${target.name} can see ${target.name}`, target.vision);
-      return ["noSight"];
-    }
-    // Seems we Don't need to do this on the GM side - return await socketlibSocket.executeAsGM("canSense", { targetUuid: target.document.uuid, targetUuid: target.document.uuid })
-  }
+
   const matchedModes: Set<string> = new Set();
   // Determine the array of offset points to test
   const t = Math.min(target.w, target.h) / 4;
@@ -4319,6 +4340,14 @@ export function canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: 
       if (result === true) {
         matchedModes.add(detectionMode.id);
       }
+    }
+  }
+  for (let tk of [token]) {
+    //@ts-expect-error
+    if (!tk.document.sight.enabled) {
+      const sourceId = tk.sourceId;
+      //@ts-expect-error
+      canvas?.effects?.visionSources.delete(sourceId);
     }
   }
   return Array.from(matchedModes);
@@ -4505,10 +4534,13 @@ export function getCriticalDamage() {
 
 export function isTargetable(target: any /*Token*/): boolean {
   if (!target.actor) return false;
-  if (target.actor.flags && target.actor.flags["midi-qol"].neverTarget) return false;
+  if (target.actor.flags && getProperty(target.actor, "flags.midi-qol.neverTarget")) return false;
+
   const targetDocument = getTokenDocument(target);
   //@ts-expect-error hiddien
   if (targetDocument?.hidden) return false;
+  if (getProperty(target.actor, "system.details.type.custom")?.toLocaleLowerCase().includes("notarget")) return false;
+  if (getProperty(target.actor, "actor.system.details.race")?.toLocaleLowerCase().includes("notarget")) return false;
   return true;
 }
 
@@ -4656,4 +4688,26 @@ export function getToken(tokenRef: Token | TokenDocument | string | undefined): 
   //@ts-expect-error retrn cast
   if (tokenRef instanceof TokenDocument) return tokenRef.object;
   return undefined;
+}
+
+export function calcTokenVisibilityCover(attacker: Token | TokenDocument, target: Token | TokenDocument): number {
+  //@ts-expect-error .api
+  const api = game.modules.get("tokenvisibility")?.api;
+  const attackerToken = getToken(attacker);
+  const targetToken = getToken(target);
+  if (!api || !attackerToken || !targetToken) {
+    let message = "midi-qol | calcTokenVisibilityCover failed"
+    if (!api) message += " tokenvisibility not installed";
+    if (!attackerToken) message += " atacker token not valid";
+    if (!targetToken) message += " target token not valid";
+    const err = new Error("calcTokenVisibilityCover failed");
+    TroubleShooter.recordError(err, message);
+    warn(message, err);
+    return 0;
+  }
+
+  const cover = api.CoverCalculator.coverCalculations([attackerToken], [targetToken]);
+  const coverValue = cover[attackerToken.id][targetToken.id];
+  console.error("calc atv cover", cover, coverValue);
+  return coverValue;
 }

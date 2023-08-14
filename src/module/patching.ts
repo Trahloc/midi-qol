@@ -194,7 +194,6 @@ async function doRollSkill(wrapped, ...args) {
       result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
     }
     let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
-    if (chatMessage !== false) await displayDSNForRoll(result, "skill", rollMode);
     if (!options.simulate) {
       result = await bonusCheck(this, result, "skill", skillId);
     }
@@ -207,6 +206,7 @@ async function doRollSkill(wrapped, ...args) {
       const args = { "speaker": getSpeaker(this), flavor };
       setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
       if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
+      await displayDSNForRoll(result, "skill", rollMode);
       await result.toMessage(args, { rollMode });
       game.settings.set("core", "rollMode", saveRollMode);
     }
@@ -689,12 +689,13 @@ function _midiATIRefresh(template) {
   if (configSettings.autoTarget === "none") return;
   if (configSettings.autoTarget === "dftemplates" && installedModules.get("df-templates"))
     return; // df-templates will handle template targeting.
-  if (configSettings.autoTarget === "dfwalledTemplates" && installedModules.get("walledtemplates"))
-    return; // walled templates will handle template targeting.
 
-  if (installedModules.get("levelsvolumetrictemplates")) {
-    setProperty(template, "flags.levels.elevation",
-      installedModules.get("levels").nextTemplateHeight ?? installedModules.get("levels").lastTokenForTemplate?.elevation);
+
+  if (installedModules.get("levelsvolumetrictemplates") && !["walledtemplates"].includes(configSettings.autoTarget)) {
+    //@ts-expect-error CONFIG.Levels
+    const levelsTemplateData = CONFIG.Levels.handlers.TemplateHandler.getTemplateData();
+    setProperty(template.document, "flags.levels.special", levelsTemplateData.special);
+    setProperty(template.document, "flags.levels.elevation", levelsTemplateData.elevation ?? 0);
     // Filter which tokens to pass - not too far wall blocking is left to levels.
     let distance = template.distance;
     const dimensions = canvas?.dimensions || { size: 1, distance: 1 };
@@ -721,7 +722,7 @@ function _midiATIRefresh(template) {
     }
   } else {
     const distance: number = template.distance ?? 0;
-    templateTokens({ x: template.x, y: template.y, shape: template.shape, distance });
+    templateTokens(template);
     return true;
   }
   return true;

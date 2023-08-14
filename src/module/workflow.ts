@@ -117,6 +117,7 @@ export class Workflow {
   reactionUpdates: Set<globalThis.dnd5e.documents.Actor5e>;
   flagTags: {} | undefined;
   onUseMacros: OnUseMacros | undefined;
+  ammoOnuseMacros: OnUseMacros | undefined;
 
   attackAdvAttribution: Set<string>;
   advReminderAttackAdvAttribution: Set<string>;
@@ -190,6 +191,10 @@ export class Workflow {
       this.itemId = item.id;
       this.itemUuid = item.uuid;
       this.uuid = item.uuid;
+      const consume = item.system.consume;
+      if (consume?.type === "ammo") {
+        this.ammo = item.actor.items.get(consume.target);
+      }
     }
 
     this.tokenId = speaker.token;
@@ -260,10 +265,13 @@ export class Workflow {
 
     if (configSettings.allowUseMacro) {
       this.onUseMacros = new OnUseMacros();
+      this.ammoOnUseMacros = new OnUseMacros();
       const itemOnUseMacros = getProperty(this.item ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
+      const ammoOnUseMacros = getProperty(this.ammo ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
       const actorOnUseMacros = getProperty(this.actor ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
       //@ts-ignore
       this.onUseMacros.items = [...itemOnUseMacros.items, ...actorOnUseMacros.items];
+      this.ammoOnUseMacros.items = ammoOnUseMacros.items;
     }
     this.preSelectedTargets = canvas?.scene ? new Set(game.user?.targets) : new Set(); // record those targets targeted before cast.
     if (this.item && ["spell", "feat", "weapon"].includes(this.item.type)) {
@@ -276,7 +284,11 @@ export class Workflow {
       }
     }
     this.needTemplate = (configSettings.autoTarget !== "none" && this.item?.hasAreaTarget) ?? false;
-    if (!(this instanceof BetterRollsWorkflow) && this.needTemplate) this.placeTemplateHookId = Hooks.once("createMeasuredTemplate", selectTargets.bind(this));
+
+    if (!(this instanceof BetterRollsWorkflow) && this.needTemplate) {
+      this.preCreateTemplateHookId = Hooks.once("preCreateMesaguredTemplate", this.setTemplateFlags.bind(this));
+      this.placeTemplateHookId = Hooks.once("createMeasuredTemplate", selectTargets.bind(this));
+    }
     this.needItemCard = true;
     this.preItemUseComplete = false;
     this.kickStart = true;
@@ -289,23 +301,35 @@ export class Workflow {
     return this.event?.altKey || this.event?.ctrlKey || this.event?.metaKey;
   }
 
+  setTemplateFlags(templateDoc, data, context, user): boolean {
+    if (this.item) templateDoc.updateSource({"flags.midi-qol.itemUuid": this.item.uuid});
+    if (this.actor) templateDoc.updateSource({"flags.midi-qol.actorUuid": this.actor.uuid});
+    return true
+  }
+
   static async removeAttackDamageButtons(id) {
-    let workflow = Workflow.getWorkflow(id)
-    if (!workflow) return;
-    let chatMessage: ChatMessage | undefined = game.messages?.get(workflow.itemCardId ?? "");
-    if (!chatMessage) return;
-    //@ts-ignore .content v10
-    let content = chatMessage && duplicate(chatMessage.content);
-    // TODO work out what to do if we are a damage only workflow and betters rolls is active - display update wont work.
-    const versatileRe = /<button data-action="versatile">[^<]*<\/button>/
-    const damageRe = /<button data-action="damage">[^<]*<\/button>/
-    const formulaRe = /<button data-action="formula">[^<]*<\/button>/
-    content = content?.replace(damageRe, "")
-    content = content?.replace(formulaRe, "")
-    content = content?.replace(versatileRe, "<div></div>")
-    const searchRe = /<button data-action="attack">[^<]*<\/button>/;
-    content = content.replace(searchRe, "");
-    chatMessage.update({ content });
+    try {
+      let workflow = Workflow.getWorkflow(id)
+      if (!workflow) return;
+      let chatMessage: ChatMessage | undefined = game.messages?.get(workflow.itemCardId ?? "");
+      if (!chatMessage) return;
+      //@ts-ignore .content v10
+      let content = chatMessage && duplicate(chatMessage.content);
+      // TODO work out what to do if we are a damage only workflow and betters rolls is active - display update wont work.
+      const versatileRe = /<button data-action="versatile">[^<]*<\/button>/
+      const damageRe = /<button data-action="damage">[^<]*<\/button>/
+      const formulaRe = /<button data-action="formula">[^<]*<\/button>/
+      content = content?.replace(damageRe, "")
+      content = content?.replace(formulaRe, "")
+      content = content?.replace(versatileRe, "<div></div>")
+      const searchRe = /<button data-action="attack">[^<]*<\/button>/;
+      content = content.replace(searchRe, "");
+      chatMessage.update({ content });
+    } catch (err) {
+      const message = `removeAttackDamageButtons`;
+      TroubleShooter.recordError(err, message);
+      throw err;
+    }
   }
 
   static removeWorkflow(id: string) {
@@ -316,7 +340,11 @@ export class Workflow {
       // If the attack roll broke and we did we roll again will have an extra hook laying around.
       if (workflow.displayHookId) Hooks.off("preCreateChatMessage", workflow.displayHookId);
       // This can lay around if the template was never placed.
-      if (workflow.placeTemplateHookId) Hooks.off("createMeasuredTemplate", workflow.placeTemplateHookId)
+      if (workflow.placeTemplateHookId) {
+        Hooks.off("createMeasuredTemplate", workflow.placeTemplateHookId)
+        Hooks.off("preCreateMeasuredTemplate", workflow.preCreateTemplateHookId)
+      }
+        
       // Remove buttons
       this.removeAttackDamageButtons(id);
       delete Workflow._workflows[id];
@@ -382,7 +410,9 @@ export class Workflow {
       case WORKFLOWSTATES.TEMPLATEPLACED:
         if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("templatePlaced"), "OnUse", "templatePlaced");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("templatePlaced"), "OnUse", "templatePlaced");
         }
+        
         // Some modules stop being able to get the item card id.
         if (!this.itemCardId) return this.next(WORKFLOWSTATES.LATETARGETING);
 
@@ -448,6 +478,7 @@ export class Workflow {
         if (this.item && await asyncHooksCall(`midi-qol.preambleComplete.${this.item.uuid}`, this) === false) return;
         if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preambleComplete"), "OnUse", "preambleComplete");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preambleComplete"), "OnUse", "preambleComplete");
         }
         if (!getAutoRollAttack(this) && this.item?.hasAttack) {
           const rollMode = game.settings.get("core", "rollMode");
@@ -509,6 +540,7 @@ export class Workflow {
 
         if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preAttackRoll"), "OnUse", "preAttackRoll");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preAttackRoll"), "OnUse", "preAttackRoll");
         }
         if (this.autoRollAttack) {
           await this.item.rollAttack({ event: {} });
@@ -535,9 +567,11 @@ export class Workflow {
         await asyncHooksCallAll("midi-qol.preCheckHits", this);
         if (this.item) await asyncHooksCallAll(`midi-qol.preCheckHits.${this.item.uuid}`, this);
 
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preCheckHits"), "OnUse", "preCheckHits");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preCheckHits"), "OnUse", "preCheckHits");
         }
+
         this.processAttackRoll();
         // if (this.workflowOptions.attackRollDSN && this.attackRoll) await displayDSNForRoll(this.attackRoll, "attackRoll");
         if (!configSettings.mergeCard) { // non merge card is not displayed yet - display it now that the attack roll is completed
@@ -576,8 +610,9 @@ export class Workflow {
         await asyncHooksCallAll("midi-qol.AttackRollComplete", this);
         if (this.item) await asyncHooksCallAll(`midi-qol.AttackRollComplete.${this.uuid}`, this);
 
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("postAttackRoll"), "OnUse", "postAttackRoll");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("postAttackRoll"), "OnUse", "postAttackRoll");
         }
 
         if (
@@ -607,8 +642,9 @@ export class Workflow {
           expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"])
           return this.next(WORKFLOWSTATES.ROLLFINISHED);
         }
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preDamageRoll"), "OnUse", "preDamageRoll");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preDamageRoll"), "OnUse", "preDamageRoll");
         }
 
         // if (this.noAutoDamage) return; // we are emulating the standard card specially.
@@ -666,9 +702,11 @@ export class Workflow {
         await asyncHooksCallAll("midi-qol.preDamageRollComplete", this)
         if (this.item) await asyncHooksCallAll(`midi-qol.preDamageRollComplete.${this.item.uuid}`, this);
 
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("postDamageRoll"), "OnUse", "postDamageRoll");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("postDamageRoll"), "OnUse", "postDamageRoll");
         }
+
         const damageBonusMacros = this.getDamageBonusMacros();
         if (damageBonusMacros && this.workflowType === "Workflow") {
           await this.rollBonusDamage(damageBonusMacros);
@@ -693,9 +731,10 @@ export class Workflow {
 
       case WORKFLOWSTATES.WAITFORSAVES:
         this.initSaveResults();
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preSave"), "OnUse", "preSave");
           await this.triggerTargetMacros(["isAboutToSave"]); // ??
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preSave"), "OnUse", "preSave");
         }
 
         if (this.workflowType === "Workflow" && !this.item?.hasAttack && this.item?.system.target?.type !== "self") { // Allow editing of targets if there is no attack that has already been processed.
@@ -718,8 +757,8 @@ export class Workflow {
           let monksId = Hooks.on("updateChatMessage", this.monksSavingCheck.bind(this));
           try {
             await this.checkSaves(configSettings.autoCheckSaves !== "allShow");
-          } catch (err) { 
-            const message =("midi-qol | checkSaves error")
+          } catch (err) {
+            const message = ("midi-qol | checkSaves error")
             TroubleShooter.recordError(err, message);
             error(message, err)
           } finally {
@@ -743,15 +782,19 @@ export class Workflow {
 
       case WORKFLOWSTATES.SAVESCOMPLETE:
         expireMyEffects.bind(this)(["1Action", "1Spell"]);
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("postSave"), "OnUse", "postSave");
+          await this.callMacros(this.ammo, this.onUseMacros?.getMacros("postSave"), "OnUse", "postSave");
         }
+
         return this.next(WORKFLOWSTATES.ALLROLLSCOMPLETE);
 
       case WORKFLOWSTATES.ALLROLLSCOMPLETE:
         /*
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
+
         }
         */
 
@@ -984,7 +1027,11 @@ export class Workflow {
 
       case WORKFLOWSTATES.ROLLFINISHED:
         // globalThis.MidiKeyManager.resetKeyState();
-        if (this.placeTemplateHookId) Hooks.off("createMeasuredTemplate", this.placeTemplateHookId)
+        if (this.placeTemplateHookId) {
+          Hooks.off("createMeasuredTemplate", this.placeTemplateHookId)
+          Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId)
+        }
+          
         setProperty(this, "workflowOptions.lateTargeting", undefined);
         if (!this.aborted) {
           const specialExpiries = [
@@ -1074,8 +1121,9 @@ export class Workflow {
           }
 
           // Call onUseMacro if not already called
-          if (configSettings.allowUseMacro && this.item?.flags) {
+          if (configSettings.allowUseMacro) {
             await this.callMacros(this.item, this.onUseMacros?.getMacros("postActiveEffects"), "OnUse", "postActiveEffects");
+            if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("postActiveEffects"), "OnUse", "postActiveEffects");
           }
           if (this.item)
             // delete Workflow._workflows[this.itemId];
@@ -1182,14 +1230,14 @@ export class Workflow {
         this.disadvantage = true;
       }
 
-      const invisAdvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleToken : invisibleToken && !targetCanDetect;
+      const invisAdvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleToken || !targetCanDetect : !targetCanDetect;
       if (invisAdvantage) {
         this.attackAdvAttribution.add("ADV:invisible");
         this.advReminderAttackAdvAttribution.add("ADV:Invisible");
         this.advantage = true;
       }
 
-       const invisDisadvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleTarget : invisibleTarget && !tokenCanDetect;
+      const invisDisadvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleTarget || !tokenCanDetect : !tokenCanDetect;
       if (invisDisadvantage) {
         // Attacker can't see target so disadvantage
         log(`Disadvantage given to ${this.actor.name} due to hidden/invisible target`);
@@ -1946,7 +1994,7 @@ export class Workflow {
               //@ts-expect-error AsncFunction
               const fn = new AsyncFunction("speaker", "actor", "token", "character", "scope", ...argNames, macroCommand)
               return fn.call(newThis, speaker, actor, token, character, scope, ...argValues);
-            } else throw(err);
+            } else throw (err);
           } else throw (err);
         }
       }
@@ -3173,32 +3221,85 @@ export class Workflow {
           }
           hitResultNumeric = this.isCritical ? "++" : `${attackTotal}/${Math.abs(attackTotal - targetAC)}`;
         }
-        const midiFlagsAttackSuccess = getProperty(targetActor, "flags.midi-qol.grants.attack.success");
 
+        // TODO come back and parameterise with flags and actor to use
+
+        const midiFlagsActorFailAll = getProperty(this.actor, "flags.midi-qol.fail.all");
+        if (midiFlagsActorFailAll) {
+          const conditionData = createConditionData({ workflow: this, target: this.token, actor: this.actor });
+          if (midiFlagsActorFailAll && evalCondition(midiFlagsActorFailAll, conditionData)) {
+            isHit = false;
+            isHitEC = false;
+            this.isCritical = false;
+          }
+        }
+        const midiFlagsActorAttackFail = getProperty(this.actor, "flags.midi-qol.fail.attack");
+        if (midiFlagsActorAttackFail) {
+          const conditionData = createConditionData({ workflow: this, target: this.token, actor: this.actor });
+          if (midiFlagsActorAttackFail.all && evalCondition(midiFlagsActorAttackFail.all, conditionData)) {
+            isHit = false;
+            isHitEC = false;
+            this.isCritical = false;
+          }
+          if (midiFlagsActorAttackFail[item.system.actionType] && evalCondition(midiFlagsActorAttackFail[item.system.actionType], conditionData)) {
+            isHit = false;
+            isHitEC = false;
+            this.isCritical = false;
+          }
+        }
+        const midiFlagsActorSuccessAll = getProperty(this.actor, "flags.midi-qol.success.all");
+        if (midiFlagsActorSuccessAll) {
+          const conditionData = createConditionData({ workflow: this, target: this.token, actor: this.actor });
+          if (midiFlagsActorSuccessAll && evalCondition(midiFlagsActorSuccessAll, conditionData)) {
+            isHit = true;
+            isHitEC = false;
+            this.isFumble = false;
+          }
+        }
+        const midiFlagsActorAttackSuccess = getProperty(this.actor, "flags.midi-qol.success.attack");
+        if (midiFlagsActorAttackSuccess) {
+          const conditionData = createConditionData({ workflow: this, target: this.token, actor: this.actor });
+          if (midiFlagsActorAttackSuccess.all && evalCondition(midiFlagsActorAttackSuccess.all, conditionData)) {
+            isHit = true;
+            isHitEC = false;
+            this.isFumble = false;
+          }
+          if (midiFlagsActorAttackSuccess[item.system.actionType] && evalCondition(midiFlagsActorAttackSuccess[item.system.actionType], conditionData)) {
+            isHit = true;
+            isHitEC = false;
+            this.isFumble = false;
+          }
+        }
+
+        const midiFlagsAttackSuccess = getProperty(targetActor, "flags.midi-qol.grants.attack.success");
         if (midiFlagsAttackSuccess) {
           const conditionData = createConditionData({ workflow: this, target: this.token, actor: this.actor });
           if (midiFlagsAttackSuccess.all && evalCondition(midiFlagsAttackSuccess.all, conditionData)) {
             isHit = true;
             isHitEC = false;
+            this.isFumble = false;
           }
           if (midiFlagsAttackSuccess[item.system.actionType] && evalCondition(midiFlagsAttackSuccess[item.system.actionType], conditionData)) {
             isHit = true;
             isHitEC = false;
+            this.isFumble = false;
           }
         }
         const midiFlagsAttackFail = getProperty(targetActor, "flags.midi-qol.grants.attack.fail");
-
         if (midiFlagsAttackFail) {
           const conditionData = createConditionData({ workflow: this, target: this.token, actor: this.actor });
           if (midiFlagsAttackFail.all && evalCondition(midiFlagsAttackFail.all, conditionData)) {
             isHit = false;
             isHitEC = false;
+            this.isCritical = false;
           }
           if (midiFlagsAttackFail[item.system.actionType] && evalCondition(midiFlagsAttackFail[item.system.actionType], conditionData)) {
             isHit = false;
             isHitEC = false;
+            this.isCritical = false;
           }
         }
+
         let scale = 100;
         if (checkRule("challengeModeArmorScale") && !this.isCritical) scale = Math.floor((this.attackTotal - targetEC + 1) / ((targetActor?.system.attributes.ac.AR ?? 0) + 1) * 10) / 10;
         setProperty(targetToken.actor ?? {}, "flags.midi-qol.challengeModeScale", scale);
@@ -3206,6 +3307,7 @@ export class Workflow {
         if (isHit || this.isCritical) this.hitTargets.add(targetToken);
         if (isHitEC) this.hitTargetsEC.add(targetToken);
         if (isHit || isHitEC) this.processCriticalFlags();
+        // This was set by computeCoverBonus so clear it after use.
         setProperty(targetActor, "flags.midi-qol.acBonus", 0);
       }
       if (game.user?.isGM) log(`${this.speaker.alias} Rolled a ${this.attackTotal} to hit ${targetName}'s AC of ${targetAC} ${(isHit || this.isCritical) ? "hitting" : "missing"}`);
@@ -3290,36 +3392,41 @@ export class Workflow {
     // min dist is the number of grid squares away.
     let minDist = targetDetails.value;
     const targetIds: string[] = [];
+
     if (canvas.tokens?.placeables && canvas.grid) {
-      for (let target of canvas.tokens.placeables) {
-        if (!isTargetable(target)) continue;
-        const ray = new Ray(target.center, token.center);
-        //@ts-expect-error .system
-        if (target.actor?.system.details.type?.custom.toLocaleLowerCase().includes("notarget")
-          //@ts-expect-error system
-          || target.actor?.system.details.race?.toLocaleLowerCase().includes("notarget")) continue;
-        const wallsBlocking = ["wallsBlock", "wallsBlockIgnoreDefeated"].includes(configSettings.rangeTarget)
-        
-        //@ts-ignore .system
-        let inRange = target.actor && target.actor?.system.details.race !== "trigger"
-          // && target.actor.id !== token.actor?.id
-          //@ts-ignore .disposition v10
-          && dispositions.includes(target.document.disposition)
-          && (["always", "wallsBlock"].includes(configSettings.rangeTarget) || !checkIncapacitated(target.actor, undefined, undefined));
-        inRange = inRange && (configSettings.rangeTarget === "none" || !hasWallBlockingCondition(target))
-        if (inRange) {
-          // if the item specifies a range of "special" don't target the caster.
-          let selfTarget = (this.item?.system.range?.units === "spec") ? canvas.tokens?.get(this.tokenId) : null;
-          if (selfTarget === target) {
-            inRange = false;
+      if (!configSettings.useTemplateRangedTargeting) {
+        for (let target of canvas.tokens.placeables) {
+          if (!isTargetable(target)) continue;
+          const ray = new Ray(target.center, token.center);
+          //@ts-expect-error .system
+          if (target.actor?.system.details.type?.custom.toLocaleLowerCase().includes("notarget")
+            //@ts-expect-error system
+            || target.actor?.system.details.race?.toLocaleLowerCase().includes("notarget")) continue;
+          const wallsBlocking = ["wallsBlock", "wallsBlockIgnoreDefeated"].includes(configSettings.rangeTarget)
+
+          //@ts-ignore .system
+          let inRange = target.actor && target.actor?.system.details.race !== "trigger"
+            // && target.actor.id !== token.actor?.id
+            //@ts-ignore .disposition v10
+            && dispositions.includes(target.document.disposition)
+            && (["always", "wallsBlock"].includes(configSettings.rangeTarget) || !checkIncapacitated(target.actor, undefined, undefined));
+          inRange = inRange && (configSettings.rangeTarget === "none" || !hasWallBlockingCondition(target))
+          if (inRange) {
+            // if the item specifies a range of "special" don't target the caster.
+            let selfTarget = (this.item?.system.range?.units === "spec") ? canvas.tokens?.get(this.tokenId) : null;
+            if (selfTarget === target) {
+              inRange = false;
+            }
+            const distance = getDistanceSimple(target, token, wallsBlocking);
+            inRange = inRange && distance >= 0 && distance <= minDist
           }
-          const distance = getDistanceSimple(target, token, wallsBlocking);
-          inRange = inRange && distance >= 0 && distance <= minDist
+          if (inRange) {
+            target.setTarget(true, { user: game.user, releaseOthers: false });
+            if (target.document.id) targetIds.push(target.document.id);
+          }
         }
-        if (inRange) {
-          target.setTarget(true, { user: game.user, releaseOthers: false });
-          if (target.document.id) targetIds.push(target.document.id);
-        }
+      } else {
+        // create a template and select targets and the filter
       }
       this.targets = new Set(game.user?.targets ?? []);
       this.saves = new Set();
@@ -3367,7 +3474,7 @@ export class Workflow {
       // Get the attack bonus for the attack
       const attackBonus = roll.total - roll.dice[0].total; // TODO see if there is a better way to work out roll plusses
       await this.checkActiveAttacks(attackBonus, false, 20 - (roll.options.fumble ?? 1) + 1, 20 - (roll.options.critical ?? 20) + 1);
-    } catch(err) {
+    } catch (err) {
       TroubleShooter.recordError(err);
     } finally {
       Hooks.off("renderChatMessage", hookId);
@@ -3634,8 +3741,6 @@ export class TrapWorkflow extends Workflow {
           return await this.next(WORKFLOWSTATES.TEMPLATEPLACED);
         }
         if (!this.item.hasAreaTarget || !this.templateLocation) return this.next(WORKFLOWSTATES.TEMPLATEPLACED)
-        //@ts-ignore
-        // this.placeTemplateHookId = Hooks.once("createMeasuredTemplate", selectTargets.bind(this));
         const TemplateClass = game[game.system.id].canvas.AbilityTemplate;
         const templateData = TemplateClass.fromItem(this.item).toObject(false); // TODO check this v10
         // template.draw();
@@ -3648,7 +3753,7 @@ export class TrapWorkflow extends Workflow {
         let templates = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
         if (templates) {
           const templateDocument: any = templates[0];
-          templateTokens({ x: templateDocument.x, y: templateDocument.y, shape: templateDocument.object.shape, distance: templateDocument.distance })
+          templateTokens(templateDocument.object)
           selectTargets.bind(this)(templates[0], null, game.user?.id); // Target the tokens from the template
           if (this.templateLocation?.removeDelay) {
             //@ts-ignore _ids
@@ -3703,7 +3808,7 @@ export class TrapWorkflow extends Workflow {
         let monksId = Hooks.on("updateChatMessage", this.monksSavingCheck.bind(this));
         try {
           await this.checkSaves(configSettings.autoCheckSaves !== "allShow");
-        } catch(err) {
+        } catch (err) {
           TroubleShooter.recordError(err);
         } finally {
           Hooks.off("renderChatMessage", hookId);
@@ -3816,8 +3921,9 @@ export class BetterRollsWorkflow extends Workflow {
         if (!this.item.hasAttack) {
           return this.next(WORKFLOWSTATES.WAITFORDAMAGEROLL);
         }
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preAttackRoll"), "OnUse", "preAttackRoll");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preAttackRoll"), "OnUse", "preAttackRoll");
         }
 
         if (await asyncHooksCall("midi-qol.preAttackRollComplete", this) === false) {
@@ -3831,7 +3937,7 @@ export class BetterRollsWorkflow extends Workflow {
       case WORKFLOWSTATES.ATTACKROLLCOMPLETE:
         this.effectsAlreadyExpired = [];
         if (checkRule("removeHiddenInvis")) await removeHidden.bind(this)();
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preCheckhits"), "OnUse", "preCheckhits");
         }
         await asyncHooksCallAll("midi-qol.preCheckHits", this);
@@ -3842,16 +3948,19 @@ export class BetterRollsWorkflow extends Workflow {
           await this.checkHits();
           await this.displayHits(configSettings.autoCheckHit === "whisper", configSettings.mergeCard);
         }
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("postAttackRoll"), "OnUse", "postAttackRoll");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("postAttackRoll"), "OnUse", "postAttackRoll");
+
         }
         await asyncHooksCallAll("midi-qol.AttackRollComplete", this);
         if (this.item) await asyncHooksCallAll(`midi-qol.AttackRollComplete.${this.item.uuid}`, this);
         return this.next(WORKFLOWSTATES.WAITFORDAMAGEROLL);
 
       case WORKFLOWSTATES.WAITFORDAMAGEROLL:
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preDamageRoll"), "OnUse", "preDamageRoll");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preDamageRoll"), "OnUse", "preDamageRoll");
         }
         // better rolls usually have damage rolled, but we might have to show it
 
@@ -3872,8 +3981,9 @@ export class BetterRollsWorkflow extends Workflow {
         if (this.critflagSet) {
           this.roll?.forceCrit();
         }
-        if (configSettings.allowUseMacro && this.item?.flags) {
+        if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("postDamageRoll"), "OnUse", "postDamageRoll");
+          if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("postDamageRoll"), "OnUse", "postDamageRoll");
         }
         const damageBonusMacros = this.getDamageBonusMacros();
         if (damageBonusMacros) {
@@ -3905,7 +4015,10 @@ export class BetterRollsWorkflow extends Workflow {
         return this.next(WORKFLOWSTATES.ALLROLLSCOMPLETE)
 
       case WORKFLOWSTATES.ROLLFINISHED:
-        if (this.placeTemplateHookId) Hooks.off("createMeasuredTemplate", this.placeTemplateHookId)
+        if (this.placeTemplateHookId) {
+          Hooks.off("createMeasuredTemplate", this.placeTemplateHookId);
+          Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId);
+        }
         await this.complete();
         await super._next(WORKFLOWSTATES.ROLLFINISHED);
         // should remove the apply effects button.
@@ -4038,7 +4151,10 @@ export class DDBGameLogWorkflow extends Workflow {
         return this.next(WORKFLOWSTATES.ALLROLLSCOMPLETE)
 
       case WORKFLOWSTATES.ROLLFINISHED:
-        if (this.placeTemplateHookId) Hooks.off("createMeasuredTemplate", this.placeTemplateHookId)
+        if (this.placeTemplateHookId) {
+          Hooks.off("createMeasuredTemplate", this.placeTemplateHookId)
+          Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId)
+        }
         await super._next(WORKFLOWSTATES.ROLLFINISHED);
         // should remove the apply effects button.
         Workflow.removeWorkflow(this.item.uuid)
@@ -4078,7 +4194,7 @@ export class DummyWorkflow extends Workflow {
     const hookId = Hooks.on("preUpdateItem", (item, update, options, user) => { return update.system?.quantity === undefined });
     try {
       this.attackRoll = await this.item?.rollAttack({ fastForward: true, chatMessage: false, isDummy: true })
-    } catch(err) {
+    } catch (err) {
       TroubleShooter.recordError(err);
     } finally {
       Hooks.off("preUpdateItem", hookId)

@@ -22,14 +22,17 @@ export class LateTargetingDialog extends Application {
 
     // Handle alt/ctrl etc keypresses when completing the dialog
     this.callback = function(value) {
-      setProperty(options, "workflowOptions.advantage", options.worfkflowOptions?.advantage || options.pressedKeys.advantage);
-      setProperty(options, "workflowOptions.disadvantage", options.worfkflowOptions?.disadvantage || options.pressedKeys.disadvantage);
-      setProperty(options, "workflowOptions.versatile", options.worfkflowOptions?.versatile || options.pressedKeys.versatile);
-      setProperty(options, "workflowOptions.fastForward", options.worfkflowOptions?.fastForward || options.pressedKeys.fastForward);
+      setProperty(options, "workflowOptions.advantage", options.worfkflowOptions?.advantage || options.pressedKeys?.advantage);
+      setProperty(options, "workflowOptions.disadvantage", options.worfkflowOptions?.disadvantage || options.pressedKeys?.disadvantage);
+      setProperty(options, "workflowOptions.versatile", options.worfkflowOptions?.versatile || options.pressedKeys?.versatile);
+      setProperty(options, "workflowOptions.fastForward", options.worfkflowOptions?.fastForward || options.pressedKeys?.fastForward);
       return options.callback(value);
     }
     // this.callback = options.callback;
     return this;
+  }
+  get title() {
+    return this.options.title ?? i18n("midi-qol.LateTargeting.Name");
   }
 
   static get defaultOptions() {

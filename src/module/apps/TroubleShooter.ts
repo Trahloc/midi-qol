@@ -1,5 +1,6 @@
 import { geti18nOptions, i18n } from "../../midi-qol.js";
 import { CheckedAuthorsList, checkedModuleList, checkMechanic, collectSettingData, configSettings, enableWorkflow, exportSettingsToJSON, fetchParams, importSettingsFromJSON } from "../settings.js";
+import { installedModules } from "../setupModules.js";
 import { calculateDamage } from "../utils.js";
 
 const minimumMidiVersion = "11.0.7";
@@ -22,9 +23,19 @@ export class TroubleShooter extends FormApplication {
     this._hookId = Hooks.on("midi-qol.TroubleShooter.recordError", (errorDetail) => {
       if (TroubleShooter.data.isLocal) {
         TroubleShooter.data = TroubleShooter.collectTroubleShooterData();
-        this.render(true);
+        this.render(true, options);
       }
     });
+    return this;
+  }
+
+  async render(force: boolean = false, options:any = {}) {
+    await super._render(force, options);
+    if (options.tab) this._tabs[0].activate(options.tab);
+  }
+
+  public activateTab(tabName: string) {
+    this._tabs[0].activate(tabName);
   }
 
   public static recordError(err, message?: string | undefined) {
@@ -391,8 +402,8 @@ export class TroubleShooter extends FormApplication {
       }
     });
     Object.keys(tempModules)
-    .sort((m1, m2) => m1 < m2 ? -1 : m1 > m2 ? 1 : 0)
-    .forEach(key => {data.summary.knownModules[key] = tempModules[key]});
+      .sort((m1, m2) => m1 < m2 ? -1 : m1 > m2 ? 1 : 0)
+      .forEach(key => { data.summary.knownModules[key] = tempModules[key] });
     /*
     checkedModuleList.forEach(moduleId => {
       const moduleData = game.modules.get(moduleId);
@@ -409,9 +420,9 @@ export class TroubleShooter extends FormApplication {
       if (!module.active && !checkedModuleList.includes(module.id)) continue;
       let idToUse = module.id;
       let titleToUse = module.title;
-      if (idToUse.includes("plutonium") || titleToUse.includes("plutonium")) {
-        idToUse = idToUse.replace("plutonium", "xxxxxxxxx");
-        titleToUse = titleToUse.replace("plutonium", "xxxxxxxxx")
+      if (idToUse.match(/plutonium/i) || titleToUse.match(/plutonium/i)) {
+        idToUse = idToUse.replace(/plutonium/i, "xxxxxxxxx");
+        titleToUse = titleToUse.replace(/plutonium/i, "xxxxxxxxx")
         data.summary.moduleSettings["xxxxxxxxx detected"] = "incompatible importer found";
       };
       data.modules[idToUse] = {
@@ -506,6 +517,7 @@ export class TroubleShooter extends FormApplication {
           setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "walledtemplates":
+            this.checkWalledTemplates(data);
           break;
         case "warpgate":
           setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
@@ -584,7 +596,65 @@ export class TroubleShooter extends FormApplication {
     return data;
   }
 
+  public static checkWalledTemplates(data: TroubleShooterData) {
+    if (game.modules.get("walledtemplates")?.active) {
+      if (configSettings.autoTarget !== "walledtemplates" || !game.settings.get("walledtemplates", "autotarget-enabled")) {
+        data.problems.push({
+          moduleId: "walledtemplates",
+          severity: "Error",
+          problemSummary: "If walled templates is active you MUST enable auto-target and select walled templates in the midi workflow settings",
+          problemDetail: undefined,
+          fixer: "Enable walled templates auto target",
+          fixerFunc: async function (app: TroubleShooter) {
+            if (!game.user?.isGM) {
+              ui.notifications?.error("midi-qol | You must be a GM to fix walled templates auto target");
+              return;
+            }
+            await game.settings.set("walledtemplates", "autotarget-enabled", true);
+            await game.settings.set("walledtemplates", "autotarget-menu", "yes");
+            configSettings.autoTarget = "walledtemplates";
+            await game.settings.set("midi-qol", "ConfigSettings", configSettings);
+            //@ts-expect-error reload configure
+            SettingsConfig.reloadConfirm({ world: true });
+            TroubleShooter.data = TroubleShooter.collectTroubleShooterData();
+            app.render(true)
+          },
+          fixerid: -1
+        });
+      } else if (game.settings.get("walledtemplates", "autotarget-enabled") && configSettings.autoTarget !== "walledtemplates") {
+        data.problems.push({
+          moduleId: "walledtemplates",
+          severity: "Error",
+          problemSummary: "Walled templates is set to auto target and midi is not using it for targeting",
+          problemDetail: undefined,
+          fixer: "Disable walled templates auto target",
+          fixerFunc: async function (app: TroubleShooter) {
+            if (!game.user?.isGM) {
+              ui.notifications?.error("midi-qol | You must be a GM to fix Item Macro char sheet flag");
+              return;
+            }
+            await game.settings.set("walledtemplates", "autotarget-enabled", false);
+            await game.settings.set("walledtemplates", "autotarget-menu", "no");
+            TroubleShooter.data = TroubleShooter.collectTroubleShooterData();
+            app.render(true)
+          },
+          fixerid: -1
+        });
+      }
+    } else if (configSettings.autoTarget === "walledtemplates") {
+      data.problems.push({
+        moduleId: "walledtemplates",
+        severity: "Error",
+        problemSummary: "Midi is set to use walled templates but the module is not enabled",
+        problemDetail: undefined,
+        fixer: "Enable the walled templates module",
+        fixerid: -1
+      });
+    }
+  }
+
   public static checkItemMacro(data: TroubleShooterData) {
+    if (!game.modules.get("itemacro")?.active) return;
     if (game.settings.get('itemacro', 'charsheet')) {
       data.problems.push({
         moduleId: "itemacro",

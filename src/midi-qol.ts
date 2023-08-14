@@ -6,9 +6,9 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, WORKFLOWSTATES } from './module/workflow.js';
-import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, validRolAbility } from './module/utils.js';
+import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, validRolAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
-import { showItemInfo, templateTokens } from './module/itemhandling.js';
+import { resolveLateTargeting, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
 import { OnUseMacroOptions } from './module/apps/Item.js';
 import { MidiKeyManager } from './module/MidiKeyManager.js';
@@ -16,6 +16,7 @@ import { MidiSounds } from './module/midi-sounds.js';
 import { addUndoChatMessage, getUndoQueue, removeMostRecentWorkflow, showUndoQueue, undoMostRecentWorkflow } from './module/undo.js';
 import { showUndoWorkflowApp } from './module/apps/UndowWorkflow.js';
 import { TroubleShooter } from './module/apps/TroubleShooter.js';
+import { LateTargetingDialog } from './module/apps/LateTargeting.js';
 
 export let debugEnabled = 0;
 export let debugCallTiming: any = false;
@@ -220,7 +221,6 @@ Hooks.once('setup', function () {
   };
   setupSheetQol();
   createMidiMacros();
-
 });
 
 /* ------------------------------------ */
@@ -247,15 +247,15 @@ Hooks.once('ready', function () {
     "preDamageApplication": "Before Damage Application",
     "preActiveEffects": "Before Active Effects",
     "postActiveEffects": "After Active Effects ",
-    "isAttacked": "Actor is target of an attack",
-    "isHit": "Actor is target of a hit",
+    "isAttacked": "Target is attacked",
+    "isHit": "Target is hit",
     "preTargetSave": "Target is about to roll a saving throw",
-    "isSave": "Actor rolled a save",
-    "isSaveSuccess": "Actor rolled a successful save",
-    "isSaveFailure": "Actor failed a saving throw",
+    "isSave": "Target rolled a save",
+    "isSaveSuccess": "Target rolled a successful save",
+    "isSaveFailure": "Target failed a saving throw",
     "preTargetDamageApplication": "Target is about to be damaged by an item",
     "postTargetEffectApplication": "Target has an effect applied by a rolled item",
-    "isDamaged": "Actor is damaged by an attack",
+    "isDamaged": "Target is damaged by an attack",
     "all": "All"
   }
   OnUseMacroOptions.setOptions(MQOnUseOptions);
@@ -365,6 +365,12 @@ Hooks.once('ready', function () {
     //@ts-expect-error
     LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
   }
+  if (game.user?.isGM) {
+    const problems = TroubleShooter.collectTroubleShooterData().problems
+    for (let problem of problems) {
+      ui.notifications?.error(`midi-qol ${problem.problemSummary} | Open TroubleShooter to fix`, { permanent: true });
+    }
+  }
 });
 
 import { setupMidiTests } from './module/tests/setupTest.js';
@@ -407,6 +413,7 @@ function setupMidiQOLApi() {
   //@ts-ignore
   globalThis.MidiQOL = {
     addConcentration,
+    addUndoChatMessage,
     applyTokenDamage,
     canSense,
     canSenseModes,
@@ -422,9 +429,9 @@ function setupMidiQOLApi() {
     contestedRoll,
     DamageOnlyWorkflow,
     debug,
+    displayDSNForRoll,
     doConcentrationCheck,
     doOverTimeEffect,
-    displayDSNForRoll,
     DummyWorkflow,
     enableWorkflow,
     findNearby,
@@ -434,9 +441,13 @@ function setupMidiQOLApi() {
     getDistance: getDistanceSimpleOld,
     getTokenPlayerName,
     getTraitMult: getTraitMult,
+    getUndoQueue,
     hasCondition,
     hasUsedBonusAction,
     hasUsedReaction,
+    InvisibleDisadvantageVisionModes,
+    isTargetable,
+    LateTargetingDialog,
     log,
     midiFlags,
     midiRenderRoll,
@@ -449,27 +460,26 @@ function setupMidiQOLApi() {
     playerFor,
     playerForActor,
     reactionDialog,
+    removeMostRecentWorkflow,
     reportMidiCriticalFlags: reportMidiCriticalFlags,
+    resolveLateTargeting,
     selectTargetsForTemplate: templateTokens,
     setBonusActionUsed,
     setReactionUsed,
     showItemInfo,
+    showUndoQueue,
+    showUndoWorkflowApp,
     socket: () => { return socketlibSocket },
+    testfunc,
     tokenForActor,
     TrapWorkflow,
     TroubleShooter,
+    undoMostRecentWorkflow,
+    validRolAbility,
+    WallsBlockConditions,
     warn,
     Workflow,
     WORKFLOWSTATES,
-    showUndoQueue,
-    getUndoQueue,
-    undoMostRecentWorkflow,
-    removeMostRecentWorkflow,
-    showUndoWorkflowApp,
-    addUndoChatMessage,
-    testfunc,
-    InvisibleDisadvantageVisionModes,
-    WallsBlockConditions,
     moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
       if (tokenUuid) return socketlibSocket.executeAsGM("moveToken", { tokenUuid, newCenter });
@@ -478,8 +488,7 @@ function setupMidiQOLApi() {
       const targetUuid = getTokenDocument(targetRef)?.uuid;
       if (point && targetUuid && distance)
         return socketlibSocket.executeAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point })
-    },
-    validRolAbility
+    }
   };
   globalThis.MidiQOL.actionQueue = new Semaphore();
 }
@@ -533,6 +542,7 @@ function setupMidiFlags() {
   midiFlags.push("flags.midi-qol.noCritical.all");
   midiFlags.push("flags.midi-qol.fail.all");
   midiFlags.push("flags.midi-qol.fail.attack.all");
+  midiFlags.push("flags.midi-qol.success.attack.all");
   midiFlags.push(`flags.midi-qol.grants.advantage.attack.all`);
   midiFlags.push(`flags.midi-qol.grants.disadvantage.attack.all`);
   midiFlags.push(`flags.midi-qol.grants.fail.advantage.attack.all`);
@@ -565,6 +575,7 @@ function setupMidiFlags() {
     midiFlags.push(`flags.midi-qol.advantage.attack.${at}`);
     midiFlags.push(`flags.midi-qol.disadvantage.attack.${at}`);
     midiFlags.push(`flags.midi-qol.fail.attack.${at}`);
+    midiFlags.push(`flags.midi-qol.success.attack.${at}`);
     midiFlags.push(`flags.midi-qol.critical.${at}`);
     midiFlags.push(`flags.midi-qol.noCritical.${at}`);
     midiFlags.push(`flags.midi-qol.grants.advantage.attack.${at}`);

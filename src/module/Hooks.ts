@@ -122,9 +122,10 @@ export let readyHooks = async () => {
       if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
         const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
         if (concentrationData && deletedEffect.origin === concentrationData.uuid) {
+
           const allConcentrationTargets = concentrationData.targets.filter(target => {
             let actor = MQfromActorUuid(target.actorUuid);
-            const hasEffects = actor.effects.some(effect =>
+            const hasEffects = actor?.effects.some(effect =>
               effect.origin === concentrationData.uuid
               && !effect.flags.dae.transfer
               && effect.uuid !== deletedEffect.uuid);
@@ -132,7 +133,7 @@ export let readyHooks = async () => {
           });
           const concentrationTargets = concentrationData.targets.filter(target => {
             let actor = MQfromActorUuid(target.actorUuid);
-            const hasEffects = actor.effects.some(effect =>
+            const hasEffects = actor?.effects.some(effect =>
               effect.origin === concentrationData.uuid
               && !effect.flags.dae.transfer
               && effect.uuid !== deletedEffect.uuid

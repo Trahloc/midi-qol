@@ -102,6 +102,7 @@ class ConfigSettings {
   promptDamageRoll: boolean = false;
   quickSettings: boolean = true;
   rangeTarget: string = "none";
+  useTemplateRangedTargeting: boolean = false;
   reactionTimeout: number = 10;
   recordAOO = "none";
   removeButtons: string = "all";
@@ -141,6 +142,7 @@ class ConfigSettings {
   rollAlternate: string = "off";
   optionalRules: any = {
     invisAdvantage: "RAW",
+    invisVision: false,
     checkRange: "longFail",
     wallsBlockRange: "center",
     coverCalculation: "none",

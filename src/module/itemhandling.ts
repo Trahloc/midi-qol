@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes } from "../midi-qol.js";
 import { BetterRollsWorkflow, DummyWorkflow, TrapWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { configSettings, enableWorkflow, checkRule, checkMechanic } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getLateTargeting, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageList, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getLateTargeting, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageList, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { LateTargetingDialog } from "./apps/LateTargeting.js";
@@ -11,6 +11,7 @@ import { socketlibSocket } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
+  let itemUsageConsumptionHookId;
   try {
     const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
     let tokenToUse;
@@ -138,12 +139,12 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     // only allow weapon attacks against at most the specified number of targets
     let allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
-    if (configSettings.enforceSingleWeaponTarget 
-          && this.system.target?.type === null
-          && allAttackTypes.includes(this.system.actionType)) {
-            // we have a weapon with no creature limit set.
-            allowedTargets = 1;
-          }
+    if (configSettings.enforceSingleWeaponTarget
+      && this.system.target?.type === null
+      && allAttackTypes.includes(this.system.actionType)) {
+      // we have a weapon with no creature limit set.
+      allowedTargets = 1;
+    }
     const inCombat = isInCombat(this.actor);
     let AoO = false;
     let activeCombatants = game.combats?.combats.map(combat => combat.combatant?.token?.id)
@@ -208,7 +209,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const needsConcentration = this.system.components?.concentration
       || this.flags.midiProperties?.concentration
       || this.system.activation?.condition?.toLocaleLowerCase().includes(i18n("midi-qol.concentrationActivationCondition").toLocaleLowerCase());
-    const checkConcentration = configSettings.concentrationAutomation;
+    let checkConcentration = configSettings.concentrationAutomation;
     if (needsConcentration && checkConcentration) {
       const concentrationEffect = getConcentrationEffect(this.actor);
       if (concentrationEffect) {
@@ -296,7 +297,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     if (configSettings.allowUseMacro) {
       const results = await workflow.callMacros(this, workflow.onUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
-
       if (results.some(i => i === false)) {
         console.warn("midi-qol | item roll blocked by preItemRoll macro");
         ui.notifications?.notify(`${this.name ?? ""} use blocked by preItemRoll macro`)
@@ -304,6 +304,13 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
         // Workflow.removeWorkflow(workflow.id);
         // return;
+      }
+      const ammoResults = await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
+      if (ammoResults.some(i => i === false)) {
+        console.warn(`midi-qol | item ${workflow.ammo.name ?? ""} roll blocked by preItemRoll macro`);
+        ui.notifications?.notify(`${workflow.ammo.name ?? ""} use blocked by preItemRoll macro`)
+        workflow.aborted = true;
+        return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
       }
     }
 
@@ -330,16 +337,52 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     await workflow.checkAttackAdvantage();
     workflow.showCard = true;
     const wrappedRollStart = Date.now();
-    // let result = await wrapped(config, mergeObject(options, { createMessage: false }, { inplace: false }));
-    let result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
+    const token = getToken(workflow.tokenUuid);
 
+    const autoCreatetemplate = token && this.hasAreaTarget && ["self", "spec", "any"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
+    if (autoCreatetemplate) {
+      itemUsageConsumptionHookId = Hooks.on("dnd5e.itemUsageConsumption",
+        (item, config, options) => { if (item.uuid === this.uuid) config.createMeasuredTemplate = false; return true });
+    }
+    let result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
+    if (itemUsageConsumptionHookId) Hooks.off("dnd5e.itemUsageConsumption", itemUsageConsumptionHookId);
     if (!result) {
-      //TODO find the right way to clean this up
-      console.warn("midi-qol | itemhandling wrapped returned ", result)
+      // const message = `midi-qol | doItemUse call to wrapped item.use() error`;
+      // console.warn(message)f
+      // TroubleShooter.recordError(new Error(message));
       // Workflow.removeWorkflow(workflow.id); ?
       return null;
     }
+    // Sphere/Cyclinder spells only will have their template auto placed.
+    if (autoCreatetemplate) {
+      //@ts-expect-error .canvas
+      let templateData = game.system.canvas.AbilityTemplate.fromItem(this);
+      templateData = templateData.document.toObject();
+      templateData.x = token.center?.x || 0;
+      templateData.y = token.center?.y || 0;
+      setProperty(templateData, "flags.midi-qol.itemUuid", this.uuid);
+      if (workflow?.actor) setProperty(templateData, "flags.midi-qol.actorUuid", workflow.actor.uuid);
+      if (workflow?.tokenId) setProperty(templateData, "flags.midi-qol.tokenId", workflow.tokenId);
+      if (workflow) setProperty(templateData, "flags.midi-qol.workflowId", workflow.id);
+      const templateDocuments = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
 
+      if (templateDocuments && templateDocuments.length > 0) {
+        //@ts-expect-error
+        let td: MeasuredTemplateDocument = templateDocuments[0];
+        workflow.templateUuid = td.uuid;
+        workflow.templateId = td?.object?.id;
+        let token = getToken(workflow.tokenUuid);
+        if (token && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
+          //@ts-expect-error
+          const templateDocument = fromUuidSync(td.uuid);
+          //@ts-expect-error .object
+          await token.attachTemplate(templateDocument.object, { "flags.dae.stackable": "noneName" }, true);
+        }
+        //@ts-expect-error
+        templateTokens(td?.object, this.system.range?.units === "spec" ? token : undefined)
+        checkConcentration = false;
+      }
+    }
     if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
     if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);
     if (needsConcentration && checkConcentration) {
@@ -356,6 +399,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     return result;
 
   } catch (err) {
+    if (itemUsageConsumptionHookId) Hooks.off("dnd5e.itemUsageConsumption", itemUsageConsumptionHookId);
     const message = `doItemUse error for ${this.actor?.name} ${this.name} ${this.uuid}`;
     TroubleShooter.recordError(err, message);
     throw err;
@@ -819,7 +863,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
               term.options.flavor = getDamageFlavor(term.options.flavor);
             }
           }
-          await displayDSNForRoll(otherResult, "damageRoll");
+          if (workflow.workflowOptions?.otherDamageRollDSN === false) await displayDSNForRoll(otherResult, "damageRoll");
           if (!configSettings.mergeCard) await otherResult?.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") })
           await workflow.setOtherDamageRoll(otherResult);
         }
@@ -933,7 +977,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     const isPlayerOwned = this.actor.hasPlayerOwner;
     const hideItemDetails = (["none", "cardOnly"].includes(configSettings.showItemDetails) || (configSettings.showItemDetails === "pc" && !isPlayerOwned))
       || !configSettings.itemTypeList.includes(this.type);
-    const hasEffects = !["applyNoButton"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "Workflow" && this.effects.find(ae => !ae.transfer);
+    const hasEffects = !["applyNoButton"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "Workflow" && this.effects.find(ae => !ae.transfer && !getProperty(ae, "flags.dae.dontApply"));
     let dmgBtnText = (this.system?.actionType === "heal") ? i18n(`${systemString}.Healing`) : i18n(`${systemString}.Damage`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) dmgBtnText += ` ${i18n("midi-qol.fastForward")}`;
     let versaBtnText = i18n(`${systemString}.Versatile`);
@@ -1048,9 +1092,9 @@ async function getChatData() {
 export async function resolveLateTargeting(item, options: any, pressedKeys: any): Promise<boolean> {
   const workflow = Workflow.getWorkflow(item?.uuid);
   const lateTargetingSetting = getLateTargeting(workflow);
-  if (lateTargetingSetting === "none") return true; // workflow options override the user settings
-  if (workflow) workflow.targets = new Set();
-  if (workflow && lateTargetingSetting === "noTargetsSelected" && workflow.targets.size !== 0) return true;
+  if (lateTargetingSetting === "none" && !options.forceDisplay) return true; // workflow options override the user settings
+  if (workflow && options.workflowOptions?.clearWorkflowTargets) workflow.targets = new Set();
+  if (workflow && lateTargetingSetting === "noTargetsSelected" && workflow.targets.size !== 0 && !options.forceDisplay) return true;
 
   const savedSettings = { control: ui.controls?.control?.name, tool: ui.controls?.tool };
   const savedActiveLayer = canvas?.activeLayer;
@@ -1064,7 +1108,8 @@ export async function resolveLateTargeting(item, options: any, pressedKeys: any)
   let targets = new Promise((resolve, reject) => {
     // no timeout since there is a dialog to close
     // create target dialog which updates the target display
-    let lateTargeting = new LateTargetingDialog(item.actor, item, game.user, { callback: resolve, workflowOptions: options, pressedKeys }).render(true);
+    options = mergeObject(options, { callback: resolve, pressedKeys });
+    let lateTargeting = new LateTargetingDialog(item.actor, item, game.user, options).render(true);
   });
   let shouldContinue = await targets;
   if (savedActiveLayer) await savedActiveLayer.activate();
@@ -1130,11 +1175,11 @@ export async function showItemInfo() {
   return ChatMessage.create(chatData);
 }
 
-function isTokenInside(templateDetails: { x: number, y: number, shape: any, distance: number }, token: Token, wallsBlockTargeting): boolean {
+function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTargeting): boolean {
   //@ts-ignore grid v10
   const grid = canvas?.scene?.grid;
   if (!grid) return false;
-  const templatePos = { x: templateDetails.x, y: templateDetails.y };
+  const templatePos = { x: template.x, y: template.y };
   if (configSettings.optionalRules.wallsBlockRange !== "none" && hasWallBlockingCondition(token))
     return false;
   if (!isTargetable(token)) return false;
@@ -1153,14 +1198,13 @@ function isTokenInside(templateDetails: { x: number, y: number, shape: any, dist
         x: token.x + x * grid.size! - templatePos.x,
         y: token.y + y * grid.size! - templatePos.y,
       };
-      let contains = templateDetails.shape?.contains(currGrid.x, currGrid.y);
+      let contains = template.shape?.contains(currGrid.x, currGrid.y);
       if (contains && wallsBlockTargeting) {
         let tx = templatePos.x;
         let ty = templatePos.y;
-        if (templateDetails.shape.type === 1) { // A rectangle
-          tx = tx + templateDetails.shape.width / 2;
-          ty = ty + templateDetails.shape.height / 2;
-
+        if (template.shape instanceof PIXI.Rectangle) {
+          tx = tx + template.shape.width / 2;
+          ty = ty + template.shape.height / 2;
         }
         const r = new Ray({ x: tx, y: ty }, { x: currGrid.x + templatePos.x, y: currGrid.y + templatePos.y });
 
@@ -1171,21 +1215,21 @@ function isTokenInside(templateDetails: { x: number, y: number, shape: any, dist
           && !installedModules.get("levelsvolumetrictemplates")) {
           let p1 = {
             x: currGrid.x + templatePos.x, y: currGrid.y + templatePos.y,
-            //@ts-ignore
+            //@ts-expect-error
             z: token.elevation
           }
           // installedModules.get("levels").lastTokenForTemplate.elevation no longer defined
-          //@ts-ignore .elevation CONFIG.Levels.UI v10
+          //@ts-expect-error .elevation CONFIG.Levels.UI v10
           const p2z = _token?.document?.elevation ?? CONFIG.Levels.UI.nextTemplateHeight ?? 0;
           let p2 = {
             x: tx, y: ty,
             //@ts-ignore
             z: p2z
           }
-          contains = getUnitDist(p2.x, p2.y, p2.z, token) <= templateDetails.distance;
-          //@ts-ignore
+          //@ts-expect-error .distance
+          contains = getUnitDist(p2.x, p2.y, p2.z, token) <= template.distance;
+          //@ts-expect-error .Levels
           contains = contains && !CONFIG.Levels.API.testCollision(p1, p2, "collision");
-          //@ts-ignore
         } else if (!installedModules.get("levelsvolumetrictemplates")) {
           //@ts-expect-error polygonBackends
           contains = !CONFIG.Canvas.polygonBackends.sight.testCollision({ x: tx, y: ty }, { x: currGrid.x + templatePos.x, y: currGrid.y + templatePos.y }, { mode: "any", type: "move" })
@@ -1198,25 +1242,29 @@ function isTokenInside(templateDetails: { x: number, y: number, shape: any, dist
   return false;
 }
 
-export function templateTokens(templateDetails: { x: number, y: number, shape: any, distance: number }): Token[] {
+export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: Token | TokenDocument | string): Token[] {
   if (configSettings.autoTarget === "none") return [];
   const wallsBlockTargeting = ["wallsBlock", "wallsBlockIgnoreDefeated"].includes(configSettings.autoTarget);
   const tokens = canvas?.tokens?.placeables ?? []; //.map(t=>t)
+  const ignoreTokenDocument = getTokenDocument(ignoreToken);
   let targets: string[] = [];
-  const targetTokens: Token[] = [];
-  for (const token of tokens) {
-    if (!isTargetable(token)) continue;
-    if (token.actor && isTokenInside(templateDetails, token, wallsBlockTargeting)) {
-      // const actorData: any = token.actor?.data;
-      //@ts-expect-error .system v10
-      if (token.actor.system.details.type?.custom.toLocaleLowerCase().includes("notarget")
-        //@ts-expect-error system
-        || token.actor.system.details.race?.toLocaleLowerCase().includes("notarget")) continue;
-      //@ts-ignore .system
-      if (["wallsBlock", "always"].includes(configSettings.autoTarget) || !checkIncapacitated(token.actor)) {
-        if (token.id) {
-          targetTokens.push(token);
-          targets.push(token.id);
+  let targetTokens: Token[] = [];
+  if (configSettings.autoTarget === "walledtemplates" && game.modules.get("walledtemplates")?.active) {
+    //@ts-expect-error
+    targetTokens = templateDetails.targetsWithinShape();
+    targetTokens = targetTokens.filter(token => token.document.uuid !== ignoreTokenDocument?.uuid)
+    targets = targetTokens.map(t => t.id);
+  } else {
+    for (const token of tokens) {
+      if (!isTargetable(token)) continue;
+      if (token.document.uuid === ignoreTokenDocument?.uuid) continue;
+      if (token.actor && isTokenInside(templateDetails, token, wallsBlockTargeting)) {
+        //@ts-ignore .system
+        if (["wallsBlock", "always"].includes(configSettings.autoTarget) || !checkIncapacitated(token.actor)) {
+          if (token.id) {
+            targetTokens.push(token);
+            targets.push(token.id);
+          }
         }
       }
     }
@@ -1229,28 +1277,40 @@ export function templateTokens(templateDetails: { x: number, y: number, shape: a
 
 export function selectTargets(templateDocument: MeasuredTemplateDocument, data, user) {
   //@ts-expect-error
-  const hasWorkflow = this.currentState ?? Workflow.getWorkflow(templateDocument.flags?.dnd5e?.origin);
+  const hasWorkflow = this?.currentState ?? Workflow.getWorkflow(templateDocument.flags?.dnd5e?.origin);
   if (hasWorkflow === undefined) return true;
+
+  let ignoreTokenUuid;
+  if (this?.item && this.item.hasAreaTarget && this.item.system.range.type === "self")
+    ignoreTokenUuid = this.tokenUuid;
+  // think about special = allies, self = all but self and any means everyone.
 
   if ((game.user?.targets.size === 0 || user !== game.user?.id)
     && templateDocument?.object && !installedModules.get("levelsvolumetrictemplates")) {
+    //@ts-expect-error fromUuidSync
+    let mTemplate: MeasuredTemplate = fromUuidSync(templateDocument.uuid)?.object;
     //@ts-ignore
-    const mTemplate: MeasuredTemplate = templateDocument.object;
     if (mTemplate.shape)
       //@ts-ignore templateDocument.x, mtemplate.distance TODO check this v10
-      templateTokens({ x: templateDocument.x, y: templateDocument.y, shape: mTemplate.shape, distance: mTemplate.distance })
+      templateTokens(mTemplate, ignoreTokenUuid)
     else {
-      let { shape, distance } = computeTemplateShapeDistance(templateDocument)
+      // @ ts-expect-error
+      // mTemplate.shape = mTemplate._computeShape();
+      let { shape, distance } = computeTemplateShapeDistance(templateDocument);
+      //@ts-expect-error
+      mTemplate.shape = shape;
+      //@ts-expect-error
+      mTemplate.distance = distance;
       if (debugEnabled > 0) warn(`selectTargets computed shape ${shape} distance${distance}`)
       //@ts-ignore .x, .y v10
-      templateTokens({ x: templateDocument.x, y: templateDocument.y, shape, distance });
+      templateTokens(mTemplate, ignoreTokenUuid);
     }
   }
   let item = this?.item;
   let targeting = configSettings.autoTarget;
   this.templateId = templateDocument?.id;
   this.templateUuid = templateDocument?.uuid;
-  if (user === game.user?.id) templateDocument.setFlag("midi-qol", "originUuid", this.uuid); // set a refernce back to the item that created the template.
+  if (user === game.user?.id && item) templateDocument.setFlag("midi-qol", "originUuid", item.uuid); // set a refernce back to the item that created the template.
   if (targeting === "none") { // this is no good
     Hooks.callAll("midi-qol-targeted", this.targets);
     return true;
@@ -1263,10 +1323,11 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
     selfTarget.setTarget(false, { user: game.user, releaseOthers: false })
   }
   this.saves = new Set();
-
-  const userTargets = game.user?.targets;
-  this.targets = new Set(userTargets);
-  this.targets = this.targets.filter(target => isTargetable(target));
+  game.user?.targets?.forEach(token => {
+    if (!isTargetable(token)) token.setTarget(false, { user: game.user, releaseOthers: false })
+  });
+  //@ts-expect-error filter
+  this.targets = new Set(game.user?.targets ?? new Set()).filter(token => isTargetable(token));
   this.hitTargets = new Set(this.targets);
   this.templateData = templateDocument.toObject(); // TODO check this v10
   this.needTemplate = false;

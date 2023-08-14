@@ -713,7 +713,11 @@
             {{/select}}
           </select>
         </div>
-        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint"}}</div>
+        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint1"}}</div>
+        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint2"}}</div>
+        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint3"}}</div>
+        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint4"}}</div>
+        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint5"}}</div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.CoverCalculation.Name"}}</label>
@@ -789,19 +793,26 @@
           </div>
           <div class="midi-qol-faint">{{localize "midi-qol.CheckFlanking.Hint"}}</div>
 
-          <div class="form-group">
-            <label>{{localize "midi-qol.InvisAdvantage.Name"}}</label>
-            <select name="optionalRules.invisAdvantage" data-dtype="String">
-              {{#select configSettings.optionalRules.invisAdvantage}}
-              {{#each InvisAdvantageOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
-            </select>
+          <div class="midi-qol-box">
+            <div class="form-group">
+              <label>{{localize "midi-qol.InvisAdvantage.Name"}}</label>
+              <select name="optionalRules.invisAdvantage" data-dtype="String">
+                {{#select configSettings.optionalRules.invisAdvantage}}
+                {{#each InvisAdvantageOptions as |label val|}}
+                <option value="{{val}}">{{label}}</option>
+                {{/each}}
+                {{/select}}
+              </select>
+            </div>
+            <div class="midi-qol-faint">{{localize "midi-qol.InvisAdvantage.Hint"}}</div>
+            <div class="midi-qol-faint">{{localize "midi-qol.CantSeeAdvantage.Hint"}}</div>
+            <div class="form-group">
+              <label>{{localize "midi-qol.InvisVision.Name"}}</label>
+              <input type="checkbox" name="optionalRules.invisVision" data-dtype="Boolean" {{checked
+                configSettings.optionalRules.invisVision}} />
+            </div>
+            <div class="midi-qol-faint">{{localize "midi-qol.InvisVision.Hint"}}</div>
           </div>
-          <div class="midi-qol-faint">{{localize "midi-qol.InvisAdvantage.Hint"}}</div>
-          <div class="midi-qol-faint">{{localize "midi-qol.CantSeeAdvantage.Hint"}}</div>
-
           <div class="form-group">
             <label>{{localize "midi-qol.RemoveHiddenInvis.Name"}}</label>
             <input type="checkbox" name="optionalRules.removeHiddenInvis" data-dtype="Boolean" {{checked

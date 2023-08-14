@@ -33,7 +33,7 @@ export class ConfigPanel extends FormApplication {
     }
     let wallsBlockRangeOptions = duplicate(geti18nOptions("WallsBlockRangeOptionsNew"));
     let CoverCalculationOptions = duplicate(geti18nOptions("CoverCalculationOptions"));
-    [{id: "levelsautocover", name: "'Levels Auto Cover'"}, {id:"simbuls-cover-calculator", name: "'Simbuls Cover Calculator'"}].forEach(module => {
+    [{id: "levelsautocover", name: "'Levels Auto Cover'"}, {id:"simbuls-cover-calculator", name: "'Simbuls Cover Calculator'"}, {id: "tokenvisibility", name: "Alternative Token Visibility"}].forEach(module => {
       if (!installedModules.get(module.id)) {
         wallsBlockRangeOptions[module.id] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: module.name })}`;
         CoverCalculationOptions[module.id] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: module.name })}`;
