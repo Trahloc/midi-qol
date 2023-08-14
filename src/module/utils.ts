@@ -4241,8 +4241,7 @@ export function canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: 
   if (!token || !target) return ["noToken"];
   //@ts-expect-error .hidden
   if (target.document?.hidden || token.document?.hidden) return [];
-  if (!configSettings.optionalRules.invisVision) return ["senseAll"];
-  // if (!token.hasSight) return ["noSight"];
+  if (!token.hasSight && !configSettings.optionalRules.invisVision) return ["senseAll"];
   for (let tk of [token]) {
     //@ts-expect-error
     if (!tk.document.sight.enabled) {

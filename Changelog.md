@@ -1,3 +1,6 @@
+## 11.0.11.1
+* Fix for typo in canSense affecting checking when force Invisibility Vision is checked.
+
 ## 11.0.11
 ### Bug Fixes
 * Fix for badly specified language files that leave blank the text fields use to check the spell description for 1/2, none or full damage. A blank string for "full damage" in the language file would always match and spells would do full damage on a save.
@@ -26,7 +29,7 @@
 * ``MidiQOL.isTargetable(token: Token): boolean`` added to the api. Checks if midi thinks the token can be targeted, checks core **hidden**, any of the midi specific settings (flags.midi-qol.neverTarget etc) and that it has an attached actor.
 
 ### New Items
-* New version of Spirit Guardians. This **requires** template macros and **dae 11.0.8** to operate. This utilises the new midi-qol feature for ranged templates to create a template around the actor, that moves with the actor and applies the spirit guardians' slow feature and does damage when tokens enter the template or start their turn in the template.
+* New version of Spirit Guardians. This **requires** template macros and **dae 11.0.9** to operate. This utilises the new midi-qol feature for ranged templates to create a template around the actor, that moves with the actor and applies the spirit guardians' slow feature and does damage when tokens enter the template or start their turn in the template.
   - When cast the caster is prompted to select targets that are immune to the spell.
   - Supports walled templates for templates that are blocked by walls, wrap around corners and so on.
   - Supports casting at a higher level for the damage done.
