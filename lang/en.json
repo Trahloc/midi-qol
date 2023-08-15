@@ -469,7 +469,7 @@
     "centerLevels": "Center + Levels",
     "levelsautocover": "Levels Auto Cover",
     "simbuls-cover-calculator": "Simbuls Cover Calculator",
-    "alternative": "Alternative Token Visibility"
+    "tokenvisibility": "Alternative Token Visibility"
   },
 
   "midi-qol.NearbyAllyRanged.Name": "(House Rule) Ranged Attacks at foes near allies have disadvantage.",
@@ -484,7 +484,7 @@
     "none": "None",
     "simbuls-cover-calculator": "Simbul's Cover Calculator",
     "levelsautocover": "Levels Auto Cover",
-    "alternative": "Alternative Token Visibility"
+    "tokenvisibility": "Alternative Token Visibility"
   },
   "midi-qol.NearbyAllyRanged.Hint": "Ranged Attacks with allies nearby (5 feet) to the target have disadvantage for targets smaller than this (w*h). 0 disables",
   "midi-qol.Incapacitated.Name": "Incapacitated actors can't take actions or reactions",

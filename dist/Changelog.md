@@ -1,3 +1,7 @@
+## 11.0.12
+* Fix for attack rolls not happening when checking vision.
+* Fix for reactions not being removed when they have a special duration set.
+
 ## 11.0.11.1
 * Fix for typo in canSense affecting checking when force Invisibility Vision is checked.
 

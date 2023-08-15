@@ -1207,7 +1207,7 @@ export class Workflow {
       this.checkAbilityAdvantage();
     }
     // TODO Hidden should check the target to see if they notice them?
-    if (checkRule("invisAdvantage") !== "none" && this.targets?.values().next().value) {
+    if (checkRule("invisAdvantage") && checkRule("invisAdvantage") !== "none" && this.targets?.values().next().value) {
       // if we are using a proxy token to attack use that for hidden invisible
       const token: Token | undefined = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
       const target: Token = this.targets.values().next().value;

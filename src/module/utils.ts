@@ -1559,7 +1559,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
       config,
       options
     }
-    return await timedAwaitExecuteAsGM("completeItemUse", data)
+    return await timedAwaitExecuteAsGM("completeItemUse", data);
   }
 }
 
@@ -1619,7 +1619,6 @@ export function getUnitDist(x1: number, y1: number, z1: number, token2): number 
 // not working properly yet
 export function getSurroundingHexes(token: Token) {
   let start = canvas?.grid?.grid?.getGridPositionFromPixels(token.center.x, token.center.y);
-  // console.error("starting position is ", start);
   if (!start) return;
 
   const surrounds: any[][] = new Array(11);
@@ -2033,7 +2032,6 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
       if (!installedModules.get("tokenvisibility")) coverBonus = 0;
       if (game.settings.get("tokenvisibility", "midiqol-covercheck") === "midiqol-covercheck-none") {
         const coverValue = calcTokenVisibilityCover(attacker, target);
-        console.error("check ac bonus cover is ", coverValue);
         switch (coverValue) {
           case 1:
             coverBonus = HALF_COVER;
@@ -2507,7 +2505,7 @@ export async function expireRollEffect(rolltype: string, abilityId: string, succ
     return false;
   }).map(ef => ef.id);
   if (expiredEffects?.length > 0) {
-    timedAwaitExecuteAsGM("removeEffects", {
+    await timedAwaitExecuteAsGM("removeEffects", {
       actorUuid: this.uuid,
       effects: expiredEffects,
       options: { "midi-qol": `special-duration:${rollType}:${abilityId}` }
@@ -3018,7 +3016,7 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
   }
 
   if (count.value === "reaction" || countAlt?.value === "reactopm") {
-    setReactionUsed(actor);
+    await setReactionUsed(actor);
   }
 }
 
@@ -3383,7 +3381,6 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
           // No need to set reaction effect since using item will do so.
           dialog.close();
           // options = mergeObject(options.workflowOptions ?? {}, {triggerTokenUuid, checkGMStatus: false}, {overwrite: true});
-          options.lateTargeting = "none";
           const itemRollOptions = mergeObject(options, {
             systemCard: false,
             createWorkflow: true,
@@ -3391,7 +3388,8 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
             configureDialog: true,
             checkGMStatus: false,
             targetUuids: [triggerTokenUuid],
-            isReaction: true
+            isReaction: true,
+            lateTargeting: "none"
           });
           let useTimeoutId = setTimeout(() => resolve({}), ((configSettings.reactionTimeout || 30) - 1) * 1000);
           await completeItemUse(item, {}, itemRollOptions);
@@ -3757,6 +3755,8 @@ export async function setActionUsed(actor: Actor) {
 export async function setReactionUsed(actor: Actor) {
   if (!["all", "displayOnly"].includes(configSettings.enforceReactions) && configSettings.enforceReactions !== actor.type) return;
   let effect;
+  await actor.setFlag("midi-qol", "actions.reactionCombatRound", game.combat?.round);
+  await actor.setFlag("midi-qol", "actions.reaction", true);
   const reactionEffect = getConvenientEffectsReaction();
   if (reactionEffect) {
     //@ts-expect-error .dfreds
@@ -3767,8 +3767,6 @@ export async function setReactionUsed(actor: Actor) {
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name ?? se.label) === i18n("DND5E.Reaction")))) {
     await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
-  await actor.setFlag("midi-qol", "actions.reactionCombatRound", game.combat?.round);
-  return await actor.setFlag("midi-qol", "actions.reaction", true);
 }
 
 export async function setBonusActionUsed(actor: Actor) {
@@ -3790,18 +3788,28 @@ export async function removeActionUsed(actor: Actor) {
   return await actor?.setFlag("midi-qol", "actions.action", false);
 }
 
-export async function removeReactionUsed(actor: Actor, removeCEEffect = false) {
-  if (removeCEEffect && getConvenientEffectsReaction()) {
+export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
+
+  let effectRemoved = false;
+  if (removeCEEffect && getConvenientEffectsReaction() && !effectRemoved) {
     //@ts-expect-error
     if (await game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsReaction().name, actor.uuid)) {
+      const effect =  actor.effects.getName(getConvenientEffectsReaction()?.name ?? "Reaction");
+      if (installedModules.get("times-up") && effect && getProperty(effect, "flags.dae.specialDuration")?.includes("turnStart")) {
+        // times up will handle removing this
+      }
       //@ts-expect-error
-      await game.dfreds.effectInterface?.removeEffect({ effectName: getConvenientEffectsReaction().name, uuid: actor.uuid });
+      else await game.dfreds.effectInterface?.removeEffect({ effectName: getConvenientEffectsReaction().name, uuid: actor.uuid });
+      effectRemoved = true;
     }
   }
 
-  if (installedModules.get("condition-lab-triggler")) {
+  if (installedModules.get("condition-lab-triggler") && !effectRemoved) {
     const effect = actor.effects.contents.find(ef => ef.name === i18n("DND5E.Reaction"));
-    await effect?.delete();
+    if (installedModules.get("times-up") && effect && getProperty(effect, "flags.dae.specialDuration")?.includes("turnStart")) {
+    } else await effect?.delete();
+      // times-up will handle removing this
+    effectRemoved = true;
   }
   await actor?.unsetFlag("midi-qol", "actions.reactionCombatRound");
   return actor?.setFlag("midi-qol", "actions.reaction", false);
@@ -4244,7 +4252,7 @@ export function canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: 
   if (!token.hasSight && !configSettings.optionalRules.invisVision) return ["senseAll"];
   for (let tk of [token]) {
     //@ts-expect-error
-    if (!tk.document.sight.enabled) {
+    if (!tk.document.sight.enabled || !token.vision.active) {
       //@ts-expect-error
       tk.document.sight.enabled = true;
       //@ts-expect-error
@@ -4619,7 +4627,6 @@ export async function contestedRoll(data: {
   let player2 = playerFor(target.token);
   //@ts-expect-error activeGM
   if (!player2?.active) player2 = game.users?.activeGM;
-  console.error(player1, player2);
   if (!player1 || !player2) return { result: undefined, rolls: [] };
   const sourceFlavor = contestedRollFlavor(flavor, source.rollType, source.ability)
   const sourceOptions = mergeObject(duplicate(source.rollOptions ?? rollOptions ?? {}), {
@@ -4707,6 +4714,5 @@ export function calcTokenVisibilityCover(attacker: Token | TokenDocument, target
 
   const cover = api.CoverCalculator.coverCalculations([attackerToken], [targetToken]);
   const coverValue = cover[attackerToken.id][targetToken.id];
-  console.error("calc atv cover", cover, coverValue);
   return coverValue;
 }

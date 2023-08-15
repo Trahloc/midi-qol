@@ -43,7 +43,7 @@ export class TroubleShooter extends FormApplication {
     while (this.errors.length >= this.MAX_ERRORS) this.errors.shift();
     const timestamp = Date.now()
     const timeString = `${new Date(timestamp).toLocaleDateString()} - ${new Date(timestamp).toLocaleTimeString()}`;
-    const stack = err.stack.split("\n").map(s => removeIpAddressAndHostName(s));
+    const stack = err.stack?.split("\n").map(s => removeIpAddressAndHostName(s));
     const errorDetail = { timestamp, timeString, error: { message: err.message, stack }, message };
     this.errors.push(errorDetail)
     Hooks.callAll("midi-qol.TroubleShooter.recordError", errorDetail);
