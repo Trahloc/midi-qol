@@ -1,5 +1,17 @@
-2023/08/11-14:16:24.995562 7f08309f8640 Delete type=3 #1
-2023/08/11-14:25:54.193128 7f05637ff640 Level-0 table #5: started
-2023/08/11-14:25:54.204649 7f05637ff640 Level-0 table #5: 240338 bytes OK
-2023/08/11-14:25:54.208390 7f05637ff640 Delete type=0 #3
-2023/08/11-14:25:54.212665 7f05637ff640 Manual compaction at level-0 from '!folders!03xh8o98NV0wViRp' @ 72057594037927935 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at (end)
+2023/08/14-19:28:29.444165 7f81697f9640 Recovering log #4
+2023/08/14-19:28:29.444251 7f81697f9640 Recovering log #16
+2023/08/14-19:28:29.457918 7f81697f9640 Delete type=3 #2
+2023/08/14-19:28:29.458032 7f81697f9640 Delete type=0 #4
+2023/08/14-19:28:29.458087 7f81697f9640 Delete type=0 #16
+2023/08/14-19:30:32.809922 7f7e98dff640 Level-0 table #19: started
+2023/08/14-19:30:32.813601 7f7e98dff640 Level-0 table #19: 8231 bytes OK
+2023/08/14-19:30:32.817234 7f7e98dff640 Delete type=0 #17
+2023/08/14-19:30:32.817553 7f7e98dff640 Manual compaction at level-0 from '!folders!03xh8o98NV0wViRp' @ 72057594037927935 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at (end)
+2023/08/14-19:30:32.817631 7f7e98dff640 Manual compaction at level-1 from '!folders!03xh8o98NV0wViRp' @ 72057594037927935 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at '!items.effects!d17wBkGg5gFp1T1S.ukZtJI8A3f86pZf0' @ 167 : 1
+2023/08/14-19:30:32.817644 7f7e98dff640 Compacting 1@1 + 1@2 files
+2023/08/14-19:30:32.831129 7f7e98dff640 Generated table #20@1: 164 keys, 241119 bytes
+2023/08/14-19:30:32.831171 7f7e98dff640 Compacted 1@1 + 1@2 files => 241119 bytes
+2023/08/14-19:30:32.834831 7f7e98dff640 compacted to: files[ 0 0 1 0 0 0 0 ]
+2023/08/14-19:30:32.834992 7f7e98dff640 Delete type=2 #19
+2023/08/14-19:30:32.835188 7f7e98dff640 Delete type=2 #5
+2023/08/14-19:30:32.839532 7f7e98dff640 Manual compaction at level-1 from '!items.effects!d17wBkGg5gFp1T1S.ukZtJI8A3f86pZf0' @ 167 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at (end)

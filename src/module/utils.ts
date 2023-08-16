@@ -1746,7 +1746,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                 let collisionCheck;
 
                 //@ts-expect-error polygonBackends
-                collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
+                collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { mode: "any", type: "move" })
                 if (collisionCheck) continue;
                 break;
               case "centerLevels":
@@ -1768,17 +1768,17 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                       z: t2Elevation
                     }
                     //@ts-ignore
-                    const baseToBase = CONFIG.Levels.API.testCollision(p1, p2, "sight");
+                    const baseToBase = CONFIG.Levels.API.testCollision(p1, p2, "collision");
                     p1.z = t1TopElevation;
                     p2.z = t2TopElevation;
                     //@ts-ignore
-                    const topToBase = CONFIG.Levels.API.testCollision(p1, p2, "sight");
+                    const topToBase = CONFIG.Levels.API.testCollision(p1, p2, "collision");
                     if (baseToBase && topToBase) continue;
                   }
                 } else {
                   let collisionCheck;
                   //@ts-expect-error polygonBackends
-                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
+                  collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { mode: "any", type: "move" })
                   if (collisionCheck) continue;
                 }
                 break;

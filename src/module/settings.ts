@@ -345,25 +345,25 @@ export let fetchParams = () => {
   if (configSettings.showFastForward === undefined) configSettings.showFastForward = true;
   if (configSettings.highlightSuccess === undefined) configSettings.highlightSuccess = false;
   configSettings.optionalRules = mergeObject({ // eventually split this into mechanics and rules
-    invisAdvantage: "RAW",
-    checkRange: "longfail",
-    wallsBlockRange: "center",
-    coverCalculation: "none",
-    nearbyFoe: 5,
-    nearbyAllyRanged: 0,
-    incapacitated: true,
-    removeHiddenInvis: true,
-    maxDRValue: false,
-    distanceIncludesHeight: false,
-    criticalSaves: false,
+    actionSpecialDurationImmediate: false,
     activeDefence: false,
     activeDefenceShowGM: false,
     challengeModeArmor: false,
     challengeModeArmorScale: false,
     checkFlanking: "off",
-    optionalCritRule: -1,
+    checkRange: "longfail",
+    coverCalculation: "none",
     criticalNat20: false,
-    actionSpecialDurationImmediate: false
+    criticalSaves: false,
+    distanceIncludesHeight: false,
+    incapacitated: true,
+    invisAdvantage: "RAW",
+    maxDRValue: false,
+    nearbyAllyRanged: 0,
+    nearbyFoe: 5,
+    optionalCritRule: -1,
+    removeHiddenInvis: true,
+    wallsBlockRange: "center",
   }, configSettings.optionalRules ?? {}, { overwrite: true, insertKeys: true, insertValues: true });
   if (!configSettings.optionalRules.wallsBlockRange) configSettings.optionalRules.wallsBlockRange = "center";
   if (configSettings.optionalRules.checkFlanking === true) configSettings.optionalRules.checkFlanking = "ceadv";

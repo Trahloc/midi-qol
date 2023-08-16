@@ -365,10 +365,13 @@ Hooks.once('ready', function () {
     //@ts-expect-error
     LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
   }
-  if (game.user?.isGM) {
+  if (game.user?.isGM) { // need to improve the test
     const problems = TroubleShooter.collectTroubleShooterData().problems
     for (let problem of problems) {
-      ui.notifications?.error(`midi-qol ${problem.problemSummary} | Open TroubleShooter to fix`, { permanent: true });
+      const message = `midi-qol ${problem.problemSummary} | Open TroubleShooter to fix`;
+      if (problem.severity === "Error")
+        ui.notifications?.error(message, { permanent: true });
+      else console.warn(message);
     }
   }
 });
@@ -388,24 +391,12 @@ function setupMidiQOLApi() {
     doRoll: () => { console.error("MinorQOL is no longer supported please use MidiQOL.doRoll") },
     applyTokenDamage: () => { console.error("MinorQOL is no longer supported please use MidiQOL.applyTokenDamage") },
   }
-  let InvisibleDisadvantageVisionModes = [
-    'blindsight',
-    'basicSight',
-    // 'detectEvilAndGood', 
-    // 'detectMagic', 
-    // 'detectPoisonAndDisease', 
-    // 'detectThoughts',
-    'devilsSight',
-    // 'divineSense', 
-    'echolocation',
-    'ghostlyGaze',
-    // 'hearing', 
-    'lightPerception',
-    'seeInvisibility',
-    'senseAll',
-    'senseInvisibility',
-    // 'feelTremor', 
-    'seeAll'];
+
+  //@ts-expect-error .detectionModes
+  const detectionModes = CONFIG.Canvas.detectionModes;
+  let InvisibleDisadvantageVisionModes = Object.keys(detectionModes)
+  .filter(dm => !detectionModes[dm].imprecise);
+
   let WallsBlockConditions = [
     "burrow"
   ];

@@ -1,6 +1,17 @@
+## 11.0.13
+* **Breaking** Change to how walls blocking attacks is implemented. Midi used to check for a line of sight to the target and if there was none then the attack was blocked. With the new vision checking and wall types it seems to make more sense for walll blocking to apply if there is a movement blocking wall between the attacker and the token. So now you can slash at the monster hidden behind the curtain.
+  - If using the vision testing such attacks will be at disadvantage if the target can't be seen, but will be possible, previously this would be blocked by wall blocking.
+  - If using levels to calculate collisions midi will use type "collision" instead of "sight"
+* Troubleshoot won't shout error messages on load. Only "Errors" that will definitely cause midi to misbehave.
+* Slight change to how midi decides which detection modes cancel invisibility advantage, now uses the detectionMode.imprecise setting.
+
+### Item/Spell changes
+* Cleaned up some warnings in Broach of Shielding and Shield spell.
+* Fixed Spirit Guardians to avoid global declarations (probably wont affect you).
+
 ## 11.0.12
 * Fix for attack rolls not happening when checking vision.
-* Fix for reactions not being removed when they have a special duration set.
+* Fix for reactions not being removed.
 
 ## 11.0.11.1
 * Fix for typo in canSense affecting checking when force Invisibility Vision is checked.

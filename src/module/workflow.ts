@@ -446,7 +446,7 @@ export class Workflow {
 
       case WORKFLOWSTATES.VALIDATEROLL:
         // do pre roll checks
-        if (checkMechanic("checkRange") !== "none" && (!this.AoO || ["rwak", "rsak", "rpak"].includes(this.item.actionType)) && this.tokenId) {
+        if (checkMechanic("checkRange") !== "none" && (!this.AoO || ["rwak", "rsak", "rpak"].includes(this.item.system.actionType)) && this.tokenId) {
           const { result, attackingToken } = checkRange(this.item, canvas?.tokens?.get(this.tokenId), this.targets);
           switch (result) {
             case "fail": return this.next(WORKFLOWSTATES.ROLLFINISHED);

@@ -269,7 +269,8 @@ export function checkOverTimeSaves(message, data, options, user) {
   } finally {
     return true;
   }
-};
+}
+
 export let nsaMessageHandler = (message, data, ...args) => {
   if (!nsaFlag || !message.whisper || message.whisper.length === 0) return true;
   let gmIds = ChatMessage.getWhisperRecipients("GM").filter(u => u.active)?.map(u => u.id);
