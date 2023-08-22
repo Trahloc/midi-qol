@@ -1432,7 +1432,7 @@ export class Workflow {
       grantsAdvantage = true;
       this.attackAdvAttribution.add(`ADV:grants.attack.${actionType}`);
     }
-    if (grants.fail?.advantage?.attack?.all && evalCondition(grants.fail.attack.advantage.all, conditionData)) {
+    if (grants.fail?.advantage?.attack?.all && evalCondition(grants.fail.advantage.attack.all, conditionData)) {
       grantsAdvantage = false;
       this.advantage = false;
     }
@@ -1455,7 +1455,7 @@ export class Workflow {
       grantsDisadvantage = true;
       this.attackAdvAttribution.add(`DIS:grants.attack.${actionType}`);
     }
-    if (grants.fail?.disadvantage?.attack?.all && evalCondition(grants.fail.attack.disadvantage.all, conditionData)) {
+    if (grants.fail?.disadvantage?.attack?.all && evalCondition(grants.fail.disadvantage.attack.all, conditionData)) {
       grantsDisadvantage = false;
       this.disadvantage = false;
     }
