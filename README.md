@@ -667,6 +667,7 @@ Gives the attacker advantage on attacks made against the target. Midi-qol only c
 * flags.midi-qol.critical.mwak/rwak/msak/rsak/other
 * flags.midi-qol.noCritical.all
 * flags.midi-qol.noCritical.mwak/rwak/msak/rsak/other
+* flags.midi-qol.damage.reroll-kh, flags.midi-qol.damage.reroll-kl which will roll damage and otherFormula (if required) twice and keep the highest/lowest of the two rolls.
 * flags.midi-qol.grants.critical.all (applies when targeted)
 * flags.midi-qol.grants.critical.mwak/rwak/msak/rsak/other (applies when targeted)
 * flags.midi-qol.grants.attack.bonus.all/rwak etc. adds a numeric bonus to the attackers roll when checking hits. Will not be displayed in the chat card.

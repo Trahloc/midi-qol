@@ -828,12 +828,20 @@
             </span>
           </div>
 
-          <div class="form-group">
-            <label style>{{localize "midi-qol.MaxDRValue.Name"}}</label>
-            <input type="checkbox" name="optionalRules.maxDRValue" data-dtype="Boolean" {{checked
-              configSettings.optionalRules.maxDRValue}} />
-          </div>
+          <div class="midi-qol-box">
+            <div class="form-group">
+              <label style>{{localize "midi-qol.MaxDRValue.Name"}}</label>
+              <input type="checkbox" name="optionalRules.maxDRValue" data-dtype="Boolean" {{checked
+                configSettings.optionalRules.maxDRValue}} />
+            </div>
+            <div class="form-group">
+              <label style>{{localize "midi-qol.DRAllPerDamageDetail.Name"}}</label>
+              <input type="checkbox" name="optionalRules.DRAllPerDamageDetail" data-dtype="Boolean" {{checked
+                configSettings.optionalRules.DRAllPerDamageDetail}} />
+            </div>
+            <div class="midi-qol-faint">{{localize "midi-qol.DRAllPerDamageDetail.Hint"}}</div>
 
+          </div>
           <div class="form-group">
             <label style>{{localize "midi-qol.CriticalSaves.Name"}}</label>
             <input type="checkbox" name="optionalRules.criticalSaves" data-dtype="Boolean" {{checked

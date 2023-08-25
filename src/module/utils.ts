@@ -224,10 +224,10 @@ export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, 
   //@ts-ignore attributes
   var hp = a.system.attributes.hp;
   var oldHP, tmp, oldVitality, newVitality;
-  const resource = checkRule("vitalityResource");
-  if (hp.value <= 0 && resource) {
+  const vitalityResource = checkRule("vitalityResource");
+  if (hp.value <= 0 && typeof vitalityResource === "string" && getProperty(a, vitalityResource) !== undefined) {
     // Damage done to vitality rather than hp
-    oldVitality = getProperty(a, resource.trim());
+    oldVitality = getProperty(a, vitalityResource) ?? 0;
     newVitality = Math.max(0, oldVitality - appliedDamage);
   }
   if (prevDamage) {
@@ -425,7 +425,9 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
 
 export async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves,
   options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false }): Promise<any[]> {
-  return legacyApplyTokenDamageMany([damageDetail], [totalDamage], theTargets, item, [saves], {
+  const fixedTargets: Set<Token> = theTargets.map(t => getToken(t));
+  return legacyApplyTokenDamageMany([damageDetail], [totalDamage], fixedTargets, item, [saves], {
+    hitTargets: options.hitTargets ?? theTargets,
     existingDamage: options.existingDamage,
     superSavers: options.superSavers ? [options.superSavers] : [],
     semiSuperSavers: options.semiSuperSavers ? [options.semiSuperSavers] : [],
@@ -445,8 +447,8 @@ export interface applyDamageDetails {
 }
 
 export async function applyTokenDamageMany({ applyDamageDetails, theTargets, item,
-  options = { existingDamage: [], workflow: undefined, updateContext: undefined, forceApply: false } }:
-  { applyDamageDetails: applyDamageDetails[]; theTargets: Set<Token | TokenDocument>; item: any; options?: { existingDamage: any[][]; workflow: Workflow | undefined; updateContext: any | undefined; forceApply: boolean }; }): Promise<any[]> {
+  options = { hitTargets: new Set(), existingDamage: [], workflow: undefined, updateContext: undefined, forceApply: false } }:
+  { applyDamageDetails: applyDamageDetails[]; theTargets: Set<Token | TokenDocument>; item: any; options?: { hitTargets: Set<Token | TokenDocument>, existingDamage: any[][]; workflow: Workflow | undefined; updateContext: any | undefined; forceApply: boolean }; }): Promise<any[]> {
   let damageList: any[] = [];
   let targetNames: string[] = [];
   let appliedDamage;
@@ -493,8 +495,14 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     const noDamageReactions = (item?.hasSave && item.flags?.midiProperties?.nodam && workflow?.saves?.has(t));
     const noProvokeReaction = getProperty(workflow.item, "flags.midi-qol.noProvokeReaction");
 
-    //@ts-expect-error isEmpty
-    if (totalDamage > 0 && !isEmpty(workflow) && !isHealing && !noDamageReactions && !noProvokeReaction && [Workflow, BetterRollsWorkflow].includes(workflow.constructor)) {
+    if (totalDamage > 0 
+      //@ts-expect-error isEmpty
+      && !isEmpty(workflow) 
+      && !isHealing 
+      && !noDamageReactions 
+      && !noProvokeReaction 
+      && options.hitTargets.has(t)
+      && [Workflow, BetterRollsWorkflow].includes(workflow.constructor)) {
       // TODO check that the targetToken is actually taking damage
       // Consider checking the save multiplier for the item as a first step
       let result = await doReactions(targetToken, workflow.tokenUuid, workflow.damageRoll, "reactiondamage", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
@@ -511,6 +519,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     if (item?.hasAttack && getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`)) {
       DRAll += (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
     }
+    let DRAllRemaining = DRAll;
     // const magicalDamage = (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties["mgc"]);
     let magicalDamage = item?.system.properties?.mgc || item?.flags?.midiProperties?.magicdam;
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.system.attackBonus > 0);
@@ -644,7 +653,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       }
 
       if (DRAll > 0 && DRAll < maxDR && checkRule("maxDRValue")) DRAll = 0;
-      let DRAllRemaining = Math.max(DRAll, 0);
+      if (checkRule("DRAllPerDamageDetail")) DRAllRemaining = Math.max(DRAll, 0);
       // Now apportion DRAll to each damage type if required
       for (let [index, damageDetailItem] of damageDetail.entries()) {
         let { damage, type, DR } = damageDetailItem;
@@ -732,6 +741,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     }
     ditem.damageDetail = duplicate(damageDetailArr);
     ditem.critical = workflow?.isCritical;
+    ditem.wasHit = options.hitTargets.has(t);
     await asyncHooksCallAll("midi-qol.damageApplied", t, { item, workflow, damageItem: ditem, ditem });
     //@ts-expect-error isEmtpy
     if (!isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
@@ -778,8 +788,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
 };
 
 export async function legacyApplyTokenDamageMany(damageDetailArr, totalDamageArr, theTargets, item, savesArr,
-  options: { existingDamage: any[][], superSavers: Set<any>[], semiSuperSavers: Set<any>[], workflow: Workflow | undefined, updateContext: any, forceApply: any }
-    = { existingDamage: [], superSavers: [], semiSuperSavers: [], workflow: undefined, updateContext: undefined, forceApply: false }): Promise<any[]> {
+  options: { hitTargets: Set<Token | TokenDocument>, existingDamage: any[][], superSavers: Set<any>[], semiSuperSavers: Set<any>[], workflow: Workflow | undefined, updateContext: any, forceApply: any }
+    = { hitTargets: new Set(), existingDamage: [], superSavers: [], semiSuperSavers: [], workflow: undefined, updateContext: undefined, forceApply: false }): Promise<any[]> {
   const mappedDamageDetailArray: applyDamageDetails[] = damageDetailArr.map((dd, i) => {
     return {
       label: "test",
@@ -805,11 +815,12 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
   // Show damage buttons if enabled, but only for the applicable user and the GM
 
-  let theTargets = new Set([...workflow.hitTargets, ...workflow.hitTargetsEC]);
+  let hitTargets: Set<Token | TokenDocument> = new Set([...workflow.hitTargets, ...workflow.hitTargetsEC]);
+  let theTargets = new Set(workflow.targets);
   if (item?.system.target?.type === "self") theTargets = getSelfTargetSet(actor) || theTargets;
   let effectsToExpire: string[] = [];
-  if (theTargets.size > 0 && item?.hasAttack) effectsToExpire.push("1Hit");
-  if (theTargets.size > 0 && item?.hasDamage) effectsToExpire.push("DamageDealt");
+  if (hitTargets.size > 0 && item?.hasAttack) effectsToExpire.push("1Hit");
+  if (hitTargets.size > 0 && item?.hasDamage) effectsToExpire.push("DamageDealt");
   if (effectsToExpire.length > 0) {
     await expireMyEffects.bind(workflow)(effectsToExpire);
   }
@@ -852,7 +863,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
           ],
           theTargets,
           item,
-          options: { existingDamage: [], workflow, updateContext: undefined, forceApply: false }
+          options: { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false }
         }
       );
     } else {
@@ -880,7 +891,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
           ],
           theTargets,
           item,
-          options: { existingDamage: [], workflow, updateContext: undefined, forceApply: false }
+          options: { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false }
         }
       );
       if (workflow.otherDamageRoll) {
@@ -897,7 +908,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
             }],
             theTargets,
             item,
-            options: { existingDamage: [], workflow, updateContext: undefined, forceApply: false }
+            options: { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false }
           }
         );
       }
@@ -927,6 +938,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         item,
         options: {
           existingDamage: [],
+          hitTargets,
           workflow,
           updateContext: undefined,
           forceApply: false
@@ -1580,8 +1592,9 @@ export function untargetAllTokens(...args) {
 }
 
 export function checkIncapacitated(actor: Actor, item: Item | undefined = undefined, event: any) {
-  if (checkRule("vitalityResource")) {
-    const vitality = getProperty(actor, checkRule("vitalityResource")?.trim()) ?? 0;
+  const vitalityResource = checkRule("vitalityResource")?.trim();
+  if (vitalityResource && getProperty(actor, vitalityResource) !== undefined) {
+    const vitality = getProperty(actor, vitalityResource) ?? 0;
     //@ts-expect-error .system
     if (vitality <= 0 && actor?.system.attributes?.hp?.value <= 0) {
       log(`${actor.name} is dead`);
@@ -1726,7 +1739,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
     console.warn("simbuls cover calculator ", t1.name, t2.name, coverData);
     if (coverData?.data.results.cover === 3) return -1;
     coverVisible = true;
-  } else if (installedModules.get("tokenvisibility") && configSettings.optionalRules.wallsBlockRange === "alternative") {
+  } else if (installedModules.get("tokenvisibility") && configSettings.optionalRules.wallsBlockRange === "tokenvisibility") {
     const coverValue = calcTokenVisibilityCover(t1, t2);
     coverVisible = coverValue !== 3;
     if (!coverVisible) return -1;
@@ -1837,7 +1850,7 @@ let pointWarn = debounce(() => {
   ui.notifications?.warn("4 Point LOS check selected but dnd5e-helpers not installed")
 }, 100)
 
-export function checkRange(itemIn, tokenIn, targetsIn): { result: string, attackingToken?: Token } {
+export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, targetsRef: Set<Token | TokenDocument | string> | undefined): { result: string, attackingToken?: Token } {
   if (!canvas || !canvas.scene) return { result: "normal" };
   const checkRangeFunction = (item, token, targets): { result: string, reason?: string } => {
     if (!canvas || !canvas.scene) return {
@@ -1949,13 +1962,17 @@ export function checkRange(itemIn, tokenIn, targetsIn): { result: string, attack
     }
   }
 
+  const tokenIn = getToken(tokenRef);
+  //@ts-expect-error .map
+  const targetsIn = targetsRef?.map(t => getToken(t));
+  if (!tokenIn || tokenIn === null || !targetsIn) return {result: "fail", attackingToken: undefined};
   let attackingToken = tokenIn;
-  if (!canvas || !canvas.tokens) return {
+  if (!canvas || !canvas.tokens || !tokenIn || !targetsIn) return {
     result: "fail",
     attackingToken: tokenIn,
   }
 
-  const canOverride = getProperty(tokenIn.actor, "flags.midi-qol.rangeOverride.attack.all") || getProperty(tokenIn.actor, `flags.midi-qol.rangeOverride.attack.${itemIn.system.actionType}`)
+  const canOverride = getProperty(tokenIn, "actor.flags.midi-qol.rangeOverride.attack.all") || getProperty(tokenIn, `actor.flags.midi-qol.rangeOverride.attack.${itemIn.system.actionType}`)
 
   if (!canOverride) { // no overrides so just do the check
     const { result, reason } = checkRangeFunction(itemIn, attackingToken, targetsIn);
@@ -2153,7 +2170,9 @@ export interface ConcentrationData {
   removeUuids?: string[];
 }
 
-export async function addConcentration(actor, concentrationData: ConcentrationData) {
+export async function addConcentration(actorRef: Actor | string, concentrationData: ConcentrationData) {
+  const actor = getActor(actorRef);
+  if (!actor) return;
   await addConcentrationEffect(actor, concentrationData);
   await setConcentrationData(actor, concentrationData);
 }
@@ -2523,7 +2542,7 @@ export function MQfromUuid(uuid): any | null {
   return fromUuidSync(uuid)
 }
 
-export function MQfromActorUuid(uuid): any | null {
+export function MQfromActorUuid(uuid): any {
   let doc = MQfromUuid(uuid);
   //@ts-ignore doc.actor: any rather than Actor
   if (doc instanceof CONFIG.Token.documentClass) return doc.actor;
@@ -4233,11 +4252,17 @@ export function getChanges(actorOrItem, key: string) {
  * 
  * @returns {boolean}
  */
-export function canSense(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument, validModes: Array<string> = ["all"]): boolean {
+export function canSense(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): boolean {
   return canSenseModes(tokenEntity, targetEntity, validModes).length > 0;
 }
+export function canSenseModes(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): Array<string> {
+  const token = getToken(tokenEntity);
+  const target = getToken(targetEntity);
+  if (!token || !target) return [];
+  return _canSenseModes(token, target, validModes);
+}
 
-export function canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument, validModesParam: Array<string> = ["all"]): Array<string> {
+export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument, validModesParam: Array<string> = ["all"]): Array<string> {
   //@ts-ignore
   let target: Token = targetEntity instanceof TokenDocument ? targetEntity.object : targetEntity;
   //@ts-expect-error detectionModes
@@ -4587,8 +4612,8 @@ export function validRolAbility(rollType: string, ability: string): string | und
   }
 }
 export async function contestedRoll(data: {
-  source: { rollType: string, ability: string, token: any, rollOptions: any },
-  target: { rollType: string, ability: string, token: any, rollOptions: any },
+  source: { rollType: string, ability: string, token: Token | TokenDocument | string, rollOptions: any },
+  target: { rollType: string, ability: string, token: Token | TokenDocument | string, rollOptions: any },
   displayResults: boolean,
   itemCardId: string,
   flavor: string,
@@ -4597,11 +4622,13 @@ export async function contestedRoll(data: {
 }): Promise<{ result: number | undefined, rolls: any[] }> {
   const source = data.source;
   const target = data.target;
+  const sourceToken = getToken(source?.token);
+  const targetToken = getToken(target?.token);
   const { rollOptions, success, failure, drawn, displayResults, itemCardId, flavor } = data;
 
   let canProceed = true;
-  if (!source || !target || !source.token || !target.token || !source.rollType || !target.rollType || !source.ability || !target.ability || !validRolAbility(source.rollType, source.ability) || !validRolAbility(target.rollType, target.ability)) {
-    error(`contestRoll | source[${source?.token?.name}], target[${target?.token?.name}], source.rollType[${source.rollType}], target.rollType[${target?.rollType}], source.ability[${source.ability}], target.ability[${target?.ability}] must all be defined`);
+  if (!source || !target || !sourceToken || !targetToken || !source.rollType || !target.rollType || !source.ability || !target.ability || !validRolAbility(source.rollType, source.ability) || !validRolAbility(target.rollType, target.ability)) {
+    error(`contestRoll | source[${sourceToken?.name}], target[${targetToken?.name}], source.rollType[${source.rollType}], target.rollType[${target?.rollType}], source.ability[${source.ability}], target.ability[${target?.ability}] must all be defined`);
     canProceed = false;
   }
   if (!["test", "abil", "save", "skill"].includes(source?.rollType ?? "")) {
@@ -4616,15 +4643,16 @@ export async function contestedRoll(data: {
   const sourceDocument = getTokenDocument(source?.token);
   const targetDocument = getTokenDocument(target?.token);
 
+
   if (!sourceDocument || !targetDocument) canProceed = false;
   if (!canProceed) return { result: undefined, rolls: [] }
   source.ability = validRolAbility(source.rollType, source.ability) ?? "";
   target.ability = validRolAbility(target.rollType, target.ability) ?? "";
 
-  let player1 = playerFor(source.token);
+  let player1 = playerFor(sourceToken);
   //@ts-expect-error activeGM
   if (!player1?.active) player1 = game.users?.activeGM;
-  let player2 = playerFor(target.token);
+  let player2 = playerFor(targetToken);
   //@ts-expect-error activeGM
   if (!player2?.active) player2 = game.users?.activeGM;
   if (!player1 || !player2) return { result: undefined, rolls: [] };
@@ -4632,13 +4660,13 @@ export async function contestedRoll(data: {
   const sourceOptions = mergeObject(duplicate(source.rollOptions ?? rollOptions ?? {}), {
     mapKeys: false,
     flavor: sourceFlavor,
-    title: `${sourceFlavor}: ${source.token.name} vs ${target.token.name}`
+    title: `${sourceFlavor}: ${sourceToken?.name} vs ${targetToken?.name}`
   });
   const targetFlavor = contestedRollFlavor(flavor, target.rollType, target.ability);
   const targetOptions = mergeObject(duplicate(target.rollOptions ?? rollOptions ?? {}), {
     mapKeys: false,
     flavor: targetFlavor,
-    title: `${targetFlavor}: ${target.token.name} vs ${source.token.name}`
+    title: `${targetFlavor}: ${targetToken?.name} vs ${sourceToken?.name}`
   });
   const resultPromises = [
     socketlibSocket.executeAsUser("rollAbility", player1.id, { request: source.rollType.trim(), targetUuid: sourceDocument?.uuid, ability: source.ability.trim(), options: sourceOptions }),
@@ -4654,7 +4682,7 @@ export async function contestedRoll(data: {
     else resultString = result > 0 ? i18n("midi-qol.save-success") : result < 0 ? i18n("midi-qol.save-failure") : result === 0 ? i18n("midi-qol.save-drawn") : "no result";
     const skippedString = i18n("midi-qol.Skipped");
     const content = `${flavor ?? i18n("miidi-qol:ContestedRoll")} ${resultString} ${results[0].total ?? skippedString} ${i18n("midi-qol.versus")} ${results[1].total ?? skippedString}`;
-    displayContestedResults(itemCardId, content, ChatMessage.getSpeaker({ token: source.token }), flavor);
+    displayContestedResults(itemCardId, content, ChatMessage.getSpeaker({ token: sourceToken }), flavor);
   }
 
   if (result === undefined) return { result, rolls: results };
@@ -4679,6 +4707,15 @@ function displayContestedResults(chatCardId: string | undefined, resultContent: 
   }
 
 }
+
+export function getActor(actorRef: Actor | Token | TokenDocument | string): Actor | null {
+  if (actorRef instanceof Actor) return actorRef;
+  if (actorRef instanceof Token) return actorRef.actor;
+  if (actorRef instanceof TokenDocument) return actorRef.actor;
+  if (typeof actorRef === "string") return MQfromActorUuid(actorRef);
+  return null;
+}
+
 export function getTokenDocument(tokenRef: Token | TokenDocument | string | undefined): TokenDocument | undefined {
   if (!tokenRef) return undefined;
   if (tokenRef instanceof TokenDocument) return tokenRef;

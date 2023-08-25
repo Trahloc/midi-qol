@@ -388,6 +388,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     let result;
     if (!options.parts || procOptions.parts.length === 0) delete options.parts;
     procOptions.chatMessage = false;
+
     result = await wrapped(abilityId, procOptions);
     if (!result) return result;
     const maxFlags = getProperty(this.flags, "midi-qol.max.ability") ?? {};
@@ -1007,10 +1008,10 @@ export async function zeroHPExpiry(actor, update, options, user) {
 
 export async function checkWounded(actor, update, options, user) {
   const hpUpdate = getProperty(update, "system.attributes.hp.value");
-  const vitalityResource = checkRule("vitalityResource");
+  const vitalityResource = checkRule("vitalityResource")?.trim();
   //@ts-expect-error
   const dfreds = game.dfreds;
-  let vitalityUpdate = vitalityResource && getProperty(update, vitalityResource.trim());
+  let vitalityUpdate = vitalityResource && getProperty(update, vitalityResource);
   // return wrapped(update,options,user);
   if (hpUpdate === undefined && (!vitalityResource || vitalityUpdate === undefined)) return;
   const attributes = actor.system.attributes;

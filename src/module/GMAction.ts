@@ -41,8 +41,6 @@ export let setupSocket = () => {
   socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
   socketlibSocket.register("moveToken", _moveToken);
   socketlibSocket.register("moveTokenAwayFromPoint", _moveTokenAwayFromPoint);
-
-
   // socketlibSocket.register("canSense", _canSense);
 }
 
@@ -56,7 +54,7 @@ export async function removeEffects(data: { actorUuid: string; effects: string[]
       debug("removeFunc: remove effects started")
       const actor = MQfromActorUuid(data.actorUuid);
       if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
-      const effectIds = data.effects.filter(efId => actor.effects.find(effect => efId === effect.id));
+      const effectIds = data.effects.filter(efId => actor?.effects.find(effect => efId === effect.id));
       if (effectIds?.length > 0) return actor?.deleteEmbeddedDocuments("ActiveEffect", effectIds, data.options)
     } catch (err) {
       const message = `GMACTION: remove effects error for ${data?.actorUuid}`;
@@ -90,7 +88,7 @@ export async function createEffects(data: { actorUuid: string, effects: any[] })
 
 export async function updateEffects(data: { actorUuid: string, updates: any[] }) {
   const actor = MQfromActorUuid(data.actorUuid);
-  return actor.updateEmbeddedDocuments("ActiveEffect", data.updates);
+  return actor?.updateEmbeddedDocuments("ActiveEffect", data.updates);
 }
 
 export function removeActorStats(data: { actorId: any }) {
@@ -291,7 +289,7 @@ export async function createChatMessage(data: { chatData: any; }) {
 }
 
 export async function rollAbility(data: { request: string; targetUuid: string; ability: string; options: any; }) {
-  if(data.request === "test") data.request = "abil";
+  if (data.request === "test") data.request = "abil";
   const actor = MQfromActorUuid(data.targetUuid);
   if (!actor) {
     error(`GMAction.rollAbility | no actor for ${data.targetUuid}`)
@@ -339,19 +337,28 @@ async function createReverseDamageCard(data: { damageList: any; autoApplyDamage:
   let cardIds: string[] = [];
   let id = await createPlayerDamageCard(data);
   if (id) cardIds.push(id);
-  id = await createGMReverseDamageCard(data);
-  if (id) cardIds.push(id);
+  if (data.damageList.some(di => di.wasHit)) {
+    id = await createGMReverseDamageCard(data, true);
+    if (id) cardIds.push(id);
+  }
+  if (data.damageList.some(di => !di.wasHit) && ["yesCardMisses", "noCardMisses"].includes(data.autoApplyDamage)) {
+    id = await createGMReverseDamageCard(data, false);
+    if (id) cardIds.push(id);
+  }
   return cardIds;
 }
 
-async function prepareDamageListItems(data: { damageList: any; autoApplyDamage: string; flagTags: any, updateContext: any, forceApply: boolean },
-  templateData, tokenIdList, createPromises: boolean = false, showNPC: boolean = true,): Promise<Promise<any>[]> {
+async function prepareDamageListItems(data: {
+  damageList: any; autoApplyDamage: string; flagTags: any, updateContext: any, forceApply: boolean
+},
+  templateData, tokenIdList, createPromises: boolean = false, showNPC: boolean = true, doHits: boolean = true): Promise<Array<Promise<any>>> {
   const damageList = data.damageList;
   let promises: Promise<any>[] = [];
 
   for (let damageItem of damageList) {
-    let { tokenId, tokenUuid, actorId, actorUuid, oldHP, oldTempHP, newTempHP, tempDamage, hpDamage, totalDamage, appliedDamage, sceneId, oldVitality, newVitality } = damageItem;
-
+    let { tokenId, tokenUuid, actorId, actorUuid, oldHP, oldTempHP, newTempHP, tempDamage, hpDamage, totalDamage, appliedDamage, sceneId, oldVitality, newVitality, wasHit } = damageItem;
+    if (doHits && !wasHit) continue;
+    if (!doHits && wasHit) continue;
     let tokenDocument;
     let actor;
     if (tokenUuid) {
@@ -367,16 +374,17 @@ async function prepareDamageListItems(data: { damageList: any; autoApplyDamage: 
     }
     if (!showNPC && !actor.hasPlayerOwner) continue;
     let newHP = Math.max(0, oldHP - hpDamage);
-    if (createPromises && (["yes", "yesCard", "yesCardNPC"].includes(data.autoApplyDamage) || data.forceApply)) {
+    if (createPromises && doHits && (["yes", "yesCard", "yesCardNPC", "yesCardMisses"].includes(data.autoApplyDamage) || data.forceApply)) {
       if ((newHP !== oldHP || newTempHP !== oldTempHP) && (data.autoApplyDamage !== "yesCardNPC" || actor.type !== "character")) {
         const updateContext = mergeObject({ dhp: -appliedDamage, damageItem }, data.updateContext ?? {});
         if (actor.isOwner) {
           //@ts-ignore
           promises.push(actor.update({ "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP, "flags.dae.damageApplied": appliedDamage }, updateContext));
         }
-      } else if (oldVitality !== newVitality && actor.isOwner) {
-        const resource = checkRule("vitalityResource")?.trim();
-        if (resource) promises.push(actor.update({ [resource]: newVitality }))
+      } else if (oldVitality !== newVitality && actor.isOwner && doHits) {
+        const vitalityResource = checkRule("vitalityResource");
+        if (typeof vitalityResource === "string")
+          promises.push(actor.update({ [vitalityResource.trim()]: newVitality }))
       }
     }
     tokenIdList.push({ tokenId, tokenUuid, actorUuid, actorId, oldTempHP: oldTempHP, oldHP, totalDamage: Math.abs(totalDamage), newHP, newTempHP, damageItem, oldVitality, newVitality });
@@ -463,14 +471,14 @@ async function createPlayerDamageCard(data: { damageList: any; autoApplyDamage: 
   const startTime = Date.now();
   let tokenIdList: any[] = [];
   let templateData = {
-    damageApplied: ["yes", "yesCard"].includes(data.autoApplyDamage) ? i18n("midi-qol.HPUpdated") : i18n("midi-qol.HPNotUpdated"),
+    damageApplied: ["yes", "yesCard", "yesCardMisses"].includes(data.autoApplyDamage) ? i18n("midi-qol.HPUpdated") : i18n("midi-qol.HPNotUpdated"),
     damageList: [],
     needsButtonAll: false,
     showNPC,
     playerButtons
   };
 
-  prepareDamageListItems(data, templateData, tokenIdList, false, showNPC)
+  prepareDamageListItems(data, templateData, tokenIdList, false, showNPC, true)
   if (templateData.damageList.length === 0) {
     log("No damage data to show to player");
     return;
@@ -479,7 +487,7 @@ async function createPlayerDamageCard(data: { damageList: any; autoApplyDamage: 
   templateData.needsButtonAll = damageList.length > 1;
   //@ts-ignore
   templateData.playerButtons = templateData.playerButtons && templateData.damageList.some(listItem => listItem.isCharacter)
-  if (["yesCard", "noCard", "yesCardNPC"].includes(data.autoApplyDamage)) {
+  if (["yesCard", "noCard", "yesCardNPC", "yesCardMisses", "noCardMisses"].includes(data.autoApplyDamage)) {
     const content = await renderTemplate("modules/midi-qol/templates/damage-results-player.html", templateData);
     const speaker: any = ChatMessage.getSpeaker();
     speaker.alias = data.sender;
@@ -499,28 +507,30 @@ async function createPlayerDamageCard(data: { damageList: any; autoApplyDamage: 
 }
 
 // Fetch the token, then use the tokenData.actor.id
-async function createGMReverseDamageCard(data: { damageList: any; autoApplyDamage: string; flagTags: any, updateContext: any, forceApply: boolean }): Promise<string | undefined> {
+async function createGMReverseDamageCard(
+  data: { damageList: any; autoApplyDamage: string; flagTags: any, updateContext: any, forceApply: boolean },
+  doHits: boolean = true): Promise<string | undefined> {
   const damageList = data.damageList;
   let actor: { update: (arg0: { "system.attributes.hp.temp": any; "system.attributes.hp.value": number; "flags.dae.damageApplied": any; damageItem: any[] }) => Promise<any>; img: any; type: string; name: any; data: { data: { traits: { [x: string]: any; }; }; }; };
   const startTime = Date.now();
-  let promises: Promise<any>[] = [];
+  let promises: Array<Promise<any>>;;
   let tokenIdList: any[] = [];
   let chatCardUuid;
-  const damageWasApplied = ["yes", "yesCard"].includes(data.autoApplyDamage) || data.forceApply;
+  const damageWasApplied = doHits && (["yes", "yesCard", "yesCardMisses"].includes(data.autoApplyDamage) || data.forceApply);
   let templateData = {
     damageWasApplied,
     damageApplied: damageWasApplied ? i18n("midi-qol.HPUpdated") : data.autoApplyDamage === "yesCardNPC" ? i18n("midi-qol.HPNPCUpdated") : i18n("midi-qol.HPNotUpdated"),
     damageList: [],
     needsButtonAll: false
   };
-  promises = await prepareDamageListItems(data, templateData, tokenIdList, true, true)
+  promises = await prepareDamageListItems(data, templateData, tokenIdList, true, true, doHits)
 
   templateData.needsButtonAll = damageList.length > 1;
 
   //@ts-ignore
   const results = await Promise.allSettled(promises);
   if (debugEnabled > 0) warn("GM action results are ", results)
-  if (["yesCard", "noCard", "yesCardNPC"].includes(data.autoApplyDamage)) {
+  if (["yesCard", "noCard", "yesCardNPC", "yesCardMisses", "noCardMisses"].includes(data.autoApplyDamage)) {
     const content = await renderTemplate("modules/midi-qol/templates/damage-results.html", templateData);
     const speaker: any = ChatMessage.getSpeaker();
     speaker.alias = game.user?.name;
@@ -552,13 +562,13 @@ async function doMidiClick(ev: any, actorUuid: any, newTempHP: any, newHP: any, 
   let updateContext = mergeObject({ dhp: (newHP - actor.system.attributes.hp.value) }, data.updateContext);
   if (actor.isOwner) {
     const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-    if (checkRule("vitalityResource")) {
-      const resource = checkRule("vitalityResource")?.trim();
-      update[resource] = newVitality;
-      const vitalityResource = getProperty(actor, resource)
-      context["dvital"] = newVitality - vitalityResource;
+    const vitalityResource = checkRule("vitalityResource");
+    if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+      update[vitalityResource.trim()] = newVitality;
+      const vitality = getProperty(actor, vitalityResource.trim()) ?? 0;
+      updateContext["dvital"] = newVitality - vitality;
     }
-    await actor?.update(update, context);
+    await actor?.update(update, updateContext);
   }
 }
 
@@ -581,9 +591,9 @@ export let processUndoDamageCard = (message, html, data) => {
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, actor);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
         const context = { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem };
-        if (checkRule("vitalityResource")) {
-          const resource = checkRule("vitalityResource")?.trim();
-          update[resource] = oldVitality;
+        const vitalityResource = checkRule("vitalityResource");
+        if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+          update[vitalityResource.trim()] = oldVitality;
           context["dvital"] = oldVitality - newVitality;
         }
         await actor?.update(update, context);
@@ -608,9 +618,9 @@ export let processUndoDamageCard = (message, html, data) => {
         log(`Setting HP to ${newTempHP} and ${newHP}`);
         const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
         const context = { dhp: newHP - actor.system.attributes.hp.value, damageItem };
-        if (checkRule("vitalityResource")) {
-          const resource = checkRule("vitalityResource")?.trim();
-          update[resource] = newVitality;
+        const vitalityResource = checkRule("vitalityResource");
+        if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+          update[vitalityResource.trim()] = newVitality;
           context["dvital"] = oldVitality - newVitality;
         }
         if (actor.isOwner) await actor.update(update, context);
@@ -635,9 +645,9 @@ export let processUndoDamageCard = (message, html, data) => {
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, data.updateContext);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
         const context = { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem };
-        if (checkRule("vitalityResource")) {
-          const resource = checkRule("vitalityResource")?.trim();
-          update[resource] = oldVitality;
+        const vitalityResource = checkRule("vitalityResource");
+        if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+          update[vitalityResource.trim()] = oldVitality;
           context["dvital"] = newVitality - oldVitality;
         }
         if (actor.isOwner) await actor.update(update, context);
@@ -665,9 +675,9 @@ export let processUndoDamageCard = (message, html, data) => {
         } else {
           const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
           const context = { dhp: newHP - actor.system.attributes.hp.value, damageItem };
-          if (checkRule("vitalityResource")) {
-            const resource = checkRule("vitalityResource")?.trim();
-            update[resource] = newVitality;
+          const vitalityResource = checkRule("vitalityResource");
+          if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+            update[vitalityResource.trim()] = newVitality;
             context["dvital"] = oldVitality - newVitality;
           }
           if (actor.isOwner) await actor.update(update, context);
@@ -695,20 +705,20 @@ export let processUndoDamageCard = (message, html, data) => {
   return true;
 }
 
-async function _moveToken(data: {tokenUuid: string, newCenter: {x: number, y: number}}) : Promise<any> {
+async function _moveToken(data: { tokenUuid: string, newCenter: { x: number, y: number } }): Promise<any> {
   const token = MQfromUuid(data.tokenUuid);
   if (!token) return;
-  return token.update({x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0});
+  return token.update({ x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0 });
 }
 
-async function _moveTokenAwayFromPoint(data: {targetUuid: string, point: {x: number, y: number}, distance: number}): Promise<void> {
-const targetToken = getToken(data.targetUuid);
-const targetTokenDocument = getTokenDocument(targetToken);
-if (!canvas || !canvas.dimensions || !canvas.grid || !targetToken || !data.point) return;
-let ray = new Ray(data.point, targetToken.center);
-let distance = data.distance / canvas.dimensions.distance * canvas.dimensions.size;
-let newCenter = ray.project(1 + distance / ray.distance);
-newCenter = canvas.grid.getSnappedPosition(newCenter.x - targetToken.w/2, newCenter.y - targetToken.h/2, 1);
-//@ts-expect-error
-return targetTokenDocument.update({x: newCenter?.x ?? 0, y: newCenter?.y ?? 0});
+async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: number, y: number }, distance: number }): Promise<void> {
+  const targetToken = getToken(data.targetUuid);
+  const targetTokenDocument = getTokenDocument(targetToken);
+  if (!canvas || !canvas.dimensions || !canvas.grid || !targetToken || !data.point) return;
+  let ray = new Ray(data.point, targetToken.center);
+  let distance = data.distance / canvas.dimensions.distance * canvas.dimensions.size;
+  let newCenter = ray.project(1 + distance / ray.distance);
+  newCenter = canvas.grid.getSnappedPosition(newCenter.x - targetToken.w / 2, newCenter.y - targetToken.h / 2, 1);
+  //@ts-expect-error
+  return targetTokenDocument.update({ x: newCenter?.x ?? 0, y: newCenter?.y ?? 0 });
 }

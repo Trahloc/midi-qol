@@ -106,6 +106,7 @@ Hooks.once('init', async function () {
   if (game.system.id === "sw5e")
     allAttackTypes = ["rwak", "mwak", "rpak", "mpak"];
   initHooks();
+  globalThis.MidiQOL = undefined;
   // Assign custom classes and constants here
 
   // Register custom module settings
@@ -221,6 +222,7 @@ Hooks.once('setup', function () {
   };
   setupSheetQol();
   createMidiMacros();
+  setupMidiQOLApi();
 });
 
 /* ------------------------------------ */
@@ -287,8 +289,6 @@ Hooks.once('ready', function () {
     }
 
   }
-
-  setupMidiQOLApi();
 
   if (game.user?.isGM) {
     if (installedModules.get("levelsautocover") && configSettings.optionalRules.coverCalculation === "levelsautocover" && !game.settings.get("levelsautocover", "apiMode")) {

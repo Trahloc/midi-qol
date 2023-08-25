@@ -1,3 +1,11 @@
+## 11.0.14
+* Check token isTargetable when using walled templates - thanks @Elwin
+* New option when displaying apply damage card, + misses, will generate a separate damage card for targets that midi adjudicated as misses. This is just a shorthand way for DMs to overrule the decision that an attack missed and be able to apply damage. The misses damage card will not auto apply damage, leaving it to the DM to apply the damage.
+* New optional rule to allow DRAll, DR.rwak, DR.rsak, DR.mwak, DR.msak to apply to the total damage of an attack (i.e. weapon, bonus dmaage and **other** damage). For example DR.rwak 5,against a spider bite that does piercing damage and poison (other damage) will reduce both the piercing by 5 **and** poison (other damage) by 5, if enabled. If not checked DR.rwak will reduce the total damage by 5. Enabled corresponds to the pre 11.0.14 behaviour.
+* Fix for trying to update a deleted chat card when not auto applying damage.
+* When rolling an item if the roll is blocked by the preTargeting Hook, perTargeting macro, or preItemRoll macro midi will no longer display a ui.notification.warn, so if you want something to be displayed to the user you will need to do so in the macro/hook.
+
+
 ## 11.0.13
 * **Breaking** Change to how walls blocking attacks is implemented. Midi used to check for a line of sight to the target and if there was none then the attack was blocked. With the new vision checking and wall types it seems to make more sense for walll blocking to apply if there is a movement blocking wall between the attacker and the token. So now you can slash at the monster hidden behind the curtain.
   - If using the vision testing such attacks will be at disadvantage if the target can't be seen, but will be possible, previously this would be blocked by wall blocking.

@@ -161,9 +161,8 @@ async function registerTests() {
               });
             });
             const cls = getDocumentClass("Combat");
-            let scene = canvas?.scene;
-            const combat = await cls.create({scene: scene?.id, active: true}, {render: true});
-            await combat?.startCombat();
+            const combat = await cls.create({scene: canvas?.scene?.id, active: true}, {render: false});
+            // await combat?.startCombat();
             await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
             await combat?.delete();
             const roll: Roll = await rollResult;
@@ -200,7 +199,7 @@ async function registerTests() {
             });
             const cls = getDocumentClass("Combat");
             let scene = canvas?.scene;
-            const combat = await cls.create({scene: scene?.id, active: true}, {render: false});
+            const combat = await cls.create({scene: scene?.id, active: true});
             await combat?.startCombat();
             await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
             await combat?.delete();

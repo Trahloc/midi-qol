@@ -1,17 +1,23 @@
 import { i18n } from "../../midi-qol.js";
+import { configSettings } from "../settings.js";
 import { removeMostRecentWorkflow, undoDataQueue, undoMostRecentWorkflow } from "../undo.js";
 
 export class UndoWorkflow extends FormApplication {
   undoAddedHookId: number;
   undoRemvoedHookId: number;
 
-  async _updateObject() { 
+  async _updateObject() {
   };
 
   constructor(object: any, options: any = {}) {
     super(object, options);
     this.undoAddedHookId = Hooks.on("midi-qol.addUndoEntry", this.render.bind(this));
     this.undoRemvoedHookId = Hooks.on("midi-qol.removeUndoEntry", this.render.bind(this));
+    if (!configSettings.undoWorkflow) {
+      configSettings.undoWorkflow = true;
+      game.settings.set("midi-qol", "ConfigSettings", configSettings);
+      ui.notifications?.warn("Undo Workflow enabled");
+    }
   }
 
   async getData(options) {
@@ -66,7 +72,7 @@ export class UndoWorkflow extends FormApplication {
 
 export function showUndoWorkflowApp() {
   if (game.user?.isGM) {
-    new UndoWorkflow({}).render(true, {focus: true})
+    new UndoWorkflow({}).render(true, { focus: true })
   } else {
     ui.notifications?.warn("midi-qol.UndowWorkflow.GMOnly")
   }

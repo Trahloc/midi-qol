@@ -41,15 +41,8 @@ export class ConfigPanel extends FormApplication {
     });
     if (!installedModules.get("levels")) {
       wallsBlockRangeOptions["centerLevels"] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing:"Levels" })}`;
-
     }
 
-    if (!installedModules.get("levelsautocover"))
-      CoverCalculationOptions["levelsautocover"] += " (not installed)";
-
-    if (!installedModules.get("simbuls-cover-calculator"))
-      CoverCalculationOptions["simbuls-cover-calculator"] += " (not installed)";
-    
     let quickSettingsOptions = {};
     for (let key of Object.keys(quickSettingsDetails)) {
       quickSettingsOptions[key] = quickSettingsDetails[key].description;

@@ -27,15 +27,16 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     //  if (configSettings.mergeCard && (configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true) && this.hasAttack && options?.singleTarget !== true && game?.user?.targets) {
     if (((configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true) && options.workflowOptions?.attackPerTarget !== false)
       && this.hasAttack
+      // && ["rwak", "mwak"].includes(this.system.actionType)
+      && options.createMessage // if no message created can't do more than one roll since it will all get lost
       && options?.singleTarget !== true
       && game?.user?.targets
       && !game.settings.get("midi-qol", "itemUseHooks")) {
       Workflow.removeWorkflow(this.uuid);
       if (options.workflowOptions?.lateTargeting && options.workflowOptions?.lateTargeting !== "none") lateTargetingSet = true;
       if (game.user.targets.size === 0 && lateTargetingSet) await resolveLateTargeting(this, options, pressedKeys);
-      const targets: Token[] = [];
-      for (let target of game?.user?.targets) targets.push(target);
-      if (targets.length > 0) {
+      const targets = new Set(game.user.targets);
+      if (targets.size > 0) {
         for (let target of targets) {
           const newOptions = mergeObject(options, { singleTarget: true, targetUuids: [target.document.uuid], workflowOptions: { lateTargeting: "none" } }, { inplace: false, overwrite: true });
           await completeItemUse(this, {}, newOptions)
@@ -46,8 +47,8 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       }
       // The workflow only refers to the last target.
       // If there was more than one should remove the workflow.
-      if (targets.length > 1) Workflow.removeWorkflow(this.uuid);
-      return;
+      if (targets.size > 1) Workflow.removeWorkflow(this.uuid);
+      return null;
     }
     options = mergeObject({
       systemCard: false,
@@ -66,7 +67,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     if (!options.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor, this, null)) {
       ui.notifications?.warn(`${this.actor.name} is incapacitated`)
-      return;
+      return null;
     }
 
     const isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
@@ -86,15 +87,14 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (await asyncHooksCall("midi-qol.preTargeting", theWorkflow) === false || await asyncHooksCall(`midi-qol.preTargeting.${this.uuid}`, { item: this }) === false) {
       console.warn("midi-qol | attack roll blocked by preTargeting hook");
       if (!existingWorkflow) Workflow.removeWorkflow(theWorkflow.id);
-      return;
+      return null;
     }
     if (configSettings.allowUseMacro) {
       const results = await theWorkflow.callMacros(this, theWorkflow.onUseMacros?.getMacros("preTargeting"), "OnUse", "preTargeting");
       if (results.some(i => i === false)) {
         console.warn("midi-qol | item roll blocked by preTargeting macro");
-        ui.notifications?.notify(`${this.name ?? ""} use blocked by preTargeting macro`)
         if (!existingWorkflow) Workflow.removeWorkflow(theWorkflow.id);
-        return;
+        return null;
       }
     }
     if (!existingWorkflow) Workflow.removeWorkflow(theWorkflow.id); // get rid of the dummy workflow
@@ -222,7 +222,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           content: i18n(concentrationEffectName ? "midi-qol.ActiveConcentrationSpell.ContentNamed" : "midi-qol.ActiveConcentrationSpell.ContentGeneric").replace("@NAME@", concentrationEffectName),
           yes: () => { shouldAllowRoll = true },
         });
-        if (!shouldAllowRoll) return; // user aborted spell
+        if (!shouldAllowRoll) return null; // user aborted spell
       }
     }
 
@@ -273,7 +273,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         content: i18n("midi-qol.EnforceReactions.Content"),
         yes: () => { shouldRoll = true },
       });
-      if (!shouldRoll) return; // user aborted roll TODO should the workflow be deleted?
+      if (!shouldRoll) return null; // user aborted roll TODO should the workflow be deleted?
     }
 
     const hasBonusAction = await hasUsedBonusAction(this.actor);
@@ -286,7 +286,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         content: i18n("midi-qol.EnforceBonusActions.Content"),
         yes: () => { shouldRoll = true },
       });
-      if (!shouldRoll) return; // user aborted roll TODO should the workflow be deleted?
+      if (!shouldRoll) return null; // user aborted roll TODO should the workflow be deleted?
     }
 
     if (await asyncHooksCall("midi-qol.preItemRoll", workflow) === false || await asyncHooksCall(`midi-qol.preItemRoll.${this.uuid}`, workflow) === false) {
@@ -299,7 +299,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const results = await workflow.callMacros(this, workflow.onUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
       if (results.some(i => i === false)) {
         console.warn("midi-qol | item roll blocked by preItemRoll macro");
-        ui.notifications?.notify(`${this.name ?? ""} use blocked by preItemRoll macro`)
         workflow.aborted = true;
         return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
         // Workflow.removeWorkflow(workflow.id);
@@ -308,7 +307,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const ammoResults = await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
       if (ammoResults.some(i => i === false)) {
         console.warn(`midi-qol | item ${workflow.ammo.name ?? ""} roll blocked by preItemRoll macro`);
-        ui.notifications?.notify(`${workflow.ammo.name ?? ""} use blocked by preItemRoll macro`)
         workflow.aborted = true;
         return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
       }
@@ -1251,8 +1249,8 @@ export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: 
   let targetTokens: Token[] = [];
   if (configSettings.autoTarget === "walledtemplates" && game.modules.get("walledtemplates")?.active) {
     //@ts-expect-error
-    targetTokens = templateDetails.targetsWithinShape();
-    targetTokens = targetTokens.filter(token => token.document.uuid !== ignoreTokenDocument?.uuid)
+    targetTokens = (templateDetails.targetsWithinShape) ? templateDetails.targetsWithinShape() : [];
+    targetTokens = targetTokens.filter(token => isTargetable(token) && token.document.uuid !== ignoreTokenDocument?.uuid)
     targets = targetTokens.map(t => t.id);
   } else {
     for (const token of tokens) {

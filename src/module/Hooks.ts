@@ -3,7 +3,7 @@ import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamag
 import { processUndoDamageCard } from "./GMAction.js";
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction } from "./utils.js";
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
-import { checkMechanic, configSettings, dragDropTargeting } from "./settings.js";
+import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { installedModules } from "./setupModules.js";
 import { checkWounded, lookupItemMacro, preDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook } from "./itemhandling.js";
@@ -65,7 +65,9 @@ export let readyHooks = async () => {
     if (user !== game.user?.id) return;
     const hpUpdate = getProperty(update, "system.attributes.hp.value");
     const temphpUpdate = getProperty(update, "system.attributes.hp.temp");
-    if (hpUpdate !== undefined || temphpUpdate !== undefined) {
+    const vitalityResource = checkRule("vitalityResource");
+    const vitalityUpdate = typeof vitalityResource === "string" ? getProperty(update, vitalityResource) : undefined;
+    if (hpUpdate !== undefined || temphpUpdate !== undefined || vitalityUpdate !== undefined) {
       let hpDiff = getProperty(actor, "flags.midi-qol.concentration-damage") ?? 0;
 
       const hpUpdateFunc = async () => {

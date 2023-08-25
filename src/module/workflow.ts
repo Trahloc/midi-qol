@@ -178,10 +178,10 @@ export class Workflow {
     this.item = item;
     if (Workflow.getWorkflow(item?.uuid) && !(this instanceof DummyWorkflow)) {
       const existing = Workflow.getWorkflow(item.uuid);
+      Workflow.removeWorkflow(item.uuid);
       if (!([WORKFLOWSTATES.ROLLFINISHED, WORKFLOWSTATES.WAITFORDAMAGEROLL].includes(existing.currentState)) && existing.itemCardId) {
         game.messages?.get(existing.itemCardId)?.delete();
       }
-      Workflow.removeWorkflow(item.uuid);
     }
 
     if (!this.item || this instanceof DummyWorkflow) {
@@ -302,8 +302,8 @@ export class Workflow {
   }
 
   setTemplateFlags(templateDoc, data, context, user): boolean {
-    if (this.item) templateDoc.updateSource({"flags.midi-qol.itemUuid": this.item.uuid});
-    if (this.actor) templateDoc.updateSource({"flags.midi-qol.actorUuid": this.actor.uuid});
+    if (this.item) templateDoc.updateSource({ "flags.midi-qol.itemUuid": this.item.uuid });
+    if (this.actor) templateDoc.updateSource({ "flags.midi-qol.actorUuid": this.actor.uuid });
     return true
   }
 
@@ -344,7 +344,7 @@ export class Workflow {
         Hooks.off("createMeasuredTemplate", workflow.placeTemplateHookId)
         Hooks.off("preCreateMeasuredTemplate", workflow.preCreateTemplateHookId)
       }
-        
+
       // Remove buttons
       this.removeAttackDamageButtons(id);
       delete Workflow._workflows[id];
@@ -412,7 +412,7 @@ export class Workflow {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("templatePlaced"), "OnUse", "templatePlaced");
           if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("templatePlaced"), "OnUse", "templatePlaced");
         }
-        
+
         // Some modules stop being able to get the item card id.
         if (!this.itemCardId) return this.next(WORKFLOWSTATES.LATETARGETING);
 
@@ -447,7 +447,7 @@ export class Workflow {
       case WORKFLOWSTATES.VALIDATEROLL:
         // do pre roll checks
         if (checkMechanic("checkRange") !== "none" && (!this.AoO || ["rwak", "rsak", "rpak"].includes(this.item.system.actionType)) && this.tokenId) {
-          const { result, attackingToken } = checkRange(this.item, canvas?.tokens?.get(this.tokenId), this.targets);
+          const { result, attackingToken } = checkRange(this.item, canvas?.tokens?.get(this.tokenId) ?? "invalid", this.targets);
           switch (result) {
             case "fail": return this.next(WORKFLOWSTATES.ROLLFINISHED);
             case "dis": this.disadvantage = true;
@@ -967,6 +967,8 @@ export class Workflow {
                 if (!this.forceApplyEffects && configSettings.autoItemEffects !== "applyLeave") await this.removeEffectsButton();
               }
             }
+            // Perhaps this should use this.applicationTargets
+            if (configSettings.allowUseMacro) await this.triggerTargetMacros(["postTargetEffectApplication"], this.targets);
           }
           // anyActivaiton is true for no activation condition or true if any of the token conditions matched.
           anyActivationTrue =
@@ -1031,7 +1033,7 @@ export class Workflow {
           Hooks.off("createMeasuredTemplate", this.placeTemplateHookId)
           Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId)
         }
-          
+
         setProperty(this, "workflowOptions.lateTargeting", undefined);
         if (!this.aborted) {
           const specialExpiries = [

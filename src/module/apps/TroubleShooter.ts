@@ -357,7 +357,7 @@ export class TroubleShooter extends FormApplication {
     } else data.summary.moduleSettings["Sequencer"] = i18n("midi-qol.Inactive");
     if (game.modules.get("times-up")?.active) {
       data.summary.moduleSettings["Times Up Disable Passive Effects Expiry"] = game.settings.get("times-up", "DisablePassiveEffects");
-    } else data.summary.moduleSettings["Times-Up"] = "midi-qol.Inactive";
+    } else data.summary.moduleSettings["Times-Up"] = i18n("midi-qol.Inactive");
     if (game.modules.get("tokenmagic")?.active) {
       data.summary.moduleSettings["Token Magic FX Automatic Template Effects "] = game.settings.get("tokenmagic", "autoTemplateEnabled");
       data.summary.moduleSettings["Token Magic FX Default Template Grid on Hover "] = game.settings.get("tokenmagic", "defaultTemplateOnHover");
@@ -735,11 +735,11 @@ export class TroubleShooter extends FormApplication {
     if (problemTokens?.length) {
       let problem: ProblemSpec = {
         moduleId: "midi-qol",
-        severity: "Error",
+        severity: "Warn",
         problemSummary: "There are tokens with no actor in the scene",
         problemDetail: problemTokens.map(t => {
           const detail = {};
-          detail[t.name] = t.document.uuid;
+          detail[`${t.scene?.name ?? ""} - ${t.name}`] = t.document.uuid;
           return detail;
         }),
         fixer: "You should edit or remove them"

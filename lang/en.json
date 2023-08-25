@@ -245,8 +245,10 @@
   "midi-qol.autoApplyDamageOptions": {
     "none": "No",
     "noCard": "No + damage card",
+    "noCardMisses": "No + damage card + misses",
     "yes": "Yes",
     "yesCard": "Yes + damage card",
+    "yesCardMisses": "Yes + damage card + misses",
     "yesCardNPC": "Yes(NPC) No(PC) + damage card"
   },
   "midi-qol.playerDamageCardOptions": {
@@ -491,6 +493,8 @@
   "midi-qol.RemoveHiddenInvis.Name": "Attacking removes hidden (use CE/CV/CUB/core foundry specialStatus )",
   "midi-qol.CriticalSaves.Name": "(House Rule) Critical/Fumble always succeed/fail for saving throws",
   "midi-qol.MaxDRValue.Name": "(House rule) Enabling this means that only the most effective Damage Reduction will apply. Off means DR accumulates",
+  "midi-qol.DRAllPerDamageDetail.Name": "(House Rule) DRAll (DR.rwak/...) is deducted from BOTH attack damage and Other damage.",
+  "midi-qol.DRAllPerDamageDetail.Hint": "Unchecked means DRALL applies just once to the total damage",
   "midi-qol.invisible": "Invisible",
   "midi-qol.hidden": "Hidden",
   "midi-qol.nevertarget": "Never Target",
