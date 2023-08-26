@@ -1,3 +1,7 @@
+## 11.0.14.1
+* Fix for error thrown when optional rules disabled
+* Added item flags/midiFlags to item.getRollData() as item.getRollData().flags, item.getRollData.midiFlags
+
 ## 11.0.14
 * Check token isTargetable when using walled templates - thanks @Elwin
 * New option when displaying apply damage card, + misses, will generate a separate damage card for targets that midi adjudicated as misses. This is just a shorthand way for DMs to overrule the decision that an attack missed and be able to apply damage. The misses damage card will not auto apply damage, leaving it to the DM to apply the damage.

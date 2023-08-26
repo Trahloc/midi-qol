@@ -785,7 +785,8 @@ export function initPatching() {
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.prepareData", itemPrepareData, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.prepareData", actorPrepareData, "WRAPPER");
   libWrapper.register("midi-qol", "KeyboardManager.prototype._onFocusIn", _onFocusIn, "OVERRIDE");
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getRollData", getRollData, "WRAPPER");
+  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getRollData", actorGetRollData, "WRAPPER");
+  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.getRollData", itemGetRollData, "WRAPPER");
 }
 
 export function _onFocusIn(event) {
@@ -1681,7 +1682,7 @@ function preDamageTraitSelectorGetData(wrapped) {
   }
 }
 
-function getRollData(wrapped, ...args) {
+function actorGetRollData(wrapped, ...args) {
   const data = wrapped(...args);
   data.actorType = this.type;
   data.midiFlags = (this.flags && this.flags["midi-qol"]) ?? {};
@@ -1691,5 +1692,13 @@ function getRollData(wrapped, ...args) {
     data.cfg.actorSizes = getSystemCONFIG().actorSizes;
     data.cfg.skills = getSystemCONFIG().skills;
   }
+  return data;
+}
+
+function itemGetRollData(wrapped, ...args) {
+  const data = wrapped(...args);
+  if (!data) return data;
+  data.item.flags = this.flags;
+  data.item.midiFlags = getProperty(this, "flags.midi-qol");
   return data;
 }

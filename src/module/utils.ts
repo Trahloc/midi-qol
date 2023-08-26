@@ -1592,9 +1592,9 @@ export function untargetAllTokens(...args) {
 }
 
 export function checkIncapacitated(actor: Actor, item: Item | undefined = undefined, event: any) {
-  const vitalityResource = checkRule("vitalityResource")?.trim();
-  if (vitalityResource && getProperty(actor, vitalityResource) !== undefined) {
-    const vitality = getProperty(actor, vitalityResource) ?? 0;
+  const vitalityResource = checkRule("vitalityResource");
+  if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+    const vitality = getProperty(actor, vitalityResource.trim()) ?? 0;
     //@ts-expect-error .system
     if (vitality <= 0 && actor?.system.attributes?.hp?.value <= 0) {
       log(`${actor.name} is dead`);
