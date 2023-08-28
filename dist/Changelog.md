@@ -1,4 +1,5 @@
 ## 11.0.14.1
+## 11.0.14.2
 * Fix for error thrown when optional rules disabled
 * Added item flags/midiFlags to item.getRollData() as item.getRollData().flags, item.getRollData.midiFlags
 
