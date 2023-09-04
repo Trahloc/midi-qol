@@ -2,7 +2,7 @@
   "midi-qol.ItemDeleteCheck.Name": "Item Delete Check",
   "midi-qol.ItemDeleteCheck.Hint": "Open a confirmation dialog when trying to delete items from character sheet",
   "midi-qol.DamageImmunities.Name": "Apply Damage immunities",
-  "midi-qol.DamageImmunities.Hint": "When using midi-qol damage buttons or auto applying damage apply target's damage immunities/vulnerabilities/resistances. All damage types are checked.",
+  "midi-qol.DamageImmunities.Hint": "When using midi-qol damage buttons or auto applying damage apply target's damage immunity/vulnerabilities/resistances. All damage types are checked.",
   "midi-qol.WorldKeyMappings.Name": "World vs Client Key Configuration",
   "midi-qol.WorldKeyMappings.Blurb1": "Key mappings are defined per client. Each player can have different key mappings. To force all clients to have the same key mappings use one of the available modules to enforce common settings.",
   "midi-qol.WorldKeyMappings.Blurb2": "I have tested 'Force Client Controls' with success",
@@ -142,8 +142,6 @@
   "midi-qol.CriticalDamage.Hint": "DND5e Settings Only - standard dnd5e critical roll, Max Normal Damage - base weapon dice only (no critical dice) but all maximised, Max Critical Dice - critical dice maximised, Max All Dice - item + critical dice maximised, double dice value - result of dice x2, Explode Critical Dice - roll normal critical exploding any critical dice, Only Weapon Extra Critical - the only bonus damage for critical is from the item extra critical field",
   "midi-qol.CriticalDamageGM.Name": "Choose critical damage for GM",
   "midi-qol.CriticalDamageGM.Hint": "",
-
-
   "midi-qol.CriticalDamageChoices": {
     "default": "DND5e Settings Only",
     "maxDamage": "Max Normal Damage",
@@ -413,7 +411,7 @@
   "midi-qol.TempHPDamageConcentrationCheck.Hint": "If enabled loss of temporary HP will trigger a concentration check",
   "midi-qol.RemoveConcentrationEffects.Name": "Remove concentration when effects removed",
   "midi-qol.RemoveConcentrationEffects.Hint": "Check when effects (effects & templates) are removed. If all effects and templates for the concentration spell/feature have been removed remove concentrtion",
-  "midi-qol.RemoveConcentrationEffectsOptions" : {
+  "midi-qol.RemoveConcentrationEffectsOptions": {
     "none": "Never",
     "effects": "Check Effects",
     "effectsTemplates": "Check Effects and Templates"
@@ -459,12 +457,11 @@
   },
   "midi-qol.NearbyFoe.Name": "Ranged attacks when a foe is closer than this have disadvantage. 0 disables",
   "midi-qol.WallsBlockRange.Name": "Walls block ranged attacks",
-  "midi-qol.WallsBlockRange.Hint1": "No = wall do not block range checks", 
+  "midi-qol.WallsBlockRange.Hint1": "No = wall do not block range checks",
   "midi-qol.WallsBlockRange.Hint2": "center = check center to center line",
   "midi-qol.WallsBlockRange.Hint3": "center + Levels = center check but use the 'levels' module to determine wall blocking LOS. Also use levels volumetric templates for template targeting",
   "midi-qol.WallsBlockRange.Hint4": "levels Auto Cover = Use levelsautocover to test and block for full cover",
   "midi-qol.WallsBlockRange.Hint5": "Alternative Token Visibility = Use Alternative Token Visibility to test and block for full cover",
-
   "midi-qol.WallsBlockRangeOptionsNew": {
     "none": "No",
     "center": "Center Check",
@@ -473,7 +470,6 @@
     "simbuls-cover-calculator": "Simbuls Cover Calculator",
     "tokenvisibility": "Alternative Token Visibility"
   },
-
   "midi-qol.NearbyAllyRanged.Name": "(House Rule) Ranged Attacks at foes near allies have disadvantage.",
   "midi-qol.WallsBlockRangeOptions": {
     "none": "No",
@@ -751,10 +747,10 @@
   "midi-qol.OptionalRuleVitality.Hint": "when set to a resource damage applied to a target with 0 HP does damage to the vitality resource. If that reaches 0 the target is dead",
   "midi-qol.AutoRerollInitiative.Name": "Auto reroll initiative",
   "midi-qol.AutoRerollInitiative.Hint": "Auto reroll initiative for all combatants at the start of a new round. Warning: can break round/turn effect expiry",
-  "midi-qol.RollChecksBlind.Name" : "All player ability checks are rolled blind",
-  "midi-qol.RollSavesBlind.Name" : "All player ability saves are rolled blind",
-  "midi-qol.RollSkillsBlind.Name" : "All player skill checks are rolled blind",
-  "midi-qol.UndoWorkflow" : {
+  "midi-qol.RollChecksBlind.Name": "All player ability checks are rolled blind",
+  "midi-qol.RollSavesBlind.Name": "All player ability saves are rolled blind",
+  "midi-qol.RollSkillsBlind.Name": "All player skill checks are rolled blind",
+  "midi-qol.UndoWorkflow": {
     "Name": "Experimental: Support undoing item rolls",
     "Hint": "If enabled midi will store undo data for all item rolls. Not suitable for game time. Undo via MidiQOL.undoMostRecentWorkflow()",
     "title": "Undo workflow",
@@ -780,6 +776,6 @@
   "midi-qol.Errors": "Errors",
   "midi-qol.Inactive": "Inactive",
   "midi-qol.Active": "Active",
-  "midi-qol.EnforceSingleWeaponTarget.Name":  "Weapons attack single target",
+  "midi-qol.EnforceSingleWeaponTarget.Name": "Weapons attack single target",
   "midi-qol.EnforceSingleWeaponTarget.Hint": "Wepaons with no target specification can only attack one target"
 }
