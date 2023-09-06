@@ -9,6 +9,7 @@ import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTim
 import { OnUseMacros } from "./apps/Item.js";
 import { Options } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { busyWait } from "./tests/setupTest.js";
 
 export function getDamageType(flavorString): string | undefined {
   const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
@@ -35,7 +36,7 @@ export function getDamageFlavor(damageType): string | undefined {
  */
 export function createDamageList({ roll, item, versatile, defaultType = MQdefaultDamageType, ammo }): { damage: unknown; type: string; }[] {
   let damageParts = {};
-  const rollTerms = roll?.terms ?? [];;
+  const rollTerms = roll?.terms ?? [];
   let evalString = "";
   let parts = duplicate(item?.system.damage.parts ?? []);
   if (versatile && item?.system.damage.versatile) {
@@ -495,12 +496,12 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     const noDamageReactions = (item?.hasSave && item.flags?.midiProperties?.nodam && workflow?.saves?.has(t));
     const noProvokeReaction = getProperty(workflow.item, "flags.midi-qol.noProvokeReaction");
 
-    if (totalDamage > 0 
+    if (totalDamage > 0
       //@ts-expect-error isEmpty
-      && !isEmpty(workflow) 
-      && !isHealing 
-      && !noDamageReactions 
-      && !noProvokeReaction 
+      && !isEmpty(workflow)
+      && !isHealing
+      && !noDamageReactions
+      && !noProvokeReaction
       && options.hitTargets.has(t)
       && [Workflow, BetterRollsWorkflow].includes(workflow.constructor)) {
       // TODO check that the targetToken is actually taking damage
@@ -512,7 +513,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       // Starship damage r esistance applies only to attacks
       if (item && ["mwak", "rwak"].includes(item?.system.actionType)) {
         // This should be a roll?
-        DRAll = getProperty(t, "actor.system.attributes.equip.armor.dr") ?? 0;;
+        DRAll = getProperty(t, "actor.system.attributes.equip.armor.dr") ?? 0;
       }
     } else if (getProperty(targetActor, "flags.midi-qol.DR.all") !== undefined)
       DRAll = (new Roll((`${getProperty(targetActor, "flags.midi-qol.DR.all") || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
@@ -1127,7 +1128,9 @@ export function midiCustomEffect(actor, change) {
     "flags.midi-qol.fail",
     "flags.midi-qol.max.damage",
     "flags.midi-qol.min.damage",
-    "flags.critical"
+    "flags.critical",
+    "flags.midi-qol.ignoreCover",
+    "flags.midi-qol.ignoreWalls"
   ]; // These have trailing data in the change key change.key values and should always just be a string
   if (change.key === "flags.midi-qol.onUseMacroName") {
     const args = change.value.split(",")?.map(arg => arg.trim());
@@ -1697,7 +1700,7 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
   return distance;
 }
 
-export function getDistanceSimpleOld(t1: Token, t2: Token, incoludeCover, wallBlocking = false) {
+export function getDistanceSimpleOld(t1: Token, t2: Token, includeCover, wallBlocking = false) {
   return getDistance(t1, t2, wallBlocking);
 }
 export function getDistanceSimple(t1: Token, t2: Token, wallBlocking = false) {
@@ -1715,6 +1718,12 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   if (t2 instanceof TokenDocument) t2 = t2.object;
   if (!canvas || !canvas.grid || !canvas.dimensions) return -1;
 
+  const actor = t1.actor;
+  const ignoreWallsFlag = getProperty(actor, "flags.midi-qol.ignoreWalls");
+  // get condition data & eval the property
+  if (ignoreWallsFlag) {
+    wallblocking = false;
+  }
 
   const t1StartX = t1.document.width >= 1 ? 0.5 : t1.document.width / 2;
   const t1StartY = t1.document.height >= 1 ? 0.5 : t1.document.height / 2;
@@ -1736,13 +1745,13 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   else if (globalThis.CoverCalculator && configSettings.optionalRules.wallsBlockRange === "simbuls-cover-calculator") {
     if (t1 === t2) return 0; // Simbul's throws an error when calculating cover for the same token
     const coverData = globalThis.CoverCalculator.Cover(t1, t2);
-    console.warn("simbuls cover calculator ", t1.name, t2.name, coverData);
-    if (coverData?.data.results.cover === 3) return -1;
+    warn("simbuls cover calculator ", t1.name, t2.name, coverData);
+    if (coverData?.data.results.cover === 3 && wallblocking) return -1;
     coverVisible = true;
   } else if (installedModules.get("tokenvisibility") && configSettings.optionalRules.wallsBlockRange === "tokenvisibility") {
     const coverValue = calcTokenVisibilityCover(t1, t2);
     coverVisible = coverValue !== 3;
-    if (!coverVisible) return -1;
+    if (!coverVisible && wallblocking) return -1;
   }
 
   var x, x1, y, y1, d, r, segments: { ray: Ray }[] = [], rdistance, distance;
@@ -1965,7 +1974,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
   const tokenIn = getToken(tokenRef);
   //@ts-expect-error .map
   const targetsIn = targetsRef?.map(t => getToken(t));
-  if (!tokenIn || tokenIn === null || !targetsIn) return {result: "fail", attackingToken: undefined};
+  if (!tokenIn || tokenIn === null || !targetsIn) return { result: "fail", attackingToken: undefined };
   let attackingToken = tokenIn;
   if (!canvas || !canvas.tokens || !tokenIn || !targetsIn) return {
     result: "fail",
@@ -2027,7 +2036,7 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
       if (coverData.rawCover === 0) coverBonus = FULL_COVER;
       else if (coverData.rawCover > coverDetail[1].percent) coverBonus = 0;
       else if (coverData.rawCover < coverDetail[0].percent) coverBonus = THREE_QUARTERS_COVER;
-      else if (coverData.rawCover < coverDetail[1].percent) coverBonus = HALF_COVER;;
+      else if (coverData.rawCover < coverDetail[1].percent) coverBonus = HALF_COVER;
       if (coverData.obstructingToken) coverBonus = Math.max(2, coverBonus);
       console.log("midi-qol | ComputerCoverBonus - For token ", attacker.name, " attacking ", target.name, " cover data is ", coverBonus, coverData, coverDetail)
       break;
@@ -2045,7 +2054,7 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
         console.log("midi-qol | ComputeCover Bonus - For token ", attacker.name, " attacking ", target.name, " cover data is ", coverBonus, coverData)
       }
       break;
-    case "alternative":
+    case "tokenvisibility":
       if (!installedModules.get("tokenvisibility")) coverBonus = 0;
       if (game.settings.get("tokenvisibility", "midiqol-covercheck") === "midiqol-covercheck-none") {
         const coverValue = calcTokenVisibilityCover(attacker, target);
@@ -2615,20 +2624,22 @@ class RollModifyDialog extends Application {
         }
       }
       let selector = this.data.flagSelector.split(".");
-      selector[selector.length - 1] = "all";
-      const allSelector = selector.join(".");
-      value = getProperty(flagData, allSelector);
+      if (selector[selector.length - 1] !== "all") {
+        selector[selector.length - 1] = "all";
+        const allSelector = selector.join(".");
+        value = getProperty(flagData, allSelector);
 
-      if (value !== undefined) {
-        const labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
+        if (value !== undefined) {
+          const labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
 
-        obj[randomID()] = {
-          icon: '<i class="fas fa-dice-d20"></i>',
-          //          label: (flagData.label ?? "Bonus") + `  (${getProperty(flagData, allSelector) ?? "0"})`,
-          label: (flagData.label ?? "Bonus") + `  (${labelDetail})`,
-          value,
-          key: flag,
-          callback: this.data.callback
+          obj[randomID()] = {
+            icon: '<i class="fas fa-dice-d20"></i>',
+            //          label: (flagData.label ?? "Bonus") + `  (${getProperty(flagData, allSelector) ?? "0"})`,
+            label: (flagData.label ?? "Bonus") + `  (${labelDetail})`,
+            value,
+            key: flag,
+            callback: this.data.callback
+          }
         }
       }
       return obj;
@@ -2768,6 +2779,21 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
     const callback = async (dialog, button) => {
       let newRoll;
       let reRoll;
+      const player = playerForActor(this.actor);
+      let chatMessage;
+      const undoId = randomID()
+      const undoData: any = {
+        id: undoId,
+        userId: player?.id ?? "",
+        userName: player?.name ?? "Gamemaster",
+        itemName: button.label,
+        itemUuid: "",
+        actorUuid: this.actor.uuid,
+        actorName: this.actor.name,
+        isReaction: true
+      }
+      await socketlibSocket.executeAsGM("queueUndoDataDirect", undoData)
+
       const rollMode = getProperty(this.actor, button.key)?.rollMode ?? game.settings.get("core", "rollMode");
       if (!hasEffectGranting(this.actor, button.key, flagSelector)) return;
       switch (button.value) {
@@ -2832,18 +2858,18 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           }
           break;
       }
+
       if (showRoll && this.category === "ac") { // TODO do a more general fix for displaying this stuff
-        const player = playerForActor(this.actor)?.id ?? "";
         // const oldRollHTML = await this[rollId].render() ?? this[rollId].result
         const newRollHTML = await midiRenderRoll(newRoll);
         const chatData: any = {
           // content: `${this[rollId].result} -> ${newRoll.formula} = ${newRoll.total}`,
           flavor: game.i18n.localize("DND5E.ArmorClass"),
           content: `${newRollHTML}`,
-          whisper: [player]
+          whisper: [player?.id ?? ""]
         };
         ChatMessage.applyRollMode(chatData, rollMode);
-        const chatMessage = await ChatMessage.create(chatData);
+        chatMessage = await ChatMessage.create(chatData);
       }
 
       // let originalRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
@@ -2879,21 +2905,21 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         resolve(newRoll);
         if (showRoll) {
           // const oldRollHTML = await originalRoll.render() ?? this[rollId].result
-          const player = playerForActor(this.actor)?.id ?? "";
           const newRollHTML = reRoll ? await midiRenderRoll(reRoll) : await midiRenderRoll(newRoll);
           const chatData: any = {
             // content: `${this[rollId].result} -> ${newRoll.formula} = ${newRoll.total}`,
             flavor: `${title} ${button.value}`,
             content: `${oldRollHTML}<br>${newRollHTML}`,
-            whisper: [player],
+            whisper: [player?.id ?? ""],
           };
           ChatMessage.applyRollMode(chatData, rollMode);
-          const chatMessage = ChatMessage.create(chatData);
+          chatMessage = ChatMessage.create(chatData);
         }
       }
       dialog.data.flags = bonusFlags;
       dialog.render(true);
       // dialog.close();
+    if (chatMessage) socketlibSocket.executeAsGM("updateUndoChatCardUuidsById", { id:undoId, chatCardUuids: [(await chatMessage).uuid] });
     }
     let content;
     let rollMode: any = options?.rollMode ?? game.settings.get("core", "rollMode");
@@ -3180,8 +3206,8 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
     if (reactionCount <= 0) return noResult;
 
     let promptString = "midi-qol.reactionFlavorDamage";
-    if (triggerType === "reactionattack") promptString = "midi-qol.reactionFlavorAttack";;
-    if (triggerType === "reactionpreattack") promptString = "midi-qol.reactionFlavorPreAttack";;
+    if (triggerType === "reactionattack") promptString = "midi-qol.reactionFlavorAttack";
+    if (triggerType === "reactionpreattack") promptString = "midi-qol.reactionFlavorPreAttack";
 
     let chatMessage;
     const reactionFlavor = game.i18n.format(promptString, { itemName: (options.item?.name ?? "unknown"), actorName: target.name });
@@ -3189,11 +3215,11 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
       content: reactionFlavor,
       whisper: [player]
     };
+    const workflow = Workflow.getWorkflow(options?.item?.uuid);
 
     if (configSettings.showReactionChatMessage) {
       const player = playerFor(target.document)?.id ?? "";
       if (configSettings.enableddbGL && installedModules.get("ddb-game-log")) {
-        const workflow = Workflow.getWorkflow(options?.item?.uuid);
         if (workflow?.flagTags) chatData.flags = workflow.flagTags;
       }
       chatMessage = await ChatMessage.create(chatData);
@@ -3221,19 +3247,29 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
         content = reactionFlavor;
     }
 
-
-    return await new Promise((resolve) => {
+     let result: any = await new Promise((resolve) => {
       // set a timeout for taking over the roll
       const timeoutId = setTimeout(() => {
-        warn("doReactions | player timeout expired ", player?.name)
         resolve(noResult);
       }, (configSettings.reactionTimeout || 30) * 1000 * 2);
 
       // Compiler does not realise player can't be undefined to get here
-      player && requestReactions(target, player, triggerTokenUuid, content, triggerType, reactionItemUuidList, resolve, chatMessage, options).then(() => {
+      player && requestReactions(target, player, triggerTokenUuid, content, triggerType, reactionItemUuidList, resolve, chatMessage, options).then((result) => {
         clearTimeout(timeoutId);
       })
-    })
+    });
+    if (result?.name) {
+      let count = 100;
+      do {
+        await busyWait(0.05); // allow pending transactions to complete
+        count -= 1;
+      } while (globalThis.DAE.actionQueue.remaining && count);
+      //@ts-expect-error
+      target.actor._initialize();
+      workflow?.actor._initialize();
+      // targetActor.prepareData(); // allow for any items applied to the actor - like shield spell
+    }
+    return result;
   } catch (err) {
     const message = `doReactions error ${triggerType} for ${target?.name} ${triggerTokenUuid}`;
     TroubleShooter.recordError(err, message);
@@ -3666,9 +3702,8 @@ export function evalCondition(condition: string, conditionData: any, errorReturn
   } catch (err) {
     returnValue = errorReturn;
     const message = `midi-qol | activation condition (${condition}) error `;
-    console.warn(message, conditionData, err);
     TroubleShooter.recordError(err, message);
-    console.warn(message, err);
+    console.warn(message, err, conditionData);
   }
   return returnValue;
 }
@@ -3813,7 +3848,7 @@ export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
   if (removeCEEffect && getConvenientEffectsReaction() && !effectRemoved) {
     //@ts-expect-error
     if (await game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsReaction().name, actor.uuid)) {
-      const effect =  actor.effects.getName(getConvenientEffectsReaction()?.name ?? "Reaction");
+      const effect = actor.effects.getName(getConvenientEffectsReaction()?.name ?? "Reaction");
       if (installedModules.get("times-up") && effect && getProperty(effect, "flags.dae.specialDuration")?.includes("turnStart")) {
         // times up will handle removing this
       }
@@ -3827,7 +3862,7 @@ export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
     const effect = actor.effects.contents.find(ef => ef.name === i18n("DND5E.Reaction"));
     if (installedModules.get("times-up") && effect && getProperty(effect, "flags.dae.specialDuration")?.includes("turnStart")) {
     } else await effect?.delete();
-      // times-up will handle removing this
+    // times-up will handle removing this
     effectRemoved = true;
   }
   await actor?.unsetFlag("midi-qol", "actions.reactionCombatRound");
@@ -4679,7 +4714,7 @@ export async function contestedRoll(data: {
   if (displayResults !== false) {
     let resultString;
     if (result === undefined) resultString = "";
-    else resultString = result > 0 ? i18n("midi-qol.save-success") : result < 0 ? i18n("midi-qol.save-failure") : result === 0 ? i18n("midi-qol.save-drawn") : "no result";
+    else resultString = result > 0 ? i18n("midi-qol.save-success") : result < 0 ? i18n("midi-qol.save-failure") : result === 0 ? i18n("midi-qol.save-drawn") : "no result"
     const skippedString = i18n("midi-qol.Skipped");
     const content = `${flavor ?? i18n("miidi-qol:ContestedRoll")} ${resultString} ${results[0].total ?? skippedString} ${i18n("midi-qol.versus")} ${results[1].total ?? skippedString}`;
     displayContestedResults(itemCardId, content, ChatMessage.getSpeaker({ token: sourceToken }), flavor);
@@ -4719,7 +4754,11 @@ export function getActor(actorRef: Actor | Token | TokenDocument | string): Acto
 export function getTokenDocument(tokenRef: Token | TokenDocument | string | undefined): TokenDocument | undefined {
   if (!tokenRef) return undefined;
   if (tokenRef instanceof TokenDocument) return tokenRef;
-  if (typeof tokenRef === "string") return MQfromUuid(tokenRef);
+  if (typeof tokenRef === "string") {
+    const document = MQfromUuid(tokenRef);
+    if (document instanceof TokenDocument) return document;
+    if (document instanceof Actor) return tokenForActor(document)?.document;
+  }
   if (tokenRef instanceof Token) return tokenRef.document;
   return undefined;
 }

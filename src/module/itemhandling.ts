@@ -416,6 +416,9 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.advantage = false;
       workflow.disadvantage = false;
       workflow.rollOptions.rollToggle = globalThis.MidiKeyManager.pressedKeys.rollToggle;
+      if (workflow.currentState !== WORKFLOWSTATES.ROLLFINISHED) {
+        socketlibSocket.executeAsGM("undoTillWorkflow", workflow.id, false);
+      }
     }
     if (workflow && !workflow.reactionQueried) {
       workflow.rollOptions = mergeObject(workflow.rollOptions, mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow.rollOptions?.rollToggle), { overwrite: true, insertValues: true, insertKeys: true });
@@ -442,7 +445,10 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       if (workflow?.attackRoll && workflow.currentState === WORKFLOWSTATES.ROLLFINISHED) {
         // we are re-rolling the attack.
         workflow.damageRoll = undefined;
-        await Workflow.removeAttackDamageButtons(this.id);
+        if (workflow.itemCardId) {
+          await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardId);
+          await Workflow.removeItemCardConfrimRollButton(workflow.itemCardId);
+        }
         if (workflow.damageRollCount > 0) { // re-rolling damage counts as new damage
           const itemCard = await this.displayCard(mergeObject(options, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
           workflow.itemCardId = itemCard.id;
@@ -643,7 +649,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
       }
     }
 
-    if (workflow.damageRollCount > 0) { // we are re-rolling the damage. redisplay the item card but remove the damage
+    if (workflow.damageRollCount > 0) { // we are re-rolling the damage. redisplay the item card but remove the damage if the roll was finished
       let chatMessage = game.messages?.get(workflow.itemCardId ?? "");
       //@ts-ignore content v10
       let content = (chatMessage && chatMessage.content) ?? "";
@@ -661,8 +667,11 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
         replaceString = `<div class="midi-qol-bonus-roll"><div class="end-midi-qol-bonus-roll">`
         content = content.replace(searchRe, replaceString);
       }
-      if (data) {
-        await Workflow.removeAttackDamageButtons(this.uuid);
+      if (data && workflow.currentState === WORKFLOWSTATES.ROLLFINISHED) {
+        if (workflow.itemCardId) {
+          await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardId);
+          await Workflow.removeItemCardConfrimRollButton(workflow.itemCardId);
+        }
         delete data._id;
         workflow.itemCardId = (await ChatMessage.create(data))?.id;
       }
@@ -681,6 +690,8 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
       return;
     }
 
+    //@ts-expect-error .critical
+    if (options?.critical !== undefined) workflow.isCritical = options?.critical;
     const wrappedRollStart = Date.now();
     workflow.damageRollCount += 1;
     let result: Roll;
@@ -691,6 +702,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
         chatMessage: false
       },
         { overwrite: true, insertKeys: true, insertValues: true });
+  
       const damageRollData = {
         critical: workflow.workflowOptions?.critical || (workflow.rollOptions.critical || workflow.isCritical),
         spellLevel: workflow.rollOptions.spellLevel,
@@ -964,12 +976,13 @@ export async function wrappedDisplayCard(wrapped, options) {
     const systemString = game.system.id.toUpperCase();
     let token = tokenForActor(this.actor);
 
-    let needAttackButton = !getRemoveAttackButtons() ||
+    let needAttackButton = !getRemoveAttackButtons() || configSettings.mergeCardMulti ||
       (!workflow.someAutoRollEventKeySet() && !getAutoRollAttack(workflow) && !workflow.rollOptions.autoRollAttack);
     const needDamagebutton = itemHasDamage(this) && (
       (["none", "saveOnly"].includes(getAutoRollDamage(workflow)) || workflow.rollOptions?.rollToggle)
       || !getRemoveDamageButtons()
-      || systemCard);
+      || systemCard
+      || configSettings.mergeCardMulti);
     const needVersatileButton = itemIsVersatile(this) && (systemCard || ["none", "saveOnly"].includes(getAutoRollDamage(workflow)) || !getRemoveDamageButtons());
     // not used const sceneId = token?.scene && token.scene.id || canvas?.scene?.id;
     const isPlayerOwned = this.actor.hasPlayerOwner;
@@ -1007,6 +1020,8 @@ export async function wrappedDisplayCard(wrapped, options) {
       showProperties: workflow.workflowType === "Workflow",
       hasEffects,
       isMerge: configSettings.mergeCard,
+      mergeCardMulti: configSettings.mergeCardMulti && (this.hasAttack || this.hasDamage),
+      confirmAttackDamage: configSettings.confirmAttackDamage !== "none" && (this.hasAttack || this.hasDamage),
       RequiredMaterials: i18n(`${systemString}.RequiredMaterials`),
       Attack: i18n(`${systemString}.Attack`),
       SavingThrow: i18n(`${systemString}.SavingThrow`),

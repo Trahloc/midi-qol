@@ -3,7 +3,7 @@ import { log } from "../midi-qol.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configSettings } from "./settings.js";
 
-export const DAE_REQUIRED_VERSION = "11.0.9";
+export const DAE_REQUIRED_VERSION = "11.0.12";
 const modules = {
   "about-time": "0.0", 
   "anonymous": "0.0.0",
@@ -15,7 +15,6 @@ const modules = {
   "df-templates": "1.0.0",
   "dfreds-convenient-effects": "5.0.4",
   "dice-so-nice": "4.1.1", 
-  "itemacro": "1.9.0", 
   "levels": "3.0.6", 
   "levelsautocover": "1.4",
   "levelsvolumetrictemplates": "0.0.0",

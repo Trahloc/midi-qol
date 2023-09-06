@@ -6,6 +6,7 @@ import { createDamageList, MQfromUuid, playerFor, playerForActor, applyTokenDama
 import { shouldRollOtherDamage } from "./itemhandling.js";
 import { socketlibSocket } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { reduceEachTrailingCommentRange } from "typescript";
 export const MAESTRO_MODULE_NAME = "maestro";
 export const MODULE_LABEL = "Maestro";
 
@@ -363,6 +364,13 @@ export let hideStuffHandler = (message, html, data) => {
     return;
   }
 
+  if (game.user?.id !== message.user.id) {
+    html.find(".midi-qol-attack-buttons").hide();
+    html.find(".midi-qol-damage-buttons").hide();
+    html.find(".midi-qol-otherDamage-button").hide();
+    html.find(".midi-qol-versatile-damage-button").hide();
+  }
+
   if (game.user?.isGM) {
     let ids = html.find(".midi-qol-target-name")
     // const actor = game.actors.get(message?.speaker.actor)
@@ -439,7 +447,10 @@ export let hideStuffHandler = (message, html, data) => {
         html.hide();
       }
     }
-    // hide the gm version of the name from players
+    if (message.user?.id !== game.user?.id || configSettings.confirmAttackDamage === "gmOnly") {
+      html.find(".midi-qol-confirm-damage-roll-complete").hide();
+    }
+    // hide the gm version of the name from` players
     html.find(".midi-qol-target-npc-GM").hide();
     if (message.user?.isGM) {
       const d20AttackRoll = getProperty(message.flags, "midi-qol.d20AttackRoll");
@@ -658,8 +669,7 @@ export async function onChatCardAction(event) {
 
   // Validate permission to proceed with the roll
   if (!(game.user?.isGM || message?.isAuthor)) return;
-  if (!(targets && targets.size > 0)) return; // cope with targets undefined
-  if (action !== "applyEffects") return;
+  if (!["confirm-damage-roll-complete", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
   if (!message?.user) return;
 
   //@ts-ignore speaker
@@ -681,34 +691,82 @@ export async function onChatCardAction(event) {
     if (!item) { // TODO investigate why this is occurring
       // return ui.notifications.error(game.i18n.format("DND5E.ActionWarningNoItem", {item: card.dataset.itemId, name: actor.name}))
     }
-  }
-  if (!actor || !item) return;
-  button.disabled = false;
-  if (game.user?.id !== message.user?.id) {
-    if (!game.user?.isGM) {
-      ui.notifications?.warn("Only the GM can apply effects for other players")
-      return;
-    }
-    if (game.user.targets.size === 0) {
-      ui.notifications?.warn(i18n("midi-qol.noTokens"));
-      return;
-    }
-    const result = (await socketlibSocket.executeAsUser("applyEffects", message.user.id, {
-      workflowId: item.uuid,
-      targets: Array.from(game.user.targets).map(t => t.document.uuid)
-    }));
+    const spellLevel = parseInt(card.dataset.spellLevel) || null;
 
-    // applying effects on behalf of another user;
-  } else {
-    let workflow = Workflow.getWorkflow(item.uuid);
-    if (workflow) {
-      workflow.forceApplyEffects = true; // don't overwrite the application targets
-      workflow.applicationTargets = game.user?.targets;
-      if (workflow.applicationTargets.size > 0) await workflow.next(WORKFLOWSTATES.APPLYDYNAMICEFFECTS);
-    } else {
-      ui.notifications?.warn(i18nFormat("midi-qo.NoWorkflow", { itemName: item.name }));
+    switch (action) {
+      case "applyEffects":
+        if (!actor || !item) return;
+        if ((targets?.size ?? 0) === 0) return; 
+        button.disabled = false;
+        if (game.user?.id !== message.user?.id) {
+          if (!game.user?.isGM) {
+            ui.notifications?.warn("Only the GM can apply effects for other players")
+            return;
+          }
+          if (game.user.targets.size === 0) {
+            ui.notifications?.warn(i18n("midi-qol.noTokens"));
+            return;
+          }
+          const result = (await socketlibSocket.executeAsUser("applyEffects", message.user.id, {
+            workflowId: item.uuid,
+            targets: Array.from(game.user.targets).map(t => t.document.uuid)
+          }));
+
+          // applying effects on behalf of another user;
+        } else {
+          let workflow = Workflow.getWorkflow(item.uuid);
+          if (workflow) {
+            workflow.forceApplyEffects = true; // don't overwrite the application targets
+            workflow.applicationTargets = game.user?.targets;
+            if (workflow.applicationTargets.size > 0) await workflow.next(WORKFLOWSTATES.APPLYDYNAMICEFFECTS);
+          } else {
+            ui.notifications?.warn(i18nFormat("midi-qo.NoWorkflow", { itemName: item.name }));
+          }
+        }
+        break;
+      case "confirm-damage-roll-complete":
+        const workflow = Workflow.getWorkflow(item.uuid);
+        if (message.user.id !== game.user?.id) {
+          if (message.user.id) {
+            const user = game.users?.get(message.user.id);
+            if (user?.active) { 
+              socketlibSocket.executeAsUser("confirmDamageRollComplete", message.user.id, { workflowId: item.uuid });
+            } else {
+              await Workflow.removeItemCardAttackDamageButtons(messageId);
+              await Workflow.removeItemCardConfrimRollButton(messageId);
+            }
+          }
+        } else {
+          if (workflow && workflow.itemCardId === message.id) await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+          else {
+            await Workflow.removeItemCardAttackDamageButtons(messageId);
+            await Workflow.removeItemCardConfrimRollButton(messageId);
+          }
+        }
+        break;
+      case "attack-adv":
+      case "attack-dis":
+        await item.rollAttack({
+          event,
+          spellLevel,
+          advantage: action === "attack-adv",
+          disadvantage: action === "attack-dis",
+          fastForward: true
+        })
+        break;
+      case "damage-critical":
+      case "damage-nocritical":
+        await item.rollDamage({
+          event,
+          spellLevel,
+          options: { critical: action === 'damage-critical' }
+        })
+      default:
+        break;
     }
+
   }
+
   button.disabled = false;
 }
 
@@ -759,7 +817,7 @@ export function ddbglPendingFired(data) {
     //@ts-ignore
     workflow = new DDBGameLogWorkflow(actor, item, speaker, game.user.targets, {});
     //@ts-ignore .displayCard
-    item.displayCard({showFullCard: false, workflow, createMessage: false, defaultCard: true});
+    item.displayCard({ showFullCard: false, workflow, createMessage: false, defaultCard: true });
     // showItemCard.bind(item)(false, workflow, false, true);
 
     return;

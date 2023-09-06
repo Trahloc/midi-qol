@@ -630,7 +630,7 @@ export class TroubleShooter extends FormApplication {
           fixer: "Disable walled templates auto target",
           fixerFunc: async function (app: TroubleShooter) {
             if (!game.user?.isGM) {
-              ui.notifications?.error("midi-qol | You must be a GM to fix Item Macro char sheet flag");
+              ui.notifications?.error("midi-qol | You must be a GM to fix walled templates settings");
               return;
             }
             await game.settings.set("walledtemplates", "autotarget-enabled", false);
@@ -658,7 +658,7 @@ export class TroubleShooter extends FormApplication {
     if (game.settings.get('itemacro', 'charsheet')) {
       data.problems.push({
         moduleId: "itemacro",
-        severity: "Error",
+        severity: "Warn",
         problemSummary: "Item Macro Character sheet hook is enabled.",
         problemDetail: undefined,
         fixer: "Turn off the setting in module settings or use the auto fix button",
@@ -672,16 +672,6 @@ export class TroubleShooter extends FormApplication {
           SettingsConfig.reloadConfirm({ world: true });
         },
         fixerid: -1
-      });
-    }
-    if (isNewerVersion("1.9.0", data.modules["itemacro"].version)) {
-      data.problems.push({
-        moduleId: "itemacro",
-        severity: "Error",
-        problemSummary: `Item Macro needs to be at least 1.9.0`,
-        problemDetail: "Old versions of item macro will cause macro lookup on items to fail",
-        //@ts-expect-error .url
-        fixer: ` Install from ${game.modules.get("itemacro")?.url}`
       });
     }
   }

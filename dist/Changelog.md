@@ -1,3 +1,24 @@
+## 11.0.15
+* Added DAE Item Macro Editor button on item sheet.
+* When adding an item onUse macro default the name to ItemMacro.
+* Change the order of display of settings to move fast forward ability rolls and late targeting to the top of the list.
+* Remove itemacro from the list of checked modules - you no longer need to install itemacro at all.
+* getTokenDocument will also accept an actor.
+* Fix for calculating cover bonus when using alternative token vision.
+* Fix for optional.NAME.fail.all thanks @thatlonelybugbear
+* Fix for duplicating optional.NAME buttons when fail.all effect is present.
+* Fix a bug in reaction processing when reaction items make a change to the attacking actor.
+* Item onUse macro fields now support dragging and dropping items/macros onto the field.
+* New mechanic to configure if bonus rolls display a "before and after" card or not.
+* **Breaking** Change to how Item onUseMacros/Actor onUse macros are specified:
+  - ItemMacro: use the macro stored on the item being rolled (if any)
+  - ItemMacro.ItemName: Lookup the item on the current actor by name and use it's macro
+  - Macro.name: Lookup a world macro by name
+  - a UUID, referring to an item or macro
+* New misc setting to provide additional buttons on the chat card, roll with  disadvantage/advantage and not critical/critical. When enabled additional buttons are added to the chat card to support rolling with advantage/disadvantage/midi calculated advantage critical/nocritical/midi calculated critical damage. 
+* New misc setting, Confirm Roll which can be none, player/GM, GM Only. If enabled the player/GM must confirm the roll (on the chat card) before the damage/saves/active effects are applied. Until confirmed you can re-roll the attack or damage to your heart's content. Once confirmed rolling an attack or damage will start a new workflow.
+  - If undo workflows is enabled (now strongly recommended) and you re-roll an attack all reactions and bonus checks done during the roll are undone as if they were never used and the choices are re-represented.
+ 
 ## 11.0.14.1
 ## 11.0.14.2
 * Fix for error thrown when optional rules disabled

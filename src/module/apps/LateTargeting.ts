@@ -2,6 +2,7 @@ import { log, debug, i18n, error, warn, geti18nOptions, i18nFormat } from "../..
 import { isTargetable } from "../utils.js";
 import { getAutoRollAttack, getTokenPlayerName, isAutoFastAttack } from "../utils.js";
 import { Workflow } from "../workflow.js";
+import { TroubleShooter } from "./TroubleShooter.js";
 
 export class LateTargetingDialog extends Application {
   callback: ((data) => {}) | undefined
@@ -26,7 +27,7 @@ export class LateTargetingDialog extends Application {
       setProperty(options, "workflowOptions.disadvantage", options.worfkflowOptions?.disadvantage || options.pressedKeys?.disadvantage);
       setProperty(options, "workflowOptions.versatile", options.worfkflowOptions?.versatile || options.pressedKeys?.versatile);
       setProperty(options, "workflowOptions.fastForward", options.worfkflowOptions?.fastForward || options.pressedKeys?.fastForward);
-      return options.callback(value);
+      return options.callback ? options.callback(value) : value;
     }
     // this.callback = options.callback;
     return this;
@@ -63,8 +64,8 @@ export class LateTargetingDialog extends Application {
         img: t.document.texture.src
       }
     })
-    if (this.data.item) {
-      if (this.data.item.system.target.type === "creature" && this.data.item.system.target.value)
+    if (this.data.item.system.target) {
+      if (this.data.item.system.target.type === "creature" && !this.data.item.system.target.type && this.data.item.system.target.value)
         data.targetCount = this.data.item.system.target.value;
       else data.targetCount = "";
       data.blurb = i18nFormat("midi-qol.LateTargeting.Blurb", {targetCount: data.targetCount})
@@ -88,20 +89,29 @@ export class LateTargetingDialog extends Application {
       });
     }
     html.find(".midi-roll-confirm").on("click", () => {
-      if (this.callback) this.callback(true);
-      this.callback = undefined;
+      this.doCallback(true);
       this.close();
     })
     html.find(".midi-roll-cancel").on("click", () => {
-      if (this.callback) this.callback(false);
-      this.callback = undefined;
+      this.doCallback(false);
       this.close();
     })
   }
 
   close(options = {}) {
     Hooks.off("targetToken", this.hookId);
-    if (this.callback) this.callback(false);
+    this.doCallback(false);
     return super.close(options);
+  }
+
+  doCallback(value = false) {
+    try {
+      if (this.callback) this.callback(value);
+    } catch (err) {
+      const message = `LateTargetingDialog | calling callback failed`;
+      TroubleShooter.recordError(err, message);
+      error(message, err);
+    }
+    this.callback = undefined;
   }
 }

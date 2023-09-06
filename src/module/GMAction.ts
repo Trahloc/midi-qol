@@ -4,7 +4,7 @@ import { canSense, completeItemUse, getToken, getTokenDocument, gmExpirePerTurnB
 import { ddbglPendingFired } from "./chatMesssageHandling.js";
 import { Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
-import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _removeMostRecentWorkflow, _undoMostRecentWorkflow } from "./undo.js";
+import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _removeMostRecentWorkflow, _undoMostRecentWorkflow, undoTillWorkflow, _queueUndoDataDirect, updateUndoChatCardUuidsById } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 
 export var socketlibSocket: any = undefined;
@@ -36,14 +36,23 @@ export let setupSocket = () => {
   socketlibSocket.register("_gmSetFlag", _gmSetFlag);
   socketlibSocket.register("startUndoWorkflow", startUndoWorkflow);
   socketlibSocket.register("queueUndoData", queueUndoData);
-  socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids)
+  socketlibSocket.register("queueUndoDataDirect", _queueUndoDataDirect);
+  socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids);
+  socketlibSocket.register("updateUndoChatCardUuidsById", updateUndoChatCardUuidsById);
   socketlibSocket.register("undoMostRecentWorkflow", _undoMostRecentWorkflow);
   socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
+  socketlibSocket.register("undoTillWorkflow", undoTillWorkflow);
   socketlibSocket.register("moveToken", _moveToken);
   socketlibSocket.register("moveTokenAwayFromPoint", _moveTokenAwayFromPoint);
+  socketlibSocket.register("confirmDamageRollComplete", confirmDamageRollComplete);
   // socketlibSocket.register("canSense", _canSense);
 }
 
+async function confirmDamageRollComplete(data: { workflowId: string }) {
+  const workflow = Workflow.getWorkflow(data.workflowId);
+  if (!workflow) return;
+  return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+}
 function paranoidCheck(action: string, actor: any, data: any): boolean {
   return true;
 }
