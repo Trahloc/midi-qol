@@ -380,7 +380,8 @@
     "isAttacked": "La cible est attaquée",
     "preTargetSsave": "La cible est sur le point d'effectuer un jet de sauvegarde",
     "isSave": "La cible a effectué une sauvegarde",
-    "isSaveSuccess": "La cible réussit sa sauvegarde"
+    "isSaveSuccess": "La cible réussit sa sauvegarde",
+    "postTargetEffectApplication": "La cible bénéficie d'un effet appliqué via un jet d'objet"
   },
   "midi-qol.DragDropTarget.Name": "Ciblage par glisser-déposer",
   "midi-qol.DragDropTarget.Hint": "Permettre de glisser un objet sur un token pour l'attaquer",
@@ -665,9 +666,10 @@
   "midi-qol.DamageApplied": "Appliqué",
   "midi-qol.LateTargetingOptions": {
     "noTargetsSelected": "Cible tardive uniquement si aucune n'est sélectionnée",
-    "all": "Toujours afficher un ciblage tardif",
+    "all": "Affichage du ciblage tardif sauf Aire d'Effet et Zone à Distance",
     "none": "Pas de ciblage tardif",
-    "allArea": "Toujours afficher un ciblage tardif"
+    "allArea": "Toujours afficher un ciblage tardif",
+    "onlyArea": "Affichage du ciblage tardif seulement pour Aire d'Effet et Zone à Distance"
   },
   "midi-qol.AddDead.Hint": "PNJ ajouter \"Vaincu\", PJ ajouter \"Inconscient\" via Convenient Effect",
   "midi-qol.IgnoreSpellReactionRestriction.Name": "Permet d'utiliser n'importe quel sort de réaction",
@@ -783,5 +785,10 @@
   "midi-qol.DRAllPerDamageDetail.Hint": "Si la case n'est pas cochée, DRALL ne s'applique qu'une seule fois au total des dégâts",
   "midi-qol.Summary": "Sommaire",
   "midi-qol.EnforceSingleWeaponTarget.Name": "Les armes attaquent une seule cible",
-  "midi-qol.EnforceSingleWeaponTarget.Hint": "Les armes sans spécification de cible ne peuvent attaquer qu'une seule cible"
+  "midi-qol.EnforceSingleWeaponTarget.Hint": "Les armes sans spécification de cible ne peuvent attaquer qu'une seule cible",
+  "midi-qol.save-drawn": "tiré",
+  "midi-qol.ExportTroubleShooting": "Exporter les données de dépannage",
+  "midi-qol.TroubleShooter.Name": "Ouvrir l'outil de dépannage",
+  "midi-qol.TroubleShooter.Hint": "(TRES TÔT) pour aider à diagnostiquer les problèmes",
+  "midi-qol.TroubleShooter.Label": "Outil de Dépannage"
 }
