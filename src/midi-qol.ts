@@ -49,14 +49,12 @@ export let i18nFormat = (key, data = {}) => {
 export function geti18nOptions(key) {
   const translations = game.i18n.translations["midi-qol"] ?? {};
   //@ts-ignore _fallback not accessible
-  let translation = translations[key] ?? game.i18n._fallback["midi-qol"][key];
-  return translation ?? {};
+  const fallback = game.i18n._fallback["midi-qol"] ?? {};
+  return translations[key] ?? fallback[key] ?? {};
 }
 export function geti18nTranslations() {
-  let translations = game.i18n.translations["midi-qol"];
-  //@ts-ignore _fallback not accessible
-  if (!translations) translations = game.i18n._fallback["midi-qol"];
-  return translations ?? {};
+  // @ts-expect-error _fallback
+  return mergeObject(game.i18n._fallback["midi-qol"] ?? {}, game.i18n.translations["midi-qol"] ?? {});
 }
 
 export let setDebugLevel = (debugText: string) => {
@@ -138,7 +136,6 @@ Hooks.once('setup', function () {
   itemPatching();
   visionPatching();
   setupModules();
-  registerSettings();
   initGMActionSetup();
   patchLMRTFY();
   setupMidiFlags();
@@ -229,11 +226,12 @@ Hooks.once('setup', function () {
 /* When ready							*/
 /* ------------------------------------ */
 Hooks.once('ready', function () {
+  registerSettings();
   gameStats = new RollStats();
   actorAbilityRollPatching();
   // has to be done before setup api.
-  MQOnUseOptions = i18n("midi-qol.onUseMacroOptions");
-  if (typeof MQOnUseOptions === "string") MQOnUseOptions = {
+  MQOnUseOptions = geti18nOptions("midi-qol.onUseMacroOptions");
+  if (typeof MQOnUseOptions === undefined) MQOnUseOptions = {
     "preTargeting": "Called before targeting is resolved (*)",
     "preItemRoll": "Called before the item is rolled (*)",
     "templatePlaced": "Only called once a template is placed",
@@ -370,7 +368,7 @@ Hooks.once('ready', function () {
     for (let problem of problems) {
       const message = `midi-qol ${problem.problemSummary} | Open TroubleShooter to fix`;
       if (problem.severity === "Error")
-        ui.notifications?.error(message, { permanent: true });
+        ui.notifications?.error(message, { permanent: false });
       else console.warn(message);
     }
   }
@@ -430,6 +428,8 @@ function setupMidiQOLApi() {
     getChanges, // (actorOrItem, key) - what effects on the actor or item target the specific key
     getConcentrationEffect,
     getDistance: getDistanceSimpleOld,
+    geti18nOptions,
+    geti18nTranslations,
     getTokenPlayerName,
     getTraitMult: getTraitMult,
     getUndoQueue,

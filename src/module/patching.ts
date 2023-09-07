@@ -1,6 +1,6 @@
 import { log, debug, i18n, error, i18nFormat } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
-import { configSettings, autoFastForwardAbilityRolls, checkRule } from "./settings.js";
+import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
 import { bonusDialog, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getCriticalDamage, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
@@ -105,11 +105,11 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       let title;
       let config = getSystemCONFIG();
       let systemString = game.system.id.toUpperCase();
-      if (config.abilities[detail]?.label) {
+      if (config.abilities[detail]?.label || config.skills[detail]?.label) {
         if (detail.startsWith("fail")) title = "Failed Save Check";
         else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
         else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
-        else if (category.startsWith("skill)")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail].label ?? "" });
+        else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail].label ?? "" });
       } else {
         if (detail.startsWith("fail")) title = "Failed Save Check";
         else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
@@ -119,7 +119,7 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       await bonusDialog.bind(data)(
         bonusFlags,
         detail ? `${category}.${detail}` : category,
-        true,
+        checkMechanic("displayBonusRolls"),
         `${actor.name} - ${title}`,
         "roll", "rollTotal", "rollHTML"
       );

@@ -321,6 +321,7 @@ export function initHooks() {
       const macros = new OnUseMacros(getProperty(app.object, "flags.midi-qol.onUseMacroName"));
       const macroField = `
         <h4 class="damage-header">${labelText}
+          <a class="macro-control damage-control edit-macro"><i class="fas fa-file-pen"></i></a>
           <a class="macro-control damage-control add-macro"><i class="fas fa-plus"></i></a>
         </h4>
         <ol class="damage-parts onusemacro-group form-group">

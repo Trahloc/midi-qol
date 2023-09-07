@@ -98,7 +98,8 @@ export class ConfigPanel extends FormApplication {
       LateTargetingOptions: geti18nOptions("LateTargetingOptions"),
       RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions"),
       CheckRangeOptions: geti18nOptions("CheckRangeOptions"),
-      InvisAdvantageOptions: geti18nOptions("InvisAdvantageOptions")
+      InvisAdvantageOptions: geti18nOptions("InvisAdvantageOptions"),
+      ConfirmAttackDamageOptions: geti18nOptions("ConfirmAttackDamageOptions")
     };
 
     if (debugEnabled > 0) warn("Config Panel: getData ", data)

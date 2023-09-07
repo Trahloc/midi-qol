@@ -747,11 +747,11 @@
   "midi-qol.OptionalRuleVitality.Hint": "when set to a resource damage applied to a target with 0 HP does damage to the vitality resource. If that reaches 0 the target is dead",
   "midi-qol.AutoRerollInitiative.Name": "Auto reroll initiative",
   "midi-qol.AutoRerollInitiative.Hint": "Auto reroll initiative for all combatants at the start of a new round. Warning: can break round/turn effect expiry",
-  "midi-qol.RollChecksBlind.Name": "All player ability checks are rolled blind",
-  "midi-qol.RollSavesBlind.Name": "All player ability saves are rolled blind",
-  "midi-qol.RollSkillsBlind.Name": "All player skill checks are rolled blind",
-  "midi-qol.UndoWorkflow": {
-    "Name": "Experimental: Support undoing item rolls",
+  "midi-qol.RollChecksBlind.Name" : "All player ability checks are rolled blind",
+  "midi-qol.RollSavesBlind.Name" : "All player ability saves are rolled blind",
+  "midi-qol.RollSkillsBlind.Name" : "All player skill checks are rolled blind",
+  "midi-qol.UndoWorkflow" : {
+    "Name": "Support undoing item rolls",
     "Hint": "If enabled midi will store undo data for all item rolls. Not suitable for game time. Undo via MidiQOL.undoMostRecentWorkflow()",
     "title": "Undo workflow",
     "actorName": "Actor name",
@@ -776,6 +776,19 @@
   "midi-qol.Errors": "Errors",
   "midi-qol.Inactive": "Inactive",
   "midi-qol.Active": "Active",
-  "midi-qol.EnforceSingleWeaponTarget.Name": "Weapons attack single target",
-  "midi-qol.EnforceSingleWeaponTarget.Hint": "Wepaons with no target specification can only attack one target"
+  "midi-qol.EnforceSingleWeaponTarget.Name":  "Weapons attack single target",
+  "midi-qol.EnforceSingleWeaponTarget.Hint": "Wepaons with no target specification can only attack one target",
+  "midi-qol.DisplayBonusRolls.Name": "Show before and after optional bonus chat card",
+  "midi-qol.DisplayBonusRolls.Hint": "Display a chat card with the before and after roll when an optional bonus is applied",
+  "midi-qol.MergeCardMulti.Name": "Add extra buttons to merge card",
+  "midi-qol.MergeCardMulti.Hint": "Add buttons for advantage/disadvantage critical/nocritical to the item chart card",
+  "midi-qol.ConfirmAttackDamage.Name": "Display Confirm Roll Button",
+  "midi-qol.ConfirmAttackDamage.Hint": "Pause after rolling attack/damage for the player/GM to confirm",
+  "midi-qol.ConfirmAttackDamageOptions": {
+    "none": "No confirmation",
+    "gmOnly": "Only GM can confirm",
+    "GMPlayer": "GM and Player can confirm"
+  },
+  "midi-qol.ConfirmRoll": "Confirm Roll"
+
 }

@@ -1,7 +1,7 @@
 export class OnUseMacros {
   items: OnUseMacro[];
 
-  constructor(onUseMacros: any = null){
+  constructor(onUseMacros: any = null) {
     if (typeof onUseMacros === "string") {
       this.items = onUseMacros?.split(',')?.filter((value: string) => value.trim().length > 0)?.map((macro: string) => new OnUseMacro(macro));
     } else {
@@ -29,56 +29,56 @@ export class OnUseMacros {
 }
 
 export class OnUseMacro {
-    macroName: string;
-    option: string; 
-  
-    constructor(macro: string | undefined = undefined) {
-      if (macro === undefined) {
-        this.macroName = "";
-      } else {
-        const pattern = new RegExp('(?:\\[(?<option>.*?)\\])?(?<macroName>.*)', '');
-        let data = macro.match(pattern)?.groups; 
-        this.macroName = data!["macroName"].trim();
-        this.option = data!["option"];
-      }
-      if (this.option === undefined)
-        this.option = "postActiveEffects";
-    }
+  macroName: string;
+  option: string;
 
-    static parsePart(parts: {macroName: string, option: string | undefined}) {
-      const m =  new OnUseMacro();
-      m.macroName = parts.macroName;
-      m.option = parts.option ?? m.option;
-      return m;
+  constructor(macro: string | undefined = undefined) {
+    if (macro === undefined) {
+      this.macroName = "ItemMacro";
+    } else {
+      const pattern = new RegExp('(?:\\[(?<option>.*?)\\])?(?<macroName>.*)', '');
+      let data = macro.match(pattern)?.groups;
+      this.macroName = data!["macroName"].trim();
+      this.option = data!["option"];
     }
+    if (this.option === undefined)
+      this.option = "postActiveEffects";
+  }
 
-    public toString() {
-      return `[${this.option}]${this.macroName}`;
-    }
+  static parsePart(parts: { macroName: string, option: string | undefined }) {
+    const m = new OnUseMacro();
+    m.macroName = parts.macroName;
+    m.option = parts.option ?? m.option;
+    return m;
+  }
 
-    public toListItem (index: Number, macroOptions: OnUseMacroOptions) {    
-      const options = OnUseMacroOptions.getOptions?.reduce((opts: string, x: {option: string, label: string}) => opts += `<option value="${x.option}" ${x.option === this.option ? 'selected' : ''}>${x.label}</option>`, "");
-      return `<li class="damage-part flexrow" data-midiqol-macro-part="${index}">
-    <input type="text" name="flags.midi-qol.onUseMacroParts.items.${index}.macroName" value="${this.macroName}">
+  public toString() {
+    return `[${this.option}]${this.macroName}`;
+  }
+
+  public toListItem(index: Number, macroOptions: OnUseMacroOptions) {
+    const options = OnUseMacroOptions.getOptions?.reduce((opts: string, x: { option: string, label: string }) => opts += `<option value="${x.option}" ${x.option === this.option ? 'selected' : ''}>${x.label}</option>`, "");
+    return `<li class="damage-part flexrow" data-midiqol-macro-part="${index}">
+    <input type="text" class="midi-onuse-macro-name" name="flags.midi-qol.onUseMacroParts.items.${index}.macroName" value="${this.macroName}">
     <select name="flags.midi-qol.onUseMacroParts.items.${index}.option">
       ${options}
     </select>
 
     <a class="macro-control damage-control delete-macro"><i class="fas fa-minus"></i></a>
   </li>`;
-    }
+  }
 }
 export class OnUseMacroOptions {
-  static options : Array<{option: string, label: string}>;
+  static options: Array<{ option: string, label: string }>;
 
   static setOptions(options: any) {
     this.options = [];
     for (let option of Object.keys(options)) {
-      this.options.push({option, label: options[option]});
+      this.options.push({ option, label: options[option] });
     }
   }
 
-  static get getOptions(): Array<{option: string, label: string}> {
+  static get getOptions(): Array<{ option: string, label: string }> {
     return this.options;
   }
 }
@@ -86,30 +86,51 @@ export class OnUseMacroOptions {
 export function activateMacroListeners(app: Application, html) {
   //@ts-ignore
   if (app.isEditable) {
-    html.find(".macro-control").click(_onMacroControl.bind(app));    
+    html.find(".macro-control").click(_onMacroControl.bind(app));
+    const dd = new DragDrop({
+      dragSelector: undefined,
+      dropSelector: ".midi-onuse-macro-name",
+      permissions: {dragstart: () => false, drop: () => true},
+      callbacks: { drop: _onDrop },
+    });
+    //@ts-expect-error .form
+    dd.bind(app.form);
   }
 }
 
-async function _onMacroControl(event){
+async function _onDrop(ev) {
+  ev.preventDefault();
+  //@ts-ignore
+  const data = TextEditor.getDragEventData(ev);
+  if (data.uuid) {
+    const itemOrMacro = await fromUuid(data.uuid);
+    if (itemOrMacro instanceof Item || itemOrMacro instanceof Macro) ev.target.value = `${data.uuid}`;
+  }
+}
+
+async function _onMacroControl(event) {
   event.preventDefault();
   const a = event.currentTarget;
 
   // Add new macro component
-  if ( a.classList.contains("add-macro") ) {
+  if (a.classList.contains("add-macro")) {
     const macros = getCurrentSourceMacros(this.object);
     await this._onSubmit(event);  // Submit any unsaved changes
     macros.items.push(new OnUseMacro());
-    await this.object.update({"flags.midi-qol.onUseMacroName":  macros.toString()});
-
+    await this.object.update({ "flags.midi-qol.onUseMacroName": macros.toString() });
   }
 
   // Remove a macro component
-  if ( a.classList.contains("delete-macro") ) {
+  if (a.classList.contains("delete-macro")) {
     const macros = getCurrentSourceMacros(this.object);
     const li = a.closest(".damage-part");
     await this._onSubmit(event);  // Submit any unsaved changes
     macros.items.splice(Number(li.dataset.midiqolMacroPart), 1);
-    await this.object.update({"flags.midi-qol.onUseMacroName": macros.toString()});
+    await this.object.update({ "flags.midi-qol.onUseMacroName": macros.toString() });
+  }
+
+  if (a.classList.contains("edit-macro")) {
+    new globalThis.DAE.DIMEditor(this.document, {}).render(true);
   }
 }
 

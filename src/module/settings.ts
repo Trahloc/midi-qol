@@ -1,5 +1,5 @@
 import { _mergeUpdate } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/utils/helpers.mjs";
-import { debug, setDebugLevel, warn, i18n, debugEnabled, geti18nTranslations } from "../midi-qol.js";
+import { debug, setDebugLevel, warn, i18n, debugEnabled, geti18nTranslations, geti18nOptions } from "../midi-qol.js";
 import { ConfigPanel } from "./apps/ConfigPanel.js"
 import { SoundConfigPanel } from "./apps/SoundConfigPanel.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
@@ -92,6 +92,8 @@ class ConfigSettings {
   keyMapping = defaultKeyMapping;
   mergeCard: boolean = false;
   mergeCardCondensed: boolean = false;
+  mergeCardMulti: boolean = false;
+  confirmAttackDamage: string = "none";
   highlightSuccess: boolean = false;
   optionalRulesEnabled: boolean = false;
   paranoidGM: boolean = false;
@@ -145,6 +147,7 @@ class ConfigSettings {
     invisVision: false,
     checkRange: "longFail",
     wallsBlockRange: "center",
+    diplsayBonusRolls: true,
     coverCalculation: "none",
     nearbyFoe: 5,
     nearbyAllyRanged: 0,
@@ -354,6 +357,7 @@ export let fetchParams = () => {
     checkFlanking: "off",
     checkRange: "longfail",
     coverCalculation: "none",
+    displayBonusRolls: true,
     criticalNat20: false,
     criticalSaves: false,
     distanceIncludesHeight: false,
@@ -366,10 +370,14 @@ export let fetchParams = () => {
     optionalCritRule: -1,
     removeHiddenInvis: true,
     wallsBlockRange: "center",
+    confirmAttackDamage: "none",
+    mergeCardMulti: false
+    
   }, configSettings.optionalRules ?? {}, { overwrite: true, insertKeys: true, insertValues: true });
   if (!configSettings.optionalRules.wallsBlockRange) configSettings.optionalRules.wallsBlockRange = "center";
   if (configSettings.optionalRules.checkFlanking === true) configSettings.optionalRules.checkFlanking = "ceadv";
   if (!configSettings.optionalRules.coverCalculation) configSettings.optionalRules.coverCalculation = "none";
+  if (configSettings.optionalRules.displayBonusRolls === undefined) configSettings.optionalRules.displayBonusRolls = true;
 
   if (configSettings.optionalRules.checkFlanking === false) configSettings.optionalRules.checkFlanking = "off";
   if (configSettings.optionalRules.checkRange === true) configSettings.optionalRules.checkRange = "longfail";
@@ -453,6 +461,24 @@ const settings = [
     onChange: fetchParams
   },
   {
+    name: "AutoFastForwardAbilityRolls",
+    scope: "world",
+    default: false,
+    type: Boolean,
+    config: true,
+    onChange: fetchParams
+  },
+  
+  {
+    name: "LateTargeting",
+    scope: "client",
+    default: "none",
+    type: String,
+    config: true,
+    choices: "LateTargetingOptions",
+    onChange: fetchParams
+  },
+  {
     name: "ItemRollButtons",
     scope: "world",
     default: true,
@@ -476,14 +502,7 @@ const settings = [
     config: true,
     onChange: fetchParams
   },
-  {
-    name: "AutoFastForwardAbilityRolls",
-    scope: "world",
-    default: false,
-    type: Boolean,
-    config: true,
-    onChange: fetchParams
-  },
+
   {
     name: "DragDropTarget",
     scope: "world",
@@ -527,7 +546,6 @@ export function readySettingsSetup() {
     game.settings.set("midi-qol", "CriticalDamageGM", criticalDamage);
   }
 }
-
 export function registerSetupSettings() {
   const translations = geti18nTranslations();
 
@@ -538,7 +556,7 @@ export function registerSetupSettings() {
     default: "none",
     type: String,
     config: true,
-    choices: translations["CriticalDamageChoices"],
+    choices: geti18nOptions("CriticalDamageChoices"),
     onChange: fetchParams
   });
   game.settings.register("midi-qol", "CriticalDamage", {
@@ -548,7 +566,7 @@ export function registerSetupSettings() {
     default: "default",
     type: String,
     config: true,
-    choices: translations["CriticalDamageChoices"],
+    choices: geti18nOptions("CriticalDamageChoices"),
     onChange: fetchParams
   });
 
@@ -566,6 +584,7 @@ export const registerSettings = function () {
       config: (setting.config === undefined) ? true : setting.config,
       default: setting.default,
       type: setting.type,
+      choices: (typeof setting.choices === "string") ? geti18nOptions(`${setting.choices}`) : {},
       onChange: setting.onChange
     };
     //@ts-ignore - too tedious to define undefined in each of the settings defs
@@ -580,7 +599,7 @@ export const registerSettings = function () {
     default: "none",
     type: String,
     config: true,
-    choices: translations["CriticalDamageChoices"],
+    choices: geti18nOptions("CriticalDamageChoices"),
     onChange: fetchParams
   });
   game.settings.register("midi-qol", "CriticalDamage", {
@@ -590,7 +609,7 @@ export const registerSettings = function () {
     default: "default",
     type: String,
     config: true,
-    choices: translations["CriticalDamageChoices"],
+    choices: geti18nOptions("CriticalDamageChoices"),
     onChange: fetchParams
   });
 
@@ -602,7 +621,7 @@ export const registerSettings = function () {
     default: "none",
     type: String,
     config: true,
-    choices: translations["AddChatDamageButtonsOptions"],
+    choices: geti18nOptions("AddChatDamageButtonsOptions"),
     onChange: fetchParams
   });
 
@@ -614,10 +633,11 @@ export const registerSettings = function () {
       default: "None",
       type: String,
       config: true,
-      choices: translations["ColoredBordersOptions"],
+      choices: geti18nOptions("ColoredBordersOptions"),
       onChange: fetchParams
     });
 
+  
   game.settings.register("midi-qol", "LateTargeting",
     {
       name: "midi-qol.LateTargeting.Name",
@@ -626,7 +646,7 @@ export const registerSettings = function () {
       default: "none",
       type: String,
       config: true,
-      choices: translations["LateTargetingOptions"],
+      choices: geti18nOptions("LateTargetingOptions"),
       onChange: fetchParams
     });
 
@@ -637,7 +657,7 @@ export const registerSettings = function () {
     default: "dead",
     type: String,
     config: true,
-    choices: translations["AutoRemoveTargetsOptions"],
+    choices: geti18nOptions("AutoRemoveTargetsOptions"),
     onChange: fetchParams
   });
 
@@ -677,7 +697,7 @@ export const registerSettings = function () {
     default: "None",
     type: String,
     config: true,
-    choices: translations["DebugOptions"],
+    choices: geti18nOptions("DebugOptions"),
     onChange: fetchParams
   });
 
@@ -724,6 +744,7 @@ export const registerSettings = function () {
     type: Boolean,
     config: true,
     default: false,
+    scope: "world",
     //@ts-ignore v10
     requiresReload: true
   });
