@@ -370,7 +370,6 @@ export let fetchParams = () => {
     optionalCritRule: -1,
     removeHiddenInvis: true,
     wallsBlockRange: "center",
-    confirmAttackDamage: "none",
     mergeCardMulti: false
     
   }, configSettings.optionalRules ?? {}, { overwrite: true, insertKeys: true, insertValues: true });
@@ -384,7 +383,7 @@ export let fetchParams = () => {
   if (!configSettings.optionalRules.checkRange) configSettings.optionalRules.checkRange = "none";
   if (!configSettings.optionalRules.invisAdvantage) configSettings.optionalRules.invisAdvantage = "none";
   if (configSettings.optionalRules.invisAdvantage === true) configSettings.optionalRules.invisAdvantage = "RAW";
-  if (configSettings.optionalRules.confirmAttackDamage == undefined) configSettings.optionalRules.confirmAttackDamage = "none";
+  if (configSettings.confirmAttackDamage == undefined) configSettings.optionalRules.confirmAttackDamage = "none";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical !== true) configSettings.requireMagical = "off";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical === true) configSettings.requireMagical = "nonspell";
 
