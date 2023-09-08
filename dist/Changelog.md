@@ -1,3 +1,7 @@
+## 11.0.15.1
+* Fix for Item onUse macro dropdown not being populated.
+* Pass full damage detail to preTargetDamageApplication macros.
+
 ## 11.0.15
 * Added DAE Item Macro Editor button on item sheet.
 * When adding an item onUse macro default the name to ItemMacro.

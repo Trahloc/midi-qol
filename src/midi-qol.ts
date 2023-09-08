@@ -230,7 +230,7 @@ Hooks.once('ready', function () {
   gameStats = new RollStats();
   actorAbilityRollPatching();
   // has to be done before setup api.
-  MQOnUseOptions = geti18nOptions("midi-qol.onUseMacroOptions");
+  MQOnUseOptions = geti18nOptions("onUseMacroOptions");
   if (typeof MQOnUseOptions === undefined) MQOnUseOptions = {
     "preTargeting": "Called before targeting is resolved (*)",
     "preItemRoll": "Called before the item is rolled (*)",

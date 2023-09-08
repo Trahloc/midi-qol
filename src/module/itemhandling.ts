@@ -84,20 +84,20 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     let theWorkflow = existingWorkflow;
     if (!existingWorkflow)
       theWorkflow = new DummyWorkflow(this.parent, this, speaker, game?.user?.targets ?? new Set(), {});
-    if (await asyncHooksCall("midi-qol.preTargeting", theWorkflow) === false || await asyncHooksCall(`midi-qol.preTargeting.${this.uuid}`, { item: this }) === false) {
+    if (theWorkflow && await asyncHooksCall("midi-qol.preTargeting", theWorkflow) === false || await asyncHooksCall(`midi-qol.preTargeting.${this.uuid}`, { item: this }) === false) {
       console.warn("midi-qol | attack roll blocked by preTargeting hook");
-      if (!existingWorkflow) Workflow.removeWorkflow(theWorkflow.id);
+      if (!existingWorkflow && theWorkflow) Workflow.removeWorkflow(theWorkflow.id);
       return null;
     }
-    if (configSettings.allowUseMacro) {
+    if (configSettings.allowUseMacro && theWorkflow) {
       const results = await theWorkflow.callMacros(this, theWorkflow.onUseMacros?.getMacros("preTargeting"), "OnUse", "preTargeting");
       if (results.some(i => i === false)) {
         console.warn("midi-qol | item roll blocked by preTargeting macro");
-        if (!existingWorkflow) Workflow.removeWorkflow(theWorkflow.id);
+        if (!existingWorkflow && theWorkflow) Workflow.removeWorkflow(theWorkflow.id);
         return null;
       }
     }
-    if (!existingWorkflow) Workflow.removeWorkflow(theWorkflow.id); // get rid of the dummy workflow
+    if (!existingWorkflow && theWorkflow) Workflow.removeWorkflow(theWorkflow.id); // get rid of the dummy workflow
     if (existingWorkflow) Workflow.removeWorkflow(existingWorkflow.id); // new roll so get rid of old workflow?
 
     if (shouldCheckLateTargeting && !isRangeTargeting && !isAoETargeting) {

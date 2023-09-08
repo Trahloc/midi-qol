@@ -740,7 +740,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     } else {
       ditem.newTempHP = Math.max(0, ditem.newTempHP - appliedTempHP)
     }
-    ditem.damageDetail = duplicate(damageDetailArr);
+    ditem.damageDetail = duplicate(damageDetailResolved);
     ditem.critical = workflow?.isCritical;
     ditem.wasHit = options.hitTargets.has(t);
     await asyncHooksCallAll("midi-qol.damageApplied", t, { item, workflow, damageItem: ditem, ditem });
