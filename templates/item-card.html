@@ -21,10 +21,9 @@
     {{#if hasAttack}}
     {{#if mergeCardMulti}}
     <div class="midi-qol-attack-buttons flexrow 5">
-      <button data-action="attack-dis" style="flex: 1 1 0" class="fas fa-angles-down" title="{{localize 'DND5E.Disadvantage'}}">
-        </button>
+      <button data-action="attack-dis" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Disadvantage'}}"><i class="fas fa-caret-down"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
       <button data-action="attack" style="flex: 3 1 0">{{ Attack }}</button>
-      <button data-action="attack-adv" style="flex: 1 1 0" class="fas fa-angles-up" title="{{localize 'DND5E.Advantage'}}"></button>
+      <button data-action="attack-adv" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Advantage'}}"><i class="fas fa-caret-up"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
     </div>
     {{else}}
     <div class="midi-qol-attack-buttons flexrow 3">
@@ -69,9 +68,9 @@
     {{#if hasDamage}}
     {{#if mergeCardMulti}}
     <div class="midi-qol-damage-buttons flexrow 5">
-      <button data-action="damage-nocritical" style="flex: 1 1 0" title="{{localize 'DND5E.Normal'}}"><i class="fas fa-dice-d20"></i></button>
+      <button data-action="damage-nocritical" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Normal'}}"><i class="fas fa-dice-d6"></i></button>
       <button data-action="damage" style="flex:3 1 0">{{ dmgBtnText }}</button>
-      <button data-action="damage-critical" style="flex: 1 1 0" title="{{localize 'DND5E.Critical'}}"><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
+      <button data-action="damage-critical" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Critical'}}"><i class="fas fa-dice-d6"></i><i class="fas fa-dice-d6"></i></button>
     </div>
     {{else}}
     <div class="midi-qol-damage-buttons flexrow 3">

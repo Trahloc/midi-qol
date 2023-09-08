@@ -557,8 +557,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
     wrappedOptions.chatMessage = false;
     let result: Roll = await wrapped(
-      wrappedOptions,
-      // dialogOptions: { default: defaultOption } TODO Enable this when supported in core
+      wrappedOptions
     );
 
     if (!result) return result;

@@ -1,4 +1,7 @@
-## 11.0.15.2
+## 11.0.15.5
+* Restyled the buttons in the chat card.
+
+## 11.0.15.2/3/4
 * Fix for incorrectly set confirmDamage roll on startup.
 
 ## 11.0.15.1
