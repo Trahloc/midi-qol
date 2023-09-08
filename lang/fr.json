@@ -736,7 +736,7 @@
   "midi-qol.reactionFlavorPreAttack": "{actorName} est attaqué par {itemName} et peut utiliser une réaction",
   "midi-qol.AutoRerollInitiative.Hint": "Relance automatique de l'initiative pour tous les combattants au début d'un nouveau round. Attention : peut interrompre les effets qui se finissent à la fin d'un tour/round",
   "midi-qol.CriticalDamageGM.Name": "Choisir les dégâts critiques pour le MJ",
-  "midi-qol.UndoWorkflow.Name": "Expérimental : aide à l'annulation des jets d'objets",
+  "midi-qol.UndoWorkflow.Name": "Prise en charge de l'annulation des jets d'objets",
   "midi-qol.RollChecksBlind.Name": "Tous les tests de capacité des joueurs sont effectués à l'aveugle",
   "midi-qol.RollSavesBlind.Name": "Tous les jets de sauvegarde des capacités des joueurs sont effectués à l'aveugle",
   "midi-qol.RollSkillsBlind.Name": "Tous les tests de compétence des joueurs sont effectués en aveugle",
