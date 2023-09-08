@@ -1,3 +1,6 @@
+## 11.0.15.2
+* Fix for incorrectly set confirmDamage roll on startup.
+
 ## 11.0.15.1
 * Fix for Item onUse macro dropdown not being populated.
 * Pass full damage detail to preTargetDamageApplication macros.
