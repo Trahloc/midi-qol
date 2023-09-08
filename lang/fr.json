@@ -216,7 +216,8 @@
     "wallsBlock": "Blocage des murs",
     "wallsBlockIgnoreDefeated": "Blocage des murs - Ignorer vaincu",
     "dftemplates": "Utiliser \"DF Template Enhancements\"",
-    "dfwalledTemplates": "Utiliser des modèles muraux"
+    "dfwalledTemplates": "Utiliser des modèles muraux",
+    "walledtemplates": "Utiliser Walled Templates"
   },
   "midi-qol.autoCheckSavesOptions": {
     "none": "Désactivé",
@@ -243,7 +244,9 @@
     "noCard": "Non + carte de dégâts",
     "yes": "Oui",
     "yesCard": "Oui + carte de dégâts",
-    "yesCardNPC": "Oui(PNJ) Non(PJ) + carte de dégâts"
+    "yesCardNPC": "Oui(PNJ) Non(PJ) + carte de dégâts",
+    "yesCardMisses": "Oui + carte de dégâts + ratés",
+    "noCardMisses": "Non + carte de dommages + ratés"
   },
   "midi-qol.playerDamageCardOptions": {
     "none": "Ne pas montrer",
@@ -274,14 +277,16 @@
     "auto": "Auto",
     "letme": "Let Me Roll That For You",
     "letmeQuery": "LMRTFY + Query",
-    "mtb": "Monks Token Bar"
+    "mtb": "Monks Token Bar",
+    "autoDialog": "Jet automatique et dialogue d'affichage du jet"
   },
   "midi-qol.playerRollSavesOptions": {
     "none": "Aucun",
     "letme": "Let Me Roll That For You",
     "letmeQuery": "LMRTFY + Querey",
     "chat": "Message de tchat",
-    "mtb": "Monks Token Bar"
+    "mtb": "Monks Token Bar",
+    "noneDialog": "Jet automatique et dialogue d'affichage du jet"
   },
   "midi-qol.playerRollSavesOptionsReduced": {
     "none": "Aucun",
@@ -368,14 +373,14 @@
     "all": "Tous",
     "damageBonus": "Renvoyer un bonus de dégâts",
     "preTargeting": "Appelé avant que le ciblage soit résolu (*)",
-    "isHit": "L'acteur est la cible d'un toucher",
-    "isSaveFailure": "L'acteur a échoué à un jet de sauvegarde",
+    "isHit": "Cible d'un toucher",
+    "isSaveFailure": "la cible a échoué son jet de sauvegarde",
     "preApplyTargetDamage": "La cible est sur le point d'être endommagée par un objet",
-    "isDamaged": "L'acteur est endommagé par une attaque",
-    "isAttacked": "L'acteur est la cible d'une attaque",
+    "isDamaged": "La cible est endommagée par une attaque",
+    "isAttacked": "La cible est attaquée",
     "preTargetSsave": "La cible est sur le point d'effectuer un jet de sauvegarde",
-    "isSave": "L'acteur a effectué une sauvegarde",
-    "isSaveSuccess": "L'acteur réussit sa sauvegarde"
+    "isSave": "La cible a effectué une sauvegarde",
+    "isSaveSuccess": "La cible réussit sa sauvegarde"
   },
   "midi-qol.DragDropTarget.Name": "Ciblage par glisser-déposer",
   "midi-qol.DragDropTarget.Hint": "Permettre de glisser un objet sur un token pour l'attaquer",
@@ -424,7 +429,7 @@
   "midi-qol.Optional": "Optionnel",
   "midi-qol.OptionalRules.Name": "(EXPÉRIMENTAL) Règles de jeu optionnelles qui fonctionne avec Better Rolls, mais déclenche un avertissement libWrapper",
   "midi-qol.OptionalRules.Hint": "Règles de jeu de DND5E que vous pouvez souhaiter activer. Ne fonctionnent généralement pas avec Better Rolls.",
-  "midi-qol.InvisAdvantage.Name": "Les attaquants cachés/invisibles ont un avantage sur les attaques (nécessite CUB ou CV)",
+  "midi-qol.InvisAdvantage.Name": "Les attaquants cachés/invisibles ont un avantage/désavantage sur les attaques",
   "midi-qol.CheckRange.Name": "Vérifier la portée de l'arme lors d'une attaque",
   "midi-qol.NearbyFoe.Name": "Les attaques à distance lorsqu'un ennemi est plus proche que X ont un désavantage. 0 désactive",
   "midi-qol.WallsBlockRange.Name": "Les murs bloquent les attaques à distance",
@@ -436,7 +441,8 @@
     "dnd5eHelpers": "dnd5e helpers",
     "dnd5eHelpersAC": "dnd5e helpers + AC",
     "levelsautocover": "Niveaux de couverture automatique",
-    "simbuls-cover-calculator": "Calculateur des couvertures \"Simbuls\""
+    "simbuls-cover-calculator": "Calculateur des couvertures \"Simbuls\"",
+    "tokenvisibility": "Alternative Token Visibility"
   },
   "midi-qol.NearbyAllyRanged.Name": "(Règle maison) Les attaques à distance contre des ennemis proches d'alliés ont un désavantage.",
   "midi-qol.WallsBlockRangeOptions": {
@@ -660,7 +666,8 @@
   "midi-qol.LateTargetingOptions": {
     "noTargetsSelected": "Cible tardive uniquement si aucune n'est sélectionnée",
     "all": "Toujours afficher un ciblage tardif",
-    "none": "Pas de ciblage tardif"
+    "none": "Pas de ciblage tardif",
+    "allArea": "Toujours afficher un ciblage tardif"
   },
   "midi-qol.AddDead.Hint": "PNJ ajouter \"Vaincu\", PJ ajouter \"Inconscient\" via Convenient Effect",
   "midi-qol.IgnoreSpellReactionRestriction.Name": "Permet d'utiliser n'importe quel sort de réaction",
@@ -678,7 +685,8 @@
   "midi-qol.CoverCalculationOptions": {
     "none": "Personne",
     "levelsautocover": "Niveaux de couverture automatique",
-    "simbuls-cover-calculator": "Calculateur des couvertures \"Simbuls\""
+    "simbuls-cover-calculator": "Calculateur des couvertures \"Simbuls\"",
+    "tokenvisibility": "Alternative Token Visibility"
   },
   "midi-qol.AddDeadOptions": {
     "none": "Ne pas mettre à jour",
@@ -740,5 +748,40 @@
     "GMOnly": "Seul le GM peut annuler les flux de travail",
     "removeFirstWorkflow": "Supprimer le flux de travail le plus récent de la liste (ATTENTION)"
   },
-  "midi-qol.ActiveDefenceShowGM.Name": "Le MJ voit des jets de défense actifs"
+  "midi-qol.ActiveDefenceShowGM.Name": "Le MJ voit des jets de défense actifs",
+  "midi-qol.CheckRangeOptions": {
+    "none": "Ne pas vérifier la portée",
+    "longfail": "portée de la cible > longue portée : échec",
+    "longdisadv": "portée de la cible > longue portée : désavantage"
+  },
+  "midi-qol.cubNotSupported": "Combat Utility Belt ne sera pas migré vers la version 11. Midi supprimera la prise en charge de la CUB dans la version midi 11.1.0",
+  "midi-qol.InvisAdvantage.Hint": "(Règles telles qu'écrites) Les attaquants invisibles ont un avantage sur les attaques. Désavantage si la cible est invisible",
+  "midi-qol.InvisAdvantageOptions": {
+    "none": "Ne pas appliquer",
+    "RAW": "Règles tel qu'écrites",
+    "vision": "Utiliser la Vision du Jeton"
+  },
+  "midi-qol.InvisVision.Name": "Vision forcée lors du contrôle",
+  "midi-qol.WallsBlockRange.Hint1": "Non = le mur ne bloque pas les contrôles de portée",
+  "midi-qol.WallsBlockRange.Hint2": "centre = vérifier la ligne de centre à centre",
+  "midi-qol.DRAllPerDamageDetail.Name": "(Règle maison) DRAll (DR.rwak/...) est déduit des DEUX dégâts d'attaque et des Autres dégâts.",
+  "midi-qol.nevertarget": "Jamais de cible",
+  "miidi-qol.ContestedRoll": "Jet contesté",
+  "midi-qol.versus": "contre",
+  "midi-qol.Skipped": "Ignoré",
+  "midi-qol.CommonModules": "Modules communs",
+  "midi-qol.Problems": "Problèmes",
+  "midi-qol.AllModules": "Tous les Modules",
+  "midi-qol.Errors": "Erreurs",
+  "midi-qol.Inactive": "Inactif",
+  "midi-qol.Active": "Active",
+  "midi-qol.InvisVision.Hint": "Coché : se comporte comme si tous les jetons avaient la vision activée. Non coché : les jetons sans vision peuvent tout voir",
+  "midi-qol.CantSeeAdvantage.Hint": "(Utilise la vision du jeton) Les attaquants invisibles ont un avantage sur les cibles qui ne peuvent pas les voir. Désavantage s'ils ne peuvent pas voir la cible",
+  "midi-qol.WallsBlockRange.Hint3": "centre + Levels = vérification du centre, mais utilisation du module \"Levels\" pour déterminer le blocage des murs pour la ligne de vue. Utilisez également les gabarits volumétriques des niveaux pour le ciblage des gabarits",
+  "midi-qol.WallsBlockRange.Hint4": "Levels Auto Cover = Utilisez levelsautocover pour tester et bloquer la couverture totale",
+  "midi-qol.WallsBlockRange.Hint5": "Alternative Token Visibility = Utiliser Alternative Token Visibility pour tester et bloquer la couverture totale",
+  "midi-qol.DRAllPerDamageDetail.Hint": "Si la case n'est pas cochée, DRALL ne s'applique qu'une seule fois au total des dégâts",
+  "midi-qol.Summary": "Sommaire",
+  "midi-qol.EnforceSingleWeaponTarget.Name": "Les armes attaquent une seule cible",
+  "midi-qol.EnforceSingleWeaponTarget.Hint": "Les armes sans spécification de cible ne peuvent attaquer qu'une seule cible"
 }
