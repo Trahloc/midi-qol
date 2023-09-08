@@ -361,8 +361,14 @@ export class Workflow {
       if (workflow.placeTemplateHookId) {
         Hooks.off("createMeasuredTemplate", workflow.placeTemplateHookId)
         Hooks.off("preCreateMeasuredTemplate", workflow.preCreateTemplateHookId)
-        // Remove buttons
-        if (workflow.itemCardId) {
+
+      }
+      // Remove buttons
+      if (workflow.itemCardId) {
+        if (workflow.currentState === WORKFLOWSTATES.DAMAGEROLLCOMPLETE) {
+          const itemCard = game.messages?.get(workflow.itemCardId);
+          if (itemCard) itemCard.delete();
+        } else {
           Workflow.removeItemCardAttackDamageButtons(workflow.itemCardId);
           Workflow.removeItemCardConfrimRollButton(workflow.itemCardId);
         }
@@ -660,11 +666,13 @@ export class Workflow {
 
         if (!itemHasDamage(this.item) && !itemHasDamage(this.ammo)) return this.next(WORKFLOWSTATES.WAITFORSAVES);
 
+        /* we still go through damage processing even if we fumbled - mainly for confirmation.
         if (this.isFumble && configSettings.autoRollDamage !== "none") {
           // Auto rolling damage but we fumbled - we failed - skip everything.
           expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"])
           return this.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETE);
         }
+        */
         if (configSettings.allowUseMacro) {
           await this.callMacros(this.item, this.onUseMacros?.getMacros("preDamageRoll"), "OnUse", "preDamageRoll");
           if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preDamageRoll"), "OnUse", "preDamageRoll");
@@ -754,7 +762,8 @@ export class Workflow {
 
         await asyncHooksCallAll("midi-qol.DamageRollComplete", this);
         if (this.item) await asyncHooksCallAll(`midi-qol.DamageRollComplete.${this.item.uuid}`, this);
-        expireMyEffects.bind(this)(["1Action", "1Attack", "1Hit", "1Spell"]);
+        if (this.hitTargets?.size || this.hitTtargetsEC?.size) expireMyEffects.bind(this)(["1Hit"]);
+        expireMyEffects.bind(this)(["1Action", "1Attack", "1Spell"]);
         await this.displayDamageRoll(configSettings.mergeCard);
 
         log(`DmageRollComplete elapsed ${Date.now() - damageRollCompleteStartTime}ms`)
@@ -1867,7 +1876,7 @@ export class Workflow {
     macroData.macroPass = macroPass;
     if (debugEnabled > 0) warn("macro data ", macroData)
     for (let macro of macroNames) {
-      values.push(this.callMacro(item, macro, macroData).catch((err) => {
+      values.push(this.callMacro(item, macro, macroData, options).catch((err) => {
         const message = `midi-qol | called macro error in ${item?.name} ${item?.uuid} macro ${macro}`;
         console.warn(message, err);
         TroubleShooter.recordError(err, message);
@@ -1877,12 +1886,13 @@ export class Workflow {
     return results;
   }
 
-  async callMacro(item, macroName: string, macroData: any): Promise<damageBonusMacroResult | any> {
+  async callMacro(item, macroName: string, macroData: any, options: any): Promise<damageBonusMacroResult | any> {
     const name = macroName?.trim();
     // var item;
     if (!name) return undefined;
     let macroCommand;
     let macro;
+    const actorToUse = options.actor ?? this.actor;
     try {
       if (name.startsWith("function.")) {
         macroCommand = `return await ${name.replace("function.", "").trim()}.bind(workflow)({ speaker, actor, token, character, item, args, scope, workflow: scope.workflow })`;
@@ -1899,9 +1909,9 @@ export class Workflow {
         } else {
           const parts = name.split(".");
           const itemNameOrUuid = parts.slice(1).join(".");
+          item = await fromUuid(itemNameOrUuid);
           // ItemMacro.name
-          item = this.actor.items.find(i => (i.name === itemNameOrUuid || i.uuid == itemNameOrUuid)
-            && (getProperty(i.flags, "dae.macro") ?? getProperty(i.flags, "itemacro.macro")))
+          if (!item) item = actorToUse.items.find(i => i.name === itemNameOrUuid && (getProperty(i.flags, "dae.macro") ?? getProperty(i.flags, "itemacro.macro")))
           if (!item) {
             console.warn("midi-qol | callMacro: No item for", name);
             return {};
@@ -1936,14 +1946,14 @@ export class Workflow {
           return {}
         }
         macroData.speaker = this.speaker;
-        macroData.actor = this.actor;
+        macroData.actor = actorToUse;
         //@ts-ignore .command v10
         macroCommand = macro?.command ?? `console.warn("midi-qol | no macro ${name.replaceAll('"', '')} found")`;
       }
 
       const speaker = this.speaker;
-      const actor = this.actor;
-      const token = canvas?.tokens?.get(this.tokenId);
+      const actor = actorToUse;
+      const token = tokenForActor(actorToUse)
       const character = game.user?.character;
       const args = [macroData];
 

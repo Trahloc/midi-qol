@@ -2890,7 +2890,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             item = this.actor.items.getName(itemName);
           }
           const dummyWorkflow = new DummyWorkflow(this.actor, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
-          dummyWorkflow.callMacro(item, macroToCall, dummyWorkflow.getMacroData())
+          dummyWorkflow.callMacro(item, macroToCall, dummyWorkflow.getMacroData(), {})
         } else console.warn(`midi-qol | RollModifyDialog no way to call macro ${macroToCall}`)
       }
 

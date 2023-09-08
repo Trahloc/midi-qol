@@ -1,3 +1,9 @@
+## 11.0.16
+* Fix for calling target onuse macros not finding the item macro.
+  - set the actor and token macro variables to the actor/token rolling the macro.
+* Workflows awaitng confirmation will have the chat card removed if the same item is rolled again by the same player (since the workflow can never be completed if the item is re-rolled).
+* **Breaking** If an attack is fumbled and auto roll damage is set to tru midi will from the damage
+
 ## 11.0.15.5
 * Restyled the buttons in the chat card.
 
