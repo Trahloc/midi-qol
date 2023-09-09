@@ -1,3 +1,6 @@
+## 11.0.16.2
+* Fix for effects being applied on fumbled rolls.
+
 ## 11.0.16.1
 * Fix for effects not being applied
 

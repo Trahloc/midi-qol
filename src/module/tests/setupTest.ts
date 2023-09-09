@@ -247,8 +247,8 @@ async function registerTests() {
             for (let i = 0; i < 20; i++) {
               setProperty(actor, "flags.midi-qol.max.ability.save.all", 10);
               const result = await actor.rollAbilitySave("str", { chatMessage: false, fastForward: true });
-              assert.ok(result.total <= 10)
               delete actor.flags["midi-qol"].max.ability.save.all;
+              assert.ok(result.total <= 10)
             }
           })
 
@@ -537,28 +537,24 @@ async function registerTests() {
           it("Tests condition immunity disables effect", async function () {
             if (!ceInterface) assert.ok(false, "Convenient Effects Interface not found")
             await ceInterface.addEffect({ effectName: "Paralyzed", uuid: actor.uuid });
+          try {
             // assert.ok(await ceInterface.hasEffectApplied("Paralyzed", actor?.uuid));
             //@ts-ignore .label v10
             const theEffect: ActiveEffect | undefined = actor.effects.find(ef => (ef.name || ef.label) === "Paralyzed");
             assert.ok(theEffect, "not paralyzed");
             //@ts-ignore .disabled v10
-            assert.ok(!theEffect?.disabled, "paralyzed disabled");
-            //@ts-expect-error
-            if (game.system.id === "dnd5e" && isNewerVersion(game.system.version, "2.0.3") && false) {
-              await actor.update({ "system.traits.ci.value": new Set(["paralyzed"]) });
-            }
-            else await actor.update({ "system.traits.ci.value": ["paralyzed"] });
+            assert.ok(!(theEffect?.isSuppressed || theEffect.disabled), "paralyzed suppressed");
+            await actor.update({ "system.traits.ci.value": ["paralyzed"] });
             //@ts-ignore .disabled v10
-            assert.ok(theEffect?.disabled, "paralyzed not disabled");
-            //@ts-expect-error 
-            if (game.system.id === "dnd5e" && isNewerVersion(game.system.version, "2.0.3") && false) {
-              await actor.update({ "system.traits.ci.value": new Set() });
-            } else await actor.update({ "system.traits.ci.value": [] });
+            assert.ok(theEffect?.disabled || theEffect?.isSuppressed, "paralyzed not suppressed");
+            await actor.update({ "system.traits.ci.value": [] });
             //@ts-ignore .disabled v10
-            assert.ok(!theEffect?.disabled, "traits not disabled");
+            assert.ok(!(theEffect?.disabled || theEffect.isSuppressed), "traits not disabled");
+          } finally {
+            await actor.update({ "system.traits.ci.value": [] });
             await ceInterface.removeEffect({ effectName: "Paralyzed", uuid: actor.uuid });
             assert.ok(!(await ceInterface.hasEffectApplied("Paralyzed", actor?.uuid)));
-
+          }
           })
         });
       },
