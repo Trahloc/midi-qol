@@ -1,3 +1,6 @@
+## 11.0.16.1
+* Fix for effects not being applied
+
 ## 11.0.16
 * Fix for calling target onuse macros not finding the item macro.
   - set the actor and token macro variables to the actor/token rolling the macro.
