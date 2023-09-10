@@ -118,8 +118,8 @@ export let readyHooks = async () => {
 
     const concentrationLabel: any = getConcentrationLabel();
     let isConcentration = deletedEffect.name === concentrationLabel;
-    const origin = MQfromUuid(deletedEffect.origin);
     async function changefunc() {
+      const origin = await fromUuid(deletedEffect.origin);
       if (isConcentration) return await removeConcentration(deletedEffect.parent, deletedEffect.uuid);
       if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
         const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");

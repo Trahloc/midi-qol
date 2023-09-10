@@ -427,8 +427,9 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
 export async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves,
   options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false }): Promise<any[]> {
   const fixedTargets: Set<Token> = theTargets.map(t => getToken(t));
+
   return legacyApplyTokenDamageMany([damageDetail], [totalDamage], fixedTargets, item, [saves], {
-    hitTargets: options.hitTargets ?? theTargets,
+    hitTargets: options.hitTargets ?? fixedTargets,
     existingDamage: options.existingDamage,
     superSavers: options.superSavers ? [options.superSavers] : [],
     semiSuperSavers: options.semiSuperSavers ? [options.semiSuperSavers] : [],

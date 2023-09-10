@@ -1,3 +1,6 @@
+## 11.0.16.3
+* Fix for applyTokenDamage when called with a set of TokenDocuments rather than the correct set of Tokens.
+
 ## 11.0.16.2
 * Fix for effects being applied on fumbled rolls.
 
