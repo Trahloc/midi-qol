@@ -1861,6 +1861,7 @@ export class Workflow {
       templateUuid: this.templateUuid,
       tokenId: this.tokenId,
       tokenUuid: this.tokenUuid,
+      uuid: this.uuid, // deprecated
       workflowOptions: this.workflowOptions,
       castData: this.castData,
       workflow: this
@@ -1892,21 +1893,24 @@ export class Workflow {
     const name = macroName?.trim();
     // var item;
     if (!name) return undefined;
-    let macroCommand;
+    let itemMacroData;
     let macro;
     const actorToUse = options.actor ?? this.actor;
     try {
       if (name.startsWith("function.")) {
-        macroCommand = `return await ${name.replace("function.", "").trim()}.bind(workflow)({ speaker, actor, token, character, item, args, scope, workflow: scope.workflow })`;
+        itemMacroData = {
+          name: "function call",
+          type: "script",
+          command: `return await ${name.replace("function.", "").trim()}.bind(workflow)({ speaker, actor, token, character, item, args, scope, workflow: scope.workflow })`
+        };
       } else if (name.startsWith(MQItemMacroLabel)) {
         //  ItemMacro
         // ItemMacro.ItemName
         // ItemMacro.uuid
-        var itemMacro;
         //  item = this.item;
         if (name === MQItemMacroLabel) {
           if (!item) return {};
-          itemMacro = getProperty(item.flags, "dae.macro") ?? getProperty(item.flags, "itemacro.macro");
+          itemMacroData = getProperty(item.flags, "dae.macro") ?? getProperty(item.flags, "itemacro.macro");
           macroData.sourceItemUuid = item?.uuid;
         } else {
           const parts = name.split(".");
@@ -1918,41 +1922,44 @@ export class Workflow {
             console.warn("midi-qol | callMacro: No item for", name);
             return {};
           }
-          itemMacro = getProperty(item.flags, "dae.macro") ?? getProperty(item.flags, "itemacro.macro");
+          itemMacroData = getProperty(item.flags, "dae.macro") ?? getProperty(item.flags, "itemacro.macro");
           macroData.sourceItemUuid = item.uuid;
-          if (!itemMacro?.command && !itemMacro?.data?.command) { // TODO check this for itemMacro v10
-            if (debugEnabled > 0) warn(`could not find item macro ${name}`);
-            return {};
-          }
         }
-        macroCommand = itemMacro?.command ?? itemMacro?.data?.command ?? `console.warn('midi-qol | no item macro found for ${name}')`;
       } else { // get a world/compendium macro.
         macro = game.macros?.getName(name)
         if (!macro) {
           const itemOrMacro = await fromUuid(name);
           if (itemOrMacro instanceof Item) {
             macroData.sourceItemUuid = itemOrMacro.uuid;
-            macro = getProperty(itemOrMacro, "flags.dae.macro") ?? getProperty(itemOrMacro, "flags.itemacro.macro");
+            itemMacroData = getProperty(itemOrMacro, "flags.dae.macro") ?? getProperty(itemOrMacro, "flags.itemacro.macro");
           } else if (itemOrMacro instanceof Macro) macro = itemOrMacro;
         }
-        if (!macro) {
-          const message = `Could not find item/macro ${name} - invalid syntax.`;
-          error(message);
-          TroubleShooter.recordError(new Error(message), message);
-          ui.notifications?.error(`Could not find macro ${name} does not exist`)
-          return undefined;
-        }
+
         //@ts-ignore .type v10
         if (macro?.type === "chat") {
           macro.execute(); // use the core foundry processing for chat macros
           return {}
         }
-        macroData.speaker = this.speaker;
-        macroData.actor = actorToUse;
-        //@ts-ignore .command v10
-        macroCommand = macro?.command ?? `console.warn("midi-qol | no macro ${name.replaceAll('"', '')} found")`;
-      }
 
+      }
+      if (!itemMacroData && !macro) {
+        const message = `Could not find item/macro ${name} - invalid syntax.`;
+        error(message);
+        TroubleShooter.recordError(new Error(message), message);
+        ui.notifications?.error(`midi-qol | Could not find macro ${name} does not exist`)
+        return undefined;
+      }
+      if (!itemMacroData.command) itemMacroData.command = itemMacroData.data.command;
+      if (!itemMacroData?.command) { // TODO check this for itemMacro v10
+        if (debugEnabled > 0) warn(`could not find item macro ${name}`);
+        return {};
+      }
+      macroData.speaker = this.speaker;
+      macroData.actor = actorToUse;
+      if (!macro) {
+        itemMacroData = mergeObject({name: "midi generated macro", type: "script", command: ""}, itemMacroData); 
+        macro = new CONFIG.Macro.documentClass(itemMacroData);
+      }
       const speaker = this.speaker;
       const actor = actorToUse;
       const token = tokenForActor(actorToUse)
@@ -1991,6 +1998,7 @@ export class Workflow {
         const argNames = Object.keys(scope);
         const argValues = Object.values(scope);
 
+        let macroCommand: string = itemMacroData?.command ?? itemMacroData?.data?.command ?? macro?.command;
         try {
           //@ts-expect-error
           const fn = new AsyncFunction("speaker", "actor", "token", "character", "scope", ...argNames, macroCommand)

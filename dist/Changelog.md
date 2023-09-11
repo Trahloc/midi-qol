@@ -1,3 +1,10 @@
+## 11.0.17
+* Fix for uncanny dodge now checkes that it can see the attacker
+* resolved a reported error when doing overtime effects with a blank saveDC
+* put back macroData.uuid to fix ddbi booming blade
+* Fix for errors thrown when undo workflow not enabled.
+
+
 ## 11.0.16.3
 * Fix for applyTokenDamage when called with a set of TokenDocuments rather than the correct set of Tokens.
 

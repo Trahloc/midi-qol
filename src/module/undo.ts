@@ -1,10 +1,9 @@
 
-import { isThisTypeNode } from "typescript";
 import { debugEnabled, error, log, warn } from "../midi-qol.js";
 import { socketlibSocket } from "./GMAction.js";
 import { configSettings } from "./settings.js";
 import { busyWait } from "./tests/setupTest.js";
-import { getToken, isReactionItem } from "./utils.js";
+import { isReactionItem } from "./utils.js";
 import { Workflow } from "./workflow.js";
 
 var dae;
@@ -40,9 +39,11 @@ interface undoDataDef{
 }
 
 export function queueUndoDataDirect(undoDataDef) {
+  if (!configSettings.undoWorkflow) return;
   socketlibSocket.executeAsGM("queueUndoDataDirect", undoDataDef);
 }
 export function _queueUndoDataDirect(undoDataDef) {
+  if (!configSettings.undoWorkflow) return;
   const undoData: any = {};
   //@ts-expect-error fromUuidSync
   const tokenDoc = fromUuidSync(undoDataDef.tokendocUuid);
@@ -56,7 +57,7 @@ export function _queueUndoDataDirect(undoDataDef) {
   undoData.actorName = actor.name;
   undoData.itemName = undoDataDef.itemName;
   undoData.userName = undoDataDef.userName;
-  undoData.allTargets = undoDataDef.targets ?? [];
+  undoData.allTargets = undoDataDef.targets ?? new Collection();
   undoData.serverTime = game.time.serverTime;
   undoData.templateUuids = undoDataDef.templateUuids ?? [];
   undoData.isReaction = undoDataDef.isReaction;
@@ -74,6 +75,7 @@ export function _queueUndoDataDirect(undoDataDef) {
 }
 // Called by workflow to start a new undoWorkflow entry
 export async function saveUndoData(workflow: Workflow): Promise<boolean> {
+  if (!configSettings.undoWorkflow) return true;
   workflow.undoData = {};
   workflow.undoData.id = workflow.id; 
   workflow.undoData.userId = game.user?.id;
@@ -111,7 +113,7 @@ export function createTargetData(tokenUuid) {
 
 // Called to save snapshots of workflow actor/token data
 export function startUndoWorkflow(undoData: any): boolean {
-
+  if (!configSettings.undoWorkflow) return true;
   //@ts-expect-error fromUuidSync
   let actor = fromUuidSync(undoData.actorUuid);
   if (actor instanceof TokenDocument) actor = actor.actor;
@@ -134,6 +136,7 @@ export function startUndoWorkflow(undoData: any): boolean {
 }
 
 export function updateUndoChatCardUuidsById(data) {
+  if (!configSettings.undoWorkflow) return;
   const currentUndo = undoDataQueue.find(undoEntry => undoEntry.id === data.id);
   if (!currentUndo) {
     console.warn("Could not find existing entry for ", data);
@@ -142,6 +145,7 @@ export function updateUndoChatCardUuidsById(data) {
   currentUndo.chatCardUuids = data.chatCardUuids;
 }
 export function updateUndoChatCardUuids(data) {
+  if (!configSettings.undoWorkflow) return;
   const currentUndo = undoDataQueue.find(undoEntry => undoEntry.serverTime === data.serverTime && undoEntry.userId === data.userId);
   if (!currentUndo) {
     console.warn("Could not find existing entry for ", data);
@@ -177,6 +181,7 @@ export async function addUndoChatMessage(message: ChatMessage) {
 }
 
 Hooks.on("createChatMessage", (message, data, options, user) => {
+  if (!configSettings.undoWorkflow) return;
   if ((undoDataQueue ?? []).length < 1) return;
   const currentUndo = undoDataQueue[0];
   const speaker = message.speaker;

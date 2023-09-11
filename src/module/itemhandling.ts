@@ -416,7 +416,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.advantage = false;
       workflow.disadvantage = false;
       workflow.rollOptions.rollToggle = globalThis.MidiKeyManager.pressedKeys.rollToggle;
-      if (workflow.currentState !== WORKFLOWSTATES.ROLLFINISHED) {
+      if (workflow.currentState !== WORKFLOWSTATES.ROLLFINISHED && configSettings.undoWorkflow) {
         socketlibSocket.executeAsGM("undoTillWorkflow", workflow.id, false);
       }
     }

@@ -466,7 +466,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     else if (item?.uuid) {
       item = MQfromUuid(item.uuid);
     } else if (item) {
-      error("ApplyTokenDamage item must be of type Item or null/undefined");
+      error("ApplyTokenDamage passed item must be of type Item or null/undefined");
       return [];
     }
   }
@@ -478,12 +478,10 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
   let appliedTempHP = 0;
   const itemSaveMultiplier = getSaveMultiplierForItem(item);
   for (let t of theTargets) {
-    //@ts-ignore
-    const targetToken: Token = (t instanceof TokenDocument ? t.object : t) ?? t;
-    //@ts-ignore
-    const targetTokenDocument: TokenDocument = t instanceof TokenDocument ? t : t.document;
+    const targetToken: Token | undefined = getToken(t);
+    const targetTokenDocument: TokenDocument | undefined = getTokenDocument(t);
 
-    if (!targetTokenDocument || !targetTokenDocument.actor) continue;
+    if (!targetTokenDocument || !targetTokenDocument.actor || !targetToken) continue;
     let targetActor: any = targetTokenDocument.actor;
 
     appliedDamage = 0;
@@ -509,7 +507,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       // Consider checking the save multiplier for the item as a first step
       let result = await doReactions(targetToken, workflow.tokenUuid, workflow.damageRoll, "reactiondamage", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
     }
-    const uncannyDodge = getProperty(targetActor, "flags.midi-qol.uncanny-dodge") && workflow.item?.hasAttack;
+    let uncannyDodge = getProperty(targetActor, "flags.midi-qol.uncanny-dodge") && item?.hasAttack;
+    if (uncannyDodge && workflow) uncannyDodge = canSense(targetToken, workflow?.tokenUuid);
     if (game.system.id === "sw5e" && targetActor?.type === "starship") {
       // Starship damage r esistance applies only to attacks
       if (item && ["mwak", "rwak"].includes(item?.system.actionType)) {
@@ -1286,10 +1285,11 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       let value;
       try {
         value = replaceAtFields(details.saveDC, rollData, { blankValue: 0, maxIterations: 3 });
-        saveDC = Roll.safeEval(value);
+        saveDC = !!value && Roll.safeEval(value);
       } catch (err) {
-        TroubleShooter.recordError(err, `error evaluating saveDC ${value}`);
-        saveDC = -1
+        TroubleShooter.recordError(err, `overTime effect | error evaluating saveDC ${value}`);
+      } finally {
+        if (!value) saveDC = -1
       }
       const saveAbilityString = (details.saveAbility ?? "");
       const saveAbility = (saveAbilityString.includes("|") ? saveAbilityString.split("|") : [saveAbilityString]).map(s => s.trim().toLocaleLowerCase())
@@ -2730,7 +2730,7 @@ export async function processAttackRollBonusFlags() { // bound to workflow
 
   if (bonusFlags.length > 0) {
     this.attackRollHTML = await midiRenderRoll(this.attackRoll);
-    await bonusDialog.bind(this)(bonusFlags, attackBonus, false, `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
+    await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
     if (this.targets.size === 1) {
       const targetAC = this.targets.entries().next().value[0].actor.system.attributes.ac.value;
       this.processAttackRoll();
@@ -2747,7 +2747,7 @@ export async function processAttackRollBonusFlags() { // bound to workflow
         attackBonus = "attack.fail"
         if (bonusFlags.length > 0) {
           this.attackRollHTML = await midiRenderRoll(this.attackRoll);
-          await bonusDialog.bind(this)(bonusFlags, attackBonus, true, `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
+          await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
         }
       }
     }
