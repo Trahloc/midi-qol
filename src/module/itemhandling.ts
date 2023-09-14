@@ -381,12 +381,13 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         checkConcentration = false;
       }
     }
-    if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
-    if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);
     if (needsConcentration && checkConcentration) {
       const concentrationEffect = getConcentrationEffect(this.actor);
-      if (concentrationEffect) await removeConcentration(this.actor, concentrationEffect.uuid);
+      if (concentrationEffect) await removeConcentration(this.actor, concentrationEffect.uuid, {});
     }
+    if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
+    if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);
+
     if (debugCallTiming) log(`wrapped item.roll() elapsed ${Date.now() - wrappedRollStart}ms`);
 
     if (debugCallTiming) log(`item.roll() elapsed ${Date.now() - itemRollStart}ms`);

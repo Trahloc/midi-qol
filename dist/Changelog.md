@@ -1,9 +1,18 @@
+## 11.0.18
+* Fix for not being able to call world macros in onUseMacros
+* Fix for issue when using midi-qol in babele enabled games.
+* Added rolls to before/after chat message and set message type to roll.
+* fix initialisation of MidiQOL.MQOnUseOptions
+* Force flagsmidi-qol.onUseMacroName to be CUSTOM
+* corrrect flags.midi-qol.optional.Name.attack.fail to flags.midi-qol.optional.Name.attack.fail.all
+* Some fixes for removing concentration throwing an error with non-existent item in embedded collectiopn, but not all. The error is now only cosmetic.
+* Fixed compatibility with group rolls. If using group rolls you need to deselect add other buttons - else the merge card will look strange.
+
 ## 11.0.17
 * Fix for uncanny dodge now checkes that it can see the attacker
 * resolved a reported error when doing overtime effects with a blank saveDC
 * put back macroData.uuid to fix ddbi booming blade
 * Fix for errors thrown when undo workflow not enabled.
-
 
 ## 11.0.16.3
 * Fix for applyTokenDamage when called with a set of TokenDocuments rather than the correct set of Tokens.

@@ -110,6 +110,7 @@ export let readyHooks = async () => {
     let [deletedEffect, options, user] = args;
     const checkConcentration = globalThis.MidiQOL?.configSettings()?.concentrationAutomation;
     debug("Deleted effects is ", deletedEffect, options);
+
     if (!checkConcentration || options.noConcentrationCheck) return;
 
     //@ts-expect-error activeGM
@@ -120,7 +121,9 @@ export let readyHooks = async () => {
     let isConcentration = deletedEffect.name === concentrationLabel;
     async function changefunc() {
       const origin = await fromUuid(deletedEffect.origin);
-      if (isConcentration) return await removeConcentration(deletedEffect.parent, deletedEffect.uuid);
+      if (isConcentration) {
+        return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, options);
+      } 
       if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
         const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
         if (concentrationData && deletedEffect.origin === concentrationData.uuid) {
@@ -142,13 +145,14 @@ export let readyHooks = async () => {
               && effect.name !== concentrationLabel);
             return hasEffects;
           });
-          if (["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
+          if (!options.noConcentrationCheck
+            && ["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
             && concentrationTargets.length < 1
             && concentrationTargets.length < concentrationData.targets.length
             && concentrationData.templates.length === 0
             && concentrationData.removeUuids.length === 0) {
             // non concentration effects left
-            await removeConcentration(origin.parent, deletedEffect.uuid);
+            await removeConcentration(origin.parent, deletedEffect.uuid, {});
           } else if (concentrationData.targets.length !== allConcentrationTargets.length) {
             // update the concentration data
             concentrationData.targets = allConcentrationTargets;

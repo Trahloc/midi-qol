@@ -111,7 +111,14 @@ Hooks.once('init', async function () {
   registerSettings();
   fetchParams();
   fetchSoundSettings();
-
+  // This seems to cause problems for localisation for the items compendium (at least for french)
+  // Try a delay before doing this - hopefully allowing localisation to complete
+  // If babele is installed then wait for it to be ready
+  if (game.modules.get("babele")?.active) {
+    Hooks.once("babele.ready", MidiSounds.getWeaponBaseTypes);
+  } else {
+    setTimeout(MidiSounds.getWeaponBaseTypes, 6000);
+  }
   // Preload Handlebars templates
   preloadTemplates();
   // Register custom sheets (if any)
@@ -123,7 +130,9 @@ Hooks.once('init', async function () {
     console.warn("midi-qol detected error", ...args)
   });
 });
-
+Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
+  specials["flags.midi-qol.onUseMacroName"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
+});
 /* ------------------------------------ */
 /* Setup module							*/
 /* ------------------------------------ */
@@ -259,6 +268,8 @@ Hooks.once('ready', function () {
     "all": "All"
   }
   OnUseMacroOptions.setOptions(MQOnUseOptions);
+  globalThis.MidiQOL.MQOnUseOptions = MQOnUseOptions;
+
   MidiSounds.midiSoundsReadyHooks();
   if (game.system.id === "dnd5e") {
     getSystemCONFIG().characterFlags["spellSniper"] = {
@@ -327,9 +338,6 @@ Hooks.once('ready', function () {
     tokenObj._hover = true
   });
 
-  // This seems to cause problems for localisation for the items compendium (at least for french)
-  // Try a delay before doing this - hopefully allowing localisation to complete
-  setTimeout(MidiSounds.getWeaponBaseTypes, 5000);
   if (installedModules.get("betterrolls5e")) {
     //@ts-ignore console:
     ui.notifications?.error("midi-qol automation disabled", { permanent: true, console: true })
@@ -583,6 +591,8 @@ function setupMidiFlags() {
     midiFlags.push(`flags.midi-qol.grants.max.damage.${at}`);
     midiFlags.push(`flags.midi-qol.grants.min.damage.${at}`);
     midiFlags.push(`flags.midi-qol.optional.NAME.attack.${at}`);
+    midiFlags.push(`flags.midi-qol.optional.NAME.attack.fail.${at}`);
+
     midiFlags.push(`flags.midi-qol.optional.NAME.damage.${at}`);
     midiFlags.push(`flags.midi-qol.rangeOverride.attack.${at}`);
   });
@@ -602,7 +612,6 @@ function setupMidiFlags() {
   midiFlags.push("flags.midi-qol.min.ability.save.all");
   midiFlags.push("flags.midi-qol.min.ability.check.all");
   midiFlags.push("flags.midi-qol.sharpShooter");
-  midiFlags.push("flags.midi-qol.onUseMacroName");
 
   Object.keys(config.abilities).forEach(abl => {
     midiFlags.push(`flags.midi-qol.advantage.ability.check.${abl}`);
@@ -674,7 +683,7 @@ function setupMidiFlags() {
   }
 
   midiFlags.push(`flags.midi-qol.optional.NAME.attack.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.attack.fail`);
+  midiFlags.push(`flags.midi-qol.optional.NAME.attack.fail.all`);
   midiFlags.push(`flags.midi-qol.optional.NAME.damage.all`);
   midiFlags.push(`flags.midi-qol.optional.NAME.check.all`);
   midiFlags.push(`flags.midi-qol.optional.NAME.save.all`);

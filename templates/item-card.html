@@ -26,8 +26,8 @@
       <button data-action="attack-adv" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Advantage'}}"><i class="fas fa-caret-up"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
     </div>
     {{else}}
-    <div class="midi-qol-attack-buttons flexrow 3">
-      <button data-action="attack" style="flex: 3 1 0">{{ Attack }}</button>
+    <div class="midi-qol-attack-buttons">
+      <button data-action="attack">{{ Attack }}</button>
     </div>
     {{/if}}
     {{/if}}
@@ -73,8 +73,8 @@
       <button data-action="damage-critical" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Critical'}}"><i class="fas fa-dice-d6"></i><i class="fas fa-dice-d6"></i></button>
     </div>
     {{else}}
-    <div class="midi-qol-damage-buttons flexrow 3">
-      <button data-action="damage" style="flex:3 1 0">{{ dmgBtnText }}</button>
+    <div class="midi-qol-damage-buttons">
+      <button data-action="damage">{{ dmgBtnText }}</button>
     </div>
     {{/if}}
     {{/if}}

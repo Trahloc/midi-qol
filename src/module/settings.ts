@@ -218,6 +218,7 @@ export const CheckedAuthorsList = [
   // "theripper93", - just too many modules :)
   "ironmonk"
 ]
+
 export function collectSettingData() {
   let data = {
     configSettings,

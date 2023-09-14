@@ -965,7 +965,7 @@ export function _getInitiativeFormula(wrapped) {
   return parts.filter(p => p !== null).join(" + ");
 };
 
-export async function removeConcentration(actor: Actor, concentrationUuid: string) {
+export async function removeConcentration(actor: Actor, concentrationUuid: string, options: any) {
   let result;
   try {
     const concentrationData: any = actor.getFlag("midi-qol", "concentration-data");
@@ -983,7 +983,8 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
     }
     if (concentrationData.targets) {
       debug("About to remove concentration effects", actor?.name);
-      result = await socketlibSocket.executeAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true });
+      options.noConcentrationCheck = true;
+      result = await socketlibSocket.executeAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true, options});
       debug("finsihed remove concentration effects", actor?.name)
     }
   } catch (err) {
@@ -993,7 +994,9 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
   } finally {
     //@ts-expect-error fromUuidSync
     const concentrationEffect = fromUuidSync(concentrationUuid);
-    return await concentrationEffect?.delete();
+    options.noConcentrationCheck = true;
+    return await concentrationEffect?.parent.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id], options);
+    // return await concentrationEffect?.delete();
   }
 }
 
@@ -1178,7 +1181,7 @@ export async function preDeleteTemplate(templateDocument, options, user) {
       && concentrationData.removeUuids.length === 0 // no remove uuids left
       && ["effectsTemplates"].includes(configSettings.removeConcentrationEffects)
     ) {
-      await removeConcentration(actor, "no ignore");
+      await removeConcentration(actor, "no ignore", {});
     } else if (concentrationData.templates.length >= 1) {
       // update the concentration templates
       concentrationData.templates = concentrationTemplates;
@@ -1659,7 +1662,6 @@ function addPhysicalDamages(traitValue) {
 }
 
 function addCustomTrait(customTraits: string, customTrait: string): string {
-  console.log("Adding custom trait ", customTrait, customTraits)
   if (customTraits.length === 0) {
     return customTrait;
   }

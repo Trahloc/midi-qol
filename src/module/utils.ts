@@ -2228,7 +2228,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     if (statusEffect.tint === null) delete statusEffect.tint;
     // condition-lab-triggler has a name in the label field
     const existing = selfTarget.actor?.effects.find(e => e.name === (statusEffect.name ?? statusEffect.label)); // TODO should be able to remove this .label
-    if (existing) await existing.delete();
+    // if (existing) await existing.delete();
     if (!statusEffect.id && statusEffect.statuses?.length > 0) {
       statusEffect.id = statusEffect.statuses[0];
     }
@@ -2238,7 +2238,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     return result;
   } else {
     const existing = selfTarget.actor?.effects.find(e => e.name === concentrationLabel);
-    if (existing) await existing.delete(); // make sure that we don't double apply concentration
+    //if (existing) await existing.delete(); // make sure that we don't double apply concentration
 
     const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget.id));
     const effectData = {
@@ -2873,7 +2873,6 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         chatMessage = await ChatMessage.create(chatData);
       }
 
-      // let originalRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
       const oldRollHTML = await this[rollId].render() ?? this[rollId].result
 
       this[rollId] = newRoll;
@@ -2894,7 +2893,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           dummyWorkflow.callMacro(item, macroToCall, dummyWorkflow.getMacroData(), {})
         } else console.warn(`midi-qol | RollModifyDialog no way to call macro ${macroToCall}`)
       }
-
+      //@ts-expect-error D20Roll
+      let originalRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
       dialog.data.rollHTML = this[rollHTMLId];
       dialog.data.content = this[rollHTMLId];
       await removeEffectGranting(this.actor, button.key);
@@ -2912,6 +2912,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             flavor: `${title} ${button.value}`,
             content: `${oldRollHTML}<br>${newRollHTML}`,
             whisper: [player?.id ?? ""],
+            rolls: [originalRoll, newRoll],
+            type: CONST.CHAT_MESSAGE_TYPES.ROLL,
           };
           ChatMessage.applyRollMode(chatData, rollMode);
           chatMessage = ChatMessage.create(chatData);

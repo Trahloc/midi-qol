@@ -229,10 +229,11 @@ async function deleteToken(data: { tokenUuid: string }) {
     token.delete();
   }
 }
-export async function deleteItemEffects(data: { targets, origin: string, ignore: string[], ignoreTransfer: boolean }) {
+
+export async function deleteItemEffects(data: { targets, origin: string, ignore: string[], ignoreTransfer: boolean, options: any }) {
   debug("deleteItemEffects: started", globalThis.DAE?.actionQueue)
   let deleteFunc = async () => {
-    let { targets, origin, ignore } = data;
+    let { targets, origin, ignore, options } = data;
     for (let idData of targets) {
       let actor = idData.tokenUuid ? MQfromActorUuid(idData.tokenUuid) : idData.actorUuid ? MQfromUuid(idData.actorUuid) : undefined;
       if (actor?.actor) actor = actor.actor;
@@ -247,7 +248,8 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
       if (effectsToDelete?.length > 0) {
         try {
           // for (let ef of effectsToDelete) ef.delete();
-          await ActiveEffect.deleteDocuments(effectsToDelete.map(ef => ef.id), { parent: actor });
+          options = mergeObject(options ?? {}, { parent: actor });
+          await ActiveEffect.deleteDocuments(effectsToDelete.map(ef => ef.id), options);
           // await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id), {strict: false, invalid: false});
         } catch (err) {
           const message = `delete item effects failed for ${actor?.name} ${actor?.uuid}`;

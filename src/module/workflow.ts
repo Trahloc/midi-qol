@@ -380,6 +380,7 @@ export class Workflow {
   // TODO get rid of this - deal with return type issues
   async next(nextState: number) {
     try {
+      busyWait(0.001);
       return await this._next(nextState).catch(err => {
         const message = `Uncaught error ${err.message} in worfklow ${stateToLabel(nextState)}`
         TroubleShooter.recordError(err, message);
@@ -896,179 +897,182 @@ export class Workflow {
         items = [];
         if (this.item) items.push(this.item);
         if (this.ammo && !installedModules.get("betterrolls5e")) items.push(this.ammo);
-          for (let theItem of items) {
-            if (theItem) {
-              if (configSettings.allowUseMacro) {
-                const results: any = await this.callMacros(theItem, this.onUseMacros?.getMacros("preActiveEffects"), "OnUse", "preActiveEffects");
-                // Special check for return of {haltEffectsApplication: true} from item macro
-                if (results.some(r => r?.haltEffectsApplication))
-                  return this.next(WORKFLOWSTATES.ROLLFINISHED);
+        for (let theItem of items) {
+          if (theItem) {
+            if (configSettings.allowUseMacro) {
+              const results: any = await this.callMacros(theItem, this.onUseMacros?.getMacros("preActiveEffects"), "OnUse", "preActiveEffects");
+              // Special check for return of {haltEffectsApplication: true} from item macro
+              if (results.some(r => r?.haltEffectsApplication))
+                return this.next(WORKFLOWSTATES.ROLLFINISHED);
+            }
+          }
+          if (await asyncHooksCall("midi-qol.preApplyDynamicEffects", this) === false) return this.next(WORKFLOWSTATES.ROLLFINISHED);
+          if (theItem && await asyncHooksCall(`midi-qol.preApplyDynamicEffects.${theItem.uuid}`, this) === false) return this.next(WORKFLOWSTATES.ROLLFINISHED);
+
+          // no item, not auto effects or not module skip
+          let useCE = configSettings.autoCEEffects;
+          const midiFlags = theItem.flags["midi-qol"];
+          if (!theItem) return this.next(WORKFLOWSTATES.ROLLFINISHED);
+          if (midiFlags?.forceCEOff && ["both", "cepri", "itempri"].includes(useCE)) useCE = "none";
+          else if (midiFlags?.forceCEOn && ["none", "itempri"].includes(useCE)) useCE = "cepri";
+          const hasCE = installedModules.get("dfreds-convenient-effects")
+          //@ts-ignore
+          const ceEffect = hasCE ? game.dfreds.effects.all.find(e => e.name === theItem?.name) : undefined;
+          const ceTargetEffect = ceEffect && !(ceEffect?.flags?.dae?.selfTarget || ceEffect?.flags?.dae?.selfTargetAlways);
+          const hasItemEffect = hasDAE(this) && theItem?.effects.some(ef => ef.transfer !== true);
+          const itemSelfEffects = theItem?.effects.filter(ef => (ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) && !ef.transfer) ?? [];
+          const itemTargetEffects = theItem?.effects?.filter(ef => !ef.flags?.dae?.selfTargetAlways && !ef.flags?.dae?.selfTarget && ef.transfer !== true) ?? [];
+          const hasItemTargetEffects = hasItemEffect && itemTargetEffects.length > 0;
+          const hasItemSelfEffects = hasItemEffect && itemSelfEffects.length > 0;
+          let selfEffectsToApply = "none";
+
+          let anyActivationTrue = false;
+
+          if (!this.forceApplyEffects) {
+            this.applicationTargets = new Set();
+            if (this.saveItem.hasSave) this.applicationTargets = this.failedSaves;
+            else if (theItem.hasAttack) {
+              this.applicationTargets = this.hitTargets;
+              // TODO EC add in all EC targets that took damage
+            } else this.applicationTargets = this.targets;
+          }
+
+          const metaData = {
+            "flags": {
+              "dae": { transfer: false },
+              "midi-qol": {
+                castData: this.castData
               }
             }
-            if (await asyncHooksCall("midi-qol.preApplyDynamicEffects", this) === false) return this.next(WORKFLOWSTATES.ROLLFINISHED);
-            if (theItem && await asyncHooksCall(`midi-qol.preApplyDynamicEffects.${theItem.uuid}`, this) === false) return this.next(WORKFLOWSTATES.ROLLFINISHED);
+          };
+          const macroData = this.getMacroData();
 
-            // no item, not auto effects or not module skip
-            let useCE = configSettings.autoCEEffects;
-            const midiFlags = theItem.flags["midi-qol"];
-            if (!theItem) return this.next(WORKFLOWSTATES.ROLLFINISHED);
-            if (midiFlags?.forceCEOff && ["both", "cepri", "itempri"].includes(useCE)) useCE = "none";
-            else if (midiFlags?.forceCEOn && ["none", "itempri"].includes(useCE)) useCE = "cepri";
-            const hasCE = installedModules.get("dfreds-convenient-effects")
-            //@ts-ignore
-            const ceEffect = hasCE ? game.dfreds.effects.all.find(e => e.name === theItem?.name) : undefined;
-            const ceTargetEffect = ceEffect && !(ceEffect?.flags?.dae?.selfTarget || ceEffect?.flags?.dae?.selfTargetAlways);
-            const hasItemEffect = hasDAE(this) && theItem?.effects.some(ef => ef.transfer !== true);
-            const itemSelfEffects = theItem?.effects.filter(ef => (ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) && !ef.transfer) ?? [];
-            const itemTargetEffects = theItem?.effects?.filter(ef => !ef.flags?.dae?.selfTargetAlways && !ef.flags?.dae?.selfTarget && ef.transfer !== true) ?? [];
-            const hasItemTargetEffects = hasItemEffect && itemTargetEffects.length > 0;
-            const hasItemSelfEffects = hasItemEffect && itemSelfEffects.length > 0;
-            let selfEffectsToApply = "none";
+          if (hasItemTargetEffects || ceTargetEffect) {
+            for (let token of this.applicationTargets) {
 
-            let anyActivationTrue = false;
-
-            if (!this.forceApplyEffects) {
-              this.applicationTargets = new Set();
-              if (this.saveItem.hasSave) this.applicationTargets = this.failedSaves;
-              else if (theItem.hasAttack) {
-                this.applicationTargets = this.hitTargets;
-                // TODO EC add in all EC targets that took damage
-              } else this.applicationTargets = this.targets;
-            }
-
-            const metaData = {
-              "flags": {
-                "dae": { transfer: false },
-                "midi-qol": {
-                  castData: this.castData
-                }
-              }
-            };
-            const macroData = this.getMacroData();
-
-            if (hasItemTargetEffects || ceTargetEffect) {
-              for (let token of this.applicationTargets) {
-
-                let applyCondition = true;
-                if (getProperty(theItem, "flags.midi-qol.effectActivation"))
-                  applyCondition = evalActivationCondition(this, getProperty(theItem, "system.activation.condition") ?? "", token);
-                anyActivationTrue = anyActivationTrue || applyCondition;
-                if (applyCondition || this.forceApplyEffects) {
-                  if (hasItemTargetEffects && (!ceTargetEffect || ["none", "both", "itempri"].includes(useCE))) {
-                    let damageComponents = {};
-                    let damageListItem = this.damageList?.find(entry => entry.tokenUuid === (token.uuid ?? token.document.uuid));
-                    if (damageListItem) {
-                      for (let dde of [...(damageListItem.damageDetail[0] ?? []), ...(damageListItem.damageDetail[1] ?? [])]) {
-                        if (!dde?.damage) continue;
-                        damageComponents[dde.type] = dde.damage + (damageComponents[dde.type] ?? 0);
-                      };
-                    }
-                    await globalThis.DAE.doEffects(theItem, true, [token], {
-                      damageTotal: damageListItem?.totalDamage,
-                      critical: this.isCritical,
-                      fumble: this.isFumble,
-                      itemCardId: this.itemCardId,
-                      metaData,
-                      selfEffects: "none",
-                      spellLevel: (this.itemLevel ?? 0),
-                      toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
-                      tokenId: this.tokenId,
-                      tokenUuid: this.tokenUuid,
-                      actorUuid: this.actor.uuid,
-                      whisper: false,
-                      workflowOptions: this.workflowOptions,
-                      context: {
-                        damageComponents,
-                        damageApplied: damageListItem?.appliedDamage,
-                        damage: damageListItem?.totalDamage  // this is curently ignored see damageTotal above
-                      }
-                    })
+              let applyCondition = true;
+              if (getProperty(theItem, "flags.midi-qol.effectActivation"))
+                applyCondition = evalActivationCondition(this, getProperty(theItem, "system.activation.condition") ?? "", token);
+              anyActivationTrue = anyActivationTrue || applyCondition;
+              if (applyCondition || this.forceApplyEffects) {
+                if (hasItemTargetEffects && (!ceTargetEffect || ["none", "both", "itempri"].includes(useCE))) {
+                  let damageComponents = {};
+                  let damageListItem = this.damageList?.find(entry => entry.tokenUuid === (token.uuid ?? token.document.uuid));
+                  if (damageListItem) {
+                    for (let dde of [...(damageListItem.damageDetail[0] ?? []), ...(damageListItem.damageDetail[1] ?? [])]) {
+                      if (!dde?.damage) continue;
+                      damageComponents[dde.type] = dde.damage + (damageComponents[dde.type] ?? 0);
+                    };
                   }
+                  await globalThis.DAE.doEffects(theItem, true, [token], {
+                    damageTotal: damageListItem?.totalDamage,
+                    critical: this.isCritical,
+                    fumble: this.isFumble,
+                    itemCardId: this.itemCardId,
+                    metaData,
+                    selfEffects: "none",
+                    spellLevel: (this.itemLevel ?? 0),
+                    toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
+                    tokenId: this.tokenId,
+                    tokenUuid: this.tokenUuid,
+                    actorUuid: this.actor.uuid,
+                    whisper: false,
+                    workflowOptions: this.workflowOptions,
+                    context: {
+                      damageComponents,
+                      damageApplied: damageListItem?.appliedDamage,
+                      damage: damageListItem?.totalDamage  // this is curently ignored see damageTotal above
+                    }
+                  })
+                }
 
-                  if (ceTargetEffect && theItem && token.actor) {
-                    if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemTargetEffects)) {
-                      const targetHasEffect = token.actor.effects.find(ef => ef.name === theItem.name);
-                      if (this.item?.flags.midiProperties?.toggleEffect && targetHasEffect) {
-                        //@ts-ignore
-                        await game.dfreds.effectInterface?.toggleEffect(theItem.name, { uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
-                      } else {
-                        // Check stacking status
-                        //@ts-ignore
-                        if ((ceEffect.flags?.dae?.stackable ?? "none") === "none" && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, token.actor.uuid)) {
-                          //@ts-ignore
-                          await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
-                        }
-                        const effectData = mergeObject(ceEffect.toObject(), metaData);
-                        if (isInCombat(token.actor) && effectData.duration.seconds <= 60) {
-                          effectData.duration.rounds = effectData.duration.rounds ?? Math.ceil(effectData.duration.seconds / CONFIG.time.roundTime);
-                          delete effectData.duration.seconds;
-                        }
-                        effectData.origin = this.itemUuid;
-                        // await tempCEaddEffectWith({ effectData, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
-                        //@ts-ignore
-                        await game.dfreds.effectInterface?.addEffectWith({ effectData, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+                if (ceTargetEffect && theItem && token.actor) {
+                  if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemTargetEffects)) {
+                    const targetHasEffect = token.actor.effects.find(ef => ef.name === theItem.name);
+                    if (this.item?.flags.midiProperties?.toggleEffect && targetHasEffect) {
+                      //@ts-ignore
+                      await game.dfreds.effectInterface?.toggleEffect(theItem.name, { uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+                    } else {
+                      // Check stacking status
+                      let removeExisting = (["none", "noneName"].includes(ceEffect.flags?.dae?.stackable ?? "none"));
+                      if (this.item.flags.midiProperties?.concentration || this.item.system.components?.concentration) 
+                        removeExisting = !configSettings.concentrationAutomation; // This will be removed via concentration check
+                      //@ts-expect-error game.dfreds
+                      if (removeExisting && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, token.actor.uuid)) {
+                        //@ts-expect-error game.dfreds
+                        await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
                       }
+                      const effectData = mergeObject(ceEffect.toObject(), metaData);
+                      if (isInCombat(token.actor) && effectData.duration.seconds <= 60) {
+                        effectData.duration.rounds = effectData.duration.rounds ?? Math.ceil(effectData.duration.seconds / CONFIG.time.roundTime);
+                        delete effectData.duration.seconds;
+                      }
+                      effectData.origin = this.itemUuid;
+                      // await tempCEaddEffectWith({ effectData, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+                      //@ts-ignore
+                      await game.dfreds.effectInterface?.addEffectWith({ effectData, uuid: token.actor.uuid, origin: theItem?.uuid, metadata: macroData });
                     }
                   }
-                  if (!this.forceApplyEffects && configSettings.autoItemEffects !== "applyLeave") await this.removeEffectsButton();
                 }
+                if (!this.forceApplyEffects && configSettings.autoItemEffects !== "applyLeave") await this.removeEffectsButton();
               }
-              // Perhaps this should use this.applicationTargets
-              if (configSettings.allowUseMacro) await this.triggerTargetMacros(["postTargetEffectApplication"], this.targets);
             }
-            // anyActivaiton is true for no activation condition or true if any of the token conditions matched.
-            anyActivationTrue =
-              !getProperty(theItem, "flags.midi-qol.effectActivation")
-              || (getProperty(theItem, "system.activation.condition") !== "" ? anyActivationTrue : true);
-            let ceSelfEffectToApply = ceEffect?.flags?.dae?.selfTargetAlways ? ceEffect : undefined;
-            selfEffectsToApply = "selfEffectsAlways"; // by default on do self effect always effects
-            if (this.applicationTargets.size > 0 && anyActivationTrue) { // someone had an effect applied so we will do all self effects
-              ceSelfEffectToApply = ceEffect && ceEffect?.flags?.dae?.selfTarget;
-              selfEffectsToApply = "selfEffectsAll";
-            }
+            // Perhaps this should use this.applicationTargets
+            if (configSettings.allowUseMacro) await this.triggerTargetMacros(["postTargetEffectApplication"], this.targets);
+          }
+          // anyActivaiton is true for no activation condition or true if any of the token conditions matched.
+          anyActivationTrue =
+            !getProperty(theItem, "flags.midi-qol.effectActivation")
+            || (getProperty(theItem, "system.activation.condition") !== "" ? anyActivationTrue : true);
+          let ceSelfEffectToApply = ceEffect?.flags?.dae?.selfTargetAlways ? ceEffect : undefined;
+          selfEffectsToApply = "selfEffectsAlways"; // by default on do self effect always effects
+          if (this.applicationTargets.size > 0 && anyActivationTrue) { // someone had an effect applied so we will do all self effects
+            ceSelfEffectToApply = ceEffect && ceEffect?.flags?.dae?.selfTarget;
+            selfEffectsToApply = "selfEffectsAll";
+          }
 
-            if (selfEffectsToApply !== "none" && hasItemSelfEffects && (!ceSelfEffectToApply || ["none", "both", "itempri"].includes(useCE))) {
-              await globalThis.DAE.doEffects(theItem, true, [tokenForActor(this.actor)],
-                {
-                  toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
-                  whisper: false,
-                  spellLevel: this.itemLevel,
-                  critical: this.isCritical,
-                  fumble: this.isFumble,
-                  itemCardId: this.itemCardId,
-                  tokenId: this.tokenId,
-                  tokenUuid: this.tokenUuid,
-                  actorId: this.actor?.id,
-                  actorUuid: this.actor?.uuid,
-                  workflowOptions: this.workflowOptions,
-                  selfEffects: selfEffectsToApply,
-                  metaData,
-                  damageTotal: (this.damageTotal ?? 0) + (this.otherDamageTotal ?? 0) + (this.bonusDamageTotal ?? 0)
-                })
-            }
-            if (selfEffectsToApply !== "none" && ceSelfEffectToApply && theItem && this.actor) {
-              if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemSelfEffects)) {
-                const actorHasEffect = this.actor.effects.find(ef => ef.name === theItem.name);
-                if (this.item?.flags.midiProperties?.toggleEffect && actorHasEffect) {
-                  //@ts-ignore
-                  await game.dfreds.effectInterface?.toggleEffect(theItem.name, { uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
-                } else {
-                  // Check stacking status
+          if (selfEffectsToApply !== "none" && hasItemSelfEffects && (!ceSelfEffectToApply || ["none", "both", "itempri"].includes(useCE))) {
+            await globalThis.DAE.doEffects(theItem, true, [tokenForActor(this.actor)],
+              {
+                toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
+                whisper: false,
+                spellLevel: this.itemLevel,
+                critical: this.isCritical,
+                fumble: this.isFumble,
+                itemCardId: this.itemCardId,
+                tokenId: this.tokenId,
+                tokenUuid: this.tokenUuid,
+                actorId: this.actor?.id,
+                actorUuid: this.actor?.uuid,
+                workflowOptions: this.workflowOptions,
+                selfEffects: selfEffectsToApply,
+                metaData,
+                damageTotal: (this.damageTotal ?? 0) + (this.otherDamageTotal ?? 0) + (this.bonusDamageTotal ?? 0)
+              })
+          }
+          if (selfEffectsToApply !== "none" && ceSelfEffectToApply && theItem && this.actor) {
+            if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemSelfEffects)) {
+              const actorHasEffect = this.actor.effects.find(ef => ef.name === theItem.name);
+              if (this.item?.flags.midiProperties?.toggleEffect && actorHasEffect) {
+                //@ts-ignore
+                await game.dfreds.effectInterface?.toggleEffect(theItem.name, { uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+              } else {
+                // Check stacking status
+                //@ts-expect-error
+                if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, this.actor.uuid)) {
                   //@ts-expect-error
-                  if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, this.actor.uuid)) {
-                    //@ts-expect-error
-                    await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
-                  }
-                  const effectData = mergeObject(ceSelfEffectToApply.toObject(), metaData);
-                  effectData.origin = this.itemUuid;
-                  // await tempCEaddEffectWith({ effectData, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
-
-                  //@ts-ignore
-                  await game.dfreds.effectInterface?.addEffectWith({ effectData, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+                  await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
                 }
+                const effectData = mergeObject(ceSelfEffectToApply.toObject(), metaData);
+                effectData.origin = this.itemUuid;
+                // await tempCEaddEffectWith({ effectData, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
+
+                //@ts-ignore
+                await game.dfreds.effectInterface?.addEffectWith({ effectData, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
               }
             }
           }
+        }
         if (debugCallTiming) log(`applyActiveEffects elapsed ${Date.now() - applyDynamicEffectsStartTime}ms`)
         return this.next(WORKFLOWSTATES.ROLLFINISHED);
 
@@ -1940,24 +1944,25 @@ export class Workflow {
           macro.execute(); // use the core foundry processing for chat macros
           return {}
         }
-
       }
       if (!itemMacroData && !macro) {
-        const message = `Could not find item/macro ${name} - invalid syntax.`;
-        error(message);
+        const message = `Could not find item/macro ${name}`;
         TroubleShooter.recordError(new Error(message), message);
-        ui.notifications?.error(`midi-qol | Could not find macro ${name} does not exist`)
+        ui.notifications?.error(`midi-qol | Could not find macro ${name} does not exist`);
         return undefined;
       }
-      if (!itemMacroData.command) itemMacroData.command = itemMacroData.data.command;
-      if (!itemMacroData?.command) { // TODO check this for itemMacro v10
-        if (debugEnabled > 0) warn(`could not find item macro ${name}`);
-        return {};
+      if (itemMacroData) {
+        if (!itemMacroData.command) itemMacroData = itemMacroData.data;
+        if (!itemMacroData?.command) { 
+          if (debugEnabled > 0) warn(`could not find item macro ${name}`);
+          return {};
+        }
       }
+
       macroData.speaker = this.speaker;
       macroData.actor = actorToUse;
       if (!macro) {
-        itemMacroData = mergeObject({name: "midi generated macro", type: "script", command: ""}, itemMacroData); 
+        itemMacroData = mergeObject({ name: "midi generated macro", type: "script", command: "" }, itemMacroData);
         macro = new CONFIG.Macro.documentClass(itemMacroData);
       }
       const speaker = this.speaker;
