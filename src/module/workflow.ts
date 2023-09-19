@@ -37,7 +37,8 @@ export const WORKFLOWSTATES = {
   ALLROLLSCOMPLETE: 14,
   APPLYDYNAMICEFFECTS: 15,
   ROLLFINISHED: 16,
-  DAMAGEROLLCOMPLETECONFIRMED: 17
+  DAMAGEROLLCOMPLETECONFIRMED: 17,
+  DAMAGEROLLCOMPLETECANCELLED: 18
 };
 
 function stateToLabel(state: number) {
@@ -315,6 +316,8 @@ export class Workflow {
     let content = chatMessage && duplicate(chatMessage.content);
     const confirmRe = /<button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">[^<]*?<\/button>/;
     content = content?.replace(confirmRe, "");
+    const cancelRe = /<button class="midi-qol-confirm-damage-roll-cancel" data-action="confirm-damage-roll-cancel">[^<]*?<\/button>/;
+    content = content?.replace(cancelRe, "");
     return chatMessage.update({ content });
   }
 
@@ -1193,11 +1196,15 @@ export class Workflow {
           }
         }
 
-
         //@ts-ignore scrollBottom protected
         ui.chat?.scrollBottom();
         return undefined;
 
+      case WORKFLOWSTATES.DAMAGEROLLCOMPLETECANCELLED:
+        if (configSettings.undoWorkflow) {
+          
+        }
+      break;
       default:
         const message = `invalid state in workflow`;
         error(message);
@@ -2099,7 +2106,6 @@ export class Workflow {
           const match = content.match(attackButtonRe);
           content = content.replace(attackButtonRe, `<button data-action="attack" style="flex:3 1 0">[${this.attackRollCount}] $2</button>`);
           const confirmButtonRe = /<button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">(\[[\d ]*\])*([^<]+)<\/button>/;
-
           content = content.replace(confirmButtonRe, `<button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">[${this.attackRollCount} ${this.damageRollCount + 1}] $2</button>`);
         }
 

@@ -450,6 +450,9 @@ export let hideStuffHandler = (message, html, data) => {
     if (message.user?.id !== game.user?.id || configSettings.confirmAttackDamage === "gmOnly") {
       html.find(".midi-qol-confirm-damage-roll-complete").hide();
     }
+    if (!game.user?.isGM)
+      html.find(".midi-qol-confirm-damage-roll-cancel").hide();
+
     // hide the gm version of the name from` players
     html.find(".midi-qol-target-npc-GM").hide();
     if (message.user?.isGM) {
@@ -669,7 +672,7 @@ export async function onChatCardAction(event) {
 
   // Validate permission to proceed with the roll
   if (!(game.user?.isGM || message?.isAuthor)) return;
-  if (!["confirm-damage-roll-complete", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
+  if (!["confirm-damage-roll-complete", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
   if (!message?.user) return;
 
   //@ts-ignore speaker
@@ -696,7 +699,7 @@ export async function onChatCardAction(event) {
     switch (action) {
       case "applyEffects":
         if (!actor || !item) return;
-        if ((targets?.size ?? 0) === 0) return; 
+        if ((targets?.size ?? 0) === 0) return;
         button.disabled = false;
         if (game.user?.id !== message.user?.id) {
           if (!game.user?.isGM) {
@@ -724,12 +727,14 @@ export async function onChatCardAction(event) {
           }
         }
         break;
+      case "confirm-damage-roll-cancel":
+        await socketlibSocket.executeAsGM("undoTillWorkflow", item.uuid, true, true);
+        break;
       case "confirm-damage-roll-complete":
-        const workflow = Workflow.getWorkflow(item.uuid);
         if (message.user.id !== game.user?.id) {
           if (message.user.id) {
             const user = game.users?.get(message.user.id);
-            if (user?.active) { 
+            if (user?.active) {
               socketlibSocket.executeAsUser("confirmDamageRollComplete", message.user.id, { workflowId: item.uuid });
             } else {
               await Workflow.removeItemCardAttackDamageButtons(messageId);
@@ -737,8 +742,10 @@ export async function onChatCardAction(event) {
             }
           }
         } else {
-          if (workflow && workflow.itemCardId === message.id) await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
-          else {
+          const workflow = Workflow.getWorkflow(item.uuid);
+          if (workflow && workflow.itemCardId === message.id) {
+            await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+          } else {
             await Workflow.removeItemCardAttackDamageButtons(messageId);
             await Workflow.removeItemCardConfrimRollButton(messageId);
           }

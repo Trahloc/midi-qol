@@ -262,7 +262,7 @@ export async function removeMostRecentWorkflow() {
   return socketlibSocket.executeAsGM("removeMostRecentWorkflow")
 }
 
-export async function undoTillWorkflow(workflowId: string, undoTarget: boolean) {
+export async function undoTillWorkflow(workflowId: string, undoTarget: boolean, removeWorkflow: boolean = false) {
   if (undoDataQueue.length === 0) return false;
   if (!undoDataQueue.find(ue => ue.id === workflowId)) return false;
   const queueLength = undoDataQueue.length;
@@ -271,6 +271,7 @@ export async function undoTillWorkflow(workflowId: string, undoTarget: boolean) 
       undoWorkflow(undoDataQueue.shift());
     }
     if (undoTarget) undoWorkflow(undoDataQueue[0]);
+    if (undoDataQueue.length > 0 && removeWorkflow) undoDataQueue.shift();
   } finally {
     if (queueLength !== undoDataQueue.length) Hooks.callAll("midi-qol.removeUndoEntry");
   }

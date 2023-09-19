@@ -115,8 +115,13 @@
     </div>
     {{/if}}
     {{#if confirmAttackDamage}}
+    <div class="midi-qol-confirm-damage-roll">
     <button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">{{localize "midi-qol.ConfirmRoll"}}</button>
+    {{#if canCancel}}
+    <button class="midi-qol-confirm-damage-roll-cancel" data-action="confirm-damage-roll-cancel">{{localize "Cancel"}}</button>
     {{/if}}
+    </div>
+  {{/if}}
   </div>
 
   <footer class="card-footer">

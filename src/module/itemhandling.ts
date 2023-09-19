@@ -28,7 +28,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (((configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true) && options.workflowOptions?.attackPerTarget !== false)
       && this.hasAttack
       // && ["rwak", "mwak"].includes(this.system.actionType)
-      && options.createMessage // if no message created can't do more than one roll since it will all get lost
+      && options.createMessage !== false // if no message created can't do more than one roll since it will all get lost
       && options?.singleTarget !== true
       && game?.user?.targets
       && !game.settings.get("midi-qol", "itemUseHooks")) {
@@ -153,7 +153,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const checkReactionAOO = configSettings.recordAOO === "all" || (configSettings.recordAOO === this.actor.type)
 
     let itemUsesReaction = false;
-    const hasReaction = await hasUsedReaction(this.actor);
+    const hasReaction = hasUsedReaction(this.actor);
 
     if (!options.workflowOptions.notReaction && ["reaction", "reactiondamage", "reactionmanual", "reactionpreattack"].includes(this.system.activation?.type) && this.system.activation?.cost > 0) {
       itemUsesReaction = true;
@@ -276,7 +276,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (!shouldRoll) return null; // user aborted roll TODO should the workflow be deleted?
     }
 
-    const hasBonusAction = await hasUsedBonusAction(this.actor);
+    const hasBonusAction = hasUsedBonusAction(this.actor);
     const itemUsesBonusAction = ["bonus"].includes(this.system.activation?.type);
     const blockBonus = workflow.inCombat && itemUsesBonusAction && hasBonusAction && needsBonusActionCheck(this.actor);
     if (blockBonus) {
@@ -383,7 +383,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     if (needsConcentration && checkConcentration) {
       const concentrationEffect = getConcentrationEffect(this.actor);
-      if (concentrationEffect) await removeConcentration(this.actor, concentrationEffect.uuid, {});
+      if (concentrationEffect) await removeConcentration(this.actor, concentrationEffect.uuid, {concentrationEffectsDeleted: false, concentrationDeleted: false, templatesDeleted: false});
     }
     if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
     if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);
@@ -1027,7 +1027,8 @@ export async function wrappedDisplayCard(wrapped, options) {
       SavingThrow: i18n(`${systemString}.SavingThrow`),
       OtherFormula: i18n(`${systemString}.OtherFormula`),
       PlaceTemplate: i18n(`${systemString}.PlaceTemplate`),
-      Use: i18n(`${systemString}.Use`)
+      Use: i18n(`${systemString}.Use`),
+      canCancel: configSettings.undoWorkflow && false // TODO enable this when more testing done.
     }
 
     const templateType = ["tool"].includes(this.type) ? this.type : "item";

@@ -1,7 +1,7 @@
-import { log, debug, i18n, error, i18nFormat } from "../midi-qol.js";
+import { log, debug, i18n, error, i18nFormat, warn, debugEnabled } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getCriticalDamage, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
+import { bonusDialog, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getConcentrationEffect, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getCriticalDamage, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -965,26 +965,117 @@ export function _getInitiativeFormula(wrapped) {
   return parts.filter(p => p !== null).join(" + ");
 };
 
+export function getItemEffectsToDelete(args: { actor: Actor, origin: string, ignore: string[], ignoreTransfer: boolean, options: any }): string[] {
+  warn("getItemEffectsToDelete: started", globalThis.DAE?.actionQueue);
+  let effectsToDelete;
+  let { actor, origin, ignore, ignoreTransfer, options } = args;
+  try {
+    if (!actor) {
+      return [];
+    }
+    effectsToDelete = actor?.effects?.filter(ef => {
+      //@ts-expect-error .origin .flags
+      return ef.origin === origin
+        && !ignore.includes(ef.uuid)
+        //@ts-expect-error .flags
+        && (!ignoreTransfer || ef.flags?.dae?.transfer !== true)
+    }).map(ef => ef.id);
+    warn("getItemEffectsToDelete: effectsToDelete ", actor.name, effectsToDelete, options);
+    return effectsToDelete;
+  } catch (err) {
+    const message = `getItemEffectsToDelete item effects failed for ${actor.name} ${origin} ${effectsToDelete}`;
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
+    return [];
+  }
+}
 export async function removeConcentration(actor: Actor, concentrationUuid: string, options: any) {
+  let result;
+  try {
+    if (debugEnabled > 0) warn("removeConcentration | ", actor?.name, concentrationUuid, options)
+    const concentrationData: any = actor.getFlag("midi-qol", "concentration-data");
+    if (!concentrationData) return;
+    const promises: any = [];
+    promises.push(actor.unsetFlag("midi-qol", "concentration-data"));
+    if (!options.concentrationTemplatesDeleted && concentrationData.templates) {
+      for (let templateUuid of concentrationData.templates) {
+        //@ts-expect-error fromUuidSync
+        const template = fromUuidSync(templateUuid);
+        if (template) promises.push(template.delete());
+      }
+    }
+
+    if (concentrationData.removeUuids?.length > 0 && !options.concentrationItemsDeleted) {
+      for (let removeUuid of concentrationData.removeUuids) {
+        //@ts-expect-error fromUuidSync
+        const entity = fromUuidSync(removeUuid);
+        if (entity) promises.push(entity.delete())
+      };
+    }
+    if (concentrationData.targets && !options.concentrationEffectsDeleted) {
+      debug("About to remove concentration effects", actor?.name);
+      options.noConcentrationCheck = true;
+      for (let target of concentrationData.targets) {
+        const targetActor = MQfromActorUuid(target.actorUuid);
+        if (targetActor) {
+          const effectsToDelete = getItemEffectsToDelete({ actor: targetActor, origin: concentrationData.uuid, ignore: [concentrationUuid], ignoreTransfer: true, options });
+          if (effectsToDelete?.length > 0) {
+            const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
+            promises.push(socketlibSocket.executeAsGM("deleteEffects", {
+              actorUuid: target.actorUuid, effectsToDelete,
+              options: mergeObject(deleteOptions, { concentrationEffectsDeleted: true, concentrationDeleted: false })
+            }));
+          }
+        }
+      }
+    }
+    if (!options.concentrationDeleted) {
+      const concentrationEffect = getConcentrationEffect(actor);
+      if (debugEnabled > 0) warn("removeConcentration | removing concentration effect", actor.name, concentrationEffect?.id, options)
+      if (concentrationEffect?.id && options.concentrationEffectsDeleted)
+        promises.push(actor?.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id],
+          mergeObject(options, { concentrationDeleted: true, concentrationEffectsDeleted: true })));
+    }
+    return Promise.allSettled(promises);
+  } catch (err) {
+    const message = `error when attempting to remove concentration for ${actor?.name}`;
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
+  } finally {
+
+    return undefined;
+    // return await concentrationEffect?.delete();
+  }
+}
+
+export async function removeConcentrationOld(actor: Actor, concentrationUuid: string, options: any) {
   let result;
   try {
     const concentrationData: any = actor.getFlag("midi-qol", "concentration-data");
     if (!concentrationData) return;
     await actor.unsetFlag("midi-qol", "concentration-data");
-    if (concentrationData.templates) {
-      for (let templateUuid of concentrationData.templates) {
-        const template = await fromUuid(templateUuid);
-        if (template) await template.delete();
+    if (!options.templatesDeleted) {
+      if (concentrationData.templates) {
+        for (let templateUuid of concentrationData.templates) {
+          const template = await fromUuid(templateUuid);
+          if (template) await template.delete();
+        }
       }
     }
-    if (concentrationData.removeUuids) for (let removeUuid of concentrationData.removeUuids) {
-      const entity = await fromUuid(removeUuid);
-      await entity?.delete();
+
+    if (concentrationData.removeUuids?.length > 0) {
+      for (let removeUuid of concentrationData.removeUuids) {
+        //@ts-expect-error fromUuidSync
+        const entity = fromUuidSync(removeUuid);
+        await entity?.delete();
+      };
     }
-    if (concentrationData.targets) {
+    if (concentrationData.targets && !options.concentrationEffectsDeleted) {
       debug("About to remove concentration effects", actor?.name);
       options.noConcentrationCheck = true;
-      result = await socketlibSocket.executeAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true, options});
+      options.concentrationDeleted = true;
+      options.concentrationEffectsDeleted = true;
+      result = await socketlibSocket.executeAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true, options });
       debug("finsihed remove concentration effects", actor?.name)
     }
   } catch (err) {
@@ -992,10 +1083,17 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
     console.warn(message, err);
     TroubleShooter.recordError(err, message);
   } finally {
-    //@ts-expect-error fromUuidSync
-    const concentrationEffect = fromUuidSync(concentrationUuid);
-    options.noConcentrationCheck = true;
-    return await concentrationEffect?.parent.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id], options);
+    if (!options.concentrationDeleted) {
+      const concentrationEffect = getConcentrationEffect(actor);
+      try {
+        options.concentrationEffectsDeleted = true;
+        options.concenterationDeleted = true;
+        if (concentrationEffect?.id)
+          return await actor?.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id], options);
+      } catch (err) {
+      }
+    }
+    return undefined;
     // return await concentrationEffect?.delete();
   }
 }
@@ -1142,7 +1240,7 @@ export let visionPatching = () => {
 
 export function configureDamageRollDialog() {
   try {
-  libWrapper.unregister("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", false);
+    libWrapper.unregister("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", false);
     if (configSettings.promptDamageRoll) libWrapper.register("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", CustomizeDamageFormula.configureDialog, "MIXED");
   } catch (err) {
     const message = `midi-qol | error when registering configureDamageRollDialog`;
@@ -1181,7 +1279,8 @@ export async function preDeleteTemplate(templateDocument, options, user) {
       && concentrationData.removeUuids.length === 0 // no remove uuids left
       && ["effectsTemplates"].includes(configSettings.removeConcentrationEffects)
     ) {
-      await removeConcentration(actor, "no ignore", {});
+      options.templatesDeleted = true;
+      await removeConcentration(actor, "no ignore", mergeObject(options, { concentrationTemplatesDeleted: true }));
     } else if (concentrationData.templates.length >= 1) {
       // update the concentration templates
       concentrationData.templates = concentrationTemplates;
@@ -1347,9 +1446,9 @@ export async function _preDeleteCombat(wrapped, ...args) {
   try {
     for (let combatant of this.combatants) {
       if (combatant.actor) {
-        if (await hasUsedReaction(combatant.actor)) await removeReactionUsed(combatant.actor, true);
-        if (await hasUsedBonusAction(combatant.actor)) await removeBonusActionUsed(combatant.actor, true);
-        if (await hasUsedAction(combatant.actor)) await removeActionUsed(combatant.actor);
+        if (hasUsedReaction(combatant.actor)) await removeReactionUsed(combatant.actor, true);
+        if (hasUsedBonusAction(combatant.actor)) await removeBonusActionUsed(combatant.actor, true);
+        if (hasUsedAction(combatant.actor)) await removeActionUsed(combatant.actor);
       }
     }
   } catch (err) {

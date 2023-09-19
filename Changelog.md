@@ -1,3 +1,7 @@
+## 11.0.19
+* Reworking of concentration removal - I think this is better and less prone to erros being thrown.
+* Confrim button is only active after damage has been rolled or attack misses - will do nothing until then.
+
 ## 11.0.18
 * Fix for not being able to call world macros in onUseMacros
 * Fix for issue when using midi-qol in babele enabled games.

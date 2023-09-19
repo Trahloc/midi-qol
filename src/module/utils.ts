@@ -1119,6 +1119,8 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
 export function midiCustomEffect(actor, change) {
   if (typeof change?.key !== "string") return true;
   if (!change.key?.startsWith("flags.midi-qol")) return true;
+  if (!change.key || change.key.startsWith("flags.midi-qol.move")) 
+    debugger;
   const deferredEvaluation = [
     "flags.midi-qol.OverTime",
     "flags.midi-qol.optional",
@@ -1479,9 +1481,9 @@ export async function _processOverTime(combat, data, options, user) {
 
     // Remove reaction used status from each combatant
     if (actor && toTest !== prev) {
-      if (await hasUsedReaction(actor)) await removeReactionUsed(actor);
-      if (await hasUsedBonusAction(actor)) await removeBonusActionUsed(actor);
-      if (await hasUsedAction(actor)) await removeActionUsed(actor);
+      if (hasUsedReaction(actor)) await removeReactionUsed(actor);
+      if (hasUsedBonusAction(actor)) await removeBonusActionUsed(actor);
+      if (hasUsedAction(actor)) await removeActionUsed(actor);
     }
 
     // Remove any per turn optional bonus effects
@@ -2002,7 +2004,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
 
   const successToken = possibleAttackers.find(attacker => checkRangeFunction(itemIn, attacker, targetsIn).result === "normal");
   if (successToken) return { result: "normal", attackingToken: successToken };
-  const disToken = possibleAttackers.find(attacker => checkRangeFunction(itemIn, attacker, targetsIn).result === "dis");
+  // TODO come back and fix this: const disToken = possibleAttackers.find(attacker => checkRangeFunction(itemIn, attacker, targetsIn).result === "dis");
   return { result: "fail", attackingToken };
 }
 
@@ -3164,7 +3166,7 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
     }
 
     // TODO if hasUsedReactions only allow 0 activation cost reactions
-    const usedReaction = await hasUsedReaction(target.actor);
+    const usedReaction = hasUsedReaction(target.actor);
     // if (usedReaction && needsReactionCheck(target.actor)) return noResult;
     let player = playerFor(getTokenDocument(target));
     if (getReactionSetting(player) === "none") return noResult;
@@ -3318,7 +3320,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
     const actor: Actor | null = target.actor;
     let player = playerFor(getTokenDocument(target));
     if (!actor) return;
-    const usedReaction = await hasUsedReaction(actor);
+    const usedReaction = hasUsedReaction(actor);
     // if ( usedReaction && needsReactionCheck(actor)) return false;
     const midiFlags: any = getProperty(actor, "flags.midi-qol");
     let result;
@@ -3872,14 +3874,14 @@ export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
   return actor?.setFlag("midi-qol", "actions.reaction", false);
 }
 
-export async function hasUsedAction(actor: Actor) {
+export function hasUsedAction(actor: Actor) {
   return actor?.getFlag("midi-qol", "actions.action")
 }
 
-export async function hasUsedReaction(actor: Actor) {
+export function hasUsedReaction(actor: Actor) {
   if (getConvenientEffectsReaction()) {
     //@ts-expect-error .dfreds
-    if (await game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsReaction().name, actor.uuid)) {
+    if (game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsReaction().name, actor.uuid)) {
       return true;
     }
   }
@@ -3910,10 +3912,10 @@ export async function gmExpirePerTurnBonusActions(data: { combatUuid: string }) 
   }
 }
 
-export async function hasUsedBonusAction(actor: Actor) {
+export function hasUsedBonusAction(actor: Actor) {
   if (getConvenientEffectsBonusAction()) {
     //@ts-ignore
-    if (await game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsBonusAction().name, actor.uuid)) {
+    if (game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsBonusAction().name, actor.uuid)) {
       return true;
     }
   }

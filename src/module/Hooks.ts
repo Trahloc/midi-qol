@@ -17,7 +17,7 @@ export var midiFlagTypes: {} = {};
 
 export let readyHooks = async () => {
   // need to record the damage done since it is not available in the update actor hook
-  Hooks.on("preUpdateActor", (actor, update, options, user) => {
+  Hooks.on("preUpdateActor", (actor, update: any, options: any, user: string) => {
     const hpUpdate = getProperty(update, "system.attributes.hp.value");
     const temphpUpdate = getProperty(update, "system.attributes.hp.temp");
     let concHPDiff = 0;
@@ -109,68 +109,78 @@ export let readyHooks = async () => {
   Hooks.on("deleteActiveEffect", (...args) => {
     let [deletedEffect, options, user] = args;
     const checkConcentration = globalThis.MidiQOL?.configSettings()?.concentrationAutomation;
-    debug("Deleted effects is ", deletedEffect, options);
+    if (debugEnabled > 0) warn("Deleted effects is ", deletedEffect, options);
 
     if (!checkConcentration || options.noConcentrationCheck) return;
 
     //@ts-expect-error activeGM
-    if ( !game.users?.activeGM?.isSelf ) return;
+    if (!game.users?.activeGM?.isSelf) return;
     if (!(deletedEffect.parent instanceof CONFIG.Actor.documentClass)) return;
-
+    if (debugEnabled > 0) warn("deleteActiveEffectHook", deletedEffect, deletedEffect.parent.name, options);
     const concentrationLabel: any = getConcentrationLabel();
     let isConcentration = deletedEffect.name === concentrationLabel;
     async function changefunc() {
-      const origin = await fromUuid(deletedEffect.origin);
-      if (isConcentration) {
-        return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, options);
-      } 
-      if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
-        const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
-        if (concentrationData && deletedEffect.origin === concentrationData.uuid) {
+      try {
+        const origin = await fromUuid(deletedEffect.origin);
+        if (isConcentration) {
+          options.concentrationEffectsDelete = false;
+          options.concentrationDeleted = true;
+          return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, {concentrationDeleted: true}));
+        }
+        if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
+          const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
+          if (concentrationData && deletedEffect.origin === concentrationData.uuid) {
 
-          const allConcentrationTargets = concentrationData.targets.filter(target => {
-            let actor = MQfromActorUuid(target.actorUuid);
-            const hasEffects = actor?.effects.some(effect =>
-              effect.origin === concentrationData.uuid
-              && !effect.flags.dae.transfer
-              && effect.uuid !== deletedEffect.uuid);
-            return hasEffects;
-          });
-          const concentrationTargets = concentrationData.targets.filter(target => {
-            let actor = MQfromActorUuid(target.actorUuid);
-            const hasEffects = actor?.effects.some(effect =>
-              effect.origin === concentrationData.uuid
-              && !effect.flags.dae.transfer
-              && effect.uuid !== deletedEffect.uuid
-              && effect.name !== concentrationLabel);
-            return hasEffects;
-          });
-          if (!options.noConcentrationCheck
-            && ["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
-            && concentrationTargets.length < 1
-            && concentrationTargets.length < concentrationData.targets.length
-            && concentrationData.templates.length === 0
-            && concentrationData.removeUuids.length === 0) {
-            // non concentration effects left
-            await removeConcentration(origin.parent, deletedEffect.uuid, {});
-          } else if (concentrationData.targets.length !== allConcentrationTargets.length) {
-            // update the concentration data
-            concentrationData.targets = allConcentrationTargets;
-            await origin.parent.setFlag("midi-qol", "concentration-data", concentrationData);
+            const allConcentrationTargets = concentrationData.targets.filter(target => {
+              let actor = MQfromActorUuid(target.actorUuid);
+              const hasEffects = actor?.effects.some(effect =>
+                effect.origin === concentrationData.uuid
+                && !effect.flags.dae.transfer
+                && effect.uuid !== deletedEffect.uuid);
+              return hasEffects;
+            });
+            const concentrationTargets = concentrationData.targets.filter(target => {
+              let actor = MQfromActorUuid(target.actorUuid);
+              const hasEffects = actor?.effects.some(effect =>
+                effect.origin === concentrationData.uuid
+                && !effect.flags.dae.transfer
+                && effect.uuid !== deletedEffect.uuid
+                && effect.name !== concentrationLabel);
+              return hasEffects;
+            });
+            if (!options.noConcentrationCheck
+              && ["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
+              && concentrationTargets.length < 1
+              && concentrationTargets.length < concentrationData.targets.length
+              && concentrationData.templates.length === 0
+              && concentrationData.removeUuids.length === 0) {
+              // only non concentration effects left
+              await removeConcentration(origin.parent, deletedEffect.uuid, mergeObject(options, { concentrationEffectsDeleted: true, concentrationDeleted: false }));
+            } else if (concentrationData.targets.length !== allConcentrationTargets.length) {
+              // update the concentration data
+              concentrationData.targets = allConcentrationTargets;
+              await origin.parent.setFlag("midi-qol", "concentration-data", concentrationData);
+            }
           }
         }
-      }
-      if (getConvenientEffectsReaction() && deletedEffect.name === getConvenientEffectsReaction()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
-        await deletedEffect.parent?.unsetFlag("midi-qol", "actions.reactionCombatRound");
-        await deletedEffect.parent?.setFlag("midi-qol", "actions.reaction", false);
-      }
-      if (getConvenientEffectsBonusAction() && deletedEffect.name === getConvenientEffectsBonusAction()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
-        await deletedEffect.parent.setFlag("midi-qol", "actions.bonus", false);
-        await deletedEffect.parent.unsetFlag("midi-qol", "actions.bonusActionCombatRound");
+        if (getConvenientEffectsReaction() && deletedEffect.name === getConvenientEffectsReaction()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
+          // TODO see if this can massaged into a single transaction
+          await deletedEffect.parent?.unsetFlag("midi-qol", "actions.reactionCombatRound");
+          await deletedEffect.parent?.setFlag("midi-qol", "actions.reaction", false);
+        }
+        if (getConvenientEffectsBonusAction() && deletedEffect.name === getConvenientEffectsBonusAction()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
+          // TODO see if this can massaged into a single transaction
+          await deletedEffect.parent.setFlag("midi-qol", "actions.bonus", false);
+          await deletedEffect.parent.unsetFlag("midi-qol", "actions.bonusActionCombatRound");
+        }
+        return true;
+      } catch (err) {
+        console.warn("Error in deleteActiveEffect", err, deletedEffect, options);
+        return true;
       }
     }
     // if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(changefunc);
-    changefunc();
+    return changefunc();
   })
 
   // Hooks.on("restCompleted", restManager); I think this means 1.6 is required.

@@ -6,6 +6,7 @@ import { Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
 import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _removeMostRecentWorkflow, _undoMostRecentWorkflow, undoTillWorkflow, _queueUndoDataDirect, updateUndoChatCardUuidsById } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { busyWait } from "./tests/setupTest.js";
 
 export var socketlibSocket: any = undefined;
 var traitList = { di: {}, dr: {}, dv: {} };
@@ -25,6 +26,8 @@ export let setupSocket = () => {
   socketlibSocket.register("addConvenientEffect", addConvenientEffect);
   socketlibSocket.register("deleteItemEffects", deleteItemEffects);
   socketlibSocket.register("createActor", createActor);
+  socketlibSocket.register("deleteEffects", deleteEffects);
+
   socketlibSocket.register("deleteToken", deleteToken);
   socketlibSocket.register("ddbglPendingFired", ddbglPendingFired);
   socketlibSocket.register("completeItemUse", _completeItemUse);
@@ -50,7 +53,8 @@ export let setupSocket = () => {
 
 async function confirmDamageRollComplete(data: { workflowId: string }) {
   const workflow = Workflow.getWorkflow(data.workflowId);
-  if (!workflow) return;
+  if (!workflow) return undefined;
+  if (workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) return false;
   return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
 }
 function paranoidCheck(action: string, actor: any, data: any): boolean {
@@ -230,40 +234,67 @@ async function deleteToken(data: { tokenUuid: string }) {
   }
 }
 
+export async function deleteEffects(data: {actorUuid: string, effectsToDelete: string[], options: any}) {
+  const actor = MQfromActorUuid(data.actorUuid);
+  if (!actor) return;
+  // Check that none of the effects were deleted while we were waiting to execute
+  const finalEffectsToDelete = actor.effects.filter(ef => data.effectsToDelete.includes(ef.id)).map(ef => ef.id);
+  try {
+    if (debugEnabled > 0) warn("_deleteEffects ", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
+    return await actor.deleteEmbeddedDocuments("ActiveEffect", finalEffectsToDelete, data.options);
+  } catch(err) {
+    const message = `deleteEffects | remote delete effects error`;
+    console.warn(message, err);
+    TroubleShooter.recordError(err, message);
+    return [];
+  }
+}
 export async function deleteItemEffects(data: { targets, origin: string, ignore: string[], ignoreTransfer: boolean, options: any }) {
   debug("deleteItemEffects: started", globalThis.DAE?.actionQueue)
   let deleteFunc = async () => {
-    let { targets, origin, ignore, options } = data;
-    for (let idData of targets) {
-      let actor = idData.tokenUuid ? MQfromActorUuid(idData.tokenUuid) : idData.actorUuid ? MQfromUuid(idData.actorUuid) : undefined;
-      if (actor?.actor) actor = actor.actor;
-      if (!actor) {
-        warn("could not find actor for ", idData.tokenUuid);
-        continue;
+    let effectsToDelete;
+    try {
+      let { targets, origin, ignore, options } = data;
+      for (let idData of targets) {
+        let actor = idData.tokenUuid ? MQfromActorUuid(idData.tokenUuid) : idData.actorUuid ? MQfromUuid(idData.actorUuid) : undefined;
+        if (actor?.actor) actor = actor.actor;
+        if (!actor) {
+          warn("could not find actor for ", idData.tokenUuid);
+          continue;
+        }
+        effectsToDelete = actor?.effects?.filter(ef => {
+          return ef.origin === origin && !ignore.includes(ef.uuid) && (!data.ignoreTransfer || ef.flags?.dae?.transfer !== true)
+        });
+        debug("deleteItemEffects: effectsToDelete ", actor.name, effectsToDelete, options)
+        if (effectsToDelete?.length > 0) {
+          try {
+            // for (let ef of effectsToDelete) ef.delete();
+            options = mergeObject(options ?? {}, { parent: actor, concentrationEffectsDeleted: true, concentrationDeleted: true});
+            if (debugEnabled > 0) warn("deleteItemEffects ", actor.name, effectsToDelete, options);
+            await ActiveEffect.deleteDocuments(effectsToDelete.map(ef => ef.id), options);
+            // await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id), {strict: false, invalid: false});
+          } catch (err) {
+            const message = `delete item effects failed for ${actor?.name} ${actor?.uuid}`;
+            console.warn(message, err);
+            TroubleShooter.recordError(err, message);
+          };
+        }
+        debug("deleteItemEffects: completed", actor.name)
       }
-      const effectsToDelete = actor?.effects?.filter(ef => {
-        return ef.origin === origin && !ignore.includes(ef.uuid) && (!data.ignoreTransfer || ef.flags?.dae?.transfer !== true)
-      });
-      debug("deleteItemEffects: effectsToDelete ", actor.name, effectsToDelete)
-      if (effectsToDelete?.length > 0) {
-        try {
-          // for (let ef of effectsToDelete) ef.delete();
-          options = mergeObject(options ?? {}, { parent: actor });
-          await ActiveEffect.deleteDocuments(effectsToDelete.map(ef => ef.id), options);
-          // await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id), {strict: false, invalid: false});
-        } catch (err) {
-          const message = `delete item effects failed for ${actor?.name} ${actor?.uuid}`;
-          console.warn(message, err);
-          TroubleShooter.recordError(err, message);
-        };
-      }
-      debug("deleteItemEffects: completed", actor.name)
+      if (globalThis.Sequencer) await globalThis.Sequencer.EffectManager.endEffects({ origin })
+    } catch (err) {
+      const message = `delete item effects failed for ${data?.origin} ${effectsToDelete}`;
+      console.warn(message, err);
+      TroubleShooter.recordError(err, message);
     }
-    if (globalThis.Sequencer) await globalThis.Sequencer.EffectManager.endEffects({ origin })
   }
-  if (globalThis.DAE?.actionQueue) return globalThis.DAE.actionQueue.add(deleteFunc)
-  else return deleteFunc();
+  /*
+  if (globalThis.DAE?.actionQueue) return await globalThis.DAE.actionQueue.add(deleteFunc)
+  else return await deleteFunc();
+*/
+  return await deleteFunc();
 }
+
 
 async function addConvenientEffect(options) {
   let { effectName, actorUuid, origin } = options;
@@ -312,7 +343,6 @@ export async function rollAbility(data: { request: string; targetUuid: string; a
     let result;
     if (configSettings.playerSaveTimeout > 0) timeoutId = setTimeout(async () => {
       warn(`Roll request for {actor.name}timed out. Doing roll`);
-      console.warn("Roll request timed out. Doing roll", data.options);
       data.options.fastForward = true; // assume player is asleep force roll without dialog
       data.options.chatMessage = requestedChatMessage;
       if (data.request === "save") result = await actor.rollAbilitySave(data.ability, data.options)
