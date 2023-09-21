@@ -222,6 +222,7 @@ export class TroubleShooter extends FormApplication {
               await exportSettingsToJSON(); // Just a safety net saving of the settings
               const settingsJSON = TroubleShooter.data.midiSettings;
               importSettingsFromJSON(settingsJSON);
+              Hooks.callAll("midi-qol.configSettingsChanged");
               resolve(true);
             }
           },

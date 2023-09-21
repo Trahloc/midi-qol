@@ -65,7 +65,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (!enableWorkflow || createWorkflow === false) {
       return await wrapped(config, options);
     }
-    if (!options.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor, this, null)) {
+    if (!options.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor)) {
       ui.notifications?.warn(`${this.actor.name} is incapacitated`)
       return null;
     }
@@ -976,10 +976,11 @@ export async function wrappedDisplayCard(wrapped, options) {
     const systemString = game.system.id.toUpperCase();
     let token = tokenForActor(this.actor);
 
-    let needAttackButton = !getRemoveAttackButtons() || configSettings.mergeCardMulti ||
+    let needAttackButton = !getRemoveAttackButtons() || configSettings.mergeCardMulti || configSettings.confirmAttackDamage !== "none" ||
       (!workflow.someAutoRollEventKeySet() && !getAutoRollAttack(workflow) && !workflow.rollOptions.autoRollAttack);
     const needDamagebutton = itemHasDamage(this) && (
       (["none", "saveOnly"].includes(getAutoRollDamage(workflow)) || workflow.rollOptions?.rollToggle)
+      || configSettings.confirmAttackDamage !== "none"
       || !getRemoveDamageButtons()
       || systemCard
       || configSettings.mergeCardMulti);
@@ -1004,7 +1005,7 @@ export async function wrappedDisplayCard(wrapped, options) {
       data: await getChatData.bind(this)(),
       labels: this.labels,
       condensed: this.hasAttack && configSettings.mergeCardCondensed,
-      hasAttack: !minimalCard && this.hasAttack && (systemCard || needAttackButton),
+      hasAttack: !minimalCard && this.hasAttack && (systemCard || needAttackButton && configSettings.confirmAttackDamage !== "none"),
       isHealing: !minimalCard && this.isHealing && (systemCard || configSettings.autoRollDamage !== "always"),
       hasDamage: needDamagebutton,
       isVersatile: needVersatileButton,
@@ -1028,7 +1029,7 @@ export async function wrappedDisplayCard(wrapped, options) {
       OtherFormula: i18n(`${systemString}.OtherFormula`),
       PlaceTemplate: i18n(`${systemString}.PlaceTemplate`),
       Use: i18n(`${systemString}.Use`),
-      canCancel: configSettings.undoWorkflow && false // TODO enable this when more testing done.
+      canCancel: configSettings.undoWorkflow // TODO enable this when more testing done.
     }
 
     const templateType = ["tool"].includes(this.type) ? this.type : "item";

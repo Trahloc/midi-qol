@@ -789,6 +789,8 @@
     "gmOnly": "Only GM can confirm",
     "GMPlayer": "GM and Player can confirm"
   },
-  "midi-qol.ConfirmRoll": "Confirm Roll"
+  "midi-qol.ConfirmRoll": "Confirm",
+  "midi-qol.ConfirmMiss": "Confirm Miss",
+  "midi-qol.ConfirmHit": "Confirm Hit"
 
 }

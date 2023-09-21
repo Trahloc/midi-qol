@@ -448,8 +448,11 @@ export let hideStuffHandler = (message, html, data) => {
       }
     }
     if (message.user?.id !== game.user?.id || configSettings.confirmAttackDamage === "gmOnly") {
-      html.find(".midi-qol-confirm-damage-roll-complete").hide();
+      html.find(".midi-qol-confirm-damage-roll-complete-hit").hide();
+      html.find(".midi-qol-confirm-damage-roll-complete-miss").hide();
+      html.find(".midi-qol-confirm-damage-roll-complete-critical").hide();
     }
+
     if (!game.user?.isGM)
       html.find(".midi-qol-confirm-damage-roll-cancel").hide();
 
@@ -672,7 +675,7 @@ export async function onChatCardAction(event) {
 
   // Validate permission to proceed with the roll
   if (!(game.user?.isGM || message?.isAuthor)) return;
-  if (!["confirm-damage-roll-complete", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
+  if (!["confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
   if (!message?.user) return;
 
   //@ts-ignore speaker
@@ -731,20 +734,20 @@ export async function onChatCardAction(event) {
         await socketlibSocket.executeAsGM("undoTillWorkflow", item.uuid, true, true);
         break;
       case "confirm-damage-roll-complete":
-        if (message.user.id !== game.user?.id) {
-          if (message.user.id) {
-            const user = game.users?.get(message.user.id);
-            if (user?.active) {
-              socketlibSocket.executeAsUser("confirmDamageRollComplete", message.user.id, { workflowId: item.uuid });
-            } else {
-              await Workflow.removeItemCardAttackDamageButtons(messageId);
-              await Workflow.removeItemCardConfrimRollButton(messageId);
-            }
+      case "confirm-damage-roll-complete-hit":
+      case "confirm-damage-roll-complete-miss":
+        if (message.user.id) {
+          if (!game.user?.isGM && configSettings.confirmAttackDamage === "gmOnly") {
+            return;
           }
-        } else {
-          const workflow = Workflow.getWorkflow(item.uuid);
-          if (workflow && workflow.itemCardId === message.id) {
-            await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+          const user = game.users?.get(message.user.id);
+          if (user?.active) {
+            let actionToCall = {
+              "confirm-damage-roll-complete": "confirmDamageRollComplete",
+              "confirm-damage-roll-complete-hit": "confirmDamageRollCompleteHit",
+              "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss"
+            }[action];
+            socketlibSocket.executeAsUser(actionToCall, message.user.id, { workflowId: item.uuid, itemCardId: message.id });
           } else {
             await Workflow.removeItemCardAttackDamageButtons(messageId);
             await Workflow.removeItemCardConfrimRollButton(messageId);

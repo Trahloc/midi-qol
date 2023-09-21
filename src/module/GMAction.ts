@@ -48,15 +48,74 @@ export let setupSocket = () => {
   socketlibSocket.register("moveToken", _moveToken);
   socketlibSocket.register("moveTokenAwayFromPoint", _moveTokenAwayFromPoint);
   socketlibSocket.register("confirmDamageRollComplete", confirmDamageRollComplete);
+  socketlibSocket.register("confirmDamageRollCompleteHit", confirmDamageRollCompleteHit);
+  socketlibSocket.register("confirmDamageRollCompleteMiss", confirmDamageRollCompleteMiss);
+
   // socketlibSocket.register("canSense", _canSense);
 }
 
-async function confirmDamageRollComplete(data: { workflowId: string }) {
+async function confirmDamageRollComplete(data: { workflowId: string, itemCardId: string }) {
   const workflow = Workflow.getWorkflow(data.workflowId);
-  if (!workflow) return undefined;
-  if (workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) return false;
+  if (!workflow || workflow.itemCardId !== data.itemCardId) {
+    await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
+    await Workflow.removeItemCardConfrimRollButton(data.itemCardId);
+    return undefined;
+  }
+  if (workflow.hitTargets.size > 0 && workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) return false;
+  if (workflow.hitTargets.size > 0 && !workflow.damageRoll) return false;
   return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
 }
+
+async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCardId: string }) {
+  const workflow = Workflow.getWorkflow(data.workflowId);
+  if (!workflow || workflow.itemCardId !== data.itemCardId) {
+    await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
+    await Workflow.removeItemCardConfrimRollButton(data.itemCardId);
+    return undefined;
+  }
+  if (workflow.item?.hasDamage && !workflow.damageRoll) return false;
+  if (workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) return false;
+  if (workflow.hitTargets.size === workflow.targets.size)
+    return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+  workflow.hitTargets = new Set(workflow.targets);
+  workflow.hitTargetsEC = new Set();
+  const rollMode = game.settings.get("core", "rollMode");
+  workflow.isFumble = false;
+  for (let hitDataKey in workflow.hitDisplayData) {
+    workflow.hitDisplayData[hitDataKey].hitString = i18n("midi-qol.hits");
+    workflow.hitDisplayData[hitDataKey].hitResultNumeric = "--";
+    if (configSettings.highlightSuccess) {
+      workflow.hitDisplayData[hitDataKey].hitStyle = "color: green;";
+    }
+  }
+  await workflow.displayHits(workflow.whisperAttackCard, configSettings.mergeCard && workflow.itemCardId, true);
+  return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+}
+
+async function confirmDamageRollCompleteMiss(data: { workflowId: string, itemCardId: string }) {
+  const workflow = Workflow.getWorkflow(data.workflowId);
+  if (!workflow || workflow.itemCardId !== data.itemCardId) {
+    await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
+    await Workflow.removeItemCardConfrimRollButton(data.itemCardId);
+    return undefined;
+  }
+  // if (workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) return false;
+  if (workflow.hitTargets.size === 0)
+    return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+  workflow.hitTargets = new Set();
+  workflow.hitTargetsEC = new Set();
+  const rollMode = game.settings.get("core", "rollMode");
+  for (let hitDataKey in workflow.hitDisplayData) {
+    workflow.hitDisplayData[hitDataKey].hitString = i18n("midi-qol.misses");
+    if (configSettings.highlightSuccess) {
+      workflow.hitDisplayData[hitDataKey].hitStyle = "color: red;";
+    }
+    workflow.hitDisplayData[hitDataKey].hitResultNumeric = "--";
+  }
+  await workflow.displayHits(workflow.whisperAttackCard, configSettings.mergeCard && workflow.itemCardId, true);
+  return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+}
+
 function paranoidCheck(action: string, actor: any, data: any): boolean {
   return true;
 }
@@ -234,7 +293,7 @@ async function deleteToken(data: { tokenUuid: string }) {
   }
 }
 
-export async function deleteEffects(data: {actorUuid: string, effectsToDelete: string[], options: any}) {
+export async function deleteEffects(data: { actorUuid: string, effectsToDelete: string[], options: any }) {
   const actor = MQfromActorUuid(data.actorUuid);
   if (!actor) return;
   // Check that none of the effects were deleted while we were waiting to execute
@@ -242,7 +301,7 @@ export async function deleteEffects(data: {actorUuid: string, effectsToDelete: s
   try {
     if (debugEnabled > 0) warn("_deleteEffects ", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
     return await actor.deleteEmbeddedDocuments("ActiveEffect", finalEffectsToDelete, data.options);
-  } catch(err) {
+  } catch (err) {
     const message = `deleteEffects | remote delete effects error`;
     console.warn(message, err);
     TroubleShooter.recordError(err, message);
@@ -269,7 +328,7 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
         if (effectsToDelete?.length > 0) {
           try {
             // for (let ef of effectsToDelete) ef.delete();
-            options = mergeObject(options ?? {}, { parent: actor, concentrationEffectsDeleted: true, concentrationDeleted: true});
+            options = mergeObject(options ?? {}, { parent: actor, concentrationEffectsDeleted: true, concentrationDeleted: true });
             if (debugEnabled > 0) warn("deleteItemEffects ", actor.name, effectsToDelete, options);
             await ActiveEffect.deleteDocuments(effectsToDelete.map(ef => ef.id), options);
             // await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id), {strict: false, invalid: false});

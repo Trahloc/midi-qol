@@ -450,6 +450,7 @@ export let fetchParams = () => {
       configSettings.allowUseMacro = true;
     }
   }
+  Hooks.callAll("midi-qol.ConfigSettingsChanged");
 }
 
 const settings = [

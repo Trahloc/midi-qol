@@ -116,7 +116,11 @@
     {{/if}}
     {{#if confirmAttackDamage}}
     <div class="midi-qol-confirm-damage-roll">
-    <button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">{{localize "midi-qol.ConfirmRoll"}}</button>
+      <div class="flexrow 3">
+        <button class="midi-qol-confirm-damage-roll-complete-miss" data-action="confirm-damage-roll-complete-miss">{{localize "midi-qol.ConfirmMiss"}}</button>
+        <button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">{{localize "midi-qol.ConfirmRoll"}}</button>
+        <button class="midi-qol-confirm-damage-roll-complete-hit" data-action="confirm-damage-roll-complete-hit">{{localize "midi-qol.ConfirmHit"}}</button>
+      </div>
     {{#if canCancel}}
     <button class="midi-qol-confirm-damage-roll-cancel" data-action="confirm-damage-roll-cancel">{{localize "Cancel"}}</button>
     {{/if}}

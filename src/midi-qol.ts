@@ -444,6 +444,7 @@ function setupMidiQOLApi() {
     hasCondition,
     hasUsedBonusAction,
     hasUsedReaction,
+    incapacitatedConditions: ["incapacitated", "Convenient Effect: Incapacitated", "stunned", "Convenient Effect: Stunned", "paralyzed", "paralysis", "Convenient Effect: Paralyzed"],
     InvisibleDisadvantageVisionModes,
     isTargetable,
     LateTargetingDialog,
@@ -796,7 +797,7 @@ export async function createMidiMacros() {
   }
 }
 
-/*
+
 const midiOldErrorHandler = globalThis.onerror;
 function midiOnerror(event: string | Event, source?: string | undefined, lineno?: number | undefined, colno?: number | undefined, error?: Error) {
   console.warn("midi-qol detected error", event, source, lineno, colno, error);
@@ -804,5 +805,4 @@ function midiOnerror(event: string | Event, source?: string | undefined, lineno?
   if (midiOldErrorHandler) return midiOldErrorHandler(event, source, lineno, colno, error);
   return false;
 }
-globalThis.onerror = midiOnerror;
-*/
+// globalThis.onerror = midiOnerror;

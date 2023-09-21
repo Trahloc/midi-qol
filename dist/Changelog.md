@@ -1,3 +1,13 @@
+## 11.0.20
+* Created MidiQOL.incapacitatedConditions which is those conditions, if present on an actor make it incapacitated (as well as 0 Hp/Vitality Resource). You can change the field to change what conditions count as incapacitated. Default value is: ["incapacitated", "Convenient Effect: Incapacitated", "stunned", "Convenient Effect: Stunned", "paralyzed", "paralysis", "Convenient Effect: Paralyzed"].
+* Fix for hasCondition not working with upper case statuses.
+* Fix for incorrectly displaying damage card when the only damage for an attack is type "midi-none".
+* Added targetUuids, hitTargetUuids, hitTargetECUuids, saveUuids, failedSaveUuids to flags.midi-qol on the merge item card.
+* When computing nearby foes, neutral tokens will only count hostile tokens as enemies, no longer including neutral tokens.
+* Added confirm miss/confirm hit buttons which will complete the roll as a hit or miss. If completing the roll and the roll hits, the confirm/confirm hit buttons will be inactive until damage has been rolled.
+* Added a cancel button so that (only) the GM can cancel a workflow - this requires undo workflows to be enabled.
+* Players will see a confirm button on the item chat card (even if they can't confirm the roll) which is remmoved when the gm completes the roll, so that they can wait for the GM to confirm the workflow before they roll the item again.
+
 ## 11.0.19
 * Reworking of concentration removal - I think this is better and less prone to errots being thrown.
 * Confrim button is only active after damage has been rolled or attack misses - will do nothing until then.

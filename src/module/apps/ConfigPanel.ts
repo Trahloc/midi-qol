@@ -6,6 +6,7 @@ import { installedModules } from "../setupModules.js";
 const PATH = "./modules/midi-qol/sample-config/";
 
 export class ConfigPanel extends FormApplication {
+  configHookId: number | undefined;
   static get defaultOptions(): any {
     return mergeObject(super.defaultOptions, {
       title: game.i18n.localize("midi-qol.ConfigTitle"),
@@ -13,7 +14,7 @@ export class ConfigPanel extends FormApplication {
       id: "midi-qol-settings",
       width: 800,
       height: "auto",
-      closeOnSubmit: true,
+      closeOnSubmit: false,
       scrollY: [".tab.workflow"],
       tabs: [{ navSelector: ".tabs", contentSelector: ".content", initial: "gm" }]
     })
@@ -21,6 +22,9 @@ export class ConfigPanel extends FormApplication {
 
   constructor(...args) {
     super(args);
+    this.configHookId = Hooks.on("midi-qol.ConfigSettingsChanged", () => {
+      this.close({force: true});
+    })
   }
 
   get title() {
@@ -130,18 +134,21 @@ export class ConfigPanel extends FormApplication {
     html.find("#midi-qol-export-config").on("click", exportSettingsToJSON)
     html.find("#midi-qol-import-config").on("click", async () => {
       if (await importFromJSONDialog()) {
-        this.close();
+        this.close({force: true});
       }
     });
 
     html.find(".import-quick-setting").on("click", async function (event) {
       const key = event.currentTarget.id;
-      await applySettings.bind(this)(key);
-      // this.close();
-      this.render();
+      if (await applySettings.bind(this)(key)) this.close({force: true});
+      // this.render();
     }.bind(this))
   }
 
+  close(options) {
+    if (this.configHookId) Hooks.off("midi-qol.ConfigSettingsChanged", this.configHookId);
+    return super.close(options);
+  }
 
   async _playList(event) {
     event.preventDefault();
@@ -556,6 +563,7 @@ export async function applySettings(key: string) {
     if (await showDiffs(configSettings, settingsToApply, "", config.shortDescription)) {
       settingsToApply = mergeObject(configSettings, settingsToApply, { overwrite: true, inplace: true });
       if (game.user?.can("SETTINGS_MODIFY")) game.settings.set("midi-qol", "ConfigSettings", settingsToApply);
+      return true;
     }
   } else if (config.fileName) {
     try {
@@ -564,10 +572,11 @@ export async function applySettings(key: string) {
       if (await showDiffs(configSettings, configData.configSettings, "", config.shortDescription)) {
         importSettingsFromJSON(jsonText);
       }
-      return;
+      return true;
     } catch (err) {
       error("could not load config file", config.fileName, err);
     }
     log(`Loaded ${config.fileName} version ${config.version}`);
-  } else return;
+  }
+  return false;
 }

@@ -832,8 +832,9 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
     acc[item.type] = (acc[item.type] ?? 0) + item.damage;
     return acc;
   }, {});
-  if ((Object.keys(merged).length === 1 && Object.keys(merged)[0] === "midi-none") &&
-    (workflow.shouldRollOtherDamage && Object.keys(workflow.otherDamageDetail).length === 1 && Object.keys(workflow.otherDamageDetail)[0] === "midi-none")
+  if ((Object.keys(merged).length === 1 && Object.keys(merged)[0] === "midi-none") 
+      && (workflow.otherDamageDetail.length === 0 
+          || (workflow.otherDamageDetail.length === 1 && workflow.otherDamageDetail[0] === "midi-none"))
   ) return;
 
   //TODO come back and decide if -ve damage per type should be allowed, no in the case of 1d4 -2, yes? in the case of -1d4[fire]
@@ -1597,7 +1598,7 @@ export function untargetAllTokens(...args) {
   }
 }
 
-export function checkIncapacitated(actor: Actor, item: Item | undefined = undefined, event: any) {
+export function checkIncapacitated(actor: Actor) {
   const vitalityResource = checkRule("vitalityResource");
   if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
     const vitality = getProperty(actor, vitalityResource.trim()) ?? 0;
@@ -1615,7 +1616,7 @@ export function checkIncapacitated(actor: Actor, item: Item | undefined = undefi
     return true;
   }
   const token = tokenForActor(actor);
-  if (token && ["incapacitated", "Convenient Effect: Incapacitated", "stunned", "Convenient Effect: Stunned"].find(cond => hasCondition(token, cond))) return true;
+  if (token && globalThis.MidiQOL.incapacitatedConditions.find(cond => hasCondition(token, cond))) return true;
   return false;
 }
 
@@ -2367,7 +2368,7 @@ export function findNearby(disposition: number | string | null | Array<string | 
       if (!isTargetable(t)) return false;
       //@ts-ignore .height .width v10
       if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
-      if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor, undefined, undefined)) return false;
+      if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor)) return false;
       let inRange = false;
       if (t.actor &&
         (t.id !== token.id || options?.includeToken) && // not the token
@@ -2391,6 +2392,9 @@ export function findNearby(disposition: number | string | null | Array<string | 
 }
 
 export function checkNearby(disposition: number | null | string, tokenRef: Token | TokenDocument | string | undefined, distance: number, options: any = {}): boolean {
+  //@ts-expect-error .disposition
+  const tokenDisposition = getTokenDocument(tokenRef)?.disposition;
+  if (tokenDisposition === 0) options.relative = false;
   return findNearby(disposition, tokenRef, distance, options).length !== 0;
 }
 
@@ -2443,7 +2447,7 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
       break;
   }
   //@ts-expect-error hasStatusEffect
-  if (td.hasStatusEffect(condition.toLocaleLowerCase())) return true;
+  if (td.hasStatusEffect(condition.toLocaleLowerCase()) || td.hasStatusEffect(condition)) return true;
 
   //@ts-ignore
   const cub = game.cub;
@@ -3159,7 +3163,7 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
     if (checkRule("incapacitated")) {
       try {
         enableNotifications(false);
-        if (checkIncapacitated(target.actor, undefined, undefined)) return noResult;
+        if (checkIncapacitated(target.actor)) return noResult;
       } finally {
         enableNotifications(true);
       }
@@ -4177,7 +4181,7 @@ export function computeFlankingStatus(token, target): boolean {
       if (ally.document.uuid === token.document.uuid) continue;
       if (!heightIntersects(ally.document, target.document)) continue;
       const actor: any = ally.actor;
-      if (checkIncapacitated(actor, undefined, undefined)) continue;
+      if (checkIncapacitated(actor)) continue;
       if (installedModules.get("dfreds-convenient-effects")) {
         //@ts-ignore
         if (actor?.effects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
