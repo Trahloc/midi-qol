@@ -1005,7 +1005,7 @@ export async function wrappedDisplayCard(wrapped, options) {
       data: await getChatData.bind(this)(),
       labels: this.labels,
       condensed: this.hasAttack && configSettings.mergeCardCondensed,
-      hasAttack: !minimalCard && this.hasAttack && (systemCard || needAttackButton && configSettings.confirmAttackDamage !== "none"),
+      hasAttack: !minimalCard && this.hasAttack && (systemCard || needAttackButton || configSettings.confirmAttackDamage !== "none"),
       isHealing: !minimalCard && this.isHealing && (systemCard || configSettings.autoRollDamage !== "always"),
       hasDamage: needDamagebutton,
       isVersatile: needVersatileButton,

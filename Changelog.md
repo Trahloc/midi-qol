@@ -1,3 +1,6 @@
+## 11.0.20.1
+* Fix for not displaying attack button in some circumstances
+
 ## 11.0.20
 * Created MidiQOL.incapacitatedConditions which is those conditions, if present on an actor make it incapacitated (as well as 0 Hp/Vitality Resource). You can change the field to change what conditions count as incapacitated. Default value is: ["incapacitated", "Convenient Effect: Incapacitated", "stunned", "Convenient Effect: Stunned", "paralyzed", "paralysis", "Convenient Effect: Paralyzed"].
 * Fix for hasCondition not working with upper case statuses.
