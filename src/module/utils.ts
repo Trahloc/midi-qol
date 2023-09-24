@@ -1448,6 +1448,10 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           targetUuids: [theTargetUuid],
           rollMode,
           workflowOptions: { lateTargeting: "none", autoRollDamage: "onHit", autoFastDamage: true, isOverTime: true, allowIncapacitated },
+          flags: {
+            dnd5e: {"itemData": ownedItem.toObject()},
+            "midi-qol": {"isOverTime": true}
+          }
         };
         await completeItemUse(ownedItem, {}, options); // worried about multiple effects in flight so do one at a time
       } catch (err) {

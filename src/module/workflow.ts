@@ -1272,13 +1272,14 @@ export class Workflow {
       this.checkAbilityAdvantage();
     }
     // TODO Hidden should check the target to see if they notice them?
-    if (checkRule("invisAdvantage") && checkRule("invisAdvantage") !== "none" && this.targets?.values().next().value) {
+    //@ts-expect-error .first()
+    const target = this.targets?.first();
+    if (checkRule("invisAdvantage") && checkRule("invisAdvantage") !== "none" && target) {
       // if we are using a proxy token to attack use that for hidden invisible
       const token: Token | undefined = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
-      const target: Token = this.targets.values().next().value;
-      const hiddenToken = hasCondition(token, "hidden");
-      const hiddenTarget = hasCondition(token, "hidden");
-      const invisibleToken = hasCondition(token, "invisible");
+      const hiddenToken = token ? hasCondition(token, "hidden") : false;
+      const hiddenTarget = hasCondition(target, "hidden");
+      const invisibleToken = token ? hasCondition(token, "invisible") : false;
       const invisibleTarget = hasCondition(target, "invisible");
       const tokenCanDetect = token ? canSense(token, target, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
       const targetCanDetect = token ? canSense(target, token, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
@@ -1291,7 +1292,7 @@ export class Workflow {
       }
       if (hiddenTarget) {
         this.attackAdvAttribution.add("DIS:hidden");
-        this.advReminderAttackAdvAttribution.add("DIS:Hidden");
+        this.advReminderAttackAdvAttribution.add("DIS:Hidden Foe");
         this.disadvantage = true;
       }
 

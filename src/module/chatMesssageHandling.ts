@@ -694,10 +694,9 @@ export async function onChatCardAction(event) {
     const storedData = message?.getFlag(game.system.id, "itemData");
     //@ts-ignore
     item = storedData ? new CONFIG.Item.documentClass(storedData, { parent: actor }) : actor.items.get(card.dataset.itemId);
-    if (!item) { // TODO investigate why this is occurring
-      // return ui.notifications.error(game.i18n.format("DND5E.ActionWarningNoItem", {item: card.dataset.itemId, name: actor.name}))
-    }
+
     const spellLevel = parseInt(card.dataset.spellLevel) || null;
+    const workflowId = getProperty(message, "flags.midi-qol.workflowId");
 
     switch (action) {
       case "applyEffects":
@@ -731,7 +730,7 @@ export async function onChatCardAction(event) {
         }
         break;
       case "confirm-damage-roll-cancel":
-        await socketlibSocket.executeAsGM("undoTillWorkflow", item.uuid, true, true);
+        await socketlibSocket.executeAsGM("undoTillWorkflow", workflowId, true, true);
         break;
       case "confirm-damage-roll-complete":
       case "confirm-damage-roll-complete-hit":
@@ -747,7 +746,7 @@ export async function onChatCardAction(event) {
               "confirm-damage-roll-complete-hit": "confirmDamageRollCompleteHit",
               "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss"
             }[action];
-            socketlibSocket.executeAsUser(actionToCall, message.user.id, { workflowId: item.uuid, itemCardId: message.id });
+            socketlibSocket.executeAsUser(actionToCall, message.user.id, { workflowId, itemCardId: message.id });
           } else {
             await Workflow.removeItemCardAttackDamageButtons(messageId);
             await Workflow.removeItemCardConfrimRollButton(messageId);
