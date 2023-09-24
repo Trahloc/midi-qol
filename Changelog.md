@@ -1,6 +1,6 @@
 ## 11.0.20.2
-* Fix for hidden advantage/disadvantage checck
-* Fix for overtime effects throwing an error when roll confrimation is on.
+* Fix for hidden advantage/disadvantage check when attackeer is hidden giving both advantage and disadvantage.
+* Fix for overtime effects throwing an error when roll confirmation is on.
 
 ## 11.0.20.1
 * Fix for not displaying attack button in some circumstances
