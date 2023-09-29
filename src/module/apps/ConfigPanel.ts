@@ -2,6 +2,7 @@ import { criticalDamage, nsaFlag, coloredBorders, autoFastForwardAbilityRolls, i
 import { configSettings } from "../settings.js"
 import { warn, i18n, error, debug, gameStats, debugEnabled, geti18nOptions, log } from "../../midi-qol.js";
 import { installedModules } from "../setupModules.js";
+import { getSystemCONFIG } from "../utils.js";
 
 const PATH = "./modules/midi-qol/sample-config/";
 
@@ -103,7 +104,10 @@ export class ConfigPanel extends FormApplication {
       RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions"),
       CheckRangeOptions: geti18nOptions("CheckRangeOptions"),
       InvisAdvantageOptions: geti18nOptions("InvisAdvantageOptions"),
-      ConfirmAttackDamageOptions: geti18nOptions("ConfirmAttackDamageOptions")
+      ConfirmAttackDamageOptions: geti18nOptions("ConfirmAttackDamageOptions"),
+      RollSkillsBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().skills).reduce((acc, s) => { acc[s] = getSystemCONFIG().skills[s].label; return acc }, {})),
+      RollSavesBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
+      RollChecksBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
     };
 
     if (debugEnabled > 0) warn("Config Panel: getData ", data)
@@ -137,12 +141,21 @@ export class ConfigPanel extends FormApplication {
         this.close({force: true});
       }
     });
-
+    html.find('.midi-qol-blind-select').hover(this.selectHover.bind(this), this.selectHoverOut.bind(this))
     html.find(".import-quick-setting").on("click", async function (event) {
       const key = event.currentTarget.id;
       if (await applySettings.bind(this)(key)) this.close({force: true});
       // this.render();
     }.bind(this))
+  }
+
+  selectHover(event) {
+    const target = event.currentTarget;
+    target.focus();
+  }
+  selectHoverOut(event) {
+    const target = event.currentTarget;
+    target.blur();
   }
 
   close(options) {

@@ -155,6 +155,7 @@ async function registerTests() {
         });
         describe("initiative rolls", function () {
           it("rolls a normal initiative roll", async function () {
+            await busyWait(0.1); // let previous chat message creation complete
             const rollResult: Promise<Roll> = new Promise((resolve) => {
               Hooks.once("createChatMessage", function (chatMessage) {
                 resolve(chatMessage.rolls[0])

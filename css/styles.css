@@ -267,3 +267,8 @@
   flex: 0;
 }
 */
+
+.midi-qol-blind-select .selected{
+  background-color: #861b1b;
+  color: #fff;
+}

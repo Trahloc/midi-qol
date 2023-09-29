@@ -168,6 +168,7 @@ export class Workflow {
   get shouldRollDamage(): boolean {
     // if ((this.itemRollToggle && getAutoRollDamage(this)) || !getAutoRollDamage(this))  return false;
     if (this.systemCard) return false;
+    if (this.actor.type === "npc" && configSettings.averageNPCDamage) return true;
     const normalRoll = getAutoRollDamage(this) === "always"
       || (getAutoRollDamage(this) === "saveOnly" && this.item.hasSave && !this.item.hasAttack)
       || (getAutoRollDamage(this) !== "none" && !this.item.hasAttack)
@@ -1895,7 +1896,6 @@ export class Workflow {
     if (!macros || macros?.length === 0) return [];
     const macroNames = macros.split(",").map(s => s.trim());
     let values: Promise<damageBonusMacroResult | any>[] = [];
-    let results: damageBonusMacroResult[];
     const macroData = this.getMacroData();
     macroData.options = options;
     macroData.tag = tag;
@@ -1908,7 +1908,7 @@ export class Workflow {
         TroubleShooter.recordError(err, message);
       }));
     }
-    results = await Promise.all(values);
+    let results: Array<damageBonusMacroResult | any> = await Promise.allSettled(values);
     return results;
   }
 

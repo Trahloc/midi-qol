@@ -16,7 +16,7 @@ export class OnUseMacros {
   }
 
   public getMacros(currentOption: string) {
-    return this.items.filter(x => x.macroName?.length > 0 && (x.option === currentOption || x.option === "all")).map(x => x.macroName).toString();
+    return this.items.filter(x => x.macroName?.length > 0 && (x.option.toLocaleLowerCase() === currentOption.toLocaleLowerCase() || x.option === "all")).map(x => x.macroName).toString();
   }
 
   public toString() {

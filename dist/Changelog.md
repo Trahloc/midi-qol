@@ -1,6 +1,15 @@
+## 11.0.21
+* If a roll is awaiting confirmation, the player won't be able to roll the same item again until the roll is confirmed/cancelled.
+* Deleting a chat card removes, but does not undo, the workflow.
+* Cancelling an item roll removes the workflow and undoes any changes for that workflow (like consuming ammo etc) provided undo workflows is enabled.
+* Fix for not displaying other damage dice so nice dice rolls.
+* Rolling an attack a second time won't consume the ammo again.
+* Modify character/npc sheet behaviour so that filtering for reactions picks up all reaction types, not just "reaction".
+* Player blind roll settings are now multi select lists instead of boolean. So you can select which skills/saves/checks are to be rolled blind rather than all or nothing.
+
 ## 11.0.20.2
-* Fix for hidden advantage/disadvantage checck
-* Fix for overtime effects throwing an error when roll confrimation is on.
+* Fix for hidden advantage/disadvantage check when attackeer is hidden giving both advantage and disadvantage.
+* Fix for overtime effects throwing an error when roll confirmation is on.
 
 ## 11.0.20.1
 * Fix for not displaying attack button in some circumstances

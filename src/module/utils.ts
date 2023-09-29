@@ -222,7 +222,7 @@ export function getSelfTargetSet(actor): Set<Token> {
 export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, dmgType, existingDamage) {
   if (debugEnabled > 1) debug("calculate damage ", a, appliedDamage, t, totalDamage, dmgType)
   let prevDamage = existingDamage?.find(ed => ed.tokenId === t.id);
-  //@ts-ignore attributes
+  //@ts-expect-error attributes
   var hp = a.system.attributes.hp;
   var oldHP, tmp, oldVitality, newVitality;
   const vitalityResource = checkRule("vitalityResource");
@@ -249,10 +249,10 @@ export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, 
   }
   //TODO review this awfulness
   // Stumble around trying to find the actual token that corresponds to the multi level token TODO make this sane
-  //@ts-ignore .flags v10  
+  //@ts-expect-error .flags v10  
   const altSceneId = getProperty(t.flags, "multilevel-tokens.sscene");
   let sceneId = altSceneId ?? t.scene?.id;
-  //@ts-ignore .flags v10
+  //@ts-expect-error .flags v10
   const altTokenId = getProperty(t.flags, "multilevel-tokens.stoken");
   let tokenId = altTokenId ?? t.id;
   const altTokenUuid = (altTokenId && altSceneId) ? `Scene.${altSceneId}.Token.${altTokenId}` : undefined;
@@ -717,7 +717,6 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       totalDamage = Math.max(totalDamage, 0);
       appliedDamage = Math.max(appliedDamage, 0);
     }
-    //@ts-ignore
     if (AR > 0 && appliedDamage > 0 && !Object.keys(getSystemCONFIG().healingTypes).includes(dmgType) && checkRule("challengeModeArmor")) {
       totalDamage = appliedDamage;
       if (checkRule("challengeModeArmorScale") || workflow.hitTargetsEC.has(t)) // TODO: the hitTargetsEC test won't ever fire?
@@ -955,21 +954,21 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 export let getSaveMultiplierForItem = (item: Item) => {
   // find a better way for this ? perhaps item property
   if (!item) return 1;
-  //@ts-ignore
+  //@ts-expect-error
   if (item.actor && item.type === "spell" && item.system.level === 0) { // cantrip
-    //@ts-ignore .flags v10
+    //@ts-expect-error .flags v10
     const midiFlags = getProperty(item.actor.flags, "midi-qol");
     if (midiFlags?.potentCantrip) return 0.5;
   }
 
-  //@ts-ignore item.falgs v10
+  //@ts-expect-error item.falgs v10
   const itemProperties: any = item.flags.midiProperties;
   if (itemProperties?.nodam) return 0;
   if (itemProperties?.fulldam) return 1;
   if (itemProperties?.halfdam) return 0.5;
 
   if (!configSettings.checkSaveText) return configSettings.defaultSaveMult;
-  //@ts-ignore item.system v10
+  //@ts-expect-error item.system v10
   let description = TextEditor.decodeHTML((item.system.description?.value || "")).toLocaleLowerCase();
 
   let noDamageText = i18n("midi-qol.noDamage").toLocaleLowerCase().trim();
@@ -995,7 +994,7 @@ export let getSaveMultiplierForItem = (item: Item) => {
   if (description?.includes(halfDamageText) || description?.includes(halfDamageTextAlt)) {
     return 0.5;
   }
-  //@ts-ignore item.name v10 - allow the default list to be overridden by item settings.
+  //@ts-expect-error item.name v10 - allow the default list to be overridden by item settings.
   if (noDamageSaves.includes(cleanSpellName(item.name))) return 0;
   //  Think about this. if (checkSavesText true && item.hasSave) return 0; // A save is specified but the half-damage is not specified.
   return configSettings.defaultSaveMult;
@@ -1021,7 +1020,7 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
         if (magicResistance && disadvantage) rollAdvantage = 1; // This will make the LMRTFY display wrong
         if (magicVulnerability && advantage) rollAdvantage = -1; // This will make the LMRTFY display wrong
       }
-      //@ts-ignore
+      //@ts-expect-error
       let mode = isNewerVersion(game.version ?? game.version, "0.9.236") ? "publicroll" : "roll";
       if (configSettings.autoCheckSaves !== "allShow") {
         mode = "blindroll";
@@ -1050,7 +1049,7 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
       }
       if (debugEnabled > 1) debug("process player save ", socketData)
       game.socket?.emit('module.lmrtfy', socketData);
-      //@ts-ignore - global variable
+      //@ts-expect-error - global variable
       LMRTFY.onMessage(socketData);
     } else { // display a chat message to the user telling them to save
       const actorName = actor.name;
@@ -1083,7 +1082,7 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
   } else {
     advantage = (advantage === true ? 1 : advantage === false ? -1 : 0);
   }
-  //@ts-ignore
+  //@ts-expect-error
   let mode = isNewerVersion(game.version ?? game.version, "0.9.236") ? "publicroll" : "roll";
   if (configSettings.autoCheckSaves !== "allShow") {
     if (checkRule("activeDefenceShowGM"))
@@ -1180,7 +1179,7 @@ export function checkImmunity(candidate, data, options, user) {
   const parent: Actor | undefined = candidate.parent;
   if (!parent || !(parent instanceof CONFIG.Actor.documentClass)) return true;
 
-  //@ts-ignore .traits
+  //@ts-expect-error .traits
   const ci = parent.system.traits?.ci?.value;
   const statusId = (data.name ?? (data.label ?? "no effect")).toLocaleLowerCase(); // TODO 11 chck this
   const returnvalue = !(ci.length && ci.some(c => c === statusId));
@@ -1190,7 +1189,7 @@ export function checkImmunity(candidate, data, options, user) {
 export function untargetDeadTokens() {
   if (autoRemoveTargets !== "none") {
     game.user?.targets.forEach((t: Token) => {
-      //@ts-ignore .system v10
+      //@ts-expect-error .system v10
       if (t.actor?.system.attributes.hp.value <= 0) {
         t.setTarget(false, { releaseOthers: false });
       }
@@ -1363,7 +1362,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           const skillEntry = Object.entries(getSystemCONFIG().skills).find(([id, entry]) => entry.label.toLocaleLowerCase() === skill)
           if (skillEntry) skill = skillEntry[0];
           /*
-          //@ts-ignore
+          //@ts-expect-error
           const hasEntry = Object.values(getSystemCONFIG().skills).map(entry => entry.label.toLowerCase()).includes(saveAbility)
 
           if (hasEntry) {
@@ -1381,17 +1380,13 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       }
 
       if (damageBeforeSave || saveDamage === "fulldamage") {
-        //@ts-ignore
         setProperty(itemData.flags, "midiProperties.fulldam", true);
       } else if (saveDamage === "halfdamage" || !damageRoll) {
-        //@ts-ignore
         setProperty(itemData.flags, "midiProperties.halfdam", true);
       } else {
-        //@ts-ignore
         setProperty(itemData.flags, "midiProperties.nodam", true);
       }
       itemData.name = label;
-      //@ts-ignore
       itemData._id = randomID();
       // roll the damage and save....
       const theTargetToken = getSelfTarget(actor);
@@ -1408,7 +1403,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         }
         for (let i = 1; i < stackCount; i++)
           damageRollString = `${damageRollString} + ${damageRoll}`;
-        //@ts-ignore
         itemData.system.damage.parts = [[damageRollString, damageType]];
       }
       setProperty(itemData.flags, "midi-qol.forceCEOff", true);
@@ -1519,7 +1513,7 @@ export async function _processOverTime(combat, data, options, user) {
 }
 
 export async function completeItemRoll(item, options: any) {
-  //@ts-ignore .version
+  //@ts-expect-error .version
   if (isNewerVersion(game.version, "10.278)"))
     console.warn("midi-qol | completeItemRoll(item, options) is deprecated please use completeItemUse(item, config, options)")
   return completeItemUse(item, {}, options);
@@ -1561,7 +1555,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
 
       if (item.magicItem) {
         item.magicItem.magicItemActor.roll(item.magicItem.id, item.id)
-        //@ts-ignore .version v10
+        //@ts-expect-error .version v10
       } else if (installedModules.get("betterrolls5e") && isNewerVersion(game.modules.get("betterrolls5e")?.version ?? "", "1.3.10")) { // better rolls breaks the normal roll process  
         // TODO check this v10
         globalThis.BetterRolls.rollItem(theItem, { itemData: item.toObject(), vanilla: false, adv: 0, disadv: 0, midiSaveDC: options.saveDC }).toMessage()
@@ -1630,7 +1624,6 @@ export function getUnitDist(x1: number, y1: number, z1: number, token2): number 
   z1 = z1 * unitsToPixel;
   const x2 = token2.center.x;
   const y2 = token2.center.y;
-  //@ts-ignore
   const z2 = token2.document.elevation * unitsToPixel;
 
   const d =
@@ -1663,10 +1656,10 @@ export function getSurroundingHexes(token: Token) {
   //  console.error("Surrounds are ", ...surrounds[r+5]);
   const filtered = surrounds.map(row => row.filter(ent => {
     const entDist = ent.d / (canvas?.dimensions?.distance ?? 5);
-    //@ts-ignore .width v10
+    //@ts-expect-error .width v10
     const tokenWidth = token.document.width / 2;
     // console.error(ent.r, ent.c, ent.d, entDist, tokenWidth)
-    //@ts-ignore .width v10
+    //@ts-expect-error .width v10
     if (token.document.width % 2)
       return entDist >= tokenWidth && entDist <= tokenWidth + 0.5
     else return entDist >= tokenWidth && entDist < tokenWidth + 0.5
@@ -1678,7 +1671,7 @@ export function getSurroundingHexes(token: Token) {
     a.forEach(item => {
       let [x, y] = canvas?.grid?.grid?.getPixelsFromGridPosition(item.r, item.c) ?? [0, 0];
       // console.error("highlighting ", x, y, item.r, item.c)
-      //@ts-ignore
+      //@ts-expect-error
       canvas?.grid?.highlightPosition("mylayer", { x, y, color: game?.user?.color });
     })
     // console.error(...a);
@@ -1758,8 +1751,9 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
     coverVisible = true;
   } else if (installedModules.get("tokenvisibility") && configSettings.optionalRules.wallsBlockRange === "tokenvisibility") {
     const coverValue = calcTokenVisibilityCover(t1, t2);
-    coverVisible = coverValue !== 3;
-    if (!coverVisible && wallblocking) return -1;
+    if (coverValue === 3 && wallblocking) return -1;
+    coverVisible = true;
+
   }
 
   var x, x1, y, y1, d, r, segments: { ray: Ray }[] = [], rdistance, distance;
@@ -1788,20 +1782,18 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                     let p1 = {
                       x: origin.x,
                       y: origin.y,
-                      //@ts-ignore
                       z: t1Elevation
                     }
                     let p2 = {
                       x: dest.x,
                       y: dest.y,
-                      //@ts-ignore
                       z: t2Elevation
                     }
-                    //@ts-ignore
+                    //@ts-expect-error
                     const baseToBase = CONFIG.Levels.API.testCollision(p1, p2, "collision");
                     p1.z = t1TopElevation;
                     p2.z = t2TopElevation;
-                    //@ts-ignore
+                    //@ts-expect-error
                     const topToBase = CONFIG.Levels.API.testCollision(p1, p2, "collision");
                     if (baseToBase && topToBase) continue;
                   }
@@ -1834,7 +1826,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   if (segments.length === 0) {
     return -1;
   }
-  //@ts-ignore
+  //@ts-expect-error
   rdistance = segments.map(ray => canvas.grid.measureDistances([ray], { gridSpaces: true })[0]);
   distance = rdistance[0];
   rdistance.forEach(d => { if (d < distance) distance = d; });
@@ -1849,7 +1841,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
     } else if (t1Elevation > t2Elevation) { // t1 above t2
       heightDifference = t1Elevation - t2TopElevation;
     }
-    //@ts-ignore diagonalRule from DND5E
+    //@ts-expect-error diagonalRule from DND5E
     const rule = canvas.grid.diagonalRule
     if (["555", "5105"].includes(rule)) {
       let nd = Math.min(distance, heightDifference);
@@ -1903,18 +1895,18 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     if (item.system.range?.units) {
       switch (item.system.range.units) {
         case "mi": // miles - assume grid units are feet or miles - ignore furlongs/chains whatever
-          //@ts-ignore
+          //@ts-expect-error
           if (["feet", "ft"].includes(canvas?.scene?.grid.units?.toLocaleLowerCase())) {
             range *= 5280;
             longRange *= 5280;
-            //@ts-ignore
+            //@ts-expect-error
           } else if (["yards", "yd", "yds"].includes(canvas?.scene?.grid.units?.toLocaleLowerCase())) {
             range *= 1760;
             longRange *= 1760;
           }
           break;
         case "km": // kilometeres - assume grid units are meters or kilometers
-          //@ts-ignore
+          //@ts-expect-error
           if (["meter", "m", "meters", "metre", "metres"].includes(canvas?.scene?.grid.units?.toLocaleLowerCase())) {
             range *= 1000;
             longRange *= 1000;
@@ -2112,6 +2104,7 @@ export function isAutoConsumeResource(workflow: Workflow | undefined = undefined
 }
 
 export function getAutoRollDamage(workflow: Workflow | undefined = undefined): string {
+  if (configSettings.averageNPCDamage && workflow?.actor.type === "npc") return "onHit";
   if (workflow?.workflowOptions?.autoRollDamage) {
     const damageOptions = Object.keys(geti18nOptions("autoRollDamageOptions"));
     if (damageOptions.includes(workflow.workflowOptions.autoRollDamage))
@@ -2370,13 +2363,13 @@ export function findNearby(disposition: number | string | null | Array<string | 
 
     let nearby = canvas.tokens?.placeables.filter(t => {
       if (!isTargetable(t)) return false;
-      //@ts-ignore .height .width v10
+      //@ts-expect-error .height .width v10
       if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
       if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor)) return false;
       let inRange = false;
       if (t.actor &&
         (t.id !== token.id || options?.includeToken) && // not the token
-        //@ts-ignore .disposition v10      
+        //@ts-expect-error .disposition v10      
         (disposition === null || targetDisposition.includes(t.document.disposition))) {
         const tokenDistance = getDistance(t, token, true);
         inRange = 0 <= tokenDistance && tokenDistance <= distance
@@ -2453,7 +2446,7 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
   //@ts-expect-error hasStatusEffect
   if (td.hasStatusEffect(condition.toLocaleLowerCase()) || td.hasStatusEffect(condition)) return true;
 
-  //@ts-ignore
+  //@ts-expect-error
   const cub = game.cub;
   if (installedModules.get("condition-lab-triggler") && condition === "invisible" && cub.hasCondition("Invisible", [td.object], { warn: false })) return true;
   if (installedModules.get("condition-lab-triggler") && condition === "hidden" && cub.hasCondition("Hidden", [td.object], { warn: false })) return true;
@@ -2472,7 +2465,7 @@ export async function removeInvisible() {
   const token: Token | undefined = canvas.tokens?.get(this.tokenId);
   if (!token) return;
   await removeTokenCondition(token, i18n(`midi-qol.invisible`));
-  //@ts-ignore
+  //@ts-expect-error
   await token.document.toggleActiveEffect({ id: CONFIG.specialStatusEffects.INVISIBLE }, { active: false });
   log(`Hidden/Invisibility removed for ${this.actor.name}`)
 }
@@ -2481,10 +2474,7 @@ export async function removeHidden() {
   if (!canvas || !canvas.scene) return;
   const token: Token | undefined = canvas.tokens?.get(this.tokenId);
   if (!token) return;
-  // 
   await removeTokenCondition(token, i18n(`midi-qol.hidden`));
-
-  //@ts-ignore
   log(`Hidden removed for ${this.actor.name}`)
 }
 
@@ -2558,13 +2548,12 @@ export function validTargetTokens(tokenSet: Set<Token> | undefined | any): Set<T
 
 export function MQfromUuid(uuid): any | null {
   if (!uuid || uuid === "") return null;
-  //@ts-ignore foundry v10 types
+  //@ts-expect-error foundry v10 types
   return fromUuidSync(uuid)
 }
 
 export function MQfromActorUuid(uuid): any {
   let doc = MQfromUuid(uuid);
-  //@ts-ignore doc.actor: any rather than Actor
   if (doc instanceof CONFIG.Token.documentClass) return doc.actor;
   if (doc instanceof CONFIG.Actor.documentClass) return doc;
   return null;
@@ -2575,7 +2564,7 @@ class RollModifyDialog extends Application {
   rollExpanded: boolean;
 
   data: {
-    //@ts-ignore dnd5e v10
+    //@ts-expect-error dnd5e v10
     actor: globalThis.dnd5e.documents.Actor5e,
     flags: string[],
     flagSelector: string,
@@ -2656,7 +2645,6 @@ class RollModifyDialog extends Application {
       return obj;
     }, {})
     // this.data.content = await midiRenderRoll(this.data.currentRoll);
-    //@ts-ignore
     // this.data.content = await this.data.currentRoll.render();
     return {
       content: this.data.content, // This is set by the callback
@@ -2841,7 +2829,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             //@ts-expect-error D20Roll
             newRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
             newRoll.terms.push(new OperatorTerm({ operator: "+" }));
-            //@ts-ignore DamageRoll
+            //@ts-expect-error DamageRoll
             const tempRoll = new CONFIG.Dice.DamageRoll(`${button.value}`, this.actor.getRollData(), rollOptions);
             await tempRoll.evaluate({ async: true });
             if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
@@ -2963,7 +2951,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
   });
 }
 
-//@ts-ignore dnd5e v10
+//@ts-expect-error dnd5e v10
 export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.documents.Actor5e, flag: string) {
   const countValue = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`);
   const altCountValue = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.countAlt`);
@@ -2971,7 +2959,7 @@ export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.docum
 
   return getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`)
 }
-//@ts-ignore dnd5e v10
+//@ts-expect-error dnd5e v10
 export function getOptionalCountRemaining(actor: globalThis.dnd5e.documents.Actor5e, flag: string) {
   const countValue = getProperty(actor, flag);
   if (!countValue) return 1;
@@ -2998,7 +2986,7 @@ export function getOptionalCountRemaining(actor: globalThis.dnd5e.documents.Acto
   return 1;
 }
 
-//@ts-ignore dnd5e v10
+//@ts-expect-error dnd5e v10
 export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Actor5e, changeKey: string) {
   const effect = actor.effects.find(ef => ef.changes.some(c => c.key.includes(changeKey)))
   if (effect === undefined) return;
@@ -3061,7 +3049,7 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
       actorUpdates[`system.${key}`] = charges;
     }
   }
-  //@ts-ignore v10 isEmpty
+  //@ts-expect-error v10 isEmpty
   if (!isEmpty(actorUpdates)) await actor.update(actorUpdates);
 
   if (["turn", "each-round", "each-turn"].includes(count.value)) {
@@ -3078,7 +3066,7 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
   }
 }
 
-//@ts-ignore dnd5e v10
+//@ts-expect-error dnd5e v10
 export function hasEffectGranting(actor: globalThis.dnd5e.documents.Actor5e, key: string, selector: string) {
   // Actually check for the flag being set...
   if (getOptionalCountRemainingShortFlag(actor, key) <= 0) return false;
@@ -3142,7 +3130,6 @@ async function getMagicItemReactions(actor: Actor, triggerType: string): Promise
 }
 
 function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
-  //@ts-ignore activation
   if (item.system.activation?.type !== triggerType) return false;
   if (item.system.activation?.cost > 0 && onlyZeroCost) return false;
   if (item.type === "spell") {
@@ -3157,12 +3144,12 @@ function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
   return true;
 }
 
-export async function doReactions(target: Token, triggerTokenUuid: string | undefined, attackRoll: Roll, triggerType: string, options: any = {}): Promise<{ name: string | undefined, uuid: string | undefined, ac: number | undefined }> {
+export async function doReactions(targetRef: Token | TokenDocument | string, triggerTokenUuid: string | undefined, attackRoll: Roll, triggerType: string, options: any = {}): Promise<{ name: string | undefined, uuid: string | undefined, ac: number | undefined }> {
+  const target = getToken(targetRef);
   try {
-    //@ts-expect-error
-    if (target instanceof TokenDocument) target = target.object;
     const noResult = { name: undefined, uuid: undefined, ac: undefined };
-    //@ts-ignore attributes
+    if (!target) return noResult;
+    //@ts-expect-error attributes
     if (!target.actor || !target.actor.flags) return noResult;
     if (checkRule("incapacitated")) {
       try {
@@ -3173,9 +3160,7 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
       }
     }
 
-    // TODO if hasUsedReactions only allow 0 activation cost reactions
     const usedReaction = hasUsedReaction(target.actor);
-    // if (usedReaction && needsReactionCheck(target.actor)) return noResult;
     let player = playerFor(getTokenDocument(target));
     if (getReactionSetting(player) === "none") return noResult;
     if (!player || !player.active) player = ChatMessage.getWhisperRecipients("GM").find(u => u.active);
@@ -3204,9 +3189,8 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
       return { name: "Filter", ac: 0, uuid: undefined };
     } // else reactionItemUuidList = reactions.map(item => item.uuid);
     reactionCount = reactions?.length ?? 0;
-    // if (usedReaction) return noResult;
     if (!usedReaction) {
-      //@ts-ignore .flags v10
+      //@ts-expect-error .flags
       const midiFlags: any = target.actor.flags["midi-qol"];
       reactionCount = reactionCount + Object.keys(midiFlags?.optional ?? [])
         .filter(flag => {
@@ -3247,11 +3231,11 @@ export async function doReactions(target: Token, triggerTokenUuid: string | unde
         content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""}</h4>`;
         break;
       case "d20":
-        //@ts-ignore
+        //@ts-expect-error
         const theRoll = attackRoll?.terms[0]?.results ? attackRoll.terms[0].results[0].result : attackRoll?.terms[0]?.total ? attackRoll.terms[0].total : "";
 
         /* Fix from thatLonelyBugbear when the replaced attack roll is not a true d20 roll (i.e. just a number)
-        //@ts-ignore
+        //@ts-expect-error
         const theRoll = attackRoll?.terms[0].results[0].result ?? "";
         */
         content = `<h4>${reactionFlavor} ${rollOptions.d20} ${theRoll}</h4>`;
@@ -3380,7 +3364,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
       }).map(flag => `flags.midi-qol.optional.${flag}`);
     if (bonusFlags.length > 0 && triggerType === "reaction") {
-      //@ts-ignore attributes
+      //@ts-expect-error attributes
       let acRoll = await new Roll(`${actor.system.attributes.ac.value}`).roll({ async: true });
       const data = {
         actor,
@@ -3388,7 +3372,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
         rollHTML: reactionFlavor,
         rollTotal: acRoll.total,
       }
-      //@ts-ignore attributes
+      //@ts-expect-error attributes
       await bonusDialog.bind(data)(bonusFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, "roll", "rollTotal", "rollHTML")
       const endTime = Date.now();
       warn("prompt reactions returned via bonus dialog ", endTime - startTime)
@@ -3411,9 +3395,9 @@ export function playerFor(target: TokenDocument | Token | undefined): User | und
 export function playerForActor(actor: Actor | undefined | null): User | undefined {
   if (!actor) return undefined;
   let user;
-  //@ts-ignore DOCUMENT_PERMISSION_LEVELS.OWNER v10
+  //@ts-expect-error DOCUMENT_PERMISSION_LEVELS.OWNER v10
   const OWNERSHIP_LEVELS = CONST.DOCUMENT_PERMISSION_LEVELS;
-  //@ts-ignore ownership v10
+  //@ts-expect-error ownership v10
   const ownwership = actor.ownership;
   // find an active user whose character is the actor
   if (actor.hasPlayerOwner) user = game.users?.find(u => u.character?.id === actor?.id && u.active);
@@ -3433,7 +3417,7 @@ export function playerForActor(actor: Actor | undefined | null): User | undefine
   return user;
 }
 
-//@ts-ignore dnd5e v10
+//@ts-expect-error dnd5e v10
 export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, triggerTokenUuid: string | undefined, reactionItems: Item[], rollFlavor: string, triggerType: string, options: any = {}) {
   try {
     return new Promise((resolve, reject) => {
@@ -3493,7 +3477,7 @@ class ReactionDialog extends Application {
   endTime: number;
 
   data: {
-    //@ts-ignore dnd5e v10
+    //@ts-expect-error dnd5e v10
     actor: globalThis.dnd5e.documents.Actor5e,
     items: Item[],
     title: string,
@@ -3722,7 +3706,7 @@ export function evalCondition(condition: string, conditionData: any, errorReturn
 }
 
 export function computeTemplateShapeDistance(templateDocument: MeasuredTemplateDocument): { shape: string, distance: number } {
-  //@ts-ignore direction etc v10
+  //@ts-expect-error direction etc v10
   let { x, y, direction, distance } = templateDocument;
   // let { direction, distance, angle, width } = templateDocument;
   if (!canvas || !canvas.scene) return { shape: "none", distance: 0 };
@@ -3735,7 +3719,7 @@ export function computeTemplateShapeDistance(templateDocument: MeasuredTemplateD
   let shape: any;
   //@ts-expect-error ._computeShape
   shape = templateDocument.object._computeShape();
-  //@ts-ignore distance v10
+  //@ts-expect-error distance v10
   return { shape, distance: templateDocument.distance };
 }
 
@@ -3802,13 +3786,13 @@ export function isInCombat(actor: Actor) {
   if (actorUuid.startsWith("Scene")) { // actor is a token synthetic actor
     const tokenId = actorUuid.split(".")[3]
     combats = game.combats?.combats.filter(combat =>
-      //@ts-ignore .tokenId v10
+      //@ts-expect-error .tokenId v10
       combat.combatants.filter(combatant => combatant?.tokenId === tokenId).length !== 0
     );
   } else { // actor is not a synthetic actor so can use actor Uuid 
     const actorId = actor.id;
     combats = game.combats?.combats.filter(combat =>
-      //@ts-ignore .actorID v10
+      //@ts-expect-error .actorID v10
       combat.combatants.filter(combatant => combatant?.actorId === actorId).length !== 0
     );
   }
@@ -3903,13 +3887,12 @@ export function hasUsedReaction(actor: Actor) {
 
 export async function gmExpirePerTurnBonusActions(data: { combatUuid: string }) {
   const optionalFlagRe = /flags.midi-qol.optional.[^.]+.count$/;
-  //@ts-expect-error
+  //@ts-expect-error fromUuidSync
   const combat = fromUuidSync(data.combatUuid);
   for (let combatant of combat.turns) {
     const actor = combatant.actor;
     if (actor) {
       for (let effect of actor.effects) {
-        //@ts-ignore .changes v10
         for (let change of effect.changes) {
           if (change.key.match(optionalFlagRe) && change.value === "each-turn") {
             await actor.unsetFlag("midi-qol", change.key.replace(/.count$/, ".used").replace("flags.midi-qol.", ""));
@@ -3922,7 +3905,7 @@ export async function gmExpirePerTurnBonusActions(data: { combatUuid: string }) 
 
 export function hasUsedBonusAction(actor: Actor) {
   if (getConvenientEffectsBonusAction()) {
-    //@ts-ignore
+    //@ts-expect-error
     if (game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsBonusAction().name, actor.uuid)) {
       return true;
     }
@@ -3938,14 +3921,13 @@ export function hasUsedBonusAction(actor: Actor) {
 
 export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false) {
   if (removeCEEffect && getConvenientEffectsBonusAction()) {
-    //@ts-ignore
+    //@ts-expect-error
     if (await game.dfreds?.effectInterface?.hasEffectApplied((getConvenientEffectsBonusAction().name), actor.uuid)) {
-      //@ts-ignore
+      //@ts-expect-error
       await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsBonusAction().name), uuid: actor.uuid });
     }
   }
   if (installedModules.get("condition-lab-triggler")) {
-    //@ts-ignore
     const effect = actor.effects.contents.find(ef => ef.name === i18n("DND5E.BonusAction"));
     await effect?.delete();
   }
@@ -3980,14 +3962,13 @@ export async function asyncHooksCallAll(hook, ...args) {
     console.log(`DEBUG | midi-qol async Calling ${hook} hook with args:`);
     console.log(args);
   }
-  //@ts-ignore
+  //@ts-expect-error
   if (!(hook in Hooks.events)) return true;
 
-  //@ts-ignore
+  //@ts-expect-error
   for (let entry of Array.from(Hooks.events[hook])) {
     //TODO see if this might be better as a Promises.all
     try {
-      //@ts-ignore
       await hookCall(entry, args);
     } catch (err) {
       const message = `hooked function for hook ${hook}`;
@@ -4003,14 +3984,13 @@ export async function asyncHooksCall(hook, ...args) {
     console.log(`DEBUG | midi-qol async Calling ${hook} hook with args:`);
     console.log(args);
   }
-  //@ts-ignore Hooks.events v10
+  //@ts-expect-error Hooks.events v10
   if (!(hook in Hooks.events)) return true;
 
-  //@ts-ignore
+  //@ts-expect-error
   for (let entry of Array.from(Hooks.events[hook])) {
     let callAdditional;
     try {
-      //@ts-ignore
       callAdditional = await hookCall(entry, args);
     } catch (err) {
       const message = `midi-qol | hooked function for hook ${hook} error`;
@@ -4032,7 +4012,7 @@ function hookCall(entry, args) {
     const message = `Error thrown in hooked function '${fn?.name}' for hook '${hook}'`;
     TroubleShooter.recordError(err, message);
     error(`midi | ${message}`);
-    //@ts-ignore Hooks.onError v10
+    //@ts-expect-error Hooks.onError v10
     if (hook !== "error") Hooks.onError("Hooks.#call", err, { message, hook, fn, log: "error" });
   }
 }
@@ -4094,9 +4074,9 @@ export async function computeFlankedStatus(target): Promise<boolean> {
       if (!token) break;
       if (!heightIntersects(target.document, token.document)) continue;
       if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
-        //@ts-ignore
+        //@ts-expect-error
         const CEFlanked = game.dfreds.effects._flanked;
-        //@ts-ignore
+        //@ts-expect-error
         const hasFlanked = token.actor && CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, token.actor.uuid);
         if (hasFlanked) continue;
       }
@@ -4109,13 +4089,13 @@ export async function computeFlankedStatus(target): Promise<boolean> {
         if (actor?.system.attrbutes?.hp?.value <= 0) continue;
         if (!heightIntersects(target.document, ally.document)) continue;
         if (installedModules.get("dfreds-convenient-effects")) {
-          //@ts-ignore
+          //@ts-expect-error
           if (actor?.effects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
         }
         if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
-          //@ts-ignore
+          //@ts-expect-error
           const CEFlanked = game.dfreds.effects._flanked;
-          //@ts-ignore
+          //@ts-expect-error
           const hasFlanked = CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, ally.actor.uuid);
           if (hasFlanked) continue;
         }
@@ -4187,7 +4167,7 @@ export function computeFlankingStatus(token, target): boolean {
       const actor: any = ally.actor;
       if (checkIncapacitated(actor)) continue;
       if (installedModules.get("dfreds-convenient-effects")) {
-        //@ts-ignore
+        //@ts-expect-error
         if (actor?.effects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
       }
 
@@ -4238,16 +4218,16 @@ export async function markFlanking(token, target): Promise<boolean> {
     if (!token) return false;
     needsFlanking = computeFlankingStatus(token, target);
     if (installedModules.get("dfreds-convenient-effects")) {
-      //@ts-ignore
+      //@ts-expect-error
       const CEFlanking = game.dfreds.effects._flanking;
       if (!CEFlanking) return needsFlanking;
-      //@ts-ignore
+      //@ts-expect-error
       const hasFlanking = token.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanking.name, token.actor.uuid)
       if (needsFlanking && !hasFlanking && token.actor) {
-        //@ts-ignore
+        //@ts-expect-error
         await game.dfreds.effectInterface?.addEffect({ effectName: CEFlanking.name, uuid: token.actor.uuid });
       } else if (!needsFlanking && hasFlanking && token.actor) {
-        //@ts-ignore
+        //@ts-expect-error
         await game.dfreds.effectInterface?.removeEffect({ effectName: CEFlanking.name, uuid: token.actor.uuid });
       }
     }
@@ -4257,17 +4237,17 @@ export async function markFlanking(token, target): Promise<boolean> {
   } else if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking"))) {
     if (!target.actor) return false;
     if (installedModules.get("dfreds-convenient-effects")) {
-      //@ts-ignore
+      //@ts-expect-error
       const CEFlanked = game.dfreds.effects._flanked;
       if (!CEFlanked) return false;
       const needsFlanked = await computeFlankedStatus(target);
-      //@ts-ignore
+      //@ts-expect-error
       const hasFlanked = target.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, target.actor.uuid);
       if (needsFlanked && !hasFlanked && target.actor) {
-        //@ts-ignore
+        //@ts-expect-error
         await game.dfreds.effectInterface?.addEffect({ effectName: CEFlanked.name, uuid: target.actor.uuid });
       } else if (!needsFlanked && hasFlanked && token.actor) {
-        //@ts-ignore
+        //@ts-expect-error
         await game.dfreds.effectInterface?.removeEffect({ effectName: CEFlanked.name, uuid: target.actor.uuid });
       }
       return false;
@@ -4311,13 +4291,13 @@ export function canSenseModes(tokenEntity: Token | TokenDocument | string, targe
 }
 
 export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument, validModesParam: Array<string> = ["all"]): Array<string> {
-  //@ts-ignore
+  //@ts-expect-error
   let target: Token = targetEntity instanceof TokenDocument ? targetEntity.object : targetEntity;
   //@ts-expect-error detectionModes
   const detectionModes = CONFIG.Canvas.detectionModes;
   //@ts-expect-error DetectionMode
   const DetectionModeCONST = DetectionMode;
-  //@ts-ignore
+  //@ts-expect-error
   let token: Token = tokenEntity instanceof TokenDocument ? tokenEntity.object : tokenEntity;
   if (!token || !target) return ["noToken"];
   //@ts-expect-error .hidden
@@ -4388,14 +4368,14 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
     los: new Map()
   }));
   const config = { tests, object: targetEntity };
-  //@ts-ignore
+  //@ts-expect-error
   const tokenDetectionModes = token.detectionModes;
-  //@ts-ignore
+  //@ts-expect-error
   const modes = CONFIG.Canvas.detectionModes;
   let validModes = new Set(validModesParam);
 
   // First test basic detection for light sources which specifically provide vision
-  //@ts-ignore
+  //@ts-expect-error
   for (const lightSource of canvas?.effects?.lightSources.values() ?? []) {
     if (/*!lightSource.data.vision ||*/ !lightSource.active || lightSource.disabled) continue;
     if (!validModes.has(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID) && !validModes.has("all")) continue;
@@ -4435,11 +4415,11 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
 
 export function getSystemCONFIG(): any {
   switch (game.system.id) {
-    //@ts-ignore .
+    //@ts-expect-error .
     case "dnd5e": return CONFIG.DND5E;
-    //@ts-ignore .
+    //@ts-expect-error .
     case "sw5e": return CONFIG.DND5E;
-    //@ts-ignore .
+    //@ts-expect-error .
     case "n5e": return CONFIG.N5E;
     default: return {};
   }
@@ -4473,17 +4453,16 @@ export async function doConcentrationCheck(actor, itemData) {
   if (game.user && theTarget) game.user.updateTokenTargets([theTarget]);
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor })
   if (configSettings.displaySaveDC) {
-    //@ts-ignore 
+    //@ts-expect-error 
     ownedItem.getSaveDC()
   }
   try {
-    //@ts-ignore version v10
+    //@ts-expect-error version v10
     if (installedModules.get("betterrolls5e") && isNewerVersion(game.modules.get("betterrolls5e")?.version ?? "", "1.3.10")) { // better rolls breaks the normal roll process
-      //@ts-ignore
+      //@ts-expect-error
       // await ownedItem.roll({ vanilla: false, systemCard: false, createWorkflow: true, versatile: false, configureDialog: false })
       await globalThis.BetterRolls.rollItem(ownedItem, { itemData: ownedItem.toObject(), vanilla: false, adv: 0, disadv: 0, midiSaveDC: saveDC, workflowOptions: { lateTargeting: "none" } }).toMessage();
     } else {
-      //@ts-ignore
       result = await completeItemUse(ownedItem, {}, { systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { lateTargeting: "none" } })
     }
   } catch (err) {

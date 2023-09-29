@@ -13,6 +13,11 @@ import { TroubleShooter } from "./apps/TroubleShooter.js";
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   let itemUsageConsumptionHookId;
   try {
+    // if confirming can't reroll till the first workflow is completed.
+    if (Workflow.getWorkflow(this.uuid)?.currentState <= WORKFLOWSTATES.DAMAGEROLLCOMPLETE && configSettings.confirmAttackDamage !== "none") {
+      ui.notifications?.warn("Waiting for previous workflow to complete");
+      return;
+    }
     const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
     let tokenToUse;
     const lateTargetingSetting = getLateTargeting();
@@ -345,10 +350,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     let result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
     if (itemUsageConsumptionHookId) Hooks.off("dnd5e.itemUsageConsumption", itemUsageConsumptionHookId);
     if (!result) {
-      // const message = `midi-qol | doItemUse call to wrapped item.use() error`;
-      // console.warn(message)f
-      // TroubleShooter.recordError(new Error(message));
-      // Workflow.removeWorkflow(workflow.id); ?
+      Workflow.removeWorkflow(workflow?.id);
       return null;
     }
     // Sphere/Cyclinder spells only will have their template auto placed.
@@ -383,7 +385,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     if (needsConcentration && checkConcentration) {
       const concentrationEffect = getConcentrationEffect(this.actor);
-      if (concentrationEffect) await removeConcentration(this.actor, concentrationEffect.uuid, {concentrationEffectsDeleted: false, concentrationDeleted: false, templatesDeleted: false});
+      if (concentrationEffect) await removeConcentration(this.actor, concentrationEffect.uuid, { concentrationEffectsDeleted: false, concentrationDeleted: false, templatesDeleted: false });
     }
     if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
     if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);
@@ -418,7 +420,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.disadvantage = false;
       workflow.rollOptions.rollToggle = globalThis.MidiKeyManager.pressedKeys.rollToggle;
       if (workflow.currentState !== WORKFLOWSTATES.ROLLFINISHED && configSettings.undoWorkflow) {
-        socketlibSocket.executeAsGM("undoTillWorkflow", workflow.id, false);
+        socketlibSocket.executeAsGM("undoTillWorkflow", workflow.id, false, false);
       }
     }
     if (workflow && !workflow.reactionQueried) {
@@ -557,9 +559,12 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       delete wrappedOptions.fumble;
 
     wrappedOptions.chatMessage = false;
-    let result: Roll = await wrapped(
-      wrappedOptions
-    );
+    Hooks.once("dnd5e.rollAttack", (item, roll, ammoUpdate) => {
+      if ((workflow?.attackRollCount ?? 0) > 1) {
+        while (ammoUpdate.length > 0) ammoUpdate.pop();
+      }
+    });
+    let result: Roll = await wrapped(wrappedOptions);
 
     if (!result) return result;
     result = Roll.fromJSON(JSON.stringify(result.toJSON()))
@@ -702,7 +707,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
         chatMessage: false
       },
         { overwrite: true, insertKeys: true, insertValues: true });
-  
+
       const damageRollData = {
         critical: workflow.workflowOptions?.critical || (workflow.rollOptions.critical || workflow.isCritical),
         spellLevel: workflow.rollOptions.spellLevel,
@@ -873,7 +878,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
               term.options.flavor = getDamageFlavor(term.options.flavor);
             }
           }
-          if (workflow.workflowOptions?.otherDamageRollDSN === false) await displayDSNForRoll(otherResult, "damageRoll");
+          if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
           if (!configSettings.mergeCard) await otherResult?.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") })
           await workflow.setOtherDamageRoll(otherResult);
         }

@@ -63,10 +63,11 @@
             {{/select}}
           </select>
         </div>
+
         <div class="form-group">
-          <label>{{localize "midi-qol.AutoFastForwardDamage.Name"}}</label>
-          <input type="checkbox" name="gmAutoFastForwardDamage" data-dtype="Boolean" {{checked
-            configSettings.gmAutoFastForwardDamage}} />
+          <label>{{localize "midi-qol.AverageNPCDamage.Name"}}</label>
+          <input type="checkbox" name="averageNPCDamage" data-dtype="Boolean" {{checked
+            configSettings.averageNPCDamage}} />
         </div>
 
         <div class="form-group">
@@ -661,20 +662,26 @@
       <div class="midi-qol-box">
         <div class="form-group">
           <label>{{localize "midi-qol.RollChecksBlind.Name"}}</label>
-          <input type="checkbox" name="rollChecksBlind" data-dtype="Boolean" {{checked
-            configSettings.rollChecksBlind}} />
+          <select class="midi-qol-blind-select" name="rollChecksBlind" multiple>
+            {{selectOptions RollChecksBlindOptions selected=configSettings.rollChecksBlind}}
+          </select>
         </div>
+
         <div class="form-group">
           <label>{{localize "midi-qol.RollSavesBlind.Name"}}</label>
-          <input type="checkbox" name="rollSavesBlind" data-dtype="Boolean" {{checked configSettings.rollSavesBlind}} />
+          <select class="midi-qol-blind-select" name="rollSavesBlind" multiple>
+            {{selectOptions RollSavesBlindOptions selected=configSettings.rollSavesBlind}}
+          </select>
         </div>
+
         <div class="form-group">
           <label>{{localize "midi-qol.RollSkillsBlind.Name"}}</label>
-          <input type="checkbox" name="rollSkillsBlind" data-dtype="Boolean" {{checked
-            configSettings.rollSkillsBlind}} />
+          <select class="midi-qol-blind-select" name="rollSkillsBlind" multiple>
+            {{selectOptions RollSkillsBlindOptions selected=configSettings.rollSkillsBlind}}
+          </select>
         </div>
       </div>
-
+      --
       <div class="midi-qol-box">
         <div class="form-group">
           <label>{{localize "midi-qol.ActionSpecialDurationImmediate.Name"}}</label>

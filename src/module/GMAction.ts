@@ -50,8 +50,12 @@ export let setupSocket = () => {
   socketlibSocket.register("confirmDamageRollComplete", confirmDamageRollComplete);
   socketlibSocket.register("confirmDamageRollCompleteHit", confirmDamageRollCompleteHit);
   socketlibSocket.register("confirmDamageRollCompleteMiss", confirmDamageRollCompleteMiss);
+  socketlibSocket.register("removeWorkflow", _removeWorkflow);
 
   // socketlibSocket.register("canSense", _canSense);
+}
+function _removeWorkflow(workflowId: string) {
+  Workflow.removeWorkflow(workflowId);
 }
 
 async function confirmDamageRollComplete(data: { workflowId: string, itemCardId: string }) {
@@ -806,9 +810,9 @@ export let processUndoDamageCard = (message, html, data) => {
 }
 
 async function _moveToken(data: { tokenUuid: string, newCenter: { x: number, y: number } }): Promise<any> {
-  const token = MQfromUuid(data.tokenUuid);
-  if (!token) return;
-  return token.update({ x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0 });
+  const tokenDocument = MQfromUuid(data.tokenUuid);
+  if (!tokenDocument) return;
+  return tokenDocument.update({ x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0 });
 }
 
 async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: number, y: number }, distance: number }): Promise<void> {

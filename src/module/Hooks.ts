@@ -8,6 +8,7 @@ import { installedModules } from "./setupModules.js";
 import { checkWounded, lookupItemMacro, preDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { Workflow } from "./workflow.js";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -286,6 +287,12 @@ export function initHooks() {
     hideRollRender(message, html, data);
     betterRollsButtons(message, html, data);
     hideStuffHandler(message, html, data);
+  });
+
+  Hooks.on("deleteChatMessage", (message, options, user) => {
+    if (message.user.id !== game.user?.id) return;
+    const workflowId = getProperty(message, "flags.midi-qol.workflowId");
+    if (workflowId) Workflow.removeWorkflow(workflowId)
   });
 
   Hooks.on("midi-qol.RollComplete", async (workflow) => {

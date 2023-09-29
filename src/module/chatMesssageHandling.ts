@@ -730,7 +730,9 @@ export async function onChatCardAction(event) {
         }
         break;
       case "confirm-damage-roll-cancel":
-        await socketlibSocket.executeAsGM("undoTillWorkflow", workflowId, true, true);
+        if (!await socketlibSocket.executeAsGM("undoTillWorkflow", item.uuid, true, true)) {
+          await game.messages?.get(messageId)?.delete()
+        };
         break;
       case "confirm-damage-roll-complete":
       case "confirm-damage-roll-complete-hit":

@@ -199,7 +199,8 @@ async function doRollSkill(wrapped, ...args) {
     }
     if (chatMessage !== false && result) {
       const saveRollMode = game.settings.get("core", "rollMode");
-      if (!game.user?.isGM && configSettings.rollSkillsBlind && ["publicroll", "roll"].includes(rollMode)) {
+      const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
+      if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll"].includes(rollMode)) {
         rollMode = "blindroll";
         game.settings.set("core", "rollMode", "blindroll");
       }
@@ -242,6 +243,19 @@ export function addDiceTermModifiers() {
   Die.MODIFIERS["mx"] = "multiply";
   setProperty(Die.prototype, "multiply", multiply);
 }
+export function averageDice(roll: Roll) {
+  roll.terms = roll.terms.map(term => {
+    if (term instanceof DiceTerm) {
+      const mult = term.modifiers.includes("mx2") ? 2 : 1
+      const newTerm = new NumericTerm({ number: Math.floor(term.number * mult * (term.faces + 1) / 2) });
+      newTerm.options = term.options;
+      return newTerm;
+    }
+    return term;
+  });
+  //@ts-expect-error _formula is private
+  roll._formula = roll.constructor.getFormula(roll.terms);
+}
 
 function configureDamage(wrapped) {
   let useDefaultCritical = getCriticalDamage() === "default";
@@ -250,7 +264,8 @@ function configureDamage(wrapped) {
   if (!this.isCritical || useDefaultCritical) {
     while (this.terms.length > 0 && this.terms[this.terms.length - 1] instanceof OperatorTerm)
       this.terms.pop();
-    return wrapped();
+    wrapped();
+    if (this.data.actorType === "npc" && configSettings.averageNPCDamage) averageDice(this);
   }
   // if (this.options.configured) return; seems this is not required.
   let bonusTerms: RollTerm[] = [];
@@ -354,6 +369,7 @@ function configureDamage(wrapped) {
     this.terms.pop();
   this._formula = this.constructor.getFormula(this.terms);
   this.options.configured = true;
+  if (this.data.actorType === "npc" && configSettings.averageNPCDamage) averageDice(this);
 }
 
 async function doAbilityRoll(wrapped, rollType: string, ...args) {
@@ -409,8 +425,13 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
     let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
     if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
-      case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
-      case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
+      case "check": 
+        const blindCheckRoll = configSettings.rollChecksBlind.includes("all") || configSettings.rollChecksBlind.includes(abilityId);
+        if (blindCheckRoll) rollMode = "blindroll"; break;
+      case "save": 
+        const blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes(abilityId);
+        if (blindSaveRoll) rollMode = "blindroll"; 
+      break;
     }
     await displayDSNForRoll(result, rollType, rollMode);
 
@@ -658,7 +679,7 @@ export function procAdvantageSkill(actor, skillId, options: Options): Options {
   var withAdvantage = options.advantage;
   var withDisadvantage = options.disadvantage;
   if (advantage || disadvantage) {
-    const conditionData = createConditionData({ workflow: undefined, target: undefined, actor: this });
+    const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
     if (advantage?.all && evalCondition(advantage.all, conditionData)) {
       withAdvantage = true;
     }
@@ -1220,6 +1241,9 @@ export function readyPatching() {
     libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
   }
   libWrapper.register("midi-qol", "game.system.applications.DamageTraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
+  libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+  libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+
 }
 
 export let visionPatching = () => {
@@ -1803,3 +1827,14 @@ function itemGetRollData(wrapped, ...args) {
   data.item.midiFlags = getProperty(this, "flags.midi-qol");
   return data;
 }
+function _filterItems(wrapped, items, filters) {
+  if (!filters.has("reaction")) return wrapped(items, filters);
+  const revisedFilters = new Set(filters);
+  revisedFilters.delete("reaction");
+  let filteredItems = wrapped(items, revisedFilters);
+  filteredItems = filteredItems.filter(item => {
+    if (item.system.activation?.type?.includes("reaction")) return true;
+    return false
+  });
+  return filteredItems
+};

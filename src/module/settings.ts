@@ -50,6 +50,7 @@ class ConfigSettings {
   autoRollAttack: boolean = false;
   autoRollDamage: string = "none";
   autoTarget: string = "none";
+  averageNPCDamage: boolean = false;
   checkSaveText: boolean = false;
   concentrationAutomation: boolean = false;
   consumeResource: string = "none";
@@ -116,9 +117,9 @@ class ConfigSettings {
   rollNPCSaves: string = "auto";
   rollOtherDamage: string | boolean = "none";
   rollOtherSpellDamage: string | boolean = "none";
-  rollChecksBlind: boolean = false;
-  rollSavesBlind: boolean = false;
-  rollSkillsBlind: boolean = false;
+  rollChecksBlind: string[] = ["none"];
+  rollSavesBlind: string[] = ["none"];
+  rollSkillsBlind: string[] = ["none"];
   saveStatsEvery: number = 20;
   showDSN: boolean = true;
   showFastForward: boolean = false;
@@ -295,9 +296,15 @@ export let fetchParams = () => {
   if (configSettings.rollOtherDamage === true) configSettings.rollOtherDamage = "ifSave";
   if (configSettings.rollOtherDamage === undefined) configSettings.rollOtherDamage = "none";
   if (!configSettings.rollOtherSpellDamage) configSettings.rollOtherSpellDamage = "none";
-  if (!configSettings.rollChecksBlind) configSettings.rollChecksBlind = false;
-  if (!configSettings.rollSavesBlind) configSettings.rollSavesBlind = false;
-  if (!configSettings.rollSkillsBlind) configSettings.rollSkillsBlind = false;
+  if (!configSettings.rollChecksBlind) configSettings.rollChecksBlind = ["none"];
+  //@ts-expect-error type mismatch - this is for legacy true setting
+  if (configSettings.rollCheckssBlind === true) configSettings.rollChecksBlind = ["all"];
+  if (!configSettings.rollSavesBlind) configSettings.rollSavesBlind = ["none"];
+  //@ts-expect-error type mismatch - this is for legacy true setting
+  if (configSettings.rollSavesBlind === true) configSettings.rollSavessBlind = ["all"];
+  if (!configSettings.rollSkillsBlind) configSettings.rollSkillsBlind = ["none"];
+  //@ts-expect-error type mismatch - this is for legacy true setting
+  if (configSettings.rollSkillsBlind === true) configSettings.rollSkillsBlind = ["all"];
   if (configSettings.promptDamageRoll === undefined) configSettings.promptDamageRoll = false;
   if (configSettings.gmHide3dDice === undefined) configSettings.gmHide3dDice = false;
   if (configSettings.ghostRolls === undefined) configSettings.ghostRolls = false;
@@ -412,6 +419,7 @@ export let fetchParams = () => {
   if (configSettings.enforceSingleWeaponTarget == undefined) configSettings.enforceSingleWeaponTarget = false;
   configSettings.hidePlayerDamageCard = true;
   configSettings.quickSettings = true;
+  if (configSettings.averageNPCDamage === undefined) configSettings.averageNPCDamage = false;
   enableWorkflow = Boolean(game.settings.get("midi-qol", "EnableWorkflow"));
   if (debugEnabled > 0) warn("Fetch Params Loading", configSettings);
 

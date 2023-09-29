@@ -82,6 +82,7 @@ export async function saveUndoData(workflow: Workflow): Promise<boolean> {
   workflow.undoData.itemName = workflow.item?.name;
   workflow.undoData.itemUuid = workflow.item?.uuid;
   workflow.undoData.userName = game.user?.name;
+  workflow.undoData.userId = game.user?.id;
   workflow.undoData.tokendocUuid = workflow.token?.uuid ?? workflow.token?.document.uuid;
   workflow.undoData.actorUuid = workflow.actor?.uuid;
   workflow.undoData.actorName = workflow.actor?.name;
@@ -268,15 +269,20 @@ export async function undoTillWorkflow(workflowId: string, undoTarget: boolean, 
   const queueLength = undoDataQueue.length;
   try {
     while (undoDataQueue.length > 0 && undoDataQueue[0].id !== workflowId) {
-      undoWorkflow(undoDataQueue.shift());
+      await undoWorkflow(undoDataQueue.shift());
     }
-    if (undoTarget) undoWorkflow(undoDataQueue[0]);
-    if (undoDataQueue.length > 0 && removeWorkflow) undoDataQueue.shift();
+    if (undoTarget) await undoWorkflow(undoDataQueue[0]);
+    if (undoDataQueue.length > 0 && removeWorkflow) {
+      const workflow = undoDataQueue.shift();
+      // This should be unneeded as removing the chat card should trigger removal of the workflow
+      socketlibSocket.executeAsUser("removeWorkflow", workflow.userId, workflow.id); 
+    }
   } finally {
     if (queueLength !== undoDataQueue.length) Hooks.callAll("midi-qol.removeUndoEntry");
   }
-  return;
+  return queueLength !== undoDataQueue.length;
 }
+
 export async function _undoMostRecentWorkflow() {
   if (undoDataQueue.length === 0) return false;
   let undoData;
@@ -397,21 +403,24 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
   let effectsToAdd = actorData?.effects?.filter(efData => !actor.effects.some(effect => efData._id === effect.id));
   effectsToAdd = effectsToAdd.filter(efData => !efData?.flags?.dae?.transfer);
   // revisit this for v11 and effects not transferred
+
   if (debugEnabled > 0) warn("Effects to add ", actor.name, effectsToAdd);
   if (effectsToAdd?.length > 0) {
     if (dae?.actionQueue) dae.actionQueue.add(async () => {
       effectsToAdd = effectsToAdd.filter(efId => !actor.effects.some(effect => effect.id === efId))
-      if (debugEnabled > 0) warn("Effects to add are ", effectsToAdd, actor.name)
+      if (debugEnabled > 0) warn("Effects to add are ", effectsToAdd, actor.name);
       await actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true, isUndo: true })
     });
     else await actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true, isUndo: true });
   }
 
   // const itemsToUpdate = getUpdateItems(actorData.items ?? [], actor);
-  actor.updateEmbeddedDocuments("Item", actorData.items, { keepId: true, isUndo: true });
+  if (dae?.actionQueue) await dae.actionQueue.add(actor.updateEmbeddedDocuments.bind(actor), "Item", actorData.items, { keepId: true, isUndo: true });
+  else await actor.updateEmbeddedDocuments("Item", actorData.items, { keepId: true, isUndo: true });
 
   if (actorData.effects?.length > 0) {
-    await actor.updateEmbeddedDocuments("ActiveEffect", actorData.effects, { keepId: true, isUndo: true });
+    if (dae?.actionQueue) await dae.actionQueue.add(actor.updateEmbeddedDocuments.bind(actor), "ActiveEffect", actorData.effects, { keepId: true, isUndo: true });  
+    else await actor.updateEmbeddedDocuments("ActiveEffect", actorData.effects, { keepId: true, isUndo: true });
   }
 
   actorChanges = actorData ? getChanges(actor.toObject(true), actorData) : {};
