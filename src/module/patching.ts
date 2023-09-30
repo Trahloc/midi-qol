@@ -255,6 +255,7 @@ export function averageDice(roll: Roll) {
   });
   //@ts-expect-error _formula is private
   roll._formula = roll.constructor.getFormula(roll.terms);
+  return roll;
 }
 
 function configureDamage(wrapped) {
@@ -266,6 +267,7 @@ function configureDamage(wrapped) {
       this.terms.pop();
     wrapped();
     if (this.data.actorType === "npc" && configSettings.averageNPCDamage) averageDice(this);
+    return;
   }
   // if (this.options.configured) return; seems this is not required.
   let bonusTerms: RollTerm[] = [];

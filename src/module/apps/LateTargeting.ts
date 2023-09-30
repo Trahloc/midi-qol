@@ -22,7 +22,7 @@ export class LateTargetingDialog extends Application {
     this.data = { actor, item, user, targets: [] }
 
     // Handle alt/ctrl etc keypresses when completing the dialog
-    this.callback = function(value) {
+    this.callback = function (value) {
       setProperty(options, "workflowOptions.advantage", options.worfkflowOptions?.advantage || options.pressedKeys?.advantage);
       setProperty(options, "workflowOptions.disadvantage", options.worfkflowOptions?.disadvantage || options.pressedKeys?.disadvantage);
       setProperty(options, "workflowOptions.versatile", options.worfkflowOptions?.versatile || options.pressedKeys?.versatile);
@@ -37,7 +37,7 @@ export class LateTargetingDialog extends Application {
   }
 
   static get defaultOptions() {
-      //@ts-ignore _collapsed
+    //@ts-ignore _collapsed
     let left = window.innerWidth - 310 - (ui.sidebar?._collapsed ? 10 : (ui.sidebar?.position.width ?? 300));
     let top = window.innerHeight - 200;
 
@@ -54,21 +54,27 @@ export class LateTargetingDialog extends Application {
       closeOnSubmit: true
     });
   }
-  
+
   async getData(options = {}) {
     let data: any = mergeObject(this.data, await super.getData(options));
-    data.targets = Array.from(game.user?.targets ?? []);
-    data.targets = data.targets.map(t=> {
-      return {
-        name: game.user?.isGM ? t.name : getTokenPlayerName(t),
-        img: t.document.texture.src
+    const targets = Array.from(game.user?.targets ?? []);
+    data.targets = [];
+    for (let target of targets) {
+      //@ts-expect-error .texture
+      let img = target.document.texture.src;
+      if (VideoHelper.hasVideoExtension(img)) {
+        img = await game.video.createThumbnail(img, { width: 50, height: 50 });
       }
-    })
+      data.targets.push({
+        name: game.user?.isGM ? target.name : getTokenPlayerName(target),
+        img
+      });
+    }
     if (this.data.item.system.target) {
       if (this.data.item.system.target.type === "creature" && !this.data.item.system.target.type && this.data.item.system.target.value)
         data.targetCount = this.data.item.system.target.value;
       else data.targetCount = "";
-      data.blurb = i18nFormat("midi-qol.LateTargeting.Blurb", {targetCount: data.targetCount})
+      data.blurb = i18nFormat("midi-qol.LateTargeting.Blurb", { targetCount: data.targetCount })
     }
     return data;
   }

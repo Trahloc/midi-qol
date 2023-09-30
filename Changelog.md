@@ -1,3 +1,7 @@
+## 11.0.21.2
+* Late targeting now works with animated tokens.
+* Fix for messed up damage rolls.
+
 ## 11.0.21.1
 * Fix for incorrect initialisation of blind player ability checks field which caused saving settings to fail.
 * Fix for bad bug with macro calling dropping the return value.
