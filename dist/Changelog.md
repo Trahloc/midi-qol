@@ -1,3 +1,7 @@
+## 11.0.21.1
+* Fix for incorrect initialisation of blind player ability checks field which caused saving settings to fail.
+* Fix for bad bug with macro calling dropping the return value.
+
 ## 11.0.21
 * If a roll is awaiting confirmation, the player won't be able to roll the same item again until the roll is confirmed/cancelled.
 * Deleting a chat card removes, but does not undo, the workflow.
@@ -6,6 +10,9 @@
 * Rolling an attack a second time won't consume the ammo again.
 * Modify character/npc sheet behaviour so that filtering for reactions picks up all reaction types, not just "reaction".
 * Player blind roll settings are now multi select lists instead of boolean. So you can select which skills/saves/checks are to be rolled blind rather than all or nothing.
+* Added an option for monsters to roll average damage.
+* Fix for undo workflows not correctly putting back effects.
+* Make the check for maroPass case insensitive.
 
 ## 11.0.20.2
 * Fix for hidden advantage/disadvantage check when attackeer is hidden giving both advantage and disadvantage.

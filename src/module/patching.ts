@@ -424,12 +424,15 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
     }
     let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
+    let blindCheckRoll;
+    let blindSaveRoll;
     if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
       case "check": 
-        const blindCheckRoll = configSettings.rollChecksBlind.includes("all") || configSettings.rollChecksBlind.includes(abilityId);
-        if (blindCheckRoll) rollMode = "blindroll"; break;
+        blindCheckRoll = configSettings.rollChecksBlind.includes("all") || configSettings.rollChecksBlind.includes(abilityId);
+        if (blindCheckRoll) rollMode = "blindroll"; 
+        break;
       case "save": 
-        const blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes(abilityId);
+        blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes(abilityId);
         if (blindSaveRoll) rollMode = "blindroll"; 
       break;
     }
@@ -446,10 +449,6 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       setProperty(messageData, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
       setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
       messageData.template = "modules/midi-qol/templates/roll.html";
-      if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
-        case "check": if (configSettings.rollChecksBlind) rollMode = "blindroll"; break;
-        case "save": if (configSettings.rollSavesBlind) rollMode = "blindroll"; break;
-      }
       const saveRollMode = game.settings.get("core", "rollMode");
       if (rollMode === "blindroll") {
         game.settings.set("core", "rollMode", rollMode);

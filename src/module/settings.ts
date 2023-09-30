@@ -298,7 +298,7 @@ export let fetchParams = () => {
   if (!configSettings.rollOtherSpellDamage) configSettings.rollOtherSpellDamage = "none";
   if (!configSettings.rollChecksBlind) configSettings.rollChecksBlind = ["none"];
   //@ts-expect-error type mismatch - this is for legacy true setting
-  if (configSettings.rollCheckssBlind === true) configSettings.rollChecksBlind = ["all"];
+  if (configSettings.rollChecksBlind === true) configSettings.rollChecksBlind = ["all"];
   if (!configSettings.rollSavesBlind) configSettings.rollSavesBlind = ["none"];
   //@ts-expect-error type mismatch - this is for legacy true setting
   if (configSettings.rollSavesBlind === true) configSettings.rollSavessBlind = ["all"];

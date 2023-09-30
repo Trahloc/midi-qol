@@ -1909,6 +1909,7 @@ export class Workflow {
       }));
     }
     let results: Array<damageBonusMacroResult | any> = await Promise.allSettled(values);
+    results = results.map(p => p.value);
     return results;
   }
 
