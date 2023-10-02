@@ -3,6 +3,7 @@
 * Fix for Troubleshooter error with latest ddbbi.
 * Fix for compatibility warning for criticalThreshold
 * Include merge for ATV cover calculations. Thanks @caewok
+* Fix for tool checks not rolling blind after seting blind roll in configuration dialog.
 
 ## 11.0.21.2
 * Late targeting now works with animated tokens.

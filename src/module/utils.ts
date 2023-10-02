@@ -4779,7 +4779,8 @@ export function calcTokenVisibilityCover(attacker: Token | TokenDocument, target
     return 0;
   }
   
-  const version = game.modules.get("tokenvisibility").version;
+  //@ts-expect-error .version
+  const version = game.modules.get("tokenvisibility")?.version;
   let coverValue;
   if ( isNewerVersion(version, "0.5.3") ) {
     const cover = api.CoverCalculator.coverCalculations([attackerToken], [targetToken]);

@@ -1339,14 +1339,15 @@ export async function rollToolCheck(wrapped, options: any = {}) {
   const chatMessage = options.chatMessage;
   options.chatMessage = false;
   let result = await wrapped(options);
-  await displayDSNForRoll(result, "toolCheck");
+  let rollMode = result.options.rollMode ?? game.settings.get("core", "rollMode");
+  await displayDSNForRoll(result, "toolCheck", rollMode);
   result = await bonusCheck(this.actor, result, "check", this.system.ability ?? "")
   if (chatMessage !== false && result) {
     const title = `${this.name} - ${game.i18n.localize("DND5E.ToolCheck")}`;
     const args: any = { "speaker": getSpeaker(this.actor), title, flavor: title };
     setProperty(args, `flags.${game.system.id}.roll`, { type: "tool", itemId: this.id, itemUuid: this.uuid });
     args.template = "modules/midi-qol/templates/roll.html";
-    await result.toMessage(args);
+    await result.toMessage(args, {rollMode});
   }
   return result;
 }
