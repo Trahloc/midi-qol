@@ -4778,8 +4778,15 @@ export function calcTokenVisibilityCover(attacker: Token | TokenDocument, target
     warn(message, err);
     return 0;
   }
-
-  const cover = api.CoverCalculator.coverCalculations([attackerToken], [targetToken]);
-  const coverValue = cover[attackerToken.id][targetToken.id];
+  
+  const version = game.modules.get("tokenvisibility").version;
+  let coverValue;
+  if ( isNewerVersion(version, "0.5.3") ) {
+    const cover = api.CoverCalculator.coverCalculations([attackerToken], [targetToken]);
+    coverValue = cover[attackerToken.id][targetToken.id];
+  } else {
+    const cover = api.CoverCalculator.coverCalculations(attackerToken, [targetToken]);
+    coverValue = cover.get(targetToken);
+  } 
   return coverValue;
 }
