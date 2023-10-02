@@ -1117,10 +1117,9 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
 }
 
 export function midiCustomEffect(actor, change) {
+  if (!change.key) return true;
   if (typeof change?.key !== "string") return true;
   if (!change.key?.startsWith("flags.midi-qol")) return true;
-  if (!change.key || change.key.startsWith("flags.midi-qol.move")) 
-    debugger;
   const deferredEvaluation = [
     "flags.midi-qol.OverTime",
     "flags.midi-qol.optional",

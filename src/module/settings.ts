@@ -254,19 +254,22 @@ export function exportSettingsToJSON() {
 export async function importSettingsFromJSON(json) {
   if (typeof json === "string")
     json = JSON.parse(json);
-  game.settings.set("midi-qol", "ConfigSettings", json.configSettings);
-  game.settings.set("midi-qol", "ItemRollButtons", json.itemRollButtons);
-  game.settings.set("midi-qol", "CriticalDamage", json.criticalDamage);
-  game.settings.set("midi-qol", "CriticalDamageGM", json.criticalDamageGM);
-  game.settings.set("midi-qol", "showGM", json.nsaFlag);
-  game.settings.set("midi-qol", "ColoredBorders", json.coloredBorders);
-  game.settings.set("midi-qol", "AddChatDamageButtons", json.addChatDamageButtons);
-  game.settings.set("midi-qol", "AutoFastForwardAbilityRolls", json.autoFastForwardAbilityRolls);
-  game.settings.set("midi-qol", "AutoRemoveTargets", json.autoRemoveTargets);
-  game.settings.set("midi-qol", "ForceHideRoll", json.forceHideRoll);
-  game.settings.set("midi-qol", "EnableWorkflow", json.enableWorkflow);
-  game.settings.set("midi-qol", "DragDropTarget", json.dragDropTargeting);
-  game.settings.set("midi-qol", "MidiSoundSettings", json.midiSoundSettings ?? {});
+  await game.settings.set("midi-qol", "ConfigSettings", json.configSettings);
+  await game.settings.set("midi-qol", "ItemRollButtons", json.itemRollButtons);
+  await game.settings.set("midi-qol", "CriticalDamage", json.criticalDamage);
+  await game.settings.set("midi-qol", "CriticalDamageGM", json.criticalDamageGM);
+  await game.settings.set("midi-qol", "showGM", json.nsaFlag);
+  await game.settings.set("midi-qol", "ColoredBorders", json.coloredBorders);
+  await game.settings.set("midi-qol", "AddChatDamageButtons", json.addChatDamageButtons);
+  await game.settings.set("midi-qol", "AutoFastForwardAbilityRolls", json.autoFastForwardAbilityRolls);
+  await game.settings.set("midi-qol", "AutoRemoveTargets", json.autoRemoveTargets);
+  await game.settings.set("midi-qol", "ForceHideRoll", json.forceHideRoll);
+  await game.settings.set("midi-qol", "EnableWorkflow", json.enableWorkflow);
+  await game.settings.set("midi-qol", "DragDropTarget", json.dragDropTargeting);
+  await game.settings.set("midi-qol", "MidiSoundSettings", json.midiSoundSettings ?? {});
+  //@ts-expect-error _sheet
+  const settingsAppId = game.settings._sheet?.appId;
+  if (settingsAppId) ui.windows[settingsAppId]?.render(true);
 }
 export let fetchSoundSettings = () => {
   midiSoundSettings = game.settings.get("midi-qol", "MidiSoundSettings") ?? {};

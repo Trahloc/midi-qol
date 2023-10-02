@@ -335,11 +335,6 @@ export class TroubleShooter extends FormApplication {
       data.summary.moduleSettings["Active Auras In Combat"] = game.settings.get("ActiveAuras", "combatOnly");
     }
     if (game.modules.get("ddb-importer")?.active) {
-      data.summary.moduleSettings["DDB Importer CPR"] = game.settings.get("ddb-importer", "munching-policy-use-chris-premades");
-      data.summary.moduleSettings["DDB Importer Use DAE"] = game.settings.get("ddb-importer", "munching-policy-use-dae-effects");
-      data.summary.moduleSettings["DDB Importer Add Spell Effects"] = game.settings.get("ddb-importer", "munching-policy-add-spell-effects");
-      data.summary.moduleSettings["DDB Importer Add Monster Effects"] = game.settings.get("ddb-importer", "munching-policy-add-monster-effects");
-      data.summary.moduleSettings["DDB Importer Add Armor Effects"] = game.settings.get("ddb-importer", "munching-policy-add-ac-armor-effects");
     } else data.summary.moduleSettings["DDB Importer"] = i18n("midi-qol.Inactive");
     if (game.modules.get("dfreds-convenient-effects")?.active) {
       data.summary.moduleSettings["Convenient Effects Modify Status Effects"] = game.settings.get("dfreds-convenient-effects", "modifyStatusEffects");

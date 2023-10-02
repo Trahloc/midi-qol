@@ -536,7 +536,7 @@ export class Workflow {
           if (autoFastForwardAbilityRolls) {
             // procOptions.fastForward = !this.rollOptions.rollToggle;
             //            this.item.rollToolCheck({ fastForward: this.rollOptions.fastForward, advantage: hasAdvantage, disadvantage: hasDisadvantage })
-            const options: any = mergeObject(procOptions, { critical: this.item.getCriticalThreshold() ?? 20, fumble: 1 });
+            const options: any = mergeObject(procOptions, { critical: this.item.criticalThreshold ?? 20, fumble: 1 });
             const result = await this.item.rollToolCheck(options);
             return this.next(WORKFLOWSTATES.WAITFORDAMAGEROLL);
           }

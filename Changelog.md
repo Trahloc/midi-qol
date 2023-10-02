@@ -1,3 +1,9 @@
+## 11.0.22
+* Fix for workflow settings not updating the open settings app.
+* Fix for Troubleshooter error with latest ddbbi.
+* Fix for compatibility warning for criticalThreshold
+* Include merge for ATV cover calculations. Thanks @caewok
+
 ## 11.0.21.2
 * Late targeting now works with animated tokens.
 * Fix for messed up damage rolls.

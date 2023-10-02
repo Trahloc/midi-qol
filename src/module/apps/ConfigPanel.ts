@@ -117,7 +117,7 @@ export class ConfigPanel extends FormApplication {
   activateListeners(html) {
     html.find(".customSounds").change(() => {
       configSettings.useCustomSounds = !configSettings.useCustomSounds;
-      this.render()
+      this.render(true)
     });
 
     html.find(".playlist").change(this._playList.bind(this));
@@ -128,7 +128,7 @@ export class ConfigPanel extends FormApplication {
     })
     html.find(".optionalRulesEnabled").on("click", event => {
       configSettings.optionalRulesEnabled = !configSettings.optionalRulesEnabled;
-      this.render();
+      this.render(true);
     })
 
     html.find("#midi-qol-show-stats").on("click", event => {
@@ -270,8 +270,7 @@ async function importFromJSONDialog() {
             const form = html.find("form")[0];
             if (!form.data.files.length) return ui.notifications?.error("You did not upload a data file!");
             readTextFromFile(form.data.files[0]).then(json => {
-              importSettingsFromJSON(json)
-              resolve(true);
+              importSettingsFromJSON(json).then(() => resolve(true))
             });
           }
         },
