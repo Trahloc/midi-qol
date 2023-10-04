@@ -648,7 +648,7 @@ export class TroubleShooter extends FormApplication {
   }
 
   public static checkMidiSaveSettings(data: TroubleShooterData) {
-    if (!(installedModules.get("monks-tokenbar")?.active) 
+    if (!installedModules.get("monks-tokenbar") 
       && (configSettings.playerRollSaves === "mtb" || configSettings.rollNPCSaves === "mtb" || configSettings.rollNPCLinkedSaves === "mtb")) {
       data.problems.push({
         moduleId: "monks-tokenbar",
@@ -658,7 +658,7 @@ export class TroubleShooter extends FormApplication {
         fixer: "Enable the 'monks-tokenbar' module"
       });
     }
-    if (!(installedModules.get("lmrtfy")?.active) && 
+    if (!installedModules.get("lmrtfy") && 
       (configSettings.playerRollSaves === "lmrtfy" || configSettings.rollNPCSaves === "lmrtfy" || configSettings.rollNPCLinkedSaves === "lmrtfy" )) {
       data.problems.push({
         moduleId: "lmrtfy",

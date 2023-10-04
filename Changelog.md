@@ -1,3 +1,6 @@
+## 11.1.1.1
+* Fix for trobulshooter misreporting saving throw module status reporting
+
 ## 11.1.1
 * Fix for sw5e sheet patching error
 
