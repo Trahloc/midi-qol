@@ -1996,59 +1996,7 @@ export class Workflow {
       scope.item = item;
       scope.args = args;
       scope.options = args[0].options;
-      //@ts-expect-error version
-      const midiVersion = game.modules.get("midi-qol")?.version;
-
-      // TODO if we only have a macro command create a temp macro to execute.
-      if (macro && isNewerVersion(midiVersion, "11.1.0")) {
-        return macro.execute({ actor, token, workflow: this, item, args })
-      } else { // don't have a real macro so fudge it
-        const AsyncFunction = (async function () { }).constructor;
-
-        // Create a proxy to this to catch macros using this as a workflow.
-        let newThis;
-        if (isNewerVersion("11.1.0", midiVersion)) {
-          newThis = new Proxy(this,
-            {
-              get(obj, prop, receiver) {
-                //@ts-expect-error logCompatibilityWarning
-                foundry.utils.logCompatibilityWarning("Midi-QOL: macro execution. Refrences to the workflow via 'this' are deprecated. Use 'workflow' instead", {
-                  since: "10.0.44", until: "11.1.0"
-                });
-                return Reflect.get(obj, prop, receiver);
-              }
-            });
-        }
-
-        const argNames = Object.keys(scope);
-        const argValues = Object.values(scope);
-
-        let macroCommand: string = itemMacroData?.command ?? itemMacroData?.data?.command ?? macro?.command;
-        try {
-          //@ts-expect-error
-          const fn = new AsyncFunction("speaker", "actor", "token", "character", "scope", ...argNames, macroCommand)
-          return fn.call(newThis, speaker, actor, token, character, scope, ...argValues);
-        } catch (err) { // wrap the command in {} to get rid of already delecared
-          if (isNewerVersion("11.1.0", midiVersion)) {
-            const rgx = /Identifier '(.*)' has already been declared/;
-            const match = err.message.match(rgx);
-            if (match) {
-              let source = "foundry";
-              if (["item", "workflow", "args", "options"].includes(match[1])) source = "midi-qol";
-              //@ts-expect-error logCompatibilityWarning
-              foundry.utils.logCompatibilityWarning(`midi-QOL: macro execution. '${match[1]}' is declared by ${source}. Don't declare it in the macro.`, {
-                since: "10.0.44", until: "11.1.0"
-              });
-              macroCommand = `{
-            ${macroCommand}
-          }`;
-              //@ts-expect-error AsncFunction
-              const fn = new AsyncFunction("speaker", "actor", "token", "character", "scope", ...argNames, macroCommand)
-              return fn.call(newThis, speaker, actor, token, character, scope, ...argValues);
-            } else throw (err);
-          } else throw (err);
-        }
-      }
+      return macro.execute({ actor, token, workflow: this, item, args })
     } catch (err) {
       TroubleShooter.recordError(err, "callMacro: Error evaluating macro");
       ui.notifications?.error(`There was an error running your macro. See the console (F12) for details`);

@@ -331,6 +331,8 @@ export class TroubleShooter extends FormApplication {
         ` (${collection.invalidDocumentIds.size} ${game.i18n.localize("Invalid")})` : ""}`;
     }
     data.summary["coreSettings"]["World Object counts"] = Object.values(report).join(" | ");
+    //@ts-expect-error .filter
+    data.summary["coreSettings"]["Module Count"] = `Active: ${game.modules.filter(m=>m.active).length} | Installed: ${game.modules.size}`;
     if (game.modules.get("ActiveAuras")?.active) {
       data.summary.moduleSettings["Active Auras In Combat"] = game.settings.get("ActiveAuras", "combatOnly");
     }
@@ -592,6 +594,81 @@ export class TroubleShooter extends FormApplication {
     return data;
   }
 
+  public static checkMidiCoverSettings(data: TroubleShooterData) {
+    switch ( configSettings.optionalRules.wallsBlockRange ) {
+      case "none":
+        break;
+      case "center":
+        break;
+      case "centerLevels":
+        if(!(game.modules.get("levels")?.active)) {
+          data.problems.push({
+            moduleId: "levels",
+            severity: "Error",
+            problemSummary: "You must enable the 'levels' module to use the 'Center Levels' option for 'Walls Block Range'",
+            problemDetail: undefined,
+            fixer: "Enable the 'levels' module"
+          });
+        }
+        break;
+      case "levelsautocover":
+        if (!(game.modules.get("levelsautocover")?.active)) {
+          data.problems.push({
+            moduleId: "levelsautocover",
+            severity: "Error",
+            problemSummary: "You must enable the 'levelsautocover' module to use the 'Levels Auto Cover' option for 'Walls Block Range'",
+            problemDetail: undefined,
+            fixer: "Enable the 'levelsautocover' module"
+          });
+        }
+        break;
+      case "simbuls-cover-calculator":
+        if (!(game.modules.get("simbuls-cover-calculator")?.active)) {
+          data.problems.push({
+            moduleId: "simbuls-cover-calculator",
+            severity: "Error",
+            problemSummary: "You must enable the 'simbuls-cover-calculator' module to use the 'Simbul's Cover Calculator' option for 'Walls Block Range'",
+            problemDetail: undefined,
+            fixer: "Enable the 'simbuls-cover-calculator' module"
+          });
+        }
+        break;
+      case "tokenvisibility":
+        if (!(game.modules.get("tokenvisibility")?.active)) {
+          data.problems.push({
+            moduleId: "tokenvisibility",
+            severity: "Error",
+            problemSummary: "You must enable the 'tokenvisibility' module to use the 'Token Visibility' option for 'Walls Block Range'",
+            problemDetail: undefined,
+            fixer: "Enable the 'tokenvisibility' module"
+          });
+        }
+        break;
+    }
+  }
+
+  public static checkMidiSaveSettings(data: TroubleShooterData) {
+    if (!(installedModules.get("monks-tokenbar")?.active) 
+      && (configSettings.playerRollSaves === "mtb" || configSettings.rollNPCSaves === "mtb" || configSettings.rollNPCLinkedSaves === "mtb")) {
+      data.problems.push({
+        moduleId: "monks-tokenbar",
+        severity: "Error",
+        problemSummary: "You must enable the 'monks-tokenbar' module to use the 'Monk's Token Bar' option for 'Roll NPC.Player Saves'",
+        problemDetail: undefined,
+        fixer: "Enable the 'monks-tokenbar' module"
+      });
+    }
+    if (!(installedModules.get("lmrtfy")?.active) && 
+      (configSettings.playerRollSaves === "lmrtfy" || configSettings.rollNPCSaves === "lmrtfy" || configSettings.rollNPCLinkedSaves === "lmrtfy" )) {
+      data.problems.push({
+        moduleId: "lmrtfy",
+        severity: "Error",
+        problemSummary: "You must enable the 'lmrtfy' module to use the 'LMRTFY' option for Rolling NPC/Player saves",
+        problemDetail: undefined,
+        fixer: "Enable the 'lmrtfy' module"
+      });
+    }
+  }
   public static checkWalledTemplates(data: TroubleShooterData) {
     if (game.modules.get("walledtemplates")?.active) {
       if (configSettings.autoTarget !== "walledtemplates" || !game.settings.get("walledtemplates", "autotarget-enabled")) {
@@ -674,6 +751,8 @@ export class TroubleShooter extends FormApplication {
 
   public static checkCommonProblems(data: TroubleShooterData) {
     this.checkMidiSettings(data);
+    this.checkMidiCoverSettings(data)
+    this.checkMidiSaveSettings(data);
     this.checkNoActorTokens(data);
   }
 

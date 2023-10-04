@@ -1,3 +1,9 @@
+## 11.1.0
+* Added Troubleshooter checks for cover calcs when required module not installed.
+* Added check for saving throw module dependencies not installed.
+* Fix for typo preTargetSsave in en.json.
+* Deprecated the use of this to refer to the workflow inside midi Item onUse or Actor onUse macros. 11.0.22 left available in case this causes any problems.
+
 ## 11.0.22
 * Fix for workflow settings not updating the open settings app.
 * Fix for Troubleshooter error with latest ddbbi.

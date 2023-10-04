@@ -375,7 +375,7 @@
     "postActiveEffects": "After Active Effects ",
     "isAttacked": "Target is attacked attack",
     "isHit": "Target of a hit",
-    "preTargetSsave": "Target is about to roll a saving throw",
+    "preTargetSave": "Target is about to roll a saving throw",
     "isSave": "Target rolled a save",
     "isSaveSuccess": "Target rolled a successful save",
     "isSaveFailure": "target failed a saving throw",
