@@ -429,14 +429,14 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     let blindCheckRoll;
     let blindSaveRoll;
     if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
-      case "check": 
+      case "check":
         blindCheckRoll = configSettings.rollChecksBlind.includes("all") || configSettings.rollChecksBlind.includes(abilityId);
-        if (blindCheckRoll) rollMode = "blindroll"; 
+        if (blindCheckRoll) rollMode = "blindroll";
         break;
-      case "save": 
+      case "save":
         blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes(abilityId);
-        if (blindSaveRoll) rollMode = "blindroll"; 
-      break;
+        if (blindSaveRoll) rollMode = "blindroll";
+        break;
     }
     await displayDSNForRoll(result, rollType, rollMode);
 
@@ -1228,8 +1228,14 @@ async function _preUpdateActor(wrapped, update, options, user) {
 export function readyPatching() {
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     libWrapper.register("midi-qol", `game.${game.system.id}.canvas.AbilityTemplate.prototype.refresh`, midiATRefresh, "WRAPPER");
+    libWrapper.register("midi-qol", "game.system.applications.DamageTraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
+    libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+    libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
   } else { // TODO find out what itemsheet5e is called in sw5e TODO work out how this is set for sw5e v10
     libWrapper.register("midi-qol", "game.sw5e.canvas.AbilityTemplate.prototype.refresh", midiATRefresh, "WRAPPER");
+    libWrapper.register("midi-qol", "game.system.applications.DamageTraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
+    libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.character['sw5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+    libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['sw5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
   }
   libWrapper.register("midi-qol", "CONFIG.Combat.documentClass.prototype._preUpdate", processOverTime, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.Combat.documentClass.prototype._preDelete", _preDeleteCombat, "WRAPPER");
@@ -1241,10 +1247,6 @@ export function readyPatching() {
   } else {
     libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
   }
-  libWrapper.register("midi-qol", "game.system.applications.DamageTraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
-
 }
 
 export let visionPatching = () => {
@@ -1347,7 +1349,7 @@ export async function rollToolCheck(wrapped, options: any = {}) {
     const args: any = { "speaker": getSpeaker(this.actor), title, flavor: title };
     setProperty(args, `flags.${game.system.id}.roll`, { type: "tool", itemId: this.id, itemUuid: this.uuid });
     args.template = "modules/midi-qol/templates/roll.html";
-    await result.toMessage(args, {rollMode});
+    await result.toMessage(args, { rollMode });
   }
   return result;
 }

@@ -1,3 +1,6 @@
+## 11.1.1
+* Fix for sw5e sheet patching error
+
 ## 11.1.0
 * Added Troubleshooter checks for cover calcs when required module not installed.
 * Added check for saving throw module dependencies not installed.
