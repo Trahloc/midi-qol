@@ -727,7 +727,7 @@ export class Workflow {
       case WORKFLOWSTATES.DAMAGEROLLCOMPLETE:
         if (configSettings.confirmAttackDamage !== "none" && (this.item.hasAttack || this.item.hasDamage)) {
           await this.displayDamageRoll(configSettings.mergeCard);
-          return; // wait for the confirmbutton
+          return; // wait for the confirm button
         }
         return this.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
 

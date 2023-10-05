@@ -596,7 +596,7 @@ export class TroubleShooter extends FormApplication {
 
   public static checkMidiCoverSettings(data: TroubleShooterData) {
     switch ( configSettings.optionalRules.wallsBlockRange ) {
-      case "none":
+      case "none": 
         break;
       case "center":
         break;
@@ -644,6 +644,68 @@ export class TroubleShooter extends FormApplication {
           });
         }
         break;
+    }
+    switch ( configSettings.optionalRules.coverCalculation ) {
+      case "none": 
+        break;
+      case "levelsautocover":
+        if (!(game.modules.get("levelsautocover")?.active)) {
+          data.problems.push({
+            moduleId: "levelsautocover",
+            severity: "Error",
+            problemSummary: "You must enable the 'levelsautocover' module to use the 'Levels Auto Cover' option for 'Walls Block Range'",
+            problemDetail: undefined,
+            fixer: "Enable the 'levelsautocover' module"
+          });
+        }
+        break;
+      case "simbuls-cover-calculator":
+        if (!(game.modules.get("simbuls-cover-calculator")?.active)) {
+          data.problems.push({
+            moduleId: "simbuls-cover-calculator",
+            severity: "Error",
+            problemSummary: "You must enable the 'simbuls-cover-calculator' module to use the 'Simbul's Cover Calculator' option for 'Walls Block Range'",
+            problemDetail: undefined,
+            fixer: "Enable the 'simbuls-cover-calculator' module"
+          });
+        }
+        break;
+      case "tokenvisibility":
+        if (!(game.modules.get("tokenvisibility")?.active)) {
+          data.problems.push({
+            moduleId: "tokenvisibility",
+            severity: "Error",
+            problemSummary: "You must enable the 'tokenvisibility' module to use the 'Token Visibility' option for 'Walls Block Range'",
+            problemDetail: undefined,
+            fixer: "Enable the 'tokenvisibility' module"
+          });
+        }
+        break;
+    }
+
+    switch(configSettings.autoTarget) {
+      case "dftemplates":
+        if (!game.modules.get("df-templates")?.active) {
+          data.problems.push({
+            moduleId: "dftemplates",
+            severity: "Error",
+            problemSummary: "You must enable the 'dftemplates' module to use the 'DF Templates' option for 'Auto Target on Template Draw'",
+            problemDetail: undefined,
+            fixer: "Enable the 'dftemplates' module"
+          }); 
+        }
+      break;
+      case "walledtemplates":
+        if (!game.modules.get("walledtemplates")?.active) {
+          data.problems.push({
+            moduleId: "walledtemplates",
+            severity: "Error",
+            problemSummary: "You must enable the 'walledtemplates' module to use the 'Walled Templates' option for 'Auto Target on Template Draw'",
+            problemDetail: undefined,
+            fixer: "Enable the 'walledtemplates' module"
+          }); 
+        }
+      break;
     }
   }
 

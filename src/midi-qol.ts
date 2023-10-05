@@ -104,7 +104,7 @@ Hooks.once('init', async function () {
   if (game.system.id === "sw5e")
     allAttackTypes = ["rwak", "mwak", "rpak", "mpak"];
   initHooks();
-  globalThis.MidiQOL = undefined;
+  globalThis.MidiQOL = {checkIncapacitated};
   // Assign custom classes and constants here
 
   // Register custom module settings
@@ -408,7 +408,7 @@ function setupMidiQOLApi() {
   ];
 
   //@ts-ignore
-  globalThis.MidiQOL = {
+  globalThis.MidiQOL = mergeObject(globalThis.MidiQOL ?? {}, {
     addConcentration,
     addUndoChatMessage,
     applyTokenDamage,
@@ -490,7 +490,7 @@ function setupMidiQOLApi() {
       if (point && targetUuid && distance)
         return socketlibSocket.executeAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point })
     }
-  };
+  });
   globalThis.MidiQOL.actionQueue = new Semaphore();
 }
 

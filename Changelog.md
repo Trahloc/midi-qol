@@ -1,3 +1,7 @@
+## 11.1.2
+* Added some more cover/targeting module checks to the TroubleShooter
+* Added merge courtesy @caewok
+
 ## 11.1.1.1
 * Fix for trobulshooter misreporting saving throw module status reporting
 
