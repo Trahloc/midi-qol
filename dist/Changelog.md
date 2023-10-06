@@ -1,3 +1,6 @@
+## 11.1.3
+* Fix for permission issue on macro execution
+
 ## 11.1.2
 * Added some more cover/targeting module checks to the TroubleShooter
 * Added merge courtesy @caewok

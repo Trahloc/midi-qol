@@ -1982,7 +1982,10 @@ export class Workflow {
       macroData.speaker = this.speaker;
       macroData.actor = actorToUse;
       if (!macro) {
-        itemMacroData = mergeObject({ name: "midi generated macro", type: "script", command: "" }, itemMacroData);
+        itemMacroData = mergeObject({ name: "midi generated macro", type: "script", command: ""}, itemMacroData);
+        //@ts-expect-error
+        itemMacroData.ownership = {default: CONST.DOCUMENT_PERMISSION_LEVELS.OWNER};
+        itemMacroData.author = game.user?.id;
         macro = new CONFIG.Macro.documentClass(itemMacroData);
       }
       const speaker = this.speaker;
@@ -1995,8 +1998,11 @@ export class Workflow {
       scope.workflow = this;
       scope.item = item;
       scope.args = args;
-      scope.options = args[0].options;
-      return macro.execute({ actor, token, workflow: this, item, args })
+      scope.options = options;
+      scope.actor = actor;
+      scope.token = token;
+      scope.character = character;
+      return macro.execute(scope)
     } catch (err) {
       TroubleShooter.recordError(err, "callMacro: Error evaluating macro");
       ui.notifications?.error(`There was an error running your macro. See the console (F12) for details`);
