@@ -809,13 +809,13 @@ export let processUndoDamageCard = (message, html, data) => {
   return true;
 }
 
-async function _moveToken(data: { tokenUuid: string, newCenter: { x: number, y: number } }): Promise<any> {
+async function _moveToken(data: { tokenUuid: string, newCenter: { x: number, y: number }, animate: boolean }): Promise<any> {
   const tokenDocument = MQfromUuid(data.tokenUuid);
   if (!tokenDocument) return;
-  return tokenDocument.update({ x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0 });
+  return tokenDocument.update({ x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0 }, { animate: data.animate == false ? false : true });
 }
 
-async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: number, y: number }, distance: number }): Promise<void> {
+async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: number, y: number }, distance: number, animate: boolean }): Promise<void> {
   const targetToken = getToken(data.targetUuid);
   const targetTokenDocument = getTokenDocument(targetToken);
   if (!canvas || !canvas.dimensions || !canvas.grid || !targetToken || !data.point) return;
@@ -824,5 +824,5 @@ async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: n
   let newCenter = ray.project(1 + distance / ray.distance);
   newCenter = canvas.grid.getSnappedPosition(newCenter.x - targetToken.w / 2, newCenter.y - targetToken.h / 2, 1);
   //@ts-expect-error
-  return targetTokenDocument.update({ x: newCenter?.x ?? 0, y: newCenter?.y ?? 0 });
+  return targetTokenDocument.update({ x: newCenter?.x ?? 0, y: newCenter?.y ?? 0 }, { animate: data.animate == false ? false : true });
 }
