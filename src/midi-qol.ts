@@ -481,14 +481,14 @@ function setupMidiQOLApi() {
     warn,
     Workflow,
     WORKFLOWSTATES,
-    moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }) => {
+    moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }, animate: boolean) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
-      if (tokenUuid) return socketlibSocket.executeAsGM("moveToken", { tokenUuid, newCenter });
+      if (tokenUuid) return socketlibSocket.executeAsGM("moveToken", { tokenUuid, newCenter, animate });
     },
-    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }) => {
+    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }, animate: boolean) => {
       const targetUuid = getTokenDocument(targetRef)?.uuid;
       if (point && targetUuid && distance)
-        return socketlibSocket.executeAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point })
+        return socketlibSocket.executeAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate })
     }
   });
   globalThis.MidiQOL.actionQueue = new Semaphore();
