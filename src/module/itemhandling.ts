@@ -89,6 +89,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     let theWorkflow = existingWorkflow;
     if (!existingWorkflow)
       theWorkflow = new DummyWorkflow(this.parent, this, speaker, game?.user?.targets ?? new Set(), {});
+      theWorkflow.options = options;
     if (theWorkflow && await asyncHooksCall("midi-qol.preTargeting", theWorkflow) === false || await asyncHooksCall(`midi-qol.preTargeting.${this.uuid}`, { item: this }) === false) {
       console.warn("midi-qol | attack roll blocked by preTargeting hook");
       if (!existingWorkflow && theWorkflow) Workflow.removeWorkflow(theWorkflow.id);
@@ -729,15 +730,23 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
       return;
     }
 
-    const firstTarget = workflow.targets?.values().next().value?.actor;
-    const targetMaxFlags = getProperty(firstTarget, "flags.midi-qol.grants.max.damage");
+    //@ts-expect-error .first
+    const firstTarget = workflow.hitTargets.first() ?? workflow.targets?.first();
+    const firstTargetActor = firstTarget?.actor;
+    const targetMaxFlags = getProperty(firstTargetActor, "flags.midi-qol.grants.max.damage") ?? {};
     const maxFlags = getProperty(workflow.actor.flags, "midi-qol.max") ?? {};
-    let needsMaxDamage = maxFlags.damage && (maxFlags.damage.all || maxFlags.damage[this.system.actionType]);
-    needsMaxDamage = needsMaxDamage || (targetMaxFlags && (targetMaxFlags.all || targetMaxFlags[this.system.actionType]))
-    const targetMinFlags = getProperty(firstTarget, "flags.midi-qol.grants.min.damage");
+    let needsMaxDamage = (maxFlags.damage?.all && evalActivationCondition(workflow, maxFlags.damage.all, firstTarget)) 
+      || (maxFlags.damage && maxFlags.damage[this.system.actionType] && evalActivationCondition(workflow, maxFlags.damage[this.system.actionType], firstTarget));
+    needsMaxDamage = needsMaxDamage || (
+                      (targetMaxFlags.all && evalActivationCondition(workflow, targetMaxFlags.all, firstTarget)) 
+                        || (targetMaxFlags[this.system.actionType] && evalActivationCondition(workflow, targetMaxFlags[this.system.actionType], firstTarget)));
+    const targetMinFlags = getProperty(firstTargetActor, "flags.midi-qol.grants.min.damage") ?? {};
     const minFlags = getProperty(workflow.actor.flags, "midi-qol.min") ?? {};
-    let needsMinDamage = minFlags && (minFlags.all || minFlags[this.system.actionType]);
-    needsMinDamage = needsMinDamage || (targetMinFlags && (targetMinFlags.damage.all || targetMinFlags.damage[this.system.actionType]))
+    let needsMinDamage = (minFlags.damage?.all && evalActivationCondition(workflow, minFlags.damage.all, firstTarget)) 
+      || (minFlags?.damage && minFlags.damage[this.system.actionType] && evalActivationCondition(workflow, minFlags.damage[this.system.actionType], firstTarget));
+    needsMinDamage = needsMinDamage || (
+      (targetMinFlags.damage && evalActivationCondition(workflow, targetMinFlags.all, firstTarget)) 
+        || (targetMinFlags[this.system.actionType] && evalActivationCondition(workflow, targetMinFlags[this.system.actionType], firstTarget)));
     if (needsMaxDamage && needsMinDamage) {
       needsMaxDamage = false;
       needsMinDamage = false;

@@ -1,7 +1,7 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateBetterRollsMessage, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions } from "./utils.js";
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { installedModules } from "./setupModules.js";
@@ -22,14 +22,16 @@ export let readyHooks = async () => {
     const hpUpdate = getProperty(update, "system.attributes.hp.value");
     const temphpUpdate = getProperty(update, "system.attributes.hp.temp");
     let concHPDiff = 0;
-    if (hpUpdate !== undefined) {
-      let hpChange = actor.system.attributes.hp.value - hpUpdate;
-      // if (hpUpdate >= (actor.system.attributes.hp.tempmax ?? 0) + actor.system.attributes.hp.max) hpChange = 0;
-      if (hpChange > 0) concHPDiff += hpChange;
-    }
-    if (configSettings.tempHPDamageConcentrationCheck && temphpUpdate !== undefined) {
-      let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
-      if (temphpDiff > 0) concHPDiff += temphpDiff
+    if (!options.noConcentrationCheck) {
+      if (hpUpdate !== undefined) {
+        let hpChange = actor.system.attributes.hp.value - hpUpdate;
+        // if (hpUpdate >= (actor.system.attributes.hp.tempmax ?? 0) + actor.system.attributes.hp.max) hpChange = 0;
+        if (hpChange > 0) concHPDiff += hpChange;
+      }
+      if (configSettings.tempHPDamageConcentrationCheck && temphpUpdate !== undefined) {
+        let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
+        if (temphpDiff > 0) concHPDiff += temphpDiff
+      }
     }
     setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff);
     return true;
@@ -126,7 +128,7 @@ export let readyHooks = async () => {
         if (isConcentration) {
           options.concentrationEffectsDelete = false;
           options.concentrationDeleted = true;
-          return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, {concentrationDeleted: true}));
+          return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { concentrationDeleted: true }));
         }
         if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
           const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
@@ -321,6 +323,8 @@ export function initHooks() {
   // Hooks.on("preCreateActiveEffect", checkImmunity); Disabled in lieu of having effect marked suppressed
   Hooks.on("preUpdateItem", preUpdateItemActorOnUseMacro);
   Hooks.on("preUpdateActor", preUpdateItemActorOnUseMacro);
+  Hooks.on("combatRound", expirePerTurnBonusActions);
+  Hooks.on("combatTurn", expirePerTurnBonusActions);
   Hooks.on("updateCombatant", (combatant, updates, options, user) => {
     if (game?.user?.id !== user) return true;
     if (combatant.actor && updates.initiative) expireRollEffect.bind(combatant.actor)("Initiative", "none");
@@ -414,7 +418,7 @@ export function initHooks() {
 
       //@ts-expect-error
       if (isNewerVersion(game.system.version, "2.2") && game.system.id === "dnd5e") {
-        if (item.system.hasScalarTarget && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
+        if (["creature", "ally", "enemy"].includes(item.system.target.type) && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
           const targetElement = html.find('select[name="system.target.type"]');
           const targetUnitHTML = `
             <select name="system.target.units" data-tooltip="${i18n(getSystemCONFIG().TargetUnits)}">
@@ -431,6 +435,19 @@ export function initHooks() {
     }
     activateMacroListeners(app, html);
   })
+
+  Hooks.on("preUpdateItem", (candidate, updates, options, user) => {
+    const targetType = updates.system?.target.type ?? candidate.system.target?.type;
+    const noUnits = !["creature", "ally", "enemy"].includes(targetType) && !(targetType in getSystemCONFIG().areaTargetTypes);
+    if (noUnits) {
+      setProperty(updates, "system.target.units", null);
+    }
+    // One of the midi specials must specify a count before you can set units
+    if (["creature", "ally", "enemy"].includes(targetType) && (updates.system?.target?.value === null || !candidate.system.target.value)) {
+      setProperty(updates, "system.target.units", null);
+    }
+    return true;
+  });
 
   function _chatListeners(html) {
     html.on("click", '.card-buttons button', onChatCardAction.bind(this))

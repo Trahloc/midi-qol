@@ -3,7 +3,7 @@ import { preloadTemplates } from './module/preloadTemplates.js';
 import { checkModules, DAE_REQUIRED_VERSION, installedModules, setupModules } from './module/setupModules.js';
 import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
 import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Hooks.js';
-import { initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
+import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, WORKFLOWSTATES } from './module/workflow.js';
 import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, validRolAbility } from './module/utils.js';
@@ -175,6 +175,7 @@ Hooks.once('setup', function () {
     config.midiProperties["magicdam"] = i18n("midi-qol.magicalDamageProp");
     config.midiProperties["magiceffect"] = i18n("midi-qol.magicalEffectProp");
     config.midiProperties["concentration"] = i18n("midi-qol.concentrationEffectProp");
+    config.midiProperties["noConcentrationCheck"] = i18n("midi-qol.noConcentrationEffectProp");
     config.midiProperties["toggleEffect"] = i18n("midi-qol.toggleEffectProp");
     config.midiProperties["ignoreTotalCover"] = i18n("midi-qol.ignoreTotalCover");
 
@@ -470,7 +471,7 @@ function setupMidiQOLApi() {
     showItemInfo,
     showUndoQueue,
     showUndoWorkflowApp,
-    socket: () => { return socketlibSocket },
+    socket: () => { return new SaferSocket(socketlibSocket) },
     testfunc,
     tokenForActor,
     TrapWorkflow,
@@ -481,11 +482,11 @@ function setupMidiQOLApi() {
     warn,
     Workflow,
     WORKFLOWSTATES,
-    moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }, animate: boolean) => {
+    moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }, animate: boolean = true) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
       if (tokenUuid) return socketlibSocket.executeAsGM("moveToken", { tokenUuid, newCenter, animate });
     },
-    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }, animate: boolean) => {
+    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }, animate: boolean = true) => {
       const targetUuid = getTokenDocument(targetRef)?.uuid;
       if (point && targetUuid && distance)
         return socketlibSocket.executeAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate })

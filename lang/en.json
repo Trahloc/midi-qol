@@ -348,6 +348,7 @@
   "midi-qol.magicalDamageProp": "Magic Damage",
   "midi-qol.magicalEffectProp": "Magic Effect",
   "midi-qol.concentrationEffectProp": "Concentration",
+  "midi-qol.noConcentrationEffectProp": "No Conc Save",
   "midi-qol.toggleEffectProp": "Toggle effect",
   "midi-qol.playerControlsInvisibleTokens.Name": "Players control owned hidden tokens",
   "midi-qol.playerControlsInvisibleTokens.Hint": "Experimental - might work",
@@ -564,9 +565,15 @@
     "both": "Auto consume resources/spell slots"
   },
   "midi-qol.ChallengeModeArmor.Name": "Enable Challenge Mode Armor Class",
-  "midi-qol.ChallengeModeArmorScale.Name": "Enable house version Challenge Mode Armor Class",
+  "midi-qol.ChallengeModeArmorOptions": {
+    "none": "No Challenge Mode Armor",
+    "challenge": "Challenge Mode Armor (Base)",
+    "scale": "Challenge Mode Armor (Scaled)",
+    "scaleNoAR": "Challenge Mode Armor (Scaled No AR)"
+  },
   "midi-qol.ChallengeModeArmor.Hint": "Implements the challenge mode armor rules - see the readme for more information",
-  "midi-qol.ChallengeModeArmorScale.Hint": "Requires Challenge Mode Armor enabled. Implements a modified challenge mode armor rules - see the readme for more information",
+  "midi-qol.ChallengeModeArmorScale.Hint": "Implements a modified challenge mode armor rules - see the readme for more information",
+  "midi-qol.ChallengeModeArmorScaleNoAR.Hint": "Implements a modified challenge mode armor rules but no AR reducing incoming damage - see the readme for more information",
   "midi-qol.NonSilverPhysical": "Non-Silver Physical",
   "midi-qol.NonAdamantinePhysical": "Non-Adamantine Physical",
   "midi-qol.NonMagical": "Non-Magical Damage",

@@ -105,6 +105,7 @@ export class ConfigPanel extends FormApplication {
       CheckRangeOptions: geti18nOptions("CheckRangeOptions"),
       InvisAdvantageOptions: geti18nOptions("InvisAdvantageOptions"),
       ConfirmAttackDamageOptions: geti18nOptions("ConfirmAttackDamageOptions"),
+      ChallengeModeArmorOptions: geti18nOptions("ChallengeModeArmorOptions"),
       RollSkillsBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().skills).reduce((acc, s) => { acc[s] = getSystemCONFIG().skills[s].label; return acc }, {})),
       RollSavesBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
       RollChecksBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),

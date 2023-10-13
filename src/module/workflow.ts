@@ -393,11 +393,12 @@ export class Workflow {
       return await this._next(nextState).catch(err => {
         const message = `Uncaught error ${err.message} in worfklow ${stateToLabel(nextState)}`
         TroubleShooter.recordError(err, message);
+        error(message, err);
       });
     } catch (err) {
       const message = `Uncaught error ${err.message} in worfklow ${stateToLabel(nextState)}`
-      console.warn(message, err);
       TroubleShooter.recordError(err, message);
+      error(message, err);
     }
   }
 
@@ -2976,6 +2977,7 @@ export class Workflow {
     return true;
   }
 
+
   processDefenceRoll(message, html, data) {
     if (!this.defenceRequests) return true;
     const isLMRTFY = (installedModules.get("lmrtfy") && message.flags?.lmrtfy?.data);
@@ -3230,23 +3232,25 @@ export class Workflow {
               attackTotal += attackBonus?.total ?? 0;
             }
           }
-          if (checkRule("challengeModeArmor")) isHit = attackTotal > targetAC || this.isCritical;
+          if (checkRule("challengeModeArmor") !== "none") isHit = attackTotal > targetAC || this.isCritical;
           else isHit = attackTotal >= targetAC || this.isCritical;
           if (bonusAC === FULL_COVER) isHit = false; // bonusAC will only be FULL_COVER if cover bonus checking is enabled.
 
-          if (targetEC) isHitEC = checkRule("challengeModeArmor") && attackTotal <= targetAC && attackTotal >= targetEC && bonusAC !== FULL_COVER;
+          if (targetEC) isHitEC = checkRule("challengeModeArmor") !== "none" && attackTotal <= targetAC && attackTotal >= targetEC && bonusAC !== FULL_COVER;
           // check to see if the roll hit the target
           if ((isHit || isHitEC) && this.item?.hasAttack && this.attackRoll && targetToken !== null && !getProperty(this, "item.flags.midi-qol.noProvokeReaction")) {
             const workflowOptions = mergeObject(duplicate(this.workflowOptions), { sourceActorUuid: this.actor.uuid, sourceItemUuid: this.item?.uuid }, { inplace: false, overwrite: true });
             //@ts-ignore
             const result = await doReactions(targetToken, this.tokenUuid, this.attackRoll, "reaction", { item: this.item, workflow: this, workflowOptions });
+            if (!Workflow.getWorkflow(this.id)) // workflow has been removed - bail out
+              return;
             targetAC = Number.parseInt(targetActor.system.attributes.ac.value) + bonusAC;
             if (targetEC) targetEC = targetActor.system.attributes.ac.EC + bonusAC;
             if (result.ac) targetAC = result.ac + bonusAC; // deal with bonus ac if any.
             if (targetEC) targetEC = targetAC - targetAR;
             isHit = (attackTotal >= targetAC || this.isCritical) && result.name !== "missed";
-            if (checkRule("challengeModeArmor")) isHit = this.attackTotal >= targetAC || this.isCritical;
-            if (targetEC) isHitEC = checkRule("challengeModeArmor") && this.attackTotal <= targetAC && this.attackTotal >= targetEC;
+            if (checkRule("challengeModeArmor") !== "none") isHit = this.attackTotal >= targetAC || this.isCritical;
+            if (targetEC) isHitEC = checkRule("challengeModeArmor") !== "none" && this.attackTotal <= targetAC && this.attackTotal >= targetEC;
           }
           const optionalCrits = checkRule("optionalCritRule");
           if (this.targets.size === 1 && optionalCrits !== false && optionalCrits > -1) {
@@ -3339,8 +3343,11 @@ export class Workflow {
         }
 
         let scale = 100;
-        if (checkRule("challengeModeArmorScale") && !this.isCritical) scale = Math.floor((this.attackTotal - targetEC + 1) / ((targetActor?.system.attributes.ac.AR ?? 0) + 1) * 10) / 10;
-        setProperty(targetToken.actor ?? {}, "flags.midi-qol.challengeModeScale", scale);
+        if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && !this.isCritical) scale = Math.floor((this.attackTotal - targetEC + 1) / ((targetActor?.system.attributes.ac.AR ?? 0) + 1) * 10) / 10;
+        if (!this.challengeModeScale) this.challengeModeScale = {};
+        this.challengeModeScale[targetToken.actor?.uuid ?? "dummy"] = scale;
+        // setProperty(targetToken.actor ?? {}, "flags.midi-qol.challengeModeScale", scale);
+        console.error("scale is ", scale);
         if (this.isCritical) isHit = true;
         if (isHit || this.isCritical) this.hitTargets.add(targetToken);
         if (isHitEC) this.hitTargetsEC.add(targetToken);
@@ -3353,14 +3360,14 @@ export class Workflow {
       let attackType = ""; //item?.name ? i18n(item.name) : "Attack";
 
       let hitScale = 100;
-      if (checkRule("challengeModeArmorScale") && !this.isCritical) hitScale = Math.floor((getProperty(targetToken.actor ?? {}, "flags.midi-qol.challengeModeScale") ?? 1) * 100);
+      if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && !this.isCritical) hitScale = Math.floor(this.challengeModeScale[targetActor.uuid] * 100);
       let hitString;
       if (game.user?.isGM && ["hitDamage", "all"].includes(configSettings.hideRollDetails) && (this.isCritical || this.isHit || this.isHitEC)) hitString = i18n("midi-qol.hits");
       else if (this.isCritical) hitString = i18n("midi-qol.criticals");
       else if (game.user?.isGM && this.isFumble && ["hitDamage", "all"].includes(configSettings.hideRollDetails)) hitString = i18n("midi-qol.misses");
       else if (this.isFumble) hitString = i18n("midi-qol.fumbles");
       else if (isHit) hitString = i18n("midi-qol.hits");
-      else if (isHitEC && checkRule("challengeModeArmor") && checkRule("challengeModeArmorScale")) hitString = `${i18n("midi-qol.hitsEC")} (${hitScale}%)`;
+      else if (isHitEC && ["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor"))) hitString = `${i18n("midi-qol.hitsEC")} (${hitScale}%)`;
       else if (isHitEC) hitString = `${i18n("midi-qol.hitsEC")}`;
       else hitString = i18n("midi-qol.misses");
       let hitStyle = "";
@@ -3388,11 +3395,12 @@ export class Workflow {
       }
       // If using active defence hitTargets are up to date already.
       if (this.useActiveDefence) {
-        if (this.activeDefenceRolls[targetToken instanceof Token ? targetToken.document.uuid : targetToken.uuid]) {
+        if (this.activeDefenceRolls[getTokenDocument(targetToken)?.uuid ?? ""]) {
           if (targetToken.actor?.type === "character") {
-            hitString = `(${this.activeDefenceRolls[targetToken instanceof Token ? targetToken.document?.uuid : targetToken.uuid].result}): ${hitString}`
+            const adRoll = this.activeDefenceRolls[getTokenDocument(targetToken)?.uuid ?? ""] ?? {};
+            hitString = `(${adRoll.result ?? adRoll.total}): ${hitString}`
           } else {
-            hitString = `(${this.activeDefenceRolls[targetToken instanceof Token ? targetToken.document?.uuid : targetToken.uuid].total}): ${hitString}`
+            hitString = `(${this.activeDefenceRolls[getTokenDocument(targetToken)?.uuid ?? ""].total}): ${hitString}`
           }
         }
       }
@@ -3439,14 +3447,10 @@ export class Workflow {
         for (let target of canvas.tokens.placeables) {
           if (!isTargetable(target)) continue;
           const ray = new Ray(target.center, token.center);
-          //@ts-expect-error .system
-          if (target.actor?.system.details.type?.custom.toLocaleLowerCase().includes("notarget")
-            //@ts-expect-error system
-            || target.actor?.system.details.race?.toLocaleLowerCase().includes("notarget")) continue;
           const wallsBlocking = ["wallsBlock", "wallsBlockIgnoreDefeated"].includes(configSettings.rangeTarget)
 
           //@ts-ignore .system
-          let inRange = target.actor && target.actor?.system.details.race !== "trigger"
+          let inRange = target.actor
             // && target.actor.id !== token.actor?.id
             //@ts-ignore .disposition v10
             && dispositions.includes(target.document.disposition)
@@ -3524,7 +3528,7 @@ export class Workflow {
   }
   get useActiveDefence() {
     //@ts-ignore
-    return game.user.isGM && checkRule("activeDefence") && ["Workflow"].includes(this.workflowType) && installedModules.get("lmrtfy");
+    return game.user.isGM && checkRule("activeDefence") && ["Workflow"].includes(this.workflowType);
   }
   async checkActiveAttacks(attackBonus = 0, whisper = false, fumbleTarget, criticalTarget) {
     if (debugEnabled > 1) debug(`active defence : whisper ${whisper}  hit targets ${this.targets}`)
@@ -3570,7 +3574,7 @@ export class Workflow {
           const requestId = target.actor?.uuid ?? randomID();
           const playerId = player?.id;
           this.defenceRequests[requestId] = resolve;
-          requestPCActiveDefence(player, target.actor, advantage, this.item.name, this.activeDefenceDC, formula, requestId)
+          requestPCActiveDefence(player, target.actor, advantage, this.item.name, this.activeDefenceDC, formula, requestId, {workflow: this})
           // set a timeout for taking over the roll
           if (configSettings.playerSaveTimeout > 0) {
             this.defenceTimeouts[requestId] = setTimeout(async () => {
@@ -3579,6 +3583,7 @@ export class Workflow {
                 delete this.defenceTimeouts[requestId];
                 const result = await (new game[game.system.id].dice.D20Roll(formula, {}, { advantageMode })).roll({ async: true });
                 result.toMessage({ flavor: `${this.item.name} ${i18n("midi-qol.ActiveDefenceString")}` });
+                
                 resolve(result);
               }
             }, configSettings.playerSaveTimeout * 1000);
@@ -3611,7 +3616,7 @@ export class Workflow {
       let rollTotal = results[i]?.total || 0;
       if (this.isCritical === undefined) this.isCritical = result.dice[0].total <= criticalTarget
       if (this.isFumble === undefined) this.isFumble = result.dice[0].total >= fumbleTarget;
-      this.activeDefenceRolls[target instanceof Token ? target.document?.uuid : target.uuid] = results[i];
+      this.activeDefenceRolls[getTokenDocument(target)?.uuid ?? ""] = results[i];
       let hit = this.isCritical || rollTotal < this.activeDefenceDC;
       if (hit) {
         this.hitTargets.add(target);

@@ -748,7 +748,9 @@ export async function onChatCardAction(event) {
               "confirm-damage-roll-complete-hit": "confirmDamageRollCompleteHit",
               "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss"
             }[action];
-            socketlibSocket.executeAsUser(actionToCall, message.user.id, { workflowId, itemCardId: message.id });
+            socketlibSocket.executeAsUser(actionToCall, message.user.id, { workflowId, itemCardId: message.id }).then(result => {
+              if (typeof result === "string") ui.notifications?.warn(result);
+            });
           } else {
             await Workflow.removeItemCardAttackDamageButtons(messageId);
             await Workflow.removeItemCardConfrimRollButton(messageId);

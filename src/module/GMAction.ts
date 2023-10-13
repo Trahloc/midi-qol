@@ -1,6 +1,6 @@
 import { checkRule, configSettings } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, geti18nOptions, debug } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, gmExpirePerTurnBonusActions, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, expirePerTurnBonusActions, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions } from "./utils.js";
 import { ddbglPendingFired } from "./chatMesssageHandling.js";
 import { Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
@@ -13,44 +13,45 @@ var traitList = { di: {}, dr: {}, dv: {} };
 
 export let setupSocket = () => {
   socketlibSocket = globalThis.socketlib.registerModule("midi-qol");
-  socketlibSocket.register("createReverseDamageCard", createReverseDamageCard);
-  socketlibSocket.register("removeEffects", removeEffects);
-  socketlibSocket.register("createEffects", createEffects);
-  socketlibSocket.register("updateEffects", updateEffects);
-  socketlibSocket.register("updateEntityStats", GMupdateEntityStats)
-  socketlibSocket.register("removeStatsForActorId", removeActorStats);
-  socketlibSocket.register("monksTokenBarSaves", monksTokenBarSaves);
-  socketlibSocket.register("rollAbility", rollAbility);
-  socketlibSocket.register("createChatMessage", createChatMessage);
-  socketlibSocket.register("chooseReactions", localDoReactions);
+  socketlibSocket.register("_gmSetFlag", _gmSetFlag);
+  socketlibSocket.register("_gmUnsetFlag", _gmUnsetFlag);
   socketlibSocket.register("addConvenientEffect", addConvenientEffect);
-  socketlibSocket.register("deleteItemEffects", deleteItemEffects);
-  socketlibSocket.register("createActor", createActor);
-  socketlibSocket.register("deleteEffects", deleteEffects);
-
-  socketlibSocket.register("deleteToken", deleteToken);
-  socketlibSocket.register("ddbglPendingFired", ddbglPendingFired);
-  socketlibSocket.register("completeItemUse", _completeItemUse);
   socketlibSocket.register("applyEffects", _applyEffects);
   socketlibSocket.register("bonusCheck", _bonusCheck);
-  socketlibSocket.register("gmOverTimeEffect", _gmOverTimeEffect);
-  socketlibSocket.register("_gmExpirePerTurnBonusActions", gmExpirePerTurnBonusActions);
-  socketlibSocket.register("_gmUnsetFlag", _gmUnsetFlag);
-  socketlibSocket.register("_gmSetFlag", _gmSetFlag);
-  socketlibSocket.register("startUndoWorkflow", startUndoWorkflow);
-  socketlibSocket.register("queueUndoData", queueUndoData);
-  socketlibSocket.register("queueUndoDataDirect", _queueUndoDataDirect);
-  socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids);
-  socketlibSocket.register("updateUndoChatCardUuidsById", updateUndoChatCardUuidsById);
-  socketlibSocket.register("undoMostRecentWorkflow", _undoMostRecentWorkflow);
-  socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
-  socketlibSocket.register("undoTillWorkflow", undoTillWorkflow);
-  socketlibSocket.register("moveToken", _moveToken);
-  socketlibSocket.register("moveTokenAwayFromPoint", _moveTokenAwayFromPoint);
+  socketlibSocket.register("chooseReactions", localDoReactions);
+  socketlibSocket.register("completeItemUse", _completeItemUse);
   socketlibSocket.register("confirmDamageRollComplete", confirmDamageRollComplete);
   socketlibSocket.register("confirmDamageRollCompleteHit", confirmDamageRollCompleteHit);
   socketlibSocket.register("confirmDamageRollCompleteMiss", confirmDamageRollCompleteMiss);
+  socketlibSocket.register("createActor", createActor);
+  socketlibSocket.register("createChatMessage", createChatMessage);
+  socketlibSocket.register("createEffects", createEffects);
+  socketlibSocket.register("createReverseDamageCard", createReverseDamageCard);
+  socketlibSocket.register("D20Roll", _D20Roll);
+  socketlibSocket.register("ddbglPendingFired", ddbglPendingFired);
+  socketlibSocket.register("deleteEffects", deleteEffects);
+  socketlibSocket.register("deleteItemEffects", deleteItemEffects);
+  socketlibSocket.register("deleteToken", deleteToken);
+  socketlibSocket.register("gmOverTimeEffect", _gmOverTimeEffect);
+  socketlibSocket.register("log", log)
+  socketlibSocket.register("monksTokenBarSaves", monksTokenBarSaves);
+  socketlibSocket.register("moveToken", _moveToken);
+  socketlibSocket.register("moveTokenAwayFromPoint", _moveTokenAwayFromPoint);
+  socketlibSocket.register("queueUndoData", queueUndoData);
+  socketlibSocket.register("queueUndoDataDirect", _queueUndoDataDirect);
+  socketlibSocket.register("removeEffects", removeEffects);
+  socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
+  socketlibSocket.register("removeStatsForActorId", removeActorStats);
   socketlibSocket.register("removeWorkflow", _removeWorkflow);
+  socketlibSocket.register("rollAbility", rollAbility);
+  socketlibSocket.register("startUndoWorkflow", startUndoWorkflow);
+  socketlibSocket.register("undoMostRecentWorkflow", _undoMostRecentWorkflow);
+  socketlibSocket.register("undoTillWorkflow", undoTillWorkflow);
+  socketlibSocket.register("updateActor", updateActor);
+  socketlibSocket.register("updateEffects", updateEffects);
+  socketlibSocket.register("updateEntityStats", GMupdateEntityStats)
+  socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids);
+  socketlibSocket.register("updateUndoChatCardUuidsById", updateUndoChatCardUuidsById);
 
   // socketlibSocket.register("canSense", _canSense);
 }
@@ -58,6 +59,95 @@ function _removeWorkflow(workflowId: string) {
   Workflow.removeWorkflow(workflowId);
 }
 
+
+export class SaferSocket {
+
+  _socketlibSocket: any;
+  constructor(socketlibSocket) {
+    this._socketlibSocket = socketlibSocket;
+  }
+  canCall(handler) {
+    if (game.user?.isGM) return true;
+    switch (handler) {
+      case "applyEffects":
+      case "bonusCheck":
+      case "completeItemUse":
+      case "confirmDamageRollComplete":
+      case "confirmDamageRollCompleteHit":
+      case "confirmDamageRollCompleteMiss":
+      case "createChatMessage":
+      case "D20Roll":
+      case "log":
+      case "monksTokenBarSaves":
+      case "moveToken":
+      case "moveTokenAwayFromPoint":
+      case "removeWorkflow":
+      case "rollAbility":
+        return true;
+
+      case "addConvenientEffect":
+      case "chooseReactions":
+      case "createActor":
+      case "createEffects":
+      case "createReverseDamageCard":
+      case "deleteItemEffects":
+      case "deleteToken":
+      case "removeEffects":
+        if (game.user?.isTrusted) return true;
+        ui.notifications?.warn(`midi-qol | user ${game.user?.name} must be a trusted player to call ${handler} and will be disabled in the future`);
+        return true; // TODO change this to false in the future.
+
+      case "_gmSetFlag":
+      case "_gmUnsetFlag":
+      case "ddbglPendingFired":
+      case "gmOverTimeEffect":
+      case "queueUndoData":
+      case "queueUndoDataDirect":
+      case "removeStatsForActorId":
+      case "removeMostRecentWorkflow":
+      case "startUndoWorkflow":
+      case "undoMostRecentWorkflow":
+      case "undoTillWorkflow":
+      case "updateActor":
+      case "updateEntityStats":
+      case "updateUndoChatCardUuids":
+      case "updateUndoChatCardUuidsById":
+      default:
+          error(`Non-GMs are not allowed to call ${handler}`);
+        return false;
+    }
+  }
+
+  async executeAsGM(handler, ...args) {
+    if (!this.canCall(handler)) return false;
+    return await this._socketlibSocket.executeAsGM(handler, ...args);
+  }
+  async executeAsUser(handler, userId, ...args) {
+    if (!this.canCall(handler)) return false;
+    return await this._socketlibSocket.executeAsUser(handler, userId, ...args);
+  }
+
+  async executeForAllGMs(handler, ...args) {
+    if (!this.canCall(handler)) return false;
+    return await this._socketlibSocket.executeForAllGMs(handler, ...args);
+  }
+  async executeForOtherGMS(handler, ...args) {
+    if (!this.canCall(handler)) return false;
+    return await this._socketlibSocket.executeForOtherGMS(handler, ...args);
+  }
+  async executeForEveryone(handler, ...args) {
+    if (!this.canCall(handler)) return false;
+    return await this._socketlibSocket.executeForEveryone(handler, ...args);
+  }
+  async executeForOthers(handler, ...args) {
+    if (!this.canCall(handler)) return false;
+    return await this._socketlibSocket.executeForOthers(handler, ...args);
+  }
+  async executeForUsers(handler, recipients, ...args) {
+    if (!this.canCall(handler)) return false;
+    return await this._socketlibSocket.executeForUsers(handler, recipients, ...args);
+  }
+}
 async function confirmDamageRollComplete(data: { workflowId: string, itemCardId: string }) {
   const workflow = Workflow.getWorkflow(data.workflowId);
   if (!workflow || workflow.itemCardId !== data.itemCardId) {
@@ -65,8 +155,14 @@ async function confirmDamageRollComplete(data: { workflowId: string, itemCardId:
     await Workflow.removeItemCardConfrimRollButton(data.itemCardId);
     return undefined;
   }
-  if (workflow.hitTargets.size > 0 && workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) return false;
-  if (workflow.hitTargets.size > 0 && !workflow.damageRoll) return false;
+  const hasHits = workflow.hitTargets.size > 0 || workflow.hitTargetsEC.size > 0;
+  if ((workflow.currentState === WORKFLOWSTATES.ATTACKROLLCOMPLETE) ||
+    (hasHits) && workflow.item.hasDamage && (!workflow.damageRoll || workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE)) {
+    return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
+  }
+  if (workflow.hitTargets.size === 0 && workflow.hitTargetsEC.size === 0) {
+    return await confirmDamageRollCompleteMiss(data);
+  }
   return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
 }
 
@@ -77,8 +173,10 @@ async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCard
     await Workflow.removeItemCardConfrimRollButton(data.itemCardId);
     return undefined;
   }
-  if (workflow.item?.hasDamage && !workflow.damageRoll) return false;
-  if (workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) return false;
+  if ((workflow.item?.hasDamage && !workflow.damageRoll) ||
+    workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) {
+      return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
+  }
   if (workflow.hitTargets.size === workflow.targets.size)
     return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
   workflow.hitTargets = new Set(workflow.targets);
@@ -103,21 +201,21 @@ async function confirmDamageRollCompleteMiss(data: { workflowId: string, itemCar
     await Workflow.removeItemCardConfrimRollButton(data.itemCardId);
     return undefined;
   }
-  // if (workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) return false;
-  if (workflow.hitTargets.size === 0)
-    return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
-  workflow.hitTargets = new Set();
-  workflow.hitTargetsEC = new Set();
-  const rollMode = game.settings.get("core", "rollMode");
-  for (let hitDataKey in workflow.hitDisplayData) {
-    workflow.hitDisplayData[hitDataKey].hitString = i18n("midi-qol.misses");
-    if (configSettings.highlightSuccess) {
-      workflow.hitDisplayData[hitDataKey].hitStyle = "color: red;";
+  if (workflow.hitTargets.size > 0 || workflow.hitTargetsEC.size > 0) {
+    workflow.hitTargets = new Set();
+    workflow.hitTargetsEC = new Set();
+    const rollMode = game.settings.get("core", "rollMode");
+    for (let hitDataKey in workflow.hitDisplayData) {
+      workflow.hitDisplayData[hitDataKey].hitString = i18n("midi-qol.misses");
+      if (configSettings.highlightSuccess) {
+        workflow.hitDisplayData[hitDataKey].hitStyle = "color: red;";
+      }
+      workflow.hitDisplayData[hitDataKey].hitResultNumeric = "--";
     }
-    workflow.hitDisplayData[hitDataKey].hitResultNumeric = "--";
+    await workflow.displayHits(workflow.whisperAttackCard, configSettings.mergeCard && workflow.itemCardId, true);
   }
-  await workflow.displayHits(workflow.whisperAttackCard, configSettings.mergeCard && workflow.itemCardId, true);
-  return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+  return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED)
+    .then(() => Workflow.removeWorkflow(workflow.id));
 }
 
 function paranoidCheck(action: string, actor: any, data: any): boolean {
@@ -286,8 +384,16 @@ async function _completeItemUse(data: {
   else return true;
 }
 
+async function updateActor(data) {
+  //@ts-expect-error fromUuidSync
+  let actor = fromUuidSync(data.actorUuid);
+  if (actor) await actor.update(data.actorData);
+}
+
 async function createActor(data) {
-  await CONFIG.Actor.documentClass.createDocuments([data.actorData]);
+  let actorsData = data.actorData instanceof Array ? data.actorData : [data.actorData];
+  const actors = await CONFIG.Actor.documentClass.createDocuments(actorsData, data.context ?? {});
+  return actors?.length ? actors.map(a => a.id) : false;
 }
 
 async function deleteToken(data: { tokenUuid: string }) {
@@ -393,6 +499,35 @@ export async function createChatMessage(data: { chatData: any; }) {
   return await ChatMessage.create(data.chatData);
 }
 
+export async function _D20Roll(data: { request: string, targetUuid: string, formula: string, rollMode: string, options: any, targetDC: number }) {
+  const actor = MQfromActorUuid(data.targetUuid);
+  if (!actor) {
+    error(`GMAction.D20Roll | no actor for ${data.targetUuid}`)
+    return {};
+  }
+  return new Promise(async (resolve) => {
+    let timeoutId;
+    let result;
+    if (configSettings.playerSaveTimeout > 0) timeoutId = setTimeout(async () => {
+      warn(`Roll request for {actor.name}timed out. Doing roll`);
+      data.options.fastForward = true; // assume player is asleep force roll without dialog
+      //@ts-expect-error D20Roll
+      result = await new CONFIG.Dice.D20Roll(data.formula, {}, data.options).roll();
+      setProperty(roll, "flags.midi-qol.rollType", data.options?.midiType)
+      resolve(result ?? {});
+    }, configSettings.playerSaveTimeout * 1000);
+    if (!data.options) data.options = {};
+    data.options.configured = false;
+    //@ts-expect-error D20Roll
+    const roll = new CONFIG.Dice.D20Roll(data.formula, {}, data.options);
+    await roll.configureDialog({ title: data.request, defaultRollMode: data.rollMode, defaultAction: data.options?.advantage });
+    result = await roll.roll();
+    roll.toMessage();
+    if (timeoutId) clearTimeout(timeoutId);
+    setProperty(result, "flags.midi-qol.rollType", data.options?.midiType)
+    resolve(result ?? {})
+  });
+}
 export async function rollAbility(data: { request: string; targetUuid: string; ability: string; options: any; }) {
   if (data.request === "test") data.request = "abil";
   const actor = MQfromActorUuid(data.targetUuid);
@@ -491,7 +626,7 @@ async function prepareDamageListItems(data: {
           promises.push(actor.update({ [vitalityResource.trim()]: newVitality }))
       }
     }
-    tokenIdList.push({ tokenId, tokenUuid, actorUuid, actorId, oldTempHP: oldTempHP, oldHP, totalDamage: Math.abs(totalDamage), newHP, newTempHP, damageItem, oldVitality, newVitality });
+    tokenIdList.push({ tokenId, tokenUuid, actorUuid, actorId, oldTempHP: oldTempHP, oldHP, totalDamage: Math.abs(totalDamage), newHP, newTempHP, damageItem, oldVitality, newVitality, updateContext: data.updateContext });
 
     let img = tokenDocument?.texture.src || actor.img;
     if (configSettings.usePlayerPortrait && actor.type === "character")
@@ -601,7 +736,7 @@ async function createPlayerDamageCard(data: { damageList: any; autoApplyDamage: 
       content: content,
       // whisper: ChatMessage.getWhisperRecipients("players").filter(u => u.active).map(u => u.id),
       type: CONST.CHAT_MESSAGE_TYPES.OTHER,
-      flags: { "midiqol": { "undoDamage": tokenIdList } }
+      flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
     };
     if (data.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", data.flagTags);
     chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
@@ -644,7 +779,7 @@ async function createGMReverseDamageCard(
       content: content,
       whisper: ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id),
       type: CONST.CHAT_MESSAGE_TYPES.OTHER,
-      flags: { "midiqol": { "undoDamage": tokenIdList } }
+      flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
     };
     if (data.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", data.flagTags);
     chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
@@ -656,7 +791,7 @@ async function createGMReverseDamageCard(
 async function doClick(event: { stopPropagation: () => void; }, actorUuid: any, totalDamage: any, mult: any, data: any) {
   let actor = MQfromActorUuid(actorUuid);
   log(`Applying ${totalDamage} mult ${mult} HP to ${actor.name}`);
-  await actor.applyDamage(totalDamage, mult);
+  await actor.applyDamage(totalDamage, mult, data.updateContext);
   event.stopPropagation();
 }
 
@@ -694,7 +829,7 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, actor);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem };
+        const context = mergeObject(message.flags.midiqol.updateContext  ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
@@ -721,7 +856,7 @@ export let processUndoDamageCard = (message, html, data) => {
         reverseButton.children()[0].classList.add("midi-qol-enable-damage-button");
         log(`Setting HP to ${newTempHP} and ${newHP}`);
         const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-        const context = { dhp: newHP - actor.system.attributes.hp.value, damageItem };
+        const context =  mergeObject(message.falgs.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = newVitality;
@@ -748,7 +883,7 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, data.updateContext);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem };
+        const context = mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
@@ -778,7 +913,7 @@ export let processUndoDamageCard = (message, html, data) => {
           await actor.applyDamage(totalDamage, multiplier);
         } else {
           const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-          const context = { dhp: newHP - actor.system.attributes.hp.value, damageItem };
+          const context = mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
           const vitalityResource = checkRule("vitalityResource");
           if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
             update[vitalityResource.trim()] = newVitality;
@@ -812,7 +947,7 @@ export let processUndoDamageCard = (message, html, data) => {
 async function _moveToken(data: { tokenUuid: string, newCenter: { x: number, y: number }, animate: boolean }): Promise<any> {
   const tokenDocument = MQfromUuid(data.tokenUuid);
   if (!tokenDocument) return;
-  return tokenDocument.update({ x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0 }, { animate: data.animate == false ? false : true });
+  return tokenDocument.update({ x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0 }, { animate: data.animate ?? true });
 }
 
 async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: number, y: number }, distance: number, animate: boolean }): Promise<void> {
@@ -824,5 +959,5 @@ async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: n
   let newCenter = ray.project(1 + distance / ray.distance);
   newCenter = canvas.grid.getSnappedPosition(newCenter.x - targetToken.w / 2, newCenter.y - targetToken.h / 2, 1);
   //@ts-expect-error
-  return targetTokenDocument.update({ x: newCenter?.x ?? 0, y: newCenter?.y ?? 0 }, { animate: data.animate == false ? false : true });
+  return targetTokenDocument.update({ x: newCenter?.x ?? 0, y: newCenter?.y ?? 0 }, { animate: data.animate ?? true });
 }

@@ -1,3 +1,26 @@
+## 11.1.4
+* The fast forward ability rolls setting will now fast forward initiative rolls
+* Rolling initiative from the character sheet now supports ctl/alt (or whatever key configuration you have set) to roll initiative with disadvantage/advantage.
+* Flanking checks now allows flanked/flanking to include allies that are 2 squares away from the target if they have an equipped reach weapon.
+* Pass options to DummyWorkflow. Thanks @Elwin
+* MidiQOL.createActor now allows you to pass an array of actor data to create multiple actors and returns the ids of any created actors. Also now supports data.context which is passed to the createDocuments call. Thanks @thatlonelybugbear
+* Fix for concentration removal when no-concentration data/no effects present.
+* Cleaned up handling of range target specs so that invalid combinations are not saved.
+* Fix for edge case where confirming a roll as a miss can lock being able to roll future attacks.
+* Provide feedback to GM/Player when confirm buttons will not function.
+* MoveToken and MoveTokenAwayFromPoint now accept an additional option, animate: boolean to control animating the token move. Thanks @thatlonelybugbear.
+* Added new item property, No Conc Save, which if set means that no concentration save will be done if damage is applied by the item.
+* New ChallengeModeArmor setting (and layout of options has changed) scale + noAR, same as the scaling version, but armor provides no AR damage reduction.
+* Active defence will now use the standard dnd5e roll dialog if LMRTFY is not installed.
+  - Save throw DC is displayed to player if GM setting to show roll formula is "all" (since the DC reveals the attackers pluses).
+  - Roll success failure indicated if show hits to all players is enabled.
+* MidiQO.socket() now filters the actions that non GMs can perform. 
+  - Most of the functions used internally by midi will be rejected
+  - Calls to "addConvenientEffect", "chooseReactions", "createActor", "createEffects", "createReverseDamageCard", "deleteItemEffects", "deleteToken" and "removeEffects" require the user to be a Trusted Player. For a short time calls to these will throw a deprecation warning and still be allowed.
+  - Calls to "applyEffects", "bonusCheck", "completeItemUse", "confirmDamageRollComplete", "confirmDamageRollCompleteHit", "confirmDamageRollCompleteMiss", "createChatMessage", "D20Roll", "monksTokenBarSaves", "moveToken", "moveTokenAwayFromPoint", "removeWorkflow" and "rollAbility" are callable by all players
+  - MidQOL.socket().canCall(name: string) will return true/false if the current user can call the specified handler.
+
+
 ## 11.1.3
 * Fix for permission issue on macro execution
 

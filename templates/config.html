@@ -681,7 +681,6 @@
           </select>
         </div>
       </div>
-      --
       <div class="midi-qol-box">
         <div class="form-group">
           <label>{{localize "midi-qol.ActionSpecialDurationImmediate.Name"}}</label>
@@ -912,6 +911,16 @@
           </div>
 
           <div class="midi-qol-box">
+            <div class="form-group">
+              <label>{{localize "midi-qol.ChallengeModeArmor.Name"}}</label>
+              <select class="midi-qol-blind-select" name="optionalRules.challengeModeArmor">
+                {{selectOptions ChallengeModeArmorOptions selected=configSettings.optionalRules.challengeModeArmor}}
+              </select>
+            </div>
+            <div class="midi-qol-faint">{{localize "midi-qol.ChallengeModeArmor.Hint"}}</div>
+            <div class="midi-qol-faint">{{localize "midi-qol.ChallengeModeArmorScale.Hint"}}</div>
+            <div class="midi-qol-faint">{{localize "midi-qol.ChallengeModeArmorScaleNoAR.Hint"}}</div>
+<!--
             <div class="form-fields">
               <span>
                 <label>{{localize "midi-qol.ChallengeModeArmor.Name"}}</label>
@@ -930,7 +939,9 @@
               </span>
             </div>
             <div class="midi-qol-faint">{{localize "midi-qol.ChallengeModeArmorScale.Hint"}}</div>
+                    -->
           </div>
+
           {{/if}}
         </div>
 

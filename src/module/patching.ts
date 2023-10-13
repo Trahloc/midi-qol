@@ -864,11 +864,11 @@ export function lookupItemMacro(...args) {
 
 export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user) {
   try {
-    const macros = getProperty(itemOrActor._source, "flags.midi-qol.onUseMacroName");
-    const macroParts = new OnUseMacros(macros ?? null);
     const macroChanges = getProperty(changes, "flags.midi-qol.onUseMacroParts") ?? {};
     //@ts-ignore
     if (isEmpty(macroChanges)) return true;
+    const macros = getProperty(itemOrActor._source, "flags.midi-qol.onUseMacroName");
+    const macroParts = new OnUseMacros(macros ?? null);
 
     if (!Array.isArray(macroChanges.items)) { // we have an update from editing the macro changes
       for (let keyString in macroChanges.items) {
@@ -881,7 +881,6 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
           }));
           key = macroParts.items.length - 1;
         }
-
         if (macroChanges.items[keyString].macroName) macroParts.items[key].macroName = macroChanges.items[keyString].macroName;
         if (macroChanges.items[keyString].option) macroParts.items[key].option = macroChanges.items[keyString].option;
       }
@@ -900,9 +899,37 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
   return true;
 };
 
-export function getInitiativeRoll(wrapped, options: { advantageMode: number } = { advantageMode: 0 }) {
-  let disadv = this.getFlag(game.system.id, "initiativeDisadv");
-  let adv = this.getFlag(game.system.id, "initiativeAdv");
+export async function rollInitiativeDialog(wrapped, rollOptions: any ={fastForward: false}) {
+  const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
+  const adv = pressedKeys.advantage;
+  const disadv = pressedKeys.disadvantage;
+  if (autoFastForwardAbilityRolls) rollOptions.fastForward = true;
+  //@ts-expect-error .dice
+  const dice: any = game.system.dice.D20Roll;
+  rollOptions.advantageMode = dice.ADV_MODE.NORMAL;
+  if (adv && !disadv) {
+    rollOptions.advantageMode = dice.ADV_MODE.ADVANTAGE;
+    rollOptions.fastForward = true;
+  }
+  if (!adv && disadv) {
+    rollOptions.advantageMode = dice.ADV_MODE.DISADVANTAGE;
+    rollOptions.fastForward = true;
+  }
+  if (!rollOptions.fastForward) {
+    return wrapped(rollOptions)
+  }
+  const roll = this.getInitiativeRoll(rollOptions);
+  this._cachedInitiativeRoll = roll;
+  rollOptions.createCombatants = true;
+  await this.rollInitiative({ createCombatants: true });
+  delete this._cahcedInitiativeRoll;
+}
+
+export function getInitiativeRoll(wrapped, options: any = { advantageMode: 0, fastForward: false }) {
+  //@ts-expect-error
+  const D20Roll = game.dnd5e.dice.D20Roll;
+  let disadv = this.getFlag(game.system.id, "initiativeDisadv") || options.advantageMode === D20Roll.ADV_MODE.DISADVANTAGE;
+  let adv = this.getFlag(game.system.id, "initiativeAdv") || options.advantageMode === D20Roll.ADV_MODE.ADVANTAGE;
   const flags = this.flags["midi-qol"] ?? {};
   const advFlags = flags.advantage;
   const disadvFlags = flags.disadvantage;
@@ -911,21 +938,20 @@ export function getInitiativeRoll(wrapped, options: { advantageMode: number } = 
     if ((advFlags?.all && evalCondition(advFlags.all, conditionData))
       || (advFlags?.ability?.check?.all && evalCondition(advFlags.ability.check.all, conditionData))
       || (advFlags?.advantage?.ability?.check?.dex && evalCondition(advFlags.advantage.ability?.check?.dex, conditionData))) {
-      //@ts-expect-error
-      adv = true || (options.advantageMode === game.dnd5e.dice.D20Roll.ADV_MODE.ADVANTAGE);
+      adv = true;
     }
     if ((disadvFlags?.all && evalCondition(disadvFlags.all, conditionData))
       || (disadvFlags?.ability?.check?.all && evalCondition(disadvFlags.ability.check.all, conditionData))
       || (disadvFlags?.disadvantage?.ability?.check?.dex && evalCondition(disadvFlags.disadvantage.ability?.check?.dex, conditionData))) {
-      //@ts-expect-error
-      disadv = true || (options.advantageMode === game.dnd5e.dice.D20Roll.ADV_MODE.DISADVANTAGE);
+      disadv = true;
     }
   }
   if (adv && disadv) options.advantageMode = 0;
-  //@ts-expect-error
-  else if (adv) options.advantageMode = game.dnd5e.dice.D20Roll.ADV_MODE.ADVANTAGE;
-  //@ts-expect-error
-  else if (disadv) options.advantageMode = game.dnd5e.dice.D20Roll.ADV_MODE.DISADVANTAGE;
+  else if (adv) options.advantageMode = D20Roll.ADV_MODE.ADVANTAGE;
+  else if (disadv) options.advantageMode = D20Roll.ADV_MODE.DISADVANTAGE;
+  if (autoFastForwardAbilityRolls) {
+    options.fastForward = true;
+  }
   return wrapped(options);
 }
 
@@ -1016,10 +1042,10 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
   try {
     if (debugEnabled > 0) warn("removeConcentration | ", actor?.name, concentrationUuid, options)
     const concentrationData: any = actor.getFlag("midi-qol", "concentration-data");
-    if (!concentrationData) return;
+    // if (!concentrationData) return;
     const promises: any = [];
     promises.push(actor.unsetFlag("midi-qol", "concentration-data"));
-    if (!options.concentrationTemplatesDeleted && concentrationData.templates) {
+    if (!options.concentrationTemplatesDeleted && concentrationData?.templates) {
       for (let templateUuid of concentrationData.templates) {
         //@ts-expect-error fromUuidSync
         const template = fromUuidSync(templateUuid);
@@ -1027,14 +1053,14 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
       }
     }
 
-    if (concentrationData.removeUuids?.length > 0 && !options.concentrationItemsDeleted) {
+    if (concentrationData?.removeUuids?.length > 0 && !options.concentrationItemsDeleted) {
       for (let removeUuid of concentrationData.removeUuids) {
         //@ts-expect-error fromUuidSync
         const entity = fromUuidSync(removeUuid);
         if (entity) promises.push(entity.delete())
       };
     }
-    if (concentrationData.targets && !options.concentrationEffectsDeleted) {
+    if (concentrationData?.targets && !options.concentrationEffectsDeleted) {
       debug("About to remove concentration effects", actor?.name);
       options.noConcentrationCheck = true;
       for (let target of concentrationData.targets) {
@@ -1045,7 +1071,7 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
             const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
             promises.push(socketlibSocket.executeAsGM("deleteEffects", {
               actorUuid: target.actorUuid, effectsToDelete,
-              options: mergeObject(deleteOptions, { concentrationEffectsDeleted: true, concentrationDeleted: false })
+              options: mergeObject(deleteOptions, { concentrationEffectsDeleted: true })
             }));
           }
         }
@@ -1054,7 +1080,7 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
     if (!options.concentrationDeleted) {
       const concentrationEffect = getConcentrationEffect(actor);
       if (debugEnabled > 0) warn("removeConcentration | removing concentration effect", actor.name, concentrationEffect?.id, options)
-      if (concentrationEffect?.id && options.concentrationEffectsDeleted)
+      if (concentrationEffect?.id && !options.concentrationDeleted)
         promises.push(actor?.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id],
           mergeObject(options, { concentrationDeleted: true, concentrationEffectsDeleted: true })));
     }
@@ -1246,6 +1272,7 @@ export function readyPatching() {
     libWrapper.register("midi-qol", "Combatant.prototype._getInitiativeFormula", _getInitiativeFormula, "WRAPPER");
   } else {
     libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
+    libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollInitiativeDialog", rollInitiativeDialog, "MIXED");
   }
 }
 

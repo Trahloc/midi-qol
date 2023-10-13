@@ -160,7 +160,7 @@ class ConfigSettings {
     criticalSaves: false,
     activeDefence: false,
     activeDefenceShowGM: false,
-    challengModeArmor: false,
+    challengModeArmor: "none",
     checkFlanking: "off",
     optionalCritRule: -1,
     criticalNat20: false,
@@ -425,7 +425,14 @@ export let fetchParams = () => {
   if (configSettings.averageNPCDamage === undefined) configSettings.averageNPCDamage = false;
   enableWorkflow = Boolean(game.settings.get("midi-qol", "EnableWorkflow"));
   if (debugEnabled > 0) warn("Fetch Params Loading", configSettings);
-
+  if (configSettings.optionalRules.challengeModeArmor === true) { // old settings
+    if (configSettings.optionalRules.challengeModeArmorScale) 
+      configSettings.optionalRules.challengeModeArmor = "scale";
+    else
+      configSettings.optionalRules.challengeModeArmor = "challenge";
+  } else if ([false, undefined].includes(configSettings.optionalRules.challengeModeArmor)) {
+    configSettings.optionalRules.challengeModeArmor = "none"
+  }
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
   criticalDamageGM = String(game.settings.get("midi-qol", "CriticalDamageGM"));
