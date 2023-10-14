@@ -2,9 +2,9 @@
 * MidiQOL.socket()
   - Move updateActor to trusted player permissions
   - Move checkReations to all players
-  * Fix potential error when race not set - thanks @thatlonelybugbear
-  * Fix case when noConcentrationCheck would not work when reappying damage.
-  
+* Fix potential error when race not set - thanks @thatlonelybugbear
+* Fix case when noConcentrationCheck would not work when reappying damage.
+
 ## 11.1.4
 * The fast forward ability rolls setting will now fast forward initiative rolls
 * Rolling initiative from the character sheet now supports ctl/alt (or whatever key configuration you have set) to roll initiative with disadvantage/advantage.
