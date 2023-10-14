@@ -3347,7 +3347,6 @@ export class Workflow {
         if (!this.challengeModeScale) this.challengeModeScale = {};
         this.challengeModeScale[targetToken.actor?.uuid ?? "dummy"] = scale;
         // setProperty(targetToken.actor ?? {}, "flags.midi-qol.challengeModeScale", scale);
-        console.error("scale is ", scale);
         if (this.isCritical) isHit = true;
         if (isHit || this.isCritical) this.hitTargets.add(targetToken);
         if (isHitEC) this.hitTargetsEC.add(targetToken);

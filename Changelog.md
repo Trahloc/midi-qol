@@ -1,9 +1,12 @@
+## 11.14.2
+* Remove debug of scale value left in
+
 ## 11.1.4.1
 * MidiQOL.socket()
   - Move updateActor to trusted player permissions
   - Move checkReations to all players
 * Fix potential error when race not set - thanks @thatlonelybugbear
-* Fix case when noConcentrationCheck would not work when reappying damage.
+* Fix case when noConcentrationCheck would not work when reappying damage. thanks @thatlonelybugbear
 
 ## 11.1.4
 * The fast forward ability rolls setting will now fast forward initiative rolls
