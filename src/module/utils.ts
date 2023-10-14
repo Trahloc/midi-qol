@@ -3688,7 +3688,7 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
       rollData.targetActorUuid = data.target.actor?.uuid;
       rollData.targetActorId = data.target.actor?.id;
       if (rollData.target.details.type?.value) rollData.raceOrType = rollData.target.details.type?.value.toLocaleLowerCase() ?? "";
-      else rollData.raceOrType = rollData.target.details.race?.toLocaleLowerCase() ?? "";
+      else rollData.raceOrType = rollData.target.details?.race?.toLocaleLowerCase() ?? "";
     }
     rollData.humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "drow", "dwarf", "dwarven", "halfling", "gnome", "tiefling", "orc", "dragonborn", "half-orc"];
     rollData.tokenUuid = data.workflow?.tokenUuid;
@@ -4648,7 +4648,7 @@ export function isTargetable(target: any /*Token*/): boolean {
     console.warn("midi-qol | system.details.race === 'notarget' is deprecated in favour or flags.midi-qol.neverTarget = true")
     return false;
   }
-  if (target.actor?.system.details.race.toLocaleLowerCase() === "trigger") {
+  if (getProperty(target.actor, "actor.system.details.race")?.toLocaleLowerCase().includes("trigger")) {
     console.warn("midi-qol | system.details.race === 'trigger' is deprecated in favour or flags.midi-qol.neverTarget = true")
     return false;
   }

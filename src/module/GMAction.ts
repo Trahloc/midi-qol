@@ -71,6 +71,7 @@ export class SaferSocket {
     switch (handler) {
       case "applyEffects":
       case "bonusCheck":
+      case "chooseReactions":
       case "completeItemUse":
       case "confirmDamageRollComplete":
       case "confirmDamageRollCompleteHit":
@@ -86,13 +87,13 @@ export class SaferSocket {
         return true;
 
       case "addConvenientEffect":
-      case "chooseReactions":
       case "createActor":
       case "createEffects":
       case "createReverseDamageCard":
       case "deleteItemEffects":
       case "deleteToken":
       case "removeEffects":
+      case "updateActor":
         if (game.user?.isTrusted) return true;
         ui.notifications?.warn(`midi-qol | user ${game.user?.name} must be a trusted player to call ${handler} and will be disabled in the future`);
         return true; // TODO change this to false in the future.
@@ -108,7 +109,6 @@ export class SaferSocket {
       case "startUndoWorkflow":
       case "undoMostRecentWorkflow":
       case "undoTillWorkflow":
-      case "updateActor":
       case "updateEntityStats":
       case "updateUndoChatCardUuids":
       case "updateUndoChatCardUuidsById":
@@ -856,7 +856,7 @@ export let processUndoDamageCard = (message, html, data) => {
         reverseButton.children()[0].classList.add("midi-qol-enable-damage-button");
         log(`Setting HP to ${newTempHP} and ${newHP}`);
         const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-        const context =  mergeObject(message.falgs.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
+        const context =  mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = newVitality;
