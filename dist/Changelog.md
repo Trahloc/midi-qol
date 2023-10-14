@@ -1,3 +1,6 @@
+## 11.14.3
+* Fix for updates with not target specified
+
 ## 11.14.2
 * Remove debug of scale value left in
 

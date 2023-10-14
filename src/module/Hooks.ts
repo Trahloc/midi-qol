@@ -9,6 +9,7 @@ import { checkWounded, lookupItemMacro, preDeleteTemplate, preRollDeathSaveHook,
 import { preItemUsageConsumptionHook, preRollDamageHook } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
+import { updateJsxSelfClosingElement } from "typescript";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -418,7 +419,7 @@ export function initHooks() {
 
       //@ts-expect-error
       if (isNewerVersion(game.system.version, "2.2") && game.system.id === "dnd5e") {
-        if (["creature", "ally", "enemy"].includes(item.system.target.type) && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
+        if (["creature", "ally", "enemy"].includes(item.system.target?.type) && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
           const targetElement = html.find('select[name="system.target.type"]');
           const targetUnitHTML = `
             <select name="system.target.units" data-tooltip="${i18n(getSystemCONFIG().TargetUnits)}">
@@ -437,14 +438,16 @@ export function initHooks() {
   })
 
   Hooks.on("preUpdateItem", (candidate, updates, options, user) => {
-    const targetType = updates.system?.target.type ?? candidate.system.target?.type;
-    const noUnits = !["creature", "ally", "enemy"].includes(targetType) && !(targetType in getSystemCONFIG().areaTargetTypes);
-    if (noUnits) {
-      setProperty(updates, "system.target.units", null);
-    }
-    // One of the midi specials must specify a count before you can set units
-    if (["creature", "ally", "enemy"].includes(targetType) && (updates.system?.target?.value === null || !candidate.system.target.value)) {
-      setProperty(updates, "system.target.units", null);
+    if (updates.system?.target) {
+      const targetType = updates.system.target?.type ?? candidate.system.target?.type;
+      const noUnits = !["creature", "ally", "enemy"].includes(targetType) && !(targetType in getSystemCONFIG().areaTargetTypes);
+      if (noUnits) {
+        setProperty(updates, "system.target.units", null);
+      }
+      // One of the midi specials must specify a count before you can set units
+      if (["creature", "ally", "enemy"].includes(targetType) && (updates.system?.target?.value === null || !candidate.system.target.value)) {
+        setProperty(updates, "system.target.units", null);
+      }
     }
     return true;
   });
