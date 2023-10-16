@@ -363,7 +363,7 @@ export let fetchParams = () => {
     actionSpecialDurationImmediate: false,
     activeDefence: false,
     activeDefenceShowGM: false,
-    challengeModeArmor: false,
+    challengeModeArmor: "none",
     challengeModeArmorScale: false,
     checkFlanking: "off",
     checkRange: "longfail",
@@ -382,7 +382,6 @@ export let fetchParams = () => {
     removeHiddenInvis: true,
     wallsBlockRange: "center",
     mergeCardMulti: false
-    
   }, configSettings.optionalRules ?? {}, { overwrite: true, insertKeys: true, insertValues: true });
   if (!configSettings.optionalRules.wallsBlockRange) configSettings.optionalRules.wallsBlockRange = "center";
   if (configSettings.optionalRules.checkFlanking === true) configSettings.optionalRules.checkFlanking = "ceadv";
@@ -424,7 +423,6 @@ export let fetchParams = () => {
   configSettings.quickSettings = true;
   if (configSettings.averageNPCDamage === undefined) configSettings.averageNPCDamage = false;
   enableWorkflow = Boolean(game.settings.get("midi-qol", "EnableWorkflow"));
-  if (debugEnabled > 0) warn("Fetch Params Loading", configSettings);
   if (configSettings.optionalRules.challengeModeArmor === true) { // old settings
     if (configSettings.optionalRules.challengeModeArmorScale) 
       configSettings.optionalRules.challengeModeArmor = "scale";

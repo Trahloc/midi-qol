@@ -1643,7 +1643,7 @@ export class Workflow {
         //TODO this test will fail for damage only workflows - need to check the damage rolled instead
         const wasHit = (this.item ? wasAttacked : true) && (this.hitTargets?.has(target) || this.hitTargetsEC?.has(target));
         //@ts-expect-error token.document
-        const wasDamaged = wasHit && this.damageList && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
+        const wasDamaged = this.damageList && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
         //@ts-expect-error target.dcoument
         const wasHealed = this.damageList && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage < 0))
         //TODO this is going to grab all the special damage types as well which is no good.
@@ -1983,9 +1983,9 @@ export class Workflow {
       macroData.speaker = this.speaker;
       macroData.actor = actorToUse;
       if (!macro) {
-        itemMacroData = mergeObject({ name: "midi generated macro", type: "script", command: ""}, itemMacroData);
+        itemMacroData = mergeObject({ name: "midi generated macro", type: "script", command: "" }, itemMacroData);
         //@ts-expect-error
-        itemMacroData.ownership = {default: CONST.DOCUMENT_PERMISSION_LEVELS.OWNER};
+        itemMacroData.ownership = { default: CONST.DOCUMENT_PERMISSION_LEVELS.OWNER };
         itemMacroData.author = game.user?.id;
         macro = new CONFIG.Macro.documentClass(itemMacroData);
       }
@@ -2448,14 +2448,17 @@ export class Workflow {
     //@ts-ignore actor.rollAbilitySave
     var rollAction = CONFIG.Actor.documentClass.prototype.rollAbilitySave;
     var rollType = "save"
+    var flagRollType = "save";
     if (this.saveItem.system.actionType === "abil") {
       rollType = "abil"
+      flagRollType = "check";
       //@ts-ignore actor.rollAbilityTest
       rollAction = CONFIG.Actor.documentClass.prototype.rollAbilityTest;
     } else {
-      const midiFlags = this.saveItem.flags ? this.saveItem.flags["midi-qol"] : undefined;
+      const midiFlags = getProperty(this.saveItem, "flags.midi-qol");
       if (midiFlags?.overTimeSkillRoll) {
         rollType = "skill"
+        flagRollType = "skill";
         //@ts-ignore actor.rollAbilityTest
         rollAction = CONFIG.Actor.documentClass.prototype.rollSkill;
         this.saveItem.system.save.ability = midiFlags.overTimeSkillRoll;
@@ -2484,6 +2487,9 @@ export class Workflow {
       }
 
       for (let target of allHitTargets) {
+        if (!target?.actor) continue;
+        //@ts-expect-error token: target for some reason vscode can't work out target is not null
+        const conditionData = createConditionData({ workflow: this, token: target, actor: target.actor });
         const saveDetails: {
           advantage: boolean | undefined,
           disadvantage: boolean | undefined,
@@ -2519,7 +2525,8 @@ export class Workflow {
           saveDetails.advantage = saveDetails.advantage || target?.actor?.items.find(a => a.type === "feat" && a.name === i18n("midi-qol.MagicResistanceFeat").trim()) !== undefined;
           if (!saveDetails.advantage) saveDetails.advantage = undefined;
           const magicResistanceFlags = getProperty(target.actor, "flags.midi-qol.magicResistance");
-          if (magicResistanceFlags && (magicResistanceFlags?.all || getProperty(magicResistanceFlags, rollAbility))) {
+          if ((magicResistanceFlags?.all && evalCondition(magicResistanceFlags.all, conditionData))
+            || (getProperty(magicResistanceFlags, rollAbility) && evalCondition(getProperty(magicResistanceFlags, rollAbility), conditionData))) {
             saveDetails.advantage = true;
             magicResistance = true;
           }
@@ -2528,8 +2535,6 @@ export class Workflow {
             saveDetails.disadvantage = true;
             magicVulnerability = true;
           }
-
-
           if (debugEnabled > 1) debug(`${target.actor.name} resistant to magic : ${saveDetails.advantage}`);
         }
         const settingsOptions = procAbilityAdvantage(target.actor, rollType, this.saveItem.system.save.ability, {});
@@ -2542,8 +2547,6 @@ export class Workflow {
           let concAdv = saveDetails.advantage;
           let concDisadv = saveDetails.disadvantage;
           if (concAdvFlag || concDisadvFlag) {
-            //@ts-expect-error token: target
-            const conditionData = createConditionData({ workflow: this, token: target, actor: target.actor });
             if (concAdvFlag && evalCondition(concAdvFlag, conditionData)) concAdv = true;
             if (concDisadvFlag && evalCondition(concDisadvFlag, conditionData)) concDisadv = true;
           }
@@ -2554,6 +2557,17 @@ export class Workflow {
             saveDetails.disadvantage = true;
           }
         }
+        // Check grant's save fields
+        const grantSaveAdvantageFlags = getProperty(this.actor, `flags.midi-qol.grants.advantage.${flagRollType}`);
+        const grantSaveDisadvantageFlags = getProperty(this.actor, `flags.midi-qol.grants.disadvantage.${flagRollType}`);
+        if ((grantSaveAdvantageFlags?.all && evalCondition(grantSaveAdvantageFlags.all, conditionData))
+          || (getProperty(grantSaveAdvantageFlags, rollAbility) && evalCondition(getProperty(grantSaveAdvantageFlags, rollAbility), conditionData))) {
+          saveDetails.advantage = true;
+        }
+        if ((grantSaveDisadvantageFlags?.all && evalCondition(grantSaveDisadvantageFlags.all, conditionData))
+          || (getProperty(grantSaveDisadvantageFlags, rollAbility) && evalCondition(getProperty(grantSaveDisadvantageFlags, rollAbility), conditionData))) {
+          saveDetails.disadvantage = true;
+        }
         if (saveDetails.advantage && !saveDetails.disadvantage) this.advantageSaves.add(target);
         else if (saveDetails.disadvantage && !saveDetails.advantage) this.disadvantageSaves.add(target);
         var player = playerFor(target);
@@ -2563,11 +2577,15 @@ export class Workflow {
         if (simulate) promptPlayer = false;
         let GMprompt;
         let gmMonksTB;
+        let playerLetme = !player?.isGM && ["letme", "letmeQuery"].includes(configSettings.playerRollSaves);
+        let gmLetme = player?.isGM && ["letme", "letmeQuery"].includes(GMprompt);
+        const playerChat = !player?.isGM && ["chat"].includes(configSettings.playerRollSaves);
         if (player?.isGM) {
           const targetDocument = getTokenDocument(target);
           const monksTBSetting = targetDocument?.isLinked ? configSettings.rollNPCLinkedSaves === "mtb" : configSettings.rollNPCSaves === "mtb"
           gmMonksTB = installedModules.get("monks-tokenbar") && monksTBSetting;
           GMprompt = (targetDocument?.isLinked ? configSettings.rollNPCLinkedSaves : configSettings.rollNPCSaves);
+
           promptPlayer = !["auto", "autoDialog"].includes(GMprompt);
           showRollDialog = GMprompt === "autoDialog";
           if (simulate) {
@@ -2576,6 +2594,12 @@ export class Workflow {
             promptPlayer = false;
             showRollDialog = false;
           }
+        }
+        if (!installedModules.get("lmrtfy") && (playerLetme || gmLetme)) {
+          playerLetme = false;
+          gmLetme = false;
+          showRollDialog = true;
+          promptPlayer = true;
         }
         this.saveDetails = saveDetails;
         //@ts-expect-error [target]
@@ -2607,13 +2631,12 @@ export class Workflow {
             fastForward: false,
             isMagicSave
           })
-        } else if (promptPlayer && player?.active) {
+        } else if (player?.active && (playerLetme || gmLetme || playerChat)) {
           if (debugEnabled > 0) warn(`Player ${player?.name} controls actor ${target.actor.name} - requesting ${this.saveItem.system.save.ability} save`);
           promises.push(new Promise((resolve) => {
             let requestId = target?.id ?? randomID();
             const playerId = player?.id;
-            const playerLetme = !player?.isGM && ["letme", "letmeQuery"].includes(configSettings.playerRollSaves);
-            const gmLetme = player?.isGM && ["letme", "letmeQuery"].includes(GMprompt);
+
             if (player && installedModules.get("lmrtfy") && (playerLetme || gmLetme)) requestId = randomID();
             this.saveRequests[requestId] = resolve;
 
@@ -2651,6 +2674,7 @@ export class Workflow {
           if (!owner?.active) owner = game.users?.activeGM;
           // Fall back to rolling as the current user
           if (!owner) owner = game.user ?? undefined;
+          if (!owner?.isGM && playerLetme && owner?.active) showRollDialog = true;
           promises.push(socketlibSocket.executeAsUser("rollAbility", owner?.id, {
             targetUuid: target.actor.uuid,
             request: rollType,
@@ -3062,8 +3086,8 @@ export class Workflow {
         handler(message.rolls[0])
       }
     }
-    if (game.user?.id !== message.user.id && !message.flags?.lmrtfy && !["allShow"].includes(configSettings.autoCheckSaves)) {
-      html.remove();
+    if (game.user?.id !== message.user.id && !isLMRTFY && !["allShow"].includes(configSettings.autoCheckSaves)) {
+      setTimeout(() => html.remove(), 100);
     }
     return true;
   }
@@ -3173,6 +3197,7 @@ export class Workflow {
       this.hitTargetsEC = new Set(); //TO wonder if this can work with active defence?
     };
     this.hitDisplayData = {};
+    const challengeModeArmorSet = !([undefined, false, "none"].includes(checkRule("challengeModeArmor")));
     for (let targetToken of this.targets) {
       let targetName = configSettings.useTokenNames && targetToken.name ? targetToken.name : targetToken.actor?.name;
       //@ts-ignore dnd5e v10
@@ -3232,11 +3257,11 @@ export class Workflow {
               attackTotal += attackBonus?.total ?? 0;
             }
           }
-          if (checkRule("challengeModeArmor") !== "none") isHit = attackTotal > targetAC || this.isCritical;
+          if (challengeModeArmorSet) isHit = attackTotal > targetAC || this.isCritical;
           else isHit = attackTotal >= targetAC || this.isCritical;
           if (bonusAC === FULL_COVER) isHit = false; // bonusAC will only be FULL_COVER if cover bonus checking is enabled.
 
-          if (targetEC) isHitEC = checkRule("challengeModeArmor") !== "none" && attackTotal <= targetAC && attackTotal >= targetEC && bonusAC !== FULL_COVER;
+          if (targetEC) isHitEC = challengeModeArmorSet && attackTotal <= targetAC && attackTotal >= targetEC && bonusAC !== FULL_COVER;
           // check to see if the roll hit the target
           if ((isHit || isHitEC) && this.item?.hasAttack && this.attackRoll && targetToken !== null && !getProperty(this, "item.flags.midi-qol.noProvokeReaction")) {
             const workflowOptions = mergeObject(duplicate(this.workflowOptions), { sourceActorUuid: this.actor.uuid, sourceItemUuid: this.item?.uuid }, { inplace: false, overwrite: true });
@@ -3249,8 +3274,8 @@ export class Workflow {
             if (result.ac) targetAC = result.ac + bonusAC; // deal with bonus ac if any.
             if (targetEC) targetEC = targetAC - targetAR;
             isHit = (attackTotal >= targetAC || this.isCritical) && result.name !== "missed";
-            if (checkRule("challengeModeArmor") !== "none") isHit = this.attackTotal >= targetAC || this.isCritical;
-            if (targetEC) isHitEC = checkRule("challengeModeArmor") !== "none" && this.attackTotal <= targetAC && this.attackTotal >= targetEC;
+            if (challengeModeArmorSet) isHit = this.attackTotal >= targetAC || this.isCritical;
+            if (targetEC) isHitEC = challengeModeArmorSet && this.attackTotal <= targetAC && this.attackTotal >= targetEC;
           }
           const optionalCrits = checkRule("optionalCritRule");
           if (this.targets.size === 1 && optionalCrits !== false && optionalCrits > -1) {
@@ -3573,7 +3598,7 @@ export class Workflow {
           const requestId = target.actor?.uuid ?? randomID();
           const playerId = player?.id;
           this.defenceRequests[requestId] = resolve;
-          requestPCActiveDefence(player, target.actor, advantage, this.item.name, this.activeDefenceDC, formula, requestId, {workflow: this})
+          requestPCActiveDefence(player, target.actor, advantage, this.item.name, this.activeDefenceDC, formula, requestId, { workflow: this })
           // set a timeout for taking over the roll
           if (configSettings.playerSaveTimeout > 0) {
             this.defenceTimeouts[requestId] = setTimeout(async () => {
@@ -3582,7 +3607,7 @@ export class Workflow {
                 delete this.defenceTimeouts[requestId];
                 const result = await (new game[game.system.id].dice.D20Roll(formula, {}, { advantageMode })).roll({ async: true });
                 result.toMessage({ flavor: `${this.item.name} ${i18n("midi-qol.ActiveDefenceString")}` });
-                
+
                 resolve(result);
               }
             }, configSettings.playerSaveTimeout * 1000);

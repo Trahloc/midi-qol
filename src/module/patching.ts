@@ -821,6 +821,17 @@ export function _onFocusIn(event) {
 export function actorPrepareData(wrapped) {
   try {
     setProperty(this, "flags.midi-qol.onUseMacroName", getProperty(this._source, "flags.midi-qol.onUseMacroName"));
+    if (debugEnabled > 0) for (let effect of this.effects) {
+      for (let change of effect.changes) {
+        if (change.key === "flags.midi-qol.onUseMacroName") {
+          if (change.mode !== CONST.ACTIVE_EFFECT_MODES.CUSTOM) {
+            error("onUseMacro effect mode is not custom", `Actor ${this.name} Effect: ${effect.name} ${this.uuid}`);
+            TroubleShooter.recordError(new Error("onUseMacro effect mode is not custom"), `Actor ${this.name} Effect: ${effect.name} ${this.uuid} `);
+            change.mode = CONST.ACTIVE_EFFECT_MODES.CUSTOM;
+          }
+        }
+      }
+    }
     wrapped();
     prepareOnUseMacroData(this);
   } catch (err) {
@@ -831,6 +842,17 @@ export function actorPrepareData(wrapped) {
 
 export function itemPrepareData(wrapped) {
   setProperty(this, "flags.midi-qol.onUseMacroName", getProperty(this._source, "flags.midi-qol.onUseMacroName"));
+  if (debugEnabled > 0) for (let effect of this.effects) {
+    for (let change of effect.changes) {
+      if (change.key === "flags.midi-qol.onUseMacroName") {
+        if (change.mode !== CONST.ACTIVE_EFFECT_MODES.CUSTOM) {
+          error("onUseMacro effect mode is not custom", `Actor: ${this.parent.name} Item: ${this.name} Effect: ${effect.name} ${this.uuid} `);
+          TroubleShooter.recordError(new Error("onUseMacro effect mode is not custom"), `Actor: ${this.parent.name} Item: ${this.name} Effect: ${effect.name} ${this.uuid} `);
+          change.mode = CONST.ACTIVE_EFFECT_MODES.CUSTOM;
+        }
+      }
+    }
+  }
   wrapped();
   prepareOnUseMacroData(this);
 }
@@ -855,6 +877,7 @@ export function lookupItemMacro(...args) {
         parts[0] = `ItemMacro.${candidate.origin}`;
         change.value = parts.join(",");
       }
+      change.mode = CONST.ACTIVE_EFFECT_MODES.CUSTOM;
     }
     return change;
   })
@@ -1841,6 +1864,7 @@ function preDamageTraitSelectorGetData(wrapped) {
 function actorGetRollData(wrapped, ...args) {
   const data = wrapped(...args);
   data.actorType = this.type;
+  data.name = this.name;
   data.midiFlags = (this.flags && this.flags["midi-qol"]) ?? {};
   if (game.system.id === "dnd5e") {
     data.cfg = {};
@@ -1856,6 +1880,7 @@ function itemGetRollData(wrapped, ...args) {
   if (!data) return data;
   data.item.flags = this.flags;
   data.item.midiFlags = getProperty(this, "flags.midi-qol");
+  data.item.name = this.name;
   return data;
 }
 function _filterItems(wrapped, items, filters) {

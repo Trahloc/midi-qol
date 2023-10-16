@@ -145,7 +145,7 @@ export class TroubleShooter extends FormApplication {
 
   async _onSubmit(...args): Promise<any> {
     let [event, options] = args;
-    console.error("On Submit", event, options.updateData, options.preventClose, options.preventRender);
+    // console.error("On Submit", event, options.updateData, options.preventClose, options.preventRender);
     return {};
   }
 
@@ -196,8 +196,7 @@ export class TroubleShooter extends FormApplication {
 
     }
     html.find(".data-action").on("click", event => {
-      //fixer button pressed
-      console.error(event, this._fixerFuncs);
+
     })
   }
 

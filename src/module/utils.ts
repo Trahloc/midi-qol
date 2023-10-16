@@ -561,8 +561,6 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && attackRoll && workflow.hitTargetsEC?.has(t)) {
           //scale the damage detail for a glancing blow - only for the first damage list? or all?
           const scale = workflow.challengeModeScale[targetActor?.uuid ?? "dummy"] ?? 1;
-          console.error("compute damage scale ", scale);
-
           // const scale = getProperty(targetActor, "flags.midi-qol.challengeModeScale") ?? 1;
           damageDetailItem.damage *= scale;
         }

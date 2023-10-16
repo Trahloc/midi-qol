@@ -546,7 +546,14 @@ function setupMidiFlags() {
   midiFlags.push("flags.midi-qol.fail.attack.all");
   midiFlags.push("flags.midi-qol.success.attack.all");
   midiFlags.push(`flags.midi-qol.grants.advantage.attack.all`);
+  midiFlags.push("flags.midi-qol.grants.advantage.save.all")
+  midiFlags.push("flags.midi-qol.grants.advantage.check.all")
+  midiFlags.push("flags.midi-qol.grants.advantage.skill.all")
   midiFlags.push(`flags.midi-qol.grants.disadvantage.attack.all`);
+  midiFlags.push("flags.midi-qol.grants.disadvantage.save.all")
+  midiFlags.push("flags.midi-qol.grants.disadvantage.check.all")
+  midiFlags.push("flags.midi-qol.grants.disadvantage.skill.all")
+
   midiFlags.push(`flags.midi-qol.grants.fail.advantage.attack.all`);
   midiFlags.push(`flags.midi-qol.grants.fail.disadvantage.attack.all`);
   midiFlags.push(`flags.midi-qol.neverTarget`);
@@ -567,7 +574,10 @@ function setupMidiFlags() {
   midiFlags.push(`flags.midi-qol.potentCantrip`);
   midiFlags.push(`flags.midi-qol.sculptSpells`);
   midiFlags.push(`flags.midi-qol.carefulSpells`);
-  midiFlags.push("flags.midi-qol.magicResistance.all")
+  midiFlags.push("flags.midi-qol.magicResistance.all");
+  midiFlags.push("flags.midi-qol.magicResistance.save.all");
+  midiFlags.push("flags.midi-qol.magicResistance.check.all");
+  midiFlags.push("flags.midi-qol.magicResistance.skill.all");
   midiFlags.push("flags.midi-qol.magicVulnerability.all")
   midiFlags.push("flags.midi-qol.rangeOverride.attack.all")
 
@@ -637,6 +647,12 @@ function setupMidiFlags() {
     midiFlags.push(`flags.midi-qol.optional.NAME.check.fail.${abl}`);
     midiFlags.push(`flags.midi-qol.magicResistance.${abl}`);
     midiFlags.push(`flags.midi-qol.magicVulnerability.all.${abl}`);
+    midiFlags.push(`flags.midi-qol.grants.advantage.save.${abl}`);
+    midiFlags.push(`flags.midi-qol.grants.advantage.check.${abl}`);
+    midiFlags.push(`flags.midi-qol.grants.advantage.skill.${abl}`);
+    midiFlags.push(`flags.midi-qol.grants.disadvantage.save.${abl}`);
+    midiFlags.push(`flags.midi-qol.grants.disadvantage.check.${abl}`);
+    midiFlags.push(`flags.midi-qol.grants.disadvantage.skill.${abl}`);
   })
 
   midiFlags.push(`flags.midi-qol.advantage.skill.all`);

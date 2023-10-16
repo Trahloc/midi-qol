@@ -65,9 +65,15 @@
         </div>
 
         <div class="form-group">
+          <label>{{localize "midi-qol.AutoFastForwardDamage.Name"}}</label>
+          <input type="checkbox" name="gmAutoFastForwardDamage" data-dtype="Boolean"
+           {{checked configSettings.gmAutoFastForwardDamage}} />
+        </div>
+
+        <div class="form-group">
           <label>{{localize "midi-qol.AverageNPCDamage.Name"}}</label>
-          <input type="checkbox" name="averageNPCDamage" data-dtype="Boolean" {{checked
-            configSettings.averageNPCDamage}} />
+          <input type="checkbox" name="averageNPCDamage" data-dtype="Boolean" 
+          {{checked configSettings.averageNPCDamage}} />
         </div>
 
         <div class="form-group">

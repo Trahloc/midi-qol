@@ -1,7 +1,25 @@
-## 11.14.3
-* Fix for updates with not target specified
 
-## 11.14.2
+## 11.1.5
+* Added some more flags which grant the target of an attack advantage/disadvantage on saves against the attack. These flags do NOT affect saves which are not prompted for by midi-qol when auto checking saves.
+  - flags.midi-qol.grants.advantage.save.all/dex/str..., flags.grants.advatnage.check.all/dex/str..., flags.grants.advantage.skill.all/dex/str...
+  - flags.midi-qol.grants.disadvantage.save.all/dex/str..., flags.grants.disadvatnage.check.all/dex/str..., flags.grants.disadvantage.skill.all/dex/str...
+  - The flags evaluate the value as a condition, so an item (called "Test Item") with a passive condition
+  ```
+  flags.midi-qol.grants.advantage.save.all CUSTOM item.name === "Test Item"
+  ```
+  will give advantage to all saves against "Test Items"s saves.
+* added getRollData item.name and name which were inexplicably missing.
+* Fix for attacks === AC not hitting if optional rules disabled.
+* Put back the gm auto fast forward damage setting on the config panel.
+* When debug warn is enabled midi will check flags.onUseMacroName fields to have mode custom - required else they won't work properly.
+* Fix for not removing isDamaged special duration effects when taking damage from spell that don't have an attack.
+* If you specify LMRTFY for saving throws and the module is not active midi will fall back to the standard dnd5e roll dialog instead of auto rolling the save.
+
+
+## 11.1.4.3
+* Fix for updates with no target specified
+
+## 11.1.4.2
 * Remove debug of scale value left in
 
 ## 11.1.4.1
