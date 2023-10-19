@@ -1,3 +1,6 @@
+## 11.1.6
+* Enhanced Late targeting dialog to show flanking, cover and range.
+* Updated computeCoverBonus to include checking for sharpShooter/Spell sniper which were previously handled outside of the computeCover call.
 
 ## 11.1.5
 * Added some more flags which grant the target of an attack advantage/disadvantage on saves against the attack. These flags do NOT affect saves which are not prompted for by midi-qol when auto checking saves.

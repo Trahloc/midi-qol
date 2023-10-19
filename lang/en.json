@@ -712,6 +712,7 @@
     "ceflanked": "CE Flanked condition only",
     "ceflankedNoconga": "CE Flanked + no conga line"
   },
+  "midi-qol.Flanked": "Flanked",
   "midi-qol.RollAlternate.Name": "Move roll formula to tooltip",
   "midi-qol.RollAlternate.Hint": "Use alternate roll display on merge card moving the roll formula to the tooltip and optionally add advantage attribution",
   "midi-qol.RollAlternateOptions": {

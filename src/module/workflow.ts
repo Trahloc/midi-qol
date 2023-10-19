@@ -3228,19 +3228,14 @@ export class Workflow {
         isHit = this.hitTargets.has(targetToken);
         hitResultNumeric = "";
       } else {
-        if (["rsak"].includes(item?.system.actionType) && getProperty(this.actor, "flags.dnd5e.spellSniper"))
-          bonusAC = 0;
-        else if (item?.system.actionType === "rwak" && getProperty(this.actor, "flags.midi-qol.sharpShooter"))
-          bonusAC = 0;
-        else {
-          const noCoverFlag = getProperty(this.actor, "flags.midi-qol.ignoreCover");
-          let ignoreCover = false;
-          if (noCoverFlag) {
-            const conditionData = createConditionData({ workflow: this, target: targetToken, actor: this.actor });
-            ignoreCover = evalCondition(noCoverFlag, conditionData);
-          }
-          if (!ignoreCover) bonusAC = computeCoverBonus(this.token, targetToken, item);
+
+        const noCoverFlag = getProperty(this.actor, "flags.midi-qol.ignoreCover");
+        let ignoreCover = false;
+        if (noCoverFlag) {
+          const conditionData = createConditionData({ workflow: this, target: targetToken, actor: this.actor });
+          ignoreCover = evalCondition(noCoverFlag, conditionData);
         }
+        if (!ignoreCover) bonusAC = computeCoverBonus(this.token, targetToken, item);
         targetAC += bonusAC;
 
         const midiFlagsAttackBonus = getProperty(targetActor, "flags.midi-qol.grants.attack.bonus");

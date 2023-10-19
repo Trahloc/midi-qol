@@ -7,7 +7,7 @@ import { isReactionItem } from "./utils.js";
 import { Workflow } from "./workflow.js";
 
 var dae;
-Hooks.once("ready", () => {
+Hooks.once("DAE.setupComplete", () => {
   dae = globalThis.DAE;
 })
 

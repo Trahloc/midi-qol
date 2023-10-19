@@ -1,21 +1,29 @@
 <form class="flexcol {{classes}}" autocomplete="off">
- {{blurb}}
-<ul>
-      <div class="midi-qol-box">
-        {{#each targets as |target iid|}}
-        <li>
-          {{target.name}}
-          <div><img src="{{target.img}}" width="50" height="50" style="border:0px" /></div>
-        </li>
-        {{/each}}
+  {{blurb}}
+  <dl>
+    {{#each targets as |target iid|}}
+    <div class="midi-qol-box">
+      <div class="flexrow 2">
+        <div style="flex-grow: 4">
+          <dd>
+            <strong>{{target.name}}</strong>
+            {{#if target.hasDetails}}
+            <br>
+            {{target.details}}
+            {{/if}}
+          </dd>
         </div>
-</ul>
-<div>
-<button type="button" name="Roll" class= "midi-roll-confirm">
-  <i class="fas fa-dice-d20"></i> {{localize "DND5E.Roll"}}
-</button>
-<button type="button" name="Roll" class= "midi-roll-cancel">
-  <i class="fas fa-stop"></i> {{localize "Cancel"}}
-</button>
-</div>
+        <div style="flex-grow: 1"><img src="{{target.img}}" width="50" height="50" style="border:0px" /></div>
+      </div>
+    </div>
+    {{/each}}
+  </dl>
+
+  <button type="button" name="Roll" class="midi-roll-confirm">
+    <i class="fas fa-dice-d20"></i> {{localize "DND5E.Roll"}}
+  </button>
+  <button type="button" name="Roll" class="midi-roll-cancel">
+    <i class="fas fa-stop"></i> {{localize "Cancel"}}
+  </button>
+  </div>
 </form>

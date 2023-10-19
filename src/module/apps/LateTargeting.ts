@@ -1,7 +1,7 @@
-import { log, debug, i18n, error, warn, geti18nOptions, i18nFormat } from "../../midi-qol.js";
-import { isTargetable } from "../utils.js";
+import { i18n, error, i18nFormat } from "../../midi-qol.js";
+import { checkMechanic, checkRule, configSettings } from "../settings.js";
+import { FULL_COVER, HALF_COVER, THREE_QUARTERS_COVER, checkRange, computeCoverBonus, computeFlankingStatus, isTargetable, markFlanking, tokenForActor } from "../utils.js";
 import { getAutoRollAttack, getTokenPlayerName, isAutoFastAttack } from "../utils.js";
-import { Workflow } from "../workflow.js";
 import { TroubleShooter } from "./TroubleShooter.js";
 
 export class LateTargetingDialog extends Application {
@@ -29,9 +29,17 @@ export class LateTargetingDialog extends Application {
       setProperty(options, "workflowOptions.fastForward", options.worfkflowOptions?.fastForward || options.pressedKeys?.fastForward);
       return options.callback ? options.callback(value) : value;
     }
+    if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking")) && game.user?.targets) {
+      const actor = this.data.item.actor;
+      const token = tokenForActor(actor);
+      if (token)
+        for (let target of game.user?.targets)
+          markFlanking(token, target)
+    }
     // this.callback = options.callback;
     return this;
   }
+
   get title() {
     return this.options.title ?? i18n("midi-qol.LateTargeting.Name");
   }
@@ -65,9 +73,49 @@ export class LateTargetingDialog extends Application {
       if (VideoHelper.hasVideoExtension(img)) {
         img = await game.video.createThumbnail(img, { width: 50, height: 50 });
       }
+      const actor = this.data.item.actor;
+      const token = tokenForActor(actor);
+      let details: string [] = [];
+      if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking"))) {
+        if (token && computeFlankingStatus(token, target)) details.push((i18n("midi-qol.Flanked")));
+      }
+      if (typeof configSettings.optionalRules.coverCalculation === "string" && configSettings.optionalRules.coverCalculation !== "none") {
+        const targetCover = token ? computeCoverBonus(token, target, this.data.item) : 0;
+        switch (targetCover) {
+          case HALF_COVER:
+            details.push(`${i18n("DND5E.CoverHalf")} ${i18n("DND5E.Cover")}`);
+            break;
+          case THREE_QUARTERS_COVER:
+            details.push(`${i18n("DND5E.CoverThreeQuarters")} ${i18n("DND5E.Cover")}`);
+            break;
+          case FULL_COVER:
+            details.push(`${i18n("DND5E.CoverTotal")} ${i18n("DND5E.Cover")}`);
+            break;
+          default:
+            details.push(`${i18n("No")} ${i18n("DND5E.Cover")}`);
+            break;
+        }
+      }
+      if (token && checkMechanic("checkRange") !== "none" && (["mwak", "msak", "mpak", "rwak", "rsak", "rpak"].includes(this.data.item.system.actionType))) {
+        const { result, attackingToken } = checkRange(this.data.item, token, new Set([target]));
+        switch (result) {
+          case "normal":
+            details.push(`${i18n("DND5E.RangeNormal")}`);
+            break;
+          case "dis":
+            details.push(`${i18n("DND5E.RangeLong")}`);
+            break;
+          case "fail":
+            details.push(`Out of Range`);
+            break;
+        }
+      }
+
       data.targets.push({
         name: game.user?.isGM ? target.name : getTokenPlayerName(target),
-        img
+        img,
+        details: details.join(" - "),
+        hasDetails: details.length > 0
       });
     }
     if (this.data.item.system.target) {

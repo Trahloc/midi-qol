@@ -2098,12 +2098,17 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
       }
       break;
     case "none":
-      coverBonus = 0;
+    default:
+        coverBonus = 0;
       break;
   }
 
   if (item?.flags?.midiProperties?.ignoreTotalCover && item.type === "spell") coverBonus = 0;
   else if (item?.flags?.midiProperties?.ignoreTotalCover && coverBonus === FULL_COVER) coverBonus = THREE_QUARTERS_COVER;
+  if (item?.system.actionType === "rwak" && attacker.actor && getProperty(attacker.actor, "flags.midi-qol.sharpShooter") && coverBonus !== FULL_COVER)
+    coverBonus = 0;
+  if (["rsak"/*, rpak*/].includes(item?.system.actionType) && attacker.actor && getProperty(attacker.actor, "flags.dnd5e.spellSniper") && coverBonus !== FULL_COVER)
+    coverBonus = 0;
   if (target.actor)
     setProperty(target.actor, "flags.midi-qol.acBonus", coverBonus);
   return coverBonus;
@@ -4092,6 +4097,7 @@ export function findPotentialFlankers(target) {
   );
   return allies.concat(reachAllies);
 }
+
 export async function computeFlankedStatus(target): Promise<boolean> {
   if (!checkRule("checkFlanking") || !["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking"))) return false;
   if (!canvas || !target) return false;
