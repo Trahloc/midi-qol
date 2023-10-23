@@ -419,13 +419,19 @@ Requires LMRTFY.
   If an attack roll:
     * is < your EC the attack misses.
     * is >= your EC and <= your AC, it is a hit, but it did not penetrate your armor, so the damage you take is reduced by your armor resistance. 
-    * > your AC the attack hits normally.  
-  Your AR is equal to your AC - applied dex mod, i.e. the part of your AC that is not nimbleness
-  This means that tanks, high armor class but weighed down take more glancing damage, but that damage is mitigated by your AR. The logic of the system is that part of hitting is having the blow land  on the target, which is measured by the EC which rewards nimble characters and secondly damage reduction done when a glancing blow does not get "through the armor" and so the damage is reduced by the Armor Resistance.
+    * is > your AC the attack hits normally.  
+  - Your AR is equal to your AC - applied dex mod, i.e. the part of your AC that is not nimbleness.
+  - This means that tanks, high armor class but weighed down take more glancing damage, but that damage is mitigated by the AR.
+  - The logic of the system is that part of hitting is having the blow land  on the target, which is measured by the EC which rewards nimble characters and secondly damage reduction done when a glancing blow does not get "through the armor" and so the damage is reduced by the Armor Resistance.
   * Some informal testing suggests this is badly weighted against tank classes once they reach a high enough level to be fighting tough opponents doing high levels of damage, since many of the EC hits will get through the AR but there is no compensation for taking this extra damage.
   * The **house rule** version makes the following changes.
     1. The damage from an EC hit (i.e. greater than EC and <= AC) is scaled, so a tank with 8 points of armor reduction wil take 1/9. 2/9, ... 9/9 of the rolled damage when an EC hits for EC, EC +1, EC +2 ... EC+8
     2. The damage reduction applies for all hits except critical hits.
+  * Some options for Challenge Mode.
+    - if you give an actor the following effects
+      system.attributes.ac.EC OVERRIDE 0 priority 0
+      system.attributes.ac.AR OVERRIDE 0 priority 0
+    midi's internal calculations of EC/AR won't apply and you can choose how to set it yourself via active effects. If you wanted a difference approach to how EC/AR are apportioned from armor calss for example.
 
 ### Settings for full auto mode:
 If the above was discussion was all too tedious here are the settings I use.

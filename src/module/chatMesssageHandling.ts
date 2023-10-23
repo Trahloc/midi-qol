@@ -2,7 +2,7 @@ import { debug, warn, i18n, error, gameStats, debugEnabled, MQdefaultDamageType,
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { BetterRollsWorkflow, DDBGameLogWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll } from "./settings.js";
-import { createDamageList, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat, getConcentrationLabel } from "./utils.js";
+import { createDamageList, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat, getConcentrationLabel, itemRequiresConcentration } from "./utils.js";
 import { shouldRollOtherDamage } from "./itemhandling.js";
 import { socketlibSocket } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
@@ -177,7 +177,7 @@ export let processCreateBetterRollsMessage = (message: ChatMessage, user: string
   if (!workflow.tokenId) workflow.tokenId = token?.id;
   if (configSettings.concentrationAutomation) {
     const concentrationLabel = getConcentrationLabel();
-    const needsConcentration = workflow.item?.system.components?.concentration || workflow.item?.system.activation?.condition?.includes("Concentration");
+    const needsConcentration = itemRequiresConcentration(workflow.item);
     const checkConcentration = configSettings.concentrationAutomation;
     if (needsConcentration && checkConcentration) {
       const concentrationCheck = item.actor.effects.find(i => i.name === concentrationLabel);

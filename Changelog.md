@@ -1,3 +1,13 @@
+## 11.1.7
+* Fix for actor using a reach weapon not being able to gain flanking when 2 squares away.
+* Fix for weapons with range touch and property reach not being able to attack from 2 squares away.
+* Fix for Actor groups throwing an error in prepare data with dex undefined.
+* Fix for challenge mode armor calculations of EC/AR when using challengeModeArmor scaling house rule and other places.
+* Functions called by asyncHooksCallAll can now set workflow.aborted to true to cause the workflow to terminate prematurely.
+* Fix for trouble shooter not recording call stack for some cases.
+* BonusDialog rolls can now reference item data, if present.
+* midiProperties now added to equipment type items, but be warned some (many) of them don't make any sense and midi lets you set them to whatever you want.
+
 ## 11.1.6
 * Enhanced Late targeting dialog to show flanking, cover and range.
 * Updated computeCoverBonus to include checking for sharpShooter/Spell sniper which were previously handled outside of the computeCover call.

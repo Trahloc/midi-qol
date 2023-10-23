@@ -127,7 +127,8 @@ Hooks.once('init', async function () {
   globalThis.MidiKeyManager = new MidiKeyManager();
   globalThis.MidiKeyManager.initKeyMappings();
   Hooks.on("error", (...args) => {
-    TroubleShooter.recordError("midi-qol Hooks.onError", ...args)
+    let [message, err] = args;
+    TroubleShooter.recordError(err, message);
   });
 });
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {

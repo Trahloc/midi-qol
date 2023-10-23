@@ -101,7 +101,7 @@ export let readyHooks = async () => {
   });
 
   Hooks.on("renderActorArmorConfig", (app, html, data) => {
-    if (configSettings.optionalRules.challengeModeArmor) {
+    if (!["none", undefined, false].includes(checkRule("challengeModeArmor"))) {
       const ac = data.ac;
       const element = html.find(".stacked"); // TODO do this better
       let ARHtml = $(`<div>EC: ${ac.EC}</div><div>AR: ${ac.AR}</div>`);
@@ -386,7 +386,7 @@ export function initHooks() {
     const midiProps = config.midiProperties;
     setProperty(data, "flags.midiProperties", app.object.flags.midiProperties ?? {});
     if (!data.flags?.midiProperties) setProperty(data, "flags.midiProperties", {});
-    if (app.object && ["spell", "feat", "weapon", "consumable"].includes(app.object.type)) {
+    if (app.object && ["spell", "feat", "weapon", "consumable", "equipment"].includes(app.object.type)) {
       const item = app.object;
       if (item.flags.midiProperties === undefined) {
         item.flags.midiProperties = {};

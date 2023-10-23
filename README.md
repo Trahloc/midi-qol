@@ -427,6 +427,11 @@ Requires LMRTFY.
   * The **house rule** version makes the following changes.
     1. The damage from an EC hit (i.e. greater than EC and <= AC) is scaled, so a tank with 8 points of armor reduction wil take 1/9. 2/9, ... 9/9 of the rolled damage when an EC hits for EC, EC +1, EC +2 ... EC+8
     2. The damage reduction applies for all hits except critical hits.
+  * Some options for Challenge Mode.
+    - if you give an actor the following effects
+      system.attributes.ac.EC OVERRIDE 0 priority 0
+      system.attributes.ac.AR OVERRIDE 0 priority 0
+    midi's internal calculations of EC/AR won't apply and you can choose how to set it yourself via active effects. If you wanted a difference approach to how EC/AR are apportioned from armor calss for example.
 
 ### Settings for full auto mode:
 If the above was discussion was all too tedious here are the settings I use.

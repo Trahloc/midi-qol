@@ -747,6 +747,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     ditem.damageDetail = duplicate([damageDetailResolved]);
     ditem.critical = workflow?.isCritical;
     ditem.wasHit = options.hitTargets.has(t);
+    // TODO work out how to abort this.
     await asyncHooksCallAll("midi-qol.damageApplied", t, { item, workflow, damageItem: ditem, ditem });
     //@ts-expect-error isEmtpy
     if (!isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
@@ -1710,7 +1711,7 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
   if (!token || x == undefined || y === undefined) return undefined;
   if (!canvas || !canvas.grid || !canvas.dimensions) return undefined;
   const t2StartX = -Math.max(0, token.document.width - 1);
-  const t2StartY = -Math.max(0, token.document.heidght - 1);
+  const t2StartY = -Math.max(0, token.document.height - 1);
   var d, r, segments: { ray: Ray }[] = [], rdistance, distance;
   const [row, col] = canvas.grid.grid?.getGridPositionFromPixels(x, y) || [0, 0];
   const [xbase, ybase] = canvas.grid.grid?.getPixelsFromGridPosition(row, col) || [0, 0];
@@ -1947,6 +1948,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     }
     if (item.system.range.units === "touch") {
       range = canvas?.dimensions?.distance ?? 5;
+      if (getProperty(item, "system.properties.rch")) range = 2 * range;
       longRange = 0;
     }
     if (["mwak", "msak", "mpak"].includes(item.system.actionType) && !item.system.properties?.thr) longRange = 0;
@@ -2851,15 +2853,19 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             newRoll = new Roll(rollParts.slice(1).join(" "), (this.item ?? this.actor).getRollData());
             newRoll = await newRoll.evaluate({ async: true });
             if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId, rollMode);
-          } else if (flagSelector.startsWith("damage.") && getProperty(this.actor, `${button.key}.criticalDamage`)) {
+          } else if (flagSelector.startsWith("damage.") && getProperty(this.actor ?? this, `${button.key}.criticalDamage`)) {
+            //@ts-expect-error .DamageRoll
+            const DamageRoll = CONFIG.Dice.DamageRoll
             let rollOptions = duplicate(this[rollId].options);
             rollOptions.configured = false;
             // rollOptions = { critical: (this.isCritical || this.rollOptions.critical), configured: false };
             //@ts-expect-error D20Roll
             newRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
             newRoll.terms.push(new OperatorTerm({ operator: "+" }));
-            //@ts-expect-error DamageRoll
-            const tempRoll = new CONFIG.Dice.DamageRoll(`${button.value}`, this.actor.getRollData(), rollOptions);
+            let rollData: any = {}
+            if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
+            else rollData = this.getRollData(); // will be item or actor rollData as supplied
+            const tempRoll = new DamageRoll(`${button.value}`, rollData, rollOptions);
             await tempRoll.evaluate({ async: true });
             if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
             newRoll._total = this[rollId]._total + tempRoll.total;
@@ -2875,7 +2881,10 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
               newRoll._total = this[rollId]._total + Number(button.value);
               newRoll._formula = `${this[rollId]._formula} + ${Number(button.value)}`
             } else {
-              const tempRoll = new Roll(button.value, this.actor.getRollData());
+              let rollData: any = {}
+              if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
+              else rollData = this.getRollData(); // will be item or actor rollData as supplied
+              const tempRoll = new Roll(button.value, rollData);
               await tempRoll.evaluate({ async: true });
               if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
               newRoll._total = this[rollId]._total + tempRoll.total;
@@ -4183,10 +4192,14 @@ export function computeFlankingStatus(token, target): boolean {
   // Find all tokens hostile to the target
   if (!target) return false;
   if (!heightIntersects(target.document, token.document)) return false;
-  if (getDistance(token, target, true) > (canvas?.dimensions?.distance ?? 5)) return false;
+  let range = 1;
+  if (token.actor?.items.contents.some(item => item.system?.properties?.rch && item.system.equipped)) {
+    range = 2;
+  }
+  if (getDistance(token, target, true) > range * (canvas?.dimensions?.distance ?? 5)) return false;
   // an enemy's enemies are my friends.
   const allies: any /* Token v10 */[] = findPotentialFlankers(target)
-
+  
   if (!token.document.disposition) return false; // Neutral tokens can't get flanking
   if (allies.length <= 1) return false; // length 1 means no other allies nearby
 
@@ -4847,4 +4860,15 @@ export function calcTokenVisibilityCover(attacker: Token | TokenDocument, target
     coverValue = cover[attackerToken.id][targetToken.id] ?? 0;
   }
   return coverValue;
+}
+
+export function itemRequiresConcentration(item): boolean {
+  if (!item) return false;
+  if (item.system.activation?.condition?.toLocaleLowerCase().includes(i18n("midi-qol.concentrationActivationCondition").toLocaleLowerCase())) {
+    console.warn("midi-qol | concentration activation condition deprecated use concentration component/midiProperty");
+  }
+  return item.system.components?.concentration
+    || item.flags.midiProperties?.concentration
+    || item.system.porperties?.concentration // for the future case of dnd5e 2.x
+    || item.system.activation?.condition?.toLocaleLowerCase().includes(i18n("midi-qol.concentrationActivationCondition").toLocaleLowerCase());
 }

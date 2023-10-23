@@ -759,7 +759,8 @@ function midiATRefresh(wrapped) {
 export function _prepareDerivedData(wrapped, ...args) {
   wrapped(...args);
   try {
-    if (checkRule("challengeModeArmor")) {
+    if (!this.system.abilities?.dex) return;
+    if (![false, undefined, "none"].includes(checkRule("challengeModeArmor"))) {
       const armorDetails = this.system.attributes.ac ?? {};
       const ac = armorDetails?.value ?? 10;
       const equippedArmor = armorDetails.equippedArmor;
@@ -767,7 +768,7 @@ export function _prepareDerivedData(wrapped, ...args) {
       const equippedShield = armorDetails.equippedShield;
       const shieldAC = equippedShield?.system.armor.value ?? 0;
 
-      if (checkRule("challengeModeArmorScale")) {
+      if (checkRule("challengeModeArmor") !== "challenge") {
         switch (armorDetails.calc) {
           case 'flat':
             armorAC = (ac.flat ?? 10) - this.system.abilities.dex.mod;
@@ -786,6 +787,11 @@ export function _prepareDerivedData(wrapped, ...args) {
         this.system.attributes.ac.EC = ec;
         this.system.attributes.ac.AR = armorReduction;;
       } else {
+        if (!this.system.abilities) {
+          console.error("midi-qol | challenge mode armor failed to find abilities");
+          console.error(this);
+          return;
+        }
         let dexMod = this.system.abilities.dex.mod;
         if (equippedArmor?.system.armor.type === "heavy") dexMod = 0;
         if (equippedArmor?.system.armor.type === "medium") dexMod = Math.min(dexMod, 2)
@@ -795,7 +801,7 @@ export function _prepareDerivedData(wrapped, ...args) {
     }
   } catch (err) {
     const message = "midi-qol failed to prepare derived data";
-    console.warn(message, err);
+    console.error(message, err);
     TroubleShooter.recordError(err, message);
   }
 }
