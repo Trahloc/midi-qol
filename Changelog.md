@@ -1,3 +1,14 @@
+## 11.1.8
+* Added name="item name" to overtime effects (just for consistency)
+* New option for overTime effects, fastForwardDamage: boolean, true damage roll is always fast forwarded, false damage roll is never fastforwarded, absent use the module settings.
+* Added config option to apply wounded as an overlay effect.
+* Fix for actor inventory standard roll/attack/damage buttons not being displayed after doing a roll.
+* Fix for rolling an item when there is no canvas.
+* Fix for error introduced when rolling saving throws.
+* Clarify Monks Token Bar config setting in TroubleShoorter.
+* updateEffects in GMAction is now trusted player instead of the accidental gm only.
+* DAE bug fix to allow editing item macros from character sheet.
+
 ## 11.1.7
 * Fix for actor using a reach weapon not being able to gain flanking when 2 squares away.
 * Fix for weapons with range touch and property reach not being able to attack from 2 squares away.

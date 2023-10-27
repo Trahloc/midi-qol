@@ -62,9 +62,9 @@ function _removeWorkflow(workflowId: string) {
 
 export class SaferSocket {
 
-  _socketlibSocket: any;
+   #_socketlibSocket: any;
   constructor(socketlibSocket) {
-    this._socketlibSocket = socketlibSocket;
+    this.#_socketlibSocket = socketlibSocket;
   }
   canCall(handler) {
     if (game.user?.isGM) return true;
@@ -94,6 +94,7 @@ export class SaferSocket {
       case "deleteToken":
       case "removeEffects":
       case "updateActor":
+      case "updateEffects":
         if (game.user?.isTrusted) return true;
         ui.notifications?.warn(`midi-qol | user ${game.user?.name} must be a trusted player to call ${handler} and will be disabled in the future`);
         return true; // TODO change this to false in the future.
@@ -120,32 +121,32 @@ export class SaferSocket {
 
   async executeAsGM(handler, ...args) {
     if (!this.canCall(handler)) return false;
-    return await this._socketlibSocket.executeAsGM(handler, ...args);
+    return await this.#_socketlibSocket.executeAsGM(handler, ...args);
   }
   async executeAsUser(handler, userId, ...args) {
     if (!this.canCall(handler)) return false;
-    return await this._socketlibSocket.executeAsUser(handler, userId, ...args);
+    return await this.#_socketlibSocket.executeAsUser(handler, userId, ...args);
   }
 
   async executeForAllGMs(handler, ...args) {
     if (!this.canCall(handler)) return false;
-    return await this._socketlibSocket.executeForAllGMs(handler, ...args);
+    return await this.#_socketlibSocket.executeForAllGMs(handler, ...args);
   }
   async executeForOtherGMS(handler, ...args) {
     if (!this.canCall(handler)) return false;
-    return await this._socketlibSocket.executeForOtherGMS(handler, ...args);
+    return await this.#_socketlibSocket.executeForOtherGMS(handler, ...args);
   }
   async executeForEveryone(handler, ...args) {
     if (!this.canCall(handler)) return false;
-    return await this._socketlibSocket.executeForEveryone(handler, ...args);
+    return await this.#_socketlibSocket.executeForEveryone(handler, ...args);
   }
   async executeForOthers(handler, ...args) {
     if (!this.canCall(handler)) return false;
-    return await this._socketlibSocket.executeForOthers(handler, ...args);
+    return await this.#_socketlibSocket.executeForOthers(handler, ...args);
   }
   async executeForUsers(handler, recipients, ...args) {
     if (!this.canCall(handler)) return false;
-    return await this._socketlibSocket.executeForUsers(handler, recipients, ...args);
+    return await this.#_socketlibSocket.executeForUsers(handler, recipients, ...args);
   }
 }
 async function confirmDamageRollComplete(data: { workflowId: string, itemCardId: string }) {

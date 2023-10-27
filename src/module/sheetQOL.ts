@@ -32,7 +32,6 @@ export function setupSheetQol() {
 let enableSheetQOL = (app, html, data) => {
   // find out how to reinstate the original handler later.
   const defaultTag = ".item .item-image";
-
   let rollTag = knownSheets[app.constructor.name] ? knownSheets[app.constructor.name] : defaultTag;
   if (itemRollButtons) {
     if (["Tidy5eSheet", "Tidy5eNPC"].includes(app.constructor.name)) {
@@ -65,7 +64,7 @@ let enableSheetQOL = (app, html, data) => {
 
 function addItemSheetButtons(app, html, data, triggeringElement = "", buttonContainer = "") {
   // Setting default element selectors
-  let alreadyExpandedElement;
+  let alreadyExpandedElement = ".item.expanded";
   if (triggeringElement === "")
     triggeringElement = ".item .item-name";
   if (["BetterNPCActor5eSheet", "BetterNPCActor5eSheetDark"].includes(app.constructor.name)) {
@@ -77,25 +76,29 @@ function addItemSheetButtons(app, html, data, triggeringElement = "", buttonCont
     buttonContainer = ".item-properties";
   // adding an event for when the description is shown
   html.find(triggeringElement).click(event => {//CHANGE
-    addItemRowButton(event.currentTarget, app, html, data, buttonContainer);
+    addItemRowButtonForTarget(event.currentTarget, app, html, data, buttonContainer);
   });
   if (alreadyExpandedElement) {
     html.find(alreadyExpandedElement).get().forEach(el => {
-      addItemRowButton(el, app, html, data, buttonContainer);
+      let item = app.object.items.get(el.dataset.itemId);
+      addItemRowButton(el, item, app, html, data, buttonContainer);
     });
   }
 }
-
-function addItemRowButton(target, app, html, data, buttonContainer) {
+function addItemRowButtonForTarget(target, app, html, data, buttonContainer) {
   let li = $(target).parents(".item");
-  if (!li.hasClass("expanded"))
-    return;
-  let item = app.object.items.get(li.attr("data-item-id"));
+  if (!li.hasClass("expanded")) return;
+  let item = app.object.items.get(target.parentNode.dataset.itemId);
+  addItemRowButton(li, item, app, html, data, buttonContainer);
+}
+function addItemRowButton(target, item, app, html, data, buttonContainer) {
+  // let li = $(target).parents(".item");
+  // let item = app.object.items.get(target.attr("data-item-id"));
   if (!item)
     return;
   let actor = app.object;
   item.getChatData().then(chatData => {
-    let targetHTML = $(target.parentNode.parentNode);
+    let targetHTML = $(target);
     let buttonTarget = targetHTML.find(".item-buttons");
     if (buttonTarget.length > 0)
       return; // already added buttons
@@ -128,8 +131,8 @@ function addItemRowButton(target, app, html, data, buttonContainer) {
     }
     buttons.append(`<span class="tag"><button data-action="info">${i18n("midi-qol.buttons.info")}</button></span>`);
     buttonsWereAdded = true;
+    buttons.append(`<br><header style="margin-top:6px"></header>`);
     if (buttonsWereAdded) {
-      buttons.append(`<br><header style="margin-top:6px"></header>`);
       // adding the buttons to the sheet
       targetHTML.find(buttonContainer).prepend(buttons);
       buttons.find("button").click({ app, data, html }, async (ev) => {

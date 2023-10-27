@@ -1305,7 +1305,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
     if (!!!actionSave && !!options.isActionSave) continue;
 
     if ((endTurn && changeTurnEnd) || (startTurn && changeTurnStart) || (actionSave && options.saveToUse)) {
-      const label = (details.label ?? "Damage Over Time").replace(/"/g, "");
+      const label = (details.name ?? details.label ?? "Damage Over Time").replace(/"/g, "");
       let saveDC;
       let value;
       try {
@@ -1329,6 +1329,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       const rollType = (rollTypeString.includes("|") ? rollTypeString.split("|") : [rollTypeString]).map(s => s.trim().toLocaleLowerCase())
       const rollMode = details.rollMode;
       const allowIncapacitated = JSON.parse(details.allowIncapacitated ?? "true");
+      const fastForwardDamage = details.fastForwardDamage && JSON.parse(details.fastForwardDamage);
 
       const killAnim = JSON.parse(details.killAnim ?? "false");
       const saveRemove = JSON.parse(details.saveRemove ?? "true");
@@ -1464,7 +1465,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           checkGMStatus: true,
           targetUuids: [theTargetUuid],
           rollMode,
-          workflowOptions: { lateTargeting: "none", autoRollDamage: "onHit", autoFastDamage: true, isOverTime: true, allowIncapacitated },
+          workflowOptions: { lateTargeting: "none", autoRollDamage: "onHit", fastForwardDamage, isOverTime: true, allowIncapacitated },
           flags: {
             dnd5e: { "itemData": ownedItem.toObject() },
             "midi-qol": { "isOverTime": true }
@@ -2864,7 +2865,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             newRoll.terms.push(new OperatorTerm({ operator: "+" }));
             let rollData: any = {}
             if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
-            else rollData = this.getRollData(); // will be item or actor rollData as supplied
+            else rollData = this.actor?.getRollData() ?? {}; // 
             const tempRoll = new DamageRoll(`${button.value}`, rollData, rollOptions);
             await tempRoll.evaluate({ async: true });
             if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
@@ -2883,7 +2884,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             } else {
               let rollData: any = {}
               if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
-              else rollData = this.getRollData(); // will be item or actor rollData as supplied
+              else rollData = this.actor?.getRollData() ?? this;
               const tempRoll = new Roll(button.value, rollData);
               await tempRoll.evaluate({ async: true });
               if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);

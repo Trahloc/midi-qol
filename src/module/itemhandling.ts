@@ -23,7 +23,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const lateTargetingSetting = getLateTargeting();
     let lateTargetingSet = ["all", "allArea"].includes(lateTargetingSetting) || (lateTargetingSetting === "noTargetsSelected" && game?.user?.targets.size === 0);
 
-    if (game.user?.targets) {
+    if (game.user?.targets && canvas?.scene) {
       const validTargets: Array<string> = [];
       for (let target of game?.user?.targets)
         if (isTargetable(target)) validTargets.push(target.id);
@@ -938,6 +938,7 @@ export function displayCardHook(item, card) { };
 // in use
 export function preItemUsageConsumptionHook(item, config, options): boolean {
   /* Spell level can be fetched in preItemUsageConsumption */
+  if (!game.settings.get("midi-qol", "EnableWorkflow")) return true;
   const workflow = Workflow.getWorkflow(item.uuid);
   if (!workflow) {
     if (!game.settings.get("midi-qol", "EnableWorkflow")) {

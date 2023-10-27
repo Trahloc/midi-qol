@@ -346,7 +346,7 @@ export class TroubleShooter extends FormApplication {
       data.summary.moduleSettings["Monk's Little Remember Targets"] = game.settings.get("monks-little-details", "remember-previous");
     } else data.summary.moduleSettings["Monk's Little Details"] = i18n("midi-qol.Inactive");
     if (game.modules.get("monks-tokenbar")?.active) {
-      data.summary.moduleSettings["Monk's Token Bar "] = game.settings.get("monks-tokenbar", "allow-player");
+      data.summary.moduleSettings["Monk's Token Bar Allow Players to use"] = game.settings.get("monks-tokenbar", "allow-player");
     } else data.summary.moduleSettings["Monks Token Bar"] = i18n("midi-qol.Inactive");
     if (game.modules.get("sequencer")?.active) {
       data.summary.moduleSettings["Sequencer Enable Effects"] = game.settings.get("sequencer", "effectsEnabled");

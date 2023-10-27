@@ -52,6 +52,11 @@ export class ConfigPanel extends FormApplication {
     for (let key of Object.keys(quickSettingsDetails)) {
       quickSettingsOptions[key] = quickSettingsDetails[key].description;
     }
+    if (configSettings.addWounded > 0 && ["none", undefined].includes(configSettings.addWoundedStyle))
+      configSettings.addWoundedStyle = "normal";
+    const AddWoundedOptions = geti18nOptions("AddDeadOptions");
+    delete AddWoundedOptions["none"];
+
     let data = {
       QuickSettingsBlurb: geti18nOptions("QuickSettingsBlurb"),
       configSettings,
@@ -100,6 +105,7 @@ export class ConfigPanel extends FormApplication {
       rollAlternateOptions: geti18nOptions("RollAlternateOptions"),
       ConsumeResourceOptions: geti18nOptions("ConsumeResourceOptions"),
       AddDeadOptions: geti18nOptions("AddDeadOptions"),
+      AddWoundedOptions,
       LateTargetingOptions: geti18nOptions("LateTargetingOptions"),
       RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions"),
       CheckRangeOptions: geti18nOptions("CheckRangeOptions"),

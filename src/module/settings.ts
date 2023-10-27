@@ -34,6 +34,7 @@ class ConfigSettings {
   // fullAuto: boolean = false;
   addDead: string = "none";
   addWounded: number = 0;
+  addWoundedStyle: string = "none"
   allowUseMacro: boolean = false;
   allowActorUseMacro: boolean = false;
   attackPerTarget: boolean = false;
@@ -351,6 +352,8 @@ export let fetchParams = () => {
   // migrateExistingSounds();
 
   if (configSettings.addWounded === undefined) configSettings.addWounded = 0;
+  if (configSettings.addWounded > 0 && ["undefined", "none"].includes(configSettings.addWoundedStyle)) 
+    configSettings.addWoundedStyle = "normal";
   if (!configSettings.addDead) configSettings.addDead = "none";
   if (typeof configSettings.addDead === "boolean" && configSettings.addDead) configSettings.addDead = "overlay"
   if (configSettings.paranoidGM === undefined) configSettings.paranoidGM = false;

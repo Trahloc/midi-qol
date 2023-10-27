@@ -928,7 +928,7 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
   return true;
 };
 
-export async function rollInitiativeDialog(wrapped, rollOptions: any ={fastForward: false}) {
+export async function rollInitiativeDialog(wrapped, rollOptions: any = { fastForward: false }) {
   const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
   const adv = pressedKeys.advantage;
   const disadv = pressedKeys.disadvantage;
@@ -1203,7 +1203,9 @@ export async function checkWounded(actor, update, options, user) {
       const CEWounded = dfreds.effectInterface?.findEffectByName(CEWoundedName)?.toObject();
       const wounded = await ConvenientEffectsHasEffect((CEWoundedName), actor, false);
       if (wounded !== needsWounded) {
-        if (needsWounded) await actor.createEmbeddedDocuments("ActiveEffect", [CEWounded])
+        if (needsWounded)
+          // await actor.createEmbeddedDocuments("ActiveEffect", [CEWounded])
+          await dfreds.effectInterface?.addEffectWith({ effectData: CEWounded, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
         else await actor.effects.find(ef => ef.name === CEWoundedName)?.delete();
         //await dfreds?.effectInterface?.toggleEffect(CEWounded.name, { overlay: false, uuids: [actor.uuid] });
       }
@@ -1212,11 +1214,16 @@ export async function checkWounded(actor, update, options, user) {
       const controlled = tokens.filter(t => t._controlled);
       const token = controlled.length ? controlled.shift() : tokens.shift();
       const bleeding = CONFIG.statusEffects.find(se => se.id === "bleeding");
-      if (bleeding && token)
-        await token.toggleEffect(bleeding.icon, { overlay: false, active: needsWounded })
+      if (bleeding && token) {
+        if (!needsWounded) { 
+          // Cater to the possibility that the setings changed while the effect was applied
+          await token.toggleEffect(bleeding.icon, { overlay: true, active: false });
+          await token.toggleEffect(bleeding.icon, { overlay: false, active: false });
+        } else
+          await token.toggleEffect(bleeding.icon, { overlay: configSettings.addWoundedStyle === "overlay", active: true });
+      }
     }
   }
-
   if (configSettings.addDead !== "none" && installedModules.get("dfreds-convenient-effects")) {
     let effect;
     let useDefeated;

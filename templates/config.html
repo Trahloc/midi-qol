@@ -66,14 +66,14 @@
 
         <div class="form-group">
           <label>{{localize "midi-qol.AutoFastForwardDamage.Name"}}</label>
-          <input type="checkbox" name="gmAutoFastForwardDamage" data-dtype="Boolean"
-           {{checked configSettings.gmAutoFastForwardDamage}} />
+          <input type="checkbox" name="gmAutoFastForwardDamage" data-dtype="Boolean" {{checked
+            configSettings.gmAutoFastForwardDamage}} />
         </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.AverageNPCDamage.Name"}}</label>
-          <input type="checkbox" name="averageNPCDamage" data-dtype="Boolean" 
-          {{checked configSettings.averageNPCDamage}} />
+          <input type="checkbox" name="averageNPCDamage" data-dtype="Boolean" {{checked
+            configSettings.averageNPCDamage}} />
         </div>
 
         <div class="form-group">
@@ -638,10 +638,17 @@
     <div class="tab" data-tab="game-mechanics" data-group="sections">
       <div class="midi-qol-box">
         <div class="form-group">
-          <span>
+          <div class="flexrow 3">
             <label>{{localize "midi-qol.AddWounded.Name"}}</label>
             <input type="number" style="width:40px;" name="addWounded" value="{{configSettings.addWounded}}" />
-          </span>
+            <select name="addWoundedStyle" data-dtype="String">
+              {{#select configSettings.addWoundedStyle}}
+              {{#each AddWoundedOptions as |label val|}}
+              <option value="{{val}}">{{label}}</option>
+              {{/each}}
+              {{/select}}
+            </select>
+          </div>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.AddWounded.Hint"}}</div>
 
@@ -926,7 +933,7 @@
             <div class="midi-qol-faint">{{localize "midi-qol.ChallengeModeArmor.Hint"}}</div>
             <div class="midi-qol-faint">{{localize "midi-qol.ChallengeModeArmorScale.Hint"}}</div>
             <div class="midi-qol-faint">{{localize "midi-qol.ChallengeModeArmorScaleNoAR.Hint"}}</div>
-<!--
+            <!--
             <div class="form-fields">
               <span>
                 <label>{{localize "midi-qol.ChallengeModeArmor.Name"}}</label>
