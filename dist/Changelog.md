@@ -1,3 +1,7 @@
+## 11.1.9
+* Fix for error thrown when removing template => remove concentration
+* Put back option to not show dead/unconscious when hp reach 0
+
 ## 11.1.8
 * Added name="item name" to overtime effects (just for consistency)
 * New option for overTime effects, fastForwardDamage: boolean, true damage roll is always fast forwarded, false damage roll is never fastforwarded, absent use the module settings.

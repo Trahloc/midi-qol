@@ -5,7 +5,7 @@ import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, ge
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { installedModules } from "./setupModules.js";
-import { checkWounded, lookupItemMacro, preDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
+import { checkWounded, lookupItemMacro, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
@@ -61,7 +61,7 @@ export let readyHooks = async () => {
     ddbglPendingHook(data);
   });
 
-  Hooks.on("preDeleteMeasuredTemplate", preDeleteTemplate);
+  Hooks.on("deleteMeasuredTemplate", checkDeleteTemplate);
 
   // Handle updates to the characters HP
   // Handle concentration checks
@@ -159,7 +159,7 @@ export let readyHooks = async () => {
               && concentrationData.templates.length === 0
               && concentrationData.removeUuids.length === 0) {
               // only non concentration effects left
-              await removeConcentration(origin.parent, deletedEffect.uuid, mergeObject(options, { concentrationEffectsDeleted: true, concentrationDeleted: false }));
+              await removeConcentration(origin.parent, deletedEffect.uuid, mergeObject(options, { concentrationEffectsDeleted: true, concentrationDeleted: undefined }));
             } else if (concentrationData.targets.length !== allConcentrationTargets.length) {
               // update the concentration data
               concentrationData.targets = allConcentrationTargets;

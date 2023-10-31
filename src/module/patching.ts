@@ -1066,18 +1066,20 @@ export function getItemEffectsToDelete(args: { actor: Actor, origin: string, ign
     return [];
   }
 }
-export async function removeConcentration(actor: Actor, concentrationUuid: string, options: any) {
+export async function removeConcentration(actor: Actor, deleteEffectUuid: string | undefined, options: any) {
   let result;
   try {
-    if (debugEnabled > 0) warn("removeConcentration | ", actor?.name, concentrationUuid, options)
-    const concentrationData: any = actor.getFlag("midi-qol", "concentration-data");
+    if (deleteEffectUuid === undefined) options.concentrationDeleted = true; // concnetration effect will be picked up in the delete effects call
+    if (debugEnabled > 0) warn("removeConcentration | ", actor?.name, deleteEffectUuid, options)
+    const concentrationData: any = duplicate(actor.getFlag("midi-qol", "concentration-data"));
     // if (!concentrationData) return;
     const promises: any = [];
-    promises.push(actor.unsetFlag("midi-qol", "concentration-data"));
+    await actor.unsetFlag("midi-qol", "concentration-data");
     if (!options.concentrationTemplatesDeleted && concentrationData?.templates) {
       for (let templateUuid of concentrationData.templates) {
         //@ts-expect-error fromUuidSync
         const template = fromUuidSync(templateUuid);
+        if (debugEnabled > 0) warn("removeConcentration | removing template", actor?.name, templateUuid, options);
         if (template) promises.push(template.delete());
       }
     }
@@ -1086,6 +1088,7 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
       for (let removeUuid of concentrationData.removeUuids) {
         //@ts-expect-error fromUuidSync
         const entity = fromUuidSync(removeUuid);
+        if (debugEnabled > 0) warn("removeConcentration | removing entity", actor?.name, removeUuid, options);
         if (entity) promises.push(entity.delete())
       };
     }
@@ -1095,9 +1098,10 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
       for (let target of concentrationData.targets) {
         const targetActor = MQfromActorUuid(target.actorUuid);
         if (targetActor) {
-          const effectsToDelete = getItemEffectsToDelete({ actor: targetActor, origin: concentrationData.uuid, ignore: [concentrationUuid], ignoreTransfer: true, options });
+          const effectsToDelete = getItemEffectsToDelete({ actor: targetActor, origin: concentrationData.uuid, ignore: [deleteEffectUuid ?? ""], ignoreTransfer: true, options });
           if (effectsToDelete?.length > 0) {
             const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
+            if (debugEnabled > 0) warn("removeConcentration | removing effects", actor?.name, effectsToDelete, options);  
             promises.push(socketlibSocket.executeAsGM("deleteEffects", {
               actorUuid: target.actorUuid, effectsToDelete,
               options: mergeObject(deleteOptions, { concentrationEffectsDeleted: true })
@@ -1108,10 +1112,12 @@ export async function removeConcentration(actor: Actor, concentrationUuid: strin
     }
     if (!options.concentrationDeleted) {
       const concentrationEffect = getConcentrationEffect(actor);
-      if (debugEnabled > 0) warn("removeConcentration | removing concentration effect", actor.name, concentrationEffect?.id, options)
-      if (concentrationEffect?.id && !options.concentrationDeleted)
+      // remove concentration if the concentration not removed and the deleted effect is not the concentration effect
+      if (concentrationEffect?.id && !options.concentrationDeleted && deleteEffectUuid !== concentrationEffect.uuid) {
+      if (debugEnabled > 0) warn("removeConcentration | removing concentration effect", actor.name, concentrationEffect?.id, options);
         promises.push(actor?.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id],
           mergeObject(options, { concentrationDeleted: true, concentrationEffectsDeleted: true })));
+      }
     }
     return Promise.allSettled(promises);
   } catch (err) {
@@ -1356,7 +1362,8 @@ export let itemPatching = () => {
   configureDamageRollDialog();
 };
 
-export async function preDeleteTemplate(templateDocument, options, user) {
+export async function checkDeleteTemplate(templateDocument, options, user) {
+  if (user !== game.user?.id) return;
   try {
     const uuid = getProperty(templateDocument, "flags.midi-qol.originUuid");
     const actor = MQfromUuid(uuid)?.actor;
@@ -1370,14 +1377,14 @@ export async function preDeleteTemplate(templateDocument, options, user) {
       && ["effectsTemplates"].includes(configSettings.removeConcentrationEffects)
     ) {
       options.templatesDeleted = true;
-      await removeConcentration(actor, "no ignore", mergeObject(options, { concentrationTemplatesDeleted: true }));
+      await removeConcentration(actor, undefined, mergeObject(options, { concentrationTemplatesDeleted: true }));
     } else if (concentrationData.templates.length >= 1) {
       // update the concentration templates
       concentrationData.templates = concentrationTemplates;
       await actor.setFlag("midi-qol", "concentration-data", concentrationData);
     }
   } catch (err) {
-    const message = `preDeleteTemplate failed for ${templateDocument?.uuid}`;
+    const message = `checkDeleteTemplate failed for ${templateDocument?.uuid}`;
     TroubleShooter.recordError(err, message);
   } finally {
     return true;

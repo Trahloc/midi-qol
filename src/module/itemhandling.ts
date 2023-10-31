@@ -384,7 +384,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     if (needsConcentration && checkConcentration) {
       const concentrationEffect = getConcentrationEffect(this.actor);
-      if (concentrationEffect) await removeConcentration(this.actor, concentrationEffect.uuid, { concentrationEffectsDeleted: false, concentrationDeleted: false, templatesDeleted: false });
+      if (concentrationEffect) await removeConcentration(this.actor, undefined, { concentrationEffectsDeleted: true, templatesDeleted: false });
     }
     if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
     if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);

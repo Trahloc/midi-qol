@@ -54,7 +54,7 @@ export class ConfigPanel extends FormApplication {
     }
     if (configSettings.addWounded > 0 && ["none", undefined].includes(configSettings.addWoundedStyle))
       configSettings.addWoundedStyle = "normal";
-    const AddWoundedOptions = geti18nOptions("AddDeadOptions");
+    const AddWoundedOptions = duplicate(geti18nOptions("AddDeadOptions"));
     delete AddWoundedOptions["none"];
 
     let data = {
