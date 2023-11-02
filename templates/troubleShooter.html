@@ -275,6 +275,37 @@
             <div style="text-align: center">No Out of Date Modules Installed</div>
             {{/if}}
           </div>
+          <div class="midi-qol-box">
+            {{#if hasOutOfDate}}
+            <table>
+              <th style="text-align: center" colspan="5">
+                Potential out of date modules installed
+              </th>
+              <tr>
+                <th style="text-align: left">Id</th>
+                <th style="text-align: left">Active</th>
+                <th style="text-align: left">Title</th>
+                <th style="text-align: left">Version</th>
+                <th style="text-align: left">Foundry Version</th>
+              </tr>
+              {{#each summary.possibleOutOfDate as |moduleVersion|}}
+              {{#if moduleVersion.active}}
+              <tr>
+                {{else}}
+              <tr class="midi-qol-very-faint">
+                {{/if}}
+                <td>{{moduleVersion.key}}</td>
+                <td>{{moduleVersion.active}}</td>
+                <td>{{moduleVersion.title}}</td>
+                <td>{{moduleVersion.moduleVersion}}</td>
+                <td>{{moduleVersion.version}}</td>
+              </tr>
+              {{/each}}
+            </table>
+            {{else}}
+            <div style="text-align: center">No Out of Date Modules Installed</div>
+            {{/if}}
+          </div>
         </div>
         <!-- Errors Tab -->
         <div class="tab" data-tab="errors" data-group="sections">

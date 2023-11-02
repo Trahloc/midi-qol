@@ -225,7 +225,6 @@ async function doRollSkill(wrapped, ...args) {
   }
 }
 
-
 function multiply(modifier: string) {
   const rgx = /mx([0-9])+/;
   const match = modifier.match(rgx);
@@ -243,6 +242,7 @@ export function addDiceTermModifiers() {
   Die.MODIFIERS["mx"] = "multiply";
   setProperty(Die.prototype, "multiply", multiply);
 }
+
 export function averageDice(roll: Roll) {
   roll.terms = roll.terms.map(term => {
     if (term instanceof DiceTerm) {
@@ -872,23 +872,6 @@ export function prepareOnUseMacroData(actorOrItem) {
     console.warn(message, err);
     TroubleShooter.recordError(err, message);
   }
-}
-export function lookupItemMacro(...args) {
-  let [candidate, data, options, user] = args;
-  if (!candidate.origin || !data.changes) return true;
-  let newChanges = candidate.changes?.map(change => {
-    if (change.key === "flags.midi-qol.onUseMacroName") {
-      const parts = change.value.split(",").map(s => s.trim());
-      if (parts[0] === "ItemMacro") {
-        parts[0] = `ItemMacro.${candidate.origin}`;
-        change.value = parts.join(",");
-      }
-      change.mode = CONST.ACTIVE_EFFECT_MODES.CUSTOM;
-    }
-    return change;
-  })
-  candidate.updateSource({ "changes": newChanges });
-  return true;
 }
 
 export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user) {

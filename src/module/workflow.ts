@@ -1935,7 +1935,7 @@ export class Workflow {
         itemMacroData = {
           name: "function call",
           type: "script",
-          command: `return await ${name.replace("function.", "").trim()}.bind(workflow)({ speaker, actor, token, character, item, args, scope, workflow: scope.workflow })`
+          command: `return await ${name.replace("function.", "").trim()}({ speaker, actor, token, character, item, args, scope, workflow })`
         };
       } else if (name.startsWith(MQItemMacroLabel)) {
         //  ItemMacro
@@ -2012,7 +2012,7 @@ export class Workflow {
       scope.actor = actor;
       scope.token = token;
       scope.character = character;
-      return macro.execute(scope)
+      return macro.execute(scope);
     } catch (err) {
       TroubleShooter.recordError(err, "callMacro: Error evaluating macro");
       ui.notifications?.error(`There was an error running your macro. See the console (F12) for details`);

@@ -104,7 +104,7 @@ Hooks.once('init', async function () {
   if (game.system.id === "sw5e")
     allAttackTypes = ["rwak", "mwak", "rpak", "mpak"];
   initHooks();
-  globalThis.MidiQOL = {checkIncapacitated};
+  globalThis.MidiQOL = { checkIncapacitated };
   // Assign custom classes and constants here
 
   // Register custom module settings
@@ -231,6 +231,7 @@ Hooks.once('setup', function () {
   setupSheetQol();
   createMidiMacros();
   setupMidiQOLApi();
+
 });
 
 /* ------------------------------------ */
@@ -312,7 +313,7 @@ Hooks.once('ready', function () {
   }
   if (game.settings.get("midi-qol", "splashWarnings") && game.user?.isGM) {
     if (game.user?.isGM && !installedModules.get("dae")) {
-      ui.notifications?.warn(`Midi-qol requires DAE to be installed and at least version ${DAE_REQUIRED_VERSION} or many automation effects won't work`);
+      ui.notifications?.error(`Midi-qol requires DAE to be installed and at least version ${DAE_REQUIRED_VERSION} or many automation effects won't work`, { permanent: true });
     }
     if (game.user?.isGM && game.modules.get("betterrolls5e")?.active && !installedModules.get("betterrolls5e")) {
       ui.notifications?.warn("Midi QOL requires better rolls to be version 1.6.6 or later");
@@ -390,8 +391,87 @@ Hooks.once("midi-qol.midiReady", () => {
 });
 
 // Add any additional hooks if necessary
+Hooks.on("monaco-editor.ready", (registerTypes) => {
+  registerTypes("midi-qol/index.ts", `
+  const MidiQOL = {
+    addConcentration: async function addConcentration(actorRef: Actor | string, concentrationData: ConcentrationData): Promise<void>,
+    applyTokenDamage: async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
+    canSense: function canSense(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): boolean,
+    cansSenseModes: function canSenseModes(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): Array<string>,
+    checkIncapacitated: function checkIncapacitated(actor: Actor): boolean,
+    checkNearby: function checkNearby(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
+    checkRange: function checkRange(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
+    checkRule: function checkRule(rule: string): boolean,
+    completeItemUse: async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false }),
+    computeCoverBonus: function computeCoverBonus(attacker: Token | TokenDocument, target: Token | TokenDocument, item: any = undefined): number,
+    computeDistance: function computeDistance(t1: Token, t2: Token, wallBlocking = false),
+    configSettings: function configSettings(): any,
+    contestedRoll: async function contestedRoll(data: {
+      source: { rollType: string, ability: string, token: Token | TokenDocument | string, rollOptions: any },
+      target: { rollType: string, ability: string, token: Token | TokenDocument | string, rollOptions: any },
+      displayResults: boolean,
+      itemCardId: string,
+      flavor: string,
+      rollOptions: any,
+      success: (results) => {}, failure: (results) => {}, drawn: (results) => {}
+    }): Promise<{ result: number | undefined, rolls: any[] }>,
+    DamageOnlyWorkflow: class DamageOnlyWorkflow,
+    debug: function debug(...args: any[]): void,
+    displayDSNForRoll: async function displayDSNForRoll(roll: Roll | undefined, rollType: string | undefined, defaultRollMode: string | undefined = undefined),
+    doConcentrationCheck: async function doConcentrationCheck(actor: Actor, temData),
+    getChanges: function getChanges(actorOrItem: Actor | Item, key: string): any[],
+    getConcentrationEffect: function getConcentrationEffect(actor: Actor): ActiveEffect | undefined,
+    geti18nOptions: function geti18nOptions(key: string): any,
+    geti18nTranslations: function geti18nTranslations(): any,
+    getTokenPlayerName: function getTokenPlayerName(token: Token | TokenDocument | string): string,
+    getTraitMult: function getTraitMult(actor: Actor, damageType: string, item: Item): number,
+    hasCondition: function hasCondition(tokenRef: Token | TokenDocument | UUID, condition: string): boolean,
+    hasUsedBonusAction: function hasUsedBonusAction(actor: Actor): boolean,
+    hasUsedReaction: function hasUsedReaction(actor: Actor): boolean,
+    incapacitatedConditions: string[],
+    InvisibleDisadvantageVisionModes: string[],
+    isTargetable: function isTargetable(token: Token | TokenDocument | UUID): boolean,
+    LateTargetingDialog: class LateTargetingDialog,
+    log: function log(...args: any[]): void,
+    midiFlags: string[],
+    midiRenderRoll: function midiRenderRoll(roll: Roll),
+    midiSoundSettings: function(): any,
+    MQfromActorUuid: function MQfromActorUuid(actorUuid: string): Actor | undefined,
+    MQfromUuid: function MQfromUuid(uuid: string): Actor | Item | TokenDocument | undefined,
+    MQOnUseOptions: any,
+    overTimeJSONData: any,
+    playerFor: function playerFor(target: TokenDocument | Token | undefined): User | undefined,
+    playerForActor: function playerForActor(actor: Actor): User | undefined,
+    reactionDialog: class reactionDialog,
+    reportMidiCriticalFlags: function reportMidiCriticalFlags(): void,
+    resolveLateTargeting: async function resolveLateTargeting(lateTargeting: any, item: Item, actor: Actor, token: Token, targets: any, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
+    selectTargetsForTemplate: templateTokens,
+    removeBonusActionUsed: function removeBonusActionUsed(actor: Actor): boolean,
+    setBonusActionUsed: function setBonusActionUsed(actor: Actor): boolean,
+    removeBonusActionUsed: function removeBonusActionUsed(actor: Actor): boolean,
+    setReactionUsed: function setReactionUsed(actor: Actor): boolean,
+    removeReactionUsed: function removeReactionUsed(actor: Actor): boolean,
+    showItemInfo: async function showItemInfo(item: Item): void,
+    showUndoQueue: function showUndoQueue(): void,
+    showUndoWorkflowApp: function showUndoWorkflowApp(): void,
+    socket: function socket(): SaferSocket,
+    testfunc,
+    tokenForActor: function tokenForActor(actor: Actor): Token | undefined,
+    TrapWorkflow: class TrapWorkflow extends Workflow,
+    TroubleShooter: class TroubleShooter,
+    undoMostRecentWorkflow,
+    validRolAbility: function validRolAbility(rollType: string, ability: string): string | undefined,
+    WallsBlockConditions: string[],
+    warn: function warn(...args: any[]): void,
+    Workflow: class Workflow,
+    WORKFLOWSTATES,
+    moveToken: async function (tokenRef: Token | TokenDocument | UUID, newCenter: { x: number, y: number }, animate: boolean = true),
+    moveTokenAwayFromPoint: async function (targetRef: Token | TokenDocument | UUID, distance: number, point: { x: number, y: number }, animate: boolean = true),
+  }
+});
 
-// Backwards compatability
+`);
+});// Backwards compatability
 function setupMidiQOLApi() {
 
   //@ts-ignore
@@ -403,7 +483,7 @@ function setupMidiQOLApi() {
   //@ts-expect-error .detectionModes
   const detectionModes = CONFIG.Canvas.detectionModes;
   let InvisibleDisadvantageVisionModes = Object.keys(detectionModes)
-  .filter(dm => !detectionModes[dm].imprecise);
+    .filter(dm => !detectionModes[dm].imprecise);
 
   let WallsBlockConditions = [
     "burrow"
@@ -419,7 +499,7 @@ function setupMidiQOLApi() {
     checkIncapacitated,
     checkNearby,
     checkRange,
-    checkRule: checkRule,
+    checkRule,
     completeItemRoll,
     completeItemUse,
     computeCoverBonus,
@@ -469,7 +549,7 @@ function setupMidiQOLApi() {
     selectTargetsForTemplate: templateTokens,
     setBonusActionUsed,
     setReactionUsed,
-    showItemInfo,
+    showItemInfo: (item) => { return showItemInfo.bind(item)() },
     showUndoQueue,
     showUndoWorkflowApp,
     socket: () => { return new SaferSocket(socketlibSocket) },

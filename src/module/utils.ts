@@ -1140,7 +1140,8 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
   }
 }
 
-export function midiCustomEffect(actor, change) {
+export function midiCustomEffect(...args) {
+  let [actor, change, current, delta, changes] = args;
   if (!change.key) return true;
   if (typeof change?.key !== "string") return true;
   if (!change.key?.startsWith("flags.midi-qol")) return true;
@@ -1161,12 +1162,13 @@ export function midiCustomEffect(actor, change) {
     const args = change.value.split(",")?.map(arg => arg.trim());
     const currentFlag = getProperty(actor, "flags.midi-qol.onUseMacroName") ?? "";
 
+    if (args[0] === "ItemMacro") { // rewrite the ItemMacro if there is an origin
+      if (change.effect?.origin.includes("Item.")) {
+        args[0] = `ItemMacro.${change.effect.origin}`;
+      }
+    }
     const extraFlag = `[${args[1]}]${args[0]}`;
-    let macroString;
-    if (currentFlag.length === 0)
-      macroString = extraFlag;
-    else
-      macroString = [currentFlag, extraFlag].join(",");
+    const macroString =  (currentFlag?.length > 0) ? [currentFlag, extraFlag].join(",") : extraFlag;
     setProperty(actor, "flags.midi-qol.onUseMacroName", macroString)
     return true;
   } else if (deferredEvaluation.some(k => change.key.startsWith(k))) {
@@ -1544,7 +1546,7 @@ export async function completeItemRoll(item, options: any) {
   return completeItemUse(item, {}, options);
 }
 
-export async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false },) {
+export async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false }) {
   let theItem: any;
   if (typeof item === "string") {
     theItem = MQfromUuid(item);
@@ -1621,7 +1623,7 @@ export function untargetAllTokens(...args) {
   }
 }
 
-export function checkIncapacitated(actor: Actor) {
+export function checkIncapacitated(actor: Actor): boolean {
   const vitalityResource = checkRule("vitalityResource");
   if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
     const vitality = getProperty(actor, vitalityResource.trim()) ?? 0;
@@ -4327,7 +4329,11 @@ export async function checkflanking(user: User, target: Token, targeted: boolean
 export function getChanges(actorOrItem, key: string) {
   return actorOrItem.effects.contents
     .flat()
-    .map(e => e.changes)
+    .map(e => {
+      let c = duplicate(e.changes); 
+      c = c.map(change => {change.effect = e; return change;})
+      return c
+    })
     .flat()
     .filter(c => c.key.includes(key))
     .sort((a, b) => a.key < b.key ? -1 : 1)

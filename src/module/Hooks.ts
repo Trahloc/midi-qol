@@ -5,7 +5,7 @@ import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, ge
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { installedModules } from "./setupModules.js";
-import { checkWounded, lookupItemMacro, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
+import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
@@ -320,7 +320,6 @@ export function initHooks() {
 
   setupMidiFlagTypes();
   Hooks.on("applyActiveEffect", midiCustomEffect);
-  Hooks.on("preCreateActiveEffect", lookupItemMacro);
   // Hooks.on("preCreateActiveEffect", checkImmunity); Disabled in lieu of having effect marked suppressed
   Hooks.on("preUpdateItem", preUpdateItemActorOnUseMacro);
   Hooks.on("preUpdateActor", preUpdateItemActorOnUseMacro);
