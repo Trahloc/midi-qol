@@ -272,7 +272,6 @@ Hooks.once('ready', function () {
   }
   OnUseMacroOptions.setOptions(MQOnUseOptions);
   globalThis.MidiQOL.MQOnUseOptions = MQOnUseOptions;
-
   MidiSounds.midiSoundsReadyHooks();
   if (game.system.id === "dnd5e") {
     getSystemCONFIG().characterFlags["spellSniper"] = {

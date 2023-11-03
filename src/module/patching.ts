@@ -1054,7 +1054,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
   try {
     if (deleteEffectUuid === undefined) options.concentrationDeleted = true; // concnetration effect will be picked up in the delete effects call
     if (debugEnabled > 0) warn("removeConcentration | ", actor?.name, deleteEffectUuid, options)
-    const concentrationData: any = duplicate(actor.getFlag("midi-qol", "concentration-data"));
+    const concentrationData: any = duplicate(actor.getFlag("midi-qol", "concentration-data") ?? {});
     // if (!concentrationData) return;
     const promises: any = [];
     await actor.unsetFlag("midi-qol", "concentration-data");

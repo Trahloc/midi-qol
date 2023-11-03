@@ -1,7 +1,11 @@
+## 11.1.11
+* Fix for error thrown when removing concentration if the concentration effect was added by hand.
+
 ## 11.1.10
-* **Breaking** flags.midi-qol.onUseMacro Custom ItemMacro will no longer rewrite the change value when the effect is created on an actor. Rather it will be done when the effect is evaluated.
-  - This means that effects with flags.onUseMacro ItemMacro will need to be reapplied, in patricular any transfer effects, to "undo" the rewrite of ItemMacro -> ItemMacro.origin
-  - Requires DAE update to 11.0.22
+* **Breaking** flags.midi-qol.onUseMacro Custom ItemMacro will no longer rewrite the change value when the effect is created on an actor. Rather it will be done when the effect is evaluated, so that it won't get out of date.
+  - This means that effects with flags.onUseMacro ItemMacro will need to be reapplied, in particular any transfer effects, to "undo" the rewrite of ItemMacro -> ItemMacro.origin
+  - Requires DAE updated to 11.0.22
+* Enchanced MidiQOL.getChanges(actorOrItem, key: string) to also return the effect that has the change.
 * Added first pass of creating api definitions for Monaco Macro editor for MidiQOL.function auto complete. I've not done much testing so feel free to respond with issues.
 
 ## 11.1.9
