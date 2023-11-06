@@ -1,4 +1,10 @@
-## 11.1.11
+### 11.1.11
+* Only call preTargetDamageApplication macros if the target token was hit. Was calling for all targeted tokens
+* Fix for condition data's workflow.item being incorrectly set to workflow.actor.getRollData(). So now workflow.item.name etc will work as expected. As a reminder you can just use item.name etc since item is available directly.
+* Fix for chat messages from a deleted user throwing an error.
+* Troubleshooter will treat a verified version of 11 as verified for all version numbers starting with 11
+
+## 11.1.10.1
 * Fix for error thrown when removing concentration if the concentration effect was added by hand.
 
 ## 11.1.10

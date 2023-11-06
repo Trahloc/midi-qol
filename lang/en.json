@@ -548,7 +548,7 @@
   "midi-qol.NoChangelogs": "Midi-qol supports and recommends the ChangeLogs or Module Manager+ modules to show you any changes since you last updated",
   "midi-qol.ActiveDefenceString": "Active Defence",
   "midi-qol.ActiveDefence.Name": "Active Defence",
-  "midi-qol.ActiveDefence.Hint": "Instead of GM rolling 'To Hit' rolls players make a defence roll. Requires LMRTFY and does not work with better rolls",
+  "midi-qol.ActiveDefence.Hint": "Instead of GM rolling 'To Hit' rolls players make a defence roll. Will use LMRTFY if installed",
   "midi-qol.ActiveDefenceShowGM.Name": "GM Sees active defence rolls",
   "midi-qol.PromptDamageRoll.Name": "Enhanced Damage Roll Dialog",
   "midi-qol.PromptDamageRoll.Hint": "When using Damage Roll Dialog display an enhanced dialog that supports choosing item damage.",

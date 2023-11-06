@@ -389,6 +389,9 @@ export class TroubleShooter extends FormApplication {
         setProperty(tempModules, matcher.toString(), { title: "Not installed", active: false, installed: false, moduleVersion: ``, foundryVersion: `` });
       }
     });
+    //@ts-expect-error .version
+    const baseVersion = game.version.slice(0,2);
+    const maxVersion = baseVersion + ".999";
     CheckedAuthorsList.forEach(matcher => {
       //@ts-expect-error filter
       const modules = game.modules.filter(m => m.authors.find(au => au.name.toLocaleLowerCase().match(matcher)));
@@ -559,8 +562,9 @@ export class TroubleShooter extends FormApplication {
       issue.title = game.modules.get(key)?.title;
       delete issue.manifest;
     }
+    
     data.summary.outOfDate = Object.keys(data.modules)
-      .filter(key => isNewerVersion("11", data.modules[key].compatibility ?? 0))
+      .filter(key => isNewerVersion(baseVersion, data.modules[key].compatibility ?? 0))
       .map(key => {
         const versionString = `${data.modules[key].active ? i18n("midi-qol.Active") : i18n("midi-qol.Inactive")} ${data.modules[key].version}`
         return {
@@ -572,10 +576,11 @@ export class TroubleShooter extends FormApplication {
         }
       });
     data.summary.possibleOutOfDate = Object.keys(data.modules).filter(key => {
-      const moduleVersion = data.modules[key].compatibility ?? "0.0.0";
+      let moduleVersion = data.modules[key].compatibility ?? "0.0.0";
+      if (moduleVersion === baseVersion) moduleVersion = maxVersion
       // if (!data.modules[key].active) return false;
-      if (isNewerVersion("11", moduleVersion)) return false;
-      return isNewerVersion(gameVersion, data.modules[key].compatibility ?? "0.0.0")
+      if (isNewerVersion(baseVersion, moduleVersion)) return false;
+      return isNewerVersion(gameVersion, moduleVersion)
     }).map(key =>
     ({
       key,

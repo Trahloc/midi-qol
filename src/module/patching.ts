@@ -378,8 +378,10 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
   let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false }] = args;
   try {
     const rollTarget = options.targetValue;
+    let success: boolean | undefined = undefined;
     if (procAutoFail(this, rollType, abilityId)) {
       options.parts = ["-100"];
+      success = false;
     }
     // Hack for MTB bug
     if (options.event?.advantage || options.event?.altKey) options.advantage = true;
@@ -408,6 +410,9 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     procOptions.chatMessage = false;
 
     result = await wrapped(abilityId, procOptions);
+    if (success === false) {
+      result = new Roll("-1[auto fail]").evaluate({async: false})
+    }
     if (!result) return result;
     const maxFlags = getProperty(this.flags, "midi-qol.max.ability") ?? {};
     const flavor = result.options?.flavor;
@@ -458,8 +463,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       await result.toMessage(messageData, { rollMode });
       game.settings.set("core", "rollMode", saveRollMode);
     }
-    let success: boolean | undefined = undefined;
-    if (rollTarget !== undefined) {
+    if (rollTarget !== undefined && success === undefined) {
       success = result.total >= rollTarget;
       result.options.success = success;
     }

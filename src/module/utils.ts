@@ -752,7 +752,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     //@ts-expect-error isEmtpy
     if (!isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
       workflow.damageItem = ditem;
-      await workflow.triggerTargetMacros(["preTargetDamageApplication"], [t]);
+      if (workflow.hitTargets.has(t) || workflow.hitTargetsEC.has(t)) {
+        await workflow.triggerTargetMacros(["preTargetDamageApplication"], [t]);
+      }
       ditem = workflow.damageItem;
       // delete workflow.damageItem
     }
@@ -3713,9 +3715,10 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
     if (data.workflow) {
       Object.assign(rollData.workflow, data.workflow);
       delete rollData.workflow.undoData;
+      delete rollData.workflow.conditionData;
     }
     if (data.workflow?.actor) rollData.workflow.actor = data.workflow.actor.getRollData();
-    if (data.workflow?.item) rollData.workflow.item = data.workflow.item.getRollData();
+    if (data.workflow?.item) rollData.workflow.item = data.workflow.item.getRollData()?.item;
     rollData.CONFIG = CONFIG;
     rollData.CONST = CONST;
   } catch (err) {

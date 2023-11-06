@@ -364,7 +364,7 @@ export let hideStuffHandler = (message, html, data) => {
     return;
   }
 
-  if (game.user?.id !== message.user.id) {
+  if (game.user?.id !== message.user?.id) {
     html.find(".midi-qol-attack-buttons").hide();
     html.find(".midi-qol-damage-buttons").hide();
     html.find(".midi-qol-otherDamage-button").hide();
@@ -712,7 +712,7 @@ export async function onChatCardAction(event) {
             ui.notifications?.warn(i18n("midi-qol.noTokens"));
             return;
           }
-          const result = (await socketlibSocket.executeAsUser("applyEffects", message.user.id, {
+          const result = (await socketlibSocket.executeAsUser("applyEffects", message.user?.id, {
             workflowId: item.uuid,
             targets: Array.from(game.user.targets).map(t => t.document.uuid)
           }));
@@ -737,18 +737,18 @@ export async function onChatCardAction(event) {
       case "confirm-damage-roll-complete":
       case "confirm-damage-roll-complete-hit":
       case "confirm-damage-roll-complete-miss":
-        if (message.user.id) {
+        if (message.user?.id) {
           if (!game.user?.isGM && configSettings.confirmAttackDamage === "gmOnly") {
             return;
           }
-          const user = game.users?.get(message.user.id);
+          const user = game.users?.get(message.user?.id);
           if (user?.active) {
             let actionToCall = {
               "confirm-damage-roll-complete": "confirmDamageRollComplete",
               "confirm-damage-roll-complete-hit": "confirmDamageRollCompleteHit",
               "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss"
             }[action];
-            socketlibSocket.executeAsUser(actionToCall, message.user.id, { workflowId, itemCardId: message.id }).then(result => {
+            socketlibSocket.executeAsUser(actionToCall, message.user?.id, { workflowId, itemCardId: message.id }).then(result => {
               if (typeof result === "string") ui.notifications?.warn(result);
             });
           } else {
