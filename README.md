@@ -739,6 +739,7 @@ An optional attack bonus prompts the attacker after the attack roll is made, but
   - **ItemUses.ItemName** - Additional option for optional.NAME.count ItemUses.ItemName, which will use the value of the uses field for the item name ItemName (which must be on the actor), it means you don't need to use a resources entry for these any more. eg `ItemUses.my super duper item`
 * `flags.midi-qol.optional.Name.ac`	bonus to apply to AC of the target - prompted on the target's owner's client. (A bit like a reaction roll)  
 * `flags.midi-qol.optional.Name.rollMode`, any additional rolls are to be made with the specifid roll mode. Can be useful to hide rolls from the players. Use one of `publicroll/gmroll/blindroll/selfroll` 
+* `flags.midi-qol.optional.Name.macroToCall`, `ItemMacro` or `world macro name` executes a macro when the user opts in to use the optional bonus, with arguments being the same as in MidiQOL onUse macros.
 
 Values for the optional roll bonus flags include a dice expression (added to the roll), a number, reroll (rerolling the roll completely) reroll-max, reroll-min, reroll-kh (reroll with max dice, min dice, or reroll and keep the higher of the original/new roll) or success which changes the roll to 99 ensuring success.
 
