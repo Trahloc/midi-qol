@@ -1,4 +1,19 @@
-### 11.1.11
+## 11.1.12
+* Added option to ignore dead or dead and incapacitated when targeting with area effect spells.
+  - Previous ignore dead setting (which was incapacitated) will get mapped to ignore dead - you may wish to change that to ignore dead/incapacitated.
+* Fix for untargeting of tokens being triggered on combat updates that do not update the combat round or turn.
+* Implemented flags.midi-qol.optional.NAME.XXXX CUSTOM ItemMacro (either ItemMacro.uuid or just ItemMacro which will be rewritten with the source items uuid), Macro or function., which will allow you to call the specified macro as the bonus action. 
+  - The macro is awaited so can perform async operations.
+  - If the macro returns a Roll it will be used to replace the existing roll.
+  - Any other return will be ignored and the original roll used.
+* New option for optional.NAME, reroll-query which will do a reroll of the current roll and query the player to keep the reroll or not. (not sure if this is really useful since reroll-kh/reroll-hl seems to cover everything).
+* Fix for checking saving throw advantage/disadvantage when saving throw triggered  via a workflow. e.g. ``flags.midi-qol.advantage.attacks.all CUSTOM item.school === "evo"``
+* Fix for isDamaged test (expiry/macro calls) firing if the target was missed by an attack.
+* **Breaking** This version **requires** DAE 10.0.24 and if times-up is installed it must be verison 11.0.4.
+* Troubleshooter now reports modules whose version number is too low to be used by midi-qol. 
+  - This includes DAE which will not be utilised by midi if the version number is too low
+
+## 11.1.11
 * Only call preTargetDamageApplication macros if the target token was hit. Was calling for all targeted tokens
 * Fix for condition data's workflow.item being incorrectly set to workflow.actor.getRollData(). So now workflow.item.name etc will work as expected. As a reminder you can just use item.name etc since item is available directly.
 * Fix for chat messages from a deleted user throwing an error.

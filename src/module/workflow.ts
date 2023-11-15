@@ -3,7 +3,7 @@ import { activationConditionToUse, resolveLateTargeting, selectTargets, shouldRo
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageList, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getSelfTargetSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, getSystemCONFIG, tokenForActor, getSelfTarget, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, getLateTargeting, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration } from "./utils.js"
+import { createDamageList, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getSelfTargetSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, getSystemCONFIG, tokenForActor, getSelfTarget, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, getLateTargeting, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getLinkText } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -1552,8 +1552,10 @@ export class Workflow {
       const wasAttacked = this.item?.hasAttack;
       const wasHit = (this.item ? wasAttacked : true) && (this.hitTargets?.has(target) || this.hitTargetsEC?.has(target));
       const wasMissed = (this.item ? wasAttacked : true) && !this.hitTargets?.has(target) && !this.hitTargetsEC?.has(target);
-      //@ts-ignore token.document
-      const wasDamaged = this.damageList && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
+      const wasDamaged = this.damageList 
+                          && (this.hitTargets.has(target) || this.hitTargetsEC.has(target))
+                          && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
+
       if (wasAttacked && triggerList.includes("isAttacked")) {
         //@ts-ignore
         await this.callMacros(this.item,
@@ -1569,7 +1571,8 @@ export class Workflow {
           "postTargetEffectApplication",
           { actor: target.actor, token: target });
       }
-      if (wasDamaged && triggerList.includes("isDamaged")) {
+      // If auto applying damage can do a better test when damage application has been calculdated
+      if (wasDamaged && triggerList.includes("isDamaged") && !configSettings.autoApplyDamage.toLocaleLowerCase().includes("yes")) {
         await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isDamaged"),
           "TargetOnUse",
@@ -1651,8 +1654,10 @@ export class Workflow {
         const wasAttacked = this.item?.hasAttack;
         //TODO this test will fail for damage only workflows - need to check the damage rolled instead
         const wasHit = (this.item ? wasAttacked : true) && (this.hitTargets?.has(target) || this.hitTargetsEC?.has(target));
-        //@ts-expect-error token.document
-        const wasDamaged = this.damageList && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
+        const wasDamaged = this.damageList 
+          && (this.hitTargets.has(target) || this.hitTargetsEC.has(target))
+          //@ts-expect-error token.document
+          && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
         //@ts-expect-error target.dcoument
         const wasHealed = this.damageList && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage < 0))
         //TODO this is going to grab all the special damage types as well which is no good.
@@ -1944,7 +1949,7 @@ export class Workflow {
         //  item = this.item;
         if (name === MQItemMacroLabel) {
           if (!item) return {};
-          itemMacroData = getProperty(item.flags, "dae.macro") ?? getProperty(item.flags, "itemacro.macro");
+          itemMacroData = getProperty(item, "flags.dae.macro") ?? getProperty(item, "flags.itemacro.macro");
           macroData.sourceItemUuid = item?.uuid;
         } else {
           const parts = name.split(".");
@@ -2237,7 +2242,18 @@ export class Workflow {
       if (VideoHelper.hasVideoExtension(img ?? "")) {
         img = await game.video.createThumbnail(img ?? "", { width: 100, height: 100 });
       }
-      this.hitDisplayData[targetToken instanceof Token ? targetToken.document?.uuid : targetToken.uuid] = ({ isPC: targetToken.actor?.hasPlayerOwner, target: targetToken, hitString: "targets", attackType: "", img, gmName: targetToken.name, playerName: getTokenPlayerName(targetToken instanceof TokenDocument ? targetToken : targetToken.document), bonusAC: 0, isHit: this.hitTargets.has(targetToken) });
+      const tokenUuid = getTokenDocument(targetToken)?.uuid ?? "";
+      this.hitDisplayData[tokenUuid] = {
+        isPC: targetToken.actor?.hasPlayerOwner, 
+        target: targetToken, 
+        hitString: "targets", 
+        attackType: "", 
+        img, 
+        gmName: getLinkText(targetToken.actor), 
+        playerName: getTokenPlayerName(targetToken), 
+        bonusAC: 0, 
+        isHit: this.hitTargets.has(targetToken) 
+      };
     }
     await this.displayHits(whisper, configSettings.mergeCard && this.itemCardId, false);
   }
@@ -2546,7 +2562,7 @@ export class Workflow {
           }
           if (debugEnabled > 1) debug(`${target.actor.name} resistant to magic : ${saveDetails.advantage}`);
         }
-        const settingsOptions = procAbilityAdvantage(target.actor, rollType, this.saveItem.system.save.ability, {});
+        const settingsOptions = procAbilityAdvantage(target.actor, rollType, this.saveItem.system.save.ability, {workflow: this});
         if (settingsOptions.advantage) saveDetails.advantage = true;
         if (settingsOptions.disadvantage) saveDetails.disadvantage = true;
         saveDetails.isConcentrationCheck = this.saveItem.flags["midi-qol"]?.isConcentrationCheck
@@ -2944,7 +2960,7 @@ export class Workflow {
         else saveStyle = "color: red;";
       }
       this.saveDisplayData.push({
-        gmName: target.name,
+        gmName: getLinkText(target.actor),
         playerName: getTokenPlayerName(target),
         img,
         isPC: isPlayerOwned,
@@ -3271,6 +3287,7 @@ export class Workflow {
             const workflowOptions = mergeObject(duplicate(this.workflowOptions), { sourceActorUuid: this.actor.uuid, sourceItemUuid: this.item?.uuid }, { inplace: false, overwrite: true });
             //@ts-ignore
             const result = await doReactions(targetToken, this.tokenUuid, this.attackRoll, "reaction", { item: this.item, workflow: this, workflowOptions });
+            // TODO work out how reactions can return something useful console.error("result is ", result)
             if (!Workflow.getWorkflow(this.id)) // workflow has been removed - bail out
               return;
             targetAC = Number.parseInt(targetActor.system.attributes.ac.value) + bonusAC;
@@ -3433,14 +3450,15 @@ export class Workflow {
         }
       }
       if (this.isFumble) hitResultNumeric = "--";
-      this.hitDisplayData[targetToken instanceof Token ? targetToken.document?.uuid : targetToken.uuid] = {
+      const targetUuid = getTokenDocument(targetToken)?.uuid ?? "";
+      this.hitDisplayData[targetUuid] = {
         isPC: targetToken.actor?.hasPlayerOwner,
         target: targetToken,
         hitString,
         hitStyle,
         attackType,
         img,
-        gmName: targetToken.name,
+        gmName: getLinkText(targetToken.actor),
         playerName: getTokenPlayerName(targetToken instanceof Token ? targetToken.document : targetToken),
         bonusAC,
         hitResultNumeric
@@ -3475,14 +3493,15 @@ export class Workflow {
         for (let target of canvas.tokens.placeables) {
           if (!isTargetable(target)) continue;
           const ray = new Ray(target.center, token.center);
-          const wallsBlocking = ["wallsBlock", "wallsBlockIgnoreDefeated"].includes(configSettings.rangeTarget)
-
+          const wallsBlocking = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.rangeTarget)
           //@ts-ignore .system
-          let inRange = target.actor
-            // && target.actor.id !== token.actor?.id
+          let inRange = target.actor 
             //@ts-ignore .disposition v10
-            && dispositions.includes(target.document.disposition)
-            && (["always", "wallsBlock"].includes(configSettings.rangeTarget) || !checkIncapacitated(target.actor));
+            && dispositions.includes(target.document.disposition);
+          if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIngoreIncapcitate"].includes(configSettings.rangeTarget)) 
+            inRange = inRange && !checkIncapacitated(target.actor);
+          if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.rangeTarget))
+            inRange = inRange && !checkDefeated(target);
           inRange = inRange && (configSettings.rangeTarget === "none" || !hasWallBlockingCondition(target))
           if (inRange) {
             // if the item specifies a range of "special" don't target the caster.
@@ -3513,6 +3532,7 @@ export class Workflow {
 
   async removeActiveEffects(effectIds: string | [string]) {
     if (!Array.isArray(effectIds)) effectIds = [effectIds];
+    console.error("remove active effects ", effectIds)
     this.actor.deleteEmbeddedDocuments("ActiveEffect", effectIds);
   }
 

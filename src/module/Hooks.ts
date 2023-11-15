@@ -277,6 +277,7 @@ export function initHooks() {
   });
 
   Hooks.on("updateCombat", (combat, data, options, user) => {
+    if (data.round === undefined && data.turn === undefined) return;
     untargetAllTokens(combat, data.options, user);
     untargetDeadTokens();
     // updateReactionRounds(combat, data, options, user); This is handled in processOverTime
@@ -385,7 +386,7 @@ export function initHooks() {
     const midiProps = config.midiProperties;
     setProperty(data, "flags.midiProperties", app.object.flags.midiProperties ?? {});
     if (!data.flags?.midiProperties) setProperty(data, "flags.midiProperties", {});
-    if (app.object && ["spell", "feat", "weapon", "consumable", "equipment"].includes(app.object.type)) {
+    if (app.object && ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(app.object.type)) {
       const item = app.object;
       if (item.flags.midiProperties === undefined) {
         item.flags.midiProperties = {};

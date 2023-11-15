@@ -1,6 +1,6 @@
 import { geti18nOptions, i18n } from "../../midi-qol.js";
 import { CheckedAuthorsList, checkedModuleList, checkMechanic, collectSettingData, configSettings, enableWorkflow, exportSettingsToJSON, fetchParams, importSettingsFromJSON } from "../settings.js";
-import { installedModules } from "../setupModules.js";
+import { DAE_REQUIRED_VERSION, REQUIRED_MODULE_VERSIONS, installedModules } from "../setupModules.js";
 import { calculateDamage } from "../utils.js";
 
 const minimumMidiVersion = "11.0.7";
@@ -29,7 +29,7 @@ export class TroubleShooter extends FormApplication {
     return this;
   }
 
-  async render(force: boolean = false, options:any = {}) {
+  async render(force: boolean = false, options: any = {}) {
     await super._render(force, options);
     if (options.tab) this._tabs[0].activate(options.tab);
   }
@@ -331,7 +331,7 @@ export class TroubleShooter extends FormApplication {
     }
     data.summary["coreSettings"]["World Object counts"] = Object.values(report).join(" | ");
     //@ts-expect-error .filter
-    data.summary["coreSettings"]["Module Count"] = `Active: ${game.modules.filter(m=>m.active).length} | Installed: ${game.modules.size}`;
+    data.summary["coreSettings"]["Module Count"] = `Active: ${game.modules.filter(m => m.active).length} | Installed: ${game.modules.size}`;
     if (game.modules.get("ActiveAuras")?.active) {
       data.summary.moduleSettings["Active Auras In Combat"] = game.settings.get("ActiveAuras", "combatOnly");
     }
@@ -390,7 +390,7 @@ export class TroubleShooter extends FormApplication {
       }
     });
     //@ts-expect-error .version
-    const baseVersion = game.version.slice(0,2);
+    const baseVersion = game.version.slice(0, 2);
     const maxVersion = baseVersion + ".999";
     CheckedAuthorsList.forEach(matcher => {
       //@ts-expect-error filter
@@ -414,6 +414,7 @@ export class TroubleShooter extends FormApplication {
         setProperty(data.summary.knownModules, moduleId, { title: "Not installed", active: false, installed: false, moduleVersion: ``, foundryVersion: `` });
     });
     */
+
 
     for (let moduleData of game.modules) {
       let module: any = moduleData;
@@ -517,7 +518,7 @@ export class TroubleShooter extends FormApplication {
           setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "walledtemplates":
-            this.checkWalledTemplates(data);
+          this.checkWalledTemplates(data);
           break;
         case "warpgate":
           setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
@@ -562,7 +563,7 @@ export class TroubleShooter extends FormApplication {
       issue.title = game.modules.get(key)?.title;
       delete issue.manifest;
     }
-    
+
     data.summary.outOfDate = Object.keys(data.modules)
       .filter(key => isNewerVersion(baseVersion, data.modules[key].compatibility ?? 0))
       .map(key => {
@@ -589,6 +590,23 @@ export class TroubleShooter extends FormApplication {
       moduleVersion: data.modules[key].version,
       version: data.modules[key].compatibility
     }));
+    for (let key of Object.keys(REQUIRED_MODULE_VERSIONS)) {
+      if (game.modules.get(key)?.active) {
+        //@ts-expect-error .version
+        const installedVersion = game.modules.get(key).version;
+        const requiredVersion = REQUIRED_MODULE_VERSIONS[key];
+        if (isNewerVersion(requiredVersion, installedVersion)) {
+          data.problems.push({
+            moduleId: key,
+            severity: "Error",
+            problemSummary: `${key} needs to be at least version ${requiredVersion} but is version ${installedVersion} and will not be used`,
+            fixer: `Update ${key} to latest version`,
+            problemDetail: undefined
+          });
+        }
+      }
+    }
+
     data.summary.foundryReportedErrors
     let midiSettings: any = duplicate(collectSettingData());
     delete midiSettings.flags;
@@ -599,13 +617,13 @@ export class TroubleShooter extends FormApplication {
   }
 
   public static checkMidiCoverSettings(data: TroubleShooterData) {
-    switch ( configSettings.optionalRules.wallsBlockRange ) {
-      case "none": 
+    switch (configSettings.optionalRules.wallsBlockRange) {
+      case "none":
         break;
       case "center":
         break;
       case "centerLevels":
-        if(!(game.modules.get("levels")?.active)) {
+        if (!(game.modules.get("levels")?.active)) {
           data.problems.push({
             moduleId: "levels",
             severity: "Error",
@@ -649,8 +667,8 @@ export class TroubleShooter extends FormApplication {
         }
         break;
     }
-    switch ( configSettings.optionalRules.coverCalculation ) {
-      case "none": 
+    switch (configSettings.optionalRules.coverCalculation) {
+      case "none":
         break;
       case "levelsautocover":
         if (!(game.modules.get("levelsautocover")?.active)) {
@@ -687,7 +705,7 @@ export class TroubleShooter extends FormApplication {
         break;
     }
 
-    switch(configSettings.autoTarget) {
+    switch (configSettings.autoTarget) {
       case "dftemplates":
         if (!game.modules.get("df-templates")?.active) {
           data.problems.push({
@@ -696,9 +714,9 @@ export class TroubleShooter extends FormApplication {
             problemSummary: "You must enable the 'dftemplates' module to use the 'DF Templates' option for 'Auto Target on Template Draw'",
             problemDetail: undefined,
             fixer: "Enable the 'dftemplates' module"
-          }); 
+          });
         }
-      break;
+        break;
       case "walledtemplates":
         if (!game.modules.get("walledtemplates")?.active) {
           data.problems.push({
@@ -707,14 +725,14 @@ export class TroubleShooter extends FormApplication {
             problemSummary: "You must enable the 'walledtemplates' module to use the 'Walled Templates' option for 'Auto Target on Template Draw'",
             problemDetail: undefined,
             fixer: "Enable the 'walledtemplates' module"
-          }); 
+          });
         }
-      break;
+        break;
     }
   }
 
   public static checkMidiSaveSettings(data: TroubleShooterData) {
-    if (!installedModules.get("monks-tokenbar") 
+    if (!installedModules.get("monks-tokenbar")
       && (configSettings.playerRollSaves === "mtb" || configSettings.rollNPCSaves === "mtb" || configSettings.rollNPCLinkedSaves === "mtb")) {
       data.problems.push({
         moduleId: "monks-tokenbar",
@@ -724,8 +742,8 @@ export class TroubleShooter extends FormApplication {
         fixer: "Enable the 'monks-tokenbar' module"
       });
     }
-    if (!installedModules.get("lmrtfy") && 
-      (configSettings.playerRollSaves === "lmrtfy" || configSettings.rollNPCSaves === "lmrtfy" || configSettings.rollNPCLinkedSaves === "lmrtfy" )) {
+    if (!installedModules.get("lmrtfy") &&
+      (configSettings.playerRollSaves === "lmrtfy" || configSettings.rollNPCSaves === "lmrtfy" || configSettings.rollNPCLinkedSaves === "lmrtfy")) {
       data.problems.push({
         moduleId: "lmrtfy",
         severity: "Error",

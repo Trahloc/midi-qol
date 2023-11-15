@@ -191,7 +191,7 @@
   },
   "midi-qol.damageImmunitiesOptions": {
     "none": "Never",
-    "immunityDefult": "apply immuniites",
+    "immunityDefault": "apply immunities",
     "immunityPhysical": "apply immunities + physical"
   },
   "midi-qol.showItemDetailsOptions": {

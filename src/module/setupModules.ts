@@ -3,8 +3,8 @@ import { log } from "../midi-qol.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configSettings } from "./settings.js";
 
-export const DAE_REQUIRED_VERSION = "11.0.22";
-const modules = {
+export const DAE_REQUIRED_VERSION = "11.0.24";
+export const REQUIRED_MODULE_VERSIONS = {
   "about-time": "0.0", 
   "anonymous": "0.0.0",
   "chris-premades": "0.5.52",
@@ -26,7 +26,7 @@ const modules = {
   "ready-set-roll-5e": "1.2.0",
   "simbuls-cover-calculator":  "1.0.2",
   "socketlib": "0.0",
-  "times-up": "0.1.2",
+  "times-up": "11.0.4",
   "tokenvisibility": "0.5.3",
   "walledtemplates": "0.0.0",
   "wjmais": "0.0.0",
@@ -34,10 +34,10 @@ const modules = {
 export let installedModules = new Map();
 
 export let setupModules = () => {
-  for (let name of Object.keys(modules)) { 
+  for (let name of Object.keys(REQUIRED_MODULE_VERSIONS)) { 
     //@ts-ignore .version v10
     const modVer = game.modules.get(name)?.version || "0.0.0";
-    const neededVer = modules[name];
+    const neededVer = REQUIRED_MODULE_VERSIONS[name];
     const isValidVersion = isNewerVersion(modVer, neededVer) || !isNewerVersion(neededVer, modVer);
     if (!installedModules.get(name)) installedModules.set(name, game.modules.get(name)?.active && isValidVersion) 
     if (!installedModules.get(name)) {
@@ -61,7 +61,7 @@ export function dice3dEnabled() {
   return installedModules.get("dice-so-nice") && (game.dice3d?.config?.enabled || game.dice3d?.isEnabled());
 }
 
-export function checkModules() {
+export function checkModules() { // this really should happen in TroubleShooter
   if (game.user?.isGM && !installedModules.get("socketlib")) {
     ui.notifications?.error("midi-qol.NoSocketLib", {permanent: true, localize: true});
   }

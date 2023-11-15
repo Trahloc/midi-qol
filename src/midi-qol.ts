@@ -14,7 +14,7 @@ import { OnUseMacroOptions } from './module/apps/Item.js';
 import { MidiKeyManager } from './module/MidiKeyManager.js';
 import { MidiSounds } from './module/midi-sounds.js';
 import { addUndoChatMessage, getUndoQueue, removeMostRecentWorkflow, showUndoQueue, undoMostRecentWorkflow } from './module/undo.js';
-import { showUndoWorkflowApp } from './module/apps/UndowWorkflow.js';
+import { showUndoWorkflowApp } from './module/apps/UndoWorkflow.js';
 import { TroubleShooter } from './module/apps/TroubleShooter.js';
 import { LateTargetingDialog } from './module/apps/LateTargeting.js';
 
@@ -133,6 +133,7 @@ Hooks.once('init', async function () {
 });
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
   specials["flags.midi-qol.onUseMacroName"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
+  // /specials["flags.midi-qol.optional.name.macroToCall"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
 });
 /* ------------------------------------ */
 /* Setup module							*/
@@ -308,14 +309,6 @@ Hooks.once('ready', function () {
         ui.notifications?.warn("midi-qol | setting levels auto cover to api mode", { permanent: true })
     } else if (installedModules.get("levelsautocover") && configSettings.optionalRules.coverCalculation !== "levelsautocover" && game.settings.get("levelsautocover", "apiMode")) {
       ui.notifications?.warn("midi-qol | Levels Auto Cover is in API mode but midi is not using levels auto cover - you may wish to disable api mode", { permanent: true })
-    }
-  }
-  if (game.settings.get("midi-qol", "splashWarnings") && game.user?.isGM) {
-    if (game.user?.isGM && !installedModules.get("dae")) {
-      ui.notifications?.error(`Midi-qol requires DAE to be installed and at least version ${DAE_REQUIRED_VERSION} or many automation effects won't work`, { permanent: true });
-    }
-    if (game.user?.isGM && game.modules.get("betterrolls5e")?.active && !installedModules.get("betterrolls5e")) {
-      ui.notifications?.warn("Midi QOL requires better rolls to be version 1.6.6 or later");
     }
   }
   //@ts-ignore game.version
@@ -795,8 +788,8 @@ function setupMidiFlags() {
   midiFlags.push(`flags.midi-qol.optional.NAME.countAlt`);
   midiFlags.push(`flags.midi-qol.optional.NAME.ac`);
   midiFlags.push(`flags.midi-qol.optional.NAME.criticalDamage`);
-  midiFlags.push(`flags.midi-qol.optional.Name.onUse`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.macroToCall`);
+  // midiFlags.push(`flags.midi-qol.optional.Name.onUse`);
+  // midiFlags.push(`flags.midi-qol.optional.NAME.macroToCall`);
 
   midiFlags.push(`flags.midi-qol.uncanny-dodge`);
   midiFlags.push(`flags.midi-qol.OverTime`);

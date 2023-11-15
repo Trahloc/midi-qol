@@ -7,7 +7,7 @@ import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
 import { OnUseMacros } from "./apps/Item.js";
-import { Options } from "./patching.js";
+import { Options, preUpdateItemActorOnUseMacro } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 
@@ -744,6 +744,21 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     } else {
       ditem.newTempHP = Math.max(0, ditem.newTempHP - appliedTempHP)
     }
+    if (appliedDamage > 0 && options.hitTargets.has(t)) {
+      const expiredEffects = t?.actor?.effects.filter(ef => {
+        const specialDuration = getProperty(ef, "flags.dae.specialDuration");
+        if (!specialDuration) return false;
+        return specialDuration.includes("isDamaged");
+      }).map(ef => ef.id)
+
+      if (expiredEffects?.length ?? 0 > 0) {
+        await timedAwaitExecuteAsGM("removeEffects", {
+          actorUuid: t.actor?.uuid,
+          effects: expiredEffects,
+          options: { "expiry-reason": `midi-qol:isDamaged` }
+        });
+      }
+    }
     ditem.damageDetail = duplicate([damageDetailResolved]);
     ditem.critical = workflow?.isCritical;
     ditem.wasHit = options.hitTargets.has(t);
@@ -778,7 +793,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       targetNames,
       chatCardId: workflow.itemCardId,
       flagTags: workflow.flagTags,
-      updateContext: mergeObject(options?.updateContext ?? {}, {noConcentrationCheck: options?.noConcentrationCheck}),
+      updateContext: mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
       forceApply: options.forceApply,
     })
     if (workflow && configSettings.undoWorkflow) {
@@ -1160,18 +1175,25 @@ export function midiCustomEffect(...args) {
     "flags.midi-qol.ignoreCover",
     "flags.midi-qol.ignoreWalls"
   ]; // These have trailing data in the change key change.key values and should always just be a string
-  if (change.key === "flags.midi-qol.onUseMacroName") {
+  if (change.key === `flags${game.system.id}.DamageBonusMacro`) {
+    // DAEdnd5e - daeCustom processes these
+  } else if (change.key === "flags.midi-qol.onUseMacroName") {
     const args = change.value.split(",")?.map(arg => arg.trim());
     const currentFlag = getProperty(actor, "flags.midi-qol.onUseMacroName") ?? "";
-
     if (args[0] === "ItemMacro") { // rewrite the ItemMacro if there is an origin
       if (change.effect?.origin.includes("Item.")) {
         args[0] = `ItemMacro.${change.effect.origin}`;
       }
     }
     const extraFlag = `[${args[1]}]${args[0]}`;
-    const macroString =  (currentFlag?.length > 0) ? [currentFlag, extraFlag].join(",") : extraFlag;
+    const macroString = (currentFlag?.length > 0) ? [currentFlag, extraFlag].join(",") : extraFlag;
     setProperty(actor, "flags.midi-qol.onUseMacroName", macroString)
+    return true;
+  } else if (change.key.startsWith("flags.midi-qol.optional.") && change.value.trim() === "ItemMacro") {
+    if (change.effect?.origin.includes("Item.")) {
+      const macroString = `ItemMacro.${change.effect.origin}`;
+      setProperty(actor, change.key, macroString)
+    } else setProperty(actor, change.key, change.value);
     return true;
   } else if (deferredEvaluation.some(k => change.key.startsWith(k))) {
     if (typeof change.value !== "string") setProperty(actor, change.key, change.value);
@@ -1625,6 +1647,9 @@ export function untargetAllTokens(...args) {
   }
 }
 
+export function checkDefeated(tokenRef: Token | TokenDocument | string): boolean {
+  return hasCondition(tokenRef, "dead");
+}
 export function checkIncapacitated(actor: Actor): boolean {
   const vitalityResource = checkRule("vitalityResource");
   if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
@@ -2106,7 +2131,7 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
       break;
     case "none":
     default:
-        coverBonus = 0;
+      coverBonus = 0;
       break;
   }
 
@@ -2648,7 +2673,9 @@ class RollModifyDialog extends Application {
       let flagData = getProperty(this.data.actor, flag);
       let value = getProperty(flagData, this.data.flagSelector);
       if (value !== undefined) {
-        const labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData())
+        let labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
+        if (value.startsWith("ItemMacro")) labelDetail = "ItemMacro"
+        else if (value.startsWith("function")) labelDetail = "Function";
         obj[randomID()] = {
           icon: '<i class="fas fa-dice-d20"></i>',
           //          label: (flagData.label ?? "Bonus") + `  (${getProperty(flagData, this.data.flagSelector) ?? "0"})`,
@@ -2665,8 +2692,9 @@ class RollModifyDialog extends Application {
         value = getProperty(flagData, allSelector);
 
         if (value !== undefined) {
-          const labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
-
+          let labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
+          if (value.startsWith("ItemMacro")) labelDetail = "ItemMacro"
+          else if (value.startsWith("function")) labelDetail = "Function";
           obj[randomID()] = {
             icon: '<i class="fas fa-dice-d20"></i>',
             //          label: (flagData.label ?? "Bonus") + `  (${getProperty(flagData, allSelector) ?? "0"})`,
@@ -2769,15 +2797,17 @@ export async function processAttackRollBonusFlags() { // bound to workflow
       this.processAttackRoll();
       const isMiss = this.isFumble || this.attackRoll.total < targetAC;
       if (isMiss) {
-        bonusFlags = Object.keys(this.actor.flags["midi-qol"]?.optional ?? [])
+        attackBonus = "attack.fail.all"
+        if (this.item && this.item.hasAttack) attackBonus = `attack.fail.${this.item.system.actionType}`;
+        let bonusFlags = Object.keys(optionalFlags)
           .filter(flag => {
-            const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.fail`) !== undefined;
+            const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.fail`) !== undefined
+              || getProperty(this.actor.flags, `midi-qol.optional.${flag}.${attackBonus}`) !== undefined;
             if (!hasAttackFlag) return false;
             if (!this.actor.flags["midi-qol"].optional[flag].count) return true;
             return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
           })
           .map(flag => `flags.midi-qol.optional.${flag}`);
-        attackBonus = "attack.fail"
         if (bonusFlags.length > 0) {
           this.attackRollHTML = await midiRenderRoll(this.attackRoll);
           await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
@@ -2830,10 +2860,50 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
 
       const rollMode = getProperty(this.actor, button.key)?.rollMode ?? game.settings.get("core", "rollMode");
       if (!hasEffectGranting(this.actor, button.key, flagSelector)) return;
-      switch (button.value) {
+      if (button.value.trim().startsWith("ItemMacro") || button.value.trim().startsWith("Macro") || button.value.trim().startsWith("function")) {
+        let result;
+        if (this instanceof Workflow || this.workflow) {
+          const macroData = this.workflow?.getMacroData() ?? this.getMacroData();
+          macroData.macroPass = `${button.key}`;
+          macroData.tag = "optional";
+          macroData.roll = this[rollId];
+          let macroToCall = button.value;
+          if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
+          result = await (this.workflow ?? this).callMacro(this.workflow?.item ?? this.item, macroToCall, macroData, {roll: this[rollId]});
+          if (result instanceof Roll) newRoll = result;
+          else newRoll = this[rollId];
+        } else {
+          const itemUuidOrName = button.value.split(".").slice(1).join(".");
+          //@ts-expect-error
+          let item = fromUuidSync(itemUuidOrName);
+          if (!item && this.actor) item = this.actor.items.getName(itemUuidOrName);
+          if (!item && this instanceof Actor) item = this.items.getName(itemUuidOrName);
+          const dummyWorkflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
+          const macroData = dummyWorkflow.getMacroData();
+          macroData.macroPass = `${button.key}`;
+          macroData.tag = `optional`;
+          macroData.roll = this[rollId];
+          let macroToCall = button.value;
+          if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
+          result = await dummyWorkflow.callMacro(item, macroToCall, macroData, {roll: this[rollId]})
+          if (result instanceof Roll) newRoll = result;
+          else newRoll = this[rollId];
+        }
+        if (result === undefined) console.warn(`midi-qol | RollModifyDialog no way to call macro ${button.value}`)
+        // do the roll modifications
+      } else switch (button.value) {
         case "reroll": reRoll = await this[rollId].reroll({ async: true });
           if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId, rollMode);
           newRoll = reRoll; break;
+        case "reroll-query":
+          reRoll = reRoll = await this[rollId].reroll({ async: true });
+          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId, rollMode);
+          const newRollHTML = await midiRenderRoll(reRoll);
+          if (await Dialog.confirm({title: "Confirm reroll", content: `Replace ${this[rollHTMLId]} with ${newRollHTML}`, defaultYes: true})) 
+            newRoll = reRoll
+          else
+            newRoll = this[rollId];
+          break;
         case "reroll-kh": reRoll = await this[rollId].reroll({ async: true });
           if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId === "attackRoll" ? "attackRollD20" : rollId, rollMode);
           newRoll = reRoll;
@@ -2919,21 +2989,6 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       this[rollId] = newRoll;
       this[rollTotalId] = newRoll.total;
       this[rollHTMLId] = await midiRenderRoll(newRoll);
-      const macroToCall = getProperty(this.actor, `${button.key}.macroToCall`)?.trim();
-      if (macroToCall) {
-        if (this instanceof Workflow) {
-          const macroData = this.getMacroData();
-          this.callMacro(this.item, macroToCall, macroData, {})
-        } else if (this.actor) {
-          let item;
-          if (typeof macroToCall === "string" && macroToCall.startsWith("ItemMacro.")) {
-            const itemName = macroToCall.split(".").slice(1).join(".");
-            item = this.actor.items.getName(itemName);
-          }
-          const dummyWorkflow = new DummyWorkflow(this.actor, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
-          dummyWorkflow.callMacro(item, macroToCall, dummyWorkflow.getMacroData(), {})
-        } else console.warn(`midi-qol | RollModifyDialog no way to call macro ${macroToCall}`)
-      }
       //@ts-expect-error D20Roll
       let originalRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
       dialog.data.rollHTML = this[rollHTMLId];
@@ -3267,22 +3322,22 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       chatMessage = await ChatMessage.create(chatData);
     }
     const rollOptions = geti18nOptions("ShowReactionAttackRollOptions");
-    // {"none": "Attack Hit", "d20": "d20 roll only", "all": "Whole Attack Roll"},
+    // {"none": "Attack Hit", "d20": "d20 roll only", "d20Crit": "d20 + Critical", "all": "Whole Attack Roll"},
 
     let content;
     if (["reactiondamage", "reactionpreattack"].includes(triggerType)) content = reactionFlavor;
     else switch (configSettings.showReactionAttackRoll) {
       case "all":
-        content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""}</h4>`;
+        content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll.total ?? ""}</h4>`;
+        break;
+      case "allCrit":
+        //@ts-expect-error
+        const criticalString = attackRoll?.isCritical ? `<span style="color: green">(${i18n("DND5E.Critical")})</span>` : "";
+        content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll.total ?? ""} ${criticalString}</h4>`;
         break;
       case "d20":
         //@ts-expect-error
         const theRoll = attackRoll?.terms[0]?.results ? attackRoll.terms[0].results[0].result : attackRoll?.terms[0]?.total ? attackRoll.terms[0].total : "";
-
-        /* Fix from thatLonelyBugbear when the replaced attack roll is not a true d20 roll (i.e. just a number)
-        //@ts-expect-error
-        const theRoll = attackRoll?.terms[0].results[0].result ?? "";
-        */
         content = `<h4>${reactionFlavor} ${rollOptions.d20} ${theRoll}</h4>`;
         break;
       default:
@@ -3797,6 +3852,7 @@ export function getConvenientEffectsBonusAction(): ActiveEffect | undefined {
   //@ts-expect-error
   const dfreds = game.dfreds;
   const bonusName = dfreds?.effects?._bonusAction.name;
+  let result;
   if (bonusName) return dfreds.effects.all.find(ef => ef.name === bonusName);
   return undefined;
 }
@@ -3805,16 +3861,22 @@ export function getConvenientEffectsUnconscious() {
   //@ts-expect-error .dfreds
   const dfreds = game.dfreds;
   const unConsciousName = dfreds?.effects?._unconscious.name;
-  if (unConsciousName) return dfreds.effects.all.find(ef => ef.name === unConsciousName);
-  return undefined;
+  let result;
+  if (unConsciousName) result =  dfreds.effects.all.find(ef => ef.name === unConsciousName);
+  if (result) return result;
+  if (unConsciousName) result = dfreds.effects.all.filter(ef => ef.statuses.has(unConsciousName.toLocaleLowerCase()))
+  return result;
 }
 
 export function getConvenientEffectsDead() {
   //@ts-expect-error .dfreds
   const dfreds = game.dfreds;
   const deadName = dfreds?.effects?._dead.name;
-  if (deadName) return dfreds.effects.all.find(ef => ef.name === deadName);
-  return undefined;
+  let result;
+  if (deadName) result = dfreds.effects.all.find(ef => ef.name === deadName);
+  if (result) return result;
+  if (deadName) result = dfreds.effects.all.filter(ef => ef.statuses.has(deadName.toLocaleLowerCase())) 
+  return result;
 }
 
 export async function ConvenientEffectsHasEffect(effectName: string, actor: Actor, ignoreInactive: boolean = true) {
@@ -4205,7 +4267,7 @@ export function computeFlankingStatus(token, target): boolean {
   if (getDistance(token, target, true) > range * (canvas?.dimensions?.distance ?? 5)) return false;
   // an enemy's enemies are my friends.
   const allies: any /* Token v10 */[] = findPotentialFlankers(target)
-  
+
   if (!token.document.disposition) return false; // Neutral tokens can't get flanking
   if (allies.length <= 1) return false; // length 1 means no other allies nearby
 
@@ -4333,8 +4395,8 @@ export function getChanges(actorOrItem, key: string) {
   return actorOrItem.effects.contents
     .flat()
     .map(e => {
-      let c = duplicate(e.changes); 
-      c = c.map(change => {change.effect = e; return change;})
+      let c = duplicate(e.changes);
+      c = c.map(change => { change.effect = e; return change; })
       return c
     })
     .flat()
@@ -4881,4 +4943,10 @@ export function itemRequiresConcentration(item): boolean {
     || item.flags.midiProperties?.concentration
     || item.system.porperties?.concentration // for the future case of dnd5e 2.x
     || item.system.activation?.condition?.toLocaleLowerCase().includes(i18n("midi-qol.concentrationActivationCondition").toLocaleLowerCase());
+}
+
+export function getLinkText(entity: Token | TokenDocument | Actor | Item | null | undefined) {
+  if (!entity) return "<unknown>";
+  if (entity instanceof Token) return `@UUID[${entity.document.uuid}]{${entity.name}}`;
+  return `@UUID[${entity.uuid}]{${entity.name}}`;
 }

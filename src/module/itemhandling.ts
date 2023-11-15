@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes } from "../midi-qol.js";
 import { BetterRollsWorkflow, DummyWorkflow, TrapWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { configSettings, enableWorkflow, checkRule, checkMechanic } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getLateTargeting, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageList, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getLateTargeting, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageList, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { LateTargetingDialog } from "./apps/LateTargeting.js";
@@ -295,6 +295,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     if (await asyncHooksCall("midi-qol.preItemRoll", workflow) === false || await asyncHooksCall(`midi-qol.preItemRoll.${this.uuid}`, workflow) === false) {
       console.warn("midi-qol | attack roll blocked by preItemRoll hook");
+      workflow.arborted = true;
       return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
       // Workflow.removeWorkflow(workflow.id);
       // return;
@@ -384,7 +385,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     if (needsConcentration && checkConcentration) {
       const concentrationEffect = getConcentrationEffect(this.actor);
-      if (concentrationEffect) await removeConcentration(this.actor, undefined, { concentrationEffectsDeleted: true, templatesDeleted: false });
+      if (concentrationEffect) await removeConcentration(this.actor, undefined, { concentrationEffectsDeleted: false, templatesDeleted: false });
     }
     if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
     if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);
@@ -1272,7 +1273,7 @@ function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTarge
 
 export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: Token | TokenDocument | string): Token[] {
   if (configSettings.autoTarget === "none") return [];
-  const wallsBlockTargeting = ["wallsBlock", "wallsBlockIgnoreDefeated"].includes(configSettings.autoTarget);
+  const wallsBlockTargeting = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallBlockIgnoreIncapcitated"].includes(configSettings.autoTarget);
   const tokens = canvas?.tokens?.placeables ?? []; //.map(t=>t)
   const ignoreTokenDocument = getTokenDocument(ignoreToken);
   let targets: string[] = [];
@@ -1286,13 +1287,12 @@ export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: 
     for (const token of tokens) {
       if (!isTargetable(token)) continue;
       if (token.document.uuid === ignoreTokenDocument?.uuid) continue;
+      if (token.actor && ["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapcitated"].includes(configSettings.autoTarget) && checkIncapacitated(token.actor)) continue;
+      if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.autoTarget) && checkDefeated(token)) continue;
       if (token.actor && isTokenInside(templateDetails, token, wallsBlockTargeting)) {
-        //@ts-ignore .system
-        if (["wallsBlock", "always"].includes(configSettings.autoTarget) || !checkIncapacitated(token.actor)) {
-          if (token.id) {
-            targetTokens.push(token);
-            targets.push(token.id);
-          }
+        if (token.id) {
+          targetTokens.push(token);
+          targets.push(token.id);
         }
       }
     }

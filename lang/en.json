@@ -214,9 +214,11 @@
   "midi-qol.autoTargetOptions": {
     "none": "None",
     "always": "Always",
-    "alwaysIgnoreDefeated": "Always - Ignore defeated",
+    "alwaysIgnoreIncapcitated": "Always - Ignore Incapcitated/Dead",
+    "alwaysIgnoreDefeated": "Always - Ignore Dead",
     "wallsBlock": "Walls Block",
-    "wallsBlockIgnoreDefeated": "Walls Block - Ignore Defeated",
+    "wallsBlockIgnoreIncapcitated": "Walls Block - Ignore Incapcitated/Dead",
+    "wallsBlockIgnoreDefeated": "Walls Block - Ignore Dead",
     "dftemplates": "Use DF Template Enhancements",
     "walledtemplates": "Use Walled Templates"
   },
@@ -230,9 +232,11 @@
   "midi-qol.rangeTargetOptions": {
     "none": "None",
     "always": "Always",
-    "alwaysIgnoreDefeated": "Always - Ignore Defeated",
+    "alwaysIgnoreIncpacitated": "Always - Ignore Icapacitated/Dead",
+    "alwaysIgnoreDefeated": "Always - Ignore Dead",
     "wallsBlock": "Walls Block",
-    "wallsBlockIgnoreDefeated": "Walls Block - Ignore Defeated"
+    "wallsBlockIgnoreInacpacitated": "Walls Block - Ignore Incapcitated/Dead",
+    "wallsBlockIgnoreDefeated": "Walls Block - Ignore Dead"
   },
   "midi-qol.autoRollDamageOptions": {
     "none": "Never",
@@ -658,7 +662,8 @@
   "midi-qol.ShowReactionAttackRollOptions": {
     "none": "Attack Hits",
     "d20": "d20 roll only",
-    "all": "Attack Roll Total"
+    "all": "Attack Roll Total",
+    "allCrit": "Attack Roll Total + Critical"
   },
   "midi-qol.Reactions": "Prompt For Reactions",
   "midi-qol.ReactionsTab": "Reactions",

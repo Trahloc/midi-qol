@@ -1,6 +1,6 @@
 import { i18n, error, i18nFormat } from "../../midi-qol.js";
 import { checkMechanic, checkRule, configSettings } from "../settings.js";
-import { FULL_COVER, HALF_COVER, THREE_QUARTERS_COVER, checkRange, computeCoverBonus, computeFlankingStatus, isTargetable, markFlanking, tokenForActor } from "../utils.js";
+import { FULL_COVER, HALF_COVER, THREE_QUARTERS_COVER, checkRange, computeCoverBonus, computeFlankingStatus, getLinkText, isTargetable, markFlanking, tokenForActor } from "../utils.js";
 import { getAutoRollAttack, getTokenPlayerName, isAutoFastAttack } from "../utils.js";
 import { TroubleShooter } from "./TroubleShooter.js";
 
@@ -112,7 +112,7 @@ export class LateTargetingDialog extends Application {
       }
 
       data.targets.push({
-        name: game.user?.isGM ? target.name : getTokenPlayerName(target),
+        name: game.user?.isGM ? getLinkText(target.actor) : getTokenPlayerName(target),
         img,
         details: details.join(" - "),
         hasDetails: details.length > 0
