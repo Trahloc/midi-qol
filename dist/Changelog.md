@@ -1,3 +1,9 @@
+## 11.1.13
+* Fix for a couple of typos - thanks @thatLonelyBugbear and @Elwin
+* Change to wounded/unconscious/dead handling. Instead of fixed conditions, you can now specify the status effect to be applied for wounded/unconscious/dead.
+  - By default the convenient effect "Wounded" is not a status effect, you will need to "Toggle status effect" on the CE Wounded effect for it to be available in the midi config panel
+  - Please review your settings after upgrade since the changes might not migrate properly.
+
 ## 11.1.12
 * Added option to ignore dead or dead and incapacitated when targeting with area effect spells.
   - Previous ignore dead setting (which was incapacitated) will get mapped to ignore dead - you may wish to change that to ignore dead/incapacitated.
@@ -9,7 +15,7 @@
 * New option for optional.NAME, reroll-query which will do a reroll of the current roll and query the player to keep the reroll or not. (not sure if this is really useful since reroll-kh/reroll-hl seems to cover everything).
 * Fix for checking saving throw advantage/disadvantage when saving throw triggered  via a workflow. e.g. ``flags.midi-qol.advantage.attacks.all CUSTOM item.school === "evo"``
 * Fix for isDamaged test (expiry/macro calls) firing if the target was missed by an attack.
-* **Breaking** This version **requires** DAE 10.0.24 and if times-up is installed it must be verison 11.0.4.
+* **Breaking** This version **requires** DAE 11.0.24 and if times-up is installed it must be verison 11.0.4.
 * Troubleshooter now reports modules whose version number is too low to be used by midi-qol. 
   - This includes DAE which will not be utilised by midi if the version number is too low
 

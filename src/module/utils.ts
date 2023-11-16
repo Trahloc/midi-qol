@@ -1175,7 +1175,7 @@ export function midiCustomEffect(...args) {
     "flags.midi-qol.ignoreCover",
     "flags.midi-qol.ignoreWalls"
   ]; // These have trailing data in the change key change.key values and should always just be a string
-  if (change.key === `flags${game.system.id}.DamageBonusMacro`) {
+  if (change.key === `flags.${game.system.id}.DamageBonusMacro`) {
     // DAEdnd5e - daeCustom processes these
   } else if (change.key === "flags.midi-qol.onUseMacroName") {
     const args = change.value.split(",")?.map(arg => arg.trim());
@@ -1648,26 +1648,26 @@ export function untargetAllTokens(...args) {
 }
 
 export function checkDefeated(tokenRef: Token | TokenDocument | string): boolean {
-  return hasCondition(tokenRef, "dead");
+  return hasCondition(tokenRef, "dead") || hasCondition(tokenRef, configSettings.midiDeadCondition);
 }
+
 export function checkIncapacitated(actor: Actor): boolean {
   const vitalityResource = checkRule("vitalityResource");
   if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
     const vitality = getProperty(actor, vitalityResource.trim()) ?? 0;
     //@ts-expect-error .system
     if (vitality <= 0 && actor?.system.attributes?.hp?.value <= 0) {
-      log(`${actor.name} is dead`);
+      log(`${actor.name} is dead and therefore incapacitated`);
       return true;
     }
-    return false;
-  }
-
-  //@ts-expect-error .system
+  } else //@ts-expect-error .system
   if (actor?.system.attributes?.hp?.value <= 0) {
     log(`${actor.name} is incapacitated`)
     return true;
   }
+  
   const token = tokenForActor(actor);
+  if (hasCondition(token, configSettings.midiUnconsciousCondition) || hasCondition(token, configSettings.midiDeadCondition)) return true;
   if (token && globalThis.MidiQOL.incapacitatedConditions.find(cond => hasCondition(token, cond))) return true;
   return false;
 }
@@ -3857,26 +3857,22 @@ export function getConvenientEffectsBonusAction(): ActiveEffect | undefined {
   return undefined;
 }
 
-export function getConvenientEffectsUnconscious() {
+export function getWoundedStatus() {
   //@ts-expect-error .dfreds
   const dfreds = game.dfreds;
-  const unConsciousName = dfreds?.effects?._unconscious.name;
-  let result;
-  if (unConsciousName) result =  dfreds.effects.all.find(ef => ef.name === unConsciousName);
-  if (result) return result;
-  if (unConsciousName) result = dfreds.effects.all.filter(ef => ef.statuses.has(unConsciousName.toLocaleLowerCase()))
-  return result;
+  return CONFIG.statusEffects.find(efData => efData.id === configSettings.midiWoundedCondition);
 }
 
-export function getConvenientEffectsDead() {
+export function getUnconsciousStatus() {
   //@ts-expect-error .dfreds
   const dfreds = game.dfreds;
-  const deadName = dfreds?.effects?._dead.name;
-  let result;
-  if (deadName) result = dfreds.effects.all.find(ef => ef.name === deadName);
-  if (result) return result;
-  if (deadName) result = dfreds.effects.all.filter(ef => ef.statuses.has(deadName.toLocaleLowerCase())) 
-  return result;
+  return CONFIG.statusEffects.find(efData => efData.id === configSettings.midiUnconsciousCondition);
+}
+
+export function getDeadStatus() {
+  //@ts-expect-error .dfreds
+  const dfreds = game.dfreds;
+  return CONFIG.statusEffects.find(efData => efData.id === configSettings.midiDeadCondition);
 }
 
 export async function ConvenientEffectsHasEffect(effectName: string, actor: Actor, ignoreInactive: boolean = true) {

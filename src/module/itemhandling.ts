@@ -295,7 +295,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     if (await asyncHooksCall("midi-qol.preItemRoll", workflow) === false || await asyncHooksCall(`midi-qol.preItemRoll.${this.uuid}`, workflow) === false) {
       console.warn("midi-qol | attack roll blocked by preItemRoll hook");
-      workflow.arborted = true;
+      workflow.aborted = true;
       return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
       // Workflow.removeWorkflow(workflow.id);
       // return;
@@ -1273,7 +1273,7 @@ function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTarge
 
 export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: Token | TokenDocument | string): Token[] {
   if (configSettings.autoTarget === "none") return [];
-  const wallsBlockTargeting = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallBlockIgnoreIncapcitated"].includes(configSettings.autoTarget);
+  const wallsBlockTargeting = ["wallsBlock","wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.autoTarget);
   const tokens = canvas?.tokens?.placeables ?? []; //.map(t=>t)
   const ignoreTokenDocument = getTokenDocument(ignoreToken);
   let targets: string[] = [];

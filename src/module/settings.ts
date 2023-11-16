@@ -34,7 +34,10 @@ class ConfigSettings {
   // fullAuto: boolean = false;
   addDead: string = "none";
   addWounded: number = 0;
-  addWoundedStyle: string = "none"
+  addWoundedStyle: string = "none";
+  midiWoundedCondition: string = "none";
+  midiDeadCondition: string = "none";
+  midiUnconsciousCondition: string = "none";
   allowUseMacro: boolean = false;
   allowActorUseMacro: boolean = false;
   attackPerTarget: boolean = false;
@@ -433,6 +436,16 @@ export let fetchParams = () => {
       configSettings.optionalRules.challengeModeArmor = "challenge";
   } else if ([false, undefined].includes(configSettings.optionalRules.challengeModeArmor)) {
     configSettings.optionalRules.challengeModeArmor = "none"
+  }
+  if (configSettings.addWounded > 0 && configSettings.midiWoundedCondition === undefined) {
+    configSettings.midiWoundedCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Wounded": "bleeding";
+  }
+  if (configSettings.addDead !== "none" && configSettings.midiDeadCondition === undefined) {
+    configSettings.midiDeadCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Dead" : "dead"; 
+    configSettings.midiUnconsciousCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Unconscious": "unconscious";
+  } else if (configSettings.addDead === "none"){
+    configSettings.midiDeadCondition = "none";
+    configSettings.midiUnconsciousCondition = "none";
   }
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";

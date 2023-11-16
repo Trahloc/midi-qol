@@ -612,16 +612,17 @@
     "onlyArea": "Display late targeting for AoE and Ranged Area Only",
     "allArea": "Always display late targeting"
   },
-  "midi-qol.AddDead.Name": "Add effect When HP = 0",
-  "midi-qol.AddDead.Hint": "NPC Add Defeated, PC Add Convenient Effect Unconscious",
+  "midi-qol.AddDead.Name": "Add effect when HP = 0",
+  "midi-qol.AddDead.Hint1": "Player Controlled",
+  "midi-qol.AddDead.Hint2": "GM Controlled",
   "midi-qol.AddDeadOptions": {
     "none": "Do Not Update",
     "overlay": "Add effect as overlay",
-    "normal": "add effect as icon"
+    "normal": "Add effect as icon"
   },
   "midi-qol.Wounded": "Wounded",
-  "midi-qol.AddWounded.Name": "Mark Wounded when hp falls below %",
-  "midi-qol.AddWounded.Hint": "Add Custom Convenient Effect 'Wounded' when HP are less than specified percentage of max. 0 disables.",
+  "midi-qol.AddWounded.Name": "Add effect when hp falls below %",
+  "midi-qol.AddWounded.Hint": "Add Selected status when HP are less than specified percentage of max. 0 disables.",
   "midi-qol.debugCallTiming.Name": "Log execution timing",
   "midi-qol.debugCallTiming.Hint": "Provide some log information about how long things take",
   "midi-qol.autoFailFriendly": "Auto Fail Friendly",

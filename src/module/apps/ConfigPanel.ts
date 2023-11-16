@@ -115,6 +115,8 @@ export class ConfigPanel extends FormApplication {
       RollSkillsBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().skills).reduce((acc, s) => { acc[s] = getSystemCONFIG().skills[s].label; return acc }, {})),
       RollSavesBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
       RollChecksBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
+      //@ts-expect-error
+      StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { acc[se.id] = i18n(se.name ?? se.label); return acc }, {"none": "None"}),
     };
 
     if (debugEnabled > 0) warn("Config Panel: getData ", data)

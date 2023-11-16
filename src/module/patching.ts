@@ -1,7 +1,7 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getConcentrationEffect, getConvenientEffectsBonusAction, getConvenientEffectsDead, getConvenientEffectsReaction, getConvenientEffectsUnconscious, getCriticalDamage, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, getToken, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, getUnconsciousStatus, getWoundedStatus, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -738,7 +738,7 @@ function _midiATIRefresh(template) {
       const centerDist = r.distance;
       if (centerDist > distance + maxExtension) return false;
       //@ts-expect-error tk.actor
-      if (["alwaysIgnoreIncapcitated", "wallsBlockIgnoreIncapcitated"].includes(configSettings.autoTarget) && checkIncapacitated(tk.actor))
+      if (["alwaysIgnoreIncapcitated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.autoTarget) && checkIncapacitated(tk.actor))
         return false;
       if (["alwaysIgnoreDefeated", "wallsBlockIgnoreDefeated"].includes(configSettings.autoTarget) && checkDefeated(tk))
         return false;
@@ -1193,22 +1193,21 @@ export async function checkWounded(actor, update, options, user) {
   if (configSettings.addWounded > 0 && hpUpdate !== undefined) {
     const woundedLevel = attributes.hp.max * configSettings.addWounded / 100;
     const needsWounded = hpUpdate > 0 && hpUpdate < woundedLevel && !needsBeaten;
-    if (installedModules.get("dfreds-convenient-effects")) {
-      const CEWoundedName = dfreds?.effects?._wounded.name;
-      const CEWounded = dfreds.effectInterface?.findEffectByName(CEWoundedName)?.toObject();
-      const wounded = await ConvenientEffectsHasEffect((CEWoundedName), actor, false);
+    if (installedModules.get("dfreds-convenient-effects") && getWoundedStatus()) {
+      const woundedStatus = getWoundedStatus();
+      //@ts-expect-error .name
+      const woundedName = woundedStatus?.name;
+      const wounded = await ConvenientEffectsHasEffect((woundedName), actor, false);
       if (wounded !== needsWounded) {
         if (needsWounded)
-          // await actor.createEmbeddedDocuments("ActiveEffect", [CEWounded])
-          await dfreds.effectInterface?.addEffectWith({ effectData: CEWounded, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
-        else await actor.effects.find(ef => ef.name === CEWoundedName)?.delete();
-        //await dfreds?.effectInterface?.toggleEffect(CEWounded.name, { overlay: false, uuids: [actor.uuid] });
+          await dfreds.effectInterface?.addEffectWith({ effectData: woundedStatus, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
+        else await actor.effects.find(ef => ef.name === woundedName)?.delete();
       }
     } else {
       const tokens = actor.getActiveTokens();
       const controlled = tokens.filter(t => t._controlled);
       const token = controlled.length ? controlled.shift() : tokens.shift();
-      const bleeding = CONFIG.statusEffects.find(se => se.id === "bleeding");
+      const bleeding = CONFIG.statusEffects.find(se => se.id === configSettings.midiWoundedCondition);
       if (bleeding && token) {
         if (!needsWounded) { 
           // Cater to the possibility that the setings changed while the effect was applied
@@ -1223,10 +1222,10 @@ export async function checkWounded(actor, update, options, user) {
     let effect;
     let useDefeated;
     if ((actor.type === "character" || actor.hasPlayerOwner) && !vitalityResource) {
-      effect = getConvenientEffectsUnconscious();
+      effect = getUnconsciousStatus();
       useDefeated = false;
     } else {
-      effect = getConvenientEffectsDead();
+      effect = getDeadStatus();
       useDefeated = true;
     }
 
@@ -1242,7 +1241,7 @@ export async function checkWounded(actor, update, options, user) {
         await combatant.update({ defeated: needsBeaten })
       }
       if (needsBeaten) {
-        await dfreds.effectInterface?.addEffectWith({ effectData: effect.toObject(), uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
+        await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
       } else { // remove beaten condition
         await dfreds.effectInterface?.removeEffect({ effectName: effect.name, uuid: actor.uuid })
       }
@@ -1251,7 +1250,7 @@ export async function checkWounded(actor, update, options, user) {
     const tokens = actor.getActiveTokens();
     const controlled = tokens.filter(t => t._controlled);
     const token = controlled.length ? controlled.shift() : tokens.shift();
-    const effectId = actor.type === "character" ? "unconscious" : "dead";
+    const effectId = actor.type === "character" ? configSettings.midiUnconsciousCondition : configSettings.midiDeadCondition;
     const effect = CONFIG.statusEffects.find(se => se.id === effectId);
     if (token && effect) {
       //@ts-expect-error need to have .name & .label since condition-lab-triggler uses label core statuseffects use name
@@ -1261,7 +1260,7 @@ export async function checkWounded(actor, update, options, user) {
         if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
         //@ts-expect-error
         else combatant = game.combat?.getCombatantByActor(actor.id);
-        if (combatant && effectId === "dead") await combatant.update({ defeated: needsBeaten });
+        if (combatant && effectId === configSettings.midiDeadCondition) await combatant.update({ defeated: needsBeaten });
         await token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: needsBeaten });
       }
     }
