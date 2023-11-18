@@ -1083,7 +1083,7 @@ export function readyPatching() {
   }
   // libWrapper.register("midi-qol", "CONFIG.ActiveEffect.documentClass.prototype._preDelete", _preDeleteActiveEffect, "WRAPPER");
   // libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype._preUpdate", _preUpdateActor, "WRAPPER");
-  libWrapper.register("midi-qol", "game.system.applications.DamageTraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
+  libWrapper.register("midi-qol", "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
 }
 
 export let visionPatching = () => {
@@ -1467,7 +1467,7 @@ export function migrateTraits(actor) {
       let trait = actor.system.traits[traitId];
       let baseTrait = baseData.system.traits[traitId];
       if (!trait) continue;
-      trait.value = [];
+      trait.value = new Set();
 
       if (trait.bypasses instanceof Set) {
         for (let traitString of baseTrait.value) {

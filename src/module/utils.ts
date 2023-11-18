@@ -2974,7 +2974,14 @@ function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
     if (item.system.preparation.mode !== "innate") return item.system.level <= maxLevel;
   }
   if (item.system.attunement === getSystemCONFIG().attunementTypes.REQUIRED) return false;
-  if (!item._getUsageUpdates({ consumeRecharge: item.system.recharge?.value, consumeResource: true, consumeSpellLevel: false, consumeUsage: item.system.uses?.max > 0, consumeQuantity: item.type === "consumable" })) return false;
+  //@ts-expect-error .version
+  if (isNewerVersion(game.system.version, "2.3.9")) {
+    if (!item._getUsageUpdates({consumeUsage: true, consumeResource: true, slotLevel: false, consumeQuantity: true}))
+      return false;
+  } else {
+    if (!item._getUsageUpdates({ consumeRecharge: item.system.recharge?.value, consumeResource: true, consumeSpellLevel: false, consumeUsage: item.system.uses?.max > 0, consumeQuantity: item.type === "consumable" })) 
+      return false;
+  }
   return true;
 }
 
@@ -3458,8 +3465,8 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
       else rollData.targetUuid = data.target.uuid;
       rollData.targetId = data.target.id;
       if (rollData.target.details.type?.value) rollData.raceOrType = rollData.target.details.type?.value.toLocaleLowerCase() ?? "";
-      else rollData.raceOrType = rollData.target.details.race?.toLocaleLowerCase() ?? "";
-    }
+      // cater to dnd5e 2.4 where race can be a string or an Item
+      else rollData.raceOrType = (rollData.target.details?.race?.name ?? rollData.target.details?.race)?.toLocaleLowerCase() ?? "";    }
     rollData.humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "drow", "dwarf", "dwarven", "halfling", "gnome", "tiefling", "orc", "dragonborn", "half-orc"];
     rollData.tokenUuid = data.workflow?.tokenUuid;
     rollData.tokenId = data.workflow?.tokenId;

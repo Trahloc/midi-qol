@@ -1,6 +1,6 @@
 ## Breaking News
 Added a ko-fi donation link https://ko-fi.com/tposney
-Discord link for my modules https://discord.gg/Xd4NEvw5d7
+Discord link for my modules https://discord.gg/CvNUBVBpT9
 
 ### Custom Sounds rewritten
 You will have to change your configuration

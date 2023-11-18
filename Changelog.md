@@ -1,3 +1,6 @@
+### 10.0.61
+* Fixes for dnd5e 2.4 compatibility
+
 ### 10.0.60
 * Fix for sw5e getting "undefined" for ability strings (Wisdom etc).
 
