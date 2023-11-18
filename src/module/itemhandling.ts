@@ -554,7 +554,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
     // It seems that sometimes the option is true/false but when passed to the roll the critical threshold needs to be a number
     if (wrappedOptions.critical === true || wrappedOptions.critical === false)
-      wrappedOptions.critical = this.getCriticalThreshold();
+      wrappedOptions.critical = this.criticalThreshold;
     if (wrappedOptions.fumble === true || wrappedOptions.fumble === false)
       delete wrappedOptions.fumble;
 

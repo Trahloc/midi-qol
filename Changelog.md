@@ -1,3 +1,18 @@
+## 11.2.1
+* Fixes for dnd5e 2.4 compatibility - should be backwards compatible with dnd5e 2.3
+* some clean up of config.html - should not have any effect - but....
+* removed dn5e-tooltips from incompatible module checks
+* Added support for acctor.system.details.race being a String or an Item.
+* Replace references to item.getCriticalThreshold() with item.criticalThreshold
+* **Breaking** added typeOrRace and changed raceOrType in condition evaluation
+  - typeOrRace will return the type if there is one, else the race.
+  - raceorType will (now) return the race if there is one else the type.
+  In most cases you will want to use typeOrRace rather than raceOrType.
+* Added ``MidiQOL.raceOrType(Actor|Token|TokenDocument|Uuid): string`` and
+``MidiQOL.typeOrRace(Actor|Token|TokenDocument|Uuid): string``
+
+
+
 ## 11.1.13
 * Fix for a couple of typos - thanks @thatLonelyBugbear and @Elwin
 * Change to wounded/unconscious/dead handling. Instead of fixed conditions, you can now specify the status effect to be applied for wounded/unconscious/dead.

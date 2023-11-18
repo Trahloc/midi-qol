@@ -25,11 +25,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.ConsumeResource.Name"}}</label>
           <select name="gmConsumeResource" data-dtype="String">
-            {{#select configSettings.gmConsumeResource}}
-            {{#each ConsumeResourceOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions ConsumeResourceOptions selected=configSettings.gmConsumeResource}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.ConsumeResource.Hint"}}</div>
@@ -37,11 +33,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.LateTargeting.Name"}}</label>
           <select name="gmLateTargeting" data-dtype="String">
-            {{#select configSettings.gmLateTargeting}}
-            {{#each LateTargetingOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions LateTargetingOptions selected=configSettings.gmLateTargeting}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.LateTargeting.Hint"}}</div>
@@ -55,11 +47,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.AutoDamage.Name"}}</label>
           <select name="gmAutoDamage" data-dtype="String">
-            {{#select configSettings.gmAutoDamage}}
-            {{#each autoRollDamageOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions autoRollDamageOptions selected=configSettings.gmAutoDamage}}
           </select>
         </div>
 
@@ -78,22 +66,14 @@
         <div class="form-group">
           <label>{{localize "midi-qol.RemoveButtons.Name"}}</label>
           <select name="gmRemoveButtons" data-dtype="String">
-            {{#select configSettings.gmRemoveButtons}}
-            {{#each removeButtonsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions removeButtonsOptions selected=configSettings.gmRemoveButtons}}
           </select>
         </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.HideRollDetails.Name"}}</label>
           <select name="hideRollDetails" data-dtype="String">
-            {{#select configSettings.hideRollDetails}}
-            {{#each hideRollDetailsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions hideRollDetailsOptions selected=configSettings.hideRollDetails}}
           </select>
         </div>
         <div>{{localize "midi-qol.HideRollDetails.Hint"}}</div>
@@ -128,11 +108,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.ConsumeResource.Name"}}</label>
           <select name="consumeResource" data-dtype="String">
-            {{#select configSettings.consumeResource}}
-            {{#each ConsumeResourceOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions ConsumeResourceOptions selected=configSettings.consumeResource}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.ConsumeResource.Hint"}}</div>
@@ -140,33 +116,21 @@
         <div class="form-group">
           <label>{{localize "midi-qol.AutoDamage.Name"}}</label>
           <select name="autoRollDamage" data-dtype="String">
-            {{#select configSettings.autoRollDamage}}
-            {{#each autoRollDamageOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions autoRollDamageOptions selected=configSettings.autoRollDamage}}
           </select>
         </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.AutoFastForward.Name"}}</label>
           <select name="autoFastForward" data-dtype="String">
-            {{#select configSettings.autoFastForward}}
-            {{#each clickOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions clickOptions selected=configSettings.autoFastForward}}
           </select>
         </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.RemoveButtons.Name"}}</label>
           <select name="removeButtons" data-dtype="String">
-            {{#select configSettings.removeButtons}}
-            {{#each removeButtonsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions removeButtonsOptions selected=configSettings.removeButtons}}
           </select>
         </div>
 
@@ -181,11 +145,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.AutoTarget.Name"}}</label>
           <select name="autoTarget" data-dtype="String">
-            {{#select configSettings.autoTarget}}
-            {{#each autoTargetOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions autoTargetOptions selected=configSettings.autoTarget}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.AutoTarget.Hint"}}</div>
@@ -199,11 +159,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.RangeTarget.Name"}}</label>
           <select name="rangeTarget" data-dtype="String">
-            {{#select configSettings.rangeTarget}}
-            {{#each rangeTargetOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions rangeTargetOptions selected=configSettings.rangeTarget}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.RangeTarget.Hint"}}</div>
@@ -212,11 +168,7 @@
           <div class="form-group">
             <label>{{localize "midi-qol.RequiresTargets.Name"}}</label>
             <select name="requiresTargets" data-dtype="String">
-              {{#select configSettings.requiresTargets}}
-              {{#each requiresTargetsOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+              {{selectOptions requiresTargetsOptions selected=configSettings.requiresTargets}}
             </select>
           </div>
           <div class="midi-qol-faint">{{localize "midi-qol.RequiresTargets.Hint"}}</div>
@@ -235,11 +187,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.AutoEffects.Name"}}</label>
           <select name="autoItemEffects" data-dtype="String">
-            {{#select configSettings.autoItemEffects}}
-            {{#each AutoEffectsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions AutoEffectsOptions selected=configSettings.autoItemEffects}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.AutoEffects.Hint"}}</div>
@@ -248,21 +196,10 @@
         <div class="form-group">
           <label>{{localize "midi-qol.AutoCEEffects.Name"}}</label>
           <select name="autoCEEffects" data-dtype="String">
-            {{#select configSettings.autoCEEffects}}
-            {{#each AutoCEEffectsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions AutoCEEffectsOptions selected=configSettings.autoCEEffects}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.AutoCEEffects.Hint"}}</div>
-        {{#if false}}
-        <div class="form-group">
-          <label>{{localize "midi-qol.AutoCEEffects.Name"}}</label>
-          <input type="checkbox" name="autoCEEffects" data-dtype="Boolean" {{checked configSettings.autoCEEffects}} />
-        </div>
-        <div class="midi-qol-faint">{{localize "midi-qol.AutoCEEffects.Hint"}}</div>
-        {{/if}}
         {{/if}}
 
         {{#if false}}
@@ -280,11 +217,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.AutoCheckHit.Name"}}</label>
           <select name="autoCheckHit" data-dtype="String">
-            {{#select configSettings.autoCheckHit}}
-            {{#each autoCheckHitOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions autoCheckHitOptions selected=configSettings.autoCheckHit}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.AutoCheckHit.Hint"}}</div>
@@ -307,11 +240,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.AutoCheckSaves.Name"}}</label>
           <select name="autoCheckSaves" data-dtype="String">
-            {{#select configSettings.autoCheckSaves}}
-            {{#each autoCheckSavesOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions autoCheckSavesOptions selected=configSettings.autoCheckSaves}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.AutoCheckSaves.Hint"}}</div>
@@ -344,11 +273,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.PlayerRollSaves.Name"}}</label>
           <select name="playerRollSaves" data-dtype="String">
-            {{#select configSettings.playerRollSaves}}
-            {{#each playerRollSavesOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions playerRollSavesOptions selected=configSettings.playerRollSaves}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.PlayerRollSaves.Hint"}}</div>
@@ -356,22 +281,14 @@
         <div class="form-group">
           <label>{{localize "midi-qol.rollNPCSaves.Name"}}</label>
           <select name="rollNPCSaves" data-dtype="String">
-            {{#select configSettings.rollNPCSaves}}
-            {{#each rollNPCSavesOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions rollNPCSavesOptions selected=configSettings.rollNPCSaves}}
           </select>
         </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.rollNPCLinkedSaves.Name"}}</label>
           <select name="rollNPCLinkedSaves" data-dtype="String">
-            {{#select configSettings.rollNPCLinkedSaves}}
-            {{#each rollNPCSavesOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions rollNPCSavesOptions selected=configSettings.rollNPCLinkedSaves}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.rollNPCSaves.Hint"}}</div>
@@ -397,22 +314,14 @@
           <div class="form-group">
             <label>{{localize "midi-qol.AutoApplyDamage.Name"}}</label>
             <select name="autoApplyDamage" data-dtype="String">
-              {{#select configSettings.autoApplyDamage}}
-              {{#each autoApplyDamageOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+              {{selectOptions autoApplyDamageOptions selected=configSettings.autoApplyDamage}}
             </select>
           </div>
 
           <div class="form-group">
             <label>{{localize "midi-qol.PlayerDamageCard.Name"}}</label>
             <select name="playerDamageCard" data-dtype="String">
-              {{#select configSettings.playerDamageCard}}
-              {{#each playerDamageCardOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+              {{selectOptions playerDamageCardOptions selected=configSettings.playerDamageCard}}
             </select>
           </div>
           <div class="midi-qol-faint">{{localize "midi-qol.PlayerDamageCard.Hint"}}</div>
@@ -427,11 +336,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.DamageImmunities.Name"}}</label>
           <select name="damageImmunities" data-dtype="String">
-            {{#select configSettings.damageImmunities}}
-            {{#each damageImmunitiesOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions damageImmunitiesOptions selected=configSettings.damageImmunities}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.DamageImmunities.Hint"}}</div>
@@ -457,11 +362,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.RequireMagical.Name"}}</label>
           <select name="requireMagical" data-dtype="String">
-            {{#select configSettings.requireMagical}}
-            {{#each RequireMagicalOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions RequireMagicalOptions selected=configSettings.requireMagical}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.RequireMagical.Hint"}}</div>
@@ -469,30 +370,18 @@
         <div class="form-group">
           <label>{{localize "midi-qol.RollOtherDamage.Name"}}</label>
           <select name="rollOtherDamage" data-dtype="String">
-            {{#select configSettings.rollOtherDamage}}
-            {{#each rollOtherDamageOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions rollOtherDamageOptions selected=configSettings.rollOtherDamage}}
           </select>
         </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.RollOtherSpellDamage.Name"}}</label>
           <select name="rollOtherSpellDamage" data-dtype="String">
-            {{#select configSettings.rollOtherSpellDamage}}
-            {{#each rollOtherDamageOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions rollOtherDamageOptions selected=configSettings.rollOtherSpellDamage}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.RollOtherDamage.Hint"}}</div>
-
-
       </div>
-
-
     </div>
 
     <!-- Concentration tab-->
@@ -531,17 +420,13 @@
         <div class="form-group">
           <label>{{localize "midi-qol.RemoveConcentrationEffects.Name"}}</label>
           <select name="removeConcentrationEffects" data-dtype="String">
-            {{#select configSettings.removeConcentrationEffects}}
-            {{#each RemoveConcentrationEffectsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions RemoveConcentrationEffectsOptions selected=configSettings.removeConcentrationEffects}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.RemoveConcentrationEffects.Hint"}}</div>
       </div>
     </div>
-    
+
     <!-- Reactions tab-->
     <div class="tab" data-tab="reactions" data-group="sections">
       <div class="midi-qol-box">
@@ -551,22 +436,14 @@
         <div class="form-group">
           <label>{{localize "midi-qol.DoReactions.Name"}}</label>
           <select name="doReactions" data-dtype="String">
-            {{#select configSettings.doReactions}}
-            {{#each doReactionsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions doReactionsOptions selected=configSettings.doReactions}}
           </select>
         </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.GMDoReactions.Name"}}</label>
           <select name="gmDoReactions" data-dtype="String">
-            {{#select configSettings.gmDoReactions}}
-            {{#each gmDoReactionsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions gmDoReactionsOptions selected=configSettings.gmDoReactions}}
           </select>
         </div>
 
@@ -585,11 +462,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.ShowReactionAttackRoll.Name"}}</label>
           <select name="showReactionAttackRoll" data-dtype="String">
-            {{#select configSettings.showReactionAttackRoll}}
-            {{#each showReactionAttackRollOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions showReactionAttackRollOptions selected=configSettings.showReactionAttackRoll}}
           </select>
         </div>
 
@@ -603,21 +476,13 @@
         <div class="form-group">
           <label>{{localize "midi-qol.EnforceReactions.Name"}}</label>
           <select name="enforceReactions" data-dtype="String">
-            {{#select configSettings.enforceReactions}}
-            {{#each EnforceReactionsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions EnforceReactionsOptions selected=configSettings.enforceReactions}}
           </select>
         </div>
         <div class="form-group">
           <label>{{localize "midi-qol.EnforceBonusActions.Name"}}</label>
           <select name="enforceBonusActions" data-dtype="String">
-            {{#select configSettings.enforceBonusActions}}
-            {{#each EnforceReactionsOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions EnforceReactionsOptions selected=configSettings.enforceBonusActions}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.EnforceReactions.Hint"}}</div>
@@ -625,11 +490,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.RecordAOO.Name"}}</label>
           <select name="recordAOO" data-dtype="String">
-            {{#select configSettings.recordAOO}}
-            {{#each RecordAOOOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions RecordAOOOptions selected=configSettings.recordAOO}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.RecordAOO.Hint"}}</div>
@@ -643,19 +504,11 @@
           <div class="flexrow 5">
             <label style="flex-grow: 2">{{localize "midi-qol.AddWounded.Name"}}</label>
             <input type="number" style="width:40px;" name="addWounded" value="{{configSettings.addWounded}}" />
-            <select name="midiWoundedCondition" data-dtype="String" style="flex-grow: 1">
-              {{#select configSettings.midiWoundedCondition}}
-              {{#each StatusEffectOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+            <select name="midiWoundedCondition" data-dtype="String">
+              {{selectOptions StatusEffectOptions selected=configSettings.midiWoundedCondition}}
             </select>
             <select name="addWoundedStyle" data-dtype="String">
-              {{#select configSettings.addWoundedStyle}}
-              {{#each AddWoundedOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+              {{selectOptions AddWoundedOptions selected=configSettings.addWoundedStyle}}
             </select>
           </div>
         </div>
@@ -670,26 +523,14 @@
         <div class="form-group">
           <div class="flexrow 5">
             <label style="flex-grow: 2">{{localize "midi-qol.AddDead.Name"}}</label>
-            <select name="midiUnconsciousCondition" data-dtype="String" style="flex-grow: 1">
-              {{#select configSettings.midiUnconsciousCondition}}
-              {{#each StatusEffectOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+            <select name="midiUnconsciousCondition" data-dtype="String">
+              {{selectOptions StatusEffectOptions selected=configSettings.midiUnconsciousCondition}}
             </select>
-            <select name="midiDeadCondition" data-dtype="String" style="flex-grow: 1">
-              {{#select configSettings.midiDeadCondition}}
-              {{#each StatusEffectOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+            <select name="midiDeadCondition" data-dtype="String">
+              {{selectOptions StatusEffectOptions selected=configSettings.midiDeadCondition}}
             </select>
             <select name="addDead" data-dtype="String">
-              {{#select configSettings.addDead}}
-              {{#each AddDeadOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+              {{selectOptions AddDeadOptions selected=configSettings.addDead}}
             </select>
           </div>
         </div>
@@ -735,22 +576,14 @@
         <div class="form-group">
           <label>{{localize "midi-qol.CheckRange.Name"}}</label>
           <select name="optionalRules.checkRange" data-dtype="String">
-            {{#select configSettings.optionalRules.checkRange}}
-            {{#each CheckRangeOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions CheckRangeOptions selected=configSettings.optionalRules.checkRange}}
           </select>
         </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.WallsBlockRange.Name"}}</label>
           <select name="optionalRules.wallsBlockRange" data-dtype="String">
-            {{#select configSettings.optionalRules.wallsBlockRange}}
-            {{#each wallsBlockRangeOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions wallsBlockRangeOptions selected=configSettings.optionalRules.wallsBlockRange}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint1"}}</div>
@@ -762,11 +595,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.CoverCalculation.Name"}}</label>
           <select name="optionalRules.coverCalculation" data-dtype="String">
-            {{#select configSettings.optionalRules.coverCalculation}}
-            {{#each CoverCalculationOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions CoverCalculationOptions selected=configSettings.optionalRules.coverCalculation}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.CoverCalculation.Hint"}}</div>
@@ -834,11 +663,7 @@
           <div class="form-group">
             <label>{{localize "midi-qol.CheckFlanking.Name"}}</label>
             <select name="optionalRules.checkFlanking" data-dtype="String">
-              {{#select configSettings.optionalRules.checkFlanking}}
-              {{#each checkFlankingOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+              {{selectOptions checkFlankingOptions selected=configSettings.optionalRules.checkFlanking}}
             </select>
           </div>
           <div class="midi-qol-faint">{{localize "midi-qol.CheckFlanking.Hint"}}</div>
@@ -847,11 +672,7 @@
             <div class="form-group">
               <label>{{localize "midi-qol.InvisAdvantage.Name"}}</label>
               <select name="optionalRules.invisAdvantage" data-dtype="String">
-                {{#select configSettings.optionalRules.invisAdvantage}}
-                {{#each InvisAdvantageOptions as |label val|}}
-                <option value="{{val}}">{{label}}</option>
-                {{/each}}
-                {{/select}}
+                {{selectOptions InvisAdvantageOptions selected=configSettings.optionalRules.invisAdvantage}}
               </select>
             </div>
             <div class="midi-qol-faint">{{localize "midi-qol.InvisAdvantage.Hint"}}</div>
@@ -1030,11 +851,7 @@
           <div style="flex-grow:3">
             <label>{{localize "midi-qol.ShowItemDetails.Name"}}</label>
             <select name="showItemDetails" data-dtype="String">
-              {{#select configSettings.showItemDetails}}
-              {{#each showItemDetailsOptions as |label val|}}
-              <option value="{{val}}">{{label}}</option>
-              {{/each}}
-              {{/select}}
+              {{selectOptions showItemDetailsOptions selected=configSettings.showItemDetails}}
             </select>
             <label>{{localize "midi-qol.DisplayItems"}}</label>
             <a class="itemTypeListEdit" style="flex-shrink:3" data-action="edit"
@@ -1067,11 +884,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.ConfirmAttackDamage.Name"}}</label>
           <select name="confirmAttackDamage" data-dtype="String">
-            {{#select configSettings.confirmAttackDamage}}
-            {{#each ConfirmAttackDamageOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions ConfirmAttackDamageOptions selected=configSettings.confirmAttackDamage}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.ConfirmAttackDamage.Hint"}}</div>
@@ -1086,11 +899,7 @@
         <div class="form-group">
           <label>{{localize "midi-qol.RollAlternate.Name"}}</label>
           <select name="rollAlternate" data-dtype="String">
-            {{#select configSettings.rollAlternate}}
-            {{#each rollAlternateOptions as |label val|}}
-            <option value="{{val}}">{{label}}</option>
-            {{/each}}
-            {{/select}}
+            {{selectOptions rollAlternateOptions selected=configSettings.rollAlternate}}
           </select>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.RollAlternate.Hint"}}</div>

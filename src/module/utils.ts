@@ -3240,7 +3240,14 @@ function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
     if (item.system.preparation.mode !== "innate") return item.system.level <= maxLevel;
   }
   if (item.system.attunement === getSystemCONFIG().attunementTypes.REQUIRED) return false;
-  if (!item._getUsageUpdates({ consumeRecharge: item.system.recharge?.value, consumeResource: true, consumeSpellLevel: false, consumeUsage: item.system.uses?.max > 0, consumeQuantity: item.type === "consumable" })) return false;
+  //@ts-expect-error .version
+  if (isNewerVersion(game.system.version, "2.3.9")) {
+    if (!item._getUsageUpdates({consumeUsage: true, consumeResource: true, slotLevel: false}))
+      return false;
+  } else {
+    if (!item._getUsageUpdates({ consumeRecharge: item.system.recharge?.value, consumeResource: true, consumeSpellLevel: false, consumeUsage: item.system.uses?.max > 0, consumeQuantity: item.type === "consumable" })) 
+      return false;
+  }
   return true;
 }
 
@@ -3747,6 +3754,25 @@ export function evalActivationCondition(workflow: Workflow, condition: string | 
   return returnValue;
 }
 
+export function typeOrRace(entity: Token | Actor | TokenDocument | string): string {
+  const actor: Actor | null = getActor(entity);
+  //@ts-expect-error .system
+  const systemData = actor?.system;
+  if (!systemData) return "";
+  if (systemData.details.type?.value) return systemData.details.type?.value.toLocaleLowerCase() ?? "";
+  // cater to dnd5e 2.4+ where race can be a string or an Item
+  else return (systemData.details?.race?.name ?? systemData.details?.race)?.toLocaleLowerCase() ?? "";
+}
+
+export function raceOrType(entity: Token | Actor | TokenDocument | string): string {
+  const actor: Actor | null = getActor(entity);
+  //@ts-expect-error .system
+  const systemData = actor?.system;
+  if (!systemData) return "";
+  if(systemData.details.race) return (systemData.details?.race?.name ?? systemData.details?.race)?.toLocaleLowerCase() ?? "";
+  return systemData.details.type?.value.toLocaleLowerCase() ?? "";
+}
+
 export function createConditionData(data: { workflow: Workflow | undefined, target: Token | TokenDocument | undefined, actor: Actor | undefined }) {
   const actor = data.workflow?.actor ?? data.actor;
   const rollData = data.workflow?.otherDamageItem?.getRollData() ?? actor?.getRollData() ?? {};
@@ -3759,8 +3785,8 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
       rollData.targetId = data.target.id;
       rollData.targetActorUuid = data.target.actor?.uuid;
       rollData.targetActorId = data.target.actor?.id;
-      if (rollData.target.details.type?.value) rollData.raceOrType = rollData.target.details.type?.value.toLocaleLowerCase() ?? "";
-      else rollData.raceOrType = rollData.target.details?.race?.toLocaleLowerCase() ?? "";
+      rollData.raceOrType = data.target.actor ? raceOrType(data.target.actor) : "";
+      rollData.typeOrRace = data.target.actor ? typeOrRace(data.target.actor) : ""; 
     }
     rollData.humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "drow", "dwarf", "dwarven", "halfling", "gnome", "tiefling", "orc", "dragonborn", "half-orc"];
     rollData.tokenUuid = data.workflow?.tokenUuid;

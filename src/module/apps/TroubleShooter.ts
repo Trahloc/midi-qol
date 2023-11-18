@@ -530,7 +530,6 @@ export class TroubleShooter extends FormApplication {
         case "attack-roll-check-5e":
         case "betterrolls5e":
         case "dice-rng-protector":
-        case "dice-tooltip":
         case "effective-transferral":
         case "fast-rolls":
         case "faster-rolling-by-default-5e":
