@@ -3242,7 +3242,7 @@ function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
   if (item.system.attunement === getSystemCONFIG().attunementTypes.REQUIRED) return false;
   //@ts-expect-error .version
   if (isNewerVersion(game.system.version, "2.3.9")) {
-    if (!item._getUsageUpdates({consumeUsage: true, consumeResource: true, slotLevel: false}))
+    if (!item._getUsageUpdates({consumeUsage: item.hasLimitedUses, consumeResource: item.hasResource, slotLevel: false}))
       return false;
   } else {
     if (!item._getUsageUpdates({ consumeRecharge: item.system.recharge?.value, consumeResource: true, consumeSpellLevel: false, consumeUsage: item.system.uses?.max > 0, consumeQuantity: item.type === "consumable" })) 

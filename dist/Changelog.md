@@ -1,3 +1,6 @@
+## 11.2.1.1
+* Fix for not being able to use feat reactions thanks @thatlonelybugbear
+
 ## 11.2.1
 * Fixes for dnd5e 2.4 compatibility - should be backwards compatible with dnd5e 2.3
 * some clean up of config.html - should not have any effect - but....
