@@ -272,3 +272,25 @@
   background-color: #861b1b;
   color: #fff;
 }
+
+.midi-qol .grid {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    gap: 10px;
+    width: 300; /* You can adjust the width as needed */
+}
+
+.midi-qol .grid-item {
+    width: 50px;
+    height: 50px;
+    margin: 10px;
+    background-color: grey;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.midi-qol .grid-item.selected {
+    background-color: green;
+}

@@ -1,7 +1,7 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, getUnconsciousStatus, getWoundedStatus, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, getUnconsciousStatus, getWoundedStatus, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -411,7 +411,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
 
     result = await wrapped(abilityId, procOptions);
     if (success === false) {
-      result = new Roll("-1[auto fail]").evaluate({async: false})
+      result = new Roll("-1[auto fail]").evaluate({ async: false })
     }
     if (!result) return result;
     const maxFlags = getProperty(this.flags, "midi-qol.max.ability") ?? {};
@@ -811,6 +811,56 @@ export function _prepareDerivedData(wrapped, ...args) {
     TroubleShooter.recordError(err, message);
   }
 }
+function _measureDistances(segments, options = {}) {
+  // Track the total number of diagonals
+  let nDiagonal = 0;
+  const rule = this.parent.diagonalRule;
+  const d = canvas?.dimensions;
+  //@ts-expect-error .grid
+  const grid = canvas?.scene?.grid;
+  if (!d || !d.size) return 0;
+
+  // Iterate over measured segments
+  return segments.map(s => {
+    let r = s.ray;
+
+    // Determine the total distance traveled
+    let nx = Math.floor(Math.abs(r.dx / d.size) + 0.5);
+    let ny = Math.floor(Math.abs(r.dy / d.size) + 0.5);
+
+    // Determine the number of straight and diagonal moves
+    let nd = Math.min(nx, ny);
+    let ns = Math.abs(ny - nx);
+    nDiagonal += nd;
+
+    // Alternative DMG Movement
+    if (rule === "5105") {
+      let nd10 = Math.floor(nDiagonal / 2) - Math.floor((nDiagonal - nd) / 2);
+      let spaces = (nd10 * 2) + (nd - nd10) + ns;
+      return spaces * d.distance;
+    }
+
+    // Euclidean Measurement
+    else if (rule === "EUCL") {
+      error("_measureDistances | rule should not be EUCL")
+      return Math.hypot(nx, ny) * grid?.distance;
+    }
+
+    // Standard PHB Movement
+    else return Math.max(nx, ny) * grid.distance;
+  });
+}
+
+function measureDistances(wrapped, segments, options: any = {}) {
+  if (configSettings.griddedGridless && options.gridSpaces) {
+    const rule = this.parent.diagonalRule;
+    if (options.gridSpaces && ["555", "5105"].includes(rule)) {
+      const distances = _measureDistances.call(this, segments, options);
+      return distances;
+    }
+  }
+  return wrapped(segments, options);
+}
 
 export function initPatching() {
   libWrapper = globalThis.libWrapper;
@@ -821,6 +871,7 @@ export function initPatching() {
   libWrapper.register("midi-qol", "KeyboardManager.prototype._onFocusIn", _onFocusIn, "OVERRIDE");
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getRollData", actorGetRollData, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.getRollData", itemGetRollData, "WRAPPER");
+  libWrapper.register("midi-qol", "BaseGrid.prototype.measureDistances", measureDistances, "MIXED");
 }
 
 export function _onFocusIn(event) {
@@ -844,8 +895,23 @@ export function actorPrepareData(wrapped) {
         }
       }
     }
+    processTraits(this);
     wrapped();
     prepareOnUseMacroData(this);
+    /*
+    const deprecatedKeys = ["silver", "adamant", "spell", "nonmagic", "magic", "physical"];
+    for (let traitKey of ["dr", "di", "dv", "sdr", "sdi", "sdv"]) {
+      for (let deprecatedKey of deprecatedKeys) {
+        if (this.system.traits[traitKey]?.value.has(deprecatedKey)) {
+          const message = `MidiQOL ${traitKey} value ${deprecatedKey} is no longer supported in Actor ${this.name} ${this.uuid} .Set in custom traits instead`
+          if (ui.notifications)
+            ui.notifications?.error(message);
+          else error(message);
+          TroubleShooter.recordError(new Error("Trait key invalid"), message);
+        }
+      }
+    }
+    */
   } catch (err) {
     const message = `actor prepare data ${this?.name}`;
     TroubleShooter.recordError(err, message);
@@ -1090,7 +1156,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
           const effectsToDelete = getItemEffectsToDelete({ actor: targetActor, origin: concentrationData.uuid, ignore: [deleteEffectUuid ?? ""], ignoreTransfer: true, options });
           if (effectsToDelete?.length > 0) {
             const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
-            if (debugEnabled > 0) warn("removeConcentration | removing effects", actor?.name, effectsToDelete, options);  
+            if (debugEnabled > 0) warn("removeConcentration | removing effects", actor?.name, effectsToDelete, options);
             promises.push(socketlibSocket.executeAsGM("deleteEffects", {
               actorUuid: target.actorUuid, effectsToDelete,
               options: mergeObject(deleteOptions, { concentrationEffectsDeleted: true })
@@ -1103,7 +1169,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
       const concentrationEffect = getConcentrationEffect(actor);
       // remove concentration if the concentration not removed and the deleted effect is not the concentration effect
       if (concentrationEffect?.id && !options.concentrationDeleted && deleteEffectUuid !== concentrationEffect.uuid) {
-      if (debugEnabled > 0) warn("removeConcentration | removing concentration effect", actor.name, concentrationEffect?.id, options);
+        if (debugEnabled > 0) warn("removeConcentration | removing concentration effect", actor.name, concentrationEffect?.id, options);
         promises.push(actor?.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id],
           mergeObject(options, { concentrationDeleted: true, concentrationEffectsDeleted: true })));
       }
@@ -1190,78 +1256,72 @@ export async function checkWounded(actor, update, options, user) {
   if (hpUpdate === undefined && (!vitalityResource || vitalityUpdate === undefined)) return;
   const attributes = actor.system.attributes;
   const needsBeaten = vitalityResource ? vitalityUpdate <= 0 : hpUpdate <= 0;
-  if (configSettings.addWounded > 0 && hpUpdate !== undefined) {
+  if (configSettings.addWounded > 0 && hpUpdate !== undefined && configSettings.addWoundedStyle !== "none") {
     const woundedLevel = attributes.hp.max * configSettings.addWounded / 100;
     const needsWounded = hpUpdate > 0 && hpUpdate < woundedLevel && !needsBeaten;
-    if (installedModules.get("dfreds-convenient-effects") && getWoundedStatus()) {
-      const woundedStatus = getWoundedStatus();
-      //@ts-expect-error .name
-      const woundedName = woundedStatus?.name;
-      const wounded = await ConvenientEffectsHasEffect((woundedName), actor, false);
+    const woundedStatus = getWoundedStatus();
+    if (!woundedStatus) {
+      const message = "wounded status condition not set - please update your midi-qol dead condition on the mechanics tab";
+      TroubleShooter.recordError(new Error(message), "In check wounded");
+      ui.notifications?.error(`midi-qol | ${message}`);
+    } else if (installedModules.get("dfreds-convenient-effects")) {
+      const wounded = await ConvenientEffectsHasEffect((woundedStatus.name), actor, false);
       if (wounded !== needsWounded) {
         if (needsWounded)
           await dfreds.effectInterface?.addEffectWith({ effectData: woundedStatus, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
-        else await actor.effects.find(ef => ef.name === woundedName)?.delete();
+        else await actor.effects.find(ef => ef.name === woundedStatus.name)?.delete();
       }
     } else {
-      const tokens = actor.getActiveTokens();
-      const controlled = tokens.filter(t => t._controlled);
-      const token = controlled.length ? controlled.shift() : tokens.shift();
-      const bleeding = CONFIG.statusEffects.find(se => se.id === configSettings.midiWoundedCondition);
-      if (bleeding && token) {
-        if (!needsWounded) { 
+      const token = tokenForActor(actor);
+      if (woundedStatus && token) {
+        if (!needsWounded) {
           // Cater to the possibility that the setings changed while the effect was applied
-          await token.toggleEffect(bleeding.icon, { overlay: true, active: false });
-          await token.toggleEffect(bleeding.icon, { overlay: false, active: false });
-        } else
-          await token.toggleEffect(bleeding.icon, { overlay: configSettings.addWoundedStyle === "overlay", active: true });
+          await token.toggleEffect(woundedStatus, { overlay: true, active: false });
+          await token.toggleEffect(woundedStatus, { overlay: false, active: false });
+        } else {
+          //@ts-expect-error hasStatusEffect
+          if (!token.document.hasStatusEffect(woundedStatus.id))
+            await token.toggleEffect(woundedStatus, { overlay: configSettings.addWoundedStyle === "overlay", active: true });
+        }
       }
     }
   }
-  if (configSettings.addDead !== "none" && installedModules.get("dfreds-convenient-effects")) {
-    let effect;
-    let useDefeated;
+  if (configSettings.addDead !== "none") {
+    let effect: any = getDeadStatus();
+    let useDefeated = true;
+
     if ((actor.type === "character" || actor.hasPlayerOwner) && !vitalityResource) {
       effect = getUnconsciousStatus();
       useDefeated = false;
+    }
+    if (effect && installedModules.get("dfreds-convenient-effects")) {
+        const isBeaten = actor.effects.find(ef => ef.name === effect?.name) !== undefined;
+        if ((needsBeaten !== isBeaten)) {
+          let combatant;
+          if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
+          //@ts-ignore
+          else combatant = game.combat?.getCombatantByActor(actor.id);
+          if (combatant && useDefeated) {
+            await combatant.update({ defeated: needsBeaten })
+          }
+          if (needsBeaten) {
+            await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
+          } else { // remove beaten condition
+            await dfreds.effectInterface?.removeEffect({ effectName: effect?.name, uuid: actor.uuid })
+          }
+        }
     } else {
-      effect = getDeadStatus();
-      useDefeated = true;
-    }
-
-    // TODO this relies on the defeated condition having the sanme name/label as the CE dead condition
-    const isBeaten = actor.effects.find(ef => ef.name === effect.name) !== undefined;
-
-    if ((needsBeaten !== isBeaten)) {
-      let combatant;
-      if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
-      //@ts-ignore
-      else combatant = game.combat?.getCombatantByActor(actor.id);
-      if (combatant && useDefeated) {
-        await combatant.update({ defeated: needsBeaten })
-      }
-      if (needsBeaten) {
-        await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
-      } else { // remove beaten condition
-        await dfreds.effectInterface?.removeEffect({ effectName: effect.name, uuid: actor.uuid })
-      }
-    }
-  } else if (configSettings.addDead !== "none") {
-    const tokens = actor.getActiveTokens();
-    const controlled = tokens.filter(t => t._controlled);
-    const token = controlled.length ? controlled.shift() : tokens.shift();
-    const effectId = actor.type === "character" ? configSettings.midiUnconsciousCondition : configSettings.midiDeadCondition;
-    const effect = CONFIG.statusEffects.find(se => se.id === effectId);
-    if (token && effect) {
-      //@ts-expect-error need to have .name & .label since condition-lab-triggler uses label core statuseffects use name
-      const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect.name ?? effect?.label ?? ""))) !== undefined;
-      if (isBeaten !== needsBeaten) {
-        let combatant;
-        if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
-        //@ts-expect-error
-        else combatant = game.combat?.getCombatantByActor(actor.id);
-        if (combatant && effectId === configSettings.midiDeadCondition) await combatant.update({ defeated: needsBeaten });
-        await token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: needsBeaten });
+      const token = tokenForActor(actor);
+      if (token) {
+        const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect.name ?? effect?.label ?? ""))) !== undefined;
+        if (isBeaten !== needsBeaten) {
+          let combatant;
+          if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
+          //@ts-expect-error
+          else combatant = game.combat?.getCombatantByActor(actor.id);
+          if (combatant && useDefeated) await combatant.update({ defeated: needsBeaten });
+          if (effect) await token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: needsBeaten });
+        }
       }
     }
   }
@@ -1696,7 +1756,59 @@ class CustomizeDamageFormula {
   }
 
 }
+export function processTraits(actor) {
+  try {
+    const baseData = actor.toObject(true);
+    for (let traitId of ["di", "dr", "dv", "sdi", "sdr", "sdv"]) {
+      let trait = actor.system.traits[traitId];
+      let baseTrait = baseData.system.traits[traitId];
+      if (!trait) continue;
+      if (!trait.value) trait.value = new Set();
+      for (let traitString of trait.value) {
+        switch (traitString) {
+          case "silver":
+            trait.bypasses.add("sil");
+            addPhysicalDamages(trait.value);
+            break
+          case "adamant":
+            trait.bypasses.add("ada");
+            addPhysicalDamages(trait.value);
+            break
+          case "physical":
+            addPhysicalDamages(trait.value);
+            break;
+          case "nonmagic":
+            addPhysicalDamages(trait.value);
+            trait.bypasses.add("mgc");
+            break;
+          case "spell":
+            // trait.custom = addCustomTrait(trait.custom, i18n("midi-qol.spell-damage"));
+            break
+          case "power":
+            // trait.custom = addCustomTrait(trait.custom, i18n("midi-qol.power-damage"));
+            break
+          case "magic":
+            // trait.custom = addCustomTrait(trait.custom, i18n("midi-qol.Magical"));
+            break
+          case "healing":
+            // trait.custom = addCustomTrait(trait.custom, getSystemCONFIG().healingTypes.healing);
+            break
+          case "temphp":
+            // trait.custom = addCustomTrait(trait.custom, getSystemCONFIG().healingTypes.temphp);
+            break
+          default:
+            trait.value.add(traitString);
+        }
+      }
+    }
 
+  } catch (err) {
+    const message = `midi-qol | migrateTraits error for ${actor?.name}`;
+    console.warn(message, this, err);
+    TroubleShooter.recordError(err, message);
+  } finally {
+  }
+}
 export function migrateTraits(actor) {
   try {
     const baseData = actor.toObject(true);
@@ -1859,7 +1971,7 @@ function addCustomTrait(customTraits: string, customTrait: string): string {
 function preDamageTraitSelectorGetData(wrapped) {
   try {
     // migrate di/dr/dv and strip out active effect data.
-    if (this.object instanceof Actor) migrateTraits(this.object);
+    if (this.object instanceof Actor) processTraits(this.object);
   } catch (err) {
     const message = `preDamageTraitSelectorGetData | migrate traits error`;
     error(message, err);

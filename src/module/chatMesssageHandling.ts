@@ -2,7 +2,7 @@ import { debug, warn, i18n, error, gameStats, debugEnabled, MQdefaultDamageType,
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { BetterRollsWorkflow, DDBGameLogWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll } from "./settings.js";
-import { createDamageList, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat, getConcentrationLabel, itemRequiresConcentration } from "./utils.js";
+import { createDamageDetail, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat, getConcentrationLabel, itemRequiresConcentration } from "./utils.js";
 import { shouldRollOtherDamage } from "./itemhandling.js";
 import { socketlibSocket } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
@@ -559,7 +559,7 @@ export let chatDamageButtons = (message, html, data) => {
     // find the item => workflow => damageList, totalDamage
     const defaultDamageType = (item?.system.damage.parts[0] && item?.system.damage?.parts[0][1]) ?? "bludgeoning";
     // TODO fix this for versatile damage
-    const damageList = createDamageList({ roll: message.rolls[0], item, ammo: null, versatile: false, defaultType: defaultDamageType });
+    const damageList = createDamageDetail({ roll: message.rolls[0], item, ammo: null, versatile: false, defaultType: defaultDamageType });
     const totalDamage = message.rolls[0].total;
     addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, "damage", ".dice-total", "position:relative; top:5px; color:blue");
   } else if (getProperty(message, "flags.midi-qol.damageDetail") || getProperty(message, "flags.midi-qol.otherDamageDetail")) {
@@ -572,7 +572,6 @@ export let chatDamageButtons = (message, html, data) => {
 }
 
 export function addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, tag = "damage", toMatch = ".dice-total", style = "margin: 0px;") {
-
   if (debugEnabled > 1) debug("addChatDamageButtons", totalDamage, damageList, html, actorId, itemUuid, toMatch, html.find(toMatch))
   const btnContainer = $('<span class="dmgBtn-container-mqol"></span>');
   let btnStylingLimeGreen = `background-color:limegreen; ${style}`;
@@ -725,7 +724,7 @@ export async function onChatCardAction(event) {
             workflow.applicationTargets = game.user?.targets;
             if (workflow.applicationTargets.size > 0) await workflow.next(WORKFLOWSTATES.APPLYDYNAMICEFFECTS);
           } else {
-            ui.notifications?.warn(i18nFormat("midi-qo.NoWorkflow", { itemName: item.name }));
+            ui.notifications?.warn(i18nFormat("midi-qol.NoWorkflow", { itemName: item.name }));
           }
         }
         break;

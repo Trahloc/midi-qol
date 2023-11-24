@@ -1,14 +1,143 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes } from "../midi-qol.js";
 import { BetterRollsWorkflow, DummyWorkflow, TrapWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
-import { configSettings, enableWorkflow, checkRule, checkMechanic } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getLateTargeting, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageList, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated } from "./utils.js";
+import { configSettings, enableWorkflow, checkRule, checkMechanic, targetConfirmation } from "./settings.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getTargetConfirmation, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated, computeCoverBonus } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
-import { LateTargetingDialog } from "./apps/LateTargeting.js";
+import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
 import { defaultRollOptions, removeConcentration } from "./patching.js";
 import { saveUndoData } from "./undo.js";
 import { socketlibSocket } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+
+function itemPreTemplateConfirmTargets(item) {
+  if (!item?.flags?.midiProperties?.confirmTargets) return false;
+  if (!itemPostTemplateConfirmTargets(item)) {
+    if (debugEnabled > 0) warn("target confirmation trigged by item confirmation midi-property")
+    return true;
+  }
+  return false;
+}
+function itemPostTemplateConfirmTargets(item) {
+  if (!item?.flags?.midiProperties?.confirmTargets) return false;
+  const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
+  if (item.hasAreaTarget) {
+    if (debugEnabled > 0) warn("target confirmation trigged by item confirmation midi-property")
+    return true;
+  } else if (isRangeTargeting) {
+    if (debugEnabled > 0) warn("target confirmation trigged by item confirmation midi-property")
+    return true;
+  }
+  return false;
+}
+
+export async function postTemplateConfirmTargets(item, options, pressedKeys, workflow) {
+  let targetConfirmationRequired = itemPostTemplateConfirmTargets(item);
+  if (targetConfirmation.enabled) {
+    const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
+    if (item.hasAreaTarget && targetConfirmation.hasAoE) {
+      if (debugEnabled > 0) warn("target confirmation trigged by targetConfirmation.hasAoE")
+      targetConfirmationRequired = true;
+    } else if (isRangeTargeting && targetConfirmation.hasRangedAoE) {
+      if (debugEnabled > 0) warn("target confirmation trigged by has targetConfirmation.hasRangedAoE");
+      targetConfirmationRequired = true;
+    }
+  }
+  let result = true;
+  if (targetConfirmationRequired) result = await resolveTargetConfirmation(item, options, pressedKeys);
+  if (result && game.user?.targets) workflow.targets = new Set(game.user.targets)
+  return result === true;
+}
+
+export async function preTemplateTargets(item, options, pressedKeys) {
+  if (itemPostTemplateConfirmTargets(item)) return true; // confirmation will be done later
+  let targetConfirmationRequired = itemPreTemplateConfirmTargets(item);
+  const numTargets = game.user?.targets?.size ?? 0;
+  const token = tokenForActor(item.actor);
+  if (targetConfirmation.enabled && !targetConfirmationRequired) {
+    if (options.workflowOptions?.targetConfirmation && options.workflowOptions?.targetConfirmation !== "none") {
+      if (debugEnabled > 0) warn("target confirmation trigged by has workflow options");
+      targetConfirmationRequired = true;
+    }
+    if (!targetConfirmationRequired && targetConfirmation.all && item.system.target?.type) {
+      if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.all");
+      targetConfirmationRequired = true;
+    }
+    if (!targetConfirmationRequired && item.hasAttack && targetConfirmation.hasAttack) {
+      if (debugEnabled > 0) warn("target confirmation trigged by targetCofirnmation.hasAttack");
+      targetConfirmationRequired = true;
+    }
+    if (!targetConfirmationRequired && item.system.target?.type === "creature" && targetConfirmation.hasCreatureTarget) {
+      if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.hasCreatureTarget");
+      targetConfirmationRequired = true;
+    }
+    if (!targetConfirmationRequired && targetConfirmation.noneTargeted && numTargets === 0) {
+      if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.noneTargeted");
+      targetConfirmationRequired = true;
+    }
+    if (!targetConfirmationRequired && targetConfirmation.allies && token && numTargets > 0 && item.system.target?.type !== "self") {
+      //@ts-expect-error find disposition
+      if (game.user?.targets.some(t => t.document.disposition == token.document.disposition)) {
+        if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.allies");
+        targetConfirmationRequired = true;
+      }
+    }
+    if (!targetConfirmationRequired && targetConfirmation.targetSelf && item.system.target?.type !== "self") {
+      let tokenToUse = token;
+      /*
+      if (tokenToUse && game.user?.targets) {
+        const { result, attackingToken } = checkRange(item, tokenToUse, new Set(game.user.targets))
+        if (speaker.token && result === "fail")
+          tokenToUse = undefined; 
+        else tokenToUse = attackingToken;
+      }
+      */
+      if (tokenToUse && game.user?.targets?.has(tokenToUse)) {
+        if (debugEnabled > 0) warn("target confirmation trigged by has targetConfirmation.targetSelf");
+        targetConfirmationRequired = true;
+      }
+    }
+    if (!targetConfirmationRequired && targetConfirmation.mixedDispositiion && numTargets > 0 && game.user?.targets) {
+      const dispositions = new Set();
+      for (let target of game.user?.targets) {
+        //@ts-expect-error
+        if (target) dispositions.add(target.document.disposition);
+      }
+      if (dispositions.size > 1) {
+        if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.mixedDisposition");
+        targetConfirmationRequired = true;
+      }
+    }
+    if (!targetConfirmationRequired && targetConfirmation.longRange && game?.user?.targets && numTargets > 0 &&
+      (["ft", "m"].includes(item.system.range?.units) || item.system.range.type === "touch")) {
+      if (token) {
+        for (let target of game.user.targets) {
+          const { result, attackingToken } = checkRange(item, token, new Set([target]))
+          if (result !== "normal") {
+            if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.longRange");
+            targetConfirmationRequired = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!targetConfirmationRequired && targetConfirmation.inCover && numTargets > 0 && token && game.user?.targets) {
+      const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
+      if (!item.hasAreaTarget && !isRangeTargeting) {
+        for (let target of game.user?.targets) {
+          if (computeCoverBonus(token, target, item) > 0) {
+            if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.inCover");
+            targetConfirmationRequired = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+  let result = true
+  if (targetConfirmationRequired) result = await resolveTargetConfirmation(item, options, pressedKeys);
+  return result === true;
+}
 
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   let itemUsageConsumptionHookId;
@@ -20,9 +149,8 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
     let tokenToUse;
-    const lateTargetingSetting = getLateTargeting();
-    let lateTargetingSet = ["all", "allArea"].includes(lateTargetingSetting) || (lateTargetingSetting === "noTargetsSelected" && game?.user?.targets.size === 0);
-
+    if (this.system.target?.type === "self" && this.actor && tokenForActor(this.actor))
+      game.user?.updateTokenTargets([tokenForActor(this.actor)?.id ?? ""]);
     if (game.user?.targets && canvas?.scene) {
       const validTargets: Array<string> = [];
       for (let target of game?.user?.targets)
@@ -38,16 +166,17 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       && game?.user?.targets
       && !game.settings.get("midi-qol", "itemUseHooks")) {
       Workflow.removeWorkflow(this.uuid);
-      if (options.workflowOptions?.lateTargeting && options.workflowOptions?.lateTargeting !== "none") lateTargetingSet = true;
-      if (game.user.targets.size === 0 && lateTargetingSet) await resolveLateTargeting(this, options, pressedKeys);
-      const targets = new Set(game.user.targets);
+      let targets = new Set(game.user?.targets);
+      if (this?.system.target?.type !== "" && !await preTemplateTargets(this, options, pressedKeys)) return null;
+      targets = new Set(game.user?.targets);
+
       if (targets.size > 0) {
         for (let target of targets) {
-          const newOptions = mergeObject(options, { singleTarget: true, targetUuids: [target.document.uuid], workflowOptions: { lateTargeting: "none" } }, { inplace: false, overwrite: true });
+          const newOptions = mergeObject(options, { singleTarget: true, targetUuids: [target.document.uuid], workflowOptions: { targetConfirmation: "none" } }, { inplace: false, overwrite: true });
           await completeItemUse(this, {}, newOptions)
         }
       } else {
-        const newOptions = mergeObject(options, { singleTarget: true, targetUuids: [], workflowOptions: { lateTargeting: "none" } }, { inplace: false, overwrite: true });
+        const newOptions = mergeObject(options, { singleTarget: true, targetUuids: [], workflowOptions: { targetConfirmation: "none" } }, { inplace: false, overwrite: true });
         await completeItemUse(this, {}, newOptions)
       }
       // The workflow only refers to the last target.
@@ -61,7 +190,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       versatile: false,
       configureDialog: true,
       createMessage: true,
-      workflowOptions: { lateTargeting: undefined, notReaction: false }
+      workflowOptions: { targetConfirmation: undefined, notReaction: false }
     }, options, { insertKeys: true, insertValues: true, overWrite: true });
     const itemRollStart = Date.now()
     let systemCard = options?.systemCard ?? false;
@@ -79,9 +208,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const isAoETargeting = this.hasAreaTarget;
     const requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
 
-    const shouldCheckLateTargeting = (allAttackTypes.includes(this.system.actionType) || (this.hasTarget && !this.hasAreaTarget))
-      && ((options.workflowOptions?.lateTargeting ? (options.workflowOptions?.lateTargeting !== "none") : lateTargetingSet));
-
     let speaker = getSpeaker(this.actor);
 
     // Call preTargeting hook/onUse macro. Create a dummy workflow if one does not already exist for the item
@@ -89,7 +215,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     let theWorkflow = existingWorkflow;
     if (!existingWorkflow)
       theWorkflow = new DummyWorkflow(this.parent, this, speaker, game?.user?.targets ?? new Set(), {});
-      theWorkflow.options = options;
+    theWorkflow.options = options;
     if (theWorkflow && await asyncHooksCall("midi-qol.preTargeting", theWorkflow) === false || await asyncHooksCall(`midi-qol.preTargeting.${this.uuid}`, { item: this }) === false) {
       console.warn("midi-qol | attack roll blocked by preTargeting hook");
       if (!existingWorkflow && theWorkflow) Workflow.removeWorkflow(theWorkflow.id);
@@ -105,30 +231,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     if (!existingWorkflow && theWorkflow) Workflow.removeWorkflow(theWorkflow.id); // get rid of the dummy workflow
     if (existingWorkflow) Workflow.removeWorkflow(existingWorkflow.id); // new roll so get rid of old workflow?
-
-    if (shouldCheckLateTargeting && !isRangeTargeting && !isAoETargeting) {
-
-      // normal targeting and auto rolling attack so allow late targeting
-      let canDoLateTargeting = this.system.target.type !== "self";
-
-      //explicit don't do late targeting passed
-      if (options.workflowOptions?.lateTargeting === "none") canDoLateTargeting = false;
-
-      // TODO look at this if AoE spell and not auto targeting need to work out how to deal with template placement
-      if (false && isAoETargeting && configSettings.autoTarget === "none")
-        canDoLateTargeting = true;
-
-      // TODO look at this if range spell and not auto targeting
-      const targetDetails = this.system.target;
-      if (false && configSettings.rangeTarget === "none" && ["ft", "m"].includes(targetDetails?.units) && ["creature", "ally", "enemy"].includes(targetDetails?.type))
-        canDoLateTargeting = true;
-      // TODO consider template and range spells when not template targeting?
-
-
-      if (canDoLateTargeting) {
-        if (!(await resolveLateTargeting(this, options, pressedKeys)))
-          return null;
-      }
+    if (this.system.target?.type !== "") {
+      if (!(await preTemplateTargets(this, options, pressedKeys)))
+        return null;
     }
     const myTargets = game.user?.targets && validTargetTokens(game.user?.targets);
     let shouldAllowRoll = !requiresTargets // we don't care about targets
@@ -138,7 +243,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       || isRangeTargeting // range target and will autotarget
       || (!this.hasAttack && !itemHasDamage(this) && !this.hasSave); // does not do anything - need to chck dynamic effects
 
-    if (requiresTargets && !isRangeTargeting && !isAoETargeting && this.system.target?.type === "creature" && (myTargets?.size || 0) === 0) {
+    if (requiresTargets && !isRangeTargeting && !isAoETargeting && this.system.target?.type === "creature" && (myTargets?.size ?? 0) === 0) {
       ui.notifications?.warn(i18n("midi-qol.noTargets"));
       if (debugEnabled > 0) warn(`${game.user?.name} attempted to roll with no targets selected`)
       return false;
@@ -470,7 +575,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     for (let targetToken of workflow.targets) {
       promises.push(new Promise(async resolve => {
         //@ts-expect-error targetToken Type
-        const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this.item, workflow, workflowOptions: mergeObject(workflow.workflowOptions, { sourceActorUuid: this.actor.uuid, sourceItemUuid: this.item?.uuid }, { inplace: false, overwrite: true }) });
+        const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: mergeObject(workflow.workflowOptions, { sourceActorUuid: this.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
         if (result?.name) {
           //@ts-expect-error _initialize()
           targetToken.actor?._initialize();
@@ -734,18 +839,18 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
     const firstTargetActor = firstTarget?.actor;
     const targetMaxFlags = getProperty(firstTargetActor, "flags.midi-qol.grants.max.damage") ?? {};
     const maxFlags = getProperty(workflow.actor.flags, "midi-qol.max") ?? {};
-    let needsMaxDamage = (maxFlags.damage?.all && evalActivationCondition(workflow, maxFlags.damage.all, firstTarget)) 
+    let needsMaxDamage = (maxFlags.damage?.all && evalActivationCondition(workflow, maxFlags.damage.all, firstTarget))
       || (maxFlags.damage && maxFlags.damage[this.system.actionType] && evalActivationCondition(workflow, maxFlags.damage[this.system.actionType], firstTarget));
     needsMaxDamage = needsMaxDamage || (
-                      (targetMaxFlags.all && evalActivationCondition(workflow, targetMaxFlags.all, firstTarget)) 
-                        || (targetMaxFlags[this.system.actionType] && evalActivationCondition(workflow, targetMaxFlags[this.system.actionType], firstTarget)));
+      (targetMaxFlags.all && evalActivationCondition(workflow, targetMaxFlags.all, firstTarget))
+      || (targetMaxFlags[this.system.actionType] && evalActivationCondition(workflow, targetMaxFlags[this.system.actionType], firstTarget)));
     const targetMinFlags = getProperty(firstTargetActor, "flags.midi-qol.grants.min.damage") ?? {};
     const minFlags = getProperty(workflow.actor.flags, "midi-qol.min") ?? {};
-    let needsMinDamage = (minFlags.damage?.all && evalActivationCondition(workflow, minFlags.damage.all, firstTarget)) 
+    let needsMinDamage = (minFlags.damage?.all && evalActivationCondition(workflow, minFlags.damage.all, firstTarget))
       || (minFlags?.damage && minFlags.damage[this.system.actionType] && evalActivationCondition(workflow, minFlags.damage[this.system.actionType], firstTarget));
     needsMinDamage = needsMinDamage || (
-      (targetMinFlags.damage && evalActivationCondition(workflow, targetMinFlags.all, firstTarget)) 
-        || (targetMinFlags[this.system.actionType] && evalActivationCondition(workflow, targetMinFlags[this.system.actionType], firstTarget)));
+      (targetMinFlags.damage && evalActivationCondition(workflow, targetMinFlags.all, firstTarget))
+      || (targetMinFlags[this.system.actionType] && evalActivationCondition(workflow, targetMinFlags[this.system.actionType], firstTarget)));
     if (needsMaxDamage && needsMinDamage) {
       needsMaxDamage = false;
       needsMinDamage = false;
@@ -800,7 +905,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
 
       if (this.system.actionType === "heal" && !Object.keys(getSystemCONFIG().healingTypes).includes(workflow.defaultDamageType ?? "")) workflow.defaultDamageType = "healing";
 
-      workflow.damageDetail = createDamageList({ roll: result, item: this, ammo: workflow.ammo, versatile: workflow.rollOptions.versatile, defaultType: workflow.defaultDamageType });
+      workflow.damageDetail = createDamageDetail({ roll: result, item: this, ammo: workflow.ammo, versatile: workflow.rollOptions.versatile, defaultType: workflow.defaultDamageType });
       await workflow.setDamageRoll(result);
       if (workflow.workflowOptions.damageRollDSN !== false) await displayDSNForRoll(result, "damageRoll");
       result = await processDamageRollBonusFlags.bind(workflow)();
@@ -880,7 +985,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
             }
           }
 
-          workflow.otherDamageDetail = createDamageList({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: "" });
+          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: "" });
           for (let term of otherResult.terms) { // set the damage flavor
             if (term.options?.flavor) {
               term.options.flavor = getDamageFlavor(term.options.flavor);
@@ -1087,7 +1192,7 @@ export async function wrappedDisplayCard(wrapped, options) {
 
     chatData.flags = mergeObject(chatData.flags, options.flags);
     Hooks.callAll("dnd5e.preDisplayCard", this, chatData, options);
-    workflow.babonus = getProperty(chatData, "flags.babonus") ?? {};
+    workflow.chatUseFlags = getProperty(chatData, "flags") ?? {};
 
     ChatMessage.applyRollMode(chatData, options.rollMode ?? game.settings.get("core", "rollMode"))
     const card = createMessage !== false ? ChatMessage.create(chatData) : chatData;
@@ -1118,13 +1223,7 @@ async function getChatData() {
   return result;
 }
 
-export async function resolveLateTargeting(item, options: any, pressedKeys: any): Promise<boolean> {
-  const workflow = Workflow.getWorkflow(item?.uuid);
-  const lateTargetingSetting = getLateTargeting(workflow);
-  if (lateTargetingSetting === "none" && !options.forceDisplay) return true; // workflow options override the user settings
-  if (workflow && options.workflowOptions?.clearWorkflowTargets) workflow.targets = new Set();
-  if (workflow && lateTargetingSetting === "noTargetsSelected" && workflow.targets.size !== 0 && !options.forceDisplay) return true;
-
+export async function resolveTargetConfirmation(item, options: any, pressedKeys: any): Promise<boolean> {
   const savedSettings = { control: ui.controls?.control?.name, tool: ui.controls?.tool };
   const savedActiveLayer = canvas?.activeLayer;
   await canvas?.tokens?.activate();
@@ -1138,7 +1237,7 @@ export async function resolveLateTargeting(item, options: any, pressedKeys: any)
     // no timeout since there is a dialog to close
     // create target dialog which updates the target display
     options = mergeObject(options, { callback: resolve, pressedKeys });
-    let lateTargeting = new LateTargetingDialog(item.actor, item, game.user, options).render(true);
+    let targetConfirmation = new TargetConfirmationDialog(item.actor, item, game.user, options).render(true);
   });
   let shouldContinue = await targets;
   if (savedActiveLayer) await savedActiveLayer.activate();
@@ -1273,7 +1372,7 @@ function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTarge
 
 export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: Token | TokenDocument | string): Token[] {
   if (configSettings.autoTarget === "none") return [];
-  const wallsBlockTargeting = ["wallsBlock","wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.autoTarget);
+  const wallsBlockTargeting = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.autoTarget);
   const tokens = canvas?.tokens?.placeables ?? []; //.map(t=>t)
   const ignoreTokenDocument = getTokenDocument(ignoreToken);
   let targets: string[] = [];
@@ -1303,6 +1402,7 @@ export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: 
 }
 
 
+// this is bound to a workflow when called - most of the time
 export function selectTargets(templateDocument: MeasuredTemplateDocument, data, user) {
   //@ts-expect-error
   const hasWorkflow = this?.currentState ?? Workflow.getWorkflow(templateDocument.flags?.dnd5e?.origin);

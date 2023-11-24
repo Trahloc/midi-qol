@@ -1,9 +1,9 @@
 import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming } from "../midi-qol.js";
-import { activationConditionToUse, resolveLateTargeting, selectTargets, shouldRollOtherDamage, templateTokens } from "./itemhandling.js";
+import { activationConditionToUse, postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templateTokens } from "./itemhandling.js";
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageList, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getSelfTargetSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, getSystemCONFIG, tokenForActor, getSelfTarget, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, getLateTargeting, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getLinkText } from "./utils.js"
+import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getSelfTargetSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, getSystemCONFIG, tokenForActor, getSelfTarget, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getLinkText, getIconFreeLink } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -25,7 +25,7 @@ export const WORKFLOWSTATES = {
   AWAITTEMPLATE: 2,
   AWAITITEMCARD: 3,
   TEMPLATEPLACED: 4,
-  LATETARGETING: 5,
+  TARGETCONFIRMATION: 5,
   VALIDATEROLL: 6,
   PREAMBLECOMPLETE: 7,
   WAITFORATTACKROLL: 8,
@@ -416,9 +416,9 @@ export class Workflow {
           this.hitTargets = new Set(this.targets);
           this.selfTargeted = true;
         }
-        this.templateTargeting = configSettings.autoTarget !== "none" && this.item.hasAreaTarget;
+        this.temptargetConfirmation = configSettings.autoTarget !== "none" && this.item.hasAreaTarget;
         if (debugEnabled > 1) debug(state, configSettings.autoTarget, this.item.hasAreaTarget);
-        if (this.templateTargeting) {
+        if (this.temptargetConfirmation) {
           return this.next(WORKFLOWSTATES.AWAITTEMPLATE);
         }
         const targetDetails = this.item.system.target;
@@ -431,7 +431,7 @@ export class Workflow {
           this.hitTargetsEC = new Set();
           return this.next(WORKFLOWSTATES.AWAITITEMCARD);
         }
-        return this.next(WORKFLOWSTATES.LATETARGETING);
+        return this.next(WORKFLOWSTATES.TARGETCONFIRMATION);
 
       case WORKFLOWSTATES.AWAITITEMCARD:
         if (this.needItemCard || !this.preItemUseComplete) return undefined;
@@ -441,8 +441,8 @@ export class Workflow {
       case WORKFLOWSTATES.AWAITTEMPLATE: // wait for template/itemcard
         if (this.needTemplate) return undefined;
         if (this.needItemCard || !this.preItemUseComplete) return this.next(WORKFLOWSTATES.AWAITITEMCARD);
-        if (this.templateTargeting) return this.next(WORKFLOWSTATES.TEMPLATEPLACED);
-        return this.next(WORKFLOWSTATES.LATETARGETING);
+        if (this.temptargetConfirmation) return this.next(WORKFLOWSTATES.TEMPLATEPLACED);
+        return this.next(WORKFLOWSTATES.TARGETCONFIRMATION);
 
       case WORKFLOWSTATES.TEMPLATEPLACED:
         if (configSettings.allowUseMacro) {
@@ -451,7 +451,7 @@ export class Workflow {
         }
 
         // Some modules stop being able to get the item card id.
-        if (!this.itemCardId) return this.next(WORKFLOWSTATES.LATETARGETING);
+        if (!this.itemCardId) return this.next(WORKFLOWSTATES.TARGETCONFIRMATION);
 
         const chatMessage: ChatMessage | undefined = game.messages?.get(this.itemCardId);
         // remove the place template button from the chat card.
@@ -467,18 +467,26 @@ export class Workflow {
           "flags.midi-qol.type": MESSAGETYPES.ITEM,
           type: CONST.CHAT_MESSAGE_TYPES.OTHER
         });
-        return this.next(WORKFLOWSTATES.LATETARGETING);
+        return this.next(WORKFLOWSTATES.TARGETCONFIRMATION);
 
-      case WORKFLOWSTATES.LATETARGETING: // Nothing to do here?
-        const lateTargetingSetting = getLateTargeting(this);
-        const isRangeTargeting = (["ft", "m"].includes(this.item?.system.target?.units) && ["creature", "ally", "enemy"].includes(this.item?.system.target?.type)) ?? false;
-        const isAoEtargeting = this.item?.hasAreaTarget ?? false;
-        if (["allArea", "onlyArea"].includes(lateTargetingSetting) && (isRangeTargeting || isAoEtargeting)) {
-          if (!await resolveLateTargeting(this.item, {}, {})) {
+      case WORKFLOWSTATES.TARGETCONFIRMATION: // Nothing to do here?
+        if (this.item?.system.target?.type !== "") {
+          if (!await postTemplateConfirmTargets(this.item, this.workflowOptions, {}, this)) {
             this.aborted = true;
             return this.next(WORKFLOWSTATES.ROLLFINISHED);
           }
         }
+        /*
+          const targetConfirmationSetting = getTargetConfirmation(this);
+          const isRangeTargeting = (["ft", "m"].includes(this.item?.system.target?.units) && ["creature", "ally", "enemy"].includes(this.item?.system.target?.type)) ?? false;
+          const isAoEtargeting = this.item?.hasAreaTarget ?? false;
+          if (["allArea", "onlyArea"].includes(targetConfirmationSetting) && (isRangeTargeting || isAoEtargeting)) {
+            if (!await resolveTargetConfirmation(this.item, {}, {})) {
+              this.aborted = true;
+              return this.next(WORKFLOWSTATES.ROLLFINISHED);
+            }
+          }
+          */
         return this.next(WORKFLOWSTATES.VALIDATEROLL);
 
       case WORKFLOWSTATES.VALIDATEROLL:
@@ -752,7 +760,7 @@ export class Workflow {
         // done here cause not needed for betterrolls workflow
         this.defaultDamageType = this.item.system.damage?.parts[0][1] || this.defaultDamageType || MQdefaultDamageType;
         if (this.item?.system.actionType === "heal" && !Object.keys(getSystemCONFIG().healingTypes).includes(this.defaultDamageType ?? "")) this.defaultDamageType = "healing";
-        // now done in itemhandling this.damageDetail = createDamageList({ roll: this.damageRoll, item: this.item, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
+        // now done in itemhandling this.damageDetail = createDamageDetail({ roll: this.damageRoll, item: this.item, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
 
         await asyncHooksCallAll("midi-qol.preDamageRollComplete", this)
         if (this.item) await asyncHooksCallAll(`midi-qol.preDamageRollComplete.${this.item.uuid}`, this);
@@ -767,10 +775,10 @@ export class Workflow {
           await this.rollBonusDamage(damageBonusMacros);
         }
 
-        this.damageDetail = createDamageList({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
+        this.damageDetail = createDamageDetail({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
         if (!this.otherDamageRoll) this.otherDamageDetail = [];
         if (this.otherDamageRoll) { // TODO look at removeing this.
-          this.otherDamageDetail = createDamageList({ roll: this.otherDamageRoll, item: null, ammo: null, versatile: false, defaultType: this.defaultDamageType });
+          this.otherDamageDetail = createDamageDetail({ roll: this.otherDamageRoll, item: null, ammo: null, versatile: false, defaultType: this.defaultDamageType });
         } else this.otherDamageDetail = [];
 
         await asyncHooksCallAll("midi-qol.DamageRollComplete", this);
@@ -1098,7 +1106,7 @@ export class Workflow {
           Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId)
         }
 
-        setProperty(this, "workflowOptions.lateTargeting", undefined);
+        setProperty(this, "workflowOptions.targetConfirmation", undefined);
         if (!this.aborted) {
           const specialExpiries = [
             "isDamaged",
@@ -1552,9 +1560,9 @@ export class Workflow {
       const wasAttacked = this.item?.hasAttack;
       const wasHit = (this.item ? wasAttacked : true) && (this.hitTargets?.has(target) || this.hitTargetsEC?.has(target));
       const wasMissed = (this.item ? wasAttacked : true) && !this.hitTargets?.has(target) && !this.hitTargetsEC?.has(target);
-      const wasDamaged = this.damageList 
-                          && (this.hitTargets.has(target) || this.hitTargetsEC.has(target))
-                          && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
+      const wasDamaged = this.damageList
+        && (this.hitTargets.has(target) || this.hitTargetsEC.has(target))
+        && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
 
       if (wasAttacked && triggerList.includes("isAttacked")) {
         //@ts-ignore
@@ -1654,7 +1662,10 @@ export class Workflow {
         const wasAttacked = this.item?.hasAttack;
         //TODO this test will fail for damage only workflows - need to check the damage rolled instead
         const wasHit = (this.item ? wasAttacked : true) && (this.hitTargets?.has(target) || this.hitTargetsEC?.has(target));
-        const wasDamaged = this.damageList 
+        const wasDamaged = this.damageList
+          // consider removing this - by having it here hand editing hp wont expire effects
+          // but any damage application by an item will get picked up in applyTokenDamageMany
+          // so this is only relevant if you are not auto applying damage
           && (this.hitTargets.has(target) || this.hitTargetsEC.has(target))
           //@ts-expect-error token.document
           && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
@@ -1754,7 +1765,7 @@ export class Workflow {
       const roll = await (new Roll(formula, (this.item ?? this.actor).getRollData()).evaluate({ async: true }));
       await this.setBonusDamageRoll(roll);
       this.bonusDamageFlavor = flavor ?? "";
-      this.bonusDamageDetail = createDamageList({ roll: this.bonusDamageRoll, item: null, ammo: null, versatile: false, defaultType: this.defaultDamageType });
+      this.bonusDamageDetail = createDamageDetail({ roll: this.bonusDamageRoll, item: null, ammo: null, versatile: false, defaultType: this.defaultDamageType });
     } catch (err) {
       TroubleShooter.recordError(err, `midi-qol | error in evaluating${formula} in bonus damage`);
       console.warn(`midi-qol | error in evaluating${formula} in bonus damage`, err);
@@ -1929,7 +1940,7 @@ export class Workflow {
   }
 
   async callMacro(item, macroName: string, macroData: any, options: any): Promise<damageBonusMacroResult | any> {
-    const name = macroName?.trim();
+    let name = macroName?.trim();
     // var item;
     if (!name) return undefined;
     let itemMacroData;
@@ -1965,6 +1976,7 @@ export class Workflow {
           macroData.sourceItemUuid = item.uuid;
         }
       } else { // get a world/compendium macro.
+        if (name.startsWith("Macro.")) name = name.replace("Macro.", "");
         macro = game.macros?.getName(name)
         if (!macro) {
           const itemOrMacro = await fromUuid(name);
@@ -2244,15 +2256,15 @@ export class Workflow {
       }
       const tokenUuid = getTokenDocument(targetToken)?.uuid ?? "";
       this.hitDisplayData[tokenUuid] = {
-        isPC: targetToken.actor?.hasPlayerOwner, 
-        target: targetToken, 
-        hitString: "targets", 
-        attackType: "", 
-        img, 
-        gmName: getLinkText(targetToken.actor), 
-        playerName: getTokenPlayerName(targetToken), 
-        bonusAC: 0, 
-        isHit: this.hitTargets.has(targetToken) 
+        isPC: targetToken.actor?.hasPlayerOwner,
+        target: targetToken,
+        hitString: "targets",
+        attackType: "",
+        img,
+        gmName: getIconFreeLink(targetToken),
+        playerName: getTokenPlayerName(targetToken),
+        bonusAC: 0,
+        isHit: this.hitTargets.has(targetToken)
       };
     }
     await this.displayHits(whisper, configSettings.mergeCard && this.itemCardId, false);
@@ -2492,7 +2504,7 @@ export class Workflow {
     let rollAbility = this.saveItem.system.save.ability;
     // make sure saving throws are reenabled.
 
-    if (this.babonus?.saveDC) {
+    if (this.chatUseFlags?.babonus?.saveDC) {
       rollDC = this.babonus.saveDC;
     }
     const playerMonksTB = !simulate && installedModules.get("monks-tokenbar") && configSettings.playerRollSaves === "mtb";
@@ -2562,7 +2574,7 @@ export class Workflow {
           }
           if (debugEnabled > 1) debug(`${target.actor.name} resistant to magic : ${saveDetails.advantage}`);
         }
-        const settingsOptions = procAbilityAdvantage(target.actor, rollType, this.saveItem.system.save.ability, {workflow: this});
+        const settingsOptions = procAbilityAdvantage(target.actor, rollType, this.saveItem.system.save.ability, { workflow: this });
         if (settingsOptions.advantage) saveDetails.advantage = true;
         if (settingsOptions.disadvantage) saveDetails.disadvantage = true;
         saveDetails.isConcentrationCheck = this.saveItem.flags["midi-qol"]?.isConcentrationCheck
@@ -2860,11 +2872,11 @@ export class Workflow {
       if (checkRule("criticalSaves")) { // normal d20 roll/lmrtfy/monks roll
         saved = (isCritical || rollTotal >= rollDC) && !isFumble;
       }
-      if (getProperty(this.actor, "flags.midi-qol.sculptSpells") && (this.rangeTargeting || this.templateTargeting) && this.item?.system.school === "evo" && this.preSelectedTargets.has(target)) {
+      if (getProperty(this.actor, "flags.midi-qol.sculptSpells") && (this.rangeTargeting || this.temptargetConfirmation) && this.item?.system.school === "evo" && this.preSelectedTargets.has(target)) {
         saved = true;
         this.superSavers.add(target)
       }
-      if (getProperty(this.actor, "flags.midi-qol.carefulSpells") && (this.rangeTargeting || this.templateTargeting) && this.preSelectedTargets.has(target)) {
+      if (getProperty(this.actor, "flags.midi-qol.carefulSpells") && (this.rangeTargeting || this.temptargetConfirmation) && this.preSelectedTargets.has(target)) {
         saved = true;
       }
       if (isCritical) this.criticalSaves.add(target);
@@ -2960,7 +2972,7 @@ export class Workflow {
         else saveStyle = "color: red;";
       }
       this.saveDisplayData.push({
-        gmName: getLinkText(target.actor),
+        gmName: getIconFreeLink(target),
         playerName: getTokenPlayerName(target),
         img,
         isPC: isPlayerOwned,
@@ -3458,7 +3470,7 @@ export class Workflow {
         hitStyle,
         attackType,
         img,
-        gmName: getLinkText(targetToken.actor),
+        gmName: getIconFreeLink(targetToken),
         playerName: getTokenPlayerName(targetToken instanceof Token ? targetToken.document : targetToken),
         bonusAC,
         hitResultNumeric
@@ -3495,10 +3507,10 @@ export class Workflow {
           const ray = new Ray(target.center, token.center);
           const wallsBlocking = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.rangeTarget)
           //@ts-ignore .system
-          let inRange = target.actor 
+          let inRange = target.actor
             //@ts-ignore .disposition v10
             && dispositions.includes(target.document.disposition);
-          if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIngoreIncapcitate"].includes(configSettings.rangeTarget)) 
+          if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIngoreIncapcitate"].includes(configSettings.rangeTarget))
             inRange = inRange && !checkIncapacitated(target.actor);
           if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.rangeTarget))
             inRange = inRange && !checkDefeated(target);
@@ -3714,7 +3726,7 @@ export class DamageOnlyWorkflow extends Workflow {
     this.itemCardId = options.itemCardId;
     this.useOther = options.useOther ?? true;
     this.damageRoll = roll;
-    this.damageDetail = createDamageList({ roll: this.damageRoll, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });
+    this.damageDetail = createDamageDetail({ roll: this.damageRoll, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });
     this.damageTotal = damageTotal;
     this.isCritical = options.isCritical ?? false;
     this.kickStart = false;
@@ -3760,7 +3772,7 @@ export class DamageOnlyWorkflow extends Workflow {
 
         if (this.actor) { // Hacky process bonus flags
           await this.setDamageRoll(await processDamageRollBonusFlags.bind(this)());
-          this.damageDetail = createDamageList({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
+          this.damageDetail = createDamageDetail({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
         }
 
         if (configSettings.mergeCard && this.itemCardId) {
@@ -3938,7 +3950,7 @@ export class TrapWorkflow extends Workflow {
 
         // If the item does damage, use the same damage type as the item
         let defaultDamageType = this.item?.system.damage?.parts[0][1] || this.defaultDamageType;
-        this.damageDetail = createDamageList({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: defaultDamageType });
+        this.damageDetail = createDamageDetail({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: defaultDamageType });
         // apply damage to targets plus saves plus immunities
         await this.displayDamageRoll(configSettings.mergeCard)
         if (debugCallTiming) log(`DamageRollComplete elapsed ${Date.now() - damageRollCompleteStartTime}ms`);
@@ -4215,13 +4227,13 @@ export class DDBGameLogWorkflow extends Workflow {
         this.defaultDamageType = this.item.system.damage?.parts[0][1] || this.defaultDamageType || MQdefaultDamageType;
         if (this.item?.system.actionType === "heal" && !Object.keys(getSystemCONFIG().healingTypes).includes(this.defaultDamageType ?? "")) this.defaultDamageType = "healing";
 
-        this.damageDetail = createDamageList({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
+        this.damageDetail = createDamageDetail({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
 
         const damageBonusMacros = this.getDamageBonusMacros();
         if (damageBonusMacros) {
           await this.rollBonusDamage(damageBonusMacros);
         }
-        this.damageDetail = createDamageList({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
+        this.damageDetail = createDamageDetail({ roll: this.damageRoll, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
         this.otherDamageDetail = [];
         if (this.bonusDamageRoll) {
           const messageData = {

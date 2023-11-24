@@ -1,6 +1,6 @@
 import { geti18nOptions, i18n } from "../../midi-qol.js";
 import { CheckedAuthorsList, checkedModuleList, checkMechanic, collectSettingData, configSettings, enableWorkflow, exportSettingsToJSON, fetchParams, importSettingsFromJSON } from "../settings.js";
-import { DAE_REQUIRED_VERSION, REQUIRED_MODULE_VERSIONS, installedModules } from "../setupModules.js";
+import { DAE_REQUIRED_VERSION, REQUIRED_MODULE_VERSIONS, getModuleVersion, installedModules } from "../setupModules.js";
 import { calculateDamage } from "../utils.js";
 
 const minimumMidiVersion = "11.0.7";
@@ -591,8 +591,7 @@ export class TroubleShooter extends FormApplication {
     }));
     for (let key of Object.keys(REQUIRED_MODULE_VERSIONS)) {
       if (game.modules.get(key)?.active) {
-        //@ts-expect-error .version
-        const installedVersion = game.modules.get(key).version;
+        const installedVersion = getModuleVersion(key);
         const requiredVersion = REQUIRED_MODULE_VERSIONS[key];
         if (isNewerVersion(requiredVersion, installedVersion)) {
           data.problems.push({

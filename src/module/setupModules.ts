@@ -33,17 +33,25 @@ export const REQUIRED_MODULE_VERSIONS = {
 };
 export let installedModules = new Map();
 
+export function getModuleVersion(moduleName): string {
+  //@ts-expect-error .version
+  let modVer = game.modules.get(moduleName)?.version || "0.0.0";
+  if (!/[0-9\.]+/.test(modVer)) {
+    console.warn(`midi-qol | module ${moduleName} has unrecognised version ${modVer} using ${REQUIRED_MODULE_VERSIONS[moduleName]} instead}`);
+    modVer = REQUIRED_MODULE_VERSIONS[moduleName];
+  }
+  return modVer;
+}
 export let setupModules = () => {
   for (let name of Object.keys(REQUIRED_MODULE_VERSIONS)) { 
-    //@ts-ignore .version v10
-    const modVer = game.modules.get(name)?.version || "0.0.0";
+    const modVer = getModuleVersion(name);
     const neededVer = REQUIRED_MODULE_VERSIONS[name];
     const isValidVersion = isNewerVersion(modVer, neededVer) || !isNewerVersion(neededVer, modVer);
     if (!installedModules.get(name)) installedModules.set(name, game.modules.get(name)?.active && isValidVersion) 
     if (!installedModules.get(name)) {
       if (game.modules.get(name)?.active) {
         //@ts-ignore game.module.version
-        const message = `midi-qol requires ${name} to be of version ${modules[name]} or later, but it is version ${game.modules.get(name)?.version}`;
+        const message = `midi-qol requires ${name} to be of version ${REQUIRED_MODULE_VERSIONS[name]} or later, but it is version ${game.modules.get(name)?.version}`;
         error(message);
         TroubleShooter.recordError(new Error(message), message);
       } else console.warn(`midi-qol | optional module ${name} not active - some features disabled`)

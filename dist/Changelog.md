@@ -1,3 +1,26 @@
+## 11.2.2
+* Fix isDamaged macro call not being called when auto apply damage enabled.
+  - reorder (slightly) macro calls when damaged. preTargetDamageApplication is called before isDamaged, so that special case changes to applied damage will override damage application.
+* Some clean up of checkWounded/Dead to try and avoid errors being thrown. Please check your settings.
+  - if you specify adding wounded but don't specify a condition or the condition can't be found you will get an error.
+  - You may choose to only mark defeated/dead on player controlled tokens or gm controlled tokens or both.
+  * Cleaned up token links in chat cards/target confirmation for the GM.
+    - Hover will still highlight the token, but the link will open the token's actor sheet.
+    - Should also resolve the issue with anonymous names being rendered strangely.
+    - Since the link reference provides access to the token's actor it is recommended that you enable "Use Token Names" in midi settings.
+* Items with a target type of Self will now auto target the token when the item is rolled. This may be **breaking** if you have been targeting others when the item has a target of self.
+* **Breaking** Changes to late targeting (now called Target Confirmation) to support more flexibility.
+  - Target Confirmation is now **only** a client setting (no separate GM setting for it). Use one of the force sync settings modules if you want to have consistent settings for GM/players. I use Force Client Settings and that seems to work, but you need to configure midi-qol.TargetConfirmation to locked inside the Force Client Setting module settings.
+  - Separate config app for Target Confirmation settings accessed from Midi-qol settings (NOT workflow settings).
+  - Ability to specify where the Target Confirmation dialog will appear.
+  - Items can be marked as Conf Targets which means midi will display the confirm targets dialog when the item is rolled (after template/range template targeting as required) so that players can review the targets midi has selected - useful for Mass Cure Wounds etc.
+  - if you had Late Targeting set you will be prompted to set your target confirmation settings on first load.
+* Added property to items to force target confirmation when the item is used. Useful for some spells that often result in bad target selection, wall of fire, radiance etc
+* First support for using midi in a gridless map. Enable gridded gridless in the mechanics tab and all distances will be based on the grid distance settings even though the canvas is gridless
+  - midi will round distances so that nearly in range is counted as in range - makes those melee attacks usable.
+  - Will also impact all other distance calculations, like drag ruler, flanking, flanked, nearby foes and so on which will all round to the nearest grid unit plus fudge factor.
+  - NOT extensively tested so expect edge cases to abound.
+
 ## 11.2.1.1
 * Fix for not being able to use feat reactions thanks @thatlonelybugbear
 

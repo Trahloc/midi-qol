@@ -343,6 +343,7 @@
   "midi-qol.EnableWorkflow.Name": "Enable roll automation support",
   "midi-qol.EnableWorkflow.Hint": "If enabled automation of rolls can be configured in the Workflow Settings panel",
   "midi-qol.magicalProp": "Magical",
+  "midi-qol.confirmTargetsProp": "Conf Targets",
   "midi-qol.noDamageSaveProp": "No Dam Save",
   "midi-qol.fullDamageSaveProp": "Full Dam Save",
   "midi-qol.defaultDamageType": "None",
@@ -581,6 +582,7 @@
   "midi-qol.NonSilverPhysical": "Non-Silver Physical",
   "midi-qol.NonAdamantinePhysical": "Non-Adamantine Physical",
   "midi-qol.NonMagical": "Non-Magical Damage",
+  "midi-qol.NonMagicalPhysical": "Non-Magical Physical",
   "midi-qol.Magical": "Magical Damage",
   "midi-qol.EffectActivation": "Activation Condition true required for effect activation",
   "midi-qol.HPUpdated": "HP Updated",
@@ -602,17 +604,14 @@
   "midi-qol.DeferText": "[Defer]",
   "midi-qol._comment for translators_ItemMacroText": "The text below is searched for by midi in the onUseMacro field in item data. If you change it every item with an onUseMacro will need to be changed to match",
   "midi-qol.ItemMacroText": "ItemMacro",
-  "midi-qol.LateTargeting.Name": "Late Targeting",
-  "midi-qol.LateTargeting.Hint": "When rolling with auto roll attack set, items which are not AoE, Ranged or self targeting will pause and wait for targets to be selected.",
-  "midi-qol.LateTargeting.Blurb": "Choose {targetCount} targets",
-  "midi-qol.LateTargetingOptions": {
-    "none": "No Late Targeting",
-    "noTargetsSelected": "Late Target only if none selected",
-    "all": "Display late targeting except AoE and Ranged Area",
-    "onlyArea": "Display late targeting for AoE and Ranged Area Only",
-    "allArea": "Always display late targeting"
-  },
+  "midi-qol.TargetConfirmationConfig.Name": "Target Confirmation",
+  "midi-qol.TargetConfirmationConfig.Hint": "When rolling an item confirm targets before completing",
+  "midi-qol.TargetConfirmation.Name": "Target Confirmation",
+  "midi-qol.TargetConfirmation.Blurb": "Select up to {targetCount} targets. Shift-Click to select multiple targets",
+  "midi-qol.TargetConfirmation.BlurbAny": "Select any number of argets. Shift-Click to select multiple targets",
+
   "midi-qol.AddDead.Name": "Add effect when HP = 0",
+  
   "midi-qol.AddDead.Hint1": "Player Controlled",
   "midi-qol.AddDead.Hint2": "GM Controlled",
   "midi-qol.AddDeadOptions": {
@@ -806,5 +805,21 @@
   "midi-qol.ConfirmRoll": "Confirm",
   "midi-qol.ConfirmMiss": "Confirm Miss",
   "midi-qol.ConfirmHit": "Confirm Hit",
-  "midi-qol.AverageNPCDamage.Name": "Alll damage/critical dice rolled for npc hits are 'average' results"
+  "midi-qol.AverageNPCDamage.Name": "Alll damage/critical dice rolled for npc hits are 'average' results",
+  "midi-qol.GriddedGridless.Name": "Gridless Grid",
+  "midi-qol.GriddedGridless.Hint": "If set midi will use the square grid for all distance calculations. EXPERIMENTAL",
+  "midi-qol.targetConfirmationPosition": "Target Confirmation Position",
+  "midi-qol.TargetConfirmationEnabled": "Enable Target Confirmation",
+  "midi-qol.TargetConfirmationAll": "Always confirm targets",
+  "midi-qol.TargetConfirmationNoneTargeted": "Confirm targets if none selected",
+  "midi-qol.TargetConfirmation.hasAttack": "Confirm targets if rolled item has an attack",
+  "midi-qol.TargetConfirmationCreatureTarget": "Confirm targets if rolled item has 'creature' target",
+  "midi-qol.TargetConfirmationSelfTarget": "Confirm targets if self is targeted",
+  "midi-qol.TargetConfirmationAoETarget": "Confirm targets if item has an AoE",
+  "midi-qol.TargetConfirmationRangedAoE": "Confirm targets if item has ranged AoE",
+  "midi-qol.TargetConfirmationLongRangeTarget": "Confirm targets if any target is long range",
+  "midi-qol.TargetConfirmationCoveredTarget": "Confirm targets if any target has cover",
+  "midi-qol.TargetConfirmationMixedDisposition": "Confirm targets if targeting allies and hostiles",
+  "midi-qol.TargetConfirmationAllies": "Confirm targets if any target is an ally",
+  "midi-qol.OutOfRange": "Out of Range"
 }

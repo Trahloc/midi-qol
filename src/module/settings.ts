@@ -4,6 +4,7 @@ import { ConfigPanel } from "./apps/ConfigPanel.js"
 import { SoundConfigPanel } from "./apps/SoundConfigPanel.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configureDamageRollDialog } from "./patching.js";
+import { TargetConfirmationConfig } from "./apps/TargetConfirmationConfig.js";
 
 export var itemRollButtons: boolean;
 export var criticalDamage: string;
@@ -18,10 +19,24 @@ export var autoRemoveTargets: string;
 export var forceHideRoll: boolean;
 export var enableWorkflow: boolean;
 export var dragDropTargeting: boolean;
-export var lateTargeting: string;
+export var targetConfirmation: any;
 export var midiSoundSettings: any = {};
 export var midiSoundSettingsBackup: any = undefined;
 
+export const defaultTargetConfirmationSettings = {
+  enabled: false,
+  always: false,
+  noneTargeted: false,
+  hasAttack: false,
+  hasCreatureTarget: false,
+  targetSelf: false,
+  hasAoE: false,
+  hasRangedAoE: false,
+  longRange: false,
+  inCover: false,
+  mixedDispositiion: false,
+  gridPosition: { x: 0, y: 0 }
+};
 
 const defaultKeyMapping = {
   "DND5E.Advantage": "altKey",
@@ -70,6 +85,7 @@ class ConfigSettings {
   displayHitResultNumeric: boolean = true;
   displaySaveAdvantage: boolean = true;
   displaySaveDC: boolean = true;
+  griddedGridless: boolean = true;
   doReactions: string = "all";
   effectActivation: boolean = false;
   enableddbGL: boolean = false;
@@ -239,6 +255,7 @@ export function collectSettingData() {
     forceHideRoll,
     enableWorkflow,
     dragDropTargeting,
+    targetConfirmation,
     flags: {}
   };
   data.flags["exportSource"] = {
@@ -270,6 +287,7 @@ export async function importSettingsFromJSON(json) {
   await game.settings.set("midi-qol", "ForceHideRoll", json.forceHideRoll);
   await game.settings.set("midi-qol", "EnableWorkflow", json.enableWorkflow);
   await game.settings.set("midi-qol", "DragDropTarget", json.dragDropTargeting);
+  await game.settings.set("midi-qol", "TargetConfirmation", json.targetConfirmation);
   await game.settings.set("midi-qol", "MidiSoundSettings", json.midiSoundSettings ?? {});
   //@ts-expect-error _sheet
   const settingsAppId = game.settings._sheet?.appId;
@@ -319,8 +337,6 @@ export let fetchParams = () => {
   if (typeof configSettings.consumeResource !== "string") configSettings.consumeResource = "none";
   if (!configSettings.enableddbGL) configSettings.enableddbGL = false;
   if (!configSettings.showReactionChatMessage) configSettings.showReactionChatMessage = false;
-  if (!configSettings.gmLateTargeting) configSettings.gmLateTargeting = "none";
-  if (typeof configSettings.gmLateTargeting === "boolean" && configSettings.gmLateTargeting === true) configSettings.gmLateTargeting = "all";
   if (configSettings.fixStickyKeys === undefined) configSettings.fixStickyKeys = true;
   //@ts-ignore legacy boolean value
   if (configSettings.autoCEEffects === true) configSettings.autoCEEffects = "both";
@@ -355,7 +371,7 @@ export let fetchParams = () => {
   // migrateExistingSounds();
 
   if (configSettings.addWounded === undefined) configSettings.addWounded = 0;
-  if (configSettings.addWounded > 0 && ["undefined", "none"].includes(configSettings.addWoundedStyle)) 
+  if (configSettings.addWounded > 0 && configSettings.addWoundedStyle === undefined)
     configSettings.addWoundedStyle = "normal";
   if (!configSettings.addDead) configSettings.addDead = "none";
   if (typeof configSettings.addDead === "boolean" && configSettings.addDead) configSettings.addDead = "overlay"
@@ -430,7 +446,7 @@ export let fetchParams = () => {
   if (configSettings.averageNPCDamage === undefined) configSettings.averageNPCDamage = false;
   enableWorkflow = Boolean(game.settings.get("midi-qol", "EnableWorkflow"));
   if (configSettings.optionalRules.challengeModeArmor === true) { // old settings
-    if (configSettings.optionalRules.challengeModeArmorScale) 
+    if (configSettings.optionalRules.challengeModeArmorScale)
       configSettings.optionalRules.challengeModeArmor = "scale";
     else
       configSettings.optionalRules.challengeModeArmor = "challenge";
@@ -438,12 +454,12 @@ export let fetchParams = () => {
     configSettings.optionalRules.challengeModeArmor = "none"
   }
   if (configSettings.addWounded > 0 && configSettings.midiWoundedCondition === undefined) {
-    configSettings.midiWoundedCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Wounded": "bleeding";
+    configSettings.midiWoundedCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Wounded" : "bleeding";
   }
   if (configSettings.addDead !== "none" && configSettings.midiDeadCondition === undefined) {
-    configSettings.midiDeadCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Dead" : "dead"; 
-    configSettings.midiUnconsciousCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Unconscious": "unconscious";
-  } else if (configSettings.addDead === "none"){
+    configSettings.midiDeadCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Dead" : "dead";
+    configSettings.midiUnconsciousCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Unconscious" : "unconscious";
+  } else if (configSettings.addDead === "none") {
     configSettings.midiDeadCondition = "none";
     configSettings.midiUnconsciousCondition = "none";
   }
@@ -464,11 +480,23 @@ export let fetchParams = () => {
   let debugText: string = String(game.settings.get("midi-qol", "Debug"));
   forceHideRoll = Boolean(game.settings.get("midi-qol", "ForceHideRoll"));
   dragDropTargeting = Boolean(game.settings.get("midi-qol", "DragDropTarget"));
-  const lateTargetingSetting = game.settings.get("midi-qol", "LateTargeting");
-  if (!lateTargetingSetting) lateTargeting = "none";
-  if (lateTargetingSetting === true || lateTargetingSetting === "true") lateTargeting = "all";
-  else lateTargeting = String(lateTargetingSetting);
-
+  targetConfirmation = game.settings.get("midi-qol", "TargetConfirmation");
+  if (configSettings.griddedGridless === undefined) configSettings.griddedGridless = false;
+  if (targetConfirmation === undefined || typeof targetConfirmation === "string" || targetConfirmation instanceof String) targetConfirmation = {
+    enabled: false,
+    always: false,
+    noneTargeted: false,
+    hasAttack: false,
+    hasCreatureTarget: false,
+    targetSelf: false,
+    hasAoE: false,
+    hasRangedAoE: false,
+    longRange: false,
+    inCover: false,
+    allies: false,
+    mixedDispositiion: false,
+    gridPosition: { x: 0, y: 0 }
+  };
   if (game.ready) {
     configureDamageRollDialog();
   }
@@ -502,16 +530,6 @@ const settings = [
     config: true,
     onChange: fetchParams
   },
-  
-  {
-    name: "LateTargeting",
-    scope: "client",
-    default: "none",
-    type: String,
-    config: true,
-    choices: "LateTargetingOptions",
-    onChange: fetchParams
-  },
   {
     name: "ItemRollButtons",
     scope: "world",
@@ -536,7 +554,6 @@ const settings = [
     config: true,
     onChange: fetchParams
   },
-
   {
     name: "DragDropTarget",
     scope: "world",
@@ -567,7 +584,15 @@ const settings = [
     type: Object,
     default: {},
     config: false
-  }
+  },
+  {
+    name: "LateTargeting",
+    scope: "client",
+    default: "none",
+    type: String,
+    config: false,
+    choices: "LateTargetingOptions",
+  },
 ];
 
 export function readySettingsSetup() {
@@ -671,16 +696,14 @@ export const registerSettings = function () {
       onChange: fetchParams
     });
 
-  
-  game.settings.register("midi-qol", "LateTargeting",
+  game.settings.register("midi-qol", "TargetConfirmation",
     {
-      name: "midi-qol.LateTargeting.Name",
-      hint: "midi-qol.LateTargeting.Hint",
+      name: "midi-qol.TargetConfirmation.Name",
+      hint: "midi-qol.TargetConfirmation.Hint",
       scope: "client",
-      default: "none",
-      type: String,
-      config: true,
-      choices: geti18nOptions("LateTargetingOptions"),
+      type: Object,
+      default: defaultTargetConfirmationSettings,
+      config: false,
       onChange: fetchParams
     });
 
@@ -702,6 +725,15 @@ export const registerSettings = function () {
     icon: "fas fa-dice-d20",
     type: ConfigPanel,
     restricted: true
+  });
+
+  game.settings.registerMenu("midi-qol", "TargetConfirmationConfig", {
+    name:  i18n("midi-qol.TargetConfirmationConfig.Name"),
+    label: i18n("midi-qol.TargetConfirmationConfig.Name"),
+    hint: i18n("midi-qol.TargetConfirmationConfig.Hint"),
+    icon: "fas fa-dice-d20",
+    type: TargetConfirmationConfig,
+    restricted: false
   });
 
   game.settings.registerMenu("midi-qol", "midi-qol-sounds", {
@@ -771,7 +803,7 @@ export const registerSettings = function () {
     type: TroubleShooter,
     restricted: false
   });
-  
+
   game.settings.register("midi-qol", "itemUseHooks", {
     name: "midi-qol.itemUseHooks.Name",
     hint: "midi-qol.itemUseHooks.Hint",
@@ -802,49 +834,3 @@ export const registerSettings = function () {
 export function disableWorkflowAutomation() {
   enableWorkflow = false;
 }
-/*
-export function migrateExistingSounds() {
-  if (!configSettings.useCustomSounds) return;
-  const playlist = game.playlists?.get(configSettings.customSoundsPlaylist);
-  if (!playlist) {
-    ui.notifications?.warn("Specified playlist does not exist. Aborting migration");
-    return;
-  }
-  // create basic settings for the setup
-  // if (!configSettings.midiSoundSettings) MidiSounds.setupBasicSounds();
-  //@ts-ignore .sounds
-  const sounds = playlist.sounds;
-  const fumbleSound = sounds.get(configSettings.fumbleSound)?.name ?? "none";
-  const diceSound = sounds.get(configSettings.diceSound)?.name ?? "none";
-  const criticalSound = sounds.get(configSettings.criticalSound)?.name ?? "none";
-  const itemUseSound = sounds.get(configSettings.itemUseSound)?.name ?? "none";
-  const spellUseSound = sounds.get(configSettings.spellUseSound)?.name ?? "none";
-  const potionUseSound = sounds.get(configSettings.potionUseSound)?.name ?? "none";
-  const weaponUseSound = sounds.get(configSettings.weaponUseSound)?.name ?? "none";
-  const weaponUseSoundRanged = sounds.get(configSettings.weaponUseSoundRanged)?.name ?? "none";
-  const spellUseSoundRanged = sounds.get(configSettings.spellUseSoundRanged)?.name ?? "none";
-
-  midiSoundSettings = mergeObject(midiSoundSettings, {
-    all: {
-      critical: { playlistName: playlist.name, soundName: criticalSound },
-      fumble: { playlistName: playlist.name, soundName: fumbleSound },
-      itemRoll: { playlistName: playlist.name, soundName: itemUseSound },
-    },
-    weapon: {
-      itemRoll: { playlistName: playlist.name, soundName: "none" },
-      mwak: { playlistName: playlist.name, soundName: weaponUseSound },
-      rwak: { playlistName: playlist.name, soundName: weaponUseSoundRanged },
-      attack: { playlistName: playlist.name, soundName: weaponUseSound }
-    },
-    spell: {
-      itemRoll: { playlistName: playlist.name, soundName: "none" },
-      msak: { playlistName: playlist.name, soundName: spellUseSound },
-      rsak: { playlistName: playlist.name, soundName: spellUseSoundRanged },
-      attack: { playlistName: playlist.name, soundName: spellUseSound }
-    },
-    "consumable:potion": {
-      itemRoll: { playlistName: playlist.name, soundName: potionUseSound },
-    }
-  }, {overwrite: true})
-}
-*/

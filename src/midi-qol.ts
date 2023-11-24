@@ -1,4 +1,4 @@
-import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, readySettingsSetup } from './module/settings.js';
+import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, readySettingsSetup, collectSettingData } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 import { checkModules, DAE_REQUIRED_VERSION, installedModules, setupModules } from './module/setupModules.js';
 import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
@@ -8,7 +8,7 @@ import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, WORKFLOWSTATES } from './module/workflow.js';
 import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRolAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
-import { resolveLateTargeting, showItemInfo, templateTokens } from './module/itemhandling.js';
+import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
 import { OnUseMacroOptions } from './module/apps/Item.js';
 import { MidiKeyManager } from './module/MidiKeyManager.js';
@@ -16,7 +16,7 @@ import { MidiSounds } from './module/midi-sounds.js';
 import { addUndoChatMessage, getUndoQueue, removeMostRecentWorkflow, showUndoQueue, undoMostRecentWorkflow } from './module/undo.js';
 import { showUndoWorkflowApp } from './module/apps/UndoWorkflow.js';
 import { TroubleShooter } from './module/apps/TroubleShooter.js';
-import { LateTargetingDialog } from './module/apps/LateTargeting.js';
+import { TargetConfirmationDialog } from './module/apps/TargetConfirmation.js';
 
 export let debugEnabled = 0;
 export let debugCallTiming: any = false;
@@ -100,6 +100,7 @@ Hooks.once("levelsReady", function () {
 
 Hooks.once('init', async function () {
   console.log('midi-qol | Initializing midi-qol');
+
   allAttackTypes = ["rwak", "mwak", "rsak", "msak"];
   if (game.system.id === "sw5e")
     allAttackTypes = ["rwak", "mwak", "rpak", "mpak"];
@@ -133,7 +134,8 @@ Hooks.once('init', async function () {
 });
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
   specials["flags.midi-qol.onUseMacroName"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
-  // /specials["flags.midi-qol.optional.name.macroToCall"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
+  specials["flags.midi-qol.optional.NAME.macroToCall"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
+
 });
 /* ------------------------------------ */
 /* Setup module							*/
@@ -166,6 +168,7 @@ Hooks.once('setup', function () {
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     config.midiProperties = {};
     // Add additonal vision types? How to modify token properties doing this.
+    config.midiProperties["confirmTargets"] = i18n("midi-qol.confirmTargetsProp");
     config.midiProperties["nodam"] = i18n("midi-qol.noDamageSaveProp");
     config.midiProperties["fulldam"] = i18n("midi-qol.fullDamageSaveProp");
     config.midiProperties["halfdam"] = i18n("midi-qol.halfDamageSaveProp");
@@ -180,16 +183,22 @@ Hooks.once('setup', function () {
     config.midiProperties["noConcentrationCheck"] = i18n("midi-qol.noConcentrationEffectProp");
     config.midiProperties["toggleEffect"] = i18n("midi-qol.toggleEffectProp");
     config.midiProperties["ignoreTotalCover"] = i18n("midi-qol.ignoreTotalCover");
-
-    config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
-    // sliver, adamant, spell, nonmagic, magic are all deprecated and should only appear as custom
-    config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
-    config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
-    config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
-    config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
-    config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
-    config.damageResistanceTypes["healing"] = config.healingTypes.healing;
-    config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
+    config.damageTypes["midi-none"] = i18n("midi-qol.mdi-none");
+    // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
+    config.customDamageResistanceTypes = {
+      "silver": i18n("midi-qol.NonSilverPhysical"), 
+      "adamant": i18n("midi-qol.NonAdamantinePhysical"),
+      "spell": i18n("midi-qol.spell-damage"),
+      "nonmagic": i18n("midi-qol.NonMagical"),
+      "magic": i18n("midi-qol.Magical"),
+      "physical": i18n("midi-qol.NonMagicalPhysical")
+    }
+    config.damageResistanceTypes["silver"] =  i18n("midi-qol.NonSilverPhysical");
+    config.damageResistanceTypes["adamant"] =  i18n("midi-qol.NonAdamantinePhysical");
+    config.damageResistanceTypes["spell"] =  i18n("midi-qol.spell-damage");
+    config.damageResistanceTypes["nonmagic"] =  i18n("midi-qol.NonMagical");
+    config.damageResistanceTypes["magic"] =  i18n("midi-qol.Magical");
+    config.damageResistanceTypes["physical"] =  i18n("midi-qol.NonMagicalPhysical");
     config.damageResistanceTypes["healing"] = config.healingTypes.healing;
     config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
 
@@ -320,6 +329,16 @@ Hooks.once('ready', function () {
     noDamageSaves = i18n("midi-qol.noDamageonSaveSpells")?.map(name => cleanSpellName(name));
   }
   checkModules();
+  if (game.user?.isGM && configSettings.gmLateTargeting !== "none") {
+    ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", {permanent: true});
+    new TargetConfirmationConfig({}, {}).render(true);
+    configSettings.gmLateTargeting = "none";
+
+  }
+  if (!game.user?.isGM && game.settings.get("midi-qol", "LateTargeting") !== "none") {
+    ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", {permanent: true});
+    new TargetConfirmationConfig({}, {}).render(true);
+  }
   readyHooks();
   readyPatching();
   if (midiSoundSettingsBackup) game.settings.set("midi-qol", "MidiSoundSettings-backup", midiSoundSettingsBackup)
@@ -378,6 +397,7 @@ Hooks.once('ready', function () {
 });
 
 import { setupMidiTests } from './module/tests/setupTest.js';
+import { TargetConfirmationConfig } from './module/apps/TargetConfirmationConfig.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -423,7 +443,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     incapacitatedConditions: string[],
     InvisibleDisadvantageVisionModes: string[],
     isTargetable: function isTargetable(token: Token | TokenDocument | UUID): boolean,
-    LateTargetingDialog: class LateTargetingDialog,
+    TargetConfirmationDialog: class TargetConfirmationDialog,
     log: function log(...args: any[]): void,
     midiFlags: string[],
     midiRenderRoll: function midiRenderRoll(roll: Roll),
@@ -438,7 +458,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     reactionDialog: class reactionDialog,
     typeOrRace(entity: Token | Actor | TokenDocument | string): string,
     reportMidiCriticalFlags: function reportMidiCriticalFlags(): void,
-    resolveLateTargeting: async function resolveLateTargeting(lateTargeting: any, item: Item, actor: Actor, token: Token, targets: any, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
+    resolveTargetConfirmation: async function resolveTargetConfirmation(targetConfirmation: any, item: Item, actor: Actor, token: Token, targets: any, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
     selectTargetsForTemplate: templateTokens,
     removeBonusActionUsed: function removeBonusActionUsed(actor: Actor): boolean,
     setBonusActionUsed: function setBonusActionUsed(actor: Actor): boolean,
@@ -468,12 +488,6 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
 });// Backwards compatability
 function setupMidiQOLApi() {
 
-  //@ts-ignore
-  window.MinorQOL = {
-    doRoll: () => { console.error("MinorQOL is no longer supported please use MidiQOL.doRoll") },
-    applyTokenDamage: () => { console.error("MinorQOL is no longer supported please use MidiQOL.applyTokenDamage") },
-  }
-
   //@ts-expect-error .detectionModes
   const detectionModes = CONFIG.Canvas.detectionModes;
   let InvisibleDisadvantageVisionModes = Object.keys(detectionModes)
@@ -483,6 +497,7 @@ function setupMidiQOLApi() {
     "burrow"
   ];
 
+  let humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "drow", "dwarf", "dwarven", "halfling", "gnome", "tiefling", "orc", "dragonborn", "half-orc"];
   //@ts-ignore
   globalThis.MidiQOL = mergeObject(globalThis.MidiQOL ?? {}, {
     addConcentration,
@@ -500,6 +515,8 @@ function setupMidiQOLApi() {
     computeDistance: getDistanceSimple,
     ConfigPanel,
     configSettings: () => { return configSettings },
+    get currentConfigSettings() { return configSettings },
+    collectSettingData,
     contestedRoll,
     DamageOnlyWorkflow,
     debug,
@@ -521,10 +538,11 @@ function setupMidiQOLApi() {
     hasCondition,
     hasUsedBonusAction,
     hasUsedReaction,
+    humanoid,
     incapacitatedConditions: ["incapacitated", "Convenient Effect: Incapacitated", "stunned", "Convenient Effect: Stunned", "paralyzed", "paralysis", "Convenient Effect: Paralyzed"],
     InvisibleDisadvantageVisionModes,
     isTargetable,
-    LateTargetingDialog,
+    TargetConfirmationDialog,
     log,
     midiFlags,
     midiRenderRoll,
@@ -541,7 +559,7 @@ function setupMidiQOLApi() {
     reactionDialog,
     removeMostRecentWorkflow,
     reportMidiCriticalFlags: reportMidiCriticalFlags,
-    resolveLateTargeting,
+    resolveTargetConfirmation,
     selectTargetsForTemplate: templateTokens,
     setBonusActionUsed,
     setReactionUsed,
@@ -792,8 +810,6 @@ function setupMidiFlags() {
   midiFlags.push(`flags.midi-qol.optional.NAME.countAlt`);
   midiFlags.push(`flags.midi-qol.optional.NAME.ac`);
   midiFlags.push(`flags.midi-qol.optional.NAME.criticalDamage`);
-  // midiFlags.push(`flags.midi-qol.optional.Name.onUse`);
-  // midiFlags.push(`flags.midi-qol.optional.NAME.macroToCall`);
 
   midiFlags.push(`flags.midi-qol.uncanny-dodge`);
   midiFlags.push(`flags.midi-qol.OverTime`);

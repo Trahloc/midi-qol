@@ -112,7 +112,7 @@ export let readyHooks = async () => {
   // Handle removal of concentration
   Hooks.on("deleteActiveEffect", (...args) => {
     let [deletedEffect, options, user] = args;
-    const checkConcentration = globalThis.MidiQOL?.configSettings()?.concentrationAutomation;
+    const checkConcentration = configSettings.concentrationAutomation;
     if (debugEnabled > 0) warn("Deleted effects is ", deletedEffect, options);
 
     if (!checkConcentration || options.noConcentrationCheck) return;

@@ -1,4 +1,4 @@
-<form class="flexcol {{classes}}" autocomplete="off">
+<form class="flexcol {{classes}} content" autocomplete="off">
   {{blurb}}
   <dl>
     {{#each targets as |target iid|}}
@@ -6,7 +6,11 @@
       <div class="flexrow 2">
         <div style="flex-grow: 4">
           <dd>
-            <strong>{{target.name}}</strong>
+            {{{target.name}}}
+            {{#if target.displayedDisposition}}
+            <br>
+            {{target.displayedDisposition}}
+            {{/if}}
             {{#if target.hasDetails}}
             <br>
             {{target.details}}

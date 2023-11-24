@@ -106,7 +106,7 @@ export class ConfigPanel extends FormApplication {
       ConsumeResourceOptions: geti18nOptions("ConsumeResourceOptions"),
       AddDeadOptions: geti18nOptions("AddDeadOptions"),
       AddWoundedOptions,
-      LateTargetingOptions: geti18nOptions("LateTargetingOptions"),
+      TargetConfirmationOptions: geti18nOptions("TargetConfirmationOptions"),
       RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions"),
       CheckRangeOptions: geti18nOptions("CheckRangeOptions"),
       InvisAdvantageOptions: geti18nOptions("InvisAdvantageOptions"),
@@ -374,7 +374,7 @@ let quickSettingsDetails: any = {
       gmAutoFastForwardAttack: true,
       gmAutoFastForwardDamage: true,
       gmRemoveButtons: "all",
-      gmLateTargeting: "none",
+      gmTargetConfirmation: "none",
       autoItemEffects: "applyRemove",
       allowUseMacro: true,
     },
@@ -388,7 +388,7 @@ let quickSettingsDetails: any = {
       gmAutoFastForwardAttack: false,
       gmAutoFastForwardDamage: false,
       gmRemoveButtons: "none",
-      gmLateTargeting: "none"
+      gmTargetConfirmation: "none"
     },
   },
   PlayerAuto: {
@@ -399,7 +399,7 @@ let quickSettingsDetails: any = {
       autoRollDamage: "onHit",
       autoFastForward: "all",
       removeButtons: "all",
-      lateTargeting: "none"
+      targetConfirmation: "none"
     },
   },
   PlayerManual: {
@@ -410,7 +410,7 @@ let quickSettingsDetails: any = {
       autoRollDamage: "none",
       autoFastForward: "none",
       removeButtons: "none",
-      lateTargeting: "none"
+      targetConfirmation: "none"
     },
   },
   DamageAuto: {
