@@ -1,3 +1,7 @@
+## 11.2.2.1
+* Fix for late targeting config appearing on reload.
+* Fix for type in late targeting dialog.
+
 ## 11.2.2
 * Fix isDamaged macro call not being called when auto apply damage enabled.
   - reorder (slightly) macro calls when damaged. preTargetDamageApplication is called before isDamaged, so that special case changes to applied damage will override damage application.

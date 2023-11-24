@@ -608,7 +608,7 @@
   "midi-qol.TargetConfirmationConfig.Hint": "When rolling an item confirm targets before completing",
   "midi-qol.TargetConfirmation.Name": "Target Confirmation",
   "midi-qol.TargetConfirmation.Blurb": "Select up to {targetCount} targets. Shift-Click to select multiple targets",
-  "midi-qol.TargetConfirmation.BlurbAny": "Select any number of argets. Shift-Click to select multiple targets",
+  "midi-qol.TargetConfirmation.BlurbAny": "Select any number of targets. Shift-Click to select multiple targets",
 
   "midi-qol.AddDead.Name": "Add effect when HP = 0",
   

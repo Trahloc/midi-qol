@@ -333,11 +333,12 @@ Hooks.once('ready', function () {
     ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", {permanent: true});
     new TargetConfirmationConfig({}, {}).render(true);
     configSettings.gmLateTargeting = "none";
-
+    game.settings.set("midi-qol", "ConfigSettings", configSettings)
   }
   if (!game.user?.isGM && game.settings.get("midi-qol", "LateTargeting") !== "none") {
     ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", {permanent: true});
     new TargetConfirmationConfig({}, {}).render(true);
+    game.settings.set("midi-qol", "LateTargeting", "none");
   }
   readyHooks();
   readyPatching();
