@@ -7,7 +7,7 @@ import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
 import { OnUseMacros } from "./apps/Item.js";
-import { Options, preUpdateItemActorOnUseMacro } from "./patching.js";
+import { Options } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 
@@ -1762,7 +1762,7 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
   const origin = new PIXI.Point(x, y);
   const tokenCenter = token.center;
   const ray: Ray = new Ray(origin, tokenCenter)
-  distance = canvas?.grid?.grid?.measureDistances([{ ray }], { gridSpaces: false })[0];
+  distance = canvas?.grid?.measureDistances([{ ray }], { gridSpaces: false })[0];
   distance = Math.max(0, distance);
   return distance;
 }
@@ -1891,7 +1891,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   if (segments.length === 0) {
     return -1;
   }
-  rdistance = segments.map(ray => canvas?.grid?.measureDistances([ray], { gridSpaces: true }));
+  rdistance = segments.map(ray => midiMeasureDistances([ray], { gridSpaces: true }));
   distance = Math.min(...rdistance);
   if (configSettings.optionalRules.distanceIncludesHeight) {
     let heightDifference = 0;
@@ -1926,7 +1926,7 @@ let pointWarn = debounce(() => {
   ui.notifications?.warn("4 Point LOS check selected but dnd5e-helpers not installed")
 }, 100)
 
-export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, targetsRef: Set<Token | TokenDocument | string> | undefined): { result: string, attackingToken?: Token } {
+export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, targetsRef: Set<Token | TokenDocument | string> | undefined, showWarning: boolean = true): { result: string, attackingToken?: Token } {
   if (!canvas || !canvas.scene) return { result: "normal" };
   const checkRangeFunction = (item, token, targets): { result: string, reason?: string } => {
     if (!canvas || !canvas.scene) return {
@@ -2054,7 +2054,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
   if (!canOverride) { // no overrides so just do the check
     const { result, reason } = checkRangeFunction(itemIn, attackingToken, targetsIn);
     if (result === "fail" && reason) {
-      ui.notifications?.warn(reason);
+      if (showWarning) ui.notifications?.warn(reason);
     }
     return { result, attackingToken }
   }
@@ -3818,7 +3818,7 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
       rollData.raceOrType = data.target.actor ? raceOrType(data.target.actor) : "";
       rollData.typeOrRace = data.target.actor ? typeOrRace(data.target.actor) : "";
     }
-    rollData.humanoid = globalThis.MidiQOL.humanoid; 
+    rollData.humanoid = globalThis.MidiQOL.humanoid;
     rollData.tokenUuid = data.workflow?.tokenUuid;
     rollData.tokenId = data.workflow?.tokenId;
     rollData.workflow = {};
@@ -4226,124 +4226,47 @@ export async function computeFlankedStatus(target): Promise<boolean> {
   if (!canvas || !target) return false;
   const allies: any /*Token v10*/[] = findPotentialFlankers(target);
   if (allies.length <= 1) return false; // length 1 means no other allies nearby
-  if (canvas?.grid?.grid instanceof SquareGrid || (canvas?.grid?.grid instanceof BaseGrid && configSettings.griddedGridless)) {
-    let gridW = canvas?.grid?.w ?? 100;
-    let gridH = canvas?.grid?.h ?? 100;
-    const tl = { x: target.x, y: target.y };
-    const tr = { x: target.x + target.document.width * gridW, y: target.y };
-    const bl = { x: target.x, y: target.y + target.document.height * gridH };
-    const br = { x: target.x + target.document.width * gridW, y: target.y + target.document.height * gridH };
-    const top: [x0: number, y0: number, x1: number, y1: number] = [tl.x, tl.y, tr.x, tr.y];
-    const bottom: [x0: number, y0: number, x1: number, y1: number] = [bl.x, bl.y, br.x, br.y];
-    const left: [x0: number, y0: number, x1: number, y1: number] = [tl.x, tl.y, bl.x, bl.y];
-    const right: [x0: number, y0: number, x1: number, y1: number] = [tr.x, tr.y, br.x, br.y];
+  let gridW = canvas?.grid?.w ?? 100;
+  let gridH = canvas?.grid?.h ?? 100;
+  const tl = { x: target.x, y: target.y };
+  const tr = { x: target.x + target.document.width * gridW, y: target.y };
+  const bl = { x: target.x, y: target.y + target.document.height * gridH };
+  const br = { x: target.x + target.document.width * gridW, y: target.y + target.document.height * gridH };
+  const top: [x0: number, y0: number, x1: number, y1: number] = [tl.x, tl.y, tr.x, tr.y];
+  const bottom: [x0: number, y0: number, x1: number, y1: number] = [bl.x, bl.y, br.x, br.y];
+  const left: [x0: number, y0: number, x1: number, y1: number] = [tl.x, tl.y, bl.x, bl.y];
+  const right: [x0: number, y0: number, x1: number, y1: number] = [tr.x, tr.y, br.x, br.y];
 
-    while (allies.length > 1) {
-      const token = allies.pop();
-      if (!token) break;
-      if (!heightIntersects(target.document, token.document)) continue;
-      if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
-        //@ts-expect-error
-        const CEFlanked = game.dfreds.effects._flanked;
-        //@ts-expect-error
-        const hasFlanked = token.actor && CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, token.actor.uuid);
-        if (hasFlanked) continue;
-      }
-      // Loop through each square covered by attacker and ally
-      const tokenStartX = token.document.width >= 1 ? 0.5 : token.document.width / 2;
-      const tokenStartY = token.document.height >= 1 ? 0.5 : token.document.height / 2;
-      for (let ally of allies) {
-        if (ally.document.uuid === token.document.uuid) continue;
-        const actor: any = ally.actor;
-        if (actor?.system.attrbutes?.hp?.value <= 0) continue;
-        if (!heightIntersects(target.document, ally.document)) continue;
-        if (installedModules.get("dfreds-convenient-effects")) {
-          //@ts-expect-error
-          if (actor?.effects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
-        }
-        if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
-          //@ts-expect-error
-          const CEFlanked = game.dfreds.effects._flanked;
-          //@ts-expect-error
-          const hasFlanked = CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, ally.actor.uuid);
-          if (hasFlanked) continue;
-        }
-        const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
-        const allyStartY = ally.document.height >= 1 ? 0.5 : ally.document.height / 2;
-        var x, x1, y, y1, d, r;
-        for (x = tokenStartX; x < token.document.width; x++) {
-          for (y = tokenStartY; y < token.document.height; y++) {
-            for (x1 = allyStartX; x1 < ally.document.width; x1++) {
-              for (y1 = allyStartY; y1 < ally.document.height; y1++) {
-                let tx = token.x + x * gridW;
-                let ty = token.y + y * gridH;
-                let ax = ally.x + x1 * gridW;
-                let ay = ally.y + y1 * gridH;
-                const rayToCheck = new Ray({ x: tx, y: ty }, { x: ax, y: ay });
-                // console.error("Checking ", tx, ty, ax, ay, token.center, ally.center, target.center)
-                const flankedTop = rayToCheck.intersectSegment(top) && rayToCheck.intersectSegment(bottom);
-                const flankedLeft = rayToCheck.intersectSegment(left) && rayToCheck.intersectSegment(right);
-                if (flankedLeft || flankedTop) {
-                  return true;
-                }
-              }
-            }
-          }
-        }
-      }
+  while (allies.length > 1) {
+    const token = allies.pop();
+    if (!token) break;
+    if (!heightIntersects(target.document, token.document)) continue;
+    if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
+      //@ts-expect-error
+      const CEFlanked = game.dfreds.effects._flanked;
+      //@ts-expect-error
+      const hasFlanked = token.actor && CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, token.actor.uuid);
+      if (hasFlanked) continue;
     }
-  } else if (canvas?.grid?.grid instanceof HexagonalGrid) {
-    return false;
-  }
-  return false;
-}
-
-export function computeFlankingStatus(token, target): boolean {
-  if (!checkRule("checkFlanking") || checkRule("checkFlanking") === "off") return false;
-  if (!canvas) return false;
-  if (!token) return false;
-  // For the target see how many square between this token and any friendly targets
-  // Find all tokens hostile to the target
-  if (!target) return false;
-  if (!heightIntersects(target.document, token.document)) return false;
-  let range = 1;
-  if (token.actor?.items.contents.some(item => item.system?.properties?.rch && item.system.equipped)) {
-    range = 2;
-  }
-  if (getDistance(token, target, true) > range * (canvas?.dimensions?.distance ?? 5)) return false;
-  // an enemy's enemies are my friends.
-  const allies: any /* Token v10 */[] = findPotentialFlankers(target)
-
-  if (!token.document.disposition) return false; // Neutral tokens can't get flanking
-  if (allies.length <= 1) return false; // length 1 means no other allies nearby
-
-  if (canvas?.grid?.grid instanceof SquareGrid || (canvas?.grid?.grid instanceof BaseGrid && configSettings.griddedGridless)) {
-    let gridW = canvas?.grid?.w ?? 100;
-    let gridH = canvas?.grid?.h ?? 100;
-    const tl = { x: target.x, y: target.y };
-    const tr = { x: target.x + target.document.width * gridW, y: target.y };
-    const bl = { x: target.x, y: target.y + target.document.height * gridH };
-    const br = { x: target.x + target.document.width * gridW, y: target.y + target.document.height * gridH };
-    const top: [x0: number, y0: number, x1: number, y1: number] = [tl.x, tl.y, tr.x, tr.y];
-    const bottom: [x0: number, y0: number, x1: number, y1: number] = [bl.x, bl.y, br.x, br.y];
-    const left: [x0: number, y0: number, x1: number, y1: number] = [tl.x, tl.y, bl.x, bl.y];
-    const right: [x0: number, y0: number, x1: number, y1: number] = [tr.x, tr.y, br.x, br.y];
-
     // Loop through each square covered by attacker and ally
     const tokenStartX = token.document.width >= 1 ? 0.5 : token.document.width / 2;
     const tokenStartY = token.document.height >= 1 ? 0.5 : token.document.height / 2;
-
-
     for (let ally of allies) {
       if (ally.document.uuid === token.document.uuid) continue;
-      if (!heightIntersects(ally.document, target.document)) continue;
       const actor: any = ally.actor;
-      if (checkIncapacitated(actor)) continue;
+      if (actor?.system.attrbutes?.hp?.value <= 0) continue;
+      if (!heightIntersects(target.document, ally.document)) continue;
       if (installedModules.get("dfreds-convenient-effects")) {
         //@ts-expect-error
         if (actor?.effects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
       }
-
+      if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
+        //@ts-expect-error
+        const CEFlanked = game.dfreds.effects._flanked;
+        //@ts-expect-error
+        const hasFlanked = CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, ally.actor.uuid);
+        if (hasFlanked) continue;
+      }
       const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
       const allyStartY = ally.document.height >= 1 ? 0.5 : ally.document.height / 2;
       var x, x1, y, y1, d, r;
@@ -4367,15 +4290,77 @@ export function computeFlankingStatus(token, target): boolean {
         }
       }
     }
-  } else if (canvas?.grid?.grid instanceof HexagonalGrid) {
-    let grid: HexagonalGrid = canvas?.grid?.grid;
-    const tokenRowCol = grid.getGridPositionFromPixels(token.center.x, token.center.y);
-    const targetRowCol = grid.getGridPositionFromPixels(target.center.x, target.center.y);
-    const allAdjacent: [number, number][] = [];
-    for (let ally of allies) {
-      let allyRowCol = grid?.getGridPositionFromPixels(ally.center.x, ally.center.y);
+  }
+  return false;
+}
+
+export function computeFlankingStatus(token, target): boolean {
+  if (!checkRule("checkFlanking") || checkRule("checkFlanking") === "off") return false;
+  if (!canvas) return false;
+  if (!token) return false;
+  // For the target see how many square between this token and any friendly targets
+  // Find all tokens hostile to the target
+  if (!target) return false;
+  if (!heightIntersects(target.document, token.document)) return false;
+  let range = 1;
+  if (token.actor?.items.contents.some(item => item.system?.properties?.rch && item.system.equipped)) {
+    range = 2;
+  }
+  if (getDistance(token, target, true) > range * (canvas?.dimensions?.distance ?? 5)) return false;
+  // an enemy's enemies are my friends.
+  const allies: any /* Token v10 */[] = findPotentialFlankers(target)
+
+  if (!token.document.disposition) return false; // Neutral tokens can't get flanking
+  if (allies.length <= 1) return false; // length 1 means no other allies nearby
+
+  let gridW = canvas?.grid?.w ?? 100;
+  let gridH = canvas?.grid?.h ?? 100;
+  const tl = { x: target.x, y: target.y };
+  const tr = { x: target.x + target.document.width * gridW, y: target.y };
+  const bl = { x: target.x, y: target.y + target.document.height * gridH };
+  const br = { x: target.x + target.document.width * gridW, y: target.y + target.document.height * gridH };
+  const top: [x0: number, y0: number, x1: number, y1: number] = [tl.x, tl.y, tr.x, tr.y];
+  const bottom: [x0: number, y0: number, x1: number, y1: number] = [bl.x, bl.y, br.x, br.y];
+  const left: [x0: number, y0: number, x1: number, y1: number] = [tl.x, tl.y, bl.x, bl.y];
+  const right: [x0: number, y0: number, x1: number, y1: number] = [tr.x, tr.y, br.x, br.y];
+
+  // Loop through each square covered by attacker and ally
+  const tokenStartX = token.document.width >= 1 ? 0.5 : token.document.width / 2;
+  const tokenStartY = token.document.height >= 1 ? 0.5 : token.document.height / 2;
+
+
+  for (let ally of allies) {
+    if (ally.document.uuid === token.document.uuid) continue;
+    if (!heightIntersects(ally.document, target.document)) continue;
+    const actor: any = ally.actor;
+    if (checkIncapacitated(actor)) continue;
+    if (installedModules.get("dfreds-convenient-effects")) {
+      //@ts-expect-error
+      if (actor?.effects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
     }
-    return false;
+
+    const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
+    const allyStartY = ally.document.height >= 1 ? 0.5 : ally.document.height / 2;
+    var x, x1, y, y1, d, r;
+    for (x = tokenStartX; x < token.document.width; x++) {
+      for (y = tokenStartY; y < token.document.height; y++) {
+        for (x1 = allyStartX; x1 < ally.document.width; x1++) {
+          for (y1 = allyStartY; y1 < ally.document.height; y1++) {
+            let tx = token.x + x * gridW;
+            let ty = token.y + y * gridH;
+            let ax = ally.x + x1 * gridW;
+            let ay = ally.y + y1 * gridH;
+            const rayToCheck = new Ray({ x: tx, y: ty }, { x: ax, y: ay });
+            // console.error("Checking ", tx, ty, ax, ay, token.center, ally.center, target.center)
+            const flankedTop = rayToCheck.intersectSegment(top) && rayToCheck.intersectSegment(bottom);
+            const flankedLeft = rayToCheck.intersectSegment(left) && rayToCheck.intersectSegment(right);
+            if (flankedLeft || flankedTop) {
+              return true;
+            }
+          }
+        }
+      }
+    }
   }
   return false;
 }
@@ -4995,18 +4980,70 @@ const MaxNameLength = 20;
 export function getLinkText(entity: Token | TokenDocument | Actor | Item | null | undefined) {
   if (!entity) return "<unknown>";
   let name = entity.name ?? "unknown";
-  if (entity instanceof Token && !configSettings.useTokenNames) name = entity.actor?.name ?? name; 
+  if (entity instanceof Token && !configSettings.useTokenNames) name = entity.actor?.name ?? name;
   if (entity instanceof Token) return `@UUID[${entity.document.uuid}]{${name.slice(0, MaxNameLength - 5)}}`;
   return `@UUID[${entity.uuid}]{${entity.name?.slice(0, MaxNameLength - 5)}}`;
 }
 
-export function getIconFreeLink(entity: Token | TokenDocument | Item | Actor| null | undefined) {
+export function getIconFreeLink(entity: Token | TokenDocument | Item | Actor | null | undefined) {
   if (!entity) return "<unknown>";
   let name = entity.name ?? "unknown";
-  if (entity instanceof Token && !configSettings.useTokenNames) name = entity.actor?.name ?? name; 
+  if (entity instanceof Token && !configSettings.useTokenNames) name = entity.actor?.name ?? name;
   if (entity instanceof Token) {
     return `<a class="content-link" data-uuid="${entity.actor?.uuid}">${name?.slice(0, MaxNameLength)}</a>`;
   } else {
     return `<a class="content-link" data-uuid="${entity.uuid}">${name?.slice(0, MaxNameLength)}</a>`
   }
+}
+
+export function midiMeasureDistances(segments, options: any = {}) {
+
+  //@ts-expect-error .grid
+  if (canvas?.grid?.grid.constructor.name !== "BaseGrid" || !options.gridSpaces || !configSettings.griddedGridless)
+    return canvas?.grid?.measureDistances(segments, options);
+
+  //@ts-expect-error .diagonalRule
+  const rule = canvas?.grid.diagonalRule;
+
+  if (!configSettings.gridlessFudge || !options.gridSpaces || !["555", "5105"].includes(rule))
+    return canvas?.grid?.measureDistances(segments, options);
+  
+  // Track the total number of diagonals
+  let nDiagonal = 0;
+  const d = canvas?.dimensions;
+  //@ts-expect-error .grid
+  const grid = canvas?.scene?.grid;
+  if (!d || !d.size) return 0;
+
+  const fudgeFactor = configSettings.gridlessFudge / d.distance;
+
+  // Iterate over measured segments
+  return segments.map(s => {
+    let r = s.ray;
+
+    // Determine the total distance traveled
+    let nx = Math.ceil(Math.max(0, Math.abs(r.dx / d.size) - fudgeFactor));
+    let ny = Math.ceil(Math.max(0, Math.abs(r.dy / d.size) - fudgeFactor));
+
+    // Determine the number of straight and diagonal moves
+    let nd = Math.min(nx, ny);
+    let ns = Math.abs(ny - nx);
+    nDiagonal += nd;
+
+    // Alternative DMG Movement
+    if (rule === "5105") {
+      let nd10 = Math.floor(nDiagonal / 2) - Math.floor((nDiagonal - nd) / 2);
+      let spaces = (nd10 * 2) + (nd - nd10) + ns;
+      return spaces * d.distance;
+    }
+
+    // Euclidean Measurement
+    else if (rule === "EUCL") {
+      return Math.hypot(nx, ny) * grid?.distance;
+    }
+
+    // Standard PHB Movement
+    else return Math.max(nx, ny) * grid.distance;
+  });
+
 }

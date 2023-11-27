@@ -811,56 +811,6 @@ export function _prepareDerivedData(wrapped, ...args) {
     TroubleShooter.recordError(err, message);
   }
 }
-function _measureDistances(segments, options = {}) {
-  // Track the total number of diagonals
-  let nDiagonal = 0;
-  const rule = this.parent.diagonalRule;
-  const d = canvas?.dimensions;
-  //@ts-expect-error .grid
-  const grid = canvas?.scene?.grid;
-  if (!d || !d.size) return 0;
-
-  // Iterate over measured segments
-  return segments.map(s => {
-    let r = s.ray;
-
-    // Determine the total distance traveled
-    let nx = Math.floor(Math.abs(r.dx / d.size) + 0.5);
-    let ny = Math.floor(Math.abs(r.dy / d.size) + 0.5);
-
-    // Determine the number of straight and diagonal moves
-    let nd = Math.min(nx, ny);
-    let ns = Math.abs(ny - nx);
-    nDiagonal += nd;
-
-    // Alternative DMG Movement
-    if (rule === "5105") {
-      let nd10 = Math.floor(nDiagonal / 2) - Math.floor((nDiagonal - nd) / 2);
-      let spaces = (nd10 * 2) + (nd - nd10) + ns;
-      return spaces * d.distance;
-    }
-
-    // Euclidean Measurement
-    else if (rule === "EUCL") {
-      error("_measureDistances | rule should not be EUCL")
-      return Math.hypot(nx, ny) * grid?.distance;
-    }
-
-    // Standard PHB Movement
-    else return Math.max(nx, ny) * grid.distance;
-  });
-}
-
-function measureDistances(wrapped, segments, options: any = {}) {
-  if (configSettings.griddedGridless && options.gridSpaces) {
-    const rule = this.parent.diagonalRule;
-    if (options.gridSpaces && ["555", "5105"].includes(rule)) {
-      const distances = _measureDistances.call(this, segments, options);
-      return distances;
-    }
-  }
-  return wrapped(segments, options);
-}
 
 export function initPatching() {
   libWrapper = globalThis.libWrapper;
@@ -871,7 +821,6 @@ export function initPatching() {
   libWrapper.register("midi-qol", "KeyboardManager.prototype._onFocusIn", _onFocusIn, "OVERRIDE");
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getRollData", actorGetRollData, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.getRollData", itemGetRollData, "WRAPPER");
-  libWrapper.register("midi-qol", "BaseGrid.prototype.measureDistances", measureDistances, "MIXED");
 }
 
 export function _onFocusIn(event) {
@@ -1264,7 +1213,7 @@ export async function checkWounded(actor, update, options, user) {
       const message = "wounded status condition not set - please update your midi-qol dead condition on the mechanics tab";
       TroubleShooter.recordError(new Error(message), "In check wounded");
       ui.notifications?.error(`midi-qol | ${message}`);
-    } else if (installedModules.get("dfreds-convenient-effects")) {
+    } else if (installedModules.get("dfreds-convenient-effects") && woundedStatus.id.startsWith("Convenient Effect:")) {
       const wounded = await ConvenientEffectsHasEffect((woundedStatus.name), actor, false);
       if (wounded !== needsWounded) {
         if (needsWounded)
@@ -1294,7 +1243,7 @@ export async function checkWounded(actor, update, options, user) {
       effect = getUnconsciousStatus();
       useDefeated = false;
     }
-    if (effect && installedModules.get("dfreds-convenient-effects")) {
+    if (effect && installedModules.get("dfreds-convenient-effects") && effect.id.startsWith("Convenient Effect:")) {
         const isBeaten = actor.effects.find(ef => ef.name === effect?.name) !== undefined;
         if ((needsBeaten !== isBeaten)) {
           let combatant;

@@ -574,12 +574,19 @@
 
 
         <div class="form-group">
-          <label>{{localize "midi-qol.GriddedGridless.Name"}}</label>
-          <input type="checkbox" name="griddedGridless" data-dtype="Boolean" {{checked
-            configSettings.griddedGridless}} />
+          <span>
+            <label>{{localize "midi-qol.GriddedGridless.Name"}}</label>
+            <input type="checkbox" name="griddedGridless" data-dtype="Boolean" {{checked
+              configSettings.griddedGridless}} />
+          </span>
+          <span>
+            <label>{{localize "midi-qol.GridlessFudge.Name"}}</label>
+            <input type="number" step="0.1" style="width:40px;" name="gridlessFudge"
+              value="{{configSettings.gridlessFudge}}" />
+          </span>
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.GriddedGridless.Hint"}}</div>
-
+        <div class="midi-qol-faint">{{localize "midi-qol.GridlessFudge.Hint"}}</div>
         <div class="form-group">
           <label>{{localize "midi-qol.WallsBlockRange.Name"}}</label>
           <select name="optionalRules.wallsBlockRange" data-dtype="String">

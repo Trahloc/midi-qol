@@ -15,7 +15,7 @@ export class ConfigPanel extends FormApplication {
       id: "midi-qol-settings",
       width: 800,
       height: "auto",
-      closeOnSubmit: false,
+      closeOnSubmit: true,
       scrollY: [".tab.workflow"],
       tabs: [{ navSelector: ".tabs", contentSelector: ".content", initial: "gm" }]
     })
@@ -116,7 +116,7 @@ export class ConfigPanel extends FormApplication {
       RollSavesBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
       RollChecksBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
       //@ts-expect-error
-      StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { acc[se.id] = i18n(se.name ?? se.label); return acc }, {"none": "None"}),
+      StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name =  i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, {"none": "None"}),
     };
 
     if (debugEnabled > 0) warn("Config Panel: getData ", data)

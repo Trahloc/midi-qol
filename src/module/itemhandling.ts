@@ -71,7 +71,7 @@ export async function preTemplateTargets(item, options, pressedKeys) {
       if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.hasCreatureTarget");
       targetConfirmationRequired = true;
     }
-    if (!targetConfirmationRequired && targetConfirmation.noneTargeted && numTargets === 0) {
+    if (!targetConfirmationRequired && targetConfirmation.noneTargeted && (item.system.target?.type ||item.hasAttack )&& numTargets === 0) {
       if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.noneTargeted");
       targetConfirmationRequired = true;
     }
@@ -608,8 +608,13 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     }
 
     // Advantage is true if any of the sources of advantage are true;
-    let advantage = options.advantage || workflow.options.advantage || workflow?.advantage || workflow?.rollOptions.advantage || workflow?.workflowOptions.advantage || workflow.flankingAdvantage;
-
+    let advantage = options.advantage 
+              || workflow.options.advantage 
+              || workflow?.advantage 
+              || workflow?.rollOptions.advantage 
+              || workflow?.workflowOptions.advantage 
+              || workflow.flankingAdvantage;
+    if (workflow.noAdvantage) advantage = false;
     // Attribute advantaage
     if (workflow.rollOptions.advantage) {
       workflow.attackAdvAttribution.add(`ADV:keyPress`);
@@ -620,7 +625,13 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.advReminderAttackAdvAttribution.add(`ADV:Flanking`);
     }
 
-    let disadvantage = options.disadvantage || workflow.options.disadvantage || workflow?.disadvantage || workflow?.workflowOptions.disadvantage || workflow.rollOptions.disadvantage;
+    let disadvantage = options.disadvantage 
+              || workflow.options.disadvantage 
+              || workflow?.disadvantage 
+              || workflow?.workflowOptions.disadvantage 
+              || workflow.rollOptions.disadvantage;
+    if (workflow.noDisadvantage) disadvantage = false;
+    
     if (workflow.rollOptions.disadvantage) {
       workflow.attackAdvAttribution.add(`DIS:keyPress`);
       workflow.advReminderAttackAdvAttribution.add(`DIS:keyPress`);

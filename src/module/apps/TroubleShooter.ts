@@ -1,5 +1,5 @@
 import { geti18nOptions, i18n } from "../../midi-qol.js";
-import { CheckedAuthorsList, checkedModuleList, checkMechanic, collectSettingData, configSettings, enableWorkflow, exportSettingsToJSON, fetchParams, importSettingsFromJSON } from "../settings.js";
+import { CheckedAuthorsList, checkedModuleList, checkMechanic, collectSettingData, configSettings, enableWorkflow, exportSettingsToJSON, fetchParams, importSettingsFromJSON, safeGetGameSetting } from "../settings.js";
 import { DAE_REQUIRED_VERSION, REQUIRED_MODULE_VERSIONS, getModuleVersion, installedModules } from "../setupModules.js";
 import { calculateDamage } from "../utils.js";
 
@@ -133,7 +133,7 @@ export class TroubleShooter extends FormApplication {
     settings.forEach(i => {
       if (typeof i[1].name !== "string") return;
       if (!i[1].config) return;
-      let value: any = game.settings.get(moduleId, i[1].key);
+      let value: any = safeGetGameSetting(moduleId, i[1].key);
       if (typeof value !== "string") value = JSON.stringify(value);
       returnValue[i18n(i[1].name)] = value;
     });
@@ -297,14 +297,14 @@ export class TroubleShooter extends FormApplication {
       //@ts-expect-error .version
       "Dynamic Active Effects Version": game.modules.get("dae")?.version,
       "coreSettings": {
-        "Photo Sensitivity": game.settings.get("core", "photosensitiveMode")
+        "Photo Sensitivity": safeGetGameSetting("core", "photosensitiveMode")
       },
       "gameSystemSettings": {
-        "Diagonal Distance Setting": game.settings.get(gameSystemId, "diagonalMovement"),
-        "Proficiency Variant": game.settings.get(gameSystemId, "proficiencyModifier"),
-        "Collapse Item Cards": game.settings.get(gameSystemId, "autoCollapseItemCards"),
-        "Critical Damage Maximize Dice": game.settings.get(gameSystemId, "criticalDamageMaxDice"),
-        "Critical Damage Modifiers": game.settings.get(gameSystemId, "criticalDamageModifiers")
+        "Diagonal Distance Setting": safeGetGameSetting(gameSystemId, "diagonalMovement"),
+        "Proficiency Variant": safeGetGameSetting(gameSystemId, "proficiencyModifier"),
+        "Collapse Item Cards": safeGetGameSetting(gameSystemId, "autoCollapseItemCards"),
+        "Critical Damage Maximize Dice": safeGetGameSetting(gameSystemId, "criticalDamageMaxDice"),
+        "Critical Damage Modifiers": safeGetGameSetting(gameSystemId, "criticalDamageModifiers")
       },
       "moduleSettings": {}
     }
@@ -333,32 +333,32 @@ export class TroubleShooter extends FormApplication {
     //@ts-expect-error .filter
     data.summary["coreSettings"]["Module Count"] = `Active: ${game.modules.filter(m => m.active).length} | Installed: ${game.modules.size}`;
     if (game.modules.get("ActiveAuras")?.active) {
-      data.summary.moduleSettings["Active Auras In Combat"] = game.settings.get("ActiveAuras", "combatOnly");
+      data.summary.moduleSettings["Active Auras In Combat"] = safeGetGameSetting("ActiveAuras", "combatOnly");
     }
     if (game.modules.get("ddb-importer")?.active) {
     } else data.summary.moduleSettings["DDB Importer"] = i18n("midi-qol.Inactive");
     if (game.modules.get("dfreds-convenient-effects")?.active) {
-      data.summary.moduleSettings["Convenient Effects Modify Status Effects"] = game.settings.get("dfreds-convenient-effects", "modifyStatusEffects");
+      data.summary.moduleSettings["Convenient Effects Modify Status Effects"] = safeGetGameSetting("dfreds-convenient-effects", "modifyStatusEffects");
     } else data.summary.moduleSettings["Convenient Effects"] = i18n("midi-qol.Inactive");
     if (game.modules.get("monks-little-details")?.active) {
-      data.summary.moduleSettings["Monk's Little Details Status Effects"] = game.settings.get("monks-little-details", "add-extra-statuses");
-      data.summary.moduleSettings["Monk's Little Clear Targets"] = game.settings.get("monks-little-details", "clear-targets");
-      data.summary.moduleSettings["Monk's Little Remember Targets"] = game.settings.get("monks-little-details", "remember-previous");
+      data.summary.moduleSettings["Monk's Little Details Status Effects"] = safeGetGameSetting("monks-little-details", "add-extra-statuses");
+      data.summary.moduleSettings["Monk's Little Clear Targets"] = safeGetGameSetting("monks-little-details", "clear-targets");
+      data.summary.moduleSettings["Monk's Little Remember Targets"] = safeGetGameSetting("monks-little-details", "remember-previous");
     } else data.summary.moduleSettings["Monk's Little Details"] = i18n("midi-qol.Inactive");
     if (game.modules.get("monks-tokenbar")?.active) {
-      data.summary.moduleSettings["Monk's Token Bar Allow Players to use"] = game.settings.get("monks-tokenbar", "allow-player");
+      data.summary.moduleSettings["Monk's Token Bar Allow Players to use"] = safeGetGameSetting("monks-tokenbar", "allow-player");
     } else data.summary.moduleSettings["Monks Token Bar"] = i18n("midi-qol.Inactive");
     if (game.modules.get("sequencer")?.active) {
-      data.summary.moduleSettings["Sequencer Enable Effects"] = game.settings.get("sequencer", "effectsEnabled");
-      data.summary.moduleSettings["Sequencer Enable Sounds"] = game.settings.get("sequencer", "soundsEnabled")
+      data.summary.moduleSettings["Sequencer Enable Effects"] = safeGetGameSetting("sequencer", "effectsEnabled");
+      data.summary.moduleSettings["Sequencer Enable Sounds"] = safeGetGameSetting("sequencer", "soundsEnabled")
     } else data.summary.moduleSettings["Sequencer"] = i18n("midi-qol.Inactive");
     if (game.modules.get("times-up")?.active) {
-      data.summary.moduleSettings["Times Up Disable Passive Effects Expiry"] = game.settings.get("times-up", "DisablePassiveEffects");
+      data.summary.moduleSettings["Times Up Disable Passive Effects Expiry"] = safeGetGameSetting("times-up", "DisablePassiveEffects");
     } else data.summary.moduleSettings["Times-Up"] = i18n("midi-qol.Inactive");
     if (game.modules.get("tokenmagic")?.active) {
-      data.summary.moduleSettings["Token Magic FX Automatic Template Effects "] = game.settings.get("tokenmagic", "autoTemplateEnabled");
-      data.summary.moduleSettings["Token Magic FX Default Template Grid on Hover "] = game.settings.get("tokenmagic", "defaultTemplateOnHover");
-      data.summary.moduleSettings["Token Magic FX Autoa Hide Template Elements "] = game.settings.get("tokenmagic", "autohideTemplateElements");
+      data.summary.moduleSettings["Token Magic FX Automatic Template Effects "] = safeGetGameSetting("tokenmagic", "autoTemplateEnabled");
+      data.summary.moduleSettings["Token Magic FX Default Template Grid on Hover "] = safeGetGameSetting("tokenmagic", "defaultTemplateOnHover");
+      data.summary.moduleSettings["Token Magic FX Autoa Hide Template Elements "] = safeGetGameSetting("tokenmagic", "autohideTemplateElements");
     } else data.summary.moduleSettings["Token Magic FX"] = i18n("midi-qol.Inactive");
 
     data.summary.midiSettings = {};
@@ -753,7 +753,7 @@ export class TroubleShooter extends FormApplication {
   }
   public static checkWalledTemplates(data: TroubleShooterData) {
     if (game.modules.get("walledtemplates")?.active) {
-      if (configSettings.autoTarget !== "walledtemplates" || !game.settings.get("walledtemplates", "autotarget-enabled")) {
+      if (configSettings.autoTarget !== "walledtemplates" || !safeGetGameSetting("walledtemplates", "autotarget-enabled")) {
         data.problems.push({
           moduleId: "walledtemplates",
           severity: "Error",
@@ -776,7 +776,7 @@ export class TroubleShooter extends FormApplication {
           },
           fixerid: -1
         });
-      } else if (game.settings.get("walledtemplates", "autotarget-enabled") && configSettings.autoTarget !== "walledtemplates") {
+      } else if (safeGetGameSetting("walledtemplates", "autotarget-enabled") && configSettings.autoTarget !== "walledtemplates") {
         data.problems.push({
           moduleId: "walledtemplates",
           severity: "Error",
@@ -810,7 +810,7 @@ export class TroubleShooter extends FormApplication {
 
   public static checkItemMacro(data: TroubleShooterData) {
     if (!game.modules.get("itemacro")?.active) return;
-    if (game.settings.get('itemacro', 'charsheet')) {
+    if (safeGetGameSetting('itemacro', 'charsheet')) {
       data.problems.push({
         moduleId: "itemacro",
         severity: "Warn",
@@ -896,7 +896,7 @@ export class TroubleShooter extends FormApplication {
   }
 
   public static checkMidiSettings(data: TroubleShooterData) {
-    if (!(game.settings.get("midi-qol", "EnableWorkflow"))) {
+    if (!(safeGetGameSetting("midi-qol", "EnableWorkflow"))) {
       data.problems.push({
         moduleId: "midi-qol",
         severity: "Warn",
@@ -947,5 +947,3 @@ function removeIpAddressAndHostName(inputString) {
 
   return sanitisedString;
 }
-
-

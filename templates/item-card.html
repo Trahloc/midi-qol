@@ -10,7 +10,11 @@
 
   <div class="card-content">
     {{#unless hideItemDetails}}
-    {{{data.description.value}}}
+    {{#if data.description.chat}}
+      {{{data.description.chat}}}
+    {{else}}
+      {{data.description.value}}
+    {{/if}}
     {{#if data.materials.value}}
     <p><strong>{{ RequiredMaterials }}</strong> {{data.materials.value}}</p>
     {{/if}}
@@ -21,9 +25,11 @@
     {{#if hasAttack}}
     {{#if mergeCardMulti}}
     <div class="midi-qol-attack-buttons flexrow 5">
-      <button data-action="attack-dis" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Disadvantage'}}"><i class="fas fa-caret-down"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
+      <button data-action="attack-dis" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Disadvantage'}}"><i
+          class="fas fa-caret-down"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
       <button data-action="attack" style="flex: 3 1 0">{{ Attack }}</button>
-      <button data-action="attack-adv" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Advantage'}}"><i class="fas fa-caret-up"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
+      <button data-action="attack-adv" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Advantage'}}"><i
+          class="fas fa-caret-up"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
     </div>
     {{else}}
     <div class="midi-qol-attack-buttons">
@@ -68,9 +74,11 @@
     {{#if hasDamage}}
     {{#if mergeCardMulti}}
     <div class="midi-qol-damage-buttons flexrow 5">
-      <button data-action="damage-nocritical" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Normal'}}"><i class="fas fa-dice-d6"></i></button>
+      <button data-action="damage-nocritical" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Normal'}}"><i
+          class="fas fa-dice-d6"></i></button>
       <button data-action="damage" style="flex:3 1 0">{{ dmgBtnText }}</button>
-      <button data-action="damage-critical" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Critical'}}"><i class="fas fa-dice-d6"></i><i class="fas fa-dice-d6"></i></button>
+      <button data-action="damage-critical" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Critical'}}"><i
+          class="fas fa-dice-d6"></i><i class="fas fa-dice-d6"></i></button>
     </div>
     {{else}}
     <div class="midi-qol-damage-buttons">
@@ -117,15 +125,19 @@
     {{#if confirmAttackDamage}}
     <div class="midi-qol-confirm-damage-roll">
       <div class="flexrow 3">
-        <button class="midi-qol-confirm-damage-roll-complete-miss" data-action="confirm-damage-roll-complete-miss">{{localize "midi-qol.ConfirmMiss"}}</button>
-        <button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">{{localize "midi-qol.ConfirmRoll"}}</button>
-        <button class="midi-qol-confirm-damage-roll-complete-hit" data-action="confirm-damage-roll-complete-hit">{{localize "midi-qol.ConfirmHit"}}</button>
+        <button class="midi-qol-confirm-damage-roll-complete-miss"
+          data-action="confirm-damage-roll-complete-miss">{{localize "midi-qol.ConfirmMiss"}}</button>
+        <button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">{{localize
+          "midi-qol.ConfirmRoll"}}</button>
+        <button class="midi-qol-confirm-damage-roll-complete-hit"
+          data-action="confirm-damage-roll-complete-hit">{{localize "midi-qol.ConfirmHit"}}</button>
       </div>
-    {{#if canCancel}}
-    <button class="midi-qol-confirm-damage-roll-cancel" data-action="confirm-damage-roll-cancel">{{localize "Cancel"}}</button>
-    {{/if}}
+      {{#if canCancel}}
+      <button class="midi-qol-confirm-damage-roll-cancel" data-action="confirm-damage-roll-cancel">{{localize
+        "Cancel"}}</button>
+      {{/if}}
     </div>
-  {{/if}}
+    {{/if}}
   </div>
 
   <footer class="card-footer">

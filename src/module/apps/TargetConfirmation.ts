@@ -1,6 +1,6 @@
 import { i18n, error, i18nFormat } from "../../midi-qol.js";
 import { checkMechanic, checkRule, configSettings, targetConfirmation } from "../settings.js";
-import { FULL_COVER, HALF_COVER, THREE_QUARTERS_COVER, checkRange, computeCoverBonus, computeFlankingStatus, getIconFreeLink, getLinkText, isTargetable, markFlanking, tokenForActor } from "../utils.js";
+import { FULL_COVER, HALF_COVER, THREE_QUARTERS_COVER, checkRange, computeCoverBonus, computeFlankingStatus, getIconFreeLink, getLinkText, getToken, isTargetable, markFlanking, tokenForActor } from "../utils.js";
 import { getAutoRollAttack, getTokenPlayerName, isAutoFastAttack } from "../utils.js";
 import { TroubleShooter } from "./TroubleShooter.js";
 
@@ -118,7 +118,7 @@ export class TargetConfirmationDialog extends Application {
         }
       }
       if (token && checkMechanic("checkRange") !== "none" && (["mwak", "msak", "mpak", "rwak", "rsak", "rpak"].includes(this.data.item.system.actionType))) {
-        const { result, attackingToken } = checkRange(this.data.item, token, new Set([target]));
+        const { result, attackingToken } = checkRange(this.data.item, token, new Set([target]), false);
         switch (result) {
           case "normal":
             details.push(`${i18n("DND5E.RangeNormal")}`);
@@ -155,7 +155,8 @@ export class TargetConfirmationDialog extends Application {
         img,
         displayedDisposition,
         details: details.join(" - "),
-        hasDetails: details.length > 0
+        hasDetails: details.length > 0,
+        uuid: target.document.uuid
       });
     }
     if (this.data.item.system.target) {
@@ -190,6 +191,40 @@ export class TargetConfirmationDialog extends Application {
       this.doCallback(false);
       this.close();
     })
+
+    if (canvas) {
+      let imgs = html[0].getElementsByTagName('img');
+      for (let i of imgs) {
+        i.style.border = 'none';
+        i.closest(".midi-qol-box").addEventListener("contextmenu", (event) => {
+          const token = getToken(i.id);
+          if (token) {
+            token.setTarget(false, {user: game.user, releaseOthers: false, groupSelection: true });
+          }
+        });
+        i.closest(".midi-qol-box").addEventListener('click', async function () {
+          const token = getToken(i.id);
+          //@ts-expect-error .ping
+          if (token) await canvas?.ping(token.center);
+        });
+        i.closest(".midi-qol-box").addEventListener('mouseover', function () {
+          const token = getToken(i.id);
+          if (token) {
+          //@ts-expect-error .ping
+          token.hover = true;
+            token.refresh();
+          }
+        });
+        i.closest(".midi-qol-box").addEventListener('mouseout', function () {
+          const token = getToken(i.id);
+          if (token) {
+          //@ts-expect-error .ping
+          token.hover = false;
+            token.refresh();
+          }
+        });
+      }
+    }
   }
 
   close(options = {}) {

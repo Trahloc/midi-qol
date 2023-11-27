@@ -1,6 +1,26 @@
+## 11.2.3
+* Fix for troubleshooter failing to get game settings - now uses "safeGetGameSetting" which will return undefined if no setting exits, rather than throwing an error. safeGetGameSetting is exported as MidiQOL.safeGetGameSetting.
+* Fix for target confirmation nonTargeted firing with target type None.
+* Gridded Gridless was a little bit too intrusive, so now it only affects distance measures that midi-qol does and you can specify how big to make the fudge factor.
+  - dnd5e scriptlets will have a version that forces gridded mode distance calculations on gridless grids.
+* Fixed the irritating, but cosmetic, config settings not closing when submit is pressed and no changes had been made.
+* Added MiqiQOL.humanoid which is an array of strings that midi uses when testing if a token is humanoid in condition evaluation. This can be modified. @Elwin
+* Some addtions to Target Confirmation.
+  - Hovering over a target in the confirmation dialog will highlight it on the canvas.
+  - Clicking on a toekn in the dialog will "ping" its location on the canvas
+  - Right clicking on a token in the dialog will remove it from the dialog.
+* flags.grants.fail.(dis)advatnage.attack.all/mwak etc now overrides keyboard (dis)advantage.
+
+### For macro writers.
+* To avoid some ambiguity a changec to calling macro behaviour. Inside macros called by midi
+  - rolledItem (always available) is the item which was rolled to initiate the macro call and is usually workflow.item, but can be workflow.ammo
+  - macroItem (available if the macro was sourced from an item) is the item that contains the macro being called
+  - item (always available) will change it's meaning in 11.3 to **always** be rolledItem that casued the macro to be called (currently it is either macroItem if defined otherwise rolledItem).
+  - a deprecation period (until 11.3) where references to item inside ItemMacros will generate a deprecation warning.
+
 ## 11.2.2.1
 * Fix for late targeting config appearing on reload.
-* Fix for type in late targeting dialog.
+* Fix for typo in late targeting dialog.
 
 ## 11.2.2
 * Fix isDamaged macro call not being called when auto apply damage enabled.

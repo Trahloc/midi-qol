@@ -875,7 +875,7 @@ event.altKey: true => advantage roll
 event.ctrlKey: true => disadvantage roll
 event.shiftKey: true => auto roll the attack roll
 Additional workflow processing options to itemRoll(options). You can set 
-  - lateTargeting: boolean to force enable/disable late targeting for the items workflow
+  - lateTargeting: boolean to force enable/disable target confirmation for the items workflow
   - autoRollAttack: boolean force enable/disable auto rolling of the attack,
   - autoFastAttack: boolean force enable/disable fast forwarding of the attack
   - autoRollDamage: string (always, onHit, none)
@@ -899,7 +899,7 @@ It takes the same arguments as midis item.roll:
   * targetUuids, if present the roll will target the passed list of token uuids (token.document.uuid) rather than the users (or GMS) current targets.
   * Additional workflow processing options to completeItemUse(item, config: {}, options: {...., workflowOptions}).
   You can set: 
-  - lateTargeting: boolean to force enable/disable late targeting for the items workflow
+  - lateTargeting: boolean to force enable/disable target confirmation for the items workflow
   - autoRollAttack: boolean force enable/disable auto rolling of the attack,
   - autoFastAttack: boolean force enable/disable fast forwarding of the attack
   - autoRollDamage: string (always, onHit, none)

@@ -5,6 +5,7 @@ import { SoundConfigPanel } from "./apps/SoundConfigPanel.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configureDamageRollDialog } from "./patching.js";
 import { TargetConfirmationConfig } from "./apps/TargetConfirmationConfig.js";
+import { getSystemCONFIG } from "./utils.js";
 
 export var itemRollButtons: boolean;
 export var criticalDamage: string;
@@ -85,7 +86,8 @@ class ConfigSettings {
   displayHitResultNumeric: boolean = true;
   displaySaveAdvantage: boolean = true;
   displaySaveDC: boolean = true;
-  griddedGridless: boolean = true;
+  griddedGridless: boolean = false;
+  gridlessFudge: number = 0;
   doReactions: string = "all";
   effectActivation: boolean = false;
   enableddbGL: boolean = false;
@@ -453,16 +455,14 @@ export let fetchParams = () => {
   } else if ([false, undefined].includes(configSettings.optionalRules.challengeModeArmor)) {
     configSettings.optionalRules.challengeModeArmor = "none"
   }
-  if (configSettings.addWounded > 0 && configSettings.midiWoundedCondition === undefined) {
-    configSettings.midiWoundedCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Wounded" : "bleeding";
+  /*
+  if (CONFIG.statusEffects && !CONFIG.statusEffects.some(ef => ef.id === configSettings.midiWoundedCondition)) {
+    configSettings.midiWoundedCondition = "none";
+    configSettings.addWoundedStyle = "none";
   }
-  if (configSettings.addDead !== "none" && configSettings.midiDeadCondition === undefined) {
-    configSettings.midiDeadCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Dead" : "dead";
-    configSettings.midiUnconsciousCondition = game.modules.get("dfreds-convenient-effects")?.active ? "Convenient Effect: Unconscious" : "unconscious";
-  } else if (configSettings.addDead === "none") {
-    configSettings.midiDeadCondition = "none";
-    configSettings.midiUnconsciousCondition = "none";
-  }
+  if (CONFIG.statusEffects && !CONFIG.statusEffects.some(ef => ef.id === configSettings.midiDeadCondition)) configSettings.midiDeadCondition = "none";
+  if (CONFIG.statusEffects && !CONFIG.statusEffects.some(ef => ef.id === configSettings.midiUnconsciousCondition)) configSettings.midiUnconsciousCondition = "none";
+  */
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
   criticalDamageGM = String(game.settings.get("midi-qol", "CriticalDamageGM"));
@@ -482,6 +482,7 @@ export let fetchParams = () => {
   dragDropTargeting = Boolean(game.settings.get("midi-qol", "DragDropTarget"));
   targetConfirmation = game.settings.get("midi-qol", "TargetConfirmation");
   if (configSettings.griddedGridless === undefined) configSettings.griddedGridless = false;
+  if (configSettings.gridlessFudge === undefined) configSettings.gridlessFudge = 0;
   if (targetConfirmation === undefined || typeof targetConfirmation === "string" || targetConfirmation instanceof String) targetConfirmation = {
     enabled: false,
     always: false,
@@ -833,4 +834,10 @@ export const registerSettings = function () {
 
 export function disableWorkflowAutomation() {
   enableWorkflow = false;
+}
+
+export function safeGetGameSetting(moduleName, settingName) {
+  if (game.settings.settings.get(`${moduleName}.${settingName}`))
+    return game.settings.get(moduleName, settingName);
+  else return "No setting";
 }

@@ -1520,10 +1520,16 @@ export class Workflow {
     if (grants.fail?.advantage?.attack?.all && evalCondition(grants.fail.advantage.attack.all, conditionData)) {
       grantsAdvantage = false;
       this.advantage = false;
+      this.noAdvantage = true;
+      this.attackAdvAttribution.add(`ADV:grants.attack.noAdvantage`);
+
     }
     if (grants.fail?.advantage?.attack && grants.fail.advantage.attack[actionType] && evalCondition(grants.fail.advantage.attack[actionType], conditionData)) {
       grantsAdvantage = false;
       this.advantage = false;
+      this.noAdvantage = true;
+      this.attackAdvAttribution.add(`ADV:grants.attack.noAdvantage${actionType}`);
+
     }
 
     const attackDisadvantage = grants.disadvantage?.attack || {};
@@ -1541,12 +1547,17 @@ export class Workflow {
       this.attackAdvAttribution.add(`DIS:grants.attack.${actionType}`);
     }
     if (grants.fail?.disadvantage?.attack?.all && evalCondition(grants.fail.disadvantage.attack.all, conditionData)) {
+      this.attackAdvAttribution.add(`DIS:None`);
       grantsDisadvantage = false;
       this.disadvantage = false;
+      this.noDisdvantage = true;
+      this.attackAdvAttribution.add(`ADV:grants.attack.noDisdvantage`);
     }
     if (grants.fail?.disadvantage?.attack && grants.fail.disadvantage.attack[actionType] && evalCondition(grants.fail.disadvantage.attack[actionType], conditionData)) {
       grantsDisadvantage = false;
       this.disadvantage = false;
+      this.noDisdvantage = true;
+      this.attackAdvAttribution.add(`ADV:grants.attack.noDisadvantage${actionType}`);
     }
     this.advantage = this.advantage || grantsAdvantage;
     this.disadvantage = this.disadvantage || grantsDisadvantage;
@@ -1751,6 +1762,7 @@ export class Workflow {
     let formula = "";
     var flavor = "";
     var extraDamages: (damageBonusMacroResult | boolean | undefined)[] = await this.callMacros(this.item, damageBonusMacro, "DamageBonus", "DamageBonus");
+    if (!extraDamages) return;
     for (let extraDamage of extraDamages) {
       if (!extraDamage || typeof extraDamage === "boolean") continue;
       if (extraDamage?.damageRoll) {
@@ -1932,6 +1944,7 @@ export class Workflow {
         const message = `midi-qol | called macro error in ${item?.name} ${item?.uuid} macro ${macro}`;
         console.warn(message, err);
         TroubleShooter.recordError(err, message);
+        return undefined
       }));
     }
     let results: Array<damageBonusMacroResult | any> = await Promise.allSettled(values);
@@ -1941,7 +1954,8 @@ export class Workflow {
 
   async callMacro(item, macroName: string, macroData: any, options: any): Promise<damageBonusMacroResult | any> {
     let name = macroName?.trim();
-    // var item;
+    let macroItem;
+    const rolledItem = item;
     if (!name) return undefined;
     let itemMacroData;
     let macro;
@@ -1954,26 +1968,26 @@ export class Workflow {
           command: `return await ${name.replace("function.", "").trim()}({ speaker, actor, token, character, item, args, scope, workflow })`
         };
       } else if (name.startsWith(MQItemMacroLabel)) {
-        //  ItemMacro
+        // ItemMacro
         // ItemMacro.ItemName
         // ItemMacro.uuid
-        //  item = this.item;
         if (name === MQItemMacroLabel) {
           if (!item) return {};
-          itemMacroData = getProperty(item, "flags.dae.macro") ?? getProperty(item, "flags.itemacro.macro");
-          macroData.sourceItemUuid = item?.uuid;
+          macroItem = item;
+          itemMacroData = getProperty(item, "flags.dae.macro") ?? getProperty(macroItem, "flags.itemacro.macro");
+          macroData.sourceItemUuid = macroItem?.uuid;
         } else {
           const parts = name.split(".");
           const itemNameOrUuid = parts.slice(1).join(".");
-          item = await fromUuid(itemNameOrUuid);
+          macroItem = await fromUuid(itemNameOrUuid);
           // ItemMacro.name
-          if (!item) item = actorToUse.items.find(i => i.name === itemNameOrUuid && (getProperty(i.flags, "dae.macro") ?? getProperty(i.flags, "itemacro.macro")))
-          if (!item) {
+          if (!macroItem) macroItem = actorToUse.items.find(i => i.name === itemNameOrUuid && (getProperty(i.flags, "dae.macro") ?? getProperty(i.flags, "itemacro.macro")))
+          if (!macroItem) {
             console.warn("midi-qol | callMacro: No item for", name);
             return {};
           }
-          itemMacroData = getProperty(item.flags, "dae.macro") ?? getProperty(item.flags, "itemacro.macro");
-          macroData.sourceItemUuid = item.uuid;
+          itemMacroData = getProperty(macroItem.flags, "dae.macro") ?? getProperty(macroItem.flags, "itemacro.macro");
+          macroData.sourceItemUuid = macroItem.uuid;
         }
       } else { // get a world/compendium macro.
         if (name.startsWith("Macro.")) name = name.replace("Macro.", "");
@@ -2023,7 +2037,25 @@ export class Workflow {
 
       const scope: any = {};
       scope.workflow = this;
-      scope.item = item;
+      if (macroItem && macroItem !== rolledItem) {
+        scope.item = new Proxy(macroItem, {
+          get(obj, prop, reciever) {
+            //@ts-expect-error
+            logCompatibilityWarning("midi-qol | callMacro: references to item inside an ItemMacro is changing use macroItem instead", {
+              since: "11.2.2", until: "11.3"});
+            return Reflect.get(obj, prop, reciever)
+          },
+          set (obj, prop, receiver) {
+            //@ts-expect-error
+            logCompatibilityWarning("midi-qol | callMacro: references to item inside an ItemMacro is changing use macroItem instead", {
+              since: "11.2.2", until: "11.3"});
+            return Reflect.set(obj, prop, receiver);
+          }
+        } )
+      } else
+        scope.item = rolledItem;
+      scope.rolledItem = rolledItem;
+      scope.macroItem = macroItem;
       scope.args = args;
       scope.options = options;
       scope.actor = actor;

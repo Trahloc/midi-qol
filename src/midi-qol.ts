@@ -1,4 +1,4 @@
-import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, readySettingsSetup, collectSettingData } from './module/settings.js';
+import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, readySettingsSetup, collectSettingData, safeGetGameSetting } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 import { checkModules, DAE_REQUIRED_VERSION, installedModules, setupModules } from './module/setupModules.js';
 import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
@@ -460,6 +460,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     typeOrRace(entity: Token | Actor | TokenDocument | string): string,
     reportMidiCriticalFlags: function reportMidiCriticalFlags(): void,
     resolveTargetConfirmation: async function resolveTargetConfirmation(targetConfirmation: any, item: Item, actor: Actor, token: Token, targets: any, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
+    safeGetGameSettings function safeGetGameSetting(module: string key: string): string | undefined,
     selectTargetsForTemplate: templateTokens,
     removeBonusActionUsed: function removeBonusActionUsed(actor: Actor): boolean,
     setBonusActionUsed: function setBonusActionUsed(actor: Actor): boolean,
@@ -559,8 +560,9 @@ function setupMidiQOLApi() {
     typeOrRace,
     reactionDialog,
     removeMostRecentWorkflow,
-    reportMidiCriticalFlags: reportMidiCriticalFlags,
+    reportMidiCriticalFlags,
     resolveTargetConfirmation,
+    safeGetGameSetting,
     selectTargetsForTemplate: templateTokens,
     setBonusActionUsed,
     setReactionUsed,
