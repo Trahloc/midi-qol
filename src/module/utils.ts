@@ -1659,28 +1659,45 @@ export function untargetAllTokens(...args) {
   }
 }
 
-export function checkDefeated(tokenRef: Token | TokenDocument | string): boolean {
-  return hasCondition(tokenRef, "dead") || hasCondition(tokenRef, configSettings.midiDeadCondition);
+export function checkDefeated(tokenRef: Actor | Token | TokenDocument | string): boolean {
+  const tokenDoc = getTokenDocument(tokenRef);
+  //@ts-expect-error specialStatusEffects
+  return hasCondition(tokenDoc, CONFIG.specialStatusEffects.DEFEATED) 
+    || hasCondition(tokenDoc, configSettings.midiDeadCondition);
 }
 
-export function checkIncapacitated(actor: Actor): boolean {
-  const vitalityResource = checkRule("vitalityResource");
-  if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
-    const vitality = getProperty(actor, vitalityResource.trim()) ?? 0;
-    //@ts-expect-error .system
-    if (vitality <= 0 && actor?.system.attributes?.hp?.value <= 0) {
-      log(`${actor.name} is dead and therefore incapacitated`);
-      return true;
-    }
-  } else //@ts-expect-error .system
-    if (actor?.system.attributes?.hp?.value <= 0) {
-      log(`${actor.name} is incapacitated`)
-      return true;
-    }
-
-  const token = tokenForActor(actor);
-  if (hasCondition(token, configSettings.midiUnconsciousCondition) || hasCondition(token, configSettings.midiDeadCondition)) return true;
-  if (token && globalThis.MidiQOL.incapacitatedConditions.find(cond => hasCondition(token, cond))) return true;
+export function checkIncapacitated(tokenRef: Actor | Token | TokenDocument, logResult: boolean = true): string | false {
+  const tokenDoc = getTokenDocument(tokenRef);
+  if (!tokenDoc) return false;
+  if (tokenDoc.actor) {
+    const vitalityResource = checkRule("vitalityResource");
+    if (typeof vitalityResource === "string" && getProperty(tokenDoc.actor, vitalityResource.trim()) !== undefined) {
+      const vitality = getProperty(tokenDoc.actor, vitalityResource.trim()) ?? 0;
+      //@ts-expect-error .system
+      if (vitality <= 0 && actor?.system.attributes?.hp?.value <= 0) {
+        if (logResult) log(`${tokenDoc.actor.name} is dead and therefore incapacitated`);
+        return "dead";
+      }
+    } else
+      //@ts-expect-error .system
+      if (tokenDoc.actor?.system.attributes?.hp?.value <= 0) {
+        if (logResult) log(`${tokenDoc.actor.name} is incapacitated`)
+        return "dead";
+      }
+  }
+  if (configSettings.midiUnconsciousCondition && hasCondition(tokenDoc, configSettings.midiUnconsciousCondition)) {
+    if (logResult) log(`${tokenDoc.name} is ${getStatusName(configSettings.midiUnconsciousCondition)} and therefore incapacitated`)
+    return configSettings.midiUnconsciousCondition;
+  }
+  if (configSettings.midiDeadCondition && hasCondition(tokenDoc, configSettings.midiDeadCondition)) {
+    if (logResult) log(`${tokenDoc.name} is ${getStatusName(configSettings.midiDeadCondition)} and therefore incapacitated`)
+    return configSettings.midiDeadCondition;
+  }
+  const incapCondtion = globalThis.MidiQOL.incapacitatedConditions.find(cond => hasCondition(tokenDoc, cond));
+  if (incapCondtion) {
+    if (logResult) log(`${tokenDoc.name} has condition ${getStatusName(incapCondtion)} so incapacitated`)
+    return incapCondtion;
+  }
   return false;
 }
 
@@ -1768,6 +1785,8 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
 }
 
 export function getDistanceSimpleOld(t1: Token, t2: Token, includeCover, wallBlocking = false) {
+  //@ts-expect-error logCompatibilityWarning
+  logCompatibilityWarning("getDistance(t1,t2,includeCover,wallBlocking) is deprecated in favor computeDistance(t1,t2,wallBlocking?).", {since: "11.2.1", untill: "12.0.0"});
   return getDistance(t1, t2, wallBlocking);
 }
 export function getDistanceSimple(t1: Token, t2: Token, wallBlocking = false) {
@@ -2439,7 +2458,7 @@ export function findNearby(disposition: number | string | null | Array<string | 
       if (!isTargetable(t)) return false;
       //@ts-expect-error .height .width v10
       if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
-      if (t.actor && !options.includeIncapacitated && checkIncapacitated(t.actor)) return false;
+      if (!options.includeIncapacitated && checkIncapacitated(t, debugEnabled > 0)) return false;
       let inRange = false;
       if (t.actor &&
         (t.id !== token.id || options?.includeToken) && // not the token
@@ -2474,7 +2493,7 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
   if (!td) return false;
   //@ts-expect-error specialStatusEffects
   const specials = CONFIG.specialStatusEffects;
-  switch (condition.toLocaleLowerCase()) {
+  switch (condition?.toLocaleLowerCase()) {
     case "blind":
       //@ts-expect-error hasStatusEffect
       if (td.hasStatusEffect(specials.BLIND)) return true;
@@ -3291,7 +3310,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     if (checkRule("incapacitated")) {
       try {
         enableNotifications(false);
-        if (checkIncapacitated(target.actor)) return noResult;
+        if (checkIncapacitated(target, debugEnabled > 0)) return noResult;
       } finally {
         enableNotifications(true);
       }
@@ -3912,6 +3931,12 @@ export function getConvenientEffectsBonusAction(): ActiveEffect | undefined {
   if (bonusName) return dfreds.effects.all.find(ef => ef.name === bonusName);
   return undefined;
 }
+export function getStatusName(statusId: string | undefined): string {
+  if (!statusId) return "undefined";
+  const se = CONFIG.statusEffects.find(efData => efData.id === statusId);
+  //@ts-expect-error se.name
+  return i18n(se?.name ?? se?.label ?? statusId);
+}
 
 export function getWoundedStatus(): any | undefined {
   return CONFIG.statusEffects.find(efData => efData.id === configSettings.midiWoundedCondition);
@@ -4333,7 +4358,7 @@ export function computeFlankingStatus(token, target): boolean {
     if (ally.document.uuid === token.document.uuid) continue;
     if (!heightIntersects(ally.document, target.document)) continue;
     const actor: any = ally.actor;
-    if (checkIncapacitated(actor)) continue;
+    if (checkIncapacitated(ally, debugEnabled > 0)) continue;
     if (installedModules.get("dfreds-convenient-effects")) {
       //@ts-expect-error
       if (actor?.effects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
@@ -4587,11 +4612,17 @@ export function getSystemCONFIG(): any {
   }
 }
 
-export function tokenForActor(actor): Token | undefined {
+export function tokenForActor(actorRef: Actor | string): Token | undefined {
+  let actor: Actor;
+  if (!actorRef) return undefined
   // if (actor.token) return actor.token;
-  const tokens = actor.getActiveTokens();
+  if (typeof actorRef === "string") actor = MQfromActorUuid(actorRef);
+  else actor = actorRef;
+  //@ts-expect-error getActiveTokens returns an array of tokens not tokenDocuments
+  const tokens: Token[] = actor.getActiveTokens();
   if (!tokens.length) return undefined;
-  const controlled = tokens.filter(t => t._controlled);
+  //@ts-expect-error .controlled
+  const controlled = tokens.filter(t => t.controlled);
   return controlled.length ? controlled.shift() : tokens.shift();
 }
 
@@ -4915,7 +4946,7 @@ export function getActor(actorRef: Actor | Token | TokenDocument | string): Acto
   return null;
 }
 
-export function getTokenDocument(tokenRef: Token | TokenDocument | string | undefined): TokenDocument | undefined {
+export function getTokenDocument(tokenRef: Actor | Token | TokenDocument | string | undefined): TokenDocument | undefined {
   if (!tokenRef) return undefined;
   if (tokenRef instanceof TokenDocument) return tokenRef;
   if (typeof tokenRef === "string") {
@@ -4924,15 +4955,23 @@ export function getTokenDocument(tokenRef: Token | TokenDocument | string | unde
     if (document instanceof Actor) return tokenForActor(document)?.document;
   }
   if (tokenRef instanceof Token) return tokenRef.document;
+  if (tokenRef instanceof Actor) return tokenForActor(tokenRef)?.document;
   return undefined;
 }
 
-export function getToken(tokenRef: Token | TokenDocument | string | undefined): Token | undefined {
+export function getToken(tokenRef: Actor | Token | TokenDocument | string | undefined): Token | undefined {
   if (!tokenRef) return undefined;
   if (tokenRef instanceof Token) return tokenRef;
-  if (typeof tokenRef === "string") return MQfromUuid(tokenRef)?.object;
-  //@ts-expect-error retrn cast
+  //@ts-expect-error return cast
   if (tokenRef instanceof TokenDocument) return tokenRef.object;
+  if (typeof tokenRef === "string") {
+    const entity = MQfromUuid(tokenRef);
+    //@ts-expect-error return cast
+    if (entity instanceof TokenDocument) return entity.object;
+    if (entity instanceof Actor) return tokenForActor(entity);
+    return undefined;
+  }
+  if (tokenRef instanceof Actor) return tokenForActor(tokenRef);
   return undefined;
 }
 
@@ -4990,9 +5029,9 @@ export function getIconFreeLink(entity: Token | TokenDocument | Item | Actor | n
   let name = entity.name ?? "unknown";
   if (entity instanceof Token && !configSettings.useTokenNames) name = entity.actor?.name ?? name;
   if (entity instanceof Token) {
-    return `<a class="content-link" data-uuid="${entity.actor?.uuid}">${name?.slice(0, MaxNameLength)}</a>`;
+    return `<a class="content-link midi-qol" data-uuid="${entity.actor?.uuid}">${name?.slice(0, MaxNameLength)}</a>`;
   } else {
-    return `<a class="content-link" data-uuid="${entity.uuid}">${name?.slice(0, MaxNameLength)}</a>`
+    return `<a class="content-link midi-qol" data-uuid="${entity.uuid}">${name?.slice(0, MaxNameLength)}</a>`
   }
 }
 
@@ -5007,7 +5046,7 @@ export function midiMeasureDistances(segments, options: any = {}) {
 
   if (!configSettings.gridlessFudge || !options.gridSpaces || !["555", "5105"].includes(rule))
     return canvas?.grid?.measureDistances(segments, options);
-  
+
   // Track the total number of diagonals
   let nDiagonal = 0;
   const d = canvas?.dimensions;

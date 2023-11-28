@@ -455,14 +455,18 @@ export let fetchParams = () => {
   } else if ([false, undefined].includes(configSettings.optionalRules.challengeModeArmor)) {
     configSettings.optionalRules.challengeModeArmor = "none"
   }
-  /*
-  if (CONFIG.statusEffects && !CONFIG.statusEffects.some(ef => ef.id === configSettings.midiWoundedCondition)) {
+
+  if (configSettings.midiWoundedCondition === undefined) {
     configSettings.midiWoundedCondition = "none";
     configSettings.addWoundedStyle = "none";
   }
-  if (CONFIG.statusEffects && !CONFIG.statusEffects.some(ef => ef.id === configSettings.midiDeadCondition)) configSettings.midiDeadCondition = "none";
-  if (CONFIG.statusEffects && !CONFIG.statusEffects.some(ef => ef.id === configSettings.midiUnconsciousCondition)) configSettings.midiUnconsciousCondition = "none";
-  */
+  if (configSettings.midiDeadCondition === undefined) configSettings.midiDeadCondition = "none";
+  if (configSettings.midiUnconsciousCondition === undefined) configSettings.midiUnconsciousCondition = "none";
+  // Fix for typo in en.json
+  if (configSettings.autoTarget === "wallsBlockIgnoreIncapcitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
+  if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated"; 
+  //@ts-expect-error
+  configSettings.midiUnconsciousCondition = undefined;
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
   criticalDamageGM = String(game.settings.get("midi-qol", "CriticalDamageGM"));

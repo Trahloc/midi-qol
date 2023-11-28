@@ -1,3 +1,15 @@
+
+## 11.2.4
+* Fix so that Target confirmation does not fire when passing {TargetConfirmation: false} to item.use(config, options) as an option, which include completeItemUse calls.
+* Fix so that Target Confirmation when using AoE spells fires after the template is placed.
+* Showing the targets actor sheet from the target confirmation dialog no longer also pings the token.
+* Fix for error thrown in checkIncapacitated.
+* Fix for incorrect item chat description being displayed.
+* Fix for wallsBlockIncapacitated/alwaysBlockIncapacitated in midi targeting.
+* Actors that can't use an item because they are incapacitated now report the condition that causes them to be incapacitated.
+* **Walled Templates** After some experimentation it seems that midi auto targeting with walled templates now works. You can enable midi's targeting and disable walled template's targeting (if you want to ignore incapacitated). Choose one.
+  - For midi's "walls block" settings to function correctly you need to enable "Walls block templates" in walled templates.
+
 ## 11.2.3
 * Fix for troubleshooter failing to get game settings - now uses "safeGetGameSetting" which will return undefined if no setting exits, rather than throwing an error. safeGetGameSetting is exported as MidiQOL.safeGetGameSetting.
 * Fix for target confirmation nonTargeted firing with target type None.
@@ -5,9 +17,9 @@
   - dnd5e scriptlets will have a version that forces gridded mode distance calculations on gridless grids.
 * Fixed the irritating, but cosmetic, config settings not closing when submit is pressed and no changes had been made.
 * Added MiqiQOL.humanoid which is an array of strings that midi uses when testing if a token is humanoid in condition evaluation. This can be modified. @Elwin
-* Some addtions to Target Confirmation.
+* Some additions to Target Confirmation.
   - Hovering over a target in the confirmation dialog will highlight it on the canvas.
-  - Clicking on a toekn in the dialog will "ping" its location on the canvas
+  - Clicking on a target in the dialog will "ping" its location on the canvas
   - Right clicking on a token in the dialog will remove it from the dialog.
 * flags.grants.fail.(dis)advatnage.attack.all/mwak etc now overrides keyboard (dis)advantage.
 

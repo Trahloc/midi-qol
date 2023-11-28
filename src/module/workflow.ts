@@ -470,7 +470,7 @@ export class Workflow {
         return this.next(WORKFLOWSTATES.TARGETCONFIRMATION);
 
       case WORKFLOWSTATES.TARGETCONFIRMATION: // Nothing to do here?
-        if (this.item?.system.target?.type !== "") {
+        if (this.item?.system.target?.type !== "" && this.workflowOptions.targetConfirmation !== "none") {
           if (!await postTemplateConfirmTargets(this.item, this.workflowOptions, {}, this)) {
             this.aborted = true;
             return this.next(WORKFLOWSTATES.ROLLFINISHED);
@@ -512,7 +512,7 @@ export class Workflow {
           }
           */
         }
-        if (!this.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor)) return this.next(WORKFLOWSTATES.ROLLFINISHED);
+        if (!this.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor, debugEnabled > 0)) return this.next(WORKFLOWSTATES.ROLLFINISHED);
 
         return this.next(WORKFLOWSTATES.PREAMBLECOMPLETE);
 
@@ -3543,7 +3543,7 @@ export class Workflow {
             //@ts-ignore .disposition v10
             && dispositions.includes(target.document.disposition);
           if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIngoreIncapcitate"].includes(configSettings.rangeTarget))
-            inRange = inRange && !checkIncapacitated(target.actor);
+            inRange = inRange && !checkIncapacitated(target, debugEnabled > 0);
           if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.rangeTarget))
             inRange = inRange && !checkDefeated(target);
           inRange = inRange && (configSettings.rangeTarget === "none" || !hasWallBlockingCondition(target))

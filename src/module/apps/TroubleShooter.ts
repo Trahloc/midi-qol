@@ -753,14 +753,17 @@ export class TroubleShooter extends FormApplication {
   }
   public static checkWalledTemplates(data: TroubleShooterData) {
     if (game.modules.get("walledtemplates")?.active) {
-      if (configSettings.autoTarget !== "walledtemplates" || !safeGetGameSetting("walledtemplates", "autotarget-enabled")) {
+      const walledTemplatesTargeting = safeGetGameSetting("walledtemplates", "autotarget-enabled"); 
+      const midiTargeting = configSettings.autoTarget !== "walledtemplates" && configSettings.autoTarget !== "none";
+
+      if (walledTemplatesTargeting && midiTargeting) {
         data.problems.push({
           moduleId: "walledtemplates",
           severity: "Error",
-          problemSummary: "If walled templates is active you MUST enable auto-target and select walled templates in the midi workflow settings",
+          problemSummary: "Both walled templates auto targeting and midi's auto targeting are enabled",
           problemDetail: undefined,
-          fixer: "Enable walled templates auto target",
-          fixerFunc: async function (app: TroubleShooter) {
+          fixer: "Only enable one of the auto targeting options",
+/*          fixerFunc: async function (app: TroubleShooter) {
             if (!game.user?.isGM) {
               ui.notifications?.error("midi-qol | You must be a GM to fix walled templates auto target");
               return;
@@ -774,6 +777,7 @@ export class TroubleShooter extends FormApplication {
             TroubleShooter.data = TroubleShooter.collectTroubleShooterData();
             app.render(true)
           },
+*/
           fixerid: -1
         });
       } else if (safeGetGameSetting("walledtemplates", "autotarget-enabled") && configSettings.autoTarget !== "walledtemplates") {

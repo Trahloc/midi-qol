@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes } from "../midi-qol.js";
 import { BetterRollsWorkflow, DummyWorkflow, TrapWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { configSettings, enableWorkflow, checkRule, checkMechanic, targetConfirmation } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getTargetConfirmation, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated, computeCoverBonus } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getTargetConfirmation, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -10,79 +10,50 @@ import { saveUndoData } from "./undo.js";
 import { socketlibSocket } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 
-function itemPreTemplateConfirmTargets(item) {
-  if (!item?.flags?.midiProperties?.confirmTargets) return false;
-  if (!itemPostTemplateConfirmTargets(item)) {
-    if (debugEnabled > 0) warn("target confirmation trigged by item confirmation midi-property")
-    return true;
-  }
-  return false;
-}
-function itemPostTemplateConfirmTargets(item) {
-  if (!item?.flags?.midiProperties?.confirmTargets) return false;
+function itemRequiresPostTemplateConfiramtion(item): boolean {
   const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
   if (item.hasAreaTarget) {
-    if (debugEnabled > 0) warn("target confirmation trigged by item confirmation midi-property")
     return true;
   } else if (isRangeTargeting) {
-    if (debugEnabled > 0) warn("target confirmation trigged by item confirmation midi-property")
     return true;
   }
   return false;
 }
 
-export async function postTemplateConfirmTargets(item, options, pressedKeys, workflow) {
-  let targetConfirmationRequired = itemPostTemplateConfirmTargets(item);
-  if (targetConfirmation.enabled) {
-    const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
-    if (item.hasAreaTarget && targetConfirmation.hasAoE) {
-      if (debugEnabled > 0) warn("target confirmation trigged by targetConfirmation.hasAoE")
-      targetConfirmationRequired = true;
-    } else if (isRangeTargeting && targetConfirmation.hasRangedAoE) {
-      if (debugEnabled > 0) warn("target confirmation trigged by has targetConfirmation.hasRangedAoE");
-      targetConfirmationRequired = true;
-    }
-  }
-  let result = true;
-  if (targetConfirmationRequired) result = await resolveTargetConfirmation(item, options, pressedKeys);
-  if (result && game.user?.targets) workflow.targets = new Set(game.user.targets)
-  return result === true;
-}
-
-export async function preTemplateTargets(item, options, pressedKeys) {
-  if (itemPostTemplateConfirmTargets(item)) return true; // confirmation will be done later
-  let targetConfirmationRequired = itemPreTemplateConfirmTargets(item);
+export function requiresTemplateTargeting(item, options): boolean {
+  if (options.targetConfirmation === "none") return false;
+  if (item?.flags?.midiProperties?.confirmTargets) return true;
   const numTargets = game.user?.targets?.size ?? 0;
   const token = tokenForActor(item.actor);
-  if (targetConfirmation.enabled && !targetConfirmationRequired) {
+  if (targetConfirmation.enabled) {
     if (options.workflowOptions?.targetConfirmation && options.workflowOptions?.targetConfirmation !== "none") {
       if (debugEnabled > 0) warn("target confirmation trigged by has workflow options");
-      targetConfirmationRequired = true;
+      return true;
     }
-    if (!targetConfirmationRequired && targetConfirmation.all && item.system.target?.type) {
+    if (targetConfirmation.all && item.system.target?.type) {
       if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.all");
-      targetConfirmationRequired = true;
+      return true;
     }
-    if (!targetConfirmationRequired && item.hasAttack && targetConfirmation.hasAttack) {
+    if (item.hasAttack && targetConfirmation.hasAttack) {
       if (debugEnabled > 0) warn("target confirmation trigged by targetCofirnmation.hasAttack");
-      targetConfirmationRequired = true;
+      return true;
     }
-    if (!targetConfirmationRequired && item.system.target?.type === "creature" && targetConfirmation.hasCreatureTarget) {
+    if (item.system.target?.type === "creature" && targetConfirmation.hasCreatureTarget) {
       if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.hasCreatureTarget");
-      targetConfirmationRequired = true;
+      return true;
     }
-    if (!targetConfirmationRequired && targetConfirmation.noneTargeted && (item.system.target?.type ||item.hasAttack )&& numTargets === 0) {
+    if (targetConfirmation.noneTargeted && (item.system.target?.type || item.hasAttack) && numTargets === 0) {
       if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.noneTargeted");
-      targetConfirmationRequired = true;
+      return true;
     }
-    if (!targetConfirmationRequired && targetConfirmation.allies && token && numTargets > 0 && item.system.target?.type !== "self") {
+    if (targetConfirmation.allies && token && numTargets > 0 && item.system.target?.type !== "self") {
       //@ts-expect-error find disposition
       if (game.user?.targets.some(t => t.document.disposition == token.document.disposition)) {
         if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.allies");
-        targetConfirmationRequired = true;
+        return true;
       }
     }
-    if (!targetConfirmationRequired && targetConfirmation.targetSelf && item.system.target?.type !== "self") {
+    if (targetConfirmation.targetSelf && item.system.target?.type !== "self") {
       let tokenToUse = token;
       /*
       if (tokenToUse && game.user?.targets) {
@@ -94,10 +65,10 @@ export async function preTemplateTargets(item, options, pressedKeys) {
       */
       if (tokenToUse && game.user?.targets?.has(tokenToUse)) {
         if (debugEnabled > 0) warn("target confirmation trigged by has targetConfirmation.targetSelf");
-        targetConfirmationRequired = true;
+        return true;
       }
     }
-    if (!targetConfirmationRequired && targetConfirmation.mixedDispositiion && numTargets > 0 && game.user?.targets) {
+    if (targetConfirmation.mixedDispositiion && numTargets > 0 && game.user?.targets) {
       const dispositions = new Set();
       for (let target of game.user?.targets) {
         //@ts-expect-error
@@ -105,38 +76,60 @@ export async function preTemplateTargets(item, options, pressedKeys) {
       }
       if (dispositions.size > 1) {
         if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.mixedDisposition");
-        targetConfirmationRequired = true;
+        return true;
       }
     }
-    if (!targetConfirmationRequired && targetConfirmation.longRange && game?.user?.targets && numTargets > 0 &&
+    if (targetConfirmation.longRange && game?.user?.targets && numTargets > 0 &&
       (["ft", "m"].includes(item.system.range?.units) || item.system.range.type === "touch")) {
       if (token) {
         for (let target of game.user.targets) {
           const { result, attackingToken } = checkRange(item, token, new Set([target]))
           if (result !== "normal") {
             if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.longRange");
-            targetConfirmationRequired = true;
-            break;
+            return true;
           }
         }
       }
     }
-    if (!targetConfirmationRequired && targetConfirmation.inCover && numTargets > 0 && token && game.user?.targets) {
+    if (targetConfirmation.inCover && numTargets > 0 && token && game.user?.targets) {
       const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
       if (!item.hasAreaTarget && !isRangeTargeting) {
         for (let target of game.user?.targets) {
           if (computeCoverBonus(token, target, item) > 0) {
             if (debugEnabled > 0) warn("target confirmation trigged from targetConfirmation.inCover");
-            targetConfirmationRequired = true;
-            break;
+            return true;
           }
         }
       }
     }
+    const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
+    if (item.hasAreaTarget && (targetConfirmation.hasAoE)) {
+      if (debugEnabled > 0) warn("target confirmation trigged by targetConfirmation.hasAoE")
+      return true;
+    } else if (isRangeTargeting && (targetConfirmation.hasRangedAoE)) {
+      if (debugEnabled > 0) warn("target confirmation trigged by has targetConfirmation.hasRangedAoE");
+      return true;
+    }
   }
-  let result = true
-  if (targetConfirmationRequired) result = await resolveTargetConfirmation(item, options, pressedKeys);
-  return result === true;
+  return false;
+}
+
+export async function preTemplateTargets(item, options, pressedKeys): Promise<boolean> {
+  if (itemRequiresPostTemplateConfiramtion(item)) return true;
+  if (requiresTemplateTargeting(item, options))
+    return await resolveTargetConfirmation(item, options, pressedKeys) === true;
+  return true;
+}
+
+export async function postTemplateConfirmTargets(item, options, pressedKeys, workflow): Promise<boolean> {
+  if (!itemRequiresPostTemplateConfiramtion(item)) return true;
+  if(requiresTemplateTargeting(item, options)) {
+    let result = true;
+    result = await resolveTargetConfirmation(item, options, pressedKeys);
+    if (result && game.user?.targets) workflow.targets = new Set(game.user.targets)
+    return result === true;
+  }
+  return true;
 }
 
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
@@ -167,8 +160,10 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       && !game.settings.get("midi-qol", "itemUseHooks")) {
       Workflow.removeWorkflow(this.uuid);
       let targets = new Set(game.user?.targets);
-      if (this?.system.target?.type !== "" && !await preTemplateTargets(this, options, pressedKeys)) return null;
-      targets = new Set(game.user?.targets);
+      if (options.targetConfirmation !== "none") {
+        if (this?.system.target?.type !== "" && !await preTemplateTargets(this, options, pressedKeys)) return null;
+        targets = new Set(game.user?.targets);
+      }
 
       if (targets.size > 0) {
         for (let target of targets) {
@@ -199,9 +194,12 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (!enableWorkflow || createWorkflow === false) {
       return await wrapped(config, options);
     }
-    if (!options.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor)) {
-      ui.notifications?.warn(`${this.actor.name} is incapacitated`)
-      return null;
+    if (!options.workflowOptions.allowIncapacitated && checkMechanic("incapacitated")) {
+      const condition = checkIncapacitated(this.actor, true);
+      if (condition) {
+        ui.notifications?.warn(`${this.actor.name} is ${getStatusName(condition)} and is incapacitated`)
+        return null;
+      }
     }
 
     const isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
@@ -262,10 +260,8 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const isTurn = activeCombatants?.includes(speaker.token);
 
     const checkReactionAOO = configSettings.recordAOO === "all" || (configSettings.recordAOO === this.actor.type)
-
     let itemUsesReaction = false;
     const hasReaction = hasUsedReaction(this.actor);
-
     if (!options.workflowOptions.notReaction && ["reaction", "reactiondamage", "reactionmanual", "reactionpreattack"].includes(this.system.activation?.type) && this.system.activation?.cost > 0) {
       itemUsesReaction = true;
     }
@@ -608,12 +604,12 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     }
 
     // Advantage is true if any of the sources of advantage are true;
-    let advantage = options.advantage 
-              || workflow.options.advantage 
-              || workflow?.advantage 
-              || workflow?.rollOptions.advantage 
-              || workflow?.workflowOptions.advantage 
-              || workflow.flankingAdvantage;
+    let advantage = options.advantage
+      || workflow.options.advantage
+      || workflow?.advantage
+      || workflow?.rollOptions.advantage
+      || workflow?.workflowOptions.advantage
+      || workflow.flankingAdvantage;
     if (workflow.noAdvantage) advantage = false;
     // Attribute advantaage
     if (workflow.rollOptions.advantage) {
@@ -625,13 +621,13 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.advReminderAttackAdvAttribution.add(`ADV:Flanking`);
     }
 
-    let disadvantage = options.disadvantage 
-              || workflow.options.disadvantage 
-              || workflow?.disadvantage 
-              || workflow?.workflowOptions.disadvantage 
-              || workflow.rollOptions.disadvantage;
+    let disadvantage = options.disadvantage
+      || workflow.options.disadvantage
+      || workflow?.disadvantage
+      || workflow?.workflowOptions.disadvantage
+      || workflow.rollOptions.disadvantage;
     if (workflow.noDisadvantage) disadvantage = false;
-    
+
     if (workflow.rollOptions.disadvantage) {
       workflow.attackAdvAttribution.add(`DIS:keyPress`);
       workflow.advReminderAttackAdvAttribution.add(`DIS:keyPress`);
@@ -1074,7 +1070,6 @@ export function preItemUsageConsumptionHook(item, config, options): boolean {
     workflow.itemLevel = item.system.level;
     workflow.castData.castLevel = item.system.level;
   }
-
   return true;
 }
 // WIP
@@ -1397,7 +1392,7 @@ export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: 
     for (const token of tokens) {
       if (!isTargetable(token)) continue;
       if (token.document.uuid === ignoreTokenDocument?.uuid) continue;
-      if (token.actor && ["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapcitated"].includes(configSettings.autoTarget) && checkIncapacitated(token.actor)) continue;
+      if (["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapacitated"].includes(configSettings.autoTarget) && checkIncapacitated(token, false)) continue;
       if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.autoTarget) && checkDefeated(token)) continue;
       if (token.actor && isTokenInside(templateDetails, token, wallsBlockTargeting)) {
         if (token.id) {

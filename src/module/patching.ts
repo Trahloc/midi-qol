@@ -737,8 +737,7 @@ function _midiATIRefresh(template) {
       const maxExtension = (1 + Math.max(tk.document.width, tk.document.height)) * dimensions.size;
       const centerDist = r.distance;
       if (centerDist > distance + maxExtension) return false;
-      //@ts-expect-error tk.actor
-      if (["alwaysIgnoreIncapcitated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.autoTarget) && checkIncapacitated(tk.actor))
+      if (["alwaysIgnoreIncapcitated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.autoTarget) && checkIncapacitated(tk, debugEnabled > 0))
         return false;
       if (["alwaysIgnoreDefeated", "wallsBlockIgnoreDefeated"].includes(configSettings.autoTarget) && checkDefeated(tk))
         return false;
@@ -1262,7 +1261,7 @@ export async function checkWounded(actor, update, options, user) {
     } else {
       const token = tokenForActor(actor);
       if (token) {
-        const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect.name ?? effect?.label ?? ""))) !== undefined;
+        const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect?.name ?? effect?.label ?? ""))) !== undefined;
         if (isBeaten !== needsBeaten) {
           let combatant;
           if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);

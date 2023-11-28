@@ -193,6 +193,15 @@ export class TargetConfirmationDialog extends Application {
     })
 
     if (canvas) {
+      let targetNames = html[0].getElementsByClassName("content-link midi-qol");
+      for (let targetName of targetNames) {
+        targetName.addEventListener("click", async (event) => { 
+          event.stopPropagation();
+          const doc = await fromUuid(event.currentTarget.dataset.uuid);
+          //@ts-expect-error .sheet
+          return doc?.sheet.render(true);
+        });
+      }
       let imgs = html[0].getElementsByTagName('img');
       for (let i of imgs) {
         i.style.border = 'none';
