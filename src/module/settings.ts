@@ -465,8 +465,7 @@ export let fetchParams = () => {
   // Fix for typo in en.json
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapcitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated"; 
-  //@ts-expect-error
-  configSettings.midiUnconsciousCondition = undefined;
+
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
   criticalDamageGM = String(game.settings.get("midi-qol", "CriticalDamageGM"));
