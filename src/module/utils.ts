@@ -1,7 +1,7 @@
 import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic } from "./settings.js";
 import { log } from "../midi-qol.js";
-import { BetterRollsWorkflow, DummyWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
+import { DummyWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
@@ -323,7 +323,7 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
           if (!magicalDamage && (trait.has("nonmagic") || customs.includes(getSystemCONFIG().damageResistanceTypes["nonmagic"]))) {
             totalMult = totalMult * mult;
             continue;
-          } else if (!magicalDamage && physicalDamage && (trait.has("physical") || customs.includes(getSystemCONFIG().customDamageResistanceTypes["physical"]))) {
+          } else if (!magicalDamage && physicalDamage && (trait.has("physical") || customs.includes(getSystemCONFIG().customDamageResistanceTypes?.physical))) {
             totalMult = totalMult * mult;
             continue;
           } else if (magicalDamage && trait.has("magic")) {
@@ -339,19 +339,19 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
             continue;
           }
           if (customs.length > 0) {
-            if (!magicalDamage && (customs.includes("nonmagic") || customs.includes(getSystemCONFIG().customDamageResistanceTypes["nonmagic"]))) {
+            if (!magicalDamage && (customs.includes("nonmagic") || customs.includes(getSystemCONFIG().customDamageResistanceTypes?.nonmagic))) {
               totalMult = totalMult * mult;
               continue;
-            } else if (!magicalDamage && physicalDamage && (customs.includes("physical") || customs.includes(getSystemCONFIG().customDamageResistanceTypes["physical"]))) {
+            } else if (!magicalDamage && physicalDamage && (customs.includes("physical") || customs.includes(getSystemCONFIG().customDamageResistanceTypes?.physical))) {
               totalMult = totalMult * mult;
               continue;
-            } else if (magicalDamage && (customs.includes("magic") || customs.includes(getSystemCONFIG().customDamageResistanceTypes["magic"]))) {
+            } else if (magicalDamage && (customs.includes("magic") || customs.includes(getSystemCONFIG().customDamageResistanceTypes.magic))) {
               totalMult = totalMult * mult;
               continue;
-            } else if (item?.type === "spell" && (customs.includes("spell") || customs.includes(getSystemCONFIG().customDamageResistanceTypes["spell"]))) {
+            } else if (item?.type === "spell" && (customs.includes("spell") || customs.includes(getSystemCONFIG().customDamageResistanceTypes.spell))) {
               totalMult = totalMult * mult;
               continue;
-            } else if (item?.type === "power" && (customs.includes("power") || customs.includes(getSystemCONFIG().customDamageResistanceTypes["power"]))) {
+            } else if (item?.type === "power" && (customs.includes("power") || customs.includes(getSystemCONFIG().customDamageResistanceTypes.power))) {
               totalMult = totalMult * mult;
               continue;
             }
@@ -463,9 +463,10 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
   let targetNames: string[] = [];
   let appliedDamage;
   let workflow: any = options.workflow ?? {};
-  if (debugEnabled > 0) warn("Apply token damage ", applyDamageDetails, theTargets, item, workflow)
+  if (debugEnabled > 0) warn("applyTokenDamage |", applyDamageDetails, theTargets, item, workflow)
   if (!theTargets || theTargets.size === 0) {
-    workflow.currentState = WORKFLOWSTATES.ROLLFINISHED;
+    // REFACtOR workflow.currentState = WORKFLOWSTATES.ROLLFINISHED;
+    workflow.currentAction = workflow.rollFinished;
     // probably called from refresh - don't do anything
     return [];
   }
@@ -510,7 +511,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       && !noDamageReactions
       && !noProvokeReaction
       && options.hitTargets.has(t)
-      && [Workflow, BetterRollsWorkflow].includes(workflow.constructor)) {
+      && [Workflow].includes(workflow.constructor)) {
       // TODO check that the targetToken is actually taking damage
       // Consider checking the save multiplier for the item as a first step
       let result = await doReactions(targetToken, workflow.tokenUuid, workflow.damageRoll, "reactiondamage", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
@@ -553,6 +554,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       let semiSuperSavers: Set<Token | TokenDocument> = applyDamageDetails[i].semiSuperSavers ?? new Set();
       var dmgType;
 
+      // Apply saves if required
+
       // This is overall Damage Reduction
       let maxDR = Number.NEGATIVE_INFINITY;
       ;
@@ -579,6 +582,22 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       let nonAdamantineDRUsed = false;
       let physicalDRUsed = false;
 
+      if (configSettings.saveDROrder === "SaveDRdr") {
+        for (let [index, damageDetailItem] of damageDetail.entries()) {
+          let { damage, type, DR } = damageDetailItem;
+          if (!type) type = MQdefaultDamageType;
+
+          let mult = saves.has(t) ? itemSaveMultiplier : 1;
+          if (superSavers.has(t) && itemSaveMultiplier === 0.5) {
+            mult = saves.has(t) ? 0 : 0.5;
+          }
+          if (semiSuperSavers.has(t) && itemSaveMultiplier === 0.5)
+            mult = saves.has(t) ? 0 : 1;
+
+          if (uncannyDodge) mult = mult / 2;
+          damageDetailItem.damage = damageDetailItem.damage * mult;
+        }
+      }
       // Calculate the Damage Reductions for each damage type
       for (let [index, damageDetailItem] of damageDetail.entries()) {
         let { damage, type } = damageDetailItem;
@@ -685,17 +704,20 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         // Apply AR here
       }
 
+      //Apply saves/dr/di/dv
       for (let [index, damageDetailItem] of damageDetail.entries()) {
         let { damage, type, DR } = damageDetailItem;
         if (!type) type = MQdefaultDamageType;
 
-        let mult = saves.has(t) ? itemSaveMultiplier : 1;
-        if (superSavers.has(t) && itemSaveMultiplier === 0.5) {
-          mult = saves.has(t) ? 0 : 0.5;
+        let mult = 1;
+        if (configSettings.saveDROrder !== "SaveDRdr") {
+          mult = saves.has(t) ? itemSaveMultiplier : 1;
+          if (superSavers.has(t) && itemSaveMultiplier === 0.5) {
+            mult = saves.has(t) ? 0 : 0.5;
+          }
+          if (semiSuperSavers.has(t) && itemSaveMultiplier === 0.5)
+            mult = saves.has(t) ? 0 : 1;
         }
-        if (semiSuperSavers.has(t) && itemSaveMultiplier === 0.5)
-          mult = saves.has(t) ? 0 : 1;
-
         if (uncannyDodge) mult = mult / 2;
 
         const resMult = getTraitMult(targetActor, type, item);
@@ -717,7 +739,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         // TODO: consider mwak damage reduction - we have the workflow so should be possible
       }
       damageDetailResolved = damageDetailResolved.concat(damageDetail);
-      if (debugEnabled > 0) console.warn("midi-qol | Damage Details plus resistance/save multiplier for ", targetActor.name, duplicate(damageDetail))
+      if (debugEnabled > 0) warn("applyTokenDamageMany | Damage Details plus resistance/save multiplier for ", targetActor.name, duplicate(damageDetail))
     }
     if (DRAll < 0 && appliedDamage > -1) { // negative DR is extra damage
       damageDetailResolved = damageDetailResolved.concat({ damage: -DRAll, type: "DR", DR: 0 });
@@ -837,7 +859,7 @@ export async function legacyApplyTokenDamageMany(damageDetailArr, totalDamageArr
 }
 
 export async function processDamageRoll(workflow: Workflow, defaultDamageType: string) {
-  if (debugEnabled > 0) warn("Process Damage Roll ", workflow)
+  if (debugEnabled > 0) warn("processDamageRoll |", workflow)
   // proceed if adding chat damage buttons or applying damage for our selves
   let appliedDamage: any[] = [];
   const actor = workflow.actor;
@@ -858,7 +880,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
     await expireMyEffects.bind(workflow)(effectsToExpire);
   }
 
-  warn("damage details pre merge are ", workflow.damageDetail, workflow.bonusDamageDetail);
+  if (debugEnabled > 0) warn("processDamageRoll | damage details pre merge are ", workflow.damageDetail, workflow.bonusDamageDetail);
   let totalDamage = 0;
   let merged = workflow.damageDetail.concat(workflow.bonusDamageDetail ?? []).reduce((acc, item) => {
     acc[item.type] = (acc[item.type] ?? 0) + item.damage;
@@ -1225,7 +1247,7 @@ export function midiCustomEffect(...args) {
       }
       setProperty(actor, change.key, val);
     } catch (err) {
-      const message = `midi-qol | custom flag eval error ${change.key} ${change.value}`;
+      const message = `midi-qol | midiCustomEffect | custom flag eval error ${change.key} ${change.value}`;
       TroubleShooter.recordError(err, message);
       console.warn(message, err);
     }
@@ -1329,7 +1351,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         result = evalCondition(value, rollData);
         // result = Roll.safeEval(value);
       } catch (err) {
-        const message = `midi-qol | error when evaluating overtime apply condition ${value} - assuming true`;
+        const message = `midi-qol | gmOverTimeEffect | error when evaluating overtime apply condition ${value} - assuming true`;
         TroubleShooter.recordError(err, message);
         console.warn(message, err);
         result = true;
@@ -1340,10 +1362,20 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
     const changeTurnStart = details.turn === "start" ?? false;
     const changeTurnEnd = details.turn === "end" ?? false;
     const actionSave = JSON.parse(details.actionSave ?? "false");
+    const saveAbilityString = (details.saveAbility ?? "");
+    const saveAbility = (saveAbilityString.includes("|") ? saveAbilityString.split("|") : [saveAbilityString]).map(s => s.trim().toLocaleLowerCase())
+    const label = (details.name ?? details.label ?? "Damage Over Time").replace(/"/g, "");
+    if (actionSave && startTurn && changeTurnEnd) {
+      const chatData = {
+        speaker: ChatMessage.getSpeaker({ actor }),
+        content: `${saveAbilityString} ${i18n("midi-qol.saving-throw")} as your action to overcome ${label}`
+      };
+      ChatMessage.create(chatData);
+    }
+
     if (!!!actionSave && !!options.isActionSave) continue;
 
     if ((endTurn && changeTurnEnd) || (startTurn && changeTurnStart) || (actionSave && options.saveToUse)) {
-      const label = (details.name ?? details.label ?? "Damage Over Time").replace(/"/g, "");
       let saveDC;
       let value;
       try {
@@ -1354,8 +1386,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       } finally {
         if (!value) saveDC = -1
       }
-      const saveAbilityString = (details.saveAbility ?? "");
-      const saveAbility = (saveAbilityString.includes("|") ? saveAbilityString.split("|") : [saveAbilityString]).map(s => s.trim().toLocaleLowerCase())
       const saveDamage = details.saveDamage ?? "nodamage";
       const saveMagic = JSON.parse(details.saveMagic ?? "false"); //parse the saving throw true/false
       const damageRoll = details.damageRoll;
@@ -1372,8 +1402,8 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       const killAnim = JSON.parse(details.killAnim ?? "false");
       const saveRemove = JSON.parse(details.saveRemove ?? "true");
 
-      if (debugEnabled > 0) warn(`Overtime provided data is `, details);
-      if (debugEnabled > 0) warn(`OverTime label=${label} startTurn=${startTurn} endTurn=${endTurn} damageBeforeSave=${damageBeforeSave} saveDC=${saveDC} saveAbility=${saveAbility} damageRoll=${damageRoll} damageType=${damageType}`);
+      if (debugEnabled > 0) warn(`gmOverTimeEffect | Overtime provided data is `, details);
+      if (debugEnabled > 0) warn(`gmOverTimeEffect | OverTime label=${label} startTurn=${startTurn} endTurn=${endTurn} damageBeforeSave=${damageBeforeSave} saveDC=${saveDC} saveAbility=${saveAbility} damageRoll=${damageRoll} damageType=${damageType}`);
       if (actionSave && options.saveToUse) {
         if (!options.rollFlags) return effect.id;
         if (!rollType.includes(options.rollFlags.type) || !saveAbility.includes(options.rollFlags.abilityId ?? options.rollFlags.skillId)) return effect.id;
@@ -1484,7 +1514,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           remove = evalCondition(value, rollData, true);
           // remove = Roll.safeEval(value);
         } catch (err) {
-          const message = `midi-qol | error when evaluating overtime remove condition ${value} - assuming true`;
+          const message = `midi-qol | gmOverTimeEffect | error when evaluating overtime remove condition ${value} - assuming true`;
           TroubleShooter.recordError(err, message);
           console.warn(message, err);
           remove = true;
@@ -1511,7 +1541,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         };
         await completeItemUse(ownedItem, {}, options); // worried about multiple effects in flight so do one at a time
       } catch (err) {
-        const message = "completeItemUse error";
+        const message = "midi-qol | completeItemUse | error";
         TroubleShooter.recordError(err, message);
         console.warn(message, err);
       } finally {
@@ -1591,7 +1621,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
     theItem = new CONFIG.Item.documentClass(await item.item.data(), { parent: item.actor })
   } else theItem = item;
   // delete any existing workflow - complete item use always is fresh.
-  Workflow.removeWorkflow(theItem.uuid);
+  if (Workflow.getWorkflow(theItem.uuid)) await Workflow.removeWorkflow(theItem.uuid);
   if (game.user?.isGM || !options.checkGMStatus) {
     return new Promise((resolve) => {
       let saveTargets = Array.from(game.user?.targets ?? []).map(t => { return t.id });
@@ -1603,10 +1633,10 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
           if (theTarget) theTarget.object.setTarget(true, { user: game.user, releaseOthers: false, groupSelection: true });
         }
       }
-      let hookName = `midi-qol.RollComplete.${item?.uuid}`;
+      let hookName = `midi-qol.postCleanup.${item?.uuid}`;
       if (!(item instanceof CONFIG.Item.documentClass)) {
         // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
-        hookName = "midi-qol.RollComplete";
+        hookName = "midi-qol.postCleanup";
       }
 
       Hooks.once(hookName, (workflow) => {
@@ -1618,16 +1648,8 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
 
       if (item.magicItem) {
         item.magicItem.magicItemActor.roll(item.magicItem.id, item.id)
-        //@ts-expect-error .version v10
-      } else if (installedModules.get("betterrolls5e") && isNewerVersion(game.modules.get("betterrolls5e")?.version ?? "", "1.3.10")) { // better rolls breaks the normal roll process  
-        // TODO check this v10
-        globalThis.BetterRolls.rollItem(theItem, { itemData: item.toObject(), vanilla: false, adv: 0, disadv: 0, midiSaveDC: options.saveDC }).toMessage()
       } else {
-        if (game.settings.get("midi-qol", "itemUseHooks")) { // Since first call always fails can't check the result
-          item.use(config, options)
-        } else {
-          item.use(config, options).then(result => { if (!result) resolve(result) });
-        }
+        item.use(config, options).then(result => { if (!result) resolve(result) });
       }
     })
   } else {
@@ -1662,7 +1684,7 @@ export function untargetAllTokens(...args) {
 export function checkDefeated(tokenRef: Actor | Token | TokenDocument | string): boolean {
   const tokenDoc = getTokenDocument(tokenRef);
   //@ts-expect-error specialStatusEffects
-  return hasCondition(tokenDoc, CONFIG.specialStatusEffects.DEFEATED) 
+  return hasCondition(tokenDoc, CONFIG.specialStatusEffects.DEFEATED)
     || hasCondition(tokenDoc, configSettings.midiDeadCondition);
 }
 
@@ -1786,7 +1808,7 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
 
 export function getDistanceSimpleOld(t1: Token, t2: Token, includeCover, wallBlocking = false) {
   //@ts-expect-error logCompatibilityWarning
-  logCompatibilityWarning("getDistance(t1,t2,includeCover,wallBlocking) is deprecated in favor computeDistance(t1,t2,wallBlocking?).", {since: "11.2.1", untill: "12.0.0"});
+  logCompatibilityWarning("getDistance(t1,t2,includeCover,wallBlocking) is deprecated in favor computeDistance(t1,t2,wallBlocking?).", { since: "11.2.1", untill: "12.0.0" });
   return getDistance(t1, t2, wallBlocking);
 }
 export function getDistanceSimple(t1: Token, t2: Token, wallBlocking = false) {
@@ -1830,7 +1852,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   } else if (globalThis.CoverCalculator && configSettings.optionalRules.wallsBlockRange === "simbuls-cover-calculator") {
     if (t1 === t2) return 0; // Simbul's throws an error when calculating cover for the same token
     const coverData = globalThis.CoverCalculator.Cover(t1, t2);
-    warn("simbuls cover calculator ", t1.name, t2.name, coverData);
+    if (debugEnabled > 0) warn("getDistance | simbuls cover calculator ", t1.name, t2.name, coverData);
     if (coverData?.data.results.cover === 3 && wallblocking) return -1;
     coverVisible = true;
   } else if (installedModules.get("tokenvisibility") && configSettings.optionalRules.wallsBlockRange === "tokenvisibility") {
@@ -1957,7 +1979,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     };
 
     if (!token) {
-      if (debugEnabled > 0) warn(`${game.user?.name} no token selected cannot check range`)
+      if (debugEnabled > 0) warn(`checkRange | ${game.user?.name} no token selected cannot check range`)
       return {
         result: "fail",
         reason: `${game.user?.name} no token selected`,
@@ -2143,7 +2165,7 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
       break;
     case "tokenvisibility":
       if (!installedModules.get("tokenvisibility")) coverBonus = 0;
-      if (game.settings.get("tokenvisibility", "midiqol-covercheck") === "midiqol-covercheck-none") {
+      else if (game.settings.get("tokenvisibility", "midiqol-covercheck") === "midiqol-covercheck-none") {
         const coverValue = calcTokenVisibilityCover(attacker, target);
         switch (coverValue) {
           case 1:
@@ -2201,7 +2223,7 @@ export function getAutoRollDamage(workflow: Workflow | undefined = undefined): s
     const damageOptions = Object.keys(geti18nOptions("autoRollDamageOptions"));
     if (damageOptions.includes(workflow.workflowOptions.autoRollDamage))
       return workflow.workflowOptions.autoRollDamage;
-    console.warn(`midi-qol | could not find ${workflow.workflowOptions.autoRollDamage} workflowOptions.autoRollDamage must be ond of ${damageOptions} defaulting to "onHit"`)
+    console.warn(`midi-qol | getAutoRollDamage | could not find ${workflow.workflowOptions.autoRollDamage} workflowOptions.autoRollDamage must be ond of ${damageOptions} defaulting to "onHit"`)
     return "onHit";
   }
   return game.user?.isGM ? configSettings.gmAutoDamage : configSettings.autoRollDamage;
@@ -2249,12 +2271,13 @@ export function getTokenPlayerName(token: TokenDocument | Token, checkGM: boolea
   let name = token.name;
   if (!configSettings.useTokenNames) name = token.actor?.name ?? token.name;
   if (checkGM && game.user?.isGM) return name;
-  if (installedModules.get("anonymous")) {
+  if (installedModules.get("anonymous")?.active) {
     //@ts-expect-error .api
     const api = game.modules.get("anonymous")?.api;
     if (api.playersSeeName(token.actor)) return name;
     else return api.getName(token.actor);
   }
+  return name;
 }
 
 export function getSpeaker(actor) {
@@ -2922,7 +2945,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           if (result instanceof Roll) newRoll = result;
           else newRoll = this[rollId];
         }
-        if (result === undefined) console.warn(`midi-qol | RollModifyDialog no way to call macro ${button.value}`)
+        if (result === undefined) console.warn(`midi-qol | bonusDialog | no way to call macro ${button.value}`)
         // do the roll modifications
       } else switch (button.value) {
         case "reroll": reRoll = await this[rollId].reroll({ async: true });
@@ -3035,7 +3058,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           }
           const dummyWorkflow = new DummyWorkflow(this.actor, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
           dummyWorkflow.callMacro(item, macroToCall, dummyWorkflow.getMacroData(), {})
-        } else console.warn(`midi-qol | RollModifyDialog no way to call macro ${macroToCall}`)
+        } else console.warn(`midi-qol | bonusDialog | no way to call macro ${macroToCall}`)
       }
 
       //@ts-expect-error D20Roll
@@ -3158,8 +3181,9 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
     const itemName = count.value.split(".")[1];
     const item = actor.items.getName(itemName);
     if (!item) {
-      ui.notifications?.warn(`midi-qol | could not decrement uses for ${itemName} on actor ${actor.name}`);
-      console.warn(`midi-qol | could not decrement uses for ${itemName} on actor ${actor.name}`);
+      const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
+      error(message);
+      TroubleShooter.recordError(new Error(message), message);
       return;
     }
     await item.update({ "system.uses.value": Math.max(0, item.system.uses.value - 1) });
@@ -3168,8 +3192,9 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
     const itemName = countAlt.value.split(".")[1];
     const item = actor.items.getName(itemName);
     if (!item) {
-      ui.notifications?.warn(`midi-qol | could not decrement uses for ${itemName} on actor ${actor.name}`);
-      console.warn(`midi-qol | could not decrement uses for ${itemName} on actor ${actor.name}`);
+      const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
+      error(message);
+      TroubleShooter.recordError(new Error(message), message);
       return;
     }
     await item.update({ "system.uses.value": Math.max(0, item.system.uses.value - 1) });
@@ -3265,15 +3290,15 @@ async function getMagicItemReactions(actor: Actor, triggerType: string): Promise
           }
         } catch (err) {
           const message = `midi-qol | err fetching magic item ${ownedItem.name}`;
-          console.warn("midi-qol | err fetching magic item ", ownedItem, err);
+          console.error(message, err);
           TroubleShooter.recordError(err, message);
         }
       }
     }
   } catch (err) {
-    const message = `midi-qol | Fetching magic item spells/features on ${actor.name} failed - ignoring`;
+    const message = `midi-qol | getMagicItemReactions | Fetching magic item spells/features on ${actor.name} failed - ignoring`;
     TroubleShooter.recordError(err, message);
-    console.warn(message, err);
+    console.error(message, err);
   }
   return items;
 }
@@ -3340,7 +3365,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     }
 
     // TODO Check this for magic items if that makes it to v10
-    if (!await asyncHooksCall("midi-qol.ReactionFilter", reactions, options, triggerType)) {
+    if (await asyncHooksCall("midi-qol.ReactionFilter", reactions, options, triggerType) === false) {
       console.warn("midi-qol | Reaction processing cancelled by Hook");
       return { name: "Filter", ac: 0, uuid: undefined };
     } // else reactionItemUuidList = reactions.map(item => item.uuid);
@@ -3451,12 +3476,13 @@ export async function requestReactions(target: Token, player: User, triggerToken
       reactionItemUuidList
     });
     const endTime = Date.now();
-    warn("request reactions returned after ", endTime - startTime, result);
+    if (debugEnabled > 0) warn("requestReactions | returned after ", endTime - startTime, result);
     resolve(result);
     if (chatPromptMessage) chatPromptMessage.delete();
   } catch (err) {
-    const message = `requestReactions error ${triggerType} for ${target?.name} ${triggerTokenUuid}`;
-    TroubleShooter.recordError(err, message)
+    const message = `requestReactions | error ${triggerType} for ${target?.name} ${triggerTokenUuid}`;
+    TroubleShooter.recordError(err, message);
+    error(message, err)
     throw err;
   }
 }
@@ -3502,13 +3528,13 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
     }
 
     if (reactionItems.length > 0) {
-      if (!await asyncHooksCall("midi-qol.ReactionFilter", reactionItems, options, triggerType)) {
+      if (await asyncHooksCall("midi-qol.ReactionFilter", reactionItems, options, triggerType) === false) {
         console.warn("midi-qol | Reaction processing cancelled by Hook");
         return { name: "Filter" };
       }
       result = await reactionDialog(actor, triggerTokenUuid, reactionItems, reactionFlavor, triggerType, options);
       const endTime = Date.now();
-      warn("prompt reactions reaction processing returned after ", endTime - startTime, result)
+      if (debugEnabled > 0) warn("promptTeactions | reaction processing returned after ", endTime - startTime, result)
       if (result.uuid) return result; //TODO look at multiple choices here
     }
     if (usedReaction) return { name: "None" };
@@ -3531,11 +3557,11 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
       //@ts-expect-error attributes
       await bonusDialog.bind(data)(bonusFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, "roll", "rollTotal", "rollHTML")
       const endTime = Date.now();
-      warn("prompt reactions returned via bonus dialog ", endTime - startTime)
+      if (debugEnabled > 0) warn("promptReactions | returned via bonus dialog ", endTime - startTime)
       return { name: actor.name, uuid: actor.uuid, ac: data.roll.total };
     }
     const endTime = Date.now();
-    warn("prompt reactions returned no result ", endTime - startTime)
+    if (debugEnabled > 0) warn("promptReactions | returned no result ", endTime - startTime)
     return { name: "None" };
   } catch (err) {
     const message = `promptReactions ${tokenUuid} ${triggerType} ${reactionItemList}`;
@@ -3787,7 +3813,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     sandbox = mergeObject(sandbox, { findNearby, checkNearby });
     result = evl(sandbox);
   } catch (err) {
-    const message = `midi-qol | expression evaluation failed ${expression}`;
+    const message = `midi-qol | mySafeEval | expression evaluation failed ${expression}`;
     console.warn(message, err)
     TroubleShooter.recordError(err, message);
     result = onErrorReturn;
@@ -3852,7 +3878,7 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
     rollData.CONFIG = CONFIG;
     rollData.CONST = CONST;
   } catch (err) {
-    const message = `create condition data`;
+    const message = `midi-qol | createCondtiionData`;
     TroubleShooter.recordError(err, message);
     console.warn(message, err);
   } finally {
@@ -3870,11 +3896,11 @@ export function evalCondition(condition: string, conditionData: any, errorReturn
       condition = Roll.replaceFormulaData(condition, conditionData, { missing: "0" });
     }
     returnValue = mySafeEval(condition, conditionData, errorReturn);
-    warn("evalActivationCondition ", returnValue, condition, conditionData);
+    if (debugEnabled > 0) warn("evalActivationCondition ", returnValue, condition, conditionData);
 
   } catch (err) {
     returnValue = errorReturn;
-    const message = `midi-qol | activation condition (${condition}) error `;
+    const message = `midi-qol | evalActivationCondition | activation condition (${condition}) error `;
     TroubleShooter.recordError(err, message);
     console.warn(message, err, conditionData);
   }
@@ -4142,18 +4168,23 @@ export function mergeKeyboardOptions(options: any, pressedKeys: Options | undefi
   options.critical = options.critical || pressedKeys.critical;
 }
 
-export async function asyncHooksCallAll(hook, ...args) {
+export async function asyncHooksCallAll(hook, ...args): Promise<boolean | undefined> {
   if (CONFIG.debug.hooks) {
     console.log(`DEBUG | midi-qol async Calling ${hook} hook with args:`);
     console.log(args);
   }
   //@ts-expect-error
-  if (!(hook in Hooks.events)) return true;
-
-  //@ts-expect-error
-  for (let entry of Array.from(Hooks.events[hook])) {
-    //TODO see if this might be better as a Promises.all
+  const hookEvents = Hooks.events[hook];
+  if (!hookEvents) return undefined;
+  if (debugEnabled > 0) {
+    warn(`asyncHooksCall calling ${hook}`, hookEvents, args)
+  }
+  for (let entry of Array.from(hookEvents)) {
+    //TODO see if this might be better as a Promises.all - disadvantage is that order is not guaranteed.
     try {
+      if (debugEnabled > 1) {
+        log(`asyncHooksCall for Hook ${hook} calling`, entry, args)
+      }
       await hookCall(entry, args);
     } catch (err) {
       const message = `hooked function for hook ${hook}`;
@@ -4164,24 +4195,29 @@ export async function asyncHooksCallAll(hook, ...args) {
   return true;
 }
 
-export async function asyncHooksCall(hook, ...args) {
+export async function asyncHooksCall(hook, ...args): Promise<boolean | undefined> {
   if (CONFIG.debug.hooks) {
     console.log(`DEBUG | midi-qol async Calling ${hook} hook with args:`);
     console.log(args);
   }
-  //@ts-expect-error Hooks.events v10
-  if (!(hook in Hooks.events)) return true;
+  //@ts-expect-error events
+  const hookEvents = Hooks.events[hook];
 
-  //@ts-expect-error
-  for (let entry of Array.from(Hooks.events[hook])) {
+  if (!hookEvents) return undefined;
+  if (debugEnabled  > 0) {
+    warn(`asyncHooksCall calling ${hook}`, args, hookEvents)
+  }
+  for (let entry of Array.from(hookEvents)) {
     let callAdditional;
     try {
+      if (debugEnabled > 1) {
+        log(`asyncHooksCall for Hook ${hook} calling`, entry, args)
+      }
       callAdditional = await hookCall(entry, args);
     } catch (err) {
       const message = `midi-qol | hooked function for hook ${hook} error`;
-      error(message, err);
+      error(message, err, entry);
       TroubleShooter.recordError(err, message);
-      error(message, err);
       callAdditional = true;
     }
     if (callAdditional === false) return false;
@@ -4650,14 +4686,7 @@ export async function doConcentrationCheck(actor, itemData) {
     ownedItem.getSaveDC()
   }
   try {
-    //@ts-expect-error version v10
-    if (installedModules.get("betterrolls5e") && isNewerVersion(game.modules.get("betterrolls5e")?.version ?? "", "1.3.10")) { // better rolls breaks the normal roll process
-      //@ts-expect-error
-      // await ownedItem.roll({ vanilla: false, systemCard: false, createWorkflow: true, versatile: false, configureDialog: false })
-      await globalThis.BetterRolls.rollItem(ownedItem, { itemData: ownedItem.toObject(), vanilla: false, adv: 0, disadv: 0, midiSaveDC: saveDC, workflowOptions: { targetConfirmation: "none" } }).toMessage();
-    } else {
-      result = await completeItemUse(ownedItem, {}, { systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { targetConfirmation: "none" } })
-    }
+    result = await completeItemUse(ownedItem, {}, { systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { targetConfirmation: "none" } })
   } catch (err) {
     const message = "midi-qol | doConcentrationCheck";
     TroubleShooter.recordError(err, message);
@@ -4981,13 +5010,13 @@ export function calcTokenVisibilityCover(attacker: Token | TokenDocument, target
   const attackerToken = getToken(attacker);
   const targetToken = getToken(target);
   if (!api || !attackerToken || !targetToken) {
-    let message = "midi-qol | calcTokenVisibilityCover failed"
+    let message = "midi-qol | calcTokenVisibilityCover | failed"
     if (!api) message += " tokenvisibility not installed";
     if (!attackerToken) message += " atacker token not valid";
     if (!targetToken) message += " target token not valid";
     const err = new Error("calcTokenVisibilityCover failed");
     TroubleShooter.recordError(err, message);
-    warn(message, err);
+    console.warn(message, err);
     return 0;
   }
 
@@ -5007,7 +5036,7 @@ export function calcTokenVisibilityCover(attacker: Token | TokenDocument, target
 export function itemRequiresConcentration(item): boolean {
   if (!item) return false;
   if (item.system.activation?.condition?.toLocaleLowerCase().includes(i18n("midi-qol.concentrationActivationCondition").toLocaleLowerCase())) {
-    console.warn("midi-qol | concentration activation condition deprecated use concentration component/midiProperty");
+    console.warn("midi-qol | itemRequiresConcentration | concentration activation condition deprecated use concentration component/midiProperty");
   }
   return item.system.components?.concentration
     || item.flags.midiProperties?.concentration
@@ -5044,7 +5073,7 @@ export function midiMeasureDistances(segments, options: any = {}) {
   //@ts-expect-error .diagonalRule
   const rule = canvas?.grid.diagonalRule;
 
-  if (!configSettings.gridlessFudge || !options.gridSpaces || !["555", "5105"].includes(rule))
+  if (!configSettings.gridlessFudge || !options.gridSpaces || !["555", "5105", "EUCL"].includes(rule))
     return canvas?.grid?.measureDistances(segments, options);
 
   // Track the total number of diagonals
@@ -5078,7 +5107,9 @@ export function midiMeasureDistances(segments, options: any = {}) {
 
     // Euclidean Measurement
     else if (rule === "EUCL") {
-      return Math.hypot(nx, ny) * grid?.distance;
+      let nx = Math.max(0, Math.abs(r.dx / d.size) - fudgeFactor);
+      let ny = Math.max(0, Math.abs(r.dy / d.size) - fudgeFactor);
+      return Math.ceil(Math.hypot(nx, ny) * grid?.distance);
     }
 
     // Standard PHB Movement

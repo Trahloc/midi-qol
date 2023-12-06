@@ -931,7 +931,7 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
   return true;
 };
 
-export async function rollInitiativeDialog(wrapped, rollOptions: any = { fastForward: false }) {
+export async function rollInitiativeDialog(wrapped, rollOptions: any = { fastForward: autoFastForwardAbilityRolls }) {
   const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
   const adv = pressedKeys.advantage;
   const disadv = pressedKeys.disadvantage;
@@ -957,14 +957,15 @@ export async function rollInitiativeDialog(wrapped, rollOptions: any = { fastFor
   delete this._cahcedInitiativeRoll;
 }
 
-export function getInitiativeRoll(wrapped, options: any = { advantageMode: 0, fastForward: false }) {
+export function getInitiativeRoll(wrapped, options: any = { advantageMode: 0, fastForward: autoFastForwardAbilityRolls }) {
   //@ts-expect-error
   const D20Roll = game.dnd5e.dice.D20Roll;
   let disadv = this.getFlag(game.system.id, "initiativeDisadv") || options.advantageMode === D20Roll.ADV_MODE.DISADVANTAGE;
   let adv = this.getFlag(game.system.id, "initiativeAdv") || options.advantageMode === D20Roll.ADV_MODE.ADVANTAGE;
-  const flags = this.flags["midi-qol"] ?? {};
-  const advFlags = flags.advantage;
-  const disadvFlags = flags.disadvantage;
+  const midiFlags = this.flags["midi-qol"] ?? {};
+  const advFlags = midiFlags.advantage;
+  const disadvFlags = midiFlags.disadvantage;
+  const init: any = this.system.attributes.init;
   if (advFlags || disadvFlags) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor: this });
     if ((advFlags?.all && evalCondition(advFlags.all, conditionData))
@@ -986,64 +987,6 @@ export function getInitiativeRoll(wrapped, options: any = { advantageMode: 0, fa
   }
   return wrapped(options);
 }
-
-export function _getInitiativeFormula(wrapped) {
-  const original = wrapped();
-  const actor = this.actor;
-  if (!actor) return "1d20";
-  let disadv = actor.getFlag(game.system.id, "initiativeDisadv");
-  let adv = actor.getFlag(game.system.id, "initiativeAdv");
-  const flags = actor.flags["midi-qol"] ?? {};
-  const advFlags = flags.advantage;
-  const disadvFlags = flags.disadvantage;
-  if (advFlags || disadvFlags) {
-    const conditionData = createConditionData({ workflow: undefined, target: undefined, actor: actor });
-    if ((advFlags?.all && evalCondition(advFlags.all, conditionData))
-      || (advFlags?.ability?.check?.all && evalCondition(advFlags.ability.check.all, conditionData))
-      || (advFlags?.advantage?.ability?.check?.dex && evalCondition(advFlags.advantage.ability?.check?.dex, conditionData))) {
-      adv = true;
-    }
-    if ((disadvFlags?.all && evalCondition(disadvFlags.all, conditionData))
-      || (disadvFlags?.ability?.check?.all && evalCondition(disadvFlags.ability.check.all, conditionData))
-      || (disadvFlags?.disadvantage?.ability?.check?.dex && evalCondition(disadvFlags.disadvantage.ability?.check?.dex, conditionData))) {
-      disadv = true;
-    }
-  }
-  if (!disadv && !adv) return original;
-  if (!actor) return "1d20";
-  const actorData = actor.system;
-  const init = actorData.attributes.init;
-  const rollData = actor.getRollData();
-
-  // Construct initiative formula parts
-  let nd = 1;
-  let mods = "";
-  if ((game.system.id === "dnd5e" || game.system.id === "n5e") && actor.getFlag("dnd5e", "halflingLucky")) mods += "r1=1";
-  if (adv && !disadv) {
-    nd = 2;
-    mods += "kh";
-  } else if (!adv && disadv) {
-    nd = 2;
-    mods += "kl";
-  }
-  const parts = [
-    `${nd}d20${mods}`,
-    init.mod,
-    (init.prof.term !== "0") ? init.prof.term : null,
-    (init.bonus !== 0) ? init.bonus : null
-  ];
-
-  // Ability Check Bonuses
-  const dexCheckBonus = actorData.abilities.dex.bonuses?.check;
-  const globalCheckBonus = actorData.bonuses?.abilities?.check;
-  if (dexCheckBonus) parts.push(Roll.replaceFormulaData(dexCheckBonus, rollData));
-  if (globalCheckBonus) parts.push(Roll.replaceFormulaData(globalCheckBonus, rollData));
-
-  // Optionally apply Dexterity tiebreaker
-  const tiebreaker = game.settings.get(game.system.id, "initiativeDexTiebreaker");
-  if (tiebreaker) parts.push(actor.system.abilities.dex.value / 100);
-  return parts.filter(p => p !== null).join(" + ");
-};
 
 export function getItemEffectsToDelete(args: { actor: Actor, origin: string, ignore: string[], ignoreTransfer: boolean, options: any }): string[] {
   warn("getItemEffectsToDelete: started", globalThis.DAE?.actionQueue);
@@ -1243,21 +1186,21 @@ export async function checkWounded(actor, update, options, user) {
       useDefeated = false;
     }
     if (effect && installedModules.get("dfreds-convenient-effects") && effect.id.startsWith("Convenient Effect:")) {
-        const isBeaten = actor.effects.find(ef => ef.name === effect?.name) !== undefined;
-        if ((needsBeaten !== isBeaten)) {
-          let combatant;
-          if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
-          //@ts-ignore
-          else combatant = game.combat?.getCombatantByActor(actor.id);
-          if (combatant && useDefeated) {
-            await combatant.update({ defeated: needsBeaten })
-          }
-          if (needsBeaten) {
-            await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
-          } else { // remove beaten condition
-            await dfreds.effectInterface?.removeEffect({ effectName: effect?.name, uuid: actor.uuid })
-          }
+      const isBeaten = actor.effects.find(ef => ef.name === effect?.name) !== undefined;
+      if ((needsBeaten !== isBeaten)) {
+        let combatant;
+        if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
+        //@ts-ignore
+        else combatant = game.combat?.getCombatantByActor(actor.id);
+        if (combatant && useDefeated) {
+          await combatant.update({ defeated: needsBeaten })
         }
+        if (needsBeaten) {
+          await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
+        } else { // remove beaten condition
+          await dfreds.effectInterface?.removeEffect({ effectName: effect?.name, uuid: actor.uuid })
+        }
+      }
     } else {
       const token = tokenForActor(actor);
       if (token) {
@@ -1306,12 +1249,15 @@ export function readyPatching() {
 
   libWrapper.register("midi-qol", "Notifications.prototype.notify", notificationNotify, "MIXED");
   //@ts-expect-error
-  if ((game.system.id === "dnd5e" && isNewerVersion("2.1.0", game.system.version)) || game.system.id !== "dnd5e") {
-    libWrapper.register("midi-qol", "Combatant.prototype._getInitiativeFormula", _getInitiativeFormula, "WRAPPER");
-  } else {
-    libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
-    libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollInitiativeDialog", rollInitiativeDialog, "MIXED");
+  const gameVersion = game.system.version;
+  if ((game.system.id === "dnd5e" && isNewerVersion("2.1.0", gameVersion)) || game.system.id !== "dnd5e") {
+    if (ui.notifications)
+      ui.notifications.error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`); 
+    else
+    error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`); 
   }
+  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
+  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollInitiativeDialog", rollInitiativeDialog, "MIXED");
 }
 
 export let visionPatching = () => {
@@ -1342,17 +1288,11 @@ export function configureDamageRollDialog() {
 }
 
 export let itemPatching = () => {
-  if (!game.settings.get("midi-qol", "itemUseHooks")) {
-    //@ts-ignore .version
-    libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.use", doItemUse, "MIXED");
-    libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
-    libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
-    libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
-  } else {
-    libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
-    libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
-    libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
-  }
+  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.use", doItemUse, "MIXED");
+  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
+  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
+  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
+
   if (game.system.id === "dnd5e" || game.system.id === "n5e")
     libWrapper.register("midi-qol", "CONFIG.Dice.DamageRoll.prototype.configureDamage", configureDamage, "MIXED");
   configureDamageRollDialog();
@@ -1388,15 +1328,10 @@ export async function checkDeleteTemplate(templateDocument, options, user) {
 };
 
 export let actorAbilityRollPatching = () => {
-  if (!game.settings.get("midi-qol", "itemUseHooks")) {
-    log("Patching rollAbilitySave")
-    libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilitySave", rollAbilitySave, "WRAPPER");
 
-    log("Patching rollAbilityTest")
-    libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilityTest", rollAbilityTest, "WRAPPER");
-  }
-  // TODO come back and add these
-  log("Patching rollSkill");
+  log("Patching roll abilities Save/Test/Skill/Tool")
+  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilitySave", rollAbilitySave, "WRAPPER");
+  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilityTest", rollAbilityTest, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollSkill", doRollSkill, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollToolCheck", rollToolCheck, "WRAPPER");
 
@@ -1706,10 +1641,9 @@ class CustomizeDamageFormula {
 }
 export function processTraits(actor) {
   try {
-    const baseData = actor.toObject(true);
+    if (!actor.system.traits) return;
     for (let traitId of ["di", "dr", "dv", "sdi", "sdr", "sdv"]) {
       let trait = actor.system.traits[traitId];
-      let baseTrait = baseData.system.traits[traitId];
       if (!trait) continue;
       if (!trait.value) trait.value = new Set();
       for (let traitString of trait.value) {
@@ -1751,7 +1685,7 @@ export function processTraits(actor) {
     }
 
   } catch (err) {
-    const message = `midi-qol | migrateTraits error for ${actor?.name}`;
+    const message = `midi-qol | processTraits | error for ${actor?.name}`;
     console.warn(message, this, err);
     TroubleShooter.recordError(err, message);
   } finally {
@@ -1759,6 +1693,7 @@ export function processTraits(actor) {
 }
 export function migrateTraits(actor) {
   try {
+    if (!actor.system.traits) return;
     const baseData = actor.toObject(true);
     for (let traitId of ["di", "dr", "dv", "sdi", "sdr", "sdv"]) {
       let trait = actor.system.traits[traitId];
@@ -1880,7 +1815,7 @@ export function migrateTraits(actor) {
     }
 
   } catch (err) {
-    const message = `midi-qol | migrateTraits error for ${actor?.name}`;
+    const message = `midi-qol | migrateTraits | error for ${actor?.name}`;
     console.warn(message, this, err);
     TroubleShooter.recordError(err, message);
   } finally {

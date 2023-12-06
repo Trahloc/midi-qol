@@ -164,6 +164,7 @@ Hooks.once('setup', function () {
 
   let config = getSystemCONFIG();
 
+  
 
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     config.midiProperties = {};
@@ -183,22 +184,22 @@ Hooks.once('setup', function () {
     config.midiProperties["noConcentrationCheck"] = i18n("midi-qol.noConcentrationEffectProp");
     config.midiProperties["toggleEffect"] = i18n("midi-qol.toggleEffectProp");
     config.midiProperties["ignoreTotalCover"] = i18n("midi-qol.ignoreTotalCover");
-    config.damageTypes["midi-none"] = i18n("midi-qol.mdi-none");
+    config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
     config.customDamageResistanceTypes = {
-      "silver": i18n("midi-qol.NonSilverPhysical"), 
+      "silver": i18n("midi-qol.NonSilverPhysical"),
       "adamant": i18n("midi-qol.NonAdamantinePhysical"),
       "spell": i18n("midi-qol.spell-damage"),
       "nonmagic": i18n("midi-qol.NonMagical"),
       "magic": i18n("midi-qol.Magical"),
       "physical": i18n("midi-qol.NonMagicalPhysical")
     }
-    config.damageResistanceTypes["silver"] =  i18n("midi-qol.NonSilverPhysical");
-    config.damageResistanceTypes["adamant"] =  i18n("midi-qol.NonAdamantinePhysical");
-    config.damageResistanceTypes["spell"] =  i18n("midi-qol.spell-damage");
-    config.damageResistanceTypes["nonmagic"] =  i18n("midi-qol.NonMagical");
-    config.damageResistanceTypes["magic"] =  i18n("midi-qol.Magical");
-    config.damageResistanceTypes["physical"] =  i18n("midi-qol.NonMagicalPhysical");
+    config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
+    config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
+    config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
+    config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
+    config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
+    config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
     config.damageResistanceTypes["healing"] = config.healingTypes.healing;
     config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
 
@@ -227,6 +228,13 @@ Hooks.once('setup', function () {
 
     config.abilityActivationTypes["reactiondamage"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionDamaged")}`;
     config.abilityActivationTypes["reactionmanual"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionManual")}`;
+    config.customDamageResistanceTypes = {
+      "spell": i18n("midi-qol.spell-damage"),
+      "power": i18n("midi-qol.spell-damage"),
+      "nonmagic": i18n("midi-qol.NonMagical"),
+      "magic": i18n("midi-qol.Magical"),
+      "physical": i18n("midi-qol.NonMagicalPhysical")
+    }
   }
 
   if (configSettings.allowUseMacro) {
@@ -252,7 +260,8 @@ Hooks.once('ready', function () {
   gameStats = new RollStats();
   actorAbilityRollPatching();
   // has to be done before setup api.
-  MQOnUseOptions = geti18nOptions("onUseMacroOptions");
+  // MQOnUseOptions = geti18nOptions("onUseMacroOptions");
+  /*
   if (typeof MQOnUseOptions === undefined) MQOnUseOptions = {
     "preTargeting": "Called before targeting is resolved (*)",
     "preItemRoll": "Called before the item is rolled (*)",
@@ -279,6 +288,43 @@ Hooks.once('ready', function () {
     "postTargetEffectApplication": "Target has an effect applied by a rolled item",
     "isDamaged": "Target is damaged by an attack",
     "all": "All"
+  }
+  */
+  MQOnUseOptions = {
+    "preTargeting": "Called before targeting is resolved (*)",
+    "preItemRoll": "Called before the item is rolled (*)",
+    "templatePlaced": "Only called once a template is placed",
+    "preambleComplete": "After targeting complete",
+    "preAttackRoll": "Before Attack Roll",
+    "preCheckHits": "Before Check Hits",
+    "postAttackRoll": "After Attack Roll",
+    "preSave": "Before Save",
+    "postSave": "After Save",
+    "preDamageRoll": "Before Damage Roll",
+    "postDamageRoll": "After Damage Roll",
+    "damageBonus": "return a damage bonus",
+    "preDamageApplication": "Before Damage Application",
+    "preActiveEffects": "Before Active Effects",
+    "postActiveEffects": "After Active Effects ",
+    "isAttacked": "Target is attacked",
+    "isHit": "Target is hit",
+    "preTargetSave": "Target is about to roll a saving throw",
+    "isSave": "Target rolled a save",
+    "isSaveSuccess": "Target rolled a successful save",
+    "isSaveFailure": "Target failed a saving throw",
+    "preTargetDamageApplication": "Target is about to be damaged by an item",
+    "postTargetEffectApplication": "Target has an effect applied by a rolled item",
+    "isDamaged": "Target is damaged by an attack",
+    "all": "All"
+  }
+  for (let key of Object.keys(Workflow.stateTable)) {
+    const camelKey = `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+    if (MQOnUseOptions[`pre${camelKey}`] === undefined) {
+      MQOnUseOptions[`pre${camelKey}`] = `Before state ${camelKey}`;
+    } else console.error(`midi-qol | pre${camelKey} already exists`);
+    if (MQOnUseOptions[`post${camelKey}`] === undefined) {
+      MQOnUseOptions[`post${camelKey}`] = `After state ${camelKey}`;
+    } else console.error(`midi-qol | post${camelKey} already exists`);
   }
   OnUseMacroOptions.setOptions(MQOnUseOptions);
   globalThis.MidiQOL.MQOnUseOptions = MQOnUseOptions;
@@ -330,13 +376,13 @@ Hooks.once('ready', function () {
   }
   checkModules();
   if (game.user?.isGM && configSettings.gmLateTargeting !== "none") {
-    ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", {permanent: true});
+    ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", { permanent: true });
     new TargetConfirmationConfig({}, {}).render(true);
     configSettings.gmLateTargeting = "none";
     game.settings.set("midi-qol", "ConfigSettings", configSettings)
   }
   if (!game.user?.isGM && game.settings.get("midi-qol", "LateTargeting") !== "none") {
-    ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", {permanent: true});
+    ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", { permanent: true });
     new TargetConfirmationConfig({}, {}).render(true);
     game.settings.set("midi-qol", "LateTargeting", "none");
   }
@@ -432,6 +478,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     debug: function debug(...args: any[]): void,
     displayDSNForRoll: async function displayDSNForRoll(roll: Roll | undefined, rollType: string | undefined, defaultRollMode: string | undefined = undefined),
     doConcentrationCheck: async function doConcentrationCheck(actor: Actor, temData),
+    findNearby(disposition: number | string | null | Array<string | number>, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined, relative: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false, relative: true }): Token[];
     getChanges: function getChanges(actorOrItem: Actor | Item, key: string): any[],
     getConcentrationEffect: function getConcentrationEffect(actor: Actor): ActiveEffect | undefined,
     geti18nOptions: function geti18nOptions(key: string): any,

@@ -15,7 +15,7 @@
   </nav>
   <section id="config-tabs" class="content">
     <!-- GM Tab -->
-    <div class="tab" data-tab="gm" data-group="sections">
+    <div class="tab midi-scrollable-list" data-tab="gm" data-group="sections">
       <div class="midi-qol-box">
         <div class="form-group">
           <label>{{localize "midi-qol.AutoAttack.Name"}}</label>
@@ -131,7 +131,7 @@
     </div>
 
     <!-- Workflow Tab -->
-    <div class="tab" data-tab="workflow" data-group="sections">
+    <div class="tab midi-scrollable-list" data-tab="workflow" data-group="sections">
       <!-- Targeting-->
       <div class="midi-qol-box"> {{ localize "midi-qol.Targeting"}}
         <div class="form-group">
@@ -350,6 +350,14 @@
           <input style="width:10%; flex-shrink:20;" type="number" step="any" name="damageVulnerabilityMultiplier"
             value="{{configSettings.damageVulnerabilityMultiplier}}" />
         </div>
+
+        <div class="form-group">
+          <label>{{localize "midi-qol.SaveDROrder.Name"}}</label>
+          <select name="saveDROrder" data-dtype="String">
+            {{selectOptions SaveDROrderOptions selected=configSettings.saveDROrder}}
+          </select>
+        </div>
+        <div class="midi-qol-faint">{{localize "midi-qol.SaveDROrder.Hint"}}</div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.RequireMagical.Name"}}</label>
@@ -828,8 +836,7 @@
       </div>
     </div>
     <!-- Misc Tab -->
-    <div class="tab" data-tab="misc" data-group="sections">
-
+    <div class="tab midi-scrollable-list" data-tab="misc" data-group="sections">
       <div class="midi-qol-box">
         <button type="button" name="export-config" id="midi-qol-export-config">
           <i class="fas fa-dice-d20"></i> {{localize "midi-qol.ExportConfig"}}

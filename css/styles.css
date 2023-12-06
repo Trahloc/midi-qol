@@ -294,3 +294,15 @@
 .midi-qol .grid-item.selected {
     background-color: green;
 }
+
+.midi-scrollable-list {
+  list-style: none;
+  margin: 0.5em 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--color-border-dark-5);
+  border-radius: 2px;
+  max-height: 600px;
+  overflow: hidden auto;
+  scrollbar-width: thin;
+}

@@ -69,6 +69,7 @@ class ConfigSettings {
   autoRemoveTemplate: boolean;
   autoRollAttack: boolean = false;
   autoRollDamage: string = "none";
+  saveDROrder = "SaveDRdr";
   autoTarget: string = "none";
   averageNPCDamage: boolean = false;
   checkSaveText: boolean = false;
@@ -309,6 +310,7 @@ export let fetchParams = () => {
   const promptDamageRoll = configSettings.promptDamageRoll ?? false;
   //@ts-ignore
   configSettings = game.settings.get("midi-qol", "ConfigSettings");
+  if (configSettings.saveDROrder === undefined) configSettings.saveDROrder = "DRSavedr";
   if (!configSettings.fumbleSound) configSettings.fumbleSound = CONFIG.sounds["dice"];
   if (!configSettings.criticalSound) configSettings.criticalSound = CONFIG.sounds["dice"];
   if (!configSettings.diceSound) configSettings.diceSound = CONFIG.sounds["dice"];
@@ -465,6 +467,7 @@ export let fetchParams = () => {
   // Fix for typo in en.json
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapcitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated"; 
+  if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated"; 
 
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
@@ -806,17 +809,6 @@ export const registerSettings = function () {
     // icon: "fas fa-dice-d20",
     type: TroubleShooter,
     restricted: false
-  });
-
-  game.settings.register("midi-qol", "itemUseHooks", {
-    name: "midi-qol.itemUseHooks.Name",
-    hint: "midi-qol.itemUseHooks.Hint",
-    type: Boolean,
-    config: true,
-    default: false,
-    scope: "world",
-    //@ts-ignore v10
-    requiresReload: true
   });
 
   game.settings.register("midi-qol", "last-run-version", {

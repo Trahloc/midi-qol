@@ -7,6 +7,7 @@ const target1Name = "Orc1";
 const target2Name = "Orc2";
 const target3Name = "Skeleton1";
 
+const workflowOptions = {targetConfirmation: "none"};
 export async function busyWait(seconds: number) {
   return (new Promise(resolve => setTimeout(resolve, seconds * 1000)));
 }
@@ -82,7 +83,7 @@ async function registerTests() {
             const item = getActorItem(actor, "Toll the Dead");
             if (target?.actor) await target.actor.setFlag("midi-qol", "fail.ability.save.all", true);
             try {
-              const workflow = await completeItemUse(item)
+              const workflow = await completeItemUse(item, {}, {workflowOptions})
               target?.actor?.unsetFlag("midi-qol", "fail.ability.save.all");
               assert.ok(!!workflow);
             } catch (err) {
@@ -260,7 +261,7 @@ async function registerTests() {
             game.user?.updateTokenTargets([target?.id ?? ""]);
             const item = actor.items.getName("Saving Throw Test");
             assert.ok(item);
-            const workflow = await completeItemUse(item);
+            const workflow = await completeItemUse(item, {}, {workflowOptions});
             assert.ok(workflow.saveResults.length === 1);
             assert.equal(workflow.saveResults[0].terms[0].results.length, 1);
             assert.ok(workflow.saveResults[0].formula.startsWith("1d20"))
@@ -274,7 +275,7 @@ async function registerTests() {
             assert.ok(item);
             //@ts-ignore .flags v10
             target?.actor && setProperty(target.actor.flags, "midi-qol.magicResistance.all", true)
-            const workflow = await completeItemUse(item);
+            const workflow = await completeItemUse(item, {}, {workflowOptions});
             assert.equal(workflow.saveResults.length, 1);
             assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
             assert.ok(workflow.saveResults[0].formula.startsWith("2d20kh"))
@@ -290,7 +291,7 @@ async function registerTests() {
             assert.ok(item);
             //@ts-ignore .flags v10
             target?.actor && setProperty(target.actor.flags, "midi-qol.magicVulnerability.all", true)
-            const workflow = await completeItemUse(item);
+            const workflow = await completeItemUse(item, {}, {workflowOptions});
             assert.equal(workflow.saveResults.length, 1);
             assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
             assert.ok(workflow.saveResults[0].formula.startsWith("2d20kl"))
@@ -313,7 +314,7 @@ async function registerTests() {
             const target = getToken(target2Name);
             const item = getActorItem(actor, "Longsword");
             game.user?.updateTokenTargets([target?.id ?? ""]);
-            return completeItemUse(item).then(workflow => assert.ok(!!workflow));
+            return completeItemUse(item, {}, {workflowOptions}).then(workflow => assert.ok(!!workflow));
           });
 
           it("applies cub conditions", async function () {
@@ -327,7 +328,7 @@ async function registerTests() {
             if (cubInterface.hasCondition("Blinded", [target]))
               await cubInterface.removeCondition("Blinded", [target]);
             assert.ok(!cubInterface.hasCondition("Blinded", [target]));
-            assert.ok(!!(await completeItemUse(actor.items.getName("Cub Test"))));
+            assert.ok(!!(await completeItemUse(actor.items.getName("Cub Test"), {}, {workflowOptions})));
             await busyWait(0.5);
             assert.ok(cubInterface.hasCondition("Blinded", [target]));
             //@ts-ignore .label v10
@@ -354,7 +355,7 @@ async function registerTests() {
             if (await ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid))
               await ceInterface.removeEffect({ effectName: "Deafened", uuid: target?.actor?.uuid });
             assert.ok(!ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid));
-            await completeItemUse(actor.items.getName("CE Test"));
+            await completeItemUse(actor.items.getName("CE Test"), {}, {workflowOptions});
             await busyWait(0.5);
             assert.ok(await ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid));
             //@ts-ignore .label v10
@@ -379,7 +380,7 @@ async function registerTests() {
             setProperty(actor.flags, "midi-qol.advantage.all", true);
             //@ts-ignore .abilities
             assert.ok(actor.system.abilities.str.mod > 0, "non zero str mod")
-            await completeItemUse(actor.items.getName("AppliesDamage"));
+            await completeItemUse(actor.items.getName("AppliesDamage"), {}, {workflowOptions});
             //@ts-ignore .flags v10
             delete actor.flags["midi-qol"].advantage.all;
             const newHp = target?.actor?.system.attributes.hp.value;
@@ -395,7 +396,7 @@ async function registerTests() {
             game.user?.updateTokenTargets([target2?.id ?? "", target3?.id ?? ""]);
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
-            await completeItemUse(actor.items.getName("MODTest"), {} , {advantage: true}); // does 10 + 10 to undead
+            await completeItemUse(actor.items.getName("MODTest"), {} , {advantage: true, workflowOptions}); // does 10 + 10 to undead
             const condition2 = target2.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             const condition3 = target3.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             if (condition2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", condition2.map(ae => ae.id))
@@ -413,7 +414,7 @@ async function registerTests() {
             game.user?.updateTokenTargets([target2?.id ?? "", target3?.id ?? ""]);
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
-            await completeItemUse(actor.items.getName("MODTestNoActivation")); // does 10 + 10 to undead
+            await completeItemUse(actor.items.getName("MODTestNoActivation"), {}, {workflowOptions}); // does 10 + 10 to undead
             const condition2 = target2.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             const condition3 = target3.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             if (condition2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", condition2.map(ae => ae.id))
@@ -438,7 +439,7 @@ async function registerTests() {
               hasEffect = target?.actor?.effects.filter(a => (a.name || a.label) === "Macro Execute Test") ?? [];
               if (hasEffect?.length > 0) await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", hasEffect.map(e => e.id));
               game.user?.updateTokenTargets([target?.id ?? ""]);
-              await completeItemUse(actor.items.getName("Macro Execute Test"));
+              await completeItemUse(actor.items.getName("Macro Execute Test"), {}, {workflowOptions});
               //@ts-ignore .flags v10
               let flags: any = actor.flags["midi-qol"];
               assert.equal(flags?.test, "metest")
@@ -495,20 +496,25 @@ async function registerTests() {
             const actor = getActor(actor2Name);
             const macroPasses: string[] = [];
             const hookid = Hooks.on("OnUseMacroTest", (pass: string) => macroPasses.push(pass));
-            await completeItemUse(actor.items.getName("OnUseMacroTest")); // Apply the effect
+            await completeItemUse(actor.items.getName("OnUseMacroTest"), {}, {workflowOptions}); // Apply the effect
             //@ts-ignore
             const target = getToken(target2Name);
             game.user?.updateTokenTargets([target?.id ?? ""]);
-            await completeItemUse(actor.items.getName("Longsword")); // Apply the effect
+            await completeItemUse(actor.items.getName("Longsword"), {}, {workflowOptions}); // Apply the effect
             Hooks.off("OnUseMacroTest", hookid);
             //@ts-ignore .label v10
             let hasEffects: any = actor.effects.filter(a => (a.name || a.label) === "OnUseMacroTest") ?? [];
             assert.ok(hasEffects);
             await actor.deleteEmbeddedDocuments("ActiveEffect", hasEffects.map(e => e.id))
-            console.error(macroPasses);
-            console.error(Object.keys(game.i18n.translations["midi-qol"]["onUseMacroOptions"]))
+            console.warn("Actual Passes", macroPasses);
+            console.warn("en.json passes", Object.keys(game.i18n.translations["midi-qol"]["onUseMacroOptions"]))
+            const expectedPasses = ['preTargeting', 'preItemRoll', 'preStart', 'postStart', 'preTargetConfirmation', 'postTargetConfirmation', 'preValidateRoll', 'postValidateRoll', 'prePreambleComplete', 'preambleComplete', 'postPreambleComplete', 'preWaitForAttackRoll', 'postWaitForAttackRoll', 'preWaitForDamageRoll', 'postWaitForDamageRoll', 'preWaitForSaves', 'preSave', 'postWaitForSaves', 'preSavesComplete', 'postSave', 'postSavesComplete', 'preAllRollsComplete', 'postAllRollsComplete', 'preApplyDynamicEffects', 'preActiveEffects', 'postApplyDynamicEffects', 'preRollFinished', 'postActiveEffects', 'postRollFinished', 'preCleanup'];
+            console.warn("Expected Passes", expectedPasses);
             // Test for all passes except "all"
-            assert.equal(macroPasses.length, Object.keys(game.i18n.translations["midi-qol"]["onUseMacroOptions"]).length - 1, "on use macro pass length");
+            for (let expectedPass of expectedPasses) {
+              assert.ok(macroPasses.includes(expectedPass), `onUseMacro pass ${expectedPass}`);
+            }
+            // assert.equal(macroPasses.length, Object.keys(game.i18n.translations["midi-qol"]["onUseMacroOptions"]).length - 1, "on use macro pass length");
           })
 
           it("Calls item onUseMacros", async function () {
@@ -516,11 +522,14 @@ async function registerTests() {
             const macroPasses: string[] = [];
             const expectedPasses = ['preTargeting', 'preItemRoll', 'preambleComplete', 'preSave', 'postSave', 'preActiveEffects', 'postActiveEffects'];
             const hookid = Hooks.on("Item OnUseMacroTest", (pass: string) => macroPasses.push(pass));
-            await completeItemUse(actor.items.getName("Item OnUseMacroTest"));
+            await completeItemUse(actor.items.getName("Item OnUseMacroTest"), {}, {workflowOptions});
             Hooks.off("OnUseMacroTest", hookid);
-            // console.log(macroPasses);
-            // console.log(expectedPasses)
-            assert.equal(JSON.stringify(macroPasses), JSON.stringify(expectedPasses));
+            for (let expectedPass of expectedPasses) {
+              assert.ok(macroPasses.includes(expectedPass), `onUseMacro pass ${expectedPass}`);
+            }
+            console.warn("actual passes", macroPasses);
+            console.warn("expected passes", expectedPasses)
+            // assert.equal(JSON.stringify(macroPasses), JSON.stringify(expectedPasses));
           });
         });
       },

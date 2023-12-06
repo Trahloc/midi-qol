@@ -1,5 +1,5 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
-import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateBetterRollsMessage, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
+import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doMidiConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions } from "./utils.js";
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
@@ -190,38 +190,12 @@ export let readyHooks = async () => {
   // Hooks.on("restCompleted", restManager); I think this means 1.6 is required.
   Hooks.on("dnd5e.restCompleted", restManager);
 
-  if (game.settings.get("midi-qol", "itemUseHooks") && game.system.id === "dnd5e") {
-    // Hooks.on("dnd5e.preUseItem", preItemUseHook);
-    Hooks.on("dnd5e.preItemUsageConsumption", preItemUsageConsumptionHook);
-    // Hooks.on("dnd5e.useItem", useItemHook);
-    // Hooks.on("dnd5e.preDisplayCard", preDisplayCardHook);
-    // Hooks.on("dnd5e.displayCard", displayCardHook); - displayCard is wrapped instead.
-    // Hooks.on("dnd5e.preRollAttack", preRollAttackHook);
-    // Hooks.on("dnd5e.preRollAttack", (item, rollConfig) => {return preRollMacro(item, rollConfig, "dnd5e.preRollttack")});
-    // Hooks.on("dnd5e.rollAttack", rollAttackMacro);
 
-    // Hooks.on("dnd5e.rollAttack", rollAttackHook)
-    Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
-      preRollDamageHook(item, rollConfig)
-      // && preRollMacro(item, rollConfig, "dnd5e.preRollDamage");
-    });
-    // Hooks.on("dnd5e.rollDamage", rollDamageMacro)
-    // Hooks.on("dnd5e.rollDamage", rollDamageHook)
-    // Hooks.on("dnd5e.preRollFormula", (item, rollConfig) => {return preRollMacro(item, rollConfig, "dnd5e.preRollFormula")});
-    // Hooks.on("dnd5e.rollFormula", rollFormulaMacro);
-    // Hooks.on("dnd5e.preRollToolCheck", (item, rollConfig) => preRollMacro(item, rollConfig, "dnd5e.preRollToolCheck"));
-    // Hooks.on("dnd5e.rollToolCheck", rollToolCheckMacro);
-    // Hooks.on("dnd5e.preRollAbilitySave", preRollAbilitySaveHook);
-    // Hooks.on("dnd5e.preRollAbilityTest", preRollAbilitySaveHook);
-    // Hooks.on("dnd5e.rollAbilitySave", rollAbilitySaveHook);
-    // Hooks.on("dnd5e.rollAbilityTest", rollAbilityTestHook)
-  } else {
     Hooks.on("dnd5e.preItemUsageConsumption", preItemUsageConsumptionHook);
     Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
       return preRollDamageHook(item, rollConfig)
     });
     // Hooks.on("dnd5e.rollDamage", rollDamageMacro);
-  }
 
   Hooks.on("updateCombat", (combat: Combat, update, options, userId) => {
     if (userId !== game.user?.id) return;
@@ -248,7 +222,7 @@ export function restManager(actor, result) {
     return specialDuration && ((result.longRest && specialDuration.includes(`longRest`))
       || (result.newDay && specialDuration.includes(`newDay`))
       || specialDuration.includes(`shortRest`));
-  }).map(ef => ef.id);;
+  }).map(ef => ef.id);
   if (myExpiredEffects?.length > 0) actor?.deleteEmbeddedDocuments("ActiveEffect", myExpiredEffects, { "expiry-reason": "midi-qol:rest" });
 }
 
@@ -263,7 +237,6 @@ export function initHooks() {
 
   Hooks.on("createChatMessage", (message: ChatMessage, options, user) => {
     if (debugEnabled > 1) debug("Create Chat Message ", message.id, message, options, user)
-    processCreateBetterRollsMessage(message, user);
     processItemCardCreation(message, user);
     processCreateDDBGLMessages(message, options, user);
     return true;
@@ -296,7 +269,7 @@ export function initHooks() {
   Hooks.on("deleteChatMessage", (message, options, user) => {
     if (message.user.id !== game.user?.id) return;
     const workflowId = getProperty(message, "flags.midi-qol.workflowId");
-    if (workflowId) Workflow.removeWorkflow(workflowId)
+    if (workflowId && Workflow.getWorkflow(workflowId)) Workflow.removeWorkflow(workflowId)
   });
 
   Hooks.on("midi-qol.RollComplete", async (workflow) => {

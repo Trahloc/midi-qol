@@ -1,4 +1,5 @@
 import { geti18nOptions, i18n } from "../../midi-qol.js";
+import { Workflow } from "../workflow.js";
 import { getCurrentMacros, getCurrentSourceMacros, OnUseMacros } from "./Item.js";
 
 export class ActorOnUseMacrosConfig extends FormApplication {
@@ -27,7 +28,7 @@ export class ActorOnUseMacrosConfig extends FormApplication {
     data.onUseMacroName = getProperty(this.object._source, "flags.midi-qol.onUseMacroName");
     if (data.onUseMacroName !== undefined) data.onUseMacroParts = new OnUseMacros(data.onUseMacroName);
     else data.onUseMacroParts = new OnUseMacros(null);
-    data.MacroPassOptions = geti18nOptions("onUseMacroOptions");
+    data.MacroPassOptions = mergeObject(geti18nOptions("onUseMacroOptions"), Workflow.stateHooks);
     return data;
   }
 

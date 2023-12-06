@@ -23,6 +23,7 @@ export let setupSocket = () => {
   socketlibSocket.register("confirmDamageRollComplete", confirmDamageRollComplete);
   socketlibSocket.register("confirmDamageRollCompleteHit", confirmDamageRollCompleteHit);
   socketlibSocket.register("confirmDamageRollCompleteMiss", confirmDamageRollCompleteMiss);
+  socketlibSocket.register("cancelWorkflow", cancelWorkflow);
   socketlibSocket.register("createActor", createActor);
   socketlibSocket.register("createChatMessage", createChatMessage);
   socketlibSocket.register("createEffects", createEffects);
@@ -55,14 +56,14 @@ export let setupSocket = () => {
 
   // socketlibSocket.register("canSense", _canSense);
 }
-function _removeWorkflow(workflowId: string) {
-  Workflow.removeWorkflow(workflowId);
+async function _removeWorkflow(workflowId: string) {
+  return Workflow.removeWorkflow(workflowId);
 }
 
 
 export class SaferSocket {
 
-   #_socketlibSocket: any;
+  #_socketlibSocket: any;
   constructor(socketlibSocket) {
     this.#_socketlibSocket = socketlibSocket;
   }
@@ -76,6 +77,7 @@ export class SaferSocket {
       case "confirmDamageRollComplete":
       case "confirmDamageRollCompleteHit":
       case "confirmDamageRollCompleteMiss":
+      case "cancelWorkflow":
       case "createChatMessage":
       case "D20Roll":
       case "log":
@@ -114,7 +116,7 @@ export class SaferSocket {
       case "updateUndoChatCardUuids":
       case "updateUndoChatCardUuidsById":
       default:
-          error(`Non-GMs are not allowed to call ${handler}`);
+        error(`Non-GMs are not allowed to call ${handler}`);
         return false;
     }
   }
@@ -149,37 +151,77 @@ export class SaferSocket {
     return await this.#_socketlibSocket.executeForUsers(handler, recipients, ...args);
   }
 }
+
+async function cancelWorkflow(data: { workflowId: string, itemCardId: string }) {
+  const workflow = Workflow.getWorkflow(data.workflowId);
+  if (workflow?.itemCardId !== data.itemCardId) {
+    const itemCard = await fromUuid(data.itemCardId);
+    if (itemCard) itemCard.delete()
+    /* Confirm this needs to be awaited
+    await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
+    await Workflow.removeItemCardConfirmRollButton(data.itemCardId);
+    return undefined;
+    */
+    return undefined;
+  }
+  if (workflow) return workflow.performState(workflow.WorkflowState_Cancel);
+  return undefined;
+}
+
 async function confirmDamageRollComplete(data: { workflowId: string, itemCardId: string }) {
   const workflow = Workflow.getWorkflow(data.workflowId);
   if (!workflow || workflow.itemCardId !== data.itemCardId) {
+    /* Confirm this needs to be awaited
     await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
-    await Workflow.removeItemCardConfrimRollButton(data.itemCardId);
+    await Workflow.removeItemCardConfirmRollButton(data.itemCardId);
+    return undefined;
+    */
+    Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
   const hasHits = workflow.hitTargets.size > 0 || workflow.hitTargetsEC.size > 0;
-  if ((workflow.currentState === WORKFLOWSTATES.ATTACKROLLCOMPLETE) ||
-    (hasHits) && workflow.item.hasDamage && (!workflow.damageRoll || workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE)) {
+  /*  REFACTOR if ((workflow.currentState === WORKFLOWSTATES.ATTACKROLLCOMPLETE) ||
+  (hasHits) && workflow.item.hasDamage && (!workflow.damageRoll || workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE)) {
+  */
+  if ((workflow.currentAction === workflow.WorkflowState_AttackRollComplete) || hasHits &&
+    workflow.item.hasDamage && (!workflow.damageRoll || workflow.currentAction !== workflow.WorkflowState_ConfirmRoll)) {
     return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
   }
   if (workflow.hitTargets.size === 0 && workflow.hitTargetsEC.size === 0) {
-    return await confirmDamageRollCompleteMiss(data);
+    // TODO make sure this needs to be awaited
+    return confirmDamageRollCompleteMiss(data);
   }
-  return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+  // REFACTOR return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+  // TODO make sure this needs to be awaited.
+  return workflow.performState(workflow.WorkflowState_RollConfirmed)
 }
 
 async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCardId: string }) {
   const workflow = Workflow.getWorkflow(data.workflowId);
   if (!workflow || workflow.itemCardId !== data.itemCardId) {
+    /* Confirm this needs to be awaited
     await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
-    await Workflow.removeItemCardConfrimRollButton(data.itemCardId);
+    await Workflow.removeItemCardConfirmRollButton(data.itemCardId);
+    return undefined;
+    */
+    Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
+  /* REFACTOR  if ((workflow.item?.hasDamage && !workflow.damageRoll) ||
+      workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) {
+        return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
+    }
+  */
   if ((workflow.item?.hasDamage && !workflow.damageRoll) ||
-    workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) {
-      return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
+    workflow.currentAction !== workflow.WorkflowState_ConfirmRoll) {
+    return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
   }
-  if (workflow.hitTargets.size === workflow.targets.size)
-    return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+  // TODO make sure this needs to be awaited
+  if (workflow.hitTargets.size === workflow.targets.size) {
+    return workflow.performState(workflow.confirmDamageRollComplete)
+    // TODO confirm this needs to be awaited
+  // REFACTOR return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+  }
   workflow.hitTargets = new Set(workflow.targets);
   workflow.hitTargetsEC = new Set();
   const rollMode = game.settings.get("core", "rollMode");
@@ -192,14 +234,19 @@ async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCard
     }
   }
   await workflow.displayHits(workflow.whisperAttackCard, configSettings.mergeCard && workflow.itemCardId, true);
-  return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+  // REFACTOR return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+  return await workflow.performState(workflow.WorkflowState_RollConfirmed);
 }
 
 async function confirmDamageRollCompleteMiss(data: { workflowId: string, itemCardId: string }) {
   const workflow = Workflow.getWorkflow(data.workflowId);
   if (!workflow || workflow.itemCardId !== data.itemCardId) {
+    /* Confirm this needs to be awaited
     await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
-    await Workflow.removeItemCardConfrimRollButton(data.itemCardId);
+    await Workflow.removeItemCardConfirmRollButton(data.itemCardId);
+    return undefined;
+    */
+    Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
   if (workflow.hitTargets.size > 0 || workflow.hitTargetsEC.size > 0) {
@@ -215,8 +262,9 @@ async function confirmDamageRollCompleteMiss(data: { workflowId: string, itemCar
     }
     await workflow.displayHits(workflow.whisperAttackCard, configSettings.mergeCard && workflow.itemCardId, true);
   }
-  return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED)
-    .then(() => Workflow.removeWorkflow(workflow.id));
+  // Make sure this needs to be awaited
+  return workflow.performState(workflow.WorkflowState_RollConfirmed).then(() => Workflow.removeWorkflow(workflow.id));
+  // REFACTOR return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED).then(() => Workflow.removeWorkflow(workflow.id));
 }
 
 function paranoidCheck(action: string, actor: any, data: any): boolean {
@@ -361,7 +409,8 @@ export async function _applyEffects(data: { workflowId: string, targets: string[
     for (let targetUuid of data.targets) targets.add(await fromUuid(targetUuid));
 
     workflow.applicationTargets = targets;
-    if (workflow.applicationTargets.size > 0) result = await workflow.next(WORKFLOWSTATES.APPLYDYNAMICEFFECTS);
+    if (workflow.applicationTargets.size > 0) result = await workflow.performState(workflow.WorkflowState_ApplyDynamicEffects);
+    // REFACTOR if (workflow.applicationTargets.size > 0) result = await workflow.next(WORKFLOWSTATES.APPLYDYNAMICEFFECTS);
     return result;
   } catch (err) {
     const message = `_applyEffects | remote apply effects error`;
@@ -830,7 +879,7 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, actor);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = mergeObject(message.flags.midiqol.updateContext  ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
+        const context = mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
@@ -857,7 +906,7 @@ export let processUndoDamageCard = (message, html, data) => {
         reverseButton.children()[0].classList.add("midi-qol-enable-damage-button");
         log(`Setting HP to ${newTempHP} and ${newHP}`);
         const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-        const context =  mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
+        const context = mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = newVitality;

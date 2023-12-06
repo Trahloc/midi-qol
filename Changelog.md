@@ -1,4 +1,41 @@
 
+## 11.3.1
+* Fix for calling target isDamaged macro twice.
+* Added option to specify Damage Reduction before Saves or Saves before Damage Reduction in workflow tab. Default (which is the same as current behaviour) is DR before Saves.
+* Fix bug with player version of token names if anonymous installed but not active.
+* Fix for error thrown in migrateTraits/prepareTratits when actor groups are present on the scene
+* Fix for midi-none displaying as mdi-none instead of No Damage.
+* Fix for breakage in sw5e with customDamageResistanceTypes.
+**For developers**
+* Refactor of Workflow class. Should have no impact on behaviour (famous last words) - so an installable 11.2.4 has been left available.
+  - A rewrite of the state management code.
+    - warning level debug gives a **much** clearer indication of what is going on and the call stack is much cleaner.
+    - Midi will call preState/postState hooks for all states in the workflow, return false to stop the workflow, set workflow.aborted to true to abort and remove the workflow. Existing macroPasses and Hooks are still called.
+    - Midi will call pre/postState macroPass for each state (so you can add specific macros at each state transition), return false to stop the workflow
+    - macros/hooks can change the state transition behaviour
+    - MidiQOL.Workflow.stateTable shows all of the states defined for a workflow
+    - MidiQOL.Workflow.stateHooks shows all of the hooks that midi will call for state transitions.
+    - developers can override/change the behaviour of states/workflows
+    ``js
+    class MyWorkflow exends MidiQOL.Workflow {
+      constructor(...args) {return super(...args)};
+      async WorkflowState_Start() { return this.WorkflowState_Cancel };
+      }
+      w = new MyWorkflow(_token.actor, _token.actor.items.getName("Item name")_, ChatMessage.getSpeaker);
+      w.performState(a.WorkflowState_Start);
+    ```
+    All of the states defined for a Workflow exist within the newly created workflow, so you can selectively change the behaviour of the workflow states by replacing with your own code. Subsequent releases of midi will provide more granularity for such overrides.
+  * Deprecated any reference to workflow.currentState and Workflow.WORKFLOWSTATES. Prefer to use
+  ```js
+    workflow.currentAction === workflow.WorkflowState_ConfirmRoll
+  ```
+  and
+  ```js
+    Workflow.stateTable
+  ```
+- Rewrite of the attack per target code to improve behaviour and process ammunition/spell slots/resources "appropriately". Probably still a work in progress.
+
+
 ## 11.2.4
 * Fix so that Target confirmation does not fire when passing {TargetConfirmation: false} to item.use(config, options) as an option, which include completeItemUse calls.
 * Fix so that Target Confirmation when using AoE spells fires after the template is placed.

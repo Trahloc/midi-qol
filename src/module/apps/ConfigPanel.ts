@@ -117,6 +117,8 @@ export class ConfigPanel extends FormApplication {
       RollChecksBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
       //@ts-expect-error
       StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name =  i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, {"none": "None"}),
+      SaveDROrderOptions: geti18nOptions("SaveDROrderOptions"),
+
     };
 
     if (debugEnabled > 0) warn("Config Panel: getData ", data)

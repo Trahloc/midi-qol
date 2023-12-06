@@ -140,7 +140,7 @@ export function updateUndoChatCardUuidsById(data) {
   if (!configSettings.undoWorkflow) return;
   const currentUndo = undoDataQueue.find(undoEntry => undoEntry.id === data.id);
   if (!currentUndo) {
-    console.warn("Could not find existing entry for ", data);
+    console.warn("midi-qol | updateUndoChatCardUuidsById | Could not find existing entry for ", data);
     return;
   }
   currentUndo.chatCardUuids = data.chatCardUuids;
@@ -149,7 +149,7 @@ export function updateUndoChatCardUuids(data) {
   if (!configSettings.undoWorkflow) return;
   const currentUndo = undoDataQueue.find(undoEntry => undoEntry.serverTime === data.serverTime && undoEntry.userId === data.userId);
   if (!currentUndo) {
-    console.warn("Could not find existing entry for ", data);
+    console.warn("midi-qol | updateUndoChatCardUuids | Could not find existing entry for ", data);
     return;
   }
   currentUndo.chatCardUuids = data.chatCardUuids;
@@ -371,30 +371,30 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
   if (!actor) return;
   let actorChanges;
   let tokenChanges;
-  if (debugEnabled > 0) warn("undoSingleActor: starting for ", actor.name);
+  if (debugEnabled > 0) warn("undoSingleTokenActor | starting for ", actor.name);
 
   const removeItemsFunc = async () => {
     const itemsToRemove = getRemoveUndoItems(actorData.items ?? [], actor);
     if (itemsToRemove?.length > 0) await actor.deleteEmbeddedDocuments("Item", itemsToRemove, { isUndo: true });
-    if (debugEnabled > 0) warn("removeItemsFunc: items to remove ", actor.name, itemsToRemove);
+    if (debugEnabled > 0) warn("undoSingleTokenActor | items to remove ", actor.name, itemsToRemove);
     // await busyWait(0.1);
   }
   if (dae.actionQueue) await dae.actionQueue.add(removeItemsFunc)
   else await removeItemsFunc();
-  if (debugEnabled > 0) warn("undoSingleTokenActor: removeItemFunc completed")
+  if (debugEnabled > 0) warn("undoSingleTokenActor |  removeItemFunc completed")
 
-  if (debugEnabled > 0) warn("undoSingleActor: about to remove effects")
+  if (debugEnabled > 0) warn("undoSingleTokenActor | about to remove effects")
   const removeEffectsFunc = async () => {
     const effectsToRemove = getRemoveUndoEffects(actorData.effects ?? [], actor);
-    if (debugEnabled > 0) warn("effectsToRemoveFunc ", effectsToRemove);
+    if (debugEnabled > 0) warn("undoSingleTokenActor |", effectsToRemove);
     if (effectsToRemove.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToRemove, { noConcentrationCheck: true, isUndo: true });
   }
   if (dae?.actionQueue) await dae.actionQueue.add(removeEffectsFunc)
   else await removeEffectsFunc();
-  if (debugEnabled > 0) warn("UndoSingleActor: remove effects completed")
+  if (debugEnabled > 0) warn("undoSingleTokenActor | remove effects completed")
 
   const itemsToAdd = actorData?.items?.filter(itemData => /*!itemData.flags?.dae?.DAECreated && */ !actor.items.some(item => itemData._id === item.id));
-  if (debugEnabled > 0) warn("Items to add ", actor.name, itemsToAdd)
+  if (debugEnabled > 0) warn("undoSingleTokenActor | Items to add ", actor.name, itemsToAdd)
   if (itemsToAdd?.length > 0) {
     if (dae?.actionQueue) await dae.actionQueue.add(actor.createEmbeddedDocuments.bind(actor), "Item", itemsToAdd, { keepId: true, isUndo: true });
     else await actor?.createEmbeddedDocuments("Item", itemsToAdd, { keepId: true, isUndo: true });
@@ -404,11 +404,11 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
   effectsToAdd = effectsToAdd.filter(efData => !efData?.flags?.dae?.transfer);
   // revisit this for v11 and effects not transferred
 
-  if (debugEnabled > 0) warn("Effects to add ", actor.name, effectsToAdd);
+  if (debugEnabled > 0) warn("undoSingleTokenActor | Effects to add ", actor.name, effectsToAdd);
   if (effectsToAdd?.length > 0) {
     if (dae?.actionQueue) dae.actionQueue.add(async () => {
       effectsToAdd = effectsToAdd.filter(efId => !actor.effects.some(effect => effect.id === efId))
-      if (debugEnabled > 0) warn("Effects to add are ", effectsToAdd, actor.name);
+      if (debugEnabled > 0) warn("undoSingleTokenActor | Effects to add are ", effectsToAdd, actor.name);
       await actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true, isUndo: true })
     });
     else await actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true, isUndo: true });
@@ -424,7 +424,7 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
   }
 
   actorChanges = actorData ? getChanges(actor.toObject(true), actorData) : {};
-  if (debugEnabled > 0) warn("Actor data ", actor.name, actorData, actorChanges);
+  if (debugEnabled > 0) warn("undoSingleTokenActor | Actor data ", actor.name, actorData, actorChanges);
   //@ts-expect-error isEmpty
   if (!isEmpty(actorChanges)) {
     delete actorChanges.items;
