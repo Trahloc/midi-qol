@@ -179,7 +179,7 @@ async function doItemUseV2(wrapped, config: any = {}, options: any = {}) {
     }
     return false;
   }
- 
+
   const workflow = new WorkflowV2(this.parent, this, getSpeaker(this.actor), game?.user?.targets ?? new Set(), config, options);
   // Is this needed?
   workflow.rollOptions.versatile = workflow.rollOptions.versatile || options.versatile || workflow.isVersatile;
@@ -224,41 +224,44 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
 
     let tokenToUse;
+    let targetConfirmationHasRun = false;
     const selfTarget = this.system.target?.type === "self";
-    //@ts-expect-error filter
-    let targetsToUse: Set<Token> = game.user?.targets.filter(t => isTargetable(t))
+    let targetsToUse: Set<Token> = validTargetTokens(game.user?.targets);
 
     // remove selection of untargetable targets
     if (canvas?.scene) {
-      const validTargets: Array<string> = Array.from(targetsToUse).map(t => t.id);
-      game.user?.updateTokenTargets(validTargets)
+
+      const tokensIdsToUse: Array<string> = Array.from(targetsToUse).map(t => t.id);
+      game.user?.updateTokenTargets(tokensIdsToUse)
     }
     if (selfTarget) {
       setProperty(options, "workflowOptions.targetConfirmation", "none");
       targetsToUse = new Set();
     }
 
-    let attackPerTarget = configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true;
-    if (selfTarget) attackPerTarget = false;
-    attackPerTarget &&= options.workflowOptions?.attackPerTarget !== false
-    attackPerTarget &&= this.hasAttack;
-    attackPerTarget &&= options.createMessage !== false;
+    let attackPerTarget = (configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true) && options.workflowOptions?.attackPerTarget !== false;
     // Special check for scriptlets ammoSelector - if scriptlets is going to fail and rerun the item use don't start attacks per target
-    if (safeGetGameSetting("dnd5e-scriplets", "ammoSelector") !== "none"
+    const ammoSelectorEnabled = safeGetGameSetting("dnd5e-scriplets", "ammoSelector") !== "none" && safeGetGameSetting("dnd5e-scriptlets", "ammoSelector") !== undefined;
+    const ammoSelectorFirstPass = ammoSelectorEnabled
       && !options.ammoSelector?.hasRun
       && this.system.properties?.amm === true
-      && this.type == "weapon") {
-      attackPerTarget = false;
-    }
-
-    if (attackPerTarget) {
-      const optionsToUse = duplicate(options);
-      const configToUse = duplicate(config);
+      && this.type == "weapon";
+    if (selfTarget) attackPerTarget = false;
+    attackPerTarget &&= this.hasAttack;
+    attackPerTarget &&= options.createMessage !== false;
+    if (attackPerTarget && (!ammoSelectorEnabled || ammoSelectorFirstPass)) {
       if (this.system.target?.type !== "") {
         if (!(await preTemplateTargets(this, options, pressedKeys)))
           return null;
       }
+      targetConfirmationHasRun = true;
+    }
+    attackPerTarget &&= !ammoSelectorFirstPass
+    attackPerTarget &&= (game.user?.targets.size ?? 0) > 0
+    if (attackPerTarget ) {
       let targets = new Set(game.user?.targets);
+      const optionsToUse = duplicate(options);
+      const configToUse = duplicate(config);
       let ammoUpdateHookId;
       try {
         let allowAmmoUpdates = true;
@@ -273,6 +276,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           const nameToUse = `${this.name} attack ${count} - target (${target.name})`;
           const newOptions = mergeObject(optionsToUse, {
             targetUuids: [target.document.uuid],
+            ammoSelector: {hasRun: true},
             workflowOptions: { targetConfirmation: "none", attackPerTarget: false, workflowName: nameToUse }
           }, { inplace: false, overwrite: true });
           if (debugEnabled > 0) warn(`doItemUse | ${nameToUse} ${target.name} config`, config, "options", newOptions);
@@ -342,7 +346,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const existingWorkflow = Workflow.getWorkflow(this.uuid);
     if (existingWorkflow) await Workflow.removeWorkflow(this.uuid);
     if (cancelWorkflow) return null;
-    if (this.system.target?.type !== "") {
+    if (this.system.target?.type !== "" && !targetConfirmationHasRun) {
       if (!(await preTemplateTargets(this, options, pressedKeys)))
         return null;
       //@ts-expect-error
@@ -553,7 +557,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       itemUsageConsumptionHookId = Hooks.on("dnd5e.itemUsageConsumption",
         (item, config, options) => { if (item.uuid === this.uuid) config.createMeasuredTemplate = false; return true });
     }
-    
+
     let result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
     if (itemUsageConsumptionHookId) Hooks.off("dnd5e.itemUsageConsumption", itemUsageConsumptionHookId);
     if (!result) {
@@ -1472,13 +1476,13 @@ export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: 
   const wallsBlockTargeting = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.autoTarget);
   const tokens = canvas?.tokens?.placeables ?? []; //.map(t=>t)
   const ignoreTokenDocument = getTokenDocument(ignoreToken);
-  let targets: string[] = [];
+  let targetIds: string[] = [];
   let targetTokens: Token[] = [];
   if (configSettings.autoTarget === "walledtemplates" && game.modules.get("walledtemplates")?.active) {
     //@ts-expect-error
     targetTokens = (templateDetails.targetsWithinShape) ? templateDetails.targetsWithinShape() : [];
     targetTokens = targetTokens.filter(token => isTargetable(token) && token.document.uuid !== ignoreTokenDocument?.uuid)
-    targets = targetTokens.map(t => t.id);
+    targetIds = targetTokens.map(t => t.id);
   } else {
     for (const token of tokens) {
       if (!isTargetable(token)) continue;
@@ -1488,13 +1492,13 @@ export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: 
       if (token.actor && isTokenInside(templateDetails, token, wallsBlockTargeting)) {
         if (token.id) {
           targetTokens.push(token);
-          targets.push(token.id);
+          targetIds.push(token.id);
         }
       }
     }
   }
-  game.user?.updateTokenTargets(targets);
-  game.user?.broadcastActivity({ targets });
+  game.user?.updateTokenTargets(targetIds);
+  // game.user?.broadcastActivity({ targets });
   return targetTokens;
 }
 

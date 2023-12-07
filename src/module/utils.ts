@@ -2659,7 +2659,7 @@ export async function expireRollEffect(rolltype: string, abilityId: string, succ
 }
 
 export function validTargetTokens(tokenSet: Set<Token> | undefined | any): Set<Token> {
-  return tokenSet.filter(tk => tk.actor).filter(tk => isTargetable(tk));
+  return tokenSet?.filter(tk => tk.actor).filter(tk => isTargetable(tk)) ?? new Set();
 }
 
 export function MQfromUuid(uuid): any | null {

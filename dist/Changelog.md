@@ -1,4 +1,7 @@
 
+## 11.3.1.1
+* Improve attack per target behaviour to allow rolls if no targets are selected.
+
 ## 11.3.1
 * Fix for calling target isDamaged macro twice.
 * Added option to specify Damage Reduction before Saves or Saves before Damage Reduction in workflow tab. Default (which is the same as current behaviour) is DR before Saves.

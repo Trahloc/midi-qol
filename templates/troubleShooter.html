@@ -9,10 +9,10 @@
 
   </nav>
   <form class="flexcol">
-    <div class="scrollable">
-      <section id="trouble=shooter-tabs" class="midi-contents">
-        <!-- Summary -->
-        <div class="tab" data-tab="summary" data-group="sections">
+    <section id="trouble=shooter-tabs" class="midi-contents">
+      <!-- Summary -->
+      <div class="tab" data-tab="summary" data-group="sections">
+        <div class="midi-scrollable-list">
           <div class="midi-qol-box">
             <table>
               <col width="25%">
@@ -105,8 +105,10 @@
             </table>
           </div>
         </div>
-        <!-- Common Modules Tab -->
-        <div class="tab" data-tab="commonModules" data-group="sections">
+      </div>
+      <!-- Common Modules Tab -->
+      <div class="tab" data-tab="commonModules" data-group="sections">
+        <div class="midi-scrollable-list">
           <div class="midi-qol-box">
             <div>
               <table>
@@ -134,8 +136,10 @@
             </div>
           </div>
         </div>
-        <!-- Problems Tab -->
-        <div class="tab" data-tab="problems" data-group="sections">
+      </div>
+      <!-- Problems Tab -->
+      <div class="tab" data-tab="problems" data-group="sections">
+        <div class="midi-scrollable-list">
           <div class="midi-qol-box">
             {{#if hasProblems}}
             <table>
@@ -307,8 +311,10 @@
             {{/if}}
           </div>
         </div>
-        <!-- Errors Tab -->
-        <div class="tab" data-tab="errors" data-group="sections">
+      </div>
+      <!-- Errors Tab -->
+      <div class="tab" data-tab="errors" data-group="sections">
+        <div class="" midi-scrollable-list">
           <div class="midi-qol-box">
             {{#if hasErrors}}
             <table>
@@ -339,49 +345,49 @@
             {{/if}}
           </div>
         </div>
-        <!-- All Modules Tab -->
-        <div class="tab" data-tab="allModules" data-group="sections">
-          <div class="midi-qol-box">
-            <table>
-              <tr>
-                <th style="text-align: center" colspan="5">All Installed Modules</th>
-              </tr>
-              <tr>
-                <th style="text-align: left">Module id</th>
-                <th style="text-align: left">Active</th>
-                <th style="text-align: left">Title</th>
-                <th style="text-align: left">Version</th>
-                <th style="text-align: left">Foundry Version</th>
-              </tr>
-              {{#each modules as |detail moduleId|}}
-              {{#if detail.active}}
-              <tr>
-                {{else}}
-              <tr class="midi-qol-very-faint">
-                {{/if}}
-                <td>{{moduleId}}</td>
-                <td>{{detail.active}}</td>
-                <td>{{detail.title}}</td>
-                <td>{{detail.version}}</td>
-                <td>{{detail.compatibility}}</td>
-              </tr>
-              {{#if detail.settings}}
-              {{#each detail.settings as |value key|}}
-              <tr>
-                <td></td>
-                <td>{{key}}</td>
-                <td>{{value}}</td>
-                <td></td>
-                <td></td>
-              </tr>
-              {{/each}}
+      </div>
+      <!-- All Modules Tab -->
+      <div class="tab" data-tab="allModules" data-group="sections">
+        <div class="midi-qol-box midi-scrollable-list">
+          <table>
+            <tr>
+              <th style="text-align: center" colspan="5">All Installed Modules</th>
+            </tr>
+            <tr>
+              <th style="text-align: left">Module id</th>
+              <th style="text-align: left">Active</th>
+              <th style="text-align: left">Title</th>
+              <th style="text-align: left">Version</th>
+              <th style="text-align: left">Foundry Version</th>
+            </tr>
+            {{#each modules as |detail moduleId|}}
+            {{#if detail.active}}
+            <tr>
+              {{else}}
+            <tr class="midi-qol-very-faint">
               {{/if}}
-              {{/each}}
-            </table>
-          </div>
+              <td>{{moduleId}}</td>
+              <td>{{detail.active}}</td>
+              <td>{{detail.title}}</td>
+              <td>{{detail.version}}</td>
+              <td>{{detail.compatibility}}</td>
+            </tr>
+            {{#if detail.settings}}
+            {{#each detail.settings as |value key|}}
+            <tr>
+              <td></td>
+              <td>{{key}}</td>
+              <td>{{value}}</td>
+              <td></td>
+              <td></td>
+            </tr>
+            {{/each}}
+            {{/if}}
+            {{/each}}
+          </table>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
     <footer class="sheet-footer flexrow">
       <button type="submit" name="submit" id="midi-qol-regenerate-troubleshooter">
         <i class="fas fa-cogs"></i> {{localize "MENU.Reload"}}

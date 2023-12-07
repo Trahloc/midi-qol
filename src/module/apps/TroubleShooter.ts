@@ -66,13 +66,9 @@ export class TroubleShooter extends FormApplication {
     options.closeOnSubmit = false;
     options.popOut = true;
     options.width = 900;
-    // options.resizable = true;
     options.height = "auto";
     options.resizable = true;
-    options.scrollY = [".midi-contents"];
-    // options.scrollY = [".tab.summary"];
     options.tabs = [{ navSelector: ".tabs", contentSelector: ".midi-contents", initial: "summary" }];
-    // options.tabs = [{ navSelector: ".tabs", contentSelector: ".midi-contents", initial: "summary" }];
     return options;
   }
   public static exportTroubleShooterData() {

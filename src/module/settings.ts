@@ -831,8 +831,8 @@ export function disableWorkflowAutomation() {
   enableWorkflow = false;
 }
 
-export function safeGetGameSetting(moduleName, settingName) {
+export function safeGetGameSetting(moduleName, settingName): any | undefined {
   if (game.settings.settings.get(`${moduleName}.${settingName}`))
     return game.settings.get(moduleName, settingName);
-  else return "No setting";
+  else return undefined;
 }

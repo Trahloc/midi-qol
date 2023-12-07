@@ -508,7 +508,15 @@ async function registerTests() {
             await actor.deleteEmbeddedDocuments("ActiveEffect", hasEffects.map(e => e.id))
             console.warn("Actual Passes", macroPasses);
             console.warn("en.json passes", Object.keys(game.i18n.translations["midi-qol"]["onUseMacroOptions"]))
-            const expectedPasses = ['preTargeting', 'preItemRoll', 'preStart', 'postStart', 'preTargetConfirmation', 'postTargetConfirmation', 'preValidateRoll', 'postValidateRoll', 'prePreambleComplete', 'preambleComplete', 'postPreambleComplete', 'preWaitForAttackRoll', 'postWaitForAttackRoll', 'preWaitForDamageRoll', 'postWaitForDamageRoll', 'preWaitForSaves', 'preSave', 'postWaitForSaves', 'preSavesComplete', 'postSave', 'postSavesComplete', 'preAllRollsComplete', 'postAllRollsComplete', 'preApplyDynamicEffects', 'preActiveEffects', 'postApplyDynamicEffects', 'preRollFinished', 'postActiveEffects', 'postRollFinished', 'preCleanup'];
+            const expectedPasses = ['preTargeting', 'preItemRoll', 'preStart', 
+            'postStart', 'preAoETargetConfirmation', 'postAoETargetConfirmation', 
+            'preValidateRoll', 'postValidateRoll', 'prePreambleComplete', 
+            'preambleComplete', 'postPreambleComplete', 'preWaitForAttackRoll', 
+            'postWaitForAttackRoll', 'preWaitForDamageRoll', 'postWaitForDamageRoll', 
+            'preWaitForSaves', 'preSave', 'postWaitForSaves', 'preSavesComplete', 
+            'postSave', 'postSavesComplete', 'preAllRollsComplete', 'postAllRollsComplete', 
+            'preApplyDynamicEffects', 'preActiveEffects', 'postApplyDynamicEffects', 
+            'preRollFinished', 'postActiveEffects', 'postRollFinished', 'preCleanup'];
             console.warn("Expected Passes", expectedPasses);
             // Test for all passes except "all"
             for (let expectedPass of expectedPasses) {
