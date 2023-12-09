@@ -1,3 +1,6 @@
+## 11.3.1.2
+* Fix for "never roll damage" setting not allowing workflow to proceed.
+* Reinstate Confirm Hit behaviour.
 
 ## 11.3.1.1
 * Improve attack per target behaviour to allow rolls if no targets are selected.

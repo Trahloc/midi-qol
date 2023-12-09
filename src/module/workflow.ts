@@ -779,7 +779,6 @@ export class Workflow {
     await this.expireTargetEffects(attackExpiries);
 
 
-    // We only roll damage on a hit. but we missed everyone so all over, unless we had no one targetted
     await asyncHooksCallAll("midi-qol.AttackRollComplete", this);
     if (this.item) await asyncHooksCallAll(`midi-qol.AttackRollComplete.${this.id}`, this);
     if (this.aborted) return this.WorkflowState_Abort;
@@ -790,16 +789,19 @@ export class Workflow {
       if (this.aborted) return this.WorkflowState_Abort;
     }
 
-    if (
-      (["onHit"].includes(getAutoRollDamage(this)) && this.hitTargetsEC.size === 0 && this.hitTargets.size === 0 && this.targets.size !== 0)
+    const noHits = this.hitTargets.size === 0 && this.hitTargetsEC.size === 0;
+    const allMissed = noHits && this.targets.size !== 0;
+    if (allMissed) {
+      if (["onHit", "none"].includes(getAutoRollDamage(this)))
       // This actually causes an issue when the attack missed but GM might want to turn it into a hit.
       // || (configSettings.autoCheckHit !== "none" && this.hitTargets.size === 0 && this.hitTargetsEC.size === 0 && this.targets.size !== 0)
-    ) {
-      expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"])
-      // Do special expiries
-      await this.expireTargetEffects(["isAttacked"]);
-      if (configSettings.confirmAttackDamage !== "none") return this.WorkflowState_ConfirmRoll;
-      else return this.WorkflowState_RollFinished;
+      {
+        expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"])
+        // Do special expiries
+        await this.expireTargetEffects(["isAttacked"]);
+        if (configSettings.confirmAttackDamage !== "none") return this.WorkflowState_ConfirmRoll;
+        else return this.WorkflowState_RollFinished;
+      }
     }
     if (debugCallTiming) log(`AttackRollComplete elapsed ${Date.now() - attackRollCompleteStartTime}ms`)
     return this.WorkflowState_WaitForDamageRoll;
@@ -4281,15 +4283,15 @@ export class WorkflowV2 extends Workflow {
     const isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
     const isAoETargeting = this.hasAreaTarget;
 
-    if(isAoETargeting || isRangeTargeting || this.selfTargeted) 
+    if (isAoETargeting || isRangeTargeting || this.selfTargeted)
       return this.WorkflowState_ActionChecks;
     let shouldAllowRoll = !requiresTargets // we don't care about targets
       || (this.targets.size > 0) // there are some target selected
       || (!this.hasAttack && !itemHasDamage(this) && !this.hasSave); // does not do anything - need to chck dynamic effects
 
-      if (!shouldAllowRoll) {
-        return this.WorkflowState_Cancel;
-      }
+    if (!shouldAllowRoll) {
+      return this.WorkflowState_Cancel;
+    }
     if (requiresTargets && this.system.target?.type === "creature" && this.targets.size === 0) {
       ui.notifications?.warn(i18n("midi-qol.noTargets"));
       if (debugEnabled > 0) warn(`${game.user?.name} attempted to roll with no targets selected`)
@@ -4329,7 +4331,7 @@ export class WorkflowV2 extends Workflow {
         const needsVerbal = this.system.components?.vocal;
         const needsSomatic = this.system.components?.somatic;
         const needsMaterial = this.system.components?.material;
-  
+
         //TODO Consider how to disable this check for DamageOnly workflows and trap workflows
         if (midiFlags?.fail?.spell?.all) {
           ui.notifications?.warn("You are unable to cast the spell");

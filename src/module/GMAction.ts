@@ -218,7 +218,7 @@ async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCard
   }
   // TODO make sure this needs to be awaited
   if (workflow.hitTargets.size === workflow.targets.size) {
-    return workflow.performState(workflow.confirmDamageRollComplete)
+    return workflow.performState(workflow.WorkflowState_RollConfirmed)
     // TODO confirm this needs to be awaited
   // REFACTOR return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
   }
