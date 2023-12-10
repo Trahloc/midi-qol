@@ -318,7 +318,7 @@ export class Workflow {
     }
     this.needTemplate = (configSettings.autoTarget !== "none" && this.item?.hasAreaTarget) ?? false;
     if (this.needTemplate && options.noTemplateHook !== true) {
-      this.preCreateTemplateHookId = Hooks.once("preCreateMesaguredTemplate", this.setTemplateFlags.bind(this));
+      this.preCreateTemplateHookId = Hooks.once("preCreateMeasuredTemplate", this.setTemplateFlags.bind(this));
       this.placeTemplateHookId = Hooks.once("createMeasuredTemplate", selectTargets.bind(this));
     }
     this.needItemCard = true;

@@ -1,3 +1,6 @@
+## 11.3.2
+* Fix for spells with AoE type radius not targeting in some cases. AoE type radius with target type special, self, any will auto create the template centred on the caster and not prompt for placing the template.
+
 ## 11.3.1.2
 * Fix for "never roll damage" setting not allowing workflow to proceed.
 * Reinstate Confirm Hit behaviour.

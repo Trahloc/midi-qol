@@ -553,11 +553,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const token = getToken(workflow.tokenUuid);
 
     const autoCreatetemplate = token && this.hasAreaTarget && ["self", "spec", "any"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
-    if (autoCreatetemplate) {
-      itemUsageConsumptionHookId = Hooks.on("dnd5e.itemUsageConsumption",
-        (item, config, options) => { if (item.uuid === this.uuid) config.createMeasuredTemplate = false; return true });
-    }
-
     let result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
     if (itemUsageConsumptionHookId) Hooks.off("dnd5e.itemUsageConsumption", itemUsageConsumptionHookId);
     if (!result) {
@@ -575,10 +570,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (workflow?.actor) setProperty(templateData, "flags.midi-qol.actorUuid", workflow.actor.uuid);
       if (workflow?.tokenId) setProperty(templateData, "flags.midi-qol.tokenId", workflow.tokenId);
       if (workflow) setProperty(templateData, "flags.midi-qol.workflowId", workflow.id);
-      const templateDocuments = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
-
+      //@ts-expect-error
+      const templateDocuments: MeasuredTemplateDocument[] | undefined = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
       if (templateDocuments && templateDocuments.length > 0) {
-        //@ts-expect-error
         let td: MeasuredTemplateDocument = templateDocuments[0];
         workflow.templateUuid = td.uuid;
         workflow.templateId = td?.object?.id;
@@ -589,8 +583,8 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           //@ts-expect-error .object
           await token.attachTemplate(templateDocument.object, { "flags.dae.stackable": "noneName" }, true);
         }
-        //@ts-expect-error
-        templateTokens(td?.object, this.system.range?.units === "spec" ? token : undefined)
+        //@ ts-expect-error td.object
+        // templateTokens(td?.object, this.system.range?.units === "spec" ? token : undefined)
         checkConcentration = false;
       }
     }
@@ -612,7 +606,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     return result;
 
   } catch (err) {
-    if (itemUsageConsumptionHookId) Hooks.off("dnd5e.itemUsageConsumption", itemUsageConsumptionHookId);
     const message = `doItemUse error for ${this.actor?.name} ${this.name} ${this.uuid}`;
     TroubleShooter.recordError(err, message);
     throw err;
@@ -1408,7 +1401,8 @@ function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTarge
   //@ts-ignore grid v10
   const grid = canvas?.scene?.grid;
   if (!grid) return false;
-  const templatePos = { x: template.x, y: template.y };
+  //@ts-expect-error
+  const templatePos = template.document ? { x: template.document.x, y: template.document.y } : { x: template.x, y: template.y };
   if (configSettings.optionalRules.wallsBlockRange !== "none" && hasWallBlockingCondition(token))
     return false;
   if (!isTargetable(token)) return false;
