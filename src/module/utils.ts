@@ -3534,7 +3534,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
       }
       result = await reactionDialog(actor, triggerTokenUuid, reactionItems, reactionFlavor, triggerType, options);
       const endTime = Date.now();
-      if (debugEnabled > 0) warn("promptTeactions | reaction processing returned after ", endTime - startTime, result)
+      if (debugEnabled > 0) warn("promptReactions | reaction processing returned after ", endTime - startTime, result)
       if (result.uuid) return result; //TODO look at multiple choices here
     }
     if (usedReaction) return { name: "None" };
@@ -3878,7 +3878,7 @@ export function createConditionData(data: { workflow: Workflow | undefined, targ
     rollData.CONFIG = CONFIG;
     rollData.CONST = CONST;
   } catch (err) {
-    const message = `midi-qol | createCondtiionData`;
+    const message = `midi-qol | createCondtionData`;
     TroubleShooter.recordError(err, message);
     console.warn(message, err);
   } finally {

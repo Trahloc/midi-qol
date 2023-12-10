@@ -516,7 +516,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         console.warn("midi-qol | item roll blocked by preItemRoll macro");
         workflow.aborted = true;
         // REFACTOR return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
-        return workflow.performState(workflow.WorkflowState_RollFinished)
+        return workflow.performState(workflow.WorkflowState_Abort)
       }
       const ammoResults = await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
       if (ammoResults.some(i => i === false)) {
@@ -652,7 +652,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       } else if (game.user?.targets?.size ?? 0 > 0) workflow.targets = validTargetTokens(game.user?.targets);
 
       // REFACTOR if (workflow?.attackRoll && workflow.currentState === WORKFLOWSTATES.ROLLFINISHED) {
-      if (workflow.attacRoll && workflow.currentAction === workflow.WorkflowState_RollFinished) {
+      if (workflow.attackRoll && workflow.currentAction === workflow.WorkflowState_RollFinished) {
         // we are re-rolling the attack.
         workflow.damageRoll = undefined;
         if (workflow.itemCardId) {
@@ -861,7 +861,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
 
     const midiFlags = workflow.actor.flags["midi-qol"]
     // REFACTOR if (workflow.currentState !== WORKFLOWSTATES.WAITFORDAMAGEROLL && workflow.noAutoAttack) {
-    if (workflow.currentAction !== workflow.waitfordamageRoll && workflow.noAutoAttack) {
+    if (workflow.currentAction !== workflow.WorkflowStaate_WaitForDamageRoll && workflow.noAutoAttack) {
       // allow damage roll to go ahead if it's an ordinary roll
       // REFACTOR workflow.currentState = WORKFLOWSTATES.WAITFORDAMAGEROLL;
       workflow.currentAction = workflow.WorkflowState_WaitForDamageRoll

@@ -2302,7 +2302,7 @@ export class Workflow {
           }
         }
         //@ts-ignore game.dice3d
-        if (debugEnabled > 0) warn("displyAttackRoll |", this.attackCardData, this.attackRoll)
+        if (debugEnabled > 0) warn("displayAttackRoll |", this.attackCardData, this.attackRoll)
         newFlags = mergeObject(flags, {
           "midi-qol":
           {
