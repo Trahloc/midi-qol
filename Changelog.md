@@ -1,3 +1,6 @@
+### 11.3.3
+* Incorporate changes from @TMinz for stealth/hidden.
+
 ## 11.3.2.1
 * Some typo fixes thanks @Elwin
 
