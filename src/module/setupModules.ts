@@ -23,6 +23,7 @@ export const REQUIRED_MODULE_VERSIONS = {
   "lmrtfy": "0.0.0",
   "monks-tokenbar": "1.0.55",
   "multilevel-tokens": "1.6.0",
+  "perceptive": "3.1.7",
   "ready-set-roll-5e": "1.2.0",
   "simbuls-cover-calculator":  "1.0.2",
   "socketlib": "0.0",

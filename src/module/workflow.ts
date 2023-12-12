@@ -1432,27 +1432,13 @@ export class Workflow {
     // TODO Hidden should check the target to see if they notice them?
     //@ts-expect-error .first()
     const target = this.targets?.first();
+    const token: Token | undefined = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
     if (checkRule("invisAdvantage") && checkRule("invisAdvantage") !== "none" && target) {
       // if we are using a proxy token to attack use that for hidden invisible
-      const token: Token | undefined = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
-      const hiddenToken = token ? hasCondition(token, "hidden") : false;
-      const hiddenTarget = hasCondition(target, "hidden");
       const invisibleToken = token ? hasCondition(token, "invisible") : false;
       const invisibleTarget = hasCondition(target, "invisible");
       const tokenCanDetect = token ? canSense(token, target, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
       const targetCanDetect = token ? canSense(target, token, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
-
-      // Eventually see if this needs to be modified because of senses
-      if (hiddenToken) {
-        this.attackAdvAttribution.add("ADV:hidden");
-        this.advReminderAttackAdvAttribution.add("ADV:Hidden");
-        this.advantage = true;
-      }
-      if (hiddenTarget) {
-        this.attackAdvAttribution.add("DIS:hidden");
-        this.advReminderAttackAdvAttribution.add("DIS:Hidden Foe");
-        this.disadvantage = true;
-      }
 
       const invisAdvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleToken || !targetCanDetect : !targetCanDetect;
       if (invisAdvantage) {
@@ -1464,12 +1450,56 @@ export class Workflow {
       const invisDisadvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleTarget || !tokenCanDetect : !tokenCanDetect;
       if (invisDisadvantage) {
         // Attacker can't see target so disadvantage
-        log(`Disadvantage given to ${this.actor.name} due to hidden/invisible target`);
+        log(`Disadvantage given to ${this.actor.name} due to invisible target`);
         this.attackAdvAttribution.add("DIS:invisible");
         this.advReminderAttackAdvAttribution.add("DIS:Invisible Foe");
         this.disadvantage = true;
       }
     }
+
+    // Check hidden
+    if (checkRule("hiddenAdvantage") && checkRule("HiddenAdvantage") !== "none" && target) {
+
+      if(checkRule("hiddenAdvantage") === "perceptive") {
+        //@ts-expect-error .api
+        const perceptiveApi = game.modules.get("perceptive")?.api;
+        const tokenHidden = await perceptiveApi.PerceptiveFlags.canbeSpotted(token?.document);
+        const targetHidden = await perceptiveApi.PerceptiveFlags.canbeSpotted(target?.document);
+        const tokenSpotted = await perceptiveApi.isSpottedby(token, target, {LOS : false, Range : true, Effects : false, canbeSpotted : true});
+        const targetSpotted = await perceptiveApi.isSpottedby(target, token, {LOS : false, Range : true, Effects : false, canbeSpotted : true});
+        if(tokenHidden) {
+          if (!tokenSpotted) {
+            this.attackAdvAttribution.add("ADV:hidden");
+            this.advReminderAttackAdvAttribution.add("ADV:Hidden");
+            this.advantage = true;
+          }
+        }
+
+        if(targetHidden) {
+          if (!targetSpotted) {
+            this.attackAdvAttribution.add("DIS:hidden");
+            this.advReminderAttackAdvAttribution.add("DIS:Hidden Foe");
+            this.disadvantage = true;
+          }
+        }
+      }
+
+      if(checkRule("hiddenAdvantage") === "effect") {
+        const hiddenToken = token ? hasCondition(token, "hidden") : false;
+        const hiddenTarget = hasCondition(target, "hidden");
+        if (hiddenToken) {
+          this.attackAdvAttribution.add("ADV:hidden");
+          this.advReminderAttackAdvAttribution.add("ADV:Hidden");
+          this.advantage = true;
+        }
+        if (hiddenTarget) {
+          this.attackAdvAttribution.add("DIS:hidden");
+          this.advReminderAttackAdvAttribution.add("DIS:Hidden Foe");
+          this.disadvantage = true;
+        }
+      }
+    }
+
     // Nearby foe gives disadvantage on ranged attacks
     if (checkRule("nearbyFoe")
       && !getProperty(this.actor, "flags.midi-qol.ignoreNearbyFoes")
