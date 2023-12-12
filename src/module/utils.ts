@@ -4663,7 +4663,7 @@ export function tokenForActor(actorRef: Actor | string): Token | undefined {
 }
 
 export async function doMidiConcentrationCheck(actor, saveDC) {
-  if (configSettings.noConcnetrationDamageCheck) return;
+  if (!configSettings.concentrationDamageCheck) return;
   const itemData = duplicate(itemJSONData);
   setProperty(itemData, "system.save.dc", saveDC);
   setProperty(itemData, "system.save.ability", "con");

@@ -81,7 +81,7 @@ export let readyHooks = async () => {
       // if (globalThis.DAE?.actionQueue && !globalThis.DAE.actionQueue.remaining) await globalThis.DAE.actionQueue.add(hpUpdateFunc);
       // else await hpUpdateFunc();
       await hpUpdateFunc();
-      if (configSettings.concentrationAutomation && !configSettings.noConcnetrationDamageCheck && hpDiff > 0 && !options.noConcentrationCheck) {
+      if (configSettings.concentrationAutomation && configSettings.concentrationDamageCheck && hpDiff > 0 && !options.noConcentrationCheck) {
         // expireRollEffect.bind(actor)("Damaged", ""); - not this simple - need to think about specific damage types
         concentrationCheckItemDisplayName = i18n("midi-qol.concentrationCheckName");
         const concentrationEffect: ActiveEffect | undefined = getConcentrationEffect(actor)
@@ -384,7 +384,7 @@ export function initHooks() {
           <label>${i18n("midi-qol.MidiProperties")}</label>`;
       for (let prop of Object.keys(midiProps)) {
         newHtml += `<label class="checkbox">
-        <input type="checkbox" name="flags.midiProperties.${prop}" ${data.flags.midiProperties[prop] ? "checked" : ""} /> ${midiProps[prop]}
+        <input type="checkbox" name="flags.midiProperties.${prop}" ${data.flags.midiProperties[prop] ? "checked" : ""} /> ${midiProps[prop]} 
         </label>`;
       }
       newHtml += "</div></div>";
