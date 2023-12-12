@@ -693,6 +693,13 @@
             <div class="midi-qol-faint">{{localize "midi-qol.InvisAdvantage.Hint"}}</div>
             <div class="midi-qol-faint">{{localize "midi-qol.CantSeeAdvantage.Hint"}}</div>
             <div class="form-group">
+              <label>{{localize "midi-qol.HiddenAdvantage.Name"}}</label>
+              <select name="optionalRules.hiddenAdvantage" data-dtype="String">
+                {{selectOptions HiddenAdvantageOptions selected=configSettings.optionalRules.hiddenAdvantage}}
+              </select>
+            </div>
+            <div class="midi-qol-faint">{{localize "midi-qol.HiddenAdvantage.Hint"}}</div>
+            <div class="form-group">
               <label>{{localize "midi-qol.InvisVision.Name"}}</label>
               <input type="checkbox" name="optionalRules.invisVision" data-dtype="Boolean" {{checked
                 configSettings.optionalRules.invisVision}} />

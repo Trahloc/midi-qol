@@ -168,6 +168,7 @@ class ConfigSettings {
   rollAlternate: string = "off";
   optionalRules: any = {
     invisAdvantage: "RAW",
+    hiddenAdvantage: "none",
     invisVision: false,
     checkRange: "longFail",
     wallsBlockRange: "center",
@@ -400,6 +401,7 @@ export let fetchParams = () => {
     distanceIncludesHeight: false,
     incapacitated: true,
     invisAdvantage: "RAW",
+    hiddenAdvantage: "none",
     maxDRValue: false,
     DRAllPerDamageDetail: true,
     nearbyAllyRanged: 0,
@@ -419,6 +421,7 @@ export let fetchParams = () => {
   if (!configSettings.optionalRules.checkRange) configSettings.optionalRules.checkRange = "none";
   if (!configSettings.optionalRules.invisAdvantage) configSettings.optionalRules.invisAdvantage = "none";
   if (configSettings.optionalRules.invisAdvantage === true) configSettings.optionalRules.invisAdvantage = "RAW";
+  if (!configSettings.optionalRules.hiddenAdvantage) configSettings.optionalRules.hiddenAdvantage = "none";
   if (typeof configSettings.confirmAttackDamage !== "string") configSettings.confirmAttackDamage = "none";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical !== true) configSettings.requireMagical = "off";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical === true) configSettings.requireMagical = "nonspell";

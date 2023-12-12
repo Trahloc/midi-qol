@@ -47,7 +47,12 @@ export class ConfigPanel extends FormApplication {
     if (!installedModules.get("levels")) {
       wallsBlockRangeOptions["centerLevels"] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing:"Levels" })}`;
     }
-
+    let HiddenAdvantageOptions = duplicate(geti18nOptions("HiddenAdvantageOptions"));
+    [{id: "perceptive", name: "Perceptive"}].forEach(module => {
+      if (!installedModules.get(module.id)) {
+        HiddenAdvantageOptions[module.id] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: module.name })}`;
+      }
+    });
     let quickSettingsOptions = {};
     for (let key of Object.keys(quickSettingsDetails)) {
       quickSettingsOptions[key] = quickSettingsDetails[key].description;
@@ -110,6 +115,7 @@ export class ConfigPanel extends FormApplication {
       RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions"),
       CheckRangeOptions: geti18nOptions("CheckRangeOptions"),
       InvisAdvantageOptions: geti18nOptions("InvisAdvantageOptions"),
+      HiddenAdvantageOptions,
       ConfirmAttackDamageOptions: geti18nOptions("ConfirmAttackDamageOptions"),
       ChallengeModeArmorOptions: geti18nOptions("ChallengeModeArmorOptions"),
       RollSkillsBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().skills).reduce((acc, s) => { acc[s] = getSystemCONFIG().skills[s].label; return acc }, {})),
