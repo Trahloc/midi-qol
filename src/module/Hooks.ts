@@ -193,11 +193,11 @@ export let readyHooks = async () => {
   Hooks.on("dnd5e.preItemUsageConsumption", preItemUsageConsumptionHook);
 
   Hooks.on("dnd5e.preRollAttack", (item, rollConfig) => {
-    if (rollConfig.fastForward && rollConfig.dialogOptions.babonus?.optionals) rollConfig.fastForward = false;
+    if (rollConfig.fastForward && rollConfig.dialogOptions.babonus?.optionals?.length) rollConfig.fastForward = false;
   });
 
   Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
-    if (rollConfig.fastForward && rollConfig.dialogOptions.babonus?.optionals) rollConfig.fastForward = false;
+    if (rollConfig.fastForward && rollConfig.dialogOptions.babonus?.optionals?.length) rollConfig.fastForward = false;
     return preRollDamageHook(item, rollConfig)
   });
   // Hooks.on("dnd5e.rollDamage", rollDamageMacro);
