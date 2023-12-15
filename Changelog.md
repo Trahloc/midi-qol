@@ -1,3 +1,10 @@
+### 11.3.4
+* Fixe some error with the application of active effects via apply active effects button
+* Added isHealed (as well as isDamaged), for hooks, onUseMacros calls.
+  - If auto applying damage this will check the actual damage applied in an item roll, rather than just if there is any damage.
+* special durations isHealed/isDamaged now check the actual damage done, rather than if there is some healing/damage rolled.
+* If an actor has a Build a Bonus optional bonus for attacks/damage fast forwarding will be overridden to give you the chance to use the bonus.
+
 ### 11.3.3
 * Incorporate changes from @TMinz for stealth/hidden.
 

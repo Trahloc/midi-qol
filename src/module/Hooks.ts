@@ -126,7 +126,7 @@ export let readyHooks = async () => {
     async function changefunc() {
       try {
         const origin = await fromUuid(deletedEffect.origin);
-        if (isConcentration) {
+        if (isConcentration && !options.noConcentrationCheck) {
           options.concentrationEffectsDelete = false;
           options.concentrationDeleted = true;
           return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { concentrationDeleted: true }));
@@ -190,12 +190,17 @@ export let readyHooks = async () => {
   // Hooks.on("restCompleted", restManager); I think this means 1.6 is required.
   Hooks.on("dnd5e.restCompleted", restManager);
 
+  Hooks.on("dnd5e.preItemUsageConsumption", preItemUsageConsumptionHook);
 
-    Hooks.on("dnd5e.preItemUsageConsumption", preItemUsageConsumptionHook);
-    Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
-      return preRollDamageHook(item, rollConfig)
-    });
-    // Hooks.on("dnd5e.rollDamage", rollDamageMacro);
+  Hooks.on("dnd5e.preRollAttack", (item, rollConfig) => {
+    if (rollConfig.fastForward && rollConfig.dialogOptions.babonus?.optionals) rollConfig.fastForward = false;
+  });
+
+  Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
+    if (rollConfig.fastForward && rollConfig.dialogOptions.babonus?.optionals) rollConfig.fastForward = false;
+    return preRollDamageHook(item, rollConfig)
+  });
+  // Hooks.on("dnd5e.rollDamage", rollDamageMacro);
 
   Hooks.on("updateCombat", (combat: Combat, update, options, userId) => {
     if (userId !== game.user?.id) return;

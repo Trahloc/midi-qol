@@ -7,7 +7,7 @@ import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
 import { OnUseMacros } from "./apps/Item.js";
-import { Options } from "./patching.js";
+import { Options, removeConcentration } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 
@@ -782,26 +782,27 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       await workflow.triggerTargetMacros(["preTargetDamageApplication"], [t]);
       ditem = workflow.damageItem;
     }
-    if (ditem.appliedDamage > 0 && ditem.wasHit) {
+    if (ditem.appliedDamage !== 0 && ditem.wasHit) {
+      const healedDamaged = ditem.appliedDamage < 0 ? "isHealed" : "isDamaged";
       const expiredEffects = t?.actor?.effects.filter(ef => {
         const specialDuration = getProperty(ef, "flags.dae.specialDuration");
         if (!specialDuration) return false;
-        return specialDuration.includes("isDamaged");
+        return specialDuration.includes(healedDamaged);
       }).map(ef => ef.id)
       if (expiredEffects?.length ?? 0 > 0) {
         await timedAwaitExecuteAsGM("removeEffects", {
           actorUuid: t.actor?.uuid,
           effects: expiredEffects,
-          options: { "expiry-reason": `midi-qol:isDamaged` }
+          options: { "expiry-reason": `midi-qol:${healedDamaged}`}
         });
       }
-      await asyncHooksCallAll("midi-qol.damageApplied", t, { item, workflow, damageItem: ditem, ditem });
+      await asyncHooksCallAll(`midi-qol.${healedDamaged}`, t, { item, workflow, damageItem: ditem, ditem });
       const actorOnUseMacros = getProperty(t.actor ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
       // It seems applyTokenDamageMany without a workflow gets through to here - so a silly guard in place TODO come back and fix this properly
       if (workflow.callMacros) await workflow.callMacros(workflow.item,
-        actorOnUseMacros?.getMacros("isDamaged"),
+        actorOnUseMacros?.getMacros(healedDamaged),
         "TargetOnUse",
-        "isDamaged",
+        healedDamaged,
         { actor: t.actor, token: t });
     }
     // delete workflow.damageItem
@@ -2345,9 +2346,6 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     // condition-lab-triggler has a name in the label field
     const existing = selfTarget.actor?.effects.find(e => e.name === (statusEffect.name ?? statusEffect.label)); // TODO should be able to remove this .label
     // if (existing) await existing.delete();
-    if (!statusEffect.id && statusEffect.statuses?.length > 0) {
-      statusEffect.id = statusEffect.statuses[0];
-    }
 
     // return await selfTarget.document.toggleActiveEffect(statusEffect, { active: true })
     const result = await actor.createEmbeddedDocuments("ActiveEffect", [statusEffect]);

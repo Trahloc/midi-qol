@@ -1050,7 +1050,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
             if (debugEnabled > 0) warn("removeConcentration | removing effects", actor?.name, effectsToDelete, options);
             promises.push(socketlibSocket.executeAsGM("deleteEffects", {
               actorUuid: target.actorUuid, effectsToDelete,
-              options: mergeObject(deleteOptions, { concentrationEffectsDeleted: true })
+              options: mergeObject(deleteOptions, { concentrationEffectsDeleted: true, noConcentrationCheck: true })
             }));
           }
         }
@@ -1065,7 +1065,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
           mergeObject(options, { concentrationDeleted: true, concentrationEffectsDeleted: true })));
       }
     }
-    return Promise.allSettled(promises);
+    return await Promise.allSettled(promises);
   } catch (err) {
     const message = `error when attempting to remove concentration for ${actor?.name}`;
     console.warn(message, err);

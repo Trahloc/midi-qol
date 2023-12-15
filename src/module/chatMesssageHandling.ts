@@ -573,6 +573,7 @@ export async function onChatCardAction(event) {
         if ((targets?.size ?? 0) === 0) return;
         button.disabled = false;
         if (game.user?.id !== message.user?.id) {
+          // applying effects on behalf of another user;
           if (!game.user?.isGM) {
             ui.notifications?.warn("Only the GM can apply effects for other players")
             return;
@@ -586,7 +587,7 @@ export async function onChatCardAction(event) {
             targets: Array.from(game.user.targets).map(t => t.document.uuid)
           }));
 
-          // applying effects on behalf of another user;
+
         } else {
           let workflow = Workflow.getWorkflow(item.uuid);
           if (workflow) {
