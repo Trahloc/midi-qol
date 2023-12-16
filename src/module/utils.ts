@@ -4639,7 +4639,7 @@ export function getSystemCONFIG(): any {
     //@ts-expect-error .
     case "dnd5e": return CONFIG.DND5E;
     //@ts-expect-error .
-    case "sw5e": return CONFIG.DND5E;
+    case "sw5e": return {...CONFIG.SW5E, skills: {...CONFIG.SW5E.skills, ...CONFIG.SW5E.starshipSkills}};
     //@ts-expect-error .
     case "n5e": return CONFIG.N5E;
     default: return {};

@@ -1250,11 +1250,11 @@ export function readyPatching() {
   libWrapper.register("midi-qol", "Notifications.prototype.notify", notificationNotify, "MIXED");
   //@ts-expect-error
   const gameVersion = game.system.version;
-  if ((game.system.id === "dnd5e" && isNewerVersion("2.1.0", gameVersion)) || game.system.id !== "dnd5e") {
+  if ((game.system.id === "dnd5e" && isNewerVersion("2.1.0", gameVersion))) {
     if (ui.notifications)
-      ui.notifications.error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`); 
+      ui.notifications.error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`);
     else
-    error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`); 
+      error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`);
   }
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollInitiativeDialog", rollInitiativeDialog, "MIXED");
@@ -1299,10 +1299,11 @@ export let itemPatching = () => {
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
-  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
 
-  if (game.system.id === "dnd5e" || game.system.id === "n5e")
+  if (game.system.id === "dnd5e" || game.system.id === "n5e") {
+    libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Dice.DamageRoll.prototype.configureDamage", configureDamage, "MIXED");
+  }
   configureDamageRollDialog();
 };
 
