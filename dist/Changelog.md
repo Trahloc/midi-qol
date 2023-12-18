@@ -1,3 +1,6 @@
+## 11.3.6
+* Fix for a dnd5e 2.4 dependency introduced. dnd5e 2.4+ is strongly recommended
+
 ## 11.3.5
 * Fix for sw5e skills for starships.
 

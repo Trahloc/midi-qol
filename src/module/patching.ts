@@ -1288,6 +1288,7 @@ export function configureDamageRollDialog() {
 }
 
 function _getUsageConfig(wrapped): any {
+  //Radius tempalte spells with self/spec/any will auto place the template so don't prompt for it in config.
   const config = wrapped();
   const autoCreatetemplate = this.hasAreaTarget && ["self", "spec", "any"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
   if (autoCreatetemplate) config.createMeasuredTemplate = null;
@@ -1301,7 +1302,9 @@ export let itemPatching = () => {
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
 
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
-    libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
+    //@ts-expect-error .version
+    if (isNewerVersion(game.system.version, "2.3.99"))
+      libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Dice.DamageRoll.prototype.configureDamage", configureDamage, "MIXED");
   }
   configureDamageRollDialog();
