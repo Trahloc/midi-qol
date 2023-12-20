@@ -1,5 +1,9 @@
+## 11.3.8
+* Fix for anonymous module not being used.
+
 ## 11.3.7.1
 * Remove debug left in 11.3.7
+
 ## 11.3.7
 * Added Countdown timer for reactions/optional bonuses
 * Fixed error in optional bonuses when the value is just a number

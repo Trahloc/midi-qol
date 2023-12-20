@@ -2274,7 +2274,7 @@ export function getTokenPlayerName(token: TokenDocument | Token, checkGM: boolea
   let name = token.name;
   if (!configSettings.useTokenNames) name = token.actor?.name ?? token.name;
   if (checkGM && game.user?.isGM) return name;
-  if (installedModules.get("anonymous")?.active) {
+  if (game.modules.get("anonymous")?.active) {
     //@ts-expect-error .api
     const api = game.modules.get("anonymous")?.api;
     if (api.playersSeeName(token.actor)) return name;
