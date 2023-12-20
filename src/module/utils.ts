@@ -11,6 +11,8 @@ import { Options, removeConcentration } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 
+const defaultTimeout = 30;
+
 export function getDamageType(flavorString): string | undefined {
   const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
   const allDamageTypeEntries = Object.entries(getSystemCONFIG().damageTypes).concat(Object.entries(getSystemCONFIG().healingTypes));
@@ -793,7 +795,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         await timedAwaitExecuteAsGM("removeEffects", {
           actorUuid: t.actor?.uuid,
           effects: expiredEffects,
-          options: { "expiry-reason": `midi-qol:${healedDamaged}`}
+          options: { "expiry-reason": `midi-qol:${healedDamaged}` }
         });
       }
       await asyncHooksCallAll(`midi-qol.${healedDamaged}`, t, { item, workflow, damageItem: ditem, ditem });
@@ -2676,6 +2678,9 @@ export function MQfromActorUuid(uuid): any {
 
 class RollModifyDialog extends Application {
   rollExpanded: boolean;
+  timeRemaining: number;
+  timeoutId: any;
+  secondTimeoutId: any;
 
   data: {
     //@ts-expect-error dnd5e v10
@@ -2693,7 +2698,8 @@ class RollModifyDialog extends Application {
     callback: () => {},
     close: () => {},
     buttons: any,
-    rollMode: string | undefined
+    rollMode: string | undefined,
+    timeout: number
   }
 
   constructor(data, options) {
@@ -2701,8 +2707,14 @@ class RollModifyDialog extends Application {
     options.resizable = true;
     super(options);
     this.data = data;
+    this.timeRemaining = this.data.timeout;
     this.rollExpanded = false;
-    if (!data.rollMode) data.rollMode = game.settings.get("core", "rollMode")
+    if (!data.rollMode) data.rollMode = game.settings.get("core", "rollMode");
+    this.timeoutId = setTimeout(() => {
+      if (this.secondTimeoutId) clearTimeout(this.secondTimeoutId);
+      this.timeoutId = undefined;
+      this.close();
+    }, this.data.timeout * 1000);
   }
 
   static get defaultOptions() {
@@ -2714,7 +2726,39 @@ class RollModifyDialog extends Application {
     }, { overwrite: true });
   }
   get title() {
-    return this.data.title || "Dialog";
+    let maxPad = 30;
+    if (this.data.timeout < maxPad) maxPad = this.data.timeout
+    if (this.data.timeout) {
+      const padCount = Math.ceil(this.timeRemaining / (this.data.timeout ?? defaultTimeout) * maxPad);
+      const pad = "-".repeat(padCount);
+      return `${this.data.title ?? "Dialog"} ${pad}> ${this.timeRemaining}`;
+    }
+    else return this.data.title ?? "Dialog";
+  }
+
+  set1SecondTimeout() {
+    this.secondTimeoutId = setTimeout(() => {
+      if (!this.timeoutId) return;
+      this.timeRemaining -= 1;
+      this.render(true);
+      if (this.timeRemaining > 0) this.set1SecondTimeout();
+    }, 1000)
+  }
+
+  render(force: boolean = false, options: any = {}) {
+    if (!this.secondTimeoutId) this.set1SecondTimeout();
+    console.error("reder called ", this.timeRemaining);
+    const result: any = super.render(force, options);
+    const element = this.element;
+    const title = element.find(".window-title")[0];
+    if (!title) return result;
+
+    let color = "red";
+    if (this.timeRemaining >= this.data.timeout * 0.75) color = "chartreuse";
+    else if (this.timeRemaining >= this.data.timeout * 0.50) color = "yellow";
+    else if (this.timeRemaining >= this.data.timeout * 0.25) color = "orange";
+    title.style.color = color;
+    return result;
   }
 
   async getData(options) {
@@ -2727,14 +2771,17 @@ class RollModifyDialog extends Application {
       let flagData = getProperty(this.data.actor, flag);
       let value = getProperty(flagData, this.data.flagSelector);
       if (value !== undefined) {
-        let labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
-        if (value.startsWith("ItemMacro")) labelDetail = "ItemMacro"
-        else if (value.startsWith("function")) labelDetail = "Function";
+        let labelDetail;
+        if (typeof value === "string") {
+          labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
+          if (value.startsWith("ItemMacro")) labelDetail = "ItemMacro"
+          else if (value.startsWith("function")) labelDetail = "Function";
+        } else labelDetail = `${value}`
         obj[randomID()] = {
           icon: '<i class="fas fa-dice-d20"></i>',
           //          label: (flagData.label ?? "Bonus") + `  (${getProperty(flagData, this.data.flagSelector) ?? "0"})`,
           label: (flagData.label ?? "Bonus") + `  (${labelDetail})`,
-          value,
+          value: `${value}`,
           key: flag,
           callback: this.data.callback
         }
@@ -2823,6 +2870,8 @@ class RollModifyDialog extends Application {
   }
 
   async close() {
+    if (this.timeoutId) clearTimeout(this.timeoutId);
+    if (this.secondTimeoutId) clearTimeout(this.secondTimeoutId);
     if (this.data.close) this.data.close();
     $(document).off('keydown.chooseDefault');
     return super.close();
@@ -2891,9 +2940,20 @@ export async function processDamageRollBonusFlags(): Promise<Roll> { // bound to
   return this.damageRoll;
 }
 
-export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rollId: string, rollTotalId: string, rollHTMLId: string, options?: any) {
+export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rollId: string, rollTotalId: string, rollHTMLId: string, options: any = {}) {
   const showDiceSoNice = /* ["attackRoll", "damageRoll"].includes(rollId) && */ dice3dEnabled(); // && configSettings.mergeCard;
+  let timeoutId;
+  let timeout = options.timeout ?? configSettings.reactionTimeout ?? defaultTimeout
   return new Promise((resolve, reject) => {
+    function onClose() {
+      if (timeoutId) clearTimeout(timeoutId);
+      resolve(null)
+    }
+    if (options.timeout) {
+      timeoutId = setTimeout(() => {
+        resolve(null);
+      }, timeout * 1000);
+    }
     const callback = async (dialog, button) => {
       let newRoll;
       let reRoll;
@@ -3112,7 +3172,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         rollHTML: this[rollHTMLId],
         rollMode,
         callback,
-        close: resolve
+        close: onClose.bind(this),
+        timeout
       }, {
       width: 400
     }).render(true);
@@ -3427,7 +3488,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       // set a timeout for taking over the roll
       const timeoutId = setTimeout(() => {
         resolve(noResult);
-      }, (configSettings.reactionTimeout || 30) * 1000 * 2);
+      }, (configSettings.reactionTimeout ?? defaultTimeout) * 1000 * 2);
 
       // Compiler does not realise player can't be undefined to get here
       player && requestReactions(target, player, triggerTokenUuid, content, triggerType, reactionItemUuidList, resolve, chatMessage, options).then((result) => {
@@ -3598,13 +3659,14 @@ export function playerForActor(actor: Actor | undefined | null): User | undefine
 }
 
 //@ts-expect-error dnd5e v10
-export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, triggerTokenUuid: string | undefined, reactionItems: Item[], rollFlavor: string, triggerType: string, options: any = {}) {
+export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, triggerTokenUuid: string | undefined, reactionItems: Item[], rollFlavor: string, triggerType: string, options: any = { timeout }) {
   try {
+    let timeout = (options.timeout ?? configSettings.reactionTimeout ?? defaultTimeout);
     return new Promise((resolve, reject) => {
       let timeoutId = setTimeout(() => {
         dialog.close();
         resolve({});
-      }, ((configSettings.reactionTimeout || 30) - 1) * 1000);
+      }, timeout * 1000);
       const callback = async function (dialog, button) {
         clearTimeout(timeoutId);
         const item = reactionItems.find(i => i.id === button.key);
@@ -3623,9 +3685,12 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
             isReaction: true,
             targetConfirmation: "none"
           });
-          let useTimeoutId = setTimeout(() => resolve({}), ((configSettings.reactionTimeout || 30) - 1) * 1000);
+          let useTimeoutId = setTimeout(() => {
+            clearTimeout(useTimeoutId);
+            resolve({})
+          }, ((timeout) - 1) * 1000);
           await completeItemUse(item, {}, itemRollOptions);
-          clearTimeout(useTimeoutId)
+          clearTimeout(useTimeoutId);
         }
         // actor.reset();
         resolve({ name: item?.name, uuid: item?.uuid })
@@ -3639,6 +3704,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
         content: rollFlavor,
         callback,
         close: resolve,
+        timeout
       }, {
         width: 400
       });
@@ -3655,6 +3721,8 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
 class ReactionDialog extends Application {
   startTime: number;
   endTime: number;
+  timeoutId: number;
+  timeRemaining;
 
   data: {
     //@ts-expect-error dnd5e v10
@@ -3665,14 +3733,17 @@ class ReactionDialog extends Application {
     callback: () => {},
     close: (any) => {},
     buttons: any,
-    completed: boolean
+    completed: boolean,
+    timeout: number,
+    timeRemaining: number
   }
 
   constructor(data, options) {
     super(options);
+    this.timeRemaining = data.timeout;
     this.startTime = Date.now();
     this.data = data;
-    this.data.completed = false
+    this.data.completed = false;
   }
 
   static get defaultOptions() {
@@ -3685,7 +3756,14 @@ class ReactionDialog extends Application {
     });
   }
   get title() {
-    return this.data.title || "Dialog";
+    let maxPad = 45;
+    if (this.data.timeout) {
+      if (this.data.timeout < maxPad) maxPad = this.data.timeout;
+      const padCount = Math.ceil(this.timeRemaining / (this.data.timeout ?? defaultTimeout) * maxPad);
+      const pad = "-".repeat(padCount);
+      return `${this.data.title ?? "Dialog"} ${pad}> ${this.timeRemaining}`;
+    }
+    else return this.data.title ?? "Dialog";
   }
   async getData(options) {
     this.data.buttons = this.data.items.reduce((acc: {}, item: Item) => {
@@ -3700,8 +3778,33 @@ class ReactionDialog extends Application {
     }, {})
     return {
       content: this.data.content,
-      buttons: this.data.buttons
+      buttons: this.data.buttons,
+      timeRemaining: this.timeRemaining
     }
+  }
+
+  set1SecondTimeout() {
+    //@ts-expect-error typeof setTimeout
+    this.timeoutId = setTimeout(() => {
+      this.timeRemaining -= 1;
+      this.render(true);
+      if (this.timeRemaining > 0) this.set1SecondTimeout();
+    }, 1000)
+  }
+
+  render(force: boolean = false, options: any = {}) {
+    if (!this.timeoutId) this.set1SecondTimeout();
+    console.error("bonus dialog render called ", this.timeRemaining);
+    const result: any = super.render(force, options);
+    const element = this.element;
+    const title = element.find(".window-title")[0];
+    if (!title) return result;
+    let color = "red";
+    if (this.timeRemaining >= this.data.timeout * 0.75) color = "chartreuse";
+    else if (this.timeRemaining >= this.data.timeout * 0.50) color = "yellow";
+    else if (this.timeRemaining >= this.data.timeout * 0.25) color = "orange";
+    title.style.color = color;
+    return result;
   }
 
   activateListeners(html) {
@@ -3749,6 +3852,7 @@ class ReactionDialog extends Application {
   }
 
   async close() {
+    clearTimeout(this.timeoutId);
     debug("Reaction Dialog close ", Date.now() - this.startTime, this.data.completed)
     if (!this.data.completed && this.data.close) {
       this.data.close({ name: "Close", uuid: undefined });
@@ -4202,7 +4306,7 @@ export async function asyncHooksCall(hook, ...args): Promise<boolean | undefined
   const hookEvents = Hooks.events[hook];
 
   if (!hookEvents) return undefined;
-  if (debugEnabled  > 0) {
+  if (debugEnabled > 0) {
     warn(`asyncHooksCall calling ${hook}`, args, hookEvents)
   }
   for (let entry of Array.from(hookEvents)) {
@@ -4639,7 +4743,7 @@ export function getSystemCONFIG(): any {
     //@ts-expect-error .
     case "dnd5e": return CONFIG.DND5E;
     //@ts-expect-error .
-    case "sw5e": return {...CONFIG.SW5E, skills: {...CONFIG.SW5E.skills, ...CONFIG.SW5E.starshipSkills}};
+    case "sw5e": return { ...CONFIG.SW5E, skills: { ...CONFIG.SW5E.skills, ...CONFIG.SW5E.starshipSkills } };
     //@ts-expect-error .
     case "n5e": return CONFIG.N5E;
     default: return {};

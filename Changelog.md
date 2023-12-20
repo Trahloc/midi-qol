@@ -1,3 +1,7 @@
+## 11.3.7
+* Added Countdown timer for reactions/optional bonuses
+* Fixed error in optional bonuses when the value is just a number
+
 ## 11.3.6
 * Fix for a dnd5e 2.4 dependency introduced. dnd5e 2.4+ is strongly recommended
 
