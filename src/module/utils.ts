@@ -2747,7 +2747,6 @@ class RollModifyDialog extends Application {
 
   render(force: boolean = false, options: any = {}) {
     if (!this.secondTimeoutId) this.set1SecondTimeout();
-    console.error("reder called ", this.timeRemaining);
     const result: any = super.render(force, options);
     const element = this.element;
     const title = element.find(".window-title")[0];
@@ -3794,7 +3793,6 @@ class ReactionDialog extends Application {
 
   render(force: boolean = false, options: any = {}) {
     if (!this.timeoutId) this.set1SecondTimeout();
-    console.error("bonus dialog render called ", this.timeRemaining);
     const result: any = super.render(force, options);
     const element = this.element;
     const title = element.find(".window-title")[0];
