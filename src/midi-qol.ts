@@ -477,7 +477,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     DamageOnlyWorkflow: class DamageOnlyWorkflow,
     debug: function debug(...args: any[]): void,
     displayDSNForRoll: async function displayDSNForRoll(roll: Roll | undefined, rollType: string | undefined, defaultRollMode: string | undefined = undefined),
-    doConcentrationCheck: async function doConcentrationCheck(actor: Actor, temData),
+    doMidiConcentrationCheck: async function doMidiConcentrationCheck(actor: Actor, saveDC),
     findNearby(disposition: number | string | null | Array<string | number>, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined, relative: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false, relative: true }): Token[];
     getChanges: function getChanges(actorOrItem: Actor | Item, key: string): any[],
     getConcentrationEffect: function getConcentrationEffect(actor: Actor): ActiveEffect | undefined,

@@ -1,3 +1,6 @@
+## 11.3.9
+* Fix for MidiQOL.doConcentrationCheck(actor, saveDC) not working.
+
 ## 11.3.8
 * Fix for anonymous module not being used.
 

@@ -4762,7 +4762,7 @@ export function tokenForActor(actorRef: Actor | string): Token | undefined {
   return controlled.length ? controlled.shift() : tokens.shift();
 }
 
-export async function doMidiConcentrationCheck(actor, saveDC) {
+export async function doConcentrationCheck(actor, saveDC) {
   if (!configSettings.concentrationDamageCheck) return;
   const itemData = duplicate(itemJSONData);
   setProperty(itemData, "system.save.dc", saveDC);
@@ -4770,10 +4770,10 @@ export async function doMidiConcentrationCheck(actor, saveDC) {
   setProperty(itemData, "system.save.scaling", "flat");
   setProperty(itemData, "name", concentrationCheckItemDisplayName);
   setProperty(itemData, "system.target.type", "self");
-  return await doConcentrationCheck(actor, itemData)
+  return await _doConcentrationCheck(actor, itemData)
 }
 
-export async function doConcentrationCheck(actor, itemData) {
+async function _doConcentrationCheck(actor, itemData) {
   let result;
   // actor took damage and is concentrating....
   const saveTargets = game.user?.targets;
