@@ -40,6 +40,7 @@ export let setupSocket = () => {
   socketlibSocket.register("moveTokenAwayFromPoint", _moveTokenAwayFromPoint);
   socketlibSocket.register("queueUndoData", queueUndoData);
   socketlibSocket.register("queueUndoDataDirect", _queueUndoDataDirect);
+  socketlibSocket.register("removeEffect", _removeEffect)
   socketlibSocket.register("removeEffects", removeEffects);
   socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
   socketlibSocket.register("removeStatsForActorId", removeActorStats);
@@ -59,7 +60,6 @@ export let setupSocket = () => {
 async function _removeWorkflow(workflowId: string) {
   return Workflow.removeWorkflow(workflowId);
 }
-
 
 export class SaferSocket {
 
@@ -86,6 +86,7 @@ export class SaferSocket {
       case "moveTokenAwayFromPoint":
       case "removeWorkflow":
       case "rollAbility":
+      case "removeEffect":
         return true;
 
       case "addConvenientEffect":
@@ -150,6 +151,12 @@ export class SaferSocket {
     if (!this.canCall(handler)) return false;
     return await this.#_socketlibSocket.executeForUsers(handler, recipients, ...args);
   }
+}
+
+async function _removeEffect(data: { effectUuid: string }) {
+  const effect = MQfromUuid(data.effectUuid);
+  if (!effect) return;
+  return effect.delete();
 }
 
 async function cancelWorkflow(data: { workflowId: string, itemCardId: string }) {

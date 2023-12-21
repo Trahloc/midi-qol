@@ -676,7 +676,7 @@ export const itemJSONData = {
                 if (MidiQOL.configSettings().removeConcentration 
                   && (target.actor.system.attributes.hp.value === 0 || args[0].failedSaveUuids.find(uuid => uuid === targetUuid))) {
                 const concentrationEffect = MidiQOL.getConcentrationEffect(target.actor);
-                if (concentrationEffect) await concentrationEffect.delete();
+                if (concentrationEffect) await concentrationEffect.delete(); //await MidiQOL.socket().executeAsGM("removeEffect", {effectUuid: concentrationEffect.uuid});
                 }
               }`,
         "folder": null,

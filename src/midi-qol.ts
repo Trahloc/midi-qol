@@ -725,10 +725,13 @@ function setupMidiFlags() {
   midiFlags.push("flags.midi-qol.magicResistance.skill.all");
   midiFlags.push("flags.midi-qol.magicVulnerability.all")
   midiFlags.push("flags.midi-qol.rangeOverride.attack.all")
-
+  midiFlags.push("flags.midi-qol.range.all");
+  midiFlags.push("flags.midi-qol.long.all");
   let attackTypes = allAttackTypes.concat(["heal", "other", "save", "util"])
 
   attackTypes.forEach(at => {
+    midiFlags.push(`flags.midi-qol.range.${at}`);
+    midiFlags.push(`flags.midi-qol.long.${at}`);
     midiFlags.push(`flags.midi-qol.advantage.attack.${at}`);
     midiFlags.push(`flags.midi-qol.disadvantage.attack.${at}`);
     midiFlags.push(`flags.midi-qol.fail.attack.${at}`);

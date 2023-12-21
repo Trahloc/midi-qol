@@ -1684,14 +1684,14 @@ export function untargetAllTokens(...args) {
   }
 }
 
-export function checkDefeated(tokenRef: Actor | Token | TokenDocument | string): boolean {
+export function checkDefeated(tokenRef: Actor | Token | TokenDocument | string): 0 | 1 {
   const tokenDoc = getTokenDocument(tokenRef);
   //@ts-expect-error specialStatusEffects
-  return hasCondition(tokenDoc, CONFIG.specialStatusEffects.DEFEATED)
+  return hasCondition(tokenDoc, CONFIG.specialStatusEffects.DEFEATED) 
     || hasCondition(tokenDoc, configSettings.midiDeadCondition);
 }
 
-export function checkIncapacitated(tokenRef: Actor | Token | TokenDocument, logResult: boolean = true): string | false {
+export function checkIncapacitated(tokenRef: Actor | Token | TokenDocument | string, logResult: boolean = true): string | false {
   const tokenDoc = getTokenDocument(tokenRef);
   if (!tokenDoc) return false;
   if (tokenDoc.actor) {
@@ -2001,8 +2001,30 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       result: "normal",
     };
 
-    let range = item.system.range?.value || 0;
-    let longRange = item.system.range?.long || 0;
+    const attackType = item.system.actionType;
+    let range = (item.system.range?.value ?? 0);
+    let longRange = (item.system.range?.long ?? 0);
+    if (item.parent?.system) {
+      let conditionData;
+      let rangeBonus = getProperty(item.parent, `flags.midi-qol.range.${attackType}`) ?? "0"
+      rangeBonus = rangeBonus + " + " + (getProperty(item.parent, `flags.midi-qol.range.all`) ?? "0");
+      if (rangeBonus !== "0 + 0") {
+        conditionData = createConditionData({ item, actor: item.parent, target: token })
+        // const bonusValue = new Roll(`${rangeBonus}`, item.getRollData()).roll({ async: false }).total
+        const bonusValue = evalCondition(rangeBonus, conditionData, 0);
+        range = Math.max(0, range + bonusValue);
+      };
+      let longRangeBonus = getProperty(item.parent, `flags.midi-qol.long.${attackType}`) ?? "0"
+      longRangeBonus = longRangeBonus + " + " + (getProperty(item.parent, `flags.midi-qol.long.all`) ?? "0");
+      if (longRangeBonus !== "0 + 0") {
+        if (!conditionData)
+          conditionData = createConditionData({ item, actor: item.parent, target: token })
+        // const bonusValue = new Roll(`${longRangeBonus}`, item.getRollData()).roll({ async: false }).total
+        const bonusValue = evalCondition(longRangeBonus, conditionData, 0);
+        longRange = Math.max(0, longRange + bonusValue);
+      };
+    }
+    if (longRange > 0 && longRange < range) longRange = range;
     if (item.system.range?.units) {
       switch (item.system.range.units) {
         case "mi": // miles - assume grid units are feet or miles - ignore furlongs/chains whatever
@@ -2511,69 +2533,69 @@ export function checkNearby(disposition: number | null | string, tokenRef: Token
   return findNearby(disposition, tokenRef, distance, options).length !== 0;
 }
 
-export function hasCondition(tokenRef: Token | TokenDocument | string | undefined, condition: string) {
+export function hasCondition(tokenRef: Token | TokenDocument | string | undefined, condition: string): 0 | 1 {
   const td = getTokenDocument(tokenRef)
-  if (!td) return false;
+  if (!td) return 0;
   //@ts-expect-error specialStatusEffects
   const specials = CONFIG.specialStatusEffects;
   switch (condition?.toLocaleLowerCase()) {
     case "blind":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.BLIND)) return true;
+      if (td.hasStatusEffect(specials.BLIND)) return 1;
       break;
     case "burrow":
     case "burrowing":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.BURROW)) return true;
+      if (td.hasStatusEffect(specials.BURROW)) return 1;
       break;
     case "dead":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.DEFEATED)) return true;
+      if (td.hasStatusEffect(specials.DEFEATED)) return 1;
       break
     case "deaf":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.DEAF)) return true;
+      if (td.hasStatusEffect(specials.DEAF)) return 1;
       break;
     case "disease":
     case "disieased":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.DISEASE)) return true;
+      if (td.hasStatusEffect(specials.DISEASE)) return 1;
       break;
     case "fly":
     case "flying":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.FLY)) return true;
+      if (td.hasStatusEffect(specials.FLY)) return 1;
       break;
     case "inaudible":
     case "silent":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.INAUDIBLE)) return true;
+      if (td.hasStatusEffect(specials.INAUDIBLE)) return 1;
       break;
     case "invisible":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.INVISIBLE)) return true;
+      if (td.hasStatusEffect(specials.INVISIBLE)) return 1;
       break;
     case "poison":
     case "poisoned":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.POISON)) return true;
+      if (td.hasStatusEffect(specials.POISON)) return 1;
       break;
   }
   //@ts-expect-error hasStatusEffect
-  if (td.hasStatusEffect(condition.toLocaleLowerCase()) || td.hasStatusEffect(condition)) return true;
+  if (td.hasStatusEffect(condition.toLocaleLowerCase()) || td.hasStatusEffect(condition)) return 1;
 
   //@ts-expect-error
   const cub = game.cub;
-  if (installedModules.get("condition-lab-triggler") && condition === "invisible" && cub.hasCondition("Invisible", [td.object], { warn: false })) return true;
-  if (installedModules.get("condition-lab-triggler") && condition === "hidden" && cub.hasCondition("Hidden", [td.object], { warn: false })) return true;
+  if (installedModules.get("condition-lab-triggler") && condition === "invisible" && cub.hasCondition("Invisible", [td.object], { warn: false })) return 1;
+  if (installedModules.get("condition-lab-triggler") && condition === "hidden" && cub.hasCondition("Hidden", [td.object], { warn: false })) return 1;
   if (installedModules.get("dfreds-convenient-effects")) {
     //@ts-expect-error .dfreds
     const CEInt = game.dfreds?.effectInterface;
     const localCondition = i18n(`midi-qol.${condition}`);
-    if (CEInt.hasEffectApplied(localCondition, td.actor?.uuid)) return true;
-    if (CEInt.hasEffectApplied(condition, td.actor?.uuid)) return true;
+    if (CEInt.hasEffectApplied(localCondition, td.actor?.uuid)) return 1;
+    if (CEInt.hasEffectApplied(condition, td.actor?.uuid)) return 1;
   }
-  return false;
+  return 0;
 }
 
 export async function removeInvisible() {
@@ -3910,7 +3932,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     const src = 'with (sandbox) { return ' + expression + '}';
     const evl = new Function('sandbox', src);
     sandbox = mergeObject(sandbox, Roll.MATH_PROXY);
-    sandbox = mergeObject(sandbox, { findNearby, checkNearby });
+    sandbox = mergeObject(sandbox, { findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated });
     result = evl(sandbox);
   } catch (err) {
     const message = `midi-qol | mySafeEval | expression evaluation failed ${expression}`;
@@ -3948,9 +3970,10 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
   return systemData.details.type?.value.toLocaleLowerCase() ?? "";
 }
 
-export function createConditionData(data: { workflow: Workflow | undefined, target: Token | TokenDocument | undefined, actor: Actor | undefined }) {
+export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined, item?: Item | undefined }) {
   const actor = data.workflow?.actor ?? data.actor;
-  const rollData = data.workflow?.otherDamageItem?.getRollData() ?? actor?.getRollData() ?? {};
+  const item = data.workflow?.item ?? data.item;
+  const rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
 
   try {
     if (data.target) {
@@ -4786,7 +4809,7 @@ async function _doConcentrationCheck(actor, itemData) {
     ownedItem.getSaveDC()
   }
   try {
-    result = await completeItemUse(ownedItem, {}, { systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { targetConfirmation: "none" } })
+    result = await completeItemUse(ownedItem, {}, { checkGMStatus: true, systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { targetConfirmation: "none" } })
   } catch (err) {
     const message = "midi-qol | doConcentrationCheck";
     TroubleShooter.recordError(err, message);

@@ -1300,32 +1300,17 @@ export class Workflow {
     // Add concentration data if required
     let hasConcentration = itemRequiresConcentration(this.item);
     if (hasConcentration && this.item?.hasAreaTarget && this.item?.system.duration?.units !== "inst") {
-      hasConcentration = true;
+      hasConcentration = true; // non-instantaneous spells with templates will add concentration even if no one is targeted
     } else if (this.item &&
       (
         (this.item.hasAttack && (this.targets.size > 0 && this.hitTargets.size === 0 && this.hitTargetsEC.size === 0))  // did  not hit anyone
         || (this.saveItem.hasSave && (this.targets.size > 0 && this.failedSaves.size === 0)) // everyone saved
       )
-    )
+    ) // no one was hit and non one failed the save - no need for concentration.
       hasConcentration = false;
     const checkConcentration = configSettings.concentrationAutomation;
     // If not applying effects always add concentration.
     let concentrationData: ConcentrationData;
-    if (configSettings.autoItemEffects === "off" && !this.forceApplyEffects) {
-      concentrationData = {
-        item: this.item,
-        targets: new Set(),
-        templateUuid: ""
-      };
-      hasConcentration = true;
-    } else if (hasConcentration) {
-      concentrationData = {
-        item: this.item,
-        targets: new Set(),
-        templateUuid: this.templateUuid,
-      };
-    }
-    // items that leave a template laying around for an extended period generally should have concentration
     if (hasConcentration && checkConcentration) {
       const concentrationData: ConcentrationData = {
         item: this.item,  
@@ -1334,6 +1319,7 @@ export class Workflow {
       };
       await addConcentration(this.actor, concentrationData);
     } else if (installedModules.get("dae") && this.item?.hasAreaTarget && this.templateUuid && this.item?.system.duration?.units && configSettings.autoRemoveTemplate) { // create an effect to delete the template
+      // If we are not applying concentration and want to auto remove the template create an effect to do so
       const itemDuration = this.item.system.duration;
       let selfTarget = this.item.actor.token ? this.item.actor.token.object : getSelfTarget(this.item.actor);
       if (selfTarget) selfTarget = this.token; //TODO see why this is here
