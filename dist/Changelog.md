@@ -1,3 +1,26 @@
+## 11.3.11
+* Death saves added to list of blind save rolls in the mechanics tab.
+* Fix for arrow of slaying (and other ammo types) that use other damage/activation conditions to apply damage.
+* Update to opptional bonus flags. If an attack roll is a fumble only bonuses that allow for the re-roll of the attack roll will be presented,
+* Updated DamageOnlyWorkflow, so that if a roll is not passed in the constructor (or is undefined) midi will use the damageTotal/damageType to apply the damage.
+* Fix for flags.midi-qoil.optional.NAME.attack.fail.all/mwak etc to work even if attack.all is not specified.
+* Fix for item sheet not display midi properties in sw5e
+* New concetration automation setting. If concentration automation is enabled, and concentration removal on application of an incapcitated condition is set in concentration configuration, applying any of the incapacitating status effects will remove concentration from the actor. The incapacitating status effects are
+  incapacitated, "Convenient Effect: Incapacitated", unconscious, "Convenient Effect: Unconscious" dead, "Convenient Effect: Dead", stunned, "Convenient Effect: Stunned", paralyzed, paralysis, "Convenient Effect: Paralyzed", which are defined in MidiQOL.incapacitatedConditions and can be changed by updating MidiQOL.incapacitatedConditions.
+* Reworked midi item properties so that 
+  - Save damage is now a drop down of midi settings/half/full/no damage on save
+  - Confirm targets is now a drop down of settings/never/always indicating that target confirmation for the item will follow the target confirmation settings, never confirm targets or always confirm targets.
+* Support for midi properties on the tidy sheet 5e item sheet.
+  - A separate tab for midi settings. The formatting is way off, pending some changes in tidy/rework by me, but is functional and it's probably better to have it working but ugly.
+  - Added midi item description buttons for roll/attack/damage to tidy item sheet.
+  - The midi "fiddling" of the distance type field (for ranged targets) is not yet supported in tidy 5e sheet. But see below.
+* I plan to deprecate the previous method of ranged AoE targets (setting distance/feet/metres and creature) and instead use radius targets (which actually captures the requirement better and are a plug and play replacement for the existing range targets). In a future release I will auto migrate any edited items to the new schema and provide a deprecation warning for the old schema.
+  - An item that specifies a target of, for example, 30 feet radius, will auto place a template centered on the caster of 30 foot radius and target tokens inside that template according to self/special/any.
+  - You don't need to do anything other than setting the radius for the range target and special/self/any in the range field.
+  - Radius templates can be specified to move with the token if using walled templates - think detect magic.
+  - Radius templates will auto delete at the end of the turn if duration is instaneous otherwise when the spell expires.
+* Added rangeDetails to the workflow, which has {result: "dis"|"normal"|fail, reason: string, range: number | undefined, longRange: number | undefined}. It includes all modifiers to range (spellSniper, sharpShooter, midi flags)
+
 ## 11.3.10
 * MidiQOL.doConcentrationCheck can now be performed by a non-gm client.
 * Adding concentration when not auto checking hits/saves will now be applied if the item has concentration. Should also stop applying concentration when rolling without checking hits/saves when not needed.

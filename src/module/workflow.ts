@@ -617,7 +617,7 @@ export class Workflow {
     this._currentState = WORKFLOWSTATES.VALIDATEROLL;
     // do pre roll checks
     if (checkMechanic("checkRange") !== "none" && (!this.AoO || ["rwak", "rsak", "rpak"].includes(this.item.system.actionType)) && this.tokenId) {
-      const { result, attackingToken } = checkRange(this.item, canvas?.tokens?.get(this.tokenId) ?? "invalid", this.targets);
+      const { result, attackingToken, range, longRange } = checkRange(this.item, canvas?.tokens?.get(this.tokenId) ?? "invalid", this.targets);
       switch (result) {
         case "fail": return this.WorkflowState_RollFinished;
         case "dis": this.disadvantage = true;
@@ -1265,7 +1265,7 @@ export class Workflow {
   }
 
   async WorkflowState_Cancel(): Promise<WorkflowState> {
-    // cancel will undo the workflow if it exiss
+    // cancel will undo the workflow if it exists
     configSettings.undoWorkflow && !await socketlibSocket.executeAsGM("undoTillWorkflow", this.uuid, true, true);
     return this.WorkflowState_Abort
   }
@@ -4172,7 +4172,7 @@ export class DamageOnlyWorkflow extends Workflow {
     this.damageList = options.damageList;
     this.itemCardId = options.itemCardId;
     this.useOther = options.useOther ?? true;
-    this.damageRoll = roll;
+    this.damageRoll = roll ? roll : new Roll(`${damageTotal}[${damageType}]`).roll({async: false});
     this.damageDetail = createDamageDetail({ roll: this.damageRoll, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });
     this.damageTotal = damageTotal;
     this.isCritical = options.isCritical ?? false;
@@ -4236,7 +4236,7 @@ export class DamageOnlyWorkflow extends Workflow {
     await super._next(WORKFLOWSTATES.ROLLFINISHED);
     Workflow.removeWorkflow(this.id);
     */
-    super.WorkflowState_RollFinished().then(() => { this?.removeWorkflow(this.id) });
+    super.WorkflowState_RollFinished().then(() => { Workflow.removeWorkflow(this.id) });
     return this.WorkflowState_Suspend;
   }
 

@@ -161,11 +161,13 @@ Hooks.once('setup', function () {
   if (MQItemMacroLabel === "midi-qol.ItemMacroText") MQItemMacroLabel = "ItemMacro";
   MQDeferMacroLabel = i18n("midi-qol.DeferText");
   if (MQDeferMacroLabel === "midi-qol.DeferText") MQDeferMacroLabel = "[Defer]";
+  setupSheetQol();
+  createMidiMacros();
+  setupMidiQOLApi();
+});
 
+function addConfigOptions() {
   let config = getSystemCONFIG();
-
-  
-
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     config.midiProperties = {};
     // Add additonal vision types? How to modify token properties doing this.
@@ -184,6 +186,7 @@ Hooks.once('setup', function () {
     config.midiProperties["noConcentrationCheck"] = i18n("midi-qol.noConcentrationEffectProp");
     config.midiProperties["toggleEffect"] = i18n("midi-qol.toggleEffectProp");
     config.midiProperties["ignoreTotalCover"] = i18n("midi-qol.ignoreTotalCover");
+    config.midiProperties["saveDamage"] = "Save Damage";
     config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
     config.customDamageResistanceTypes = {
@@ -215,7 +218,9 @@ Hooks.once('setup', function () {
     config.abilityActivationTypes["reactionpreattack"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionPreAttack")}`;
     config.abilityActivationTypes["reactiondamage"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionDamaged")}`;
     config.abilityActivationTypes["reactionmanual"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionManual")}`;
-  } else { // sw5e
+  } else if (game.system.id === "sw5e") { // sw5e
+    //@ts-expect-error
+    config = CONFIG.SW5E;
     config.midiProperties = {};
     config.midiProperties["nodam"] = i18n("midi-qol.noDamageSaveProp");
     config.midiProperties["fulldam"] = i18n("midi-qol.fullDamageSaveProp");
@@ -246,16 +251,13 @@ Hooks.once('setup', function () {
       type: String
     };
   };
-  setupSheetQol();
-  createMidiMacros();
-  setupMidiQOLApi();
-
-});
-
+}
 /* ------------------------------------ */
 /* When ready							*/
 /* ------------------------------------ */
 Hooks.once('ready', function () {
+  addConfigOptions();
+  const config = getSystemCONFIG();
   registerSettings();
   gameStats = new RollStats();
   actorAbilityRollPatching();
@@ -588,7 +590,7 @@ function setupMidiQOLApi() {
     hasUsedBonusAction,
     hasUsedReaction,
     humanoid,
-    incapacitatedConditions: ["incapacitated", "Convenient Effect: Incapacitated", "stunned", "Convenient Effect: Stunned", "paralyzed", "paralysis", "Convenient Effect: Paralyzed"],
+    incapacitatedConditions: ["incapacitated", "Convenient Effect: Incapacitated", "stunned", "Convenient Effect: Stunned", "paralyzed", "paralysis", "Convenient Effect: Paralyzed", "unconscious", "Convenient Effect: Unconscious", "dead", "Convenient Effect: Dead", "petrified", "Convenient Effect: Petrified"],
     InvisibleDisadvantageVisionModes,
     isTargetable,
     TargetConfirmationDialog,

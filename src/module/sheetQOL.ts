@@ -26,8 +26,8 @@ export function setupSheetQol() {
   for (let sheetName of Object.keys(knownSheets)) {
     Hooks.on("render" + sheetName, enableSheetQOL);
   }
-  Hooks.on("renderedAlt5eSheet", enableSheetQOL);
-  Hooks.on("renderedTidy5eSheet", enableSheetQOL);
+  // Hooks.on("renderedAlt5eSheet", enableSheetQOL);
+  // Hooks.on("renderedTidy5eSheet", enableSheetQOL);
 }
 let enableSheetQOL = (app, html, data) => {
   // find out how to reinstate the original handler later.
@@ -35,14 +35,6 @@ let enableSheetQOL = (app, html, data) => {
   let rollTag = knownSheets[app.constructor.name] ? knownSheets[app.constructor.name] : defaultTag;
   if (itemRollButtons) {
     if (["Tidy5eSheet", "Tidy5eNPC"].includes(app.constructor.name)) {
-      if (game.modules.get("tidy5e-sheet")?.active &&
-        //@ts-ignore version v10
-        isNewerVersion(game.modules.get("tidy5e-sheet")?.version ?? "", "0.4.0") &&
-        game.settings.get("tidy5e-sheet", "contextRollButtons")) {
-        addTidy5eItemSheetButtons(app, html, data);
-      } else {
-        addItemSheetButtons(app, html, data);
-      }
     } else {
       addItemSheetButtons(app, html, data);
     }

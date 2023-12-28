@@ -153,6 +153,7 @@ export class SaferSocket {
   }
 }
 
+// Remove a single effect. Allow anyone to call this.
 async function _removeEffect(data: { effectUuid: string }) {
   const effect = MQfromUuid(data.effectUuid);
   if (!effect) return;

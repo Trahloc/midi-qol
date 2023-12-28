@@ -1020,11 +1020,11 @@ export let getSaveMultiplierForItem = (item: Item) => {
     if (midiFlags?.potentCantrip) return 0.5;
   }
 
-  //@ts-expect-error item.falgs v10
+  //@ts-expect-error item.flags v10
   const itemProperties: any = item.flags.midiProperties;
-  if (itemProperties?.nodam) return 0;
-  if (itemProperties?.fulldam) return 1;
-  if (itemProperties?.halfdam) return 0.5;
+  if (itemProperties?.nodam || itemProperties?.saveDamage === "nodam") return 0;
+  if (itemProperties?.fulldam || itemProperties?.saveDamage ==="fulldam") return 1;
+  if (itemProperties?.halfdam || itemProperties?.saveDamage ==="halfdam") return 0.5;
 
   if (!configSettings.checkSaveText) return configSettings.defaultSaveMult;
   //@ts-expect-error item.system v10
@@ -1970,9 +1970,9 @@ let pointWarn = debounce(() => {
   ui.notifications?.warn("4 Point LOS check selected but dnd5e-helpers not installed")
 }, 100)
 
-export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, targetsRef: Set<Token | TokenDocument | string> | undefined, showWarning: boolean = true): { result: string, attackingToken?: Token } {
+export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, targetsRef: Set<Token | TokenDocument | string> | undefined, showWarning: boolean = true): { result: string, attackingToken?: Token, range?: number | undefined, longRange?: number | undefined } {
   if (!canvas || !canvas.scene) return { result: "normal" };
-  const checkRangeFunction = (item, token, targets): { result: string, reason?: string } => {
+  const checkRangeFunction = (item, token, targets): { result: string, reason?: string, range?: number | undefined, longRange?: number | undefined } => {
     if (!canvas || !canvas.scene) return {
       result: "normal",
     }
@@ -1992,13 +1992,17 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     let actor = token.actor;
     if (!item.system.range.value && !item.system.range.long && item.system.range.units !== "touch") return {
       result: "normal",
+      reason: "no range specified"
     };
     if (item.system.target?.type === "self") return {
       result: "normal",
+      reason: "self attack",
+      range: 0
     };
     // skip non mwak/rwak/rsak/msak types that do not specify a target type
     if (!allAttackTypes.includes(item.system.actionType) && !["creature", "ally", "enemy"].includes(item.system.target?.type)) return {
       result: "normal",
+      reason: "not an attack"
     };
 
     const attackType = item.system.actionType;
@@ -2069,6 +2073,8 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
         return {
           result: "fail",
           reason: `${actor.name}'s has one or more of ${globalThis.MidiQOL.WallsBlockConditions} so can't be targeted`,
+          range, 
+          longRange
         }
       }
       // check the range
@@ -2080,28 +2086,38 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
           return {
             result: "dis",
             reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
+            range, 
+            longRange
           }
         } else {
           return {
             result: "fail",
             reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
+            range, 
+            longRange
           }
         }
       }
       if (distance > range) return {
         result: "dis",
         reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
+        range, 
+        longRange
       }
       if (distance < 0) {
         log(`${target.name} is blocked by a wall`)
         return {
           result: "fail",
           reason: `${actor.name}'s target is blocked by a wall`,
+          range, 
+          longRange
         }
       }
     }
     return {
       result: "normal",
+      range, 
+      longRange
     }
   }
 
@@ -2117,12 +2133,12 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
 
   const canOverride = getProperty(tokenIn, "actor.flags.midi-qol.rangeOverride.attack.all") || getProperty(tokenIn, `actor.flags.midi-qol.rangeOverride.attack.${itemIn.system.actionType}`)
 
+  const { result, reason, range, longRange } = checkRangeFunction(itemIn, attackingToken, targetsIn);
   if (!canOverride) { // no overrides so just do the check
-    const { result, reason } = checkRangeFunction(itemIn, attackingToken, targetsIn);
     if (result === "fail" && reason) {
       if (showWarning) ui.notifications?.warn(reason);
     }
-    return { result, attackingToken }
+    return { result, attackingToken, range, longRange }
   }
 
   const ownedTokens = canvas.tokens.ownedTokens;
@@ -2134,9 +2150,9 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
   });
 
   const successToken = possibleAttackers.find(attacker => checkRangeFunction(itemIn, attacker, targetsIn).result === "normal");
-  if (successToken) return { result: "normal", attackingToken: successToken };
+  if (successToken) return { result: "normal", attackingToken: successToken, range, longRange };
   // TODO come back and fix this: const disToken = possibleAttackers.find(attacker => checkRangeFunction(itemIn, attacker, targetsIn).result === "dis");
-  return { result: "fail", attackingToken };
+  return { result: "fail", attackingToken, range, longRange };
 }
 
 function getLevelsAutoCoverOptions(): any {
@@ -2324,6 +2340,7 @@ export interface ConcentrationData {
 export async function addConcentration(actorRef: Actor | string, concentrationData: ConcentrationData) {
   const actor = getActor(actorRef);
   if (!actor) return;
+  if (debugEnabled > 0) warn("addConcentration", actor.name, concentrationData);
   await addConcentrationEffect(actor, concentrationData);
   await setConcentrationData(actor, concentrationData);
 }
@@ -2903,11 +2920,13 @@ export async function processAttackRollBonusFlags() { // bound to workflow
   let attackBonus = "attack.all";
   if (this.item && this.item.hasAttack) attackBonus = `attack.${this.item.system.actionType}`;
   const optionalFlags = getProperty(this, "actor.flags.midi-qol.optional") ?? {};
+  // If the attack roll is a fumble only select flags that allow the roll to be rerolled.
   let bonusFlags = Object.keys(optionalFlags)
     .filter(flag => {
-      const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.all`) !== undefined ||
-        getProperty(this.actor.flags, `midi-qol.optional.${flag}.${attackBonus}`) !== undefined;
-      if (!hasAttackFlag) return false;
+      const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.all`) ||
+        getProperty(this.actor.flags, `midi-qol.optional.${flag}.${attackBonus}`);
+      if (hasAttackFlag === undefined) return false;
+      if (this.isFumble && !hasAttackFlag?.includes("roll")) return false;
       if (!this.actor.flags["midi-qol"].optional[flag].count) return true;
       return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
     })
@@ -2916,26 +2935,27 @@ export async function processAttackRollBonusFlags() { // bound to workflow
   if (bonusFlags.length > 0) {
     this.attackRollHTML = await midiRenderRoll(this.attackRoll);
     await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
-    if (this.targets.size === 1) {
-      const targetAC = this.targets.entries().next().value[0].actor.system.attributes.ac.value;
-      this.processAttackRoll();
-      const isMiss = this.isFumble || this.attackRoll.total < targetAC;
-      if (isMiss) {
-        attackBonus = "attack.fail.all"
-        if (this.item && this.item.hasAttack) attackBonus = `attack.fail.${this.item.system.actionType}`;
-        let bonusFlags = Object.keys(optionalFlags)
-          .filter(flag => {
-            const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.fail`) !== undefined
-              || getProperty(this.actor.flags, `midi-qol.optional.${flag}.${attackBonus}`) !== undefined;
-            if (!hasAttackFlag) return false;
-            if (!this.actor.flags["midi-qol"].optional[flag].count) return true;
-            return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
-          })
-          .map(flag => `flags.midi-qol.optional.${flag}`);
-        if (bonusFlags.length > 0) {
-          this.attackRollHTML = await midiRenderRoll(this.attackRoll);
-          await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
-        }
+  }
+  if (this.targets.size === 1) {
+    const targetAC = this.targets.first().actor.system.attributes.ac.value;
+    this.processAttackRoll();
+    const isMiss = this.isFumble || this.attackRoll.total < targetAC;
+    if (isMiss) {
+      attackBonus = "attack.fail.all"
+      if (this.item && this.item.hasAttack) attackBonus = `attack.fail.${this.item.system.actionType}`;
+      let bonusFlags = Object.keys(optionalFlags)
+        .filter(flag => {
+          const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.fail`)
+            || getProperty(this.actor.flags, `midi-qol.optional.${flag}.${attackBonus}`);
+          if (!hasAttackFlag === undefined) return false;
+          if (this.isFumble && !hasAttackFlag?.includes("roll")) return false;
+          if (!this.actor.flags["midi-qol"].optional[flag].count) return true;
+          return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
+        })
+        .map(flag => `flags.midi-qol.optional.${flag}`);
+      if (bonusFlags.length > 0) {
+        this.attackRollHTML = await midiRenderRoll(this.attackRoll);
+        await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
       }
     }
   }
@@ -4938,7 +4958,7 @@ export function getCriticalDamage() {
 
 export function isTargetable(target: any /*Token*/): boolean {
   if (!target.actor) return false;
-  if (target.actor.flags && getProperty(target.actor, "flags.midi-qol.neverTarget")) return false;
+  if (getProperty(target.actor, "flags.midi-qol.neverTarget")) return false;
 
   const targetDocument = getTokenDocument(target);
   //@ts-expect-error hiddien
@@ -5087,7 +5107,6 @@ function displayContestedResults(chatCardId: string | undefined, resultContent: 
     // const title = `${flavor ?? i18n("miidi-qol:ContestedRoll")} results`;
     ChatMessage.create({ content: `<p>${resultContent}</p>`, speaker });
   }
-
 }
 
 export function getActor(actorRef: Actor | Token | TokenDocument | string): Actor | null {

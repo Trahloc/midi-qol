@@ -1,12 +1,12 @@
-import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
+import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile } from "./utils.js";
 import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { installedModules } from "./setupModules.js";
 import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
-import { preItemUsageConsumptionHook, preRollDamageHook } from "./itemhandling.js";
+import { preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
 import { updateJsxSelfClosingElement } from "typescript";
@@ -127,11 +127,11 @@ export let readyHooks = async () => {
       try {
         const origin = await fromUuid(deletedEffect.origin);
         if (isConcentration && !options.noConcentrationCheck) {
-          options.concentrationEffectsDelete = false;
+          options.concentrationEffectsDeleted = false;
           options.concentrationDeleted = true;
           return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { concentrationDeleted: true }));
         }
-        if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
+        if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass && !options.noConcentrationCheck) {
           const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
           if (concentrationData && deletedEffect.origin === concentrationData.uuid) {
 
@@ -310,109 +310,192 @@ export function initHooks() {
     return true;
   });
 
-  Hooks.on("renderItemSheet", (app, html, data) => {
-    const element = html.find('input[name="system.chatFlavor"]').parent().parent();
-    const criticalElement = html.find('input[name="system.critical.threshold"]');
-    element.append('<h3 class="form-header">Midi Qol Fields</h3>');
-    if (criticalElement.length > 0) {
-      let currentFumble = getProperty(app.object, "flags.midi-qol.fumbleThreshold");
-      const labelText = i18n("midi-qol.FumbleThreshold");
-      const fumbleThreshold = `<div class="form-group"><label>${labelText}</label><div class="form-fields"><input type="Number" name="flags.midi-qol.fumbleThreshold" value="${currentFumble}"/></div></div>`;
-      element.append(fumbleThreshold);
-    }
-    if (configSettings.allowUseMacro) {
-      const labelText = i18n("midi-qol.onUseMacroLabel");
-      const macros = new OnUseMacros(getProperty(app.object, "flags.midi-qol.onUseMacroName"));
-      const macroField = `
-        <h4 class="damage-header">${labelText}
-          <a class="macro-control damage-control edit-macro"><i class="fas fa-file-pen"></i></a>
-          <a class="macro-control damage-control add-macro"><i class="fas fa-plus"></i></a>
-        </h4>
-        <ol class="damage-parts onusemacro-group form-group">
-        ${macros.selectListOptions}
-      </ol>`;
-      element.append(macroField)
-    }
-    const labelText = i18n("midi-qol.EffectActivation");
-    let currentEffectActivation = getProperty(app.object, "flags.midi-qol.effectActivation") ?? "";
-    const activationField = `<div class="form-group"><label>${labelText}</label><input type="checkbox" name="flags.midi-qol.effectActivation" ${currentEffectActivation ? "checked" : ""}/> </div>`;
-
-    element.append(activationField);
-
-    if (installedModules.get("dfreds-convenient-effects")) {
-      //@ts-ignore dfreds
-      const ceForItem = game.dfreds.effects.all.find(e => e.name === app.object.name);
-      if (ceForItem) {
-        const element = html.find('input[name="system.chatFlavor"]').parent().parent();
-        if (["both", "cepri", "itempri"].includes(configSettings.autoCEEffects)) {
-          const offLabel = i18n("midi-qol.convenientEffectsOff");
-          const currentEffect = getProperty(app.object, "flags.midi-qol.forceCEOff") ?? false;
-          const effect = `<div class="form-group"><label>${offLabel}</label><input type="checkbox" name="flags.midi-qol.forceCEOff" data-dtype="Boolean" ${currentEffect ? "checked" : ""}></div>`
-          element.append(effect)
-        }
-        if (["none", "itempri"].includes(configSettings.autoCEEffects)) {
-          const onLabel = i18n("midi-qol.convenientEffectsOn");
-          const currentEffect = getProperty(app.object, "flags.midi-qol.forceCEOn") ?? false;
-          const effect = `<div class="form-group"><label>${onLabel}</label><input type="checkbox" name="flags.midi-qol.forceCEOn" data-dtype="Boolean" ${currentEffect ? "checked" : ""}></div>`
-          element.append(effect)
-        }
-      }
-    }
-    let config = getSystemCONFIG();
-
-    //@ts-ignore
+  function getItemSheetData(data, item) {
+    const config = getSystemCONFIG();
     const midiProps = config.midiProperties;
-    setProperty(data, "flags.midiProperties", app.object.flags.midiProperties ?? {});
-    if (!data.flags?.midiProperties) setProperty(data, "flags.midiProperties", {});
-    if (app.object && ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(app.object.type)) {
-      const item = app.object;
-      if (item.flags.midiProperties === undefined) {
-        item.flags.midiProperties = {};
-        for (let prop of Object.keys(midiProps)) {
-          if (getProperty(item.system, `properties.${prop}`) && data.flags.midiProperties[prop] === undefined) {
-            data.flags.midiProperties[prop] = true;
-            delete item.system.properties.nodam;
-          }
+    if (!item) {
+      const message = "item not defined in getItemSheetData";
+      console.error(message, data);
+      TroubleShooter.recordError(new Error(message));
+      return;
+    }
+    //@ts-expect-error
+    const ceForItem = game.dfreds?.effects?.all.find(e => e.name === item.name);
+    data = mergeObject(data, {
+      allowUseMacro: configSettings.allowUseMacro,
+      MacroPassOptions: Workflow.allMacroPasses,
+      showCEOff: false,
+      showCEOn: false,
+      hasSave: item.hasSave,
+      midiPropertyLabels: midiProps,
+      SaveDamageOptions: geti18nOptions("SaveDamageOptions"),
+      ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions")
+    });
+    if (ceForItem) {
+      data.showCEOff = ["both", "cepri", "itempri"].includes(configSettings.autoCEEffects);
+      data.showCEOn = ["none", "itempri"].includes(configSettings.autoCEEffects);
+    }
+    setProperty(data, "flags.midiProperties", item.flags?.midiProperties ?? {});
+    if (item && ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(item.type)) {
+      for (let prop of Object.keys(midiProps)) {
+        if (getProperty(item, `system.properties.${prop}`) !== undefined
+          && item.flags?.midiProperties[prop] === undefined) {
+          data.flags.midiProperties[prop] = item.system.properties[prop];
+        } else if (getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
+          if (prop==="saveDamage") {
+          } else data.flags.midiProperties[prop] = false;
         }
       }
-      if (item.system.properties?.fulldam !== undefined) {
-        app.object.updateSource({ // TODO check this v10
-          "system.properties.-=fulldam": null,
-          "system.properties.-=halfdam": null,
-          "system.properties.-=nodam": null,
-          "system.properties.-=critOther": null,
-          "flags.midiProperties": data.flags.midiProperties
-        })
-      }
+      // Migrate existing saving throw damage multipliers to the new saveDamage
+      if (data.flags.midiProperties?.fulldam !== undefined) {
+        if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["saveDamage"] = "fulldam";
+        item.updateSource({"flags.midiProperties.-=fulldam": null});
+      } 
+      if (data.flags.midiProperties?.halfdam !== undefined) {
+        if (data.flags.midiProperties?.halfdam) data.flags.midiProperties["saveDamage"] = "halfdam";
+        item.updateSource({"flags.midiProperties.-=halfdam": null});
+      } 
+      if (data.flags.midiProperties?.nodam !== undefined) {
+        if (data.flags.midiProperties?.nodam) data.flags.midiProperties["saveDamage"] = "nodam";
+        item.updateSource({"flags.midiProperties.-=nodam": null});
+      } 
+      if (data.flags.midiProperties["saveDamage"] === undefined)
+        data.flags.midiProperties["saveDamage"] = "default";
+      if (data.flags.midiProperties["confirmTargets"] === true)
+        data.flags.midiProperties["confirmTargets"] = "always";
+      else if (data.flags.midiProperties["confirmTargets"] === false)
+        data.flags.midiProperties["confirmTargets"] = "never";
+      else if (data.flags.midiProperties["confirmTargets"] === undefined)
+        data.flags.midiProperties["confirmTargets"] = "default";
 
-      let newHtml = `<div><div class="form-group stacked weapon-properties">
-          <label>${i18n("midi-qol.MidiProperties")}</label>`;
-      for (let prop of Object.keys(midiProps)) {
-        newHtml += `<label class="checkbox">
-        <input type="checkbox" name="flags.midiProperties.${prop}" ${data.flags.midiProperties[prop] ? "checked" : ""} /> ${midiProps[prop]} 
-        </label>`;
-      }
-      newHtml += "</div></div>";
-      element.append(newHtml);
+      delete data.flags.midiProperties.fulldam;
+      delete data.flags.midiProperties.halfdam;
+      delete data.flags.midiProperties.nodam;
+    }
+    data.showHeader = true;
+    if (item.system.properties?.fulldam !== undefined) {
+      item.updateSource({ // TODO check this v10
+        "system.properties.-=fulldam": null,
+        "system.properties.-=halfdam": null,
+        "system.properties.-=nodam": null,
+        "system.properties.-=critOther": null,
+        "flags.midiProperties": data.flags.midiProperties
+      })
+    }
+    return data;
+  }
 
+  Hooks.once('tidy5e-sheet.ready', (api) => {
+    const myTab = new api.models.HandlebarsTab({
+      title: 'Midi Qol',
+      tabId: "midi-qol-properties-tab",
+      path: '/modules/midi-qol/templates/midiPropertiesForm.hbs',
+      enabled: (data) => { return ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(data.item.type) },
+      getData: (data) => {
+        data = getItemSheetData(data, data.item);
+        data.showHeader = false;
+        return data;
+      },
+      onRender: (params: any) => {
+        activateMacroListeners(params.app, params.tabContentsElement);
+      }
+    });
+    api.registerItemTab(myTab);
+
+    api.itemSummary.registerCommands([
+      {
+        label: i18n("midi-qol.buttons.roll"),
+        enabled: (params) => ["weapon", "spell", "power", "feat"].includes(params.item.type),
+        iconClass: 'fas fa-dice-d20',
+        execute: (params) => {
+          if (debugEnabled > 1) log('roll', params.item);
+          Workflow.removeWorkflow(params.item.uuid);
+          params.item.use({}, { event: params.event, configureDialog: true, systemCard: true });
+        },
+      },
+      {
+        label: i18n("midi-qol.buttons.attack"),
+        enabled: (params) => params.item.hasAttack,
+        execute: (params) => {
+          if (debugEnabled > 1) log('attack', params);
+          params.item.rollAttack({ event: params.event, versatile: false, resetAdvantage: true, systemCard: true })
+        },
+      },
+      {
+        label: i18n("midi-qol.buttons.damage"),
+        enabled: (params) => params.item.hasDamage,
+        execute: (params) => {
+          if (debugEnabled > 1) log('Clicked damage', params);
+          params.item.rollDamage({ event: params.event, versatile: false, systemCard: true })
+        },
+      },
+      {
+        label: i18n("midi-qol.buttons.versatileDamage"),
+        enabled: (params) => itemIsVersatile(params.item),
+        execute: (params) => {
+          if (debugEnabled > 1) log('Clicked versatile', params);
+          params.item.rollDamage({ event: params.event, versatile: true, systemCard: true })
+        }
+      },
+      {
+        label: i18n("midi-qol.buttons.itemUse"),
+        enabled: (params) => params.item.type === "consumable",
+        execute: (params) => {
+          if (debugEnabled > 1) log('Clicked consume', params);
+          params.item.use({ event: params.event, systemCard: true }, {})
+        },
+      },
+      {
+        label: i18n("midi-qol.buttons.itemUse"),
+        enabled: (params) => params.item.type === "tool",
+        execute: (params) => {
+          if (debugEnabled > 1) log('Clicked tool check', params);
+          params.item.rollToolCheck({ event: params.event, systemCard: true })
+        },
+      },
+      {
+        label: i18n("midi-qol.buttons.info"),
+        enabled: (params) => true,
+        execute: (params) => {
+          if (debugEnabled > 1) log('Clicked info', params);
+          showItemInfo.bind(params.item)()
+        },
+      },
+    ]);
+  });
+
+  Hooks.on("renderItemSheet", (app, html, data) => {
+    const item = app.object;
+    if (!item) return;
+    if (app.constructor.name !== "Tidy5eKgarItemSheet") {
+      if (item && ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(data.item.type)) {
+        data = mergeObject(data, getItemSheetData(data, item));
+        renderTemplate("modules/midi-qol/templates/midiPropertiesForm.hbs", data).then(templateHtml => {
+          const element = html.find('input[name="system.chatFlavor"]').parent().parent();
+          element.append(templateHtml);
+          activateMacroListeners(app, html);
+        });
+      }
       //@ts-expect-error
       if (isNewerVersion(game.system.version, "2.2") && game.system.id === "dnd5e") {
         if (["creature", "ally", "enemy"].includes(item.system.target?.type) && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
           const targetElement = html.find('select[name="system.target.type"]');
           const targetUnitHTML = `
-            <select name="system.target.units" data-tooltip="${i18n(getSystemCONFIG().TargetUnits)}">
-            <option value="" ${item.system.target.units === '' ? "selected" : ''}></option>
-            <option value="ft" ${item.system.target.units === 'ft' ? "selected" : ''}>Feet</option>
-            <option value="mi " ${item.system.target.units === 'mi' ? "selected" : ''}>Miles</option>
-            <option value="m" ${item.system.target.units === 'm' ? "selected" : ''}>Meters</option>
-            <option value="km" ${item.system.target.units === 'km' ? "selected" : ''}>Kilometers</option>
-            </select>
-          `;
+              <select name="system.target.units" data-tooltip="${i18n(getSystemCONFIG().TargetUnits)}">
+              <option value="" ${item.system.target.units === '' ? "selected" : ''}></option>
+              <option value="ft" ${item.system.target.units === 'ft' ? "selected" : ''}>Feet</option>
+              <option value="mi " ${item.system.target.units === 'mi' ? "selected" : ''}>Miles</option>
+              <option value="m" ${item.system.target.units === 'm' ? "selected" : ''}>Meters</option>
+              <option value="km" ${item.system.target.units === 'km' ? "selected" : ''}>Kilometers</option>
+              </select>
+            `;
           targetElement.before(targetUnitHTML);
         }
       }
     }
-    activateMacroListeners(app, html);
+
+
+    // activateMacroListeners(app, html);
   })
 
   Hooks.on("preUpdateItem", (candidate, updates, options, user) => {
@@ -676,7 +759,7 @@ export const itemJSONData = {
                 if (MidiQOL.configSettings().removeConcentration 
                   && (target.actor.system.attributes.hp.value === 0 || args[0].failedSaveUuids.find(uuid => uuid === targetUuid))) {
                 const concentrationEffect = MidiQOL.getConcentrationEffect(target.actor);
-                if (concentrationEffect) await concentrationEffect.delete(); //await MidiQOL.socket().executeAsGM("removeEffect", {effectUuid: concentrationEffect.uuid});
+                if (concentrationEffect) await concentrationEffect.delete();
                 }
               }`,
         "folder": null,

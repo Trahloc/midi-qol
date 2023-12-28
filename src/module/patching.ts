@@ -505,6 +505,7 @@ export function preRollDeathSaveHook(actor, rollData: any): boolean {
   const disFlags = getProperty(actor.flags, "midi-qol")?.disadvantage;
   let withAdvantage = false;
   let withDisadvantage = false;
+
   rollData.fastForward = autoFastForwardAbilityRolls ? !rollData.event?.fastKey : rollData.event?.fastKey;
   if (advFlags || disFlags) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
@@ -524,6 +525,8 @@ export function preRollDeathSaveHook(actor, rollData: any): boolean {
   if (rollData.advantage && rollData.disadvantage) {
     rollData.advantage = rollData.disadvantage = false;
   }
+  const blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes("death");
+  if (blindSaveRoll) rollData.rollMode = "blindroll";
   return true;
 }
 
@@ -820,6 +823,7 @@ export function initPatching() {
   libWrapper.register("midi-qol", "KeyboardManager.prototype._onFocusIn", _onFocusIn, "OVERRIDE");
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getRollData", actorGetRollData, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.getRollData", itemGetRollData, "WRAPPER");
+  libWrapper.register("midi-qol", "CONFIG.ActiveEffect.documentClass.prototype._preCreate", _preCreateActiveEffect, "WRAPPER");
 }
 
 export function _onFocusIn(event) {
@@ -1015,7 +1019,6 @@ export function getItemEffectsToDelete(args: { actor: Actor, origin: string, ign
 export async function removeConcentration(actor: Actor, deleteEffectUuid: string | undefined, options: any) {
   let result;
   try {
-    if (deleteEffectUuid === undefined) options.concentrationDeleted = true; // concnetration effect will be picked up in the delete effects call
     if (debugEnabled > 0) warn("removeConcentration | ", actor?.name, deleteEffectUuid, options)
     const concentrationData: any = duplicate(actor.getFlag("midi-qol", "concentration-data") ?? {});
     // if (!concentrationData) return;
@@ -1039,6 +1042,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
       };
     }
     if (concentrationData?.targets && !options.concentrationEffectsDeleted) {
+      if (deleteEffectUuid === undefined) options.concentrationDeleted = true; // concnetration effect will be picked up in the delete effects call
       debug("About to remove concentration effects", actor?.name);
       options.noConcentrationCheck = true;
       for (let target of concentrationData.targets) {
@@ -1062,7 +1066,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
       if (concentrationEffect?.id && !options.concentrationDeleted && deleteEffectUuid !== concentrationEffect.uuid) {
         if (debugEnabled > 0) warn("removeConcentration | removing concentration effect", actor.name, concentrationEffect?.id, options);
         promises.push(actor?.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id],
-          mergeObject(options, { concentrationDeleted: true, concentrationEffectsDeleted: true })));
+          mergeObject(options, { concentrationDeleted: true, concentrationEffectsDeleted: true, noConcentrationCheck: true })));
       }
     }
     return await Promise.allSettled(promises);
@@ -1424,6 +1428,28 @@ async function LMRTFYMakeRoll(event, rollMethod, failRoll, ...args) {
   game.settings.set("core", "rollMode", rollMode);
   this._disableButtons(event);
   this._checkClose();
+}
+
+// This is done as a wrapper so that there is no race condition when hp reaches 0 also trying to remove condition
+// This version will always fire first, remove concentration if needed and complete before the hp update is processed.
+async function _preCreateActiveEffect(wrapped, data, options, user): Promise<void> {
+  try {
+    if (!configSettings.concentrationIncapacitatedConditionCheck) return;
+    const parent: any = this.parent;
+    const checkConcentration = configSettings.concentrationAutomation;
+    if (!checkConcentration || options.noConcentrationCheck) return;
+    if (!(parent instanceof CONFIG.Actor.documentClass)) return;
+    if (globalThis.MidiQOL.incapacitatedConditions.some(condition => this.statuses.has(condition))) {
+      if (debugEnabled > 0) warn(`on createActiveEffect ${this.name} ${this.id} removing concentration for ${parent.name}`)
+      await removeConcentration(parent, undefined, { noConcentrationCheck: true });
+    }
+  } catch (err) {
+    const message = "midi-qol | error in preCreateActiveEffect";
+    console.error(message, err);
+    TroubleShooter.recordError(err, message);
+  } finally {
+    return wrapped(data, options, user);
+  }
 }
 
 function filterChatMessageCreate(wrapped, data: any, context: any) {

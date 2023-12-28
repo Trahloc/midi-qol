@@ -27,7 +27,8 @@ export function requiresTargetConfirmation(item, options): boolean {
   if (options.workflowdialogOptions?.lateTargeting === "none") return false;
   if (item.system.target?.type === "self") return false;
   if (options.workflowOptions?.attackPerTarget === true) return false;
-  // if (item?.flags?.midiProperties?.confirmTargets) return true;
+  if (item?.flags?.midiProperties?.confirmTargets === "always") return true;
+  if (item?.flags?.midiProperties?.confirmTargets === "never") return false;
   const numTargets = game.user?.targets?.size ?? 0;
   const token = tokenForActor(item.actor);
   if (targetConfirmation.enabled) {
@@ -177,7 +178,6 @@ async function doItemUseV2(wrapped, config: any = {}, options: any = {}) {
       await Workflow.removeWorkflow(this.uuid);
       this.use(config, options);
     }
-    return false;
   }
 
   const workflow = new WorkflowV2(this.parent, this, getSpeaker(this.actor), game?.user?.targets ?? new Set(), config, options);
@@ -195,7 +195,6 @@ async function doItemUseV2(wrapped, config: any = {}, options: any = {}) {
 }
 
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
-  let itemUsageConsumptionHookId;
   if (debugEnabled > 0) {
     warn("doItemUse called with", this.name, config, options);
   }
@@ -206,8 +205,33 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (previousWorkflow) {
       const validStates = [previousWorkflow.WorkflowState_Cleanup, previousWorkflow.WorkflowState_Start, previousWorkflow.WorkflowState_RollFinished]
       if (!(validStates.includes(previousWorkflow.currentAction))) {// && configSettings.confirmAttackDamage !== "none") {
-        const message = game.i18n.format("midi-qol.WaitingForPreviousWorkflow", { name: this.name });
-        ui.notifications?.warn(message);
+        //@ts-expect-error
+        switch (await Dialog.wait({
+          title: game.i18n.format("midi-qol.WaitingForPreviousWorkflow", { name: this.name }),
+          default: "cancel",
+          content: "Choose what to do with the previous roll",
+          buttons: {
+            complete: { icon: `<i class="fas fa-check"></i>`, label: "Complete previous", callback: () => { return "complete" } },
+            discard: {icon: `<i class="fas fa-trash"></i>`, label: "Discard previous", callback: () => { return "discard"}},
+            undo: {icon: `<i class="fas fa-undo"></i>`, label: "Undo until previous", callback: () => {return "undo"}},
+            cancel: {icon: `<i class="fas fa-times"></i>`, label: "Cancel New", callback: () => {return "cancel"}},
+          }
+         }, {width: 700})) {
+          case "complete":
+            await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
+            await Workflow.removeWorkflow(this.uuid);
+            break;
+          case "discard":
+            await previousWorkflow.performState(previousWorkflow.WorkflowState_Abort);
+            break;
+          case "undo":
+            await previousWorkflow.performState(previousWorkflow.WorkflowState_Cancel);
+            break;
+          case "cancel":
+          default:
+            return undefined;
+         }
+         /*
         if (await Dialog.confirm({
           title: `${i18n("Cancel")} ${this.name}`,
           content: `<p>${message} ${i18n("Cancel")}?</p>`,
@@ -217,6 +241,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         })) {
           await previousWorkflow.performState(previousWorkflow.WorkflowState_Cancel);
         } else return;
+        */
       }
     }
 
@@ -399,12 +424,12 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       return null;
     }
     if (speaker.token) tokenToUse = canvas?.tokens?.get(speaker.token);
+    const rangeDetails = checkRange(this, tokenToUse, targetsToUse)
     if (checkMechanic("checkRange") !== "none" && !isAoETargeting && !isRangeTargeting && !AoO && speaker.token) {
       if (tokenToUse && targetsToUse.size > 0) {
-        const { result, attackingToken } = checkRange(this, tokenToUse, targetsToUse)
-        if (result === "fail")
+        if (rangeDetails.result === "fail")
           return null;
-        else tokenToUse = attackingToken;
+        else tokenToUse = rangeDetails.attackingToken;
       }
     }
     if (this.type === "spell" && shouldAllowRoll) {
@@ -461,6 +486,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     workflow.config = config;
     workflow.options = options;
     workflow.attackingToken = tokenToUse;
+    workflow.rangeDetails = rangeDetails;
     workflow.castData = {
       baseLevel: this.system.level,
       castLevel: workflow.itemLevel,
@@ -554,7 +580,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     const autoCreatetemplate = token && this.hasAreaTarget && ["self", "spec", "any"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
     let result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
-    if (itemUsageConsumptionHookId) Hooks.off("dnd5e.itemUsageConsumption", itemUsageConsumptionHookId);
     if (!result) {
       await workflow.performState(workflow.WorkflowState_Abort)
       return null;
@@ -583,6 +608,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           //@ts-expect-error .object
           await token.attachTemplate(templateDocument.object, { "flags.dae.stackable": "noneName" }, true);
         }
+        selectTargets.bind(workflow)(td);
         //@ ts-expect-error td.object
         // templateTokens(td?.object, this.system.range?.units === "spec" ? token : undefined)
         checkConcentration = false;
@@ -795,10 +821,10 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       result = await result.reroll({ minimize: true })
     await workflow.setAttackRoll(result);
 
-    workflow.ammo = this._ammo;
+    // workflow.ammo = this._ammo; Work out why this was here - seems to just break stuff
 
     if (workflow.workflowOptions?.attackRollDSN !== false) await displayDSNForRoll(result, "attackRollD20");
-
+    workflow.processAttackRoll();
     result = await processAttackRollBonusFlags.bind(workflow)();
 
     if (configSettings.keepRollStats) {
@@ -1054,7 +1080,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
         otherRollOptions.powerfulCritical = game.settings.get(game.system.id, "criticalDamageMaxDice");
         otherRollOptions.multiplyNumeric = game.settings.get(game.system.id, "criticalDamageModifiers");
       }
-      otherRollOptions.critical = (this.flags.midiProperties?.critOther ?? false) && (workflow.isCritical || workflow.rollOptions.critical);
+      otherRollOptions.critical = (workflow.otherDamageItem?.flags.midiProperties?.critOther ?? false) && (workflow.isCritical || workflow.rollOptions.critical);
       if ((workflow.otherDamageFormula ?? "") !== "") { // other damage formula swaps in versatile if needed
         //@ts-ignore
         let otherRollResult = new CONFIG.Dice.DamageRoll(workflow.otherDamageFormula, workflow.otherDamageItem?.getRollData(), otherRollOptions);
@@ -1472,6 +1498,7 @@ export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: 
   const ignoreTokenDocument = getTokenDocument(ignoreToken);
   let targetIds: string[] = [];
   let targetTokens: Token[] = [];
+  game.user?.updateTokenTargets([]);
   if (configSettings.autoTarget === "walledtemplates" && game.modules.get("walledtemplates")?.active) {
     //@ts-expect-error
     targetTokens = (templateDetails.targetsWithinShape) ? templateDetails.targetsWithinShape() : [];

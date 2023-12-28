@@ -86,7 +86,7 @@ export class OnUseMacroOptions {
 export function activateMacroListeners(app: Application, html) {
   //@ts-ignore
   if (app.isEditable) {
-    html.find(".macro-control").click(_onMacroControl.bind(app));
+    $(html).find(".macro-control").on("click", _onMacroControl.bind(app));
     const dd = new DragDrop({
       dragSelector: undefined,
       dropSelector: ".midi-onuse-macro-name",
