@@ -649,14 +649,14 @@ export class TroubleShooter extends FormApplication {
           });
         }
         break;
-      case "tokenvisibility":
-        if (!(game.modules.get("tokenvisibility")?.active)) {
+      case "tokencover":
+        if (!(game.modules.get("tokencovert")?.active)) {
           data.problems.push({
-            moduleId: "tokenvisibility",
+            moduleId: "tokencover",
             severity: "Error",
-            problemSummary: "You must enable the 'tokenvisibility' module to use the 'Token Visibility' option for 'Walls Block Range'",
+            problemSummary: "You must enable the 'tokencover' module to use the 'Token Cover' option for 'Walls Block Range'",
             problemDetail: undefined,
-            fixer: "Enable the 'tokenvisibility' module"
+            fixer: "Enable the 'tokencover' module"
           });
         }
         break;
@@ -686,14 +686,14 @@ export class TroubleShooter extends FormApplication {
           });
         }
         break;
-      case "tokenvisibility":
-        if (!(game.modules.get("tokenvisibility")?.active)) {
+      case "tokencover":
+        if (!(game.modules.get("tokencover")?.active)) {
           data.problems.push({
-            moduleId: "tokenvisibility",
+            moduleId: "tokencover",
             severity: "Error",
-            problemSummary: "You must enable the 'tokenvisibility' module to use the 'Token Visibility' option for 'Walls Block Range'",
+            problemSummary: "You must enable the 'tokencover' module to use the 'Token Cover' option for 'Walls Block Range'",
             problemDetail: undefined,
-            fixer: "Enable the 'tokenvisibility' module"
+            fixer: "Enable the 'tokencover' module"
           });
         }
         break;

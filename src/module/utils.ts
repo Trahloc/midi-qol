@@ -5146,33 +5146,27 @@ export function getToken(tokenRef: Actor | Token | TokenDocument | string | unde
   return undefined;
 }
 
-export function calcTokenVisibilityCover(attacker: Token | TokenDocument, target: Token | TokenDocument): number {
-  //@ts-expect-error .api
-  const api = game.modules.get("tokenvisibility")?.api;
+export function calcTokenCover(attacker: Token | TokenDocument, target: Token | TokenDocument): number {
   const attackerToken = getToken(attacker);
-  const targetToken = getToken(target);
-  if (!api || !attackerToken || !targetToken) {
-    let message = "midi-qol | calcTokenVisibilityCover | failed"
-    if (!api) message += " tokenvisibility not installed";
-    if (!attackerToken) message += " atacker token not valid";
-    if (!targetToken) message += " target token not valid";
-    const err = new Error("calcTokenVisibilityCover failed");
-    TroubleShooter.recordError(err, message);
-    console.warn(message, err);
-    return 0;
+	const targetToken = getToken(target);
+
+	//@ts-expect-error .coverCalc
+  const coverCalc = attackerToken.tokencover?.coverCalc;
+  if ( !attackerToken || !targetToken || !coverCalc ) {
+		let message = "midi-qol | calcTokenCover | failed";
+		if (!coverCalc)
+			message += " tokencover not installed or cover calculator not found";
+		if (!attackerToken)
+			message += " atacker token not valid";
+		if (!targetToken)
+			message += " target token not valid";
+		const err = new Error("calcTokenCover failed");
+		TroubleShooter.recordError(err, message);
+		console.warn(message, err);
+		return 0;
   }
 
-  //@ts-expect-error .version
-  const version = game.modules.get("tokenvisibility")?.version;
-  let coverValue;
-  if (isNewerVersion(version, "0.5.3")) {
-    const cover = api.CoverCalculator.coverCalculations(attackerToken, [targetToken]);
-    coverValue = cover.get(targetToken) ?? 0;
-  } else {
-    const cover = api.CoverCalculator.coverCalculations([attackerToken], [targetToken]);
-    coverValue = cover[attackerToken.id][targetToken.id] ?? 0;
-  }
-  return coverValue;
+  return coverCalc.percentCover(targetToken) ?? 0;
 }
 
 export function itemRequiresConcentration(item): boolean {
