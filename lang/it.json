@@ -469,7 +469,7 @@
   "centerLevels": "Centro + Livelli",
   "levelsautocover": "Copertura Automatica Livelli",
   "simbuls-cover-calculator": "Calcolatore di Copertura Simbuls",
-  "tokenvisibility": "Visibilità Alternativa dei Token"
+  "tokencover": "Copertura Alternativa dei Token"
 },
 "midi-qol.NearbyAllyRanged.Name": "(Regola della Casa) Gli attacchi a distanza contro nemici vicini agli alleati hanno svantaggio.",
 "midi-qol.WallsBlockRangeOptions": {
@@ -483,7 +483,7 @@
   "none": "Nessuna",
   "simbuls-cover-calculator": "Calcolatore di Copertura di Simbul",
   "levelsautocover": "Copertura Automatica Livelli",
-  "tokenvisibility": "Visibilità Alternativa dei Token"
+  "tokencover": "Copertura Alternativa dei Token"
 },
 "midi-qol.NearbyAllyRanged.Hint": "Gli attacchi a distanza con alleati nelle vicinanze (5 piedi) del bersaglio hanno svantaggio per i bersagli più piccoli di questa dimensione (l*l). 0 disabilita",
 "midi-qol.Incapacitated.Name": "Gli attori incapaci non possono effettuare azioni o reazioni",
