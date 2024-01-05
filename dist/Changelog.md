@@ -1,3 +1,6 @@
+## 11.3.12.1
+* Fix for damage button removal.
+
 ## 11.3.12
 * **BREAKING** Switch from "Token Visibility" to "Token Cover" for cover calculations due to upcomfing changes in token visibility/token cover - thanks @caewok. As of this release token visibility is no longer supported for cover calculations.
   - The are two ways to calculate cover

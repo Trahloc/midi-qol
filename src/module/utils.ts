@@ -2293,8 +2293,10 @@ export function itemIsVersatile(item) {
 export function getRemoveAttackButtons(item?: Item): boolean {
   if (item) {
     const itemSetting = getProperty(item, "flags.midi-qol.removeAttackDamageButtons");
-    if (["all", "attack"].includes(itemSetting)) return true;
-    if (itemSetting !== "default") return false;
+    if (itemSetting) {
+      if (["all", "attack"].includes(itemSetting)) return true;
+      if (itemSetting !== "default") return false;
+    }
   }
   return game.user?.isGM ?
     ["all", "attack"].includes(configSettings.gmRemoveButtons) :
@@ -2303,8 +2305,10 @@ export function getRemoveAttackButtons(item?: Item): boolean {
 export function getRemoveDamageButtons(item?: Item): boolean {
   if (item) {
     const itemSetting = getProperty(item, "flags.midi-qol.removeAttackDamageButtons");
-    if (["all", "damage"].includes(itemSetting)) return true;
-    if (itemSetting !== "default") return false;
+    if (itemSetting) {
+      if (["all", "damage"].includes(itemSetting)) return true;
+      if (itemSetting !== "default") return false;
+    }
   }
   return game.user?.isGM ?
     ["all", "damage"].includes(configSettings.gmRemoveButtons) :
