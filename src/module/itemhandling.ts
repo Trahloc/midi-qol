@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes } from "../midi-qol.js";
 import { DummyWorkflow, TrapWorkflow, Workflow, WORKFLOWSTATES, WorkflowV2 } from "./workflow.js";
 import { configSettings, enableWorkflow, checkRule, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getTargetConfirmation, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getTargetConfirmation, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -9,6 +9,7 @@ import { defaultRollOptions, removeConcentration } from "./patching.js";
 import { saveUndoData } from "./undo.js";
 import { socketlibSocket } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { busyWait } from "./tests/setupTest.js";
 
 function itemRequiresPostTemplateConfiramtion(item): boolean {
   const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
@@ -205,43 +206,39 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (previousWorkflow) {
       const validStates = [previousWorkflow.WorkflowState_Cleanup, previousWorkflow.WorkflowState_Start, previousWorkflow.WorkflowState_RollFinished]
       if (!(validStates.includes(previousWorkflow.currentAction))) {// && configSettings.confirmAttackDamage !== "none") {
-        //@ts-expect-error
-        switch (await Dialog.wait({
-          title: game.i18n.format("midi-qol.WaitingForPreviousWorkflow", { name: this.name }),
-          default: "cancel",
-          content: "Choose what to do with the previous roll",
-          buttons: {
-            complete: { icon: `<i class="fas fa-check"></i>`, label: "Complete previous", callback: () => { return "complete" } },
-            discard: {icon: `<i class="fas fa-trash"></i>`, label: "Discard previous", callback: () => { return "discard"}},
-            undo: {icon: `<i class="fas fa-undo"></i>`, label: "Undo until previous", callback: () => {return "undo"}},
-            cancel: {icon: `<i class="fas fa-times"></i>`, label: "Cancel New", callback: () => {return "cancel"}},
+        if (configSettings.autoCompleteWorkflow) {
+          await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
+          await Workflow.removeWorkflow(this.uuid);
+        } else if (previousWorkflow.currentAction === previousWorkflow.WorkflowState_WaitForDamageRoll && previousWorkflow.hitTargets.size === 0) {
+          await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
+        } else {
+          //@ts-expect-error
+          switch (await Dialog.wait({
+            title: game.i18n.format("midi-qol.WaitingForPreviousWorkflow", { name: this.name }),
+            default: "cancel",
+            content: "Choose what to do with the previous roll",
+            buttons: {
+              complete: { icon: `<i class="fas fa-check"></i>`, label: "Complete previous", callback: () => { return "complete" } },
+              discard: { icon: `<i class="fas fa-trash"></i>`, label: "Discard previous", callback: () => { return "discard" } },
+              undo: { icon: `<i class="fas fa-undo"></i>`, label: "Undo until previous", callback: () => { return "undo" } },
+              cancel: { icon: `<i class="fas fa-times"></i>`, label: "Cancel New", callback: () => { return "cancel" } },
+            }
+          }, { width: 700 })) {
+            case "complete":
+              await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
+              await Workflow.removeWorkflow(this.uuid);
+              break;
+            case "discard":
+              await previousWorkflow.performState(previousWorkflow.WorkflowState_Abort);
+              break;
+            case "undo":
+              await previousWorkflow.performState(previousWorkflow.WorkflowState_Cancel);
+              break;
+            case "cancel":
+            default:
+              return undefined;
           }
-         }, {width: 700})) {
-          case "complete":
-            await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
-            await Workflow.removeWorkflow(this.uuid);
-            break;
-          case "discard":
-            await previousWorkflow.performState(previousWorkflow.WorkflowState_Abort);
-            break;
-          case "undo":
-            await previousWorkflow.performState(previousWorkflow.WorkflowState_Cancel);
-            break;
-          case "cancel":
-          default:
-            return undefined;
-         }
-         /*
-        if (await Dialog.confirm({
-          title: `${i18n("Cancel")} ${this.name}`,
-          content: `<p>${message} ${i18n("Cancel")}?</p>`,
-          defaultYes: false,
-          yes: () => { return true },
-          no: () => { return false }
-        })) {
-          await previousWorkflow.performState(previousWorkflow.WorkflowState_Cancel);
-        } else return;
-        */
+        }
       }
     }
 
@@ -283,7 +280,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     attackPerTarget &&= !ammoSelectorFirstPass
     attackPerTarget &&= (game.user?.targets.size ?? 0) > 0
-    if (attackPerTarget ) {
+    if (attackPerTarget) {
       let targets = new Set(game.user?.targets);
       const optionsToUse = duplicate(options);
       const configToUse = duplicate(config);
@@ -301,7 +298,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           const nameToUse = `${this.name} attack ${count} - target (${target.name})`;
           const newOptions = mergeObject(optionsToUse, {
             targetUuids: [target.document.uuid],
-            ammoSelector: {hasRun: true},
+            ammoSelector: { hasRun: true },
             workflowOptions: { targetConfirmation: "none", attackPerTarget: false, workflowName: nameToUse }
           }, { inplace: false, overwrite: true });
           if (debugEnabled > 0) warn(`doItemUse | ${nameToUse} ${target.name} config`, config, "options", newOptions);
@@ -578,7 +575,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const wrappedRollStart = Date.now();
     const token = getToken(workflow.tokenUuid);
 
-    const autoCreatetemplate = token && this.hasAreaTarget && ["self", "spec", "any"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
+    const autoCreatetemplate = token && this.hasAreaTarget && ["self"].includes(this.system.range?.units) /*&& ["radius"].includes(this.system.target.type)*/;
     let result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
     if (!result) {
       await workflow.performState(workflow.WorkflowState_Abort)
@@ -586,31 +583,61 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     // Sphere/Cyclinder spells only will have their template auto placed.
     if (autoCreatetemplate) {
+      const gs = canvas?.dimensions?.distance ?? 5;
+      const templateOptions: any = {};
+      // square templates don't respect the options distance field
+      let item = this;
+      const target = this.system.target ?? { value: 0 };
+      if (installedModules.get("walledtemplates") && this.flags?.walledtemplates?.addTokenSize) {
+        //@ts-expect-error width/height
+        const { width, height } = token.document;
+        if (target.type === "square") {
+          templateOptions.distance = target.value + Math.max(width, height) * gs;
+          item = this.clone({ "system.target.value": templateOptions.distance})
+        }
+        else
+          templateOptions.distance = Math.ceil(target.value + Math.max(width, height) / 2 * (canvas?.dimensions?.distance ?? 0));
+      }
+      if (this.system.target.type === "square") { // square templates will get placed on the token centre - need to adjust the position
+        const adjust = (templateOptions.distance ?? target.value) / 2;
+        templateOptions.x = Math.floor((token.center?.x ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
+        templateOptions.y = token.center?.y ?? 0;
+        if (game.settings.get("dnd5e", "gridAlignedSquareTemplates")) {
+          templateOptions.y = Math.floor((token.center?.y ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
+        }
+      } else {
+        templateOptions.x = token.center?.x ?? 0;
+        templateOptions.y = token.center?.y ?? 0;
+      }
+
+      if (workflow?.actor) setProperty(templateOptions, "flags.midi-qol.actorUuid", workflow.actor.uuid);
+      if (workflow?.tokenId) setProperty(templateOptions, "flags.midi-qol.tokenId", workflow.tokenId);
+      if (workflow) setProperty(templateOptions, "flags.midi-qol.workflowId", workflow.id);
+      setProperty(templateOptions, "flags.midi-qol.itemUuid", this.uuid);
+
       //@ts-expect-error .canvas
-      let templateData = game.system.canvas.AbilityTemplate.fromItem(this);
-      templateData = templateData.document.toObject();
-      templateData.x = token.center?.x || 0;
-      templateData.y = token.center?.y || 0;
-      setProperty(templateData, "flags.midi-qol.itemUuid", this.uuid);
-      if (workflow?.actor) setProperty(templateData, "flags.midi-qol.actorUuid", workflow.actor.uuid);
-      if (workflow?.tokenId) setProperty(templateData, "flags.midi-qol.tokenId", workflow.tokenId);
-      if (workflow) setProperty(templateData, "flags.midi-qol.workflowId", workflow.id);
+      let template = game.system.canvas.AbilityTemplate.fromItem(item, templateOptions);
+      const templateData = template.document.toObject();
+
       //@ts-expect-error
       const templateDocuments: MeasuredTemplateDocument[] | undefined = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
+
       if (templateDocuments && templateDocuments.length > 0) {
         let td: MeasuredTemplateDocument = templateDocuments[0];
+        await td.object?.refresh();
+        await busyWait(0.01);
         workflow.templateUuid = td.uuid;
         workflow.templateId = td?.object?.id;
-        let token = getToken(workflow.tokenUuid);
         if (token && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
           //@ts-expect-error
           const templateDocument = fromUuidSync(td.uuid);
           //@ts-expect-error .object
           await token.attachTemplate(templateDocument.object, { "flags.dae.stackable": "noneName" }, true);
         }
+        const selfToken = getToken(workflow.tokenUuid);
+        const ignoreSelf = getProperty(this, "flags.midi-qol.trapWorkflow.ignoreSelf") ?? false;
+        const AoETargetType = getProperty(this, "flags.midi-qol.trapWorkflow.AoETargetType") ?? "";
         selectTargets.bind(workflow)(td);
-        //@ ts-expect-error td.object
-        // templateTokens(td?.object, this.system.range?.units === "spec" ? token : undefined)
         checkConcentration = false;
       }
     }
@@ -627,10 +654,15 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     // Need concentration removal to complete before allowing workflow to continue so have workflow wait for item use to complete
     workflow.preItemUseComplete = true;
-    if (workflow.currentAction === workflow.WorkflowState_RollFinished) workflow.performState(workflow.AwaitItemCard)
+    if (workflow.currentAction === workflow.WorkflowState_RollFinished ) {
+      workflow.performState(workflow.WorkflowState_AwaitItemCard)
+    }
+    if (workflow.suspended && !workflow.needTemplate && !workflow.needItemCard) {
+      if (debugEnabled > 0) warn("itemHandling | Unsuspending workflow after setting preItemUseComplete true");
+      workflow.performState(workflow.WorkflowState_AwaitItemCard)
+    }
     // REFACTOR if (workflow.currentState === WORKFLOWSTATES.AWAITITEMCARD) workflow.next(WORKFLOWSTATES.AWAITITEMCARD);
     return result;
-
   } catch (err) {
     const message = `doItemUse error for ${this.actor?.name} ${this.name} ${this.uuid}`;
     TroubleShooter.recordError(err, message);
@@ -1216,15 +1248,15 @@ export async function wrappedDisplayCard(wrapped, options) {
     const systemString = game.system.id.toUpperCase();
     let token = tokenForActor(this.actor);
 
-    let needAttackButton = !getRemoveAttackButtons() || configSettings.mergeCardMulti || configSettings.confirmAttackDamage !== "none" ||
+    let needAttackButton = !getRemoveAttackButtons(this) || configSettings.mergeCardMulti || configSettings.confirmAttackDamage !== "none" ||
       (!workflow.someAutoRollEventKeySet() && !getAutoRollAttack(workflow) && !workflow.rollOptions.autoRollAttack);
     const needDamagebutton = itemHasDamage(this) && (
       (["none", "saveOnly"].includes(getAutoRollDamage(workflow)) || workflow.rollOptions?.rollToggle)
       || configSettings.confirmAttackDamage !== "none"
-      || !getRemoveDamageButtons()
+      || !getRemoveDamageButtons(this)
       || systemCard
       || configSettings.mergeCardMulti);
-    const needVersatileButton = itemIsVersatile(this) && (systemCard || ["none", "saveOnly"].includes(getAutoRollDamage(workflow)) || !getRemoveDamageButtons());
+    const needVersatileButton = itemIsVersatile(this) && (systemCard || ["none", "saveOnly"].includes(getAutoRollDamage(workflow)) || !getRemoveDamageButtons(this.item));
     // not used const sceneId = token?.scene && token.scene.id || canvas?.scene?.id;
     const isPlayerOwned = this.actor.hasPlayerOwner;
     const hideItemDetails = (["none", "cardOnly"].includes(configSettings.showItemDetails) || (configSettings.showItemDetails === "pc" && !isPlayerOwned))
@@ -1478,7 +1510,7 @@ function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTarge
           //@ts-expect-error .distance
           contains = getUnitDist(p2.x, p2.y, p2.z, token) <= template.distance;
           //@ts-expect-error .Levels
-          contains = contains && !CONFIG.Levels.API.testCollision(p1, p2, "collision");
+          contains = contains && !CONFIG.Levels?.API?.testCollision(p1, p2, "collision");
         } else if (!installedModules.get("levelsvolumetrictemplates")) {
           //@ts-expect-error polygonBackends
           contains = !CONFIG.Canvas.polygonBackends.sight.testCollision({ x: tx, y: ty }, { x: currGrid.x + templatePos.x, y: currGrid.y + templatePos.y }, { mode: "any", type: "move" })
@@ -1490,26 +1522,59 @@ function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTarge
   }
   return false;
 }
-
-export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: Token | TokenDocument | string): Token[] {
-  if (configSettings.autoTarget === "none") return [];
-  const wallsBlockTargeting = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.autoTarget);
+export function isAoETargetable(targetToken, options: { selfToken?: Token | TokenDocument | string | undefined, ignoreSelf?: boolean, AoETargetType?: string, autoTarget?: string } = { ignoreSelf: false, AoETargetType: "any" }): boolean {
+  if (!isTargetable(targetToken)) return false;
+  const autoTarget = options.autoTarget ?? configSettings.autoTarget;
+  const selfToken = getToken(options.selfToken);
+  if (["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapacitated"].includes(autoTarget) && checkIncapacitated(targetToken, false)) return false;
+  if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(autoTarget) && checkDefeated(targetToken)) return false;
+  if (targetToken === selfToken) return !options.ignoreSelf;
+  //@ts-expect-error .disposition
+  const selfDisposition = selfToken?.document.disposition ?? 1;
+  switch (options.AoETargetType) {
+    case "any":
+      return true;
+    case "ally":
+      return targetToken.document.disposition === selfDisposition;
+    case "notAlly":
+      return targetToken.document.disposition !== selfDisposition
+    case "enemy":
+      return targetToken.document.disposition === -selfDisposition;
+    case "notEnemy":
+      return targetToken.document.disposition !== -selfDisposition;
+    case "neutral":
+      return targetToken.document.disposition === CONST.TOKEN_DISPOSITIONS.NEUTRAL;
+    case "notNeutral":
+      return targetToken.document.disposition !== CONST.TOKEN_DISPOSITIONS.NEUTRAL;
+    case "friendly": 
+      return targetToken.document.disposition === CONST.TOKEN_DISPOSITIONS.FRIENDLY;
+    case "notFriendly":
+      return targetToken.document.disposition !== CONST.TOKEN_DISPOSITIONS.FRIENDLY;
+    case "hostile":
+      return targetToken.document.disposition === CONST.TOKEN_DISPOSITIONS.HOSTILE;
+    case "notHostile":
+      return targetToken.document.disposition !== CONST.TOKEN_DISPOSITIONS.HOSTILE;
+    default: return true;
+  }
+}
+export function templateTokens(templateDetails: MeasuredTemplate, selfTokenRef: Token | TokenDocument | string | undefined = "", ignoreSelf: boolean = false, AoETargetType: string = "any", autoTarget?: string): Token[] {
+  //@ts-expect-error .item
+  if (!autoTarget) autoTarget = getAutoTarget(templateDetails.item);
+  if ((autoTarget) === "none") return [];
+  const wallsBlockTargeting = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(autoTarget);
   const tokens = canvas?.tokens?.placeables ?? []; //.map(t=>t)
-  const ignoreTokenDocument = getTokenDocument(ignoreToken);
+  const selfToken = getToken(selfTokenRef);
   let targetIds: string[] = [];
   let targetTokens: Token[] = [];
   game.user?.updateTokenTargets([]);
-  if (configSettings.autoTarget === "walledtemplates" && game.modules.get("walledtemplates")?.active) {
+  if ((autoTarget) === "walledtemplates" && game.modules.get("walledtemplates")?.active) {
     //@ts-expect-error
     targetTokens = (templateDetails.targetsWithinShape) ? templateDetails.targetsWithinShape() : [];
-    targetTokens = targetTokens.filter(token => isTargetable(token) && token.document.uuid !== ignoreTokenDocument?.uuid)
+    targetTokens = targetTokens.filter(token => isAoETargetable(token, { selfToken, ignoreSelf, AoETargetType, autoTarget }))
     targetIds = targetTokens.map(t => t.id);
   } else {
     for (const token of tokens) {
-      if (!isTargetable(token)) continue;
-      if (token.document.uuid === ignoreTokenDocument?.uuid) continue;
-      if (["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapacitated"].includes(configSettings.autoTarget) && checkIncapacitated(token, false)) continue;
-      if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.autoTarget) && checkDefeated(token)) continue;
+      if (!isAoETargetable(token, { selfToken, ignoreSelf, AoETargetType, autoTarget })) continue;
       if (token.actor && isTokenInside(templateDetails, token, wallsBlockTargeting)) {
         if (token.id) {
           targetTokens.push(token);
@@ -1527,12 +1592,15 @@ export function templateTokens(templateDetails: MeasuredTemplate, ignoreToken?: 
 // this is bound to a workflow when called - most of the time
 export function selectTargets(templateDocument: MeasuredTemplateDocument, data, user) {
   //@ts-expect-error
-  const hasWorkflow = this?.currentAction ?? Workflow.getWorkflow(templateDocument.flags?.dnd5e?.origin);
-  if (hasWorkflow === undefined) return true;
+  const workflow = this?.currentAction ? this : Workflow.getWorkflow(templateDocument.flags?.dnd5e?.origin);
+  if (workflow === undefined) return true;
 
-  let ignoreTokenUuid;
-  if (this?.item && this.item.hasAreaTarget && this.item.system.range.type === "self")
-    ignoreTokenUuid = this.tokenUuid;
+  const selfToken = getToken(workflow.tokenUuid);
+  let ignoreSelf: boolean = false;
+  if (this?.item && workflow.item.hasAreaTarget
+    && (workflow.item.system.range.type === "self") || getProperty(workflow.item, "flags.midi-qol.AoETargetTypeIncludeSelf") === false)
+    ignoreSelf = true;
+  const AoETargetType = getProperty(workflow.item, "flags.midi-qol.AoETargetType") ?? "any";
   // think about special = allies, self = all but self and any means everyone.
 
   if ((game.user?.targets.size === 0 || user !== game.user?.id)
@@ -1542,49 +1610,46 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
     //@ts-ignore
     if (mTemplate.shape)
       //@ts-ignore templateDocument.x, mtemplate.distance TODO check this v10
-      templateTokens(mTemplate, ignoreTokenUuid)
+      templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(this.item));
     else {
+      console.warn("midi-qol | selectTargets | Need to compute template shape")
       // @ ts-expect-error
       // mTemplate.shape = mTemplate._computeShape();
       let { shape, distance } = computeTemplateShapeDistance(templateDocument);
       //@ts-expect-error
       mTemplate.shape = shape;
-      //@ts-expect-error
-      mTemplate.distance = distance;
-      if (debugEnabled > 0) warn(`selectTargets computed shape ${shape} distance${distance}`)
+      //@ ts-expect-error
+      // mTemplate.distance = distance;
+      if (debugEnabled > 0) warn(`selectTargets computed shape ${shape} distance ${distance}`)
       //@ts-ignore .x, .y v10
-      templateTokens(mTemplate, ignoreTokenUuid);
+      templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(this.item));
     }
   }
-  let item = this?.item;
-  let targeting = configSettings.autoTarget;
-  this.templateId = templateDocument?.id;
-  this.templateUuid = templateDocument?.uuid;
+  let item = workflow.item;
+  let targeting = getAutoTarget(item);
+  workflow.templateId = templateDocument?.id;
+  workflow.templateUuid = templateDocument?.uuid;
   if (user === game.user?.id && item) templateDocument.setFlag("midi-qol", "originUuid", item.uuid); // set a refernce back to the item that created the template.
   if (targeting === "none") { // this is no good
-    Hooks.callAll("midi-qol-targeted", this.targets);
+    Hooks.callAll("midi-qol-targeted", workflow.targets);
     return true;
   }
 
-  // if the item specifies a range of "special" don't target the caster.
-  let selfTarget = (item?.system.range?.units === "spec") ? canvas?.tokens?.get(this.tokenId) : null;
-  if (selfTarget && game.user?.targets.has(selfTarget)) {
-    // we are targeted and should not be
-    selfTarget.setTarget(false, { user: game.user, releaseOthers: false })
-  }
-  this.saves = new Set();
   game.user?.targets?.forEach(token => {
-    if (!isTargetable(token)) token.setTarget(false, { user: game.user, releaseOthers: false })
+    if (!isAoETargetable(token, { ignoreSelf, selfToken, AoETargetType, autoTarget: getAutoTarget(item) })) token.setTarget(false, { user: game.user, releaseOthers: false })
   });
+
+  workflow.saves = new Set();
+
   //@ts-expect-error filter
-  this.targets = new Set(game.user?.targets ?? new Set()).filter(token => isTargetable(token));
-  this.hitTargets = new Set(this.targets);
-  this.templateData = templateDocument.toObject(); // TODO check this v10
-  this.needTemplate = false;
+  workflow.targets = new Set(game.user?.targets ?? new Set()).filter(token => isTargetable(token));
+  workflow.hitTargets = new Set(workflow.targets);
+  workflow.templateData = templateDocument.toObject(); // TODO check this v10
+  workflow.needTemplate = false;
   if (this instanceof TrapWorkflow) return;
-  this.needTemplate = false;
-  // REFACTOR return this.next(WORKFLOWSTATES.AWAITTEMPLATE);
-  return this.performState(this.WorkflowState_AwaitTemplate);
+  workflow.needTemplate = false;
+  // REFACTOR return workflow.next(WORKFLOWSTATES.AWAITTEMPLATE);
+  return workflow.performState(workflow.WorkflowState_AwaitTemplate);
 };
 
 export function activationConditionToUse(workflow: Workflow) {

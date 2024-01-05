@@ -511,6 +511,7 @@ export function processItemCardCreation(message, user) {
   const midiFlags = message.flags["midi-qol"];
   if (user === game.user?.id && midiFlags?.workflowId) { // check to see if it is a workflow
     const workflow = Workflow.getWorkflow(midiFlags.workflowId);
+
     if (!workflow) return;
     if (!workflow.itemCardId) {
       workflow.itemCardId = message.id;

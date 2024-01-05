@@ -55,14 +55,16 @@ export class TargetConfirmationDialog extends Application {
     let bottom = window.innerHeight - 200;
     let xposition = middleX;
     let yposition = middleY;
-    switch (targetConfirmation.gridPosition.x) {
+    switch (targetConfirmation.gridPosition?.x) {
       case -1: xposition = left; break;
       case 0: xposition = middleX; break;
+      default:
       case 1: xposition = right; break;
     }
-    switch (targetConfirmation.gridPosition.y) {
+    switch (targetConfirmation.gridPosition?.y) {
       case -1: yposition = top; break;
       case 0: yposition = middleY; break;
+      default:
       case 1: yposition = bottom; break;
     }
     return foundry.utils.mergeObject(super.defaultOptions, {

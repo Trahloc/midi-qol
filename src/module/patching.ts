@@ -1,7 +1,7 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSpeaker, getSystemCONFIG, getUnconsciousStatus, getWoundedStatus, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSelfTarget, getSpeaker, getSystemCONFIG, getUnconsciousStatus, getWoundedStatus, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -715,13 +715,15 @@ export function procAdvantageSkill(actor, skillId, options: Options): Options {
 
 let debouncedATRefresh = debounce(_midiATIRefresh, 30);
 function _midiATIRefresh(template) {
+  // We don't have an item to check auto targeting with, so just use the midi setting
   if (!canvas?.tokens) return;
-  if (configSettings.autoTarget === "none") return;
-  if (configSettings.autoTarget === "dftemplates" && installedModules.get("df-templates"))
+  let autoTarget = getAutoTarget(template.item);
+  if (autoTarget === "none") return;
+  if (autoTarget === "dftemplates" && installedModules.get("df-templates"))
     return; // df-templates will handle template targeting.
 
 
-  if (installedModules.get("levelsvolumetrictemplates") && !["walledtemplates"].includes(configSettings.autoTarget)) {
+  if (installedModules.get("levelsvolumetrictemplates") && !["walledtemplates"].includes(autoTarget)) {
     //@ts-expect-error CONFIG.Levels
     const levelsTemplateData = CONFIG.Levels.handlers.TemplateHandler.getTemplateData();
     setProperty(template.document, "flags.levels.special", levelsTemplateData.special);
@@ -740,9 +742,9 @@ function _midiATIRefresh(template) {
       const maxExtension = (1 + Math.max(tk.document.width, tk.document.height)) * dimensions.size;
       const centerDist = r.distance;
       if (centerDist > distance + maxExtension) return false;
-      if (["alwaysIgnoreIncapcitated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.autoTarget) && checkIncapacitated(tk, debugEnabled > 0))
+      if (["alwaysIgnoreIncapcitated", "wallsBlockIgnoreIncapacitated"].includes(autoTarget) && checkIncapacitated(tk, debugEnabled > 0))
         return false;
-      if (["alwaysIgnoreDefeated", "wallsBlockIgnoreDefeated"].includes(configSettings.autoTarget) && checkDefeated(tk))
+      if (["alwaysIgnoreDefeated", "wallsBlockIgnoreDefeated"].includes(autoTarget) && checkDefeated(tk))
         return false;
       return true;
     })
@@ -753,7 +755,11 @@ function _midiATIRefresh(template) {
     }
   } else {
     const distance: number = template.distance ?? 0;
-    templateTokens(template);
+    if (template.item) {
+      templateTokens(template, getSelfTarget(template.item.parent), !getProperty(template.item, "flags.midi-qol.AoETargetTypeIncludeSelf"), getProperty(template.item, "flags.midi-qol.AoETargetType"), autoTarget);
+      return true;
+    } else 
+      templateTokens(template);
     return true;
   }
   return true;
@@ -1054,7 +1060,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
             if (debugEnabled > 0) warn("removeConcentration | removing effects", actor?.name, effectsToDelete, options);
             promises.push(socketlibSocket.executeAsGM("deleteEffects", {
               actorUuid: target.actorUuid, effectsToDelete,
-              options: mergeObject(deleteOptions, { concentrationEffectsDeleted: true, noConcentrationCheck: true })
+              options: mergeObject(deleteOptions, { concentrationDeleted: true, concentrationEffectsDeleted: true, noConcentrationCheck: true })
             }));
           }
         }
@@ -1081,6 +1087,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
   }
 }
 
+/*
 export async function removeConcentrationOld(actor: Actor, concentrationUuid: string, options: any) {
   let result;
   try {
@@ -1130,6 +1137,7 @@ export async function removeConcentrationOld(actor: Actor, concentrationUuid: st
     // return await concentrationEffect?.delete();
   }
 }
+*/
 
 export async function zeroHPExpiry(actor, update, options, user) {
   const hpUpdate = getProperty(update, "system.attributes.hp.value");
@@ -1294,7 +1302,8 @@ export function configureDamageRollDialog() {
 function _getUsageConfig(wrapped): any {
   //Radius tempalte spells with self/spec/any will auto place the template so don't prompt for it in config.
   const config = wrapped();
-  const autoCreatetemplate = this.hasAreaTarget && ["self", "spec", "any"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
+//  const autoCreatetemplate = this.hasAreaTarget && ["self"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
+  const autoCreatetemplate = this.hasAreaTarget && ["self"].includes(this.system.range?.units);
   if (autoCreatetemplate) config.createMeasuredTemplate = null;
   return config;
 }

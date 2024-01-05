@@ -1,5 +1,5 @@
 import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
-import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic } from "./settings.js";
+import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
@@ -784,8 +784,25 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       await workflow.triggerTargetMacros(["preTargetDamageApplication"], [t]);
       ditem = workflow.damageItem;
     }
+    workflow.damageItem = ditem;
+    await asyncHooksCallAll(`midi-qol.preTargetDamageApplication`, t, { item, workflow, damageItem: ditem, ditem });
+    ditem = workflow.damageItem;
+
+    // delete workflow.damageItem
+    damageList.push(ditem);
+    targetNames.push(t.name)
+
     if (ditem.appliedDamage !== 0 && ditem.wasHit) {
       const healedDamaged = ditem.appliedDamage < 0 ? "isHealed" : "isDamaged";
+      workflow.ditem = duplicate(ditem);
+      await asyncHooksCallAll(`midi-qol.${healedDamaged}`, t, { item, workflow, damageItem: workflow.ditem, ditem: workflow.ditem });
+      const actorOnUseMacros = getProperty(t.actor ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
+      // It seems applyTokenDamageMany without a workflow gets through to here - so a silly guard in place TODO come back and fix this properly
+      if (workflow.callMacros) await workflow.callMacros(workflow.item,
+        actorOnUseMacros?.getMacros(healedDamaged),
+        "TargetOnUse",
+        healedDamaged,
+        { actor: t.actor, token: t });
       const expiredEffects = t?.actor?.effects.filter(ef => {
         const specialDuration = getProperty(ef, "flags.dae.specialDuration");
         if (!specialDuration) return false;
@@ -798,18 +815,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
           options: { "expiry-reason": `midi-qol:${healedDamaged}` }
         });
       }
-      await asyncHooksCallAll(`midi-qol.${healedDamaged}`, t, { item, workflow, damageItem: ditem, ditem });
-      const actorOnUseMacros = getProperty(t.actor ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
-      // It seems applyTokenDamageMany without a workflow gets through to here - so a silly guard in place TODO come back and fix this properly
-      if (workflow.callMacros) await workflow.callMacros(workflow.item,
-        actorOnUseMacros?.getMacros(healedDamaged),
-        "TargetOnUse",
-        healedDamaged,
-        { actor: t.actor, token: t });
     }
-    // delete workflow.damageItem
-    damageList.push(ditem);
-    targetNames.push(t.name)
   }
   if (theTargets.size > 0) {
     workflow.damageList = damageList;
@@ -1021,10 +1027,10 @@ export let getSaveMultiplierForItem = (item: Item) => {
   }
 
   //@ts-expect-error item.flags v10
-  const itemProperties: any = item.flags.midiProperties;
-  if (itemProperties?.nodam || itemProperties?.saveDamage === "nodam") return 0;
-  if (itemProperties?.fulldam || itemProperties?.saveDamage ==="fulldam") return 1;
-  if (itemProperties?.halfdam || itemProperties?.saveDamage ==="halfdam") return 0.5;
+  const midiItemProperties: any = item.flags.midiProperties;
+  if (midiItemProperties?.nodam || midiItemProperties?.saveDamage === "nodam") return 0;
+  if (midiItemProperties?.fulldam || midiItemProperties?.saveDamage === "fulldam") return 1;
+  if (midiItemProperties?.halfdam || midiItemProperties?.saveDamage === "halfdam") return 0.5;
 
   if (!configSettings.checkSaveText) return configSettings.defaultSaveMult;
   //@ts-expect-error item.system v10
@@ -1059,7 +1065,7 @@ export let getSaveMultiplierForItem = (item: Item) => {
   return configSettings.defaultSaveMult;
 };
 
-export function requestPCSave(ability, rollType, player, actor, { advantage, disadvantage, flavor, dc, requestId, GMprompt, isMagicSave, magicResistance, magicVulnerability }) {
+export function requestPCSave(ability, rollType, player, actor, { advantage, disadvantage, flavor, dc, requestId, GMprompt, isMagicSave, magicResistance, magicVulnerability, saveItemUuid }) {
   const useUuid = true; // for  LMRTFY
   const actorId = useUuid ? actor.uuid : actor.id;
   const playerLetme = !player?.isGM && ["letme", "letmeQuery"].includes(configSettings.playerRollSaves);
@@ -1104,7 +1110,8 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
         attach: { requestId },
         deathsave: false,
         initiative: false,
-        isMagicSave
+        isMagicSave,
+        saveItemUuid
       }
       if (debugEnabled > 1) debug("process player save ", socketData)
       game.socket?.emit('module.lmrtfy', socketData);
@@ -1687,7 +1694,7 @@ export function untargetAllTokens(...args) {
 export function checkDefeated(tokenRef: Actor | Token | TokenDocument | string): 0 | 1 {
   const tokenDoc = getTokenDocument(tokenRef);
   //@ts-expect-error specialStatusEffects
-  return hasCondition(tokenDoc, CONFIG.specialStatusEffects.DEFEATED) 
+  return hasCondition(tokenDoc, CONFIG.specialStatusEffects.DEFEATED)
     || hasCondition(tokenDoc, configSettings.midiDeadCondition);
 }
 
@@ -1858,8 +1865,8 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
     if (debugEnabled > 0) warn("getDistance | simbuls cover calculator ", t1.name, t2.name, coverData);
     if (coverData?.data.results.cover === 3 && wallblocking) return -1;
     coverVisible = true;
-  } else if (installedModules.get("tokenvisibility") && configSettings.optionalRules.wallsBlockRange === "tokenvisibility") {
-    const coverValue = calcTokenVisibilityCover(t1, t2);
+  } else if (installedModules.get("tokencover") && configSettings.optionalRules.wallsBlockRange === "tokencover") {
+    const coverValue = calcTokenCover(t1, t2);
     if (coverValue === 3 && wallblocking) return -1;
     coverVisible = true;
 
@@ -1990,6 +1997,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     }
 
     let actor = token.actor;
+    // look at undefined versus !
     if (!item.system.range.value && !item.system.range.long && item.system.range.units !== "touch") return {
       result: "normal",
       reason: "no range specified"
@@ -2061,9 +2069,10 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     }
     if (item.system.range.units === "touch") {
       range = canvas?.dimensions?.distance ?? 5;
-      if (getProperty(item, "system.properties.rch")) range = 2 * range;
+      if (getProperty(item, "system.properties.rch")) range += canvas?.dimensions?.distance ?? 5;
       longRange = 0;
     }
+
     if (["mwak", "msak", "mpak"].includes(item.system.actionType) && !item.system.properties?.thr) longRange = 0;
     for (let target of targets) {
       if (target === token) continue;
@@ -2073,7 +2082,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
         return {
           result: "fail",
           reason: `${actor.name}'s has one or more of ${globalThis.MidiQOL.WallsBlockConditions} so can't be targeted`,
-          range, 
+          range,
           longRange
         }
       }
@@ -2086,14 +2095,14 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
           return {
             result: "dis",
             reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
-            range, 
+            range,
             longRange
           }
         } else {
           return {
             result: "fail",
             reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
-            range, 
+            range,
             longRange
           }
         }
@@ -2101,7 +2110,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       if (distance > range) return {
         result: "dis",
         reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
-        range, 
+        range,
         longRange
       }
       if (distance < 0) {
@@ -2109,14 +2118,14 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
         return {
           result: "fail",
           reason: `${actor.name}'s target is blocked by a wall`,
-          range, 
+          range,
           longRange
         }
       }
     }
     return {
       result: "normal",
-      range, 
+      range,
       longRange
     }
   }
@@ -2204,24 +2213,14 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
         console.log("midi-qol | ComputeCover Bonus - For token ", attacker.name, " attacking ", target.name, " cover data is ", coverBonus, coverData)
       }
       break;
-    case "tokenvisibility":
-      if (!installedModules.get("tokenvisibility")) coverBonus = 0;
-      else if (game.settings.get("tokenvisibility", "midiqol-covercheck") === "midiqol-covercheck-none") {
-        const coverValue = calcTokenVisibilityCover(attacker, target);
-        switch (coverValue) {
-          case 1:
-            coverBonus = HALF_COVER;
-            break;
-          case 2:
-            coverBonus = THREE_QUARTERS_COVER;
-            break;
-          case 3:
-            coverBonus = FULL_COVER;
-            break;
-          case 0:
-          default:
-            coverBonus = 0;
-        }
+    case "tokencover":
+      if (!installedModules.get("tokencover")) coverBonus = 0;
+      else if (safeGetGameSetting("tokencover", "midiqol-covercheck") === "midiqol-covercheck-none") {
+        const coverValue = calcTokenCover(attacker, target);
+        if (coverValue < (safeGetGameSetting("tokencover", "cover-trigger-percent-low") ?? 0.5)) coverBonus = 0;
+        else if (coverValue < (safeGetGameSetting("tokencover", "cover-trigger-percent-medium") ?? 0.75)) coverBonus = HALF_COVER;
+        else if (coverValue < (safeGetGameSetting("tokencover", "cover-trigger-percent-high") ?? 1)) coverBonus = THREE_QUARTERS_COVER;
+        else coverBonus = FULL_COVER;
       }
       break;
     case "none":
@@ -2291,12 +2290,22 @@ export function itemIsVersatile(item) {
   return item?.system.actionType !== "" && item?.isVersatile;
 }
 
-export function getRemoveAttackButtons() {
+export function getRemoveAttackButtons(item?: Item): boolean {
+  if (item) {
+    const itemSetting = getProperty(item, "flags.midi-qol.removeAttackDamageButtons");
+    if (["all", "attack"].includes(itemSetting)) return true;
+    if (itemSetting !== "default") return false;
+  }
   return game.user?.isGM ?
     ["all", "attack"].includes(configSettings.gmRemoveButtons) :
     ["all", "attack"].includes(configSettings.removeButtons);
 }
-export function getRemoveDamageButtons() {
+export function getRemoveDamageButtons(item?: Item): boolean {
+  if (item) {
+    const itemSetting = getProperty(item, "flags.midi-qol.removeAttackDamageButtons");
+    if (["all", "damage"].includes(itemSetting)) return true;
+    if (itemSetting !== "default") return false;
+  }
   return game.user?.isGM ?
     ["all", "damage"].includes(configSettings.gmRemoveButtons) :
     ["all", "damage"].includes(configSettings.removeButtons);
@@ -2945,9 +2954,9 @@ export async function processAttackRollBonusFlags() { // bound to workflow
       if (this.item && this.item.hasAttack) attackBonus = `attack.fail.${this.item.system.actionType}`;
       let bonusFlags = Object.keys(optionalFlags)
         .filter(flag => {
-          const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.fail`)
+          const hasAttackFlag = getProperty(this.actor.flags, `midi-qol.optional.${flag}.attack.fail.all`)
             || getProperty(this.actor.flags, `midi-qol.optional.${flag}.${attackBonus}`);
-          if (!hasAttackFlag === undefined) return false;
+          if (hasAttackFlag === undefined) return false;
           if (this.isFumble && !hasAttackFlag?.includes("roll")) return false;
           if (!this.actor.flags["midi-qol"].optional[flag].count) return true;
           return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
@@ -4058,14 +4067,17 @@ export function computeTemplateShapeDistance(templateDocument: MeasuredTemplateD
   //@ts-expect-error distancePixels
   distance *= canvas.dimensions?.distancePixels;
   direction = Math.toRadians(direction);
+  if (!templateDocument.object) {
+    throw new Error("Template document has no object");
+  }
   //@ts-expect-error
-  if (templateDocument.object) templateDocument.object.ray = Ray.fromAngle(x, y, direction, distance);
-  else return { shape: "none", distance: 0 };
+  templateDocument.object.ray = Ray.fromAngle(x, y, direction, distance);
+
   let shape: any;
   //@ts-expect-error ._computeShape
-  shape = templateDocument.object._computeShape();
+  templateDocument.object.shape = templateDocument.object._computeShape();
   //@ts-expect-error distance v10
-  return { shape, distance: templateDocument.distance };
+  return { shape: templateDocument.object.shape, distance: templateDocument.distance };
 }
 
 var _enableNotifications = true;
@@ -4169,6 +4181,7 @@ export async function setReactionUsed(actor: Actor) {
 }
 
 export async function setBonusActionUsed(actor: Actor) {
+  if (debugEnabled > 0) warn("setBonusActionUsed | starting");
   if (!["all", "displayOnly"].includes(configSettings.enforceBonusActions) && configSettings.enforceBonusActions !== actor.type) return;
   let effect;
   if (getConvenientEffectsBonusAction()) {
@@ -4180,7 +4193,9 @@ export async function setBonusActionUsed(actor: Actor) {
       await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
     }
   await actor.setFlag("midi-qol", "actions.bonusActionCombatRound", game.combat?.round);
-  return await actor.setFlag("midi-qol", "actions.bonus", true);
+  const result = await actor.setFlag("midi-qol", "actions.bonus", true);
+  if (debugEnabled > 0) warn("setBonusActionUsed | starting");
+  return result;
 }
 
 export async function removeActionUsed(actor: Actor) {
@@ -4318,6 +4333,7 @@ export async function asyncHooksCallAll(hook, ...args): Promise<boolean | undefi
   }
   //@ts-expect-error
   const hookEvents = Hooks.events[hook];
+  if (debugEnabled > 1) debug("asyncHooksCall", hook, "hookEvents:", hookEvents, args)
   if (!hookEvents) return undefined;
   if (debugEnabled > 0) {
     warn(`asyncHooksCall calling ${hook}`, hookEvents, args)
@@ -4345,7 +4361,7 @@ export async function asyncHooksCall(hook, ...args): Promise<boolean | undefined
   }
   //@ts-expect-error events
   const hookEvents = Hooks.events[hook];
-
+  if (debugEnabled > 1) log("asyncHooksCall", hook, "hookEvents:", hookEvents, args)
   if (!hookEvents) return undefined;
   if (debugEnabled > 0) {
     warn(`asyncHooksCall calling ${hook}`, args, hookEvents)
@@ -4806,7 +4822,6 @@ export function tokenForActor(actorRef: Actor | string): Token | undefined {
 }
 
 export async function doConcentrationCheck(actor, saveDC) {
-  if (!configSettings.concentrationDamageCheck) return;
   const itemData = duplicate(itemJSONData);
   setProperty(itemData, "system.save.dc", saveDC);
   setProperty(itemData, "system.save.ability", "con");
@@ -4997,7 +5012,7 @@ function contestedRollFlavor(baseFlavor: string | undefined, rollType: string, a
   }
   return `${baseFlavor ?? i18n("midi-qol.ContestedRoll")} ${flavor}`;
 }
-export function validRolAbility(rollType: string, ability: string): string | undefined {
+export function validRollAbility(rollType: string, ability: string): string | undefined {
   const config = getSystemCONFIG();
   if (typeof ability !== "string") return undefined;
   ability = ability.toLocaleLowerCase().trim();
@@ -5029,7 +5044,7 @@ export async function contestedRoll(data: {
   const { rollOptions, success, failure, drawn, displayResults, itemCardId, flavor } = data;
 
   let canProceed = true;
-  if (!source || !target || !sourceToken || !targetToken || !source.rollType || !target.rollType || !source.ability || !target.ability || !validRolAbility(source.rollType, source.ability) || !validRolAbility(target.rollType, target.ability)) {
+  if (!source || !target || !sourceToken || !targetToken || !source.rollType || !target.rollType || !source.ability || !target.ability || !validRollAbility(source.rollType, source.ability) || !validRollAbility(target.rollType, target.ability)) {
     error(`contestRoll | source[${sourceToken?.name}], target[${targetToken?.name}], source.rollType[${source.rollType}], target.rollType[${target?.rollType}], source.ability[${source.ability}], target.ability[${target?.ability}] must all be defined`);
     canProceed = false;
   }
@@ -5048,8 +5063,8 @@ export async function contestedRoll(data: {
 
   if (!sourceDocument || !targetDocument) canProceed = false;
   if (!canProceed) return { result: undefined, rolls: [] }
-  source.ability = validRolAbility(source.rollType, source.ability) ?? "";
-  target.ability = validRolAbility(target.rollType, target.ability) ?? "";
+  source.ability = validRollAbility(source.rollType, source.ability) ?? "";
+  target.ability = validRollAbility(target.rollType, target.ability) ?? "";
 
   let player1 = playerFor(sourceToken);
   //@ts-expect-error activeGM
@@ -5148,22 +5163,22 @@ export function getToken(tokenRef: Actor | Token | TokenDocument | string | unde
 
 export function calcTokenCover(attacker: Token | TokenDocument, target: Token | TokenDocument): number {
   const attackerToken = getToken(attacker);
-	const targetToken = getToken(target);
+  const targetToken = getToken(target);
 
-	//@ts-expect-error .coverCalc
+  //@ts-expect-error .coverCalc
   const coverCalc = attackerToken.tokencover?.coverCalc;
-  if ( !attackerToken || !targetToken || !coverCalc ) {
-		let message = "midi-qol | calcTokenCover | failed";
-		if (!coverCalc)
-			message += " tokencover not installed or cover calculator not found";
-		if (!attackerToken)
-			message += " atacker token not valid";
-		if (!targetToken)
-			message += " target token not valid";
-		const err = new Error("calcTokenCover failed");
-		TroubleShooter.recordError(err, message);
-		console.warn(message, err);
-		return 0;
+  if (!attackerToken || !targetToken || !coverCalc) {
+    let message = "midi-qol | calcTokenCover | failed";
+    if (!coverCalc)
+      message += " tokencover not installed or cover calculator not found";
+    if (!attackerToken)
+      message += " atacker token not valid";
+    if (!targetToken)
+      message += " target token not valid";
+    const err = new Error("calcTokenCover failed");
+    TroubleShooter.recordError(err, message);
+    console.warn(message, err);
+    return 0;
   }
 
   return coverCalc.percentCover(targetToken) ?? 0;
@@ -5203,8 +5218,12 @@ export function getIconFreeLink(entity: Token | TokenDocument | Item | Actor | n
 export function midiMeasureDistances(segments, options: any = {}) {
 
   //@ts-expect-error .grid
-  if (canvas?.grid?.grid.constructor.name !== "BaseGrid" || !options.gridSpaces || !configSettings.griddedGridless)
-    return canvas?.grid?.measureDistances(segments, options);
+  if (canvas?.grid?.grid.constructor.name !== "BaseGrid" || !options.gridSpaces || !configSettings.griddedGridless) {
+    const distances = canvas?.grid?.measureDistances(segments, options);
+    if (!configSettings.gridlessFudge) return distances; // TODO consider other impacts of doing this
+    return distances;
+    return distances?.map(d => Math.max(0, d - configSettings.gridlessFudge));
+  }
 
   //@ts-expect-error .diagonalRule
   const rule = canvas?.grid.diagonalRule;
@@ -5251,5 +5270,12 @@ export function midiMeasureDistances(segments, options: any = {}) {
     // Standard PHB Movement
     else return Math.max(nx, ny) * grid.distance;
   });
+}
 
+export function getAutoTarget(item: Item): string {
+  if (!item) return configSettings.autoTarget;
+  const midiFlags = getProperty(item, "flags.midi-qol");
+  const autoTarget = midiFlags.autoTarget;
+  if (!autoTarget || autoTarget === "default") return configSettings.autoTarget;
+  return autoTarget;
 }

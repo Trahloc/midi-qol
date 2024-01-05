@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, WORKFLOWSTATES } from './module/workflow.js';
-import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRolAbility } from './module/utils.js';
+import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -26,6 +26,7 @@ export let log = (...args) => console.log("midi-qol | ", ...args);
 export let warn = (...args) => { if (debugEnabled > 0) console.warn("midi-qol | ", ...args) };
 export let error = (...args) => console.error("midi-qol | ", ...args);
 export let timelog = (...args) => warn("midi-qol | ", Date.now(), ...args);
+export var levelsAPI;
 
 declare global {
   interface LenientGlobalVariableTypes {
@@ -95,7 +96,7 @@ export let cleanSpellName = (name: string): string => {
 /* ------------------------------------ */
 Hooks.once("levelsReady", function () {
   //@ts-ignore
-  installedModules.set("levels", CONFIG.Levels.API)
+  levelsAPI = CONFIG.Levels.API;
 });
 
 Hooks.once('init', async function () {
@@ -525,7 +526,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     TrapWorkflow: class TrapWorkflow extends Workflow,
     TroubleShooter: class TroubleShooter,
     undoMostRecentWorkflow,
-    validRolAbility: function validRolAbility(rollType: string, ability: string): string | undefined,
+    validRollAbility: function validRollAbility(rollType: string, ability: string): string | undefined,
     WallsBlockConditions: string[],
     warn: function warn(...args: any[]): void,
     Workflow: class Workflow,
@@ -624,7 +625,7 @@ function setupMidiQOLApi() {
     TrapWorkflow,
     TroubleShooter,
     undoMostRecentWorkflow,
-    validRolAbility,
+    validRollAbility,
     WallsBlockConditions,
     warn,
     Workflow,

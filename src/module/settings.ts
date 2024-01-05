@@ -69,6 +69,7 @@ class ConfigSettings {
   autoRemoveTemplate: boolean;
   autoRollAttack: boolean = false;
   autoRollDamage: string = "none";
+  autoCompleteWorkflow = false;
   saveDROrder = "SaveDRdr";
   autoTarget: string = "none";
   averageNPCDamage: boolean = false;
@@ -156,7 +157,6 @@ class ConfigSettings {
   spellUseSoundRanged: string = "";
   syrinToken: string | undefined = undefined;
   tempHPDamageConcentrationCheck: boolean = false;
-  concentrationDamageCheck: boolean = true; //TODO add UI to set this
   concentrationIncapacitatedConditionCheck: boolean = false;
   toggleOptionalRules: boolean = false;
   useCustomSounds: boolean = true;
@@ -493,7 +493,6 @@ export let fetchParams = () => {
   targetConfirmation = game.settings.get("midi-qol", "TargetConfirmation");
   if (configSettings.griddedGridless === undefined) configSettings.griddedGridless = false;
   if (configSettings.gridlessFudge === undefined) configSettings.gridlessFudge = 0;
-  if (configSettings.concentrationDamageCheck === undefined) configSettings.concentrationDamageCheck = true;
   if (configSettings.concentrationIncapacitatedConditionCheck === undefined) configSettings.concentrationIncapacitatedConditionCheck = false;
   if (targetConfirmation === undefined || typeof targetConfirmation === "string" || targetConfirmation instanceof String) targetConfirmation = {
     enabled: false,

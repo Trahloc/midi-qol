@@ -1,4 +1,11 @@
-2023/12/22-11:39:47.420820 7fdb71fbd640 Log #239: 0 ops saved to Table #242 OK
-2023/12/22-11:39:47.420892 7fdb71fbd640 Archiving /home/timp/foundry-data/foundryv11/Data/modules/midi-qol/packs/sampleitems/000239.log: OK
-2023/12/22-11:39:47.421588 7fdb71fbd640 Table #241: 161 entries OK
-2023/12/22-11:39:47.424411 7fdb71fbd640 **** Repaired leveldb /home/timp/foundry-data/foundryv11/Data/modules/midi-qol/packs/sampleitems; recovered 1 files; 237779 bytes. Some data may have been lost. ****
+2024/01/04-14:34:46.862027 7f8a0e7bd640 Delete type=3 #1
+2024/01/04-14:36:36.497889 7f8a0d3ff640 Level-0 table #277: started
+2024/01/04-14:36:36.497914 7f8a0d3ff640 Level-0 table #277: 0 bytes OK
+2024/01/04-14:36:36.501260 7f8a0d3ff640 Delete type=0 #275
+2024/01/04-14:36:36.501369 7f8a0d3ff640 Manual compaction at level-0 from '!folders!03xh8o98NV0wViRp' @ 72057594037927935 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 88 : 1
+2024/01/04-14:36:36.501373 7f8a0d3ff640 Compacting 1@0 + 0@1 files
+2024/01/04-14:36:36.506753 7f8a0d3ff640 Generated table #278@0: 161 keys, 238189 bytes
+2024/01/04-14:36:36.506777 7f8a0d3ff640 Compacted 1@0 + 0@1 files => 238189 bytes
+2024/01/04-14:36:36.509943 7f8a0d3ff640 compacted to: files[ 0 1 0 0 0 0 0 ]
+2024/01/04-14:36:36.509989 7f8a0d3ff640 Delete type=2 #272
+2024/01/04-14:36:36.510120 7f8a0d3ff640 Manual compaction at level-0 from '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 88 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at (end)

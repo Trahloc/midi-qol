@@ -2,20 +2,17 @@ import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAtt
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile } from "./utils.js";
-import { OnUseMacros, activateMacroListeners } from "./apps/Item.js"
+import { activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
-import { installedModules } from "./setupModules.js";
 import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
-import { updateJsxSelfClosingElement } from "typescript";
+import { get } from "jquery";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
 export var midiFlagTypes: {} = {};
-
-
 
 export let readyHooks = async () => {
   // need to record the damage done since it is not available in the update actor hook
@@ -23,7 +20,7 @@ export let readyHooks = async () => {
     const hpUpdate = getProperty(update, "system.attributes.hp.value");
     const temphpUpdate = getProperty(update, "system.attributes.hp.temp");
     let concHPDiff = 0;
-    if (!options.noConcentrationCheck) {
+    if (!options.noConcentrationCheck && configSettings.concentrationAutomation) {
       if (hpUpdate !== undefined) {
         let hpChange = actor.system.attributes.hp.value - hpUpdate;
         // if (hpUpdate >= (actor.system.attributes.hp.tempmax ?? 0) + actor.system.attributes.hp.max) hpChange = 0;
@@ -81,7 +78,7 @@ export let readyHooks = async () => {
       // if (globalThis.DAE?.actionQueue && !globalThis.DAE.actionQueue.remaining) await globalThis.DAE.actionQueue.add(hpUpdateFunc);
       // else await hpUpdateFunc();
       await hpUpdateFunc();
-      if (configSettings.concentrationAutomation && configSettings.concentrationDamageCheck && hpDiff > 0 && !options.noConcentrationCheck) {
+      if (configSettings.concentrationAutomation && configSettings.removeConcentration && hpDiff > 0 && !options.noConcentrationCheck) {
         // expireRollEffect.bind(actor)("Damaged", ""); - not this simple - need to think about specific damage types
         concentrationCheckItemDisplayName = i18n("midi-qol.concentrationCheckName");
         const concentrationEffect: ActiveEffect | undefined = getConcentrationEffect(actor)
@@ -113,10 +110,7 @@ export let readyHooks = async () => {
   Hooks.on("deleteActiveEffect", (...args) => {
     let [deletedEffect, options, user] = args;
     const checkConcentration = configSettings.concentrationAutomation;
-    if (debugEnabled > 0) warn("Deleted effects is ", deletedEffect, options);
-
     if (!checkConcentration || options.noConcentrationCheck) return;
-
     //@ts-expect-error activeGM
     if (!game.users?.activeGM?.isSelf) return;
     if (!(deletedEffect.parent instanceof CONFIG.Actor.documentClass)) return;
@@ -129,12 +123,12 @@ export let readyHooks = async () => {
         if (isConcentration && !options.noConcentrationCheck) {
           options.concentrationEffectsDeleted = false;
           options.concentrationDeleted = true;
-          return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { concentrationDeleted: true }));
+          return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { concentrationDeleted: true, noConcnetrationCheck: true }));
         }
         if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass && !options.noConcentrationCheck) {
           const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
           if (concentrationData && deletedEffect.origin === concentrationData.uuid) {
-
+            const newTargets: {tokenUuid: string, actorUuid: string}[] = [];
             const allConcentrationTargets = concentrationData.targets.filter(target => {
               let actor = MQfromActorUuid(target.actorUuid);
               const hasEffects = actor?.effects.some(effect =>
@@ -143,8 +137,9 @@ export let readyHooks = async () => {
                 && effect.uuid !== deletedEffect.uuid);
               return hasEffects;
             });
+
             const concentrationTargets = concentrationData.targets.filter(target => {
-              let actor = MQfromActorUuid(target.actorUuid);
+              let  actor = MQfromActorUuid(target.actorUuid);
               const hasEffects = actor?.effects.some(effect =>
                 effect.origin === concentrationData.uuid
                 && !effect.flags.dae.transfer
@@ -152,18 +147,24 @@ export let readyHooks = async () => {
                 && effect.name !== concentrationLabel);
               return hasEffects;
             });
-            if (!options.noConcentrationCheck
-              && ["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
-              && concentrationTargets.length < 1
-              && concentrationTargets.length < concentrationData.targets.length
-              && concentrationData.templates.length === 0
-              && concentrationData.removeUuids.length === 0) {
-              // only non concentration effects left
-              await removeConcentration(origin.parent, deletedEffect.uuid, mergeObject(options, { concentrationEffectsDeleted: true, concentrationDeleted: undefined }));
-            } else if (concentrationData.targets.length !== allConcentrationTargets.length) {
-              // update the concentration data
-              concentrationData.targets = allConcentrationTargets;
-              await origin.parent.setFlag("midi-qol", "concentration-data", concentrationData);
+            const concentrationExpired = (getConcentrationEffect(origin.parent)?.duration?.remaining ?? 1) <= 0;
+            if (concentrationExpired) {
+              await removeConcentration(origin.parent, deletedEffect.uuid, mergeObject(options, { concentrationEffectsDeleted: true, concentrationDeleted: false, noConcentrationCheck: true }));
+            } else {
+              const templatesRemain = configSettings.removeConcentrationEffects === "effectsTemplates" && concentrationData.templates.length > 0;
+              if (!options.noConcentrationCheck
+                && ["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
+                && concentrationTargets.length < 1
+                && concentrationTargets.length < concentrationData.targets.length
+                && !templatesRemain
+                && concentrationData.removeUuids.length === 0) {
+                // only non concentration effects left
+                await removeConcentration(origin.parent, deletedEffect.uuid, mergeObject(options, { concentrationEffectsDeleted: true, concentrationDeleted: undefined }));
+              } else if (concentrationData.targets.length !== allConcentrationTargets.length) {
+                // update the concentration data
+                concentrationData.targets = allConcentrationTargets;
+                await origin.parent.setFlag("midi-qol", "concentration-data", concentrationData);
+              }
             }
           }
         }
@@ -319,6 +320,8 @@ export function initHooks() {
       TroubleShooter.recordError(new Error(message));
       return;
     }
+    let autoTargetOptions = mergeObject({"default": i18n("midi-qol.MidiSettings")}, geti18nOptions("autoTargetOptions"));
+    let RemoveAttackDamageButtonsOptions = mergeObject({"default": i18n("midi-qol.MidiSettings")}, geti18nOptions("removeButtonsOptions")); 
     //@ts-expect-error
     const ceForItem = game.dfreds?.effects?.all.find(e => e.name === item.name);
     data = mergeObject(data, {
@@ -329,11 +332,31 @@ export function initHooks() {
       hasSave: item.hasSave,
       midiPropertyLabels: midiProps,
       SaveDamageOptions: geti18nOptions("SaveDamageOptions"),
-      ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions")
+      ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions"),
+      AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
+      AutoTargetOptions:  autoTargetOptions,
+      RemoveAttackDamageButtonsOptions
+
     });
+    if (!getProperty(item, "flags.midi-qol.autoTarget")) {
+      setProperty(data, "flags.midi-qol.autoTarget", "default");
+    }
+    if (!getProperty(item, "flags.midi-qol.removeAttackDamageButtons")) {
+      setProperty(data, "flags.midi-qol.removeAttackDamageButtons", "default");
+    }
     if (ceForItem) {
       data.showCEOff = ["both", "cepri", "itempri"].includes(configSettings.autoCEEffects);
       data.showCEOn = ["none", "itempri"].includes(configSettings.autoCEEffects);
+    }
+    if (item.hasAreaTarget) {
+      if (!getProperty(item, "flags.midi-qol.AoETargetType")) {
+        setProperty(data, "flags.midi-qol.AoETargetType", "any");
+        setProperty(item, "flags.midi-qol.AoETargetType", "any");
+      }
+      if (getProperty(item, "flags.midi-qol.AoETargetTypeIncludeSelf") === undefined) {
+        setProperty(data, "flags.midi-qol.AoETargetTypeIncludeSelf", true);
+        setProperty(item, "flags.midi-qol.AoETargetTypeIncludeSelf", true);
+      }
     }
     setProperty(data, "flags.midiProperties", item.flags?.midiProperties ?? {});
     if (item && ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(item.type)) {
@@ -342,23 +365,21 @@ export function initHooks() {
           && item.flags?.midiProperties[prop] === undefined) {
           data.flags.midiProperties[prop] = item.system.properties[prop];
         } else if (getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
-          if (prop==="saveDamage") {
+          if (prop === "saveDamage") {
           } else data.flags.midiProperties[prop] = false;
         }
       }
+
       // Migrate existing saving throw damage multipliers to the new saveDamage
       if (data.flags.midiProperties?.fulldam !== undefined) {
         if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["saveDamage"] = "fulldam";
-        item.updateSource({"flags.midiProperties.-=fulldam": null});
-      } 
+      }
       if (data.flags.midiProperties?.halfdam !== undefined) {
         if (data.flags.midiProperties?.halfdam) data.flags.midiProperties["saveDamage"] = "halfdam";
-        item.updateSource({"flags.midiProperties.-=halfdam": null});
-      } 
+      }
       if (data.flags.midiProperties?.nodam !== undefined) {
         if (data.flags.midiProperties?.nodam) data.flags.midiProperties["saveDamage"] = "nodam";
-        item.updateSource({"flags.midiProperties.-=nodam": null});
-      } 
+      }
       if (data.flags.midiProperties["saveDamage"] === undefined)
         data.flags.midiProperties["saveDamage"] = "default";
       if (data.flags.midiProperties["confirmTargets"] === true)
@@ -373,17 +394,9 @@ export function initHooks() {
       delete data.flags.midiProperties.nodam;
     }
     data.showHeader = true;
-    if (item.system.properties?.fulldam !== undefined) {
-      item.updateSource({ // TODO check this v10
-        "system.properties.-=fulldam": null,
-        "system.properties.-=halfdam": null,
-        "system.properties.-=nodam": null,
-        "system.properties.-=critOther": null,
-        "flags.midiProperties": data.flags.midiProperties
-      })
-    }
     return data;
   }
+  
 
   Hooks.once('tidy5e-sheet.ready', (api) => {
     const myTab = new api.models.HandlebarsTab({
@@ -465,6 +478,7 @@ export function initHooks() {
   });
 
   Hooks.on("renderItemSheet", (app, html, data) => {
+    
     const item = app.object;
     if (!item) return;
     if (app.constructor.name !== "Tidy5eKgarItemSheet") {
@@ -524,13 +538,19 @@ export function initHooks() {
     if (dropData.type !== "Item") return true;
     if (!canvas?.grid?.grid) return;
     //@ts-ignore .grid v10
-    let grid_size = canvas.scene?.grid
+    let grid_size = canvas.scene?.grid.size;
+    // This will work for all grids except gridless
     let coords = canvas.grid.grid.getPixelsFromGridPosition(...canvas.grid.grid.getGridPositionFromPixels(dropData.x, dropData.y));
+
+    // Assume a square grid for gridless
+    //@ts-expect-error .grid v10
+    if (canvas.scene?.grid.type === CONST.GRID_TYPES.GRIDLESS)
+      coords = [Math.floor(dropData.x/grid_size) * grid_size, Math.floor(dropData.y/grid_size)*grid_size];
     const targetCount = canvas.tokens?.targetObjects({
       x: coords[0],
       y: coords[1],
-      height: grid_size?.size!,
-      width: grid_size?.size!
+      height: grid_size,
+      width: grid_size
     }, { releaseOthers: true });
     if (targetCount === 0) {
       ui.notifications?.warn("No target selected");

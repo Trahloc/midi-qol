@@ -503,7 +503,7 @@
       </div>
     </div>
 
-    <!-- Optional mechanics-->
+    <!-- mechanics-->
     <div class="tab" data-tab="game-mechanics" data-group="sections">
       <div class="midi-qol-box">
         <div class="form-group">
@@ -586,46 +586,43 @@
           </select>
         </div>
 
-
         <div class="form-group">
-          <span>
-            <label>{{localize "midi-qol.GriddedGridless.Name"}}</label>
-            <input type="checkbox" name="griddedGridless" data-dtype="Boolean" {{checked
-              configSettings.griddedGridless}} />
-          </span>
-          <span>
-            <label>{{localize "midi-qol.GridlessFudge.Name"}}</label>
-            <input type="number" step="0.1" style="width:40px;" name="gridlessFudge"
-              value="{{configSettings.gridlessFudge}}" />
-          </span>
+          <label>{{localize "midi-qol.GridlessFudge.Name"}}</label>
+          <input type="number" step="0.1" style="width:40px;" name="gridlessFudge"
+            value="{{configSettings.gridlessFudge}}" />
         </div>
-        <div class="midi-qol-faint">{{localize "midi-qol.GriddedGridless.Hint"}}</div>
         <div class="midi-qol-faint">{{localize "midi-qol.GridlessFudge.Hint"}}</div>
         <div class="form-group">
-          <label>{{localize "midi-qol.WallsBlockRange.Name"}}</label>
-          <select name="optionalRules.wallsBlockRange" data-dtype="String">
-            {{selectOptions wallsBlockRangeOptions selected=configSettings.optionalRules.wallsBlockRange}}
-          </select>
+          <label>{{localize "midi-qol.GriddedGridless.Name"}}</label>
+          <input type="checkbox" name="griddedGridless" data-dtype="Boolean" {{checked
+            configSettings.griddedGridless}} />
         </div>
-        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint1"}}</div>
-        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint2"}}</div>
-        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint3"}}</div>
-        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint4"}}</div>
-        <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint5"}}</div>
+        <div class="midi-qol-faint">{{localize "midi-qol.GriddedGridless.Hint"}}</div>
+      </div>
+      <div class="form-group">
+        <label>{{localize "midi-qol.WallsBlockRange.Name"}}</label>
+        <select name="optionalRules.wallsBlockRange" data-dtype="String">
+          {{selectOptions wallsBlockRangeOptions selected=configSettings.optionalRules.wallsBlockRange}}
+        </select>
+      </div>
+      <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint1"}}</div>
+      <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint2"}}</div>
+      <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint3"}}</div>
+      <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint4"}}</div>
+      <div class="midi-qol-faint">{{localize "midi-qol.WallsBlockRange.Hint5"}}</div>
 
-        <div class="form-group">
-          <label>{{localize "midi-qol.CoverCalculation.Name"}}</label>
-          <select name="optionalRules.coverCalculation" data-dtype="String">
-            {{selectOptions CoverCalculationOptions selected=configSettings.optionalRules.coverCalculation}}
-          </select>
-        </div>
-        <div class="midi-qol-faint">{{localize "midi-qol.CoverCalculation.Hint"}}</div>
+      <div class="form-group">
+        <label>{{localize "midi-qol.CoverCalculation.Name"}}</label>
+        <select name="optionalRules.coverCalculation" data-dtype="String">
+          {{selectOptions CoverCalculationOptions selected=configSettings.optionalRules.coverCalculation}}
+        </select>
+      </div>
+      <div class="midi-qol-faint">{{localize "midi-qol.CoverCalculation.Hint"}}</div>
 
-        <div class="form-group">
-          <label>{{localize "midi-qol.DistanceIncludesHeight.Name"}}</label>
-          <input type="checkbox" name="optionalRules.distanceIncludesHeight" data-dtype="Boolean" {{checked
-            configSettings.optionalRules.distanceIncludesHeight}} />
-        </div>
+      <div class="form-group">
+        <label>{{localize "midi-qol.DistanceIncludesHeight.Name"}}</label>
+        <input type="checkbox" name="optionalRules.distanceIncludesHeight" data-dtype="Boolean" {{checked
+          configSettings.optionalRules.distanceIncludesHeight}} />
       </div>
 
       <div class="midi-qol-box">
@@ -848,6 +845,7 @@
         <div class="midi-qol-faint">{{localize "midi-qol.ddbGL.Hint"}}</div>
       </div>
     </div>
+
     <!-- Misc Tab -->
     <div class="tab midi-scrollable-list" data-tab="misc" data-group="sections">
       <div class="midi-qol-box">
@@ -908,14 +906,21 @@
         </div>
         <div class="midi-qol-faint">{{localize "midi-qol.MergeCardMulti.Hint"}}</div>
 
-        <div class="form-group">
-          <label>{{localize "midi-qol.ConfirmAttackDamage.Name"}}</label>
-          <select name="confirmAttackDamage" data-dtype="String">
-            {{selectOptions ConfirmAttackDamageOptions selected=configSettings.confirmAttackDamage}}
-          </select>
+        <div class="midi-qol-box">
+          <div class="form-group">
+            <label>{{localize "midi-qol.ConfirmAttackDamage.Name"}}</label>
+            <select name="confirmAttackDamage" data-dtype="String">
+              {{selectOptions ConfirmAttackDamageOptions selected=configSettings.confirmAttackDamage}}
+            </select>
+          </div>
+          <div class="midi-qol-faint">{{localize "midi-qol.ConfirmAttackDamage.Hint"}}</div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.AutoCompleteWorkflow.Name"}}</label>
+            <input type="checkbox" name="autoCompleteWorkflow" data-dtype="Boolean" {{checked
+              configSettings.autoCompleteWorkflow}} />
+          </div>
+          <div class="midi-qol-faint">{{localize "midi-qol.AutoCompleteWorkflow.Hint"}}</div>
         </div>
-        <div class="midi-qol-faint">{{localize "midi-qol.ConfirmAttackDamage.Hint"}}</div>
-
         <div class="form-group">
           <label>{{localize "midi-qol.HighlightSuccess.Name"}}</label>
           <input type="checkbox" name="highlightSuccess" data-dtype="Boolean" {{checked
