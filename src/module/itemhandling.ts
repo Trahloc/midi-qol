@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes } from "../midi-qol.js";
 import { DummyWorkflow, TrapWorkflow, Workflow, WORKFLOWSTATES, WorkflowV2 } from "./workflow.js";
 import { configSettings, enableWorkflow, checkRule, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getTargetConfirmation, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getTargetConfirmation, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -575,7 +575,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const wrappedRollStart = Date.now();
     const token = getToken(workflow.tokenUuid);
 
-    const autoCreatetemplate = token && this.hasAreaTarget && ["self"].includes(this.system.range?.units) /*&& ["radius"].includes(this.system.target.type)*/;
+    const autoCreatetemplate = token && hasAutoPlaceTemplate(this);
     let result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
     if (!result) {
       await workflow.performState(workflow.WorkflowState_Abort)
@@ -591,14 +591,14 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (installedModules.get("walledtemplates") && this.flags?.walledtemplates?.addTokenSize) {
         //@ts-expect-error width/height
         const { width, height } = token.document;
-        if (target.type === "square") {
+        if (target.type === "cube") {
           templateOptions.distance = target.value + Math.max(width, height) * gs;
           item = this.clone({ "system.target.value": templateOptions.distance})
         }
         else
           templateOptions.distance = Math.ceil(target.value + Math.max(width, height) / 2 * (canvas?.dimensions?.distance ?? 0));
       }
-      if (this.system.target.type === "square") { // square templates will get placed on the token centre - need to adjust the position
+      if (this.system.target.type === "cube") { // square templates will get placed on the token centre - need to adjust the position
         const adjust = (templateOptions.distance ?? target.value) / 2;
         templateOptions.x = Math.floor((token.center?.x ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
         templateOptions.y = token.center?.y ?? 0;
@@ -1645,11 +1645,12 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   workflow.targets = new Set(game.user?.targets ?? new Set()).filter(token => isTargetable(token));
   workflow.hitTargets = new Set(workflow.targets);
   workflow.templateData = templateDocument.toObject(); // TODO check this v10
-  workflow.needTemplate = false;
   if (this instanceof TrapWorkflow) return;
-  workflow.needTemplate = false;
   // REFACTOR return workflow.next(WORKFLOWSTATES.AWAITTEMPLATE);
-  return workflow.performState(workflow.WorkflowState_AwaitTemplate);
+  if (workflow.needTemplate) {
+    workflow.needTemplate = false;
+    return workflow.performState(workflow.WorkflowState_AwaitTemplate);
+  }
 };
 
 export function activationConditionToUse(workflow: Workflow) {

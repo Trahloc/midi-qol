@@ -1,7 +1,7 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSelfTarget, getSpeaker, getSystemCONFIG, getUnconsciousStatus, getWoundedStatus, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSelfTarget, getSpeaker, getSystemCONFIG, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -1303,7 +1303,7 @@ function _getUsageConfig(wrapped): any {
   //Radius tempalte spells with self/spec/any will auto place the template so don't prompt for it in config.
   const config = wrapped();
 //  const autoCreatetemplate = this.hasAreaTarget && ["self"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
-  const autoCreatetemplate = this.hasAreaTarget && ["self"].includes(this.system.range?.units);
+  const autoCreatetemplate = this.hasAreaTarget && hasAutoPlaceTemplate(this);
   if (autoCreatetemplate) config.createMeasuredTemplate = null;
   return config;
 }

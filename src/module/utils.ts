@@ -5283,3 +5283,6 @@ export function getAutoTarget(item: Item): string {
   if (!autoTarget || autoTarget === "default") return configSettings.autoTarget;
   return autoTarget;
 }
+export function hasAutoPlaceTemplate(item) {
+  return item && item.hasAreaTarget && ["self"].includes(item.system.range?.units) && ["radius", "sphere", "cylinder", "cube"].includes(item.system.target.type);
+}

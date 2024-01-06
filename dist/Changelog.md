@@ -1,3 +1,7 @@
+## 11.3.12.2
+* Due to some cases I forgot to consider auto placing templates (when range is self) only takes place for "radius", "sphere", "cylinder" and "cube" templates. You can use "cube" instead of "square" for replicating range targeting.
+* Fix to stop doing double damage on auto targeted template spells.
+
 ## 11.3.12.1
 * Fix for damage button removal.
 
