@@ -317,7 +317,7 @@ export class Workflow {
         this.item.flags.midiProperties.critOther = this.item.system.properties?.critOther;
       }
     }
-    this.needTemplate = (getAutoTarget(this.item) !== "none" && this.item.hasAreaTarget && !hasAutoPlaceTemplate(this.item));
+    this.needTemplate = (getAutoTarget(this.item) !== "none" && this.item?.hasAreaTarget && !hasAutoPlaceTemplate(this.item));
     if (this.needTemplate && options.noTemplateHook !== true) {
       this.preCreateTemplateHookId = Hooks.once("preCreateMeasuredTemplate", this.setTemplateFlags.bind(this));
       this.placeTemplateHookId = Hooks.once("createMeasuredTemplate", selectTargets.bind(this));
@@ -554,8 +554,8 @@ export class Workflow {
       this.hitTargets = new Set(this.targets);
       this.selfTargeted = true;
     }
-    this.temptargetConfirmation = getAutoTarget(this.item) !== "none" && this.item.hasAreaTarget;
-    if (debugEnabled > 1) debug("WORKFLOW NONE", getAutoTarget(this.item), this.item.hasAreaTarget);
+    this.temptargetConfirmation = getAutoTarget(this.item) !== "none" && this.item?.hasAreaTarget;
+    if (debugEnabled > 1) debug("WORKFLOW NONE", getAutoTarget(this.item), this.item?.hasAreaTarget);
     if (this.temptargetConfirmation) {
       return this.WorkflowState_AwaitTemplate;
     }
@@ -918,7 +918,7 @@ export class Workflow {
       await Workflow.removeItemCardAttackDamageButtons(this.itemCardId, getRemoveAttackButtons(this.item), getRemoveDamageButtons(this.item));
       await Workflow.removeItemCardConfirmRollButton(this.itemCardId);
     }
-    if (getAutoTarget(this.item) === "none" && this.item.hasAreaTarget && !this.item.hasAttack) {
+    if (getAutoTarget(this.item) === "none" && this.item?.hasAreaTarget && !this.item.hasAttack) {
       // we are not auto targeting so for area effect attacks, without hits (e.g. fireball)
       this.targets = validTargetTokens(game.user?.targets);
       this.hitTargets = validTargetTokens(game.user?.targets);
@@ -3041,7 +3041,7 @@ export class Workflow {
     this.saveResults = results;
     let i = 0;
     const allHitTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
-    if (this.item.hasAreaTarget && this.templateUuid) {
+    if (this.item?.hasAreaTarget && this.templateUuid) {
       const templateDocument = await fromUuid(this.templateUuid);
       //@ts-expect-error
       var template = templateDocument?.object;
@@ -3087,7 +3087,7 @@ export class Workflow {
           coverSaveBonus = 0;
         else if (this.item?.system.actionType === "rwak" && getProperty(this.actor, "flags.midi-qol.sharpShooter"))
           coverSaveBonus = 0;
-        else if (this.item.hasAreaTarget && template) {
+        else if (this.item?.hasAreaTarget && template) {
           const position = duplicate(template.center);
           const dimensions = canvas?.dimensions;
           if (template.document.t === "rect") {
@@ -4063,7 +4063,7 @@ export class WorkflowV2 extends Workflow {
   async WorkflowState_BeforeTemplateTargetsConfirmed(): Promise<WorkflowState> {
     const requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
     const isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
-    const isAoETargeting = this.hasAreaTarget;
+    const isAoETargeting = this?.hasAreaTarget;
 
     if (isAoETargeting || isRangeTargeting || this.selfTargeted)
       return this.WorkflowState_ActionChecks;
@@ -4324,7 +4324,7 @@ export class TrapWorkflow extends Workflow {
 
     // this.itemCardId = (await showItemCard.bind(this.item)(false, this, true))?.id;
     //@ts-ignore TODO this is just wrong fix
-    if (debugEnabled > 1) debug(" workflow.none ", state, this.item, getAutoTarget(this.item), this.item.hasAreaTarget, this.targets);
+    if (debugEnabled > 1) debug(" workflow.none ", state, this.item, getAutoTarget(this.item), this.item?.hasAreaTarget, this.targets);
     // don't support the placement of a template
     return this.WorkflowState_AwaitTemplate
   }
@@ -4339,7 +4339,7 @@ export class TrapWorkflow extends Workflow {
       this.hitTargetsEC = new Set();
       return this.WorkflowState_TemplatePlaced;
     }
-    if (!this.item.hasAreaTarget || !this.templateLocation)
+    if (!this.item?.hasAreaTarget || !this.templateLocation)
       return this.WorkflowState_TemplatePlaced;
     const TemplateClass = game[game.system.id].canvas.AbilityTemplate;
     const templateData = TemplateClass.fromItem(this.item).toObject(false); // TODO check this v10
@@ -4471,7 +4471,7 @@ export class TrapWorkflow extends Workflow {
   async WorkflowState_RollFinished(): Promise<WorkflowState> {
     this._currentState = WORKFLOWSTATES.ROLLFINISHED;
     // area effect trap, put back the targets the way they were
-    if (this.saveTargets && this.item.hasAreaTarget) {
+    if (this.saveTargets && this.item?.hasAreaTarget) {
       game.user?.targets.forEach(t => {
         t.setTarget(false, { releaseOthers: false });
       });
@@ -4542,8 +4542,8 @@ export class DDBGameLogWorkflow extends Workflow {
   }
   async WorkflowState_AwaitTemplate(): Promise<WorkflowState> {
     this._currentState = WORKFLOWSTATES.AWAITTEMPLATE;
-    // REFACTOR if (!this.item.hasAreaTarget) return super.next(WORKFLOWSTATES.AWAITTEMPLATE)
-    if (!this.item.hasAreaTarget) return super.WorkflowState_AwaitTemplate;
+    // REFACTOR if (!this.item?.hasAreaTarget) return super.next(WORKFLOWSTATES.AWAITTEMPLATE)
+    if (!this.item?.hasAreaTarget) return super.WorkflowState_AwaitTemplate;
     //@ts-ignore
     let system: any = game[game.system.id]
     // Create the template
@@ -4583,7 +4583,7 @@ export class DDBGameLogWorkflow extends Workflow {
     }
     expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"]);
 
-    if (getAutoTarget(this.item) === "none" && this.item.hasAreaTarget && !this.item.hasAttack) {
+    if (getAutoTarget(this.item) === "none" && this.item?.hasAreaTarget && !this.item.hasAttack) {
       // we are not auto targeting so for area effect attacks, without hits (e.g. fireball)
       this.targets = validTargetTokens(game.user?.targets);
       this.hitTargets = validTargetTokens(game.user?.targets);

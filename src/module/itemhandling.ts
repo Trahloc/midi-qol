@@ -1597,7 +1597,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
 
   const selfToken = getToken(workflow.tokenUuid);
   let ignoreSelf: boolean = false;
-  if (this?.item && workflow.item.hasAreaTarget
+  if (workflow?.item && workflow.item.hasAreaTarget
     && (workflow.item.system.range.type === "self") || getProperty(workflow.item, "flags.midi-qol.AoETargetTypeIncludeSelf") === false)
     ignoreSelf = true;
   const AoETargetType = getProperty(workflow.item, "flags.midi-qol.AoETargetType") ?? "any";
@@ -1610,7 +1610,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
     //@ts-ignore
     if (mTemplate.shape)
       //@ts-ignore templateDocument.x, mtemplate.distance TODO check this v10
-      templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(this.item));
+      templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(workflow.item));
     else {
       console.warn("midi-qol | selectTargets | Need to compute template shape")
       // @ ts-expect-error
@@ -1622,7 +1622,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
       // mTemplate.distance = distance;
       if (debugEnabled > 0) warn(`selectTargets computed shape ${shape} distance ${distance}`)
       //@ts-ignore .x, .y v10
-      templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(this.item));
+      templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(workflow.item));
     }
   }
   let item = workflow.item;
