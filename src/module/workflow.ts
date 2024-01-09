@@ -219,7 +219,7 @@ export class Workflow {
       this.itemUuid = item.uuid;
       this._id = item.uuid;
       this.workflowName = options.workflowOptions?.workflowName ?? this.item?.name ?? "no item";
-      this.workflowName = `${this.constructor.name} ${this.workflowName}`;
+      this.workflowName = `${this.constructor.name} ${this.workflowName} ${randomID()}`;
       const consume = item.system.consume;
       if (consume?.type === "ammo") {
         this.ammo = item.actor.items.get(consume.target);
@@ -476,9 +476,9 @@ export class Workflow {
     if (this.stateTransitionCount === undefined) this.stateTransitionCount = 0;
     const MaxTransitionCount = 100;
     let isAborting = this.aborted;
-    this.suspended === false;
 
     while (this.stateTransitionCount < (this.MaxTransitionCount ?? MaxTransitionCount)) {
+      this.suspended = false;
       this.stateTransitionCount += 1;
       isAborting ||= this.aborted || (newState === this.WorkflowState_Abort);
       if (newState === undefined) {
