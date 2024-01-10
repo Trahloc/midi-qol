@@ -445,7 +445,7 @@ export class Workflow {
       return true;
     }
     if (debugEnabled > 1) log(`callHooksForAction | ${prePost} ${this.nameForState(action)}`)
-    const hookName = `midi-qol.${prePost}${this.nameForState(this.currentAction)}`
+    const hookName = `midi-qol.${prePost}${this.nameForState(action)}`
     if (await asyncHooksCall(hookName, this) === false) return false;
     if (this.item) {
       return await asyncHooksCall(`${hookName}.${this.item.uuid}`, this);
@@ -458,7 +458,7 @@ export class Workflow {
       return [];
     }
     if (debugEnabled > 1) log(`callOnUseMacrosForAction | ${prePost} ${this.nameForState(action)}`)
-    const macroPass = `${prePost}${this.nameForState(this.currentAction)}`;
+    const macroPass = `${prePost}${this.nameForState(action)}`;
 
     return this.callMacros(this.item, this.onUseMacros?.getMacros(macroPass), "OnUse", macroPass);
   };
@@ -488,41 +488,44 @@ export class Workflow {
         newState = this.WorkflowState_Suspend;
         continue;
       }
-      if (newState === this.WorkflowState_Suspend) {
+      const name = this.nameForState(newState);
+      const currentName = this.nameForState(this.currentAction);
+      if (debugEnabled > 0) warn(`${this.workflowName} transition ${this.nameForState(this.currentAction)} -> ${name}`);
+
+      if (this.currentAction !== newState) {
+        if (await this.callHooksForAction("post", this.currentAction) === false && !isAborting) {
+          console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by post ${this.nameForState(this.currentAction)} Hook`)
+          newState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
+          continue;
+        }
+        await this.callOnUseMacrosForAction("post", this.currentAction);
+        if (this.aborted && !isAborting) {
+          console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(this.currentAction)} macro pass`)
+          newState = this.WorkflowState_Abort;
+          continue;
+        }
+        if (debugEnabled > 0) warn(`${this.workflowName} finished ${currentName}`);
+
+        if (await this.callHooksForAction("pre", newState) === false && !isAborting) {
+          console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(newState)} Hook`)
+          newState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
+          continue;
+        }
+        await this.callOnUseMacrosForAction("pre", newState);
+        if (this.aborted && !isAborting) {
+          console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(newState)} macro pass`)
+          newState = this.WorkflowState_Abort;
+          continue;
+        }
+      }
+      this.currentAction = newState;
+
+      let nextState = await this.currentAction.bind(this)();
+      if (nextState === this.WorkflowState_Suspend) {
         this.suspended = true;
         // this.currentAction = this.WorkflowState_Suspend;
         if (debugEnabled > 0) warn(`${this.workflowName} ${this.nameForState(this.currentAction)} -> suspended Workflow ${this.id}`);
         break;
-      }
-
-      const name = this.nameForState(newState);
-      const currentName = this.nameForState(this.currentAction);
-      if (debugEnabled > 0) warn(`${this.workflowName} transition ${this.nameForState(this.currentAction)} -> ${name}`);
-      this.currentAction = newState;
-
-      if (await this.callHooksForAction("pre", this.currentAction) === false && !isAborting) {
-        console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(this.currentAction)} Hook`)
-        newState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
-        continue;
-      }
-      await this.callOnUseMacrosForAction("pre", this.currentAction);
-      if (this.aborted && !isAborting) {
-        console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(this.currentAction)} macro pass`)
-        newState = this.WorkflowState_Abort;
-        continue;
-      }
-
-      let nextState = await this.currentAction.bind(this)();
-      if (debugEnabled > 0) warn(`${this.workflowName} finished ${name}`);
-
-      if (await this.callHooksForAction("post", newState) === false && !isAborting) {
-        console.warn(`${this.workflowName} ${this.nameForState(this.currentAction)} -> ${this.nameForState(nextState)} aborted by post ${this.nameForState(this.currentAction)} Hook`)
-        nextState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
-      }
-      await this.callOnUseMacrosForAction("post", this.currentAction);
-      if (this.aborted && !isAborting) {
-        console.warn(`${this.workflowName} ${this.nameForState(this.currentAction)} -> ${this.nameForState(nextState)} aborted by post ${this.nameForState(this.currentAction)} macro pass`)
-        nextState = this.WorkflowState_Abort;
       }
       newState = nextState;
     }
@@ -1289,6 +1292,10 @@ export class Workflow {
     // TODO see if we can delete the workflow - I think that causes problems for Crymic
     //@ts-ignore scrollBottom protected
     ui.chat?.scrollBottom();
+    return this.WorkflowState_Completed;
+  }
+
+  async WorkflowState_Completed(): Promise<WorkflowState> {
     return this.WorkflowState_Suspend;
   }
 

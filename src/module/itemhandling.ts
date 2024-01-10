@@ -204,7 +204,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     // REFACTOR if (Workflow.getWorkflow(this.uuid)?.currentState <= WORKFLOWSTATES.DAMAGEROLLCOMPLETE && configSettings.confirmAttackDamage !== "none") {
     let previousWorkflow = Workflow.getWorkflow(this.uuid);
     if (previousWorkflow) {
-      const validStates = [previousWorkflow.WorkflowState_Cleanup, previousWorkflow.WorkflowState_Start, previousWorkflow.WorkflowState_RollFinished]
+      const validStates = [previousWorkflow.WorkflowState_Completed, previousWorkflow.WorkflowState_Start, previousWorkflow.WorkflowState_RollFinished]
       if (!(validStates.includes(previousWorkflow.currentAction))) {// && configSettings.confirmAttackDamage !== "none") {
         if (configSettings.autoCompleteWorkflow) {
           await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
@@ -657,8 +657,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (workflow.currentAction === workflow.WorkflowState_RollFinished ) {
       workflow.performState(workflow.WorkflowState_AwaitItemCard)
     }
-    if (workflow.suspended && !workflow.needTemplate && !workflow.needItemCard) {
-      if (debugEnabled > 0) warn("itemHandling | Unsuspending workflow after setting preItemUseComplete true");
+    const shouldUnsuspend = workflow.suspended && !workflow.needTemplate && !workflow.needItemCard; 
+    if (debugEnabled > 0) console.warn(`Item use complete unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}`);
+    if (shouldUnsuspend) {
       workflow.performState(workflow.WorkflowState_AwaitItemCard)
     }
     // REFACTOR if (workflow.currentState === WORKFLOWSTATES.AWAITITEMCARD) workflow.next(WORKFLOWSTATES.AWAITITEMCARD);
