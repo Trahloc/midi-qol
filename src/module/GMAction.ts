@@ -1,6 +1,6 @@
 import { checkRule, configSettings } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, geti18nOptions, debug } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, expirePerTurnBonusActions, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, expirePerTurnBonusActions, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
 import { ddbglPendingFired } from "./chatMesssageHandling.js";
 import { Workflow, WORKFLOWSTATES } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
@@ -54,6 +54,7 @@ export let setupSocket = () => {
   socketlibSocket.register("updateEntityStats", GMupdateEntityStats)
   socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids);
   socketlibSocket.register("updateUndoChatCardUuidsById", updateUndoChatCardUuidsById);
+  socketlibSocket.register("removeActionBonusReaction", removeActionBonusReaction);
 
   // socketlibSocket.register("canSense", _canSense);
 }
@@ -87,6 +88,7 @@ export class SaferSocket {
       case "removeWorkflow":
       case "rollAbility":
       case "removeEffect":
+      case "removeActionBonusReaction":
         return true;
 
       case "addConvenientEffect":
@@ -153,6 +155,14 @@ export class SaferSocket {
   }
 }
 
+export async function removeActionBonusReaction(data: {actorUuid: string}) {
+  const actor = MQfromActorUuid(data.actorUuid);
+  if (!actor) return;
+  if (hasUsedReaction(actor)) await removeReactionUsed(actor);
+  if (hasUsedBonusAction(actor)) await removeBonusActionUsed(actor);
+  if (hasUsedAction(actor)) return await removeActionUsed(actor);
+  return;
+}
 // Remove a single effect. Allow anyone to call this.
 async function _removeEffect(data: { effectUuid: string }) {
   const effect = MQfromUuid(data.effectUuid);

@@ -654,12 +654,10 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     // Need concentration removal to complete before allowing workflow to continue so have workflow wait for item use to complete
     workflow.preItemUseComplete = true;
-    if (workflow.currentAction === workflow.WorkflowState_RollFinished ) {
-      workflow.performState(workflow.WorkflowState_AwaitItemCard)
-    }
+
     const shouldUnsuspend = workflow.suspended && !workflow.needTemplate && !workflow.needItemCard; 
-    if (debugEnabled > 0) console.warn(`Item use complete unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}`);
-    if (shouldUnsuspend) {
+    if (workflow.currentAction === workflow.WorkflowState_RollFinished || shouldUnsuspend) {
+      if (debugEnabled > 0 && shouldUnsuspend) console.warn(`Item use complete unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}`);
       workflow.performState(workflow.WorkflowState_AwaitItemCard)
     }
     // REFACTOR if (workflow.currentState === WORKFLOWSTATES.AWAITITEMCARD) workflow.next(WORKFLOWSTATES.AWAITITEMCARD);
