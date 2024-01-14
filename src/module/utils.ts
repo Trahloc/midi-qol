@@ -1582,9 +1582,8 @@ export async function _processOverTime(combat, data, options, user) {
 
     // Remove reaction used status from each combatant
     if (actor && toTest !== prev) {
-      if (hasUsedReaction(actor)) await removeReactionUsed(actor);
-      if (hasUsedBonusAction(actor)) await removeBonusActionUsed(actor);
-      if (hasUsedAction(actor)) await removeActionUsed(actor);
+        // do the whole thing as a GM to avoid multiple calls to the GM to set/remove flags/conditions
+          await socketlibSocket.executeAsGM("removeActionBonusReaction", { actorUuid: actor.uuid});
     }
 
     /*
