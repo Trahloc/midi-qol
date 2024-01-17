@@ -85,6 +85,10 @@
           <label>{{localize "midi-qol.GhostRolls.Name"}}</label>
           <input type="checkbox" name="ghostRolls" data-dtype="Boolean" {{checked configSettings.ghostRolls}} />
         </div>
+        <div class="form-group">
+          <label>{{localize "midi-qol.AddFakeDice.Name"}}</label>
+          <input type="checkbox" name="addFakeDice" data-dtype="Boolean" {{checked configSettings.addFakeDice}} />
+        </div>
       </div>
     </div>
 
@@ -395,11 +399,15 @@
         </div>
 
         <div class="form-group">
+          <label>{{localize "midi-qol.DoConcentrationCheck.Name"}}</label>
+          <input type="checkbox" name="doConcentrationCheck" data-dtype="Boolean" {{checked
+            configSettings.doConcentrationCheck}} />
+        </div>
+        <div class="form-group">
           <label>{{localize "midi-qol.RemoveConcentration.Name"}}</label>
           <input type="checkbox" name="removeConcentration" data-dtype="Boolean" {{checked
             configSettings.removeConcentration}} />
         </div>
-        <div class="midi-qol-faint">{{localize "midi-qol.RemoveConcentration.Hint"}}</div>
         <div class="form-group">
           <label>{{localize "midi-qol.ConcentrationIncapacitatedConditionCheck.Name"}}</label>
           <input type="checkbox" name="concentrationIncapacitatedConditionCheck" data-dtype="Boolean" {{checked
@@ -858,6 +866,11 @@
       </div>
 
       <div class="midi-qol-box">
+        <div class="form-group">
+          <label>{{localize "midi-qol.MidiFieldsTab.Name"}}</label>
+          <input type="checkbox" name="midiFieldsTab" data-dtype="Boolean" {{checked configSettings.midiFieldsTab}} />
+        </div>
+        
         <div class="form-group allowActorUseMacro">
           <label>{{localize "midi-qol.AllowActorUseMacro.Name"}}</label>
           <input id="allowActorUseMacro" type="checkbox" name="allowActorUseMacro" data-dtype="Boolean" {{checked

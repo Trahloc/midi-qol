@@ -1,5 +1,5 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log } from "../midi-qol.js";
-import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMesssageHandling.js";
+import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
@@ -78,12 +78,12 @@ export let readyHooks = async () => {
       // if (globalThis.DAE?.actionQueue && !globalThis.DAE.actionQueue.remaining) await globalThis.DAE.actionQueue.add(hpUpdateFunc);
       // else await hpUpdateFunc();
       await hpUpdateFunc();
-      if (configSettings.concentrationAutomation && configSettings.removeConcentration && hpDiff > 0 && !options.noConcentrationCheck) {
+      if (configSettings.concentrationAutomation && configSettings.doConcentrationCheck && hpDiff > 0 && !options.noConcentrationCheck) {
         // expireRollEffect.bind(actor)("Damaged", ""); - not this simple - need to think about specific damage types
         concentrationCheckItemDisplayName = i18n("midi-qol.concentrationCheckName");
         const concentrationEffect: ActiveEffect | undefined = getConcentrationEffect(actor)
         if (concentrationEffect) {
-          if (actor.system.attributes.hp.value <= 0) {
+          if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
             if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(concentrationEffect.delete.bind(concentrationEffect));
             else await concentrationEffect.delete();
           } else {
@@ -128,7 +128,7 @@ export let readyHooks = async () => {
         if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass && !options.noConcentrationCheck) {
           const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
           if (concentrationData && deletedEffect.origin === concentrationData.uuid) {
-            const newTargets: {tokenUuid: string, actorUuid: string}[] = [];
+            const newTargets: { tokenUuid: string, actorUuid: string }[] = [];
             const allConcentrationTargets = concentrationData.targets.filter(target => {
               let actor = MQfromActorUuid(target.actorUuid);
               const hasEffects = actor?.effects.some(effect =>
@@ -139,7 +139,7 @@ export let readyHooks = async () => {
             });
 
             const concentrationTargets = concentrationData.targets.filter(target => {
-              let  actor = MQfromActorUuid(target.actorUuid);
+              let actor = MQfromActorUuid(target.actorUuid);
               const hasEffects = actor?.effects.some(effect =>
                 effect.origin === concentrationData.uuid
                 && !effect.flags.dae.transfer
@@ -312,6 +312,7 @@ export function initHooks() {
   });
 
   function getItemSheetData(data, item) {
+    const doConditionFixes = true;
     const config = getSystemCONFIG();
     const midiProps = config.midiProperties;
     if (!item) {
@@ -320,8 +321,8 @@ export function initHooks() {
       TroubleShooter.recordError(new Error(message));
       return;
     }
-    let autoTargetOptions = mergeObject({"default": i18n("midi-qol.MidiSettings")}, geti18nOptions("autoTargetOptions"));
-    let RemoveAttackDamageButtonsOptions = mergeObject({"default": i18n("midi-qol.MidiSettings")}, geti18nOptions("removeButtonsOptions")); 
+    let autoTargetOptions = mergeObject({ "default": i18n("midi-qol.MidiSettings") }, geti18nOptions("autoTargetOptions"));
+    let RemoveAttackDamageButtonsOptions = mergeObject({ "default": i18n("midi-qol.MidiSettings") }, geti18nOptions("removeButtonsOptions"));
     //@ts-expect-error
     const ceForItem = game.dfreds?.effects?.all.find(e => e.name === item.name);
     data = mergeObject(data, {
@@ -329,14 +330,14 @@ export function initHooks() {
       MacroPassOptions: Workflow.allMacroPasses,
       showCEOff: false,
       showCEOn: false,
-      hasSave: item.hasSave,
+      hasOtherDamage: ![undefined, ""].includes(item.system.formula) || (item.system.damage?.versatile && !item.system.properties?.ver),
+      showHeader: !configSettings.midiFieldsTab,
       midiPropertyLabels: midiProps,
       SaveDamageOptions: geti18nOptions("SaveDamageOptions"),
       ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions"),
       AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
-      AutoTargetOptions:  autoTargetOptions,
+      AutoTargetOptions: autoTargetOptions,
       RemoveAttackDamageButtonsOptions
-
     });
     if (!getProperty(item, "flags.midi-qol.autoTarget")) {
       setProperty(data, "flags.midi-qol.autoTarget", "default");
@@ -344,6 +345,7 @@ export function initHooks() {
     if (!getProperty(item, "flags.midi-qol.removeAttackDamageButtons")) {
       setProperty(data, "flags.midi-qol.removeAttackDamageButtons", "default");
     }
+
     if (ceForItem) {
       data.showCEOff = ["both", "cepri", "itempri"].includes(configSettings.autoCEEffects);
       data.showCEOn = ["none", "itempri"].includes(configSettings.autoCEEffects);
@@ -362,11 +364,12 @@ export function initHooks() {
     if (item && ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(item.type)) {
       for (let prop of Object.keys(midiProps)) {
         if (getProperty(item, `system.properties.${prop}`) !== undefined
-          && item.flags?.midiProperties[prop] === undefined) {
-          data.flags.midiProperties[prop] = item.system.properties[prop];
+          && getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
+          setProperty(item, `flags.midiProperties.${prop}`, item.system.properties[prop]);
         } else if (getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
-          if (prop === "saveDamage") {
-          } else data.flags.midiProperties[prop] = false;
+          if (["saveDamage", "confirmTargets", "otherSaveDamage", "bonusSaveDamage"].includes(prop)) {
+            setProperty(data, `flags.midiProperties.${prop}`, "default");
+          } else setProperty(data, `flags.midiProperties.${prop}`, false);
         }
       }
 
@@ -392,11 +395,30 @@ export function initHooks() {
       delete data.flags.midiProperties.fulldam;
       delete data.flags.midiProperties.halfdam;
       delete data.flags.midiProperties.nodam;
+      delete data.flags.midiProperties.saveType
+
+      if (getProperty(item, "flags.midiProperties.rollOther") === true) {
+        setProperty(data, "flags.midi-qol.otherCondition", "isAttuned");
+      }
+      delete data.flags.midiProperties.rollOther;
+
+      if (doConditionFixes) {
+        if ((getProperty(data.item, "flags.midi-qol.effectCondition") ?? "") === "") {
+          if (getProperty(data.item, "flags.midi-qol.effectActivation") === false) {
+            setProperty(data.item, "flags.midi-qol.effectCondition", "");
+            // if (data.editable) setProperty(data.item, "flags.midi-qol.effectCondition", "");
+          } else if (getProperty(data.item, "flags.midi-qol.effectActivation") === true) {
+            setProperty(data.item, "flags.midi-qol.effectCondition", getProperty(item, "system.activation.condition") ?? "");
+            // if (data.editable) setProperty(data.item, "flags.midi-qol.effectCondition", getProperty(item, "system.activation.condition") ?? "");
+          }
+          setProperty(data, "flags.midi-qol.effectActivation", undefined);
+          // if (data.editable) setProperty(data.item, "flags.midi-qol.effectActivation", undefined);
+        } else setProperty(data.item, "flags.midi-qol.effectCondition", getProperty(item, "flags.midi-qol.effectCondition"));
+      } else setProperty(data.item, "flags.midi-qol.effectCondition", getProperty(item, "flags.midi-qol.effectCondition"));
     }
-    data.showHeader = true;
     return data;
   }
-  
+
 
   Hooks.once('tidy5e-sheet.ready', (api) => {
     const myTab = new api.models.HandlebarsTab({
@@ -478,16 +500,57 @@ export function initHooks() {
   });
 
   Hooks.on("renderItemSheet", (app, html, data) => {
-    
     const item = app.object;
     if (!item) return;
     if (app.constructor.name !== "Tidy5eKgarItemSheet") {
-      if (item && ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(data.item.type)) {
+      if (!item || !["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(data.item.type))
+        return;
+
+      if (configSettings.midiFieldsTab) {
+        let tabs = html.find(`nav.sheet-navigation.tabs`);
+        if (tabs.find("a[data-tab=midiqol]").length > 0) {
+          const message = "render item sheet: Midi Tab already present";
+          TroubleShooter.recordError(new Error(message), message);
+          error(message);
+          return;
+        }
+        tabs.append($('<a class="item" data-tab="midiqol">Midi-qol</a>'));
+        data = mergeObject(data, getItemSheetData(data, item));
+        renderTemplate("modules/midi-qol/templates/midiPropertiesForm.hbs", data).then(templateHtml => {
+          // tabs = html.find(`form nav.sheet-navigation.tabs`);
+          $(html.find(`.sheet-body`)).append(
+            $(`<div class="tab midi-qol" data-group="primary" data-tab="midiqol">${templateHtml}</div>`)
+          );
+          if (app.isEditable) {
+            $(html.find(".midi-qol-tab")).find(":input").change(evt => {
+              app.selectMidiTab = true;
+            });
+            $(html.find(".midi-qol-tab")).find("textarea").change(evt => {
+              app.selectMidiTab = true;
+            });
+            activateMacroListeners(app, html);
+
+          } else {
+            $(html.find(".midi-qol-tab")).find(":input").prop("disabled", true);
+            $(html.find(".midi-qol-tab")).find("textarea").prop("readonly", true);
+          }
+          if (app.selectMidiTab) {
+            app._tabs[0].activate("midiqol");
+            app.selectMidiTab = false;
+          }
+
+        });
+
+      } else {
         data = mergeObject(data, getItemSheetData(data, item));
         renderTemplate("modules/midi-qol/templates/midiPropertiesForm.hbs", data).then(templateHtml => {
           const element = html.find('input[name="system.chatFlavor"]').parent().parent();
           element.append(templateHtml);
-          activateMacroListeners(app, html);
+          if (app.isEditable) activateMacroListeners(app, html);
+          else {
+            element.find(".midi-qol-tab").find(":input").prop("disabled", true);
+            element.find(".midi-qol-tab").find("textarea").prop("readonly", true);
+          }
         });
       }
       //@ts-expect-error
@@ -507,8 +570,6 @@ export function initHooks() {
         }
       }
     }
-
-
     // activateMacroListeners(app, html);
   })
 
@@ -545,7 +606,7 @@ export function initHooks() {
     // Assume a square grid for gridless
     //@ts-expect-error .grid v10
     if (canvas.scene?.grid.type === CONST.GRID_TYPES.GRIDLESS)
-      coords = [Math.floor(dropData.x/grid_size) * grid_size, Math.floor(dropData.y/grid_size)*grid_size];
+      coords = [Math.floor(dropData.x / grid_size) * grid_size, Math.floor(dropData.y / grid_size) * grid_size];
     const targetCount = canvas.tokens?.targetObjects({
       x: coords[0],
       y: coords[1],
@@ -709,9 +770,6 @@ export const overTimeJSONData = {
       "thr": false,
       "two": false,
       "ver": false,
-      "nodam": false,
-      "fulldam": false,
-      "halfdam": false
     },
     "proficient": false,
     "attributes": {

@@ -1,117 +1,141 @@
 <div class="midi-qol-tab">
 
-  <section class="sheet-body">
-
-    {{#if allowUseMacro}}
-    <div class="form-group">
-      <h3 class="form-header">{{localize "midi-qol.onUseMacroLabel"}}
-        <a class="macro-control damage-control edit-macro"><i class="fas fa-file-pen"></i></a>
-        <a class="macro-control damage-control add-macro"><i class="fas fa-plus"></i></a>
-      </h3>
-    </div>
-    <div class="form-group">
-      <ol class="damage-parts onusemacro-group form-group">
-        {{#each item.flags.midi-qol.onUseMacroParts.items as |macroItem index|}}
-        <li class="damage-part flexrow" data-midiqol-macro-part="{{index}}">
-          <input type="text" name="flags.midi-qol.onUseMacroParts.items.{{index}}.macroName"
-            value="{{macroItem.macroName}}" />
-          <select name="flags.midi-qol.onUseMacroParts.items.{{index}}.option" data-dtype="String">
-            {{selectOptions ../MacroPassOptions selected=[macroItem].option}}
-          </select>
-          <a class="macro-control damage-control delete-macro" style="text-align: right;"><i
-              class="fas fa-minus"></i></a>
-        </li>
-        {{/each}}
-      </ol>
-    </div>
-    {{/if}}
-    <h3 class="form-header">Midi Qol Fields</h3>
-    {{#if item.hasAttack}}
-    <div class="form-group">
-      <label>{{localize "midi-qol.FumbleThreshold"}}</label>
-      <input type="Number" name="flags.midi-qol.fumbleThreshold" value="{{item.flags.midi-qol.fumbleThreshold}}" />
-    </div>
-    {{/if}}
-    {{#if item.hasAreaTarget}}
-    <div class="form-group">
-      <label>{{localize "midi-qol.AoETargetType.Name"}}</label>
-      <select name="flags.midi-qol.AoETargetType" data-dtype="String">
-        {{selectOptions AoETargetTypeOptions selected=item.flags.midi-qol.AoETargetType}}
-      </select>
-    </div>
-    <div class="midi-qol-faint">{{localize "midi-qol.AoETargetType.Hint"}}
-    </div>
-    <div class="form-group">
-      <label>{{localize "midi-qol.AoETargetTypeIncludeSelf.Name"}}</label>
-      <input type="checkbox" name="flags.midi-qol.AoETargetTypeIncludeSelf" data-dtype="Boolean" {{checked
-        item.flags.midi-qol.AoETargetTypeIncludeSelf}} />
-    </div>
-    <div class="form-group">
-      <label>{{localize "midi-qol.AutoTarget.Name"}}</label>
-      <select name="flags.midi-qol.autoTarget" data-dtype="String">
-        {{selectOptions AutoTargetOptions selected=item.flags.midi-qol.autoTarget}}
-      </select>
-    </div>
-    {{/if}}
-    <div class="form-group">
-      {{#if (or item.hasAttack item.hasDamage)}}
-      <label>
-        {{ localize "midi-qol.RemoveButtons.Name"}}</label>
-      <select name="flags.midi-qol.removeAttackDamageButtons" data-dtype="String">
-        {{selectOptions RemoveAttackDamageButtonsOptions selected=item.flags.midi-qol.removeAttackDamageButtons}}
-      </select>
-    </div>
-    {{/if}}
-
-    {{#if item.hasSave }}
-    <div class="form-group">
-      <label>{{localize "midi-qol.EffectActivation"}}</label>
-      <input type="checkbox" name="flags.midi-qol.effectActivation" data-dtype="Boolean" {{checked
-        item.flags.midi-qol.effectActivation}} />
-    </div>
-
-    {{/if}}
-    {{#if showCEOff}}
-    <div class="form-group">
-      <label>{{localize "midi-qol.convenientEffectsOff"}}</label>
-      <input type="checkbox" name="flags.midi-qol.forceCEOff" data-dtype="Boolean" {{checked
-        item.flags.midi-qol.forceCEOff}}>
-    </div>
-    {{/if}}
-    {{#if showCEOn}}
-    <div class="form-group">
-      <label>{{localize "midi-qol.convenientEffectsOn"}}</label>
-      <input type="checkbox" name="flags.midi-qol.forceCEOn" data-dtype="Boolean" {{checked
-        item.flags.midi-qol.forceCEOn}}>
-    </div>
-    {{/if}}
-    <div cass="form-group">
-      {{#each flags.midiProperties as |value key|}}
-      {{#if (and ../item.hasSave ../item.hasDamage (eq key "saveDamage"))}}
-      <label>
-        {{ localize "midi-qol.Saves"}}
-        <select name="flags.midiProperties.{{key}}" data-dtype="String">
-          {{selectOptions ../SaveDamageOptions selected=value}} </select>
-      </label>
-      {{/if}}
-      {{#if (eq key "confirmTargets")}}
-      <label>
-        {{ localize "midi-qol.confirmTargetsProp"}}
-        <select name="flags.midiProperties.{{key}}" data-dtype="String">
-          {{selectOptions ../ConfirmTargetOptions selected=value}} </select>
-      </label>
-      {{/if}}
+  {{#if allowUseMacro}}
+  <div class="form-group">
+    <h3 class="form-header">{{localize "midi-qol.onUseMacroLabel"}}
+      <a class="macro-control damage-control edit-macro"><i class="fas fa-file-pen"></i></a>
+      <a class="macro-control damage-control add-macro"><i class="fas fa-plus"></i></a>
+    </h3>
+  </div>
+  <div class="form-group">
+    <ol class="damage-parts onusemacro-group form-group">
+      {{#each item.flags.midi-qol.onUseMacroParts.items as |macroItem index|}}
+      <li class="damage-part flexrow" data-midiqol-macro-part="{{index}}">
+        <input class="midi-onuse-macro-name" type="text" name="flags.midi-qol.onUseMacroParts.items.{{index}}.macroName"
+          value="{{macroItem.macroName}}" />
+        <select name="flags.midi-qol.onUseMacroParts.items.{{index}}.option" data-dtype="String">
+          {{selectOptions ../MacroPassOptions selected=[macroItem].option}}
+        </select>
+        <a class="macro-control damage-control delete-macro" style="text-align: right;"><i class="fas fa-minus"></i></a>
+      </li>
       {{/each}}
+    </ol>
+  </div>
+  {{/if}}
+  {{#if showHeader}}
+  <h3 class="form-header">Midi Qol Fields</h3>
+  {{/if}}
+  {{#if item.hasAttack}}
+  <div class="form-group">
+    <label>{{localize "midi-qol.FumbleThreshold"}}</label>
+    <input type="Number" name="flags.midi-qol.fumbleThreshold" value="{{item.flags.midi-qol.fumbleThreshold}}" />
+  </div>
+  {{/if}}
+  {{#if item.hasAreaTarget}}
+  <div class="form-group">
+    <label>{{localize "midi-qol.AoETargetType.Name"}}</label>
+    <select name="flags.midi-qol.AoETargetType" data-dtype="String">
+      {{selectOptions AoETargetTypeOptions selected=item.flags.midi-qol.AoETargetType}}
+    </select>
+  </div>
+  <div class="midi-qol-faint">{{localize "midi-qol.AoETargetType.Hint"}}
+  </div>
+  <div class="form-group">
+    <label>{{localize "midi-qol.AoETargetTypeIncludeSelf.Name"}}</label>
+    <input type="checkbox" name="flags.midi-qol.AoETargetTypeIncludeSelf" data-dtype="Boolean" {{checked
+      item.flags.midi-qol.AoETargetTypeIncludeSelf}} />
+  </div>
+  <div class="form-group">
+    <label>{{localize "midi-qol.AutoTarget.Name"}}</label>
+    <select name="flags.midi-qol.autoTarget" data-dtype="String">
+      {{selectOptions AutoTargetOptions selected=item.flags.midi-qol.autoTarget}}
+    </select>
+  </div>
+  {{/if}}
+  <div class="form-group">
+    <label>{{ localize "midi-qol.confirmTargetsProp"}}</label>
+    <select name="flags.midiProperties.confirmTargets" data-dtype="String">
+      {{selectOptions ConfirmTargetOptions selected=flags.midiProperties.confirmTargets}} </select>
+  </div>
+  {{#if (or item.hasAttack item.hasDamage)}}
+  <div class="form-group">
+    <label>{{ localize "midi-qol.RemoveButtons.Name"}}</label>
+    <select name="flags.midi-qol.removeAttackDamageButtons" data-dtype="String">
+      {{selectOptions RemoveAttackDamageButtonsOptions selected=item.flags.midi-qol.removeAttackDamageButtons}}
+    </select>
+  </div>
+  {{/if}}
+
+  <div class="form-group">
+    <label>{{localize "midi-qol.EffectActivation"}}</label>
+    <input type="checkbox" name="flags.midi-qol.effectActivation" data-dtype="Boolean" {{checked
+      item.flags.midi-qol.effectActivation}} />
+  </div>
+
+  {{#if showCEOff}}
+  <div class="form-group">
+    <label>{{localize "midi-qol.convenientEffectsOff"}}</label>
+    <input type="checkbox" name="flags.midi-qol.forceCEOff" data-dtype="Boolean" {{checked
+      item.flags.midi-qol.forceCEOff}}>
+  </div>
+  {{/if}}
+  {{#if showCEOn}}
+  <div class="form-group">
+    <label>{{localize "midi-qol.convenientEffectsOn"}}</label>
+    <input type="checkbox" name="flags.midi-qol.forceCEOn" data-dtype="Boolean" {{checked
+      item.flags.midi-qol.forceCEOn}}>
+  </div>
+  {{/if}}
+
+  {{#if (and item.hasSave item.hasDamage)}}
+  <div class="form-group">
+    <label>{{ localize "midi-qol.Saves"}} Base</label>
+    <select name="flags.midiProperties.saveDamage" data-dtype="String">
+      {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.saveDamage}} </select>
+  </div>
+  <div class="form-group">
+    <label>{{ localize "midi-qol.Saves"}} Bonus</label>
+    <select name="flags.midiProperties.bonusSaveDamage" data-dtype="String">
+      {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.bonusSaveDamage}} </select>
+  </div>
+  {{/if}}
+
+  {{#if (and item.hasSave hasOtherDamage)}}
+  <div class="form-group">
+    <label>{{ localize "midi-qol.Saves"}} Other</label>
+    <select name="flags.midiProperties.otherSaveDamage" data-dtype="String">
+      {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.otherSaveDamage}} </select>
+  </div>
+  {{/if}}
+
+  <div class="form-group stacked weapon-properties">
+    {{#each flags.midiProperties as |value key|}}
+    {{#unless (or (eq key "saveDamage") (eq key "bonusSaveDamage") (eq key
+    "otherSaveDamage") (eq key "confirmTargets") )}}
+    <label class="checkbox">
+      <input type="checkbox" name="flags.midiProperties.{{key}}" {{checked value}} />
+      {{lookup ../midiPropertyLabels key}}
+    </label>
+    {{/unless}}
+    {{/each}}
+  </div>
+  <div class="midi-qol-box">
+    <h3>{{localize "midi-qol.ConditionHeader"}}</h3>
+    <div>
+      <label>{{localize "midi-qol.ItemActivationCondition.Name"}}</label>
+      <textarea name="flags.midi-qol.itemCondition">{{item.flags.midi-qol.itemCondition}}</textarea>
     </div>
-    <div class="form-group stacked weapon-properties">
-      {{#each flags.midiProperties as |value key|}}
-      {{#unless (or (eq key "saveDamage") (eq key "confirmTargets"))}}
-      <label class="checkbox">
-        <input type="checkbox" name="flags.midiProperties.{{key}}" {{checked value}} />
-        {{lookup ../midiPropertyLabels key}}
-      </label>
-      {{/unless}}
-      {{/each}}
+    <div>
+      <label>{{localize "midi-qol.ReactionActivationCondition.Name"}}</label>
+      <textarea name="flags.midi-qol.reactionCondition">{{item.flags.midi-qol.reactionCondition}}</textarea>
     </div>
-  </section>
+    <div>
+      <label>{{localize "midi-qol.OtherActivationCondition.Name"}}</label>
+      <textarea name="flags.midi-qol.otherCondition">{{item.flags.midi-qol.otherCondition}}</textarea>
+    </div>
+    <div>
+      <label>{{localize "midi-qol.EffectActivationCondition.Name"}}</label>
+      <textarea name="flags.midi-qol.effectCondition">{{item.flags.midi-qol.effectCondition}}</textarea>
+    </div>
+  </div>
 </div>

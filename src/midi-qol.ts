@@ -1,12 +1,12 @@
 import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, readySettingsSetup, collectSettingData, safeGetGameSetting } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
-import { checkModules, DAE_REQUIRED_VERSION, installedModules, setupModules } from './module/setupModules.js';
+import { checkModules, installedModules, setupModules } from './module/setupModules.js';
 import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
 import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Hooks.js';
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
-import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, WORKFLOWSTATES } from './module/workflow.js';
-import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
+import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -188,6 +188,8 @@ function addConfigOptions() {
     config.midiProperties["toggleEffect"] = i18n("midi-qol.toggleEffectProp");
     config.midiProperties["ignoreTotalCover"] = i18n("midi-qol.ignoreTotalCover");
     config.midiProperties["saveDamage"] = "Save Damage";
+    config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save",
+    config.midiProperties["otherSaveDamage"] = "Other Damage Save",
     config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
     config.customDamageResistanceTypes = {
@@ -226,9 +228,12 @@ function addConfigOptions() {
     config.midiProperties["nodam"] = i18n("midi-qol.noDamageSaveProp");
     config.midiProperties["fulldam"] = i18n("midi-qol.fullDamageSaveProp");
     config.midiProperties["halfdam"] = i18n("midi-qol.halfDamageSaveProp")
-    config.midiProperties["rollOther"] = i18n("midi-qol.rollOtherProp");
+    // config.midiProperties["rollOther"] = i18n("midi-qol.rollOtherProp");
     config.midiProperties["critOther"] = i18n("midi-qol.otherCritProp");
     config.midiProperties["concentration"] = i18n("midi-qol.concentrationActivationCondition");
+    config.midiProperties["saveDamage"] = "Save Damage";
+    config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save",
+    config.midiProperties["otherSaveDamage"] = "Other Damage Save",
 
     config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
 
@@ -262,37 +267,7 @@ Hooks.once('ready', function () {
   registerSettings();
   gameStats = new RollStats();
   actorAbilityRollPatching();
-  // has to be done before setup api.
-  // MQOnUseOptions = geti18nOptions("onUseMacroOptions");
-  /*
-  if (typeof MQOnUseOptions === undefined) MQOnUseOptions = {
-    "preTargeting": "Called before targeting is resolved (*)",
-    "preItemRoll": "Called before the item is rolled (*)",
-    "templatePlaced": "Only called once a template is placed",
-    "preambleComplete": "After targeting complete",
-    "preAttackRoll": "Before Attack Roll",
-    "preCheckHits": "Before Check Hits",
-    "postAttackRoll": "After Attack Roll",
-    "preSave": "Before Save",
-    "postSave": "After Save",
-    "preDamageRoll": "Before Damage Roll",
-    "postDamageRoll": "After Damage Roll",
-    "damageBonus": "return a damage bonus",
-    "preDamageApplication": "Before Damage Application",
-    "preActiveEffects": "Before Active Effects",
-    "postActiveEffects": "After Active Effects ",
-    "isAttacked": "Target is attacked",
-    "isHit": "Target is hit",
-    "preTargetSave": "Target is about to roll a saving throw",
-    "isSave": "Target rolled a save",
-    "isSaveSuccess": "Target rolled a successful save",
-    "isSaveFailure": "Target failed a saving throw",
-    "preTargetDamageApplication": "Target is about to be damaged by an item",
-    "postTargetEffectApplication": "Target has an effect applied by a rolled item",
-    "isDamaged": "Target is damaged by an attack",
-    "all": "All"
-  }
-  */
+
   MQOnUseOptions = {
     "preTargeting": "Called before targeting is resolved (*)",
     "preItemRoll": "Called before the item is rolled (*)",
@@ -331,7 +306,9 @@ Hooks.once('ready', function () {
   }
   OnUseMacroOptions.setOptions(MQOnUseOptions);
   globalThis.MidiQOL.MQOnUseOptions = MQOnUseOptions;
+
   MidiSounds.midiSoundsReadyHooks();
+
   if (game.system.id === "dnd5e") {
     getSystemCONFIG().characterFlags["spellSniper"] = {
       name: "Spell Sniper",
@@ -339,6 +316,8 @@ Hooks.once('ready', function () {
       section: i18n("DND5E.Feats"),
       type: Boolean
     };
+
+    getSystemCONFIG().areaTargetTypes["squareRadius"] = {label: i18n("midi-qol.squareRadius"), template :"rect"};
 
     if (game.user?.isGM) {
       const instanceId = game.settings.get("midi-qol", "instanceId");
@@ -355,9 +334,8 @@ Hooks.once('ready', function () {
         game.settings.set("midi-qol", "last-run-version", newVersion);
         // look at sending a new version has been installed.
       }
-      readySettingsSetup()
+      readySettingsSetup();
     }
-
   }
 
   if (game.user?.isGM) {
@@ -391,6 +369,7 @@ Hooks.once('ready', function () {
   }
   readyHooks();
   readyPatching();
+  
   if (midiSoundSettingsBackup) game.settings.set("midi-qol", "MidiSoundSettings-backup", midiSoundSettingsBackup)
 
   // Make midi-qol targets hoverable
@@ -530,7 +509,6 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     WallsBlockConditions: string[],
     warn: function warn(...args: any[]): void,
     Workflow: class Workflow,
-    WORKFLOWSTATES,
     moveToken: async function (tokenRef: Token | TokenDocument | UUID, newCenter: { x: number, y: number }, animate: boolean = true),
     moveTokenAwayFromPoint: async function (targetRef: Token | TokenDocument | UUID, distance: number, point: { x: number, y: number }, animate: boolean = true),
   }
@@ -576,6 +554,7 @@ function setupMidiQOLApi() {
     doConcentrationCheck,
     doOverTimeEffect,
     DummyWorkflow,
+    chooseEffect,
     enableWorkflow,
     findNearby,
     gameStats,
@@ -629,7 +608,6 @@ function setupMidiQOLApi() {
     WallsBlockConditions,
     warn,
     Workflow,
-    WORKFLOWSTATES,
     moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }, animate: boolean = true) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
       if (tokenUuid) return socketlibSocket.executeAsGM("moveToken", { tokenUuid, newCenter, animate });

@@ -518,6 +518,7 @@ async function registerTests() {
             'preApplyDynamicEffects', 'preActiveEffects', 'postApplyDynamicEffects', 
             'preRollFinished', 'postActiveEffects', 'postRollFinished', 'preCleanup'];
             console.warn("Expected Passes", expectedPasses);
+            console.warn("Actual passes", macroPasses);
             // Test for all passes except "all"
             for (let expectedPass of expectedPasses) {
               assert.ok(macroPasses.includes(expectedPass), `onUseMacro pass ${expectedPass}`);

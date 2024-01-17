@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes } from "../midi-qol.js";
-import { DummyWorkflow, TrapWorkflow, Workflow, WORKFLOWSTATES, WorkflowV2 } from "./workflow.js";
-import { configSettings, enableWorkflow, checkRule, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getTargetConfirmation, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, hasCondition, isTargetable, hasWallBlockingCondition, getToken, getTokenDocument, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate } from "./utils.js";
+import { DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
+import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -140,68 +140,12 @@ export async function postTemplateConfirmTargets(item, options, pressedKeys, wor
   return true;
 }
 
-async function doItemUseV2(wrapped, config: any = {}, options: any = {}) {
-
-  if (debugEnabled > 0) {
-    warn("doItemUseV2 called with", this.name, config, options)
-  }
-  if (!enableWorkflow || options.createWorkflow === false) {
-    return await wrapped(config, options);
-  }
-  const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
-  const previousWorkflow = Workflow.getWorkflow(this.uuid);
-  options = mergeObject({
-    systemCard: false,
-    createWorkflow: true,
-    versatile: false,
-    configureDialog: true,
-    createMessage: true,
-    workflowOptions: { targetConfirmation: undefined, notReaction: false }
-  }, options, { insertKeys: true, insertValues: true, overWrite: true });
-  options.pressedKeys = pressedKeys;
-  if (previousWorkflow) { // can never start a workflow with one existing
-    const validStates = [previousWorkflow.WorkflowState_Cleanup, previousWorkflow.WorkflowState_Start, previousWorkflow.WorkflowState_RollFinished]
-    if (!(validStates.includes(previousWorkflow.currentAction))) {// && configSettings.confirmAttackDamage !== "none") {
-      const message = game.i18n.format("midi-qol.WaitingForPreviousWorkflow", { name: this.name });
-      ui.notifications?.warn(message);
-      if (await Dialog.confirm({
-        title: `${i18n("Cancel")} ${this.name}`,
-        content: `<p>${message} ${i18n("Cancel")}?</p>`,
-        defaultYes: false,
-        yes: () => { return true },
-        no: () => { return false }
-      })) {
-        await previousWorkflow.performState(previousWorkflow.WorkflowState_Cancel);
-        this.use(config, options);
-        return false;
-      } else return false;
-    } else {
-      await Workflow.removeWorkflow(this.uuid);
-      this.use(config, options);
-    }
-  }
-
-  const workflow = new WorkflowV2(this.parent, this, getSpeaker(this.actor), game?.user?.targets ?? new Set(), config, options);
-  // Is this needed?
-  workflow.rollOptions.versatile = workflow.rollOptions.versatile || options.versatile || workflow.isVersatile;
-  workflow.rollOptions.systemCard = workflow.rollOptions.systemCard || options.systemCard;
-  await workflow.performState(workflow.WorkflowState_None);
-  if (workflow.currentAction !== workflow.WorkflowState_WaitForChatCard) {
-    // workflow was aborted so don't call wrapped
-    return false;
-  }
-  const result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
-  workflow.performState(workflow.WorkflowState_ChatCardComplete);
-  return result;
-}
-
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   if (debugEnabled > 0) {
     warn("doItemUse called with", this.name, config, options);
   }
   try {
     // if confirming can't reroll till the first workflow is completed.
-    // REFACTOR if (Workflow.getWorkflow(this.uuid)?.currentState <= WORKFLOWSTATES.DAMAGEROLLCOMPLETE && configSettings.confirmAttackDamage !== "none") {
     let previousWorkflow = Workflow.getWorkflow(this.uuid);
     if (previousWorkflow) {
       const validStates = [previousWorkflow.WorkflowState_Completed, previousWorkflow.WorkflowState_Start, previousWorkflow.WorkflowState_RollFinished]
@@ -421,7 +365,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       return null;
     }
     if (speaker.token) tokenToUse = canvas?.tokens?.get(speaker.token);
-    const rangeDetails = checkRange(this, tokenToUse, targetsToUse)
+    const rangeDetails = checkRange(this, tokenToUse, targetsToUse, checkMechanic("checkRange") !== "none")
     if (checkMechanic("checkRange") !== "none" && !isAoETargeting && !isRangeTargeting && !AoO && speaker.token) {
       if (tokenToUse && targetsToUse.size > 0) {
         if (rangeDetails.result === "fail")
@@ -528,7 +472,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (await asyncHooksCall("midi-qol.preItemRoll", workflow) === false || await asyncHooksCall(`midi-qol.preItemRoll.${this.uuid}`, workflow) === false) {
       console.warn("midi-qol | attack roll blocked by preItemRoll hook");
       workflow.aborted = true;
-      // REFACTOR return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
       return workflow.performState(workflow.WorkflowState_Abort)
       // Workflow.removeWorkflow(workflow.id);
       // return;
@@ -538,15 +481,13 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (results.some(i => i === false)) {
         console.warn("midi-qol | item roll blocked by preItemRoll macro");
         workflow.aborted = true;
-        // REFACTOR return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
         return workflow.performState(workflow.WorkflowState_Abort)
       }
       const ammoResults = await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
       if (ammoResults.some(i => i === false)) {
         console.warn(`midi-qol | item ${workflow.ammo.name ?? ""} roll blocked by preItemRoll macro`);
         workflow.aborted = true;
-        // REFACTOR return workflow.next(WORKFLOWSTATES.ROLLFINISHED)
-        return workflow.performState(workflow.WorkflowState_RollFinished)
+        return workflow.performState(workflow.WorkflowState_Abort)
       }
     }
 
@@ -581,24 +522,28 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       await workflow.performState(workflow.WorkflowState_Abort)
       return null;
     }
-    // Sphere/Cyclinder spells only will have their template auto placed.
     if (autoCreatetemplate) {
       const gs = canvas?.dimensions?.distance ?? 5;
       const templateOptions: any = {};
       // square templates don't respect the options distance field
       let item = this;
-      const target = this.system.target ?? { value: 0 };
-      if (installedModules.get("walledtemplates") && this.flags?.walledtemplates?.addTokenSize) {
-        //@ts-expect-error width/height
-        const { width, height } = token.document;
-        if (target.type === "cube") {
-          templateOptions.distance = target.value + Math.max(width, height) * gs;
-          item = this.clone({ "system.target.value": templateOptions.distance})
-        }
-        else
-          templateOptions.distance = Math.ceil(target.value + Math.max(width, height) / 2 * (canvas?.dimensions?.distance ?? 0));
+      let target = item.system.target ?? { value: 0 };
+      const useSquare = target.type === "squareRadius";
+      if (useSquare) {
+        item = this.clone({ "system.target.value": target.value * 2, "system.target.type": "square" })
+        target = item.system.target ?? { value: 0 };
       }
-      if (this.system.target.type === "cube") { // square templates will get placed on the token centre - need to adjust the position
+      const fudge = 0.1;
+      //@ts-expect-error width/height
+      const { width, height } = token.document;
+      if (useSquare) {
+        templateOptions.distance = target.value + fudge + Math.max(width, height, 0) * gs;
+        item = item.clone({ "system.target.value": templateOptions.distance, "system.target.type": "square" })
+      }
+      else
+        templateOptions.distance = Math.ceil(target.value + Math.max(width/2, height/2, 0) * (canvas?.dimensions?.distance ?? 0));
+
+      if (useSquare) {
         const adjust = (templateOptions.distance ?? target.value) / 2;
         templateOptions.x = Math.floor((token.center?.x ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
         templateOptions.y = token.center?.y ?? 0;
@@ -618,7 +563,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       //@ts-expect-error .canvas
       let template = game.system.canvas.AbilityTemplate.fromItem(item, templateOptions);
       const templateData = template.document.toObject();
-
+      if (this.item) setProperty(templateData,  "flags.midi-qol.itemUuid", this.item.uuid );
+      if (this.actor) setProperty(templateData, "flags.midi-qol.actorUuid", this.actor.uuid);
+      if (!getProperty(templateData, "flags.dnd5e.origin")) setProperty(templateData, "flags.dnd5e.origin", this.item?.uuid);
       //@ts-expect-error
       const templateDocuments: MeasuredTemplateDocument[] | undefined = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
 
@@ -629,21 +576,17 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         workflow.templateUuid = td.uuid;
         workflow.templateId = td?.object?.id;
         if (token && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
-          //@ts-expect-error
-          const templateDocument = fromUuidSync(td.uuid);
           //@ts-expect-error .object
-          await token.attachTemplate(templateDocument.object, { "flags.dae.stackable": "noneName" }, true);
+          await token.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
         }
-        const selfToken = getToken(workflow.tokenUuid);
-        const ignoreSelf = getProperty(this, "flags.midi-qol.trapWorkflow.ignoreSelf") ?? false;
-        const AoETargetType = getProperty(this, "flags.midi-qol.trapWorkflow.AoETargetType") ?? "";
         selectTargets.bind(workflow)(td);
-        checkConcentration = false;
       }
     }
     if (needsConcentration && checkConcentration) {
       const concentrationEffect = getConcentrationEffect(this.actor);
-      if (concentrationEffect) await removeConcentration(this.actor, undefined, { concentrationEffectsDeleted: false, templatesDeleted: false });
+      if (concentrationEffect) {
+        await removeConcentration(this.actor, undefined, { concentrationEffectsDeleted: false, templatesDeleted: false });
+      }
     }
     if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
     if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);
@@ -654,13 +597,12 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     // Need concentration removal to complete before allowing workflow to continue so have workflow wait for item use to complete
     workflow.preItemUseComplete = true;
-    const shouldUnsuspend = workflow.currentAction !== workflow.WorkflowState_Completed && workflow.suspended && !workflow.needTemplate && !workflow.needItemCard; 
-    if (workflow.currentAction === workflow.WorkflowState_RollFinished || shouldUnsuspend) {
-      if (debugEnabled > 0 && shouldUnsuspend) console.warn(`Item use complete unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}`);
-      else if (debugEnabled > 0) console.warn(`Item use complete rollFinished: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}`);
-      workflow.performState(workflow.WorkflowState_AwaitItemCard)
+    // workflow is suspended pending completion of the itemUse actions?
+    const shouldUnsuspend = ([workflow.WorkflowState_AwaitItemCard, workflow.WorkflowState_AwaitTemplate, workflow.WorkflowState_NoAction].includes(workflow.currentAction) && workflow.suspended && !workflow.needTemplate && !workflow.needItemCard);
+    if (shouldUnsuspend) {
+      if (debugEnabled > 0) warn(`Item use complete: unsuspending ${workflow.workflowName} ${workflow.nameForState(workflow.currentAction)} unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}`);
+      workflow.unSuspend({itemUseComplete: true});
     }
-    // REFACTOR if (workflow.currentState === WORKFLOWSTATES.AWAITITEMCARD) workflow.next(WORKFLOWSTATES.AWAITITEMCARD);
     return result;
   } catch (err) {
     const message = `doItemUse error for ${this.actor?.name} ${this.name} ${this.uuid}`;
@@ -681,8 +623,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.advantage = false;
       workflow.disadvantage = false;
       workflow.rollOptions.rollToggle = globalThis.MidiKeyManager.pressedKeys.rollToggle;
-      // REFACTOR if (workflow.currentState !== WORKFLOWSTATES.ROLLFINISHED && configSettings.undoWorkflow) {
-      if (workflow.currentAction !== workflow.WorkflowState_RollFinished && configSettings.undoWorkflow) {
+      if (workflow.currentAction !== workflow.WorkflowState_Completed && configSettings.undoWorkflow) {
         socketlibSocket.executeAsGM("undoTillWorkflow", workflow.id, false, false);
       }
     }
@@ -708,8 +649,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
         workflow.targets = getSelfTargetSet(this.actor)
       } else if (game.user?.targets?.size ?? 0 > 0) workflow.targets = validTargetTokens(game.user?.targets);
 
-      // REFACTOR if (workflow?.attackRoll && workflow.currentState === WORKFLOWSTATES.ROLLFINISHED) {
-      if (workflow.attackRoll && workflow.currentAction === workflow.WorkflowState_RollFinished) {
+      if (workflow.attackRoll && workflow.currentAction === workflow.WorkflowState_Completed) {
         // we are re-rolling the attack.
         workflow.damageRoll = undefined;
         if (workflow.itemCardId) {
@@ -718,7 +658,9 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
         }
         if (workflow.damageRollCount > 0) { // re-rolling damage counts as new damage
           const itemCard = await this.displayCard(mergeObject(options, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
+          console.error("display card finished ", itemCard.id)
           workflow.itemCardId = itemCard.id;
+          workflow.needItemCard = false;
         }
       }
     }
@@ -731,6 +673,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     if (workflow.workflowType === "TrapWorkflow") workflow.rollOptions.fastForward = true;
 
     const promises: Promise<any>[] = [];
+    if (!getProperty(this, "flags.midi-qol.noProvokeReaction")) {
     for (let targetToken of workflow.targets) {
       promises.push(new Promise(async resolve => {
         //@ts-expect-error targetToken Type
@@ -743,6 +686,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
         resolve(result);
       }));
     }
+  }
     await Promise.allSettled(promises);
 
     // Compute advantage
@@ -883,8 +827,9 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.attackRollHTML = addAdvAttribution(workflow.attackRollHTML, workflow.attackAdvAttribution)
     if (debugCallTiming) log(`final item.rollAttack():  elapsed ${Date.now() - attackRollStart}ms`);
 
-    // REFACTOR await workflow.next(WORKFLOWSTATES.ATTACKROLLCOMPLETE);
-    workflow.performState(workflow.WorkflowState_AttackRollComplete);
+    // Can this cause a race condition?
+    if (workflow.suspended) workflow.unSuspend({attackRoll: result})
+    // workflow.performState(workflow.WorkflowState_AttackRollComplete);
     return result;
   } catch (err) {
     const message = `doAttackRoll Error for ${this.parent?.name} ${this.name} ${this.uuid}`;
@@ -917,20 +862,10 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
     }
 
     const midiFlags = workflow.actor.flags["midi-qol"]
-    // REFACTOR if (workflow.currentState !== WORKFLOWSTATES.WAITFORDAMAGEROLL && workflow.noAutoAttack) {
     if (workflow.currentAction !== workflow.WorkflowStaate_WaitForDamageRoll && workflow.noAutoAttack) {
-      // allow damage roll to go ahead if it's an ordinary roll
-      // REFACTOR workflow.currentState = WORKFLOWSTATES.WAITFORDAMAGEROLL;
-      workflow.currentAction = workflow.WorkflowState_WaitForDamageRoll
+      // TODO NW check this allow damage roll to go ahead if it's an ordinary roll
+      workflow.currentAction = workflow.WorkflowState_WaitForDamageRoll;
     }
-    /* REFACTOR if (workflow.currentState !== WORKFLOWSTATES.WAITFORDAMAGEROLL) {
-      switch (workflow?.currentState) {
-        case WORKFLOWSTATES.AWAITTEMPLATE:
-          return ui.notifications?.warn(i18n("midi-qol.noTemplateSeen"));
-        case WORKFLOWSTATES.WAITFORATTACKROLL:
-          return ui.notifications?.warn(i18n("midi-qol.noAttackRoll"));
-      }
-      */
     if (workflow.currentAction !== workflow.WorkflowState_WaitForDamageRoll) {
       if (workflow.currentAction === workflow.WorkflowState_AwaitTemplate)
         return ui.notifications?.warn(i18n("midi-qol.noTemplateSeen"));
@@ -956,8 +891,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
         replaceString = `<div class="midi-qol-bonus-roll"><div class="end-midi-qol-bonus-roll">`
         content = content.replace(searchRe, replaceString);
       }
-      // REFACTOR if (data && workflow.currentState === WORKFLOWSTATES.ROLLFINISHED) {
-      if (data && workflow.currentAction === workflow.WorkflowState_RollFinished) {
+      if (data && workflow.currentAction === workflow.WorkflowState_Completed) {
         if (workflow.itemCardId) {
           await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardId);
           await Workflow.removeItemCardConfirmRollButton(workflow.itemCardId);
@@ -1104,7 +1038,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
     let otherResult: Roll | undefined = undefined;
     let otherResult2: Roll | undefined = undefined;
 
-    workflow.shouldRollOtherDamage = shouldRollOtherDamage.bind(this)(workflow, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
+    workflow.shouldRollOtherDamage = shouldRollOtherDamage.bind(workflow.otherDamageItem)(workflow, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
     if (workflow.shouldRollOtherDamage) {
       const otherRollOptions: any = {};
       if (game.settings.get("midi-qol", "CriticalDamage") === "default") {
@@ -1182,8 +1116,8 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
     workflow.bonusDamageHTML = null;
     if (debugCallTiming) log(`item.rollDamage():  elapsed ${Date.now() - damageRollStart}ms`);
 
-    // REFACTOR workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETE);
-    workflow.performState(workflow.WorkflowState_ConfirmRoll);
+    if (workflow.suspended) workflow.unSuspend({damageRoll: result, otherDamageRoll: workflow.otherDamageRoll});
+    // workflow.performState(workflow.WorkflowState_ConfirmRoll);
     return result;
   } catch (err) {
     const message = `doDamageRoll error for item ${this.parent?.name} ${this?.name} ${this.uuid}`;
@@ -1346,7 +1280,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     Hooks.callAll("dnd5e.preDisplayCard", this, chatData, options);
     workflow.chatUseFlags = getProperty(chatData, "flags") ?? {};
 
-    ChatMessage.applyRollMode(chatData, options.rollMode ?? game.settings.get("core", "rollMode"))
+    ChatMessage.applyRollMode(chatData, options.rollMode ?? game.settings.get("core", "rollMode"));
     const card = createMessage !== false ? ChatMessage.create(chatData) : chatData;
     Hooks.callAll("dnd5e.displayCard", this, card);
     return card;
@@ -1538,21 +1472,25 @@ export function isAoETargetable(targetToken, options: { selfToken?: Token | Toke
     case "notAlly":
       return targetToken.document.disposition !== selfDisposition
     case "enemy":
-      return targetToken.document.disposition === -selfDisposition;
+      //@ts-expect-error
+      return targetToken.document.disposition === -selfDisposition || targetToken.document.disposition == CONST.TOKEN_DISPOSITIONS.SECRET;
     case "notEnemy":
-      return targetToken.document.disposition !== -selfDisposition;
+      //@ts-expect-error
+      return targetToken.document.disposition !== -selfDisposition && targetToken.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET;
     case "neutral":
       return targetToken.document.disposition === CONST.TOKEN_DISPOSITIONS.NEUTRAL;
     case "notNeutral":
       return targetToken.document.disposition !== CONST.TOKEN_DISPOSITIONS.NEUTRAL;
-    case "friendly": 
+    case "friendly":
       return targetToken.document.disposition === CONST.TOKEN_DISPOSITIONS.FRIENDLY;
     case "notFriendly":
       return targetToken.document.disposition !== CONST.TOKEN_DISPOSITIONS.FRIENDLY;
     case "hostile":
-      return targetToken.document.disposition === CONST.TOKEN_DISPOSITIONS.HOSTILE;
+      //@ts-expect-error
+      return targetToken.document.disposition === CONST.TOKEN_DISPOSITIONS.HOSTILE || targetToken.document.disposition == CONST.TOKEN_DISPOSITIONS.SECRET;
     case "notHostile":
-      return targetToken.document.disposition !== CONST.TOKEN_DISPOSITIONS.HOSTILE;
+      //@ts-expect-error
+      return targetToken.document.disposition !== CONST.TOKEN_DISPOSITIONS.HOSTILE && targetToken.document.disposition !== CONST.TOKEN_DISPOSITIONS.SECRET;
     default: return true;
   }
 }
@@ -1645,25 +1583,13 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   workflow.hitTargets = new Set(workflow.targets);
   workflow.templateData = templateDocument.toObject(); // TODO check this v10
   if (this instanceof TrapWorkflow) return;
-  // REFACTOR return workflow.next(WORKFLOWSTATES.AWAITTEMPLATE);
   if (workflow.needTemplate) {
     workflow.needTemplate = false;
-    return workflow.performState(workflow.WorkflowState_AwaitTemplate);
+    if (workflow.suspended) workflow.unSuspend({ templateDocument });
+    // TODO NW return workflow.performState(workflow.WorkflowState_AwaitTemplate);
   }
+  return;
 };
-
-export function activationConditionToUse(workflow: Workflow) {
-  let conditionToUse: string | undefined = undefined;
-  let conditionFlagToUse: string | undefined = undefined;
-  if (this.type === "spell" && configSettings.rollOtherSpellDamage === "activation") {
-    return workflow.otherDamageItem?.system.activation?.condition
-  } else if (["rwak", "mwak"].includes(this.system.actionType) && configSettings.rollOtherDamage === "activation") {
-    return workflow.otherDamageItem?.system.activation?.condition;
-  }
-  if (workflow.otherDamageItem?.flags?.midiProperties?.rollOther)
-    return workflow.otherDamageItem?.system.activation?.condition;
-  return undefined;
-}
 
 // TODO work out this in new setup
 export function shouldRollOtherDamage(workflow: Workflow, conditionFlagWeapon: string, conditionFlagSpell: string) {
@@ -1671,30 +1597,36 @@ export function shouldRollOtherDamage(workflow: Workflow, conditionFlagWeapon: s
   let conditionToUse: string | undefined = undefined;
   let conditionFlagToUse: string | undefined = undefined;
   // if (["rwak", "mwak", "rsak", "msak", "rpak", "mpak"].includes(this.system.actionType) && workflow?.hitTargets.size === 0) return false;
-  if (this.type === "spell" && conditionFlagSpell !== "none") {
-    rollOtherDamage = (conditionFlagSpell === "ifSave" && this.hasSave)
-      || conditionFlagSpell === "activation";
-    conditionFlagToUse = conditionFlagSpell;
-    conditionToUse = workflow.otherDamageItem?.system.activation?.condition
-  } else if (["rwak", "mwak"].includes(this.system.actionType) && conditionFlagWeapon !== "none") {
-    rollOtherDamage =
-      (conditionFlagWeapon === "ifSave" && workflow.otherDamageItem.hasSave) ||
-      ((conditionFlagWeapon === "activation") && (this.system.attunement !== getSystemCONFIG().attunementTypes.REQUIRED));
-    conditionFlagToUse = conditionFlagWeapon;
-    conditionToUse = workflow.otherDamageItem?.system.activation?.condition
-  }
-  if (workflow.otherDamageItem?.flags?.midiProperties?.rollOther && this.system.attunement !== getSystemCONFIG().attunementTypes.REQUIRED) {
+  if (getProperty(this, "flags.midi-qol.otherCondition")) {
+    conditionToUse = getProperty(this, "flags.midi-qol.otherCondition");
+    conditionFlagToUse = "activation";
     rollOtherDamage = true;
-    conditionToUse = workflow.otherDamageItem?.system.activation?.condition
-    conditionFlagToUse = "activation"
+  } else {
+    if (this.type === "spell" && conditionFlagSpell !== "none") {
+      rollOtherDamage = (conditionFlagSpell === "ifSave" && this.hasSave)
+        || conditionFlagSpell === "activation";
+      conditionFlagToUse = conditionFlagSpell;
+      conditionToUse = workflow.otherDamageItem?.system.activation?.condition
+    } else if (["rwak", "mwak"].includes(this.system.actionType) && conditionFlagWeapon !== "none") {
+      rollOtherDamage =
+        (conditionFlagWeapon === "ifSave" && workflow.otherDamageItem.hasSave) ||
+        ((conditionFlagWeapon === "activation") && (this.system.attunement !== getSystemCONFIG().attunementTypes.REQUIRED));
+      conditionFlagToUse = conditionFlagWeapon;
+      conditionToUse = workflow.otherDamageItem?.system.activation?.condition
+    }
+    if (workflow.otherDamageItem?.flags?.midiProperties?.rollOther && this.system.attunement !== getSystemCONFIG().attunementTypes.REQUIRED) {
+      rollOtherDamage = true;
+      conditionToUse = workflow.otherDamageItem?.system.activation?.condition
+      conditionFlagToUse = "activation"
+    }
   }
-
   //@ts-ignore
-  if (rollOtherDamage && conditionFlagToUse === "activation" && workflow?.hitTargets.size > 0) {
+  if (rollOtherDamage && conditionFlagToUse === "activation") {
+    if ((workflow?.hitTargets.size ?? 0) === 0) return false;
     rollOtherDamage = false;
     for (let target of workflow.hitTargets) {
       rollOtherDamage = evalActivationCondition(workflow, conditionToUse, target);
-      if (rollOtherDamage) break;
+      if (rollOtherDamage) return true;
     }
   }
   return rollOtherDamage;

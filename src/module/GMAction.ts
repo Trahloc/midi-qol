@@ -1,12 +1,11 @@
 import { checkRule, configSettings } from "./settings.js";
-import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, geti18nOptions, debug } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, expirePerTurnBonusActions, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed } from "./utils.js";
-import { ddbglPendingFired } from "./chatMesssageHandling.js";
-import { Workflow, WORKFLOWSTATES } from "./workflow.js";
+import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug } from "../midi-qol.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference } from "./utils.js";
+import { ddbglPendingFired } from "./chatMessageHandling.js";
+import { Workflow } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
 import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _removeMostRecentWorkflow, _undoMostRecentWorkflow, undoTillWorkflow, _queueUndoDataDirect, updateUndoChatCardUuidsById } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
-import { busyWait } from "./tests/setupTest.js";
 
 export var socketlibSocket: any = undefined;
 var traitList = { di: {}, dr: {}, dv: {} };
@@ -40,7 +39,8 @@ export let setupSocket = () => {
   socketlibSocket.register("moveTokenAwayFromPoint", _moveTokenAwayFromPoint);
   socketlibSocket.register("queueUndoData", queueUndoData);
   socketlibSocket.register("queueUndoDataDirect", _queueUndoDataDirect);
-  socketlibSocket.register("removeEffect", _removeEffect)
+  socketlibSocket.register("removeEffect", _removeEffect);
+  socketlibSocket.register("removeCEEffect", _removeCEEffect);
   socketlibSocket.register("removeEffects", removeEffects);
   socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
   socketlibSocket.register("removeStatsForActorId", removeActorStats);
@@ -171,6 +171,11 @@ async function _removeEffect(data: { effectUuid: string }) {
   return effect.delete();
 }
 
+async function _removeCEEffect(data: {effectName: string, uuid: string}) {
+  //@ts-expect-error
+  return game.dfreds.effectInterface?.removeEffect({ effectName: data.effectName, uuid: data.uuid });
+}
+
 async function cancelWorkflow(data: { workflowId: string, itemCardId: string }) {
   const workflow = Workflow.getWorkflow(data.workflowId);
   if (workflow?.itemCardId !== data.itemCardId) {
@@ -191,17 +196,11 @@ async function confirmDamageRollComplete(data: { workflowId: string, itemCardId:
   const workflow = Workflow.getWorkflow(data.workflowId);
   if (!workflow || workflow.itemCardId !== data.itemCardId) {
     /* Confirm this needs to be awaited
-    await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
-    await Workflow.removeItemCardConfirmRollButton(data.itemCardId);
-    return undefined;
     */
     Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
   const hasHits = workflow.hitTargets.size > 0 || workflow.hitTargetsEC.size > 0;
-  /*  REFACTOR if ((workflow.currentState === WORKFLOWSTATES.ATTACKROLLCOMPLETE) ||
-  (hasHits) && workflow.item.hasDamage && (!workflow.damageRoll || workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE)) {
-  */
   if ((workflow.currentAction === workflow.WorkflowState_AttackRollComplete) || hasHits &&
     workflow.item.hasDamage && (!workflow.damageRoll || workflow.currentAction !== workflow.WorkflowState_ConfirmRoll)) {
     return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
@@ -210,8 +209,8 @@ async function confirmDamageRollComplete(data: { workflowId: string, itemCardId:
     // TODO make sure this needs to be awaited
     return confirmDamageRollCompleteMiss(data);
   }
-  // REFACTOR return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
-  // TODO make sure this needs to be awaited.
+
+  // TODO NW if (workflow.suspended) workflow.unSuspend({rollConfirmed: true});
   return workflow.performState(workflow.WorkflowState_RollConfirmed)
 }
 
@@ -226,11 +225,7 @@ async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCard
     Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
-  /* REFACTOR  if ((workflow.item?.hasDamage && !workflow.damageRoll) ||
-      workflow.currentState !== WORKFLOWSTATES.DAMAGEROLLCOMPLETE) {
-        return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
-    }
-  */
+
   if ((workflow.item?.hasDamage && !workflow.damageRoll) ||
     workflow.currentAction !== workflow.WorkflowState_ConfirmRoll) {
     return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
@@ -239,7 +234,7 @@ async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCard
   if (workflow.hitTargets.size === workflow.targets.size) {
     return workflow.performState(workflow.WorkflowState_RollConfirmed)
     // TODO confirm this needs to be awaited
-  // REFACTOR return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
+
   }
   workflow.hitTargets = new Set(workflow.targets);
   workflow.hitTargetsEC = new Set();
@@ -253,18 +248,12 @@ async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCard
     }
   }
   await workflow.displayHits(workflow.whisperAttackCard, configSettings.mergeCard && workflow.itemCardId, true);
-  // REFACTOR return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED);
   return await workflow.performState(workflow.WorkflowState_RollConfirmed);
 }
 
 async function confirmDamageRollCompleteMiss(data: { workflowId: string, itemCardId: string }) {
   const workflow = Workflow.getWorkflow(data.workflowId);
   if (!workflow || workflow.itemCardId !== data.itemCardId) {
-    /* Confirm this needs to be awaited
-    await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
-    await Workflow.removeItemCardConfirmRollButton(data.itemCardId);
-    return undefined;
-    */
     Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
@@ -283,7 +272,6 @@ async function confirmDamageRollCompleteMiss(data: { workflowId: string, itemCar
   }
   // Make sure this needs to be awaited
   return workflow.performState(workflow.WorkflowState_RollConfirmed).then(() => Workflow.removeWorkflow(workflow.id));
-  // REFACTOR return await workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETECONFIRMED).then(() => Workflow.removeWorkflow(workflow.id));
 }
 
 function paranoidCheck(action: string, actor: any, data: any): boolean {
@@ -429,7 +417,6 @@ export async function _applyEffects(data: { workflowId: string, targets: string[
 
     workflow.applicationTargets = targets;
     if (workflow.applicationTargets.size > 0) result = await workflow.performState(workflow.WorkflowState_ApplyDynamicEffects);
-    // REFACTOR if (workflow.applicationTargets.size > 0) result = await workflow.next(WORKFLOWSTATES.APPLYDYNAMICEFFECTS);
     return result;
   } catch (err) {
     const message = `_applyEffects | remote apply effects error`;
@@ -478,8 +465,10 @@ export async function deleteEffects(data: { actorUuid: string, effectsToDelete: 
   // Check that none of the effects were deleted while we were waiting to execute
   const finalEffectsToDelete = actor.effects.filter(ef => data.effectsToDelete.includes(ef.id)).map(ef => ef.id);
   try {
-    if (debugEnabled > 0) warn("_deleteEffects ", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
-    return await actor.deleteEmbeddedDocuments("ActiveEffect", finalEffectsToDelete, data.options);
+    if (debugEnabled > 0) warn("_deleteEffects started", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
+    const result = await actor.deleteEmbeddedDocuments("ActiveEffect", finalEffectsToDelete, data.options);
+  if (debugEnabled > 0) warn("_deleteEffects completed", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
+  return result;
   } catch (err) {
     const message = `deleteEffects | remote delete effects error`;
     console.warn(message, err);
@@ -517,7 +506,7 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
             TroubleShooter.recordError(err, message);
           };
         }
-        debug("deleteItemEffects: completed", actor.name)
+        if (debugEnabled > 0) warn("deleteItemEffects: completed", actor.name)
       }
       if (globalThis.Sequencer) await globalThis.Sequencer.EffectManager.endEffects({ origin })
     } catch (err) {
@@ -544,12 +533,12 @@ async function addConvenientEffect(options) {
   await game.dfreds.effectInterface?.addEffect({ effectName, uuid: actorUuid, origin });
 }
 
-async function localDoReactions(data: { tokenUuid: string; reactionItemUuidList: string[], triggerTokenUuid: string, reactionFlavor: string; triggerType: string; options: any }) {
+async function localDoReactions(data: { tokenUuid: string; reactionItemList: ReactionItemReference[], triggerTokenUuid: string, reactionFlavor: string; triggerType: string; options: any }) {
   if (data.options.itemUuid) {
     data.options.item = MQfromUuid(data.options.itemUuid);
   }
   // reactonItemUuidList can't used since magic items don't have a uuid, so must always look them up locally.
-  const result = await promptReactions(data.tokenUuid, [] /*data.reactionItemUuidList */, data.triggerTokenUuid, data.reactionFlavor, data.triggerType, data.options)
+  const result = await promptReactions(data.tokenUuid, data.reactionItemList, data.triggerTokenUuid, data.reactionFlavor, data.triggerType, data.options)
   return result;
 }
 

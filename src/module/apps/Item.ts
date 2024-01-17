@@ -93,12 +93,16 @@ export function activateMacroListeners(app: Application, html) {
       permissions: {dragstart: () => false, drop: () => true},
       callbacks: { drop: _onDrop },
     });
+
+//    let form = html.filter((i, el) => el instanceof HTMLFormElement)[0];
+//    if (!form) form = html.find("form")[0]
     //@ts-expect-error .form
     dd.bind(app.form);
   }
 }
 
 async function _onDrop(ev) {
+  console.error("on drop called")
   ev.preventDefault();
   //@ts-ignore
   const data = TextEditor.getDragEventData(ev);
@@ -115,8 +119,10 @@ async function _onMacroControl(event) {
   // Add new macro component
   if (a.classList.contains("add-macro")) {
     const macros = getCurrentSourceMacros(this.object);
+    this.selectMidiTab = true;
     await this._onSubmit(event);  // Submit any unsaved changes
     macros.items.push(new OnUseMacro());
+    this.selectMidiTab = true;
     await this.object.update({ "flags.midi-qol.onUseMacroName": macros.toString() });
   }
 
@@ -124,14 +130,17 @@ async function _onMacroControl(event) {
   if (a.classList.contains("delete-macro")) {
     const macros = getCurrentSourceMacros(this.object);
     const li = a.closest(".damage-part");
+    this.selectMidiTab = true;
     await this._onSubmit(event);  // Submit any unsaved changes
     macros.items.splice(Number(li.dataset.midiqolMacroPart), 1);
+    this.selectMidiTab = true;
     await this.object.update({ "flags.midi-qol.onUseMacroName": macros.toString() });
   }
 
   if (a.classList.contains("edit-macro")) {
     new globalThis.DAE.DIMEditor(this.document, {}).render(true);
   }
+  this.selectMidiTab = true;
 }
 
 export function getCurrentMacros(object): OnUseMacros {

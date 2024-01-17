@@ -49,6 +49,7 @@ const defaultKeyMapping = {
 class ConfigSettings {
   // fullAuto: boolean = false;
   addDead: string = "none";
+  addFakeDice: boolean = false;
   addWounded: number = 0;
   addWoundedStyle: string = "none";
   midiWoundedCondition: string = "none";
@@ -88,6 +89,7 @@ class ConfigSettings {
   displayHitResultNumeric: boolean = true;
   displaySaveAdvantage: boolean = true;
   displaySaveDC: boolean = true;
+  doConcentrationCheck: boolean = true;
   griddedGridless: boolean = false;
   gridlessFudge: number = 0;
   doReactions: string = "all";
@@ -118,6 +120,7 @@ class ConfigSettings {
   mergeCard: boolean = false;
   mergeCardCondensed: boolean = false;
   mergeCardMulti: boolean = false;
+  midiFieldsTab: boolean = true;
   confirmAttackDamage: string = "none";
   highlightSuccess: boolean = false;
   optionalRulesEnabled: boolean = false;
@@ -280,6 +283,9 @@ export function exportSettingsToJSON() {
 export async function importSettingsFromJSON(json) {
   if (typeof json === "string")
     json = JSON.parse(json);
+  if (json.midiSettings) { // this is a trouble shooter file
+    json = json.midiSettings;
+  }
   await game.settings.set("midi-qol", "ConfigSettings", json.configSettings);
   await game.settings.set("midi-qol", "ItemRollButtons", json.itemRollButtons);
   await game.settings.set("midi-qol", "CriticalDamage", json.criticalDamage);
@@ -339,6 +345,7 @@ export let fetchParams = () => {
   if (configSettings.promptDamageRoll === undefined) configSettings.promptDamageRoll = false;
   if (configSettings.gmHide3dDice === undefined) configSettings.gmHide3dDice = false;
   if (configSettings.ghostRolls === undefined) configSettings.ghostRolls = false;
+  if (configSettings.addFakeDice === undefined) configSettings.addFakeDice = false;
   if (typeof configSettings.gmConsumeResource !== "string") configSettings.gmConsumeResource = "none";
   if (typeof configSettings.consumeResource !== "string") configSettings.consumeResource = "none";
   if (!configSettings.enableddbGL) configSettings.enableddbGL = false;
@@ -447,6 +454,7 @@ export let fetchParams = () => {
   if (configSettings.attackPerTarget === undefined) configSettings.attackPerTarget = false;
   if (configSettings.autoRemoveTemplate === undefined) configSettings.autoRemoveTemplate = true;
   if (configSettings.removeConcentrationEffects === undefined) configSettings.removeConcentrationEffects = "effects";
+  if (configSettings.doConcentrationCheck === undefined) configSettings.doConcentrationCheck = configSettings.removeConcentration;;
   if (configSettings.undoWorkflow === undefined) configSettings.undoWorkflow = false;
   if (configSettings.enforceSingleWeaponTarget == undefined) configSettings.enforceSingleWeaponTarget = false;
   configSettings.hidePlayerDamageCard = true;
@@ -472,6 +480,7 @@ export let fetchParams = () => {
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapcitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated"; 
   if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated"; 
+  if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
 
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";

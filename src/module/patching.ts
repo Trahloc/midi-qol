@@ -7,6 +7,7 @@ import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { socketlibSocket } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { busyWait } from "./tests/setupTest.js";
 let libWrapper;
 
 var d20Roll;
@@ -1057,7 +1058,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
           const effectsToDelete = getItemEffectsToDelete({ actor: targetActor, origin: concentrationData.uuid, ignore: [deleteEffectUuid ?? ""], ignoreTransfer: true, options });
           if (effectsToDelete?.length > 0) {
             const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
-            if (debugEnabled > 0) warn("removeConcentration | removing effects", actor?.name, effectsToDelete, options);
+            if (debugEnabled > 0) warn("removeConcentration | removing effects", targetActor?.name, effectsToDelete, options);
             promises.push(socketlibSocket.executeAsGM("deleteEffects", {
               actorUuid: target.actorUuid, effectsToDelete,
               options: mergeObject(deleteOptions, { concentrationDeleted: true, concentrationEffectsDeleted: true, noConcentrationCheck: true })
@@ -1075,13 +1076,13 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
           mergeObject(options, { concentrationDeleted: true, concentrationEffectsDeleted: true, noConcentrationCheck: true })));
       }
     }
-    return await Promise.allSettled(promises);
+    result = await Promise.allSettled(promises);
+    if(debugEnabled > 0) warn("removeConcentration | finished", actor?.name);
   } catch (err) {
     const message = `error when attempting to remove concentration for ${actor?.name}`;
     console.warn(message, err);
     TroubleShooter.recordError(err, message);
   } finally {
-
     return undefined;
     // return await concentrationEffect?.delete();
   }
@@ -1243,6 +1244,17 @@ async function _preUpdateActor(wrapped, update, options, user) {
     return wrapped(update, options, user);
   }
 }
+function itemSheetDefaultOptions(wrapped) {
+  const options = wrapped();
+  const modulesToCheck = ["magic-items-2", "items-with-spells-5e", "ready-set-roll-5e"];
+  const installedModules = modulesToCheck.filter(mid => game.modules.get(mid)?.active).length + (configSettings.midiFieldsTab ? 1 : 0);
+  const newWidth = 560 + Math.max(0, (installedModules - 2) * 100);
+  if (options.width < newWidth) {
+    log(`increasing item sheet width from ${options.width} to ${newWidth}`);
+    options.width = newWidth;
+  }
+  return options;
+}
 
 export function readyPatching() {
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
@@ -1250,6 +1262,7 @@ export function readyPatching() {
     libWrapper.register("midi-qol", "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+    libWrapper.register("midi-qol", "CONFIG.Item.sheetClasses.base['dnd5e.ItemSheet5e'].cls.defaultOptions", itemSheetDefaultOptions, "WRAPPER");
   } else { // TODO find out what itemsheet5e is called in sw5e TODO work out how this is set for sw5e v10
     libWrapper.register("midi-qol", "game.sw5e.canvas.AbilityTemplate.prototype.refresh", midiATRefresh, "WRAPPER");
     libWrapper.register("midi-qol", "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
@@ -1313,7 +1326,6 @@ export let itemPatching = () => {
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
-
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     //@ts-expect-error .version
     if (isNewerVersion(game.system.version, "2.3.99"))

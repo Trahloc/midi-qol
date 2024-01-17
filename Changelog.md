@@ -1,3 +1,64 @@
+
+## 11.3.13
+* Final changes to auto place templates. (sorry about the mucking around) Only radius/squared-radius templates are auto placed. 
+  - If using 555 measurement use Squared Radius (which is the equivalent distance when using 555 distance).
+  - If using Euclidean measurement use radius. Template sizes will automatically adjust for the size of the token that caused the placement of the template (does not require walled templates).
+  - For squared radius templates midi auto targeting will calculate walls blocking from the center of the token placing the template, rather than the origin of the template. 
+  - If using walled templates set the per item setting for walled templates to walls do not block template.
+* Support for Magic Items 2 and reactions - all aspects (that I have tested) work with magic items 2.
+* Midi-qol Settings can now be configured to be a separate tab on default(like) item sheets sheets. Setting in Misc settings tab, default is true.
+* Fix for very old items not displaying correctly (created before midi had midiProperties defined). Should now just work.
+* GMs can add fake dice to the Dice So Nice displayed rolls (to screw with their players). Midi will add between 1 and the number of dice rolled to each DSN roll (at most one to attack roll D20s). You need to make sure the players don't see the roll formula else it will be pretty obvious what is going on.
+* Fix for concentration saves with a saveBonus defined.
+* Added a new function MidiQOL.chooseEffect, designed to be used as an onUseMacro function call that lets you choose one effect on the item to apply. Midi will select effects that are **not** transfer effects and must have the **do not apply** setting checked on the effect. This lets you have several effects and the user of the item can choose which one to apply. Have a look at the sample item ChooseBlessing.
+* Another fix for double rolls when using bonus/reactions.
+* Additional option in concentration checking. do concentration check, enabled means roll a concentration save when damage is taken. This works with the existing remove concentration of failed save.
+* midi can now import settings from a trouble shooter file without having to first load them into the troubleshooter, import settings from the misc tab.
+* Added a hack so the the item sheet window display properly when there are lots of modules adding tabs to item sheet.
+
+* **Maybe Breaking** Big changes to activation conditions, effect application, other damage application and reaction processing.
+  * The existing mechanisms for rolling other damage and applying effects continue to work as before, i.e. the midi settings and so on.
+  * There is now a much simpler way to handle these which (if set) will **replace** the default behaviour, that means if they are present all other checks are ignored. To reiterate if a condition is specified it will completely override the existing behaviour and will be the only thing midi looks at. If the condition is empty then midi will use the pre 11.3.13 logic for other damage, reactions etc.
+  * Each item now has 4 conditions defined by midi-qol, item activation, other damage, effect application and reaction activation, the existing dnd5e item activation condition can be bypassed completely.
+    * Item activation specifies that the condition must evaluate to true or the item roll will be cancelled (if using undo workflow ammo/spell slots etc will be restored).
+      - See the spell mass cure wounds as an example. The condition is evaluated after targeting is complete and before any attack/damage rolls have been made.
+    * Other damage specifies that the condition must evaluate to true or other damage won't be rolled. If other damage is rolled it will be used when applying damage. This is called after the attack roll is completed and hits have been checked.
+      - An empty condition means that the prior midi process for deciding other damage will be used, so existing items don't have to change. 
+      - The condition uses the item that midi thinks is the source of other damage. This matters for ammo where the "other damage" item will be the ammunition if it has "other damage", so midi will usse the ammo condition to test. See the new Arrow of slaying as an example.
+      - If an other damage condition is present the midi-property alsoRollOther (which will be removed in a later release), like other settings for other damage, is ignored. 
+    * Effect application means that the condition must evaluate to true (against the target) or the item effects won't be applied to the target. If effect condition is present all other settings are ignored and only the result of the effect condition is used to determine if the effect should be applied. 
+    - The existing requirements that a target must be hit/fail a save for the effect to be applied are ignored if the effect activation conditions is present and such tests must be coded in the condition. Some quick properties are available in the condition test, target.saved, target.failedSave, target.superSaver, target.semiSuperSaver, target.isHit, target.isHitEC.
+    - See the mace of disruption for an example.
+    - A shorthand isAttuned is available for conditions, to let you filter for items that are attuned or attunement not required. Have a look at Sword of Sharpness.
+  * If those conditions are present they will **override** any other settings, this includes having the condition as simply "true".
+  * The change for other damage rolling should resolve many of the existing tricks with rolling other damage and means you can create items that do not depend on midi settings to work.
+  * (I still recommend setting roll other damage to if save present in the midi settings so that SRD monsters etc will work without change).
+  * The change for item activation means you can avoid using macros to stop the item rolling. The item activation condition is evaluated **after** targeting is complete so ammo usage, spell slot usage, concentration removal will have taken place. If you enable the undo workflow setting any changes made will be undone if the activation condition fails.
+    - Have a look at mass cure wounds as an example.
+  * The **current** treatment of save damage setting is confusing/opaque/cryptic.
+    - There are two cases
+      1. No "Other damage" present (i.e not rolled), a save will be applied to base damage/bonus damage
+      2. "Other Damage" present (i.e. rolled), base damage will be full no matter what the save, and other damage will be affected by the setting.
+  * The per item save damage has now been split into 3 type, base item damage, bonus damage and other damage. So that you can decide how each of those are affected by a save.
+* Reaction conditions.
+  - if present the reaction condition will trigger if the reaction fires or not.
+  - If a reaction condition is NOT present on an item then the existing reaction action type will be used to determine triggering.
+  - If a reaction condition is present the condition returning true will cause the item to be prompted as a reaction option. (this also works for magic-itms-2 items).
+  There are now many options for triggering reactions:
+    - reactionTargeted - not yet
+    - reaction pre attack (preAttack)
+    - reactionAttacked (isAttacked)
+    - reactionMissed - (isMissed)
+    - reactionHit (isHit)
+    - reactionDamaged (isDamaged)
+    - reactionNotDamaged - not yet
+    - reactionSave (isSave)
+    - reactionSaveSuccess (isSaveSuccess)
+    - reactionSaveFailure (isSaveFailure)
+    - reactionMoved - not yet (will be after 3rd party reactions)
+    - reactionItemRolled - not yet
+  - When evaluating a reaction condition you can test reaction === "isHit" for example to present the reaction option during the isHit reaction phase.
+
 ## 11.3.12.2
 * Due to some cases I forgot to consider auto placing templates (when range is self) only takes place for "radius", "sphere", "cylinder" and "cube" templates. You can use "cube" instead of "square" for replicating range targeting.
 * Fix to stop doing double damage on auto targeted template spells.

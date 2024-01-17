@@ -1,17 +1,21 @@
 import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { log } from "../midi-qol.js";
-import { DummyWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
+import { DummyWorkflow, Workflow } from "./workflow.js";
 import { socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
 import { OnUseMacros } from "./apps/Item.js";
-import { Options, removeConcentration } from "./patching.js";
+import { Options } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 
 const defaultTimeout = 30;
+export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | String;
+export type ReactionItem = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string, baseItem: Item } | Item;
+
+
 
 export function getDamageType(flavorString): string | undefined {
   const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
@@ -39,10 +43,15 @@ export function getDamageFlavor(damageType): string | undefined {
 export function createDamageDetail({ roll, item, versatile, defaultType = MQdefaultDamageType, ammo }): { damage: unknown; type: string; }[] {
   let damageParts = {};
   const rollTerms = roll?.terms ?? [];
+  //@ts-expect-error .version
+  const systemVersion = game.system.version;
   let evalString = "";
   let parts = duplicate(item?.system.damage.parts ?? []);
   if (versatile && item?.system.damage.versatile) {
-    parts[0][0] = item.system.damage.versatile;
+    if (isNewerVersion(systemVersion, "2.4.99")) {
+      parts[0].formula = item.system.damage.versatile;
+    } else
+      parts[0][0] = item.system.damage.versatile;
   }
   if (ammo) parts = parts.concat(ammo.system.damage.parts)
 
@@ -56,7 +65,15 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
   const allDamageTypeEntries = Object.entries(getSystemCONFIG().damageTypes).concat(Object.entries(getSystemCONFIG().healingTypes));
 
   // If we have an item we can use it to work out each of the damage lines that are being rolled
-  for (let [spec, type] of parts) { // each spec,type is one of the damage lines
+  for (let part of parts) { // each spec,type is one of the damage lines
+    let spec, type;
+    if (isNewerVersion(systemVersion, "2.4.99")) {
+      let { damageType, formula } = part;
+      spec = formula;
+      type = damageType;
+    } else {
+      [spec, type] = part;
+    }
     if (partPos >= rollTerms.length) continue;
     // TODO look at replacing this with a map/reduce
     if (debugEnabled > 1) debug("CrreateDamageDetail: single Spec is ", spec, type, item)
@@ -467,8 +484,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
   let workflow: any = options.workflow ?? {};
   if (debugEnabled > 0) warn("applyTokenDamage |", applyDamageDetails, theTargets, item, workflow)
   if (!theTargets || theTargets.size === 0) {
-    // REFACtOR workflow.currentState = WORKFLOWSTATES.ROLLFINISHED;
-    workflow.currentAction = workflow.rollFinished;
+    // TODO NW workflow.currentAction = workflow.WorkflowState_RollFinished
     // probably called from refresh - don't do anything
     return [];
   }
@@ -485,9 +501,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
   const damageDetailArr = applyDamageDetails.map(a => a.damageDetail);
   const highestOnlyDR = false;
   let totalDamage = applyDamageDetails.reduce((a, b) => a + (b.damageTotal ?? 0), 0);
+
   let totalAppliedDamage = 0;
   let appliedTempHP = 0;
-  const itemSaveMultiplier = getSaveMultiplierForItem(item);
   for (let t of theTargets) {
     const targetToken: Token | undefined = getToken(t);
     const targetTokenDocument: TokenDocument | undefined = getTokenDocument(t);
@@ -509,14 +525,13 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     if (totalDamage > 0
       //@ts-expect-error isEmpty
       && !isEmpty(workflow)
-      && !isHealing
       && !noDamageReactions
       && !noProvokeReaction
       && options.hitTargets.has(t)
       && [Workflow].includes(workflow.constructor)) {
       // TODO check that the targetToken is actually taking damage
       // Consider checking the save multiplier for the item as a first step
-      let result = await doReactions(targetToken, workflow.tokenUuid, workflow.damageRoll, "reactiondamage", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
+      let result = await doReactions(targetToken, workflow.tokenUuid, workflow.damageRoll, !isHealing ? "reactiondamage" : "reactionheal", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
       if (!Workflow.getWorkflow(workflow.id)) // workflow has been removed - bail out
         return [];
     }
@@ -547,9 +562,13 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     const ac = targetActor.system.attributes.ac;
     let damageDetail;
     let damageDetailResolved: any[] = [];
+    totalDamage = 0;
     for (let i = 0; i < applyDamageDetails.length; i++) {
-      if (workflow.activationFails?.has(targetTokenDocument.uuid) && applyDamageDetails[i].label === "otherDamage") continue; // don't apply other damage is activationFails includes the token
+      if (applyDamageDetails[i].label === "otherDamage" && !workflow.otherDamageMatches?.has(targetToken)) continue; // don't apply other damage is activationFails includes the token
+      totalDamage += (applyDamageDetails[i].damageTotal ?? 0);
       damageDetail = duplicate(applyDamageDetails[i].damageDetail ?? []);
+      const label = applyDamageDetails[i].label;
+      const itemSaveMultiplier = getSaveMultiplierForItem(item, label);
       let attackRoll = workflow.attackTotal;
       let saves = applyDamageDetails[i].saves ?? new Set();
       let superSavers: Set<Token | TokenDocument> = applyDamageDetails[i].superSavers ?? new Set();
@@ -568,6 +587,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         AR = ac.AR;
       } else AR = 0;
       let maxDRIndex = -1;
+
 
       for (let [index, damageDetailItem] of damageDetail.entries()) {
         if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && attackRoll && workflow.hitTargetsEC?.has(t)) {
@@ -907,15 +927,37 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   workflow.damageTotal = totalDamage;
   workflow.bonusDamageDetail = undefined;
   workflow.bonusDamageTotal = undefined;
+  let savesToUse = (workflow.otherDamageFormula ?? "") !== "" ? new Set() : workflow.saves;
   // TODO come back and remove bonusDamage from the args to applyTokenDamageMany
   // Don't check for critical - RAW say these don't get critical damage
   // if (["rwak", "mwak"].includes(item?.system.actionType) && configSettings.rollOtherDamage !== "none") {
+  // TODO clean this up - but need to work out what save set to use for base damage
+  let baseDamageSaves: Set<Token | TokenDocument> = new Set();
+  let bonusDamageSaves: Set<Token | TokenDocument> = new Set();
+  // If we are not doing default save damage then pass through the workflow saves
+  if ((getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") !== "default")
+    baseDamageSaves = workflow.saves;
+  // if default save damage then we do full full damage if other damage is being rolled.
+  else if ((getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") === "default"
+    && itemOtherFormula(workflow.saveItem) === "") baseDamageSaves = workflow.saves ?? new Set();
+  if ((getProperty(workflow.saveItem, "flags.midiProperties.bonusDamage") ?? "default") !== "default")
+    bonusDamageSaves = workflow.saves;
+  // if default save damage then we do full full damage if other damage is being rolled.
+  else if ((getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") === "default"
+    && itemOtherFormula(workflow.saveItem) === "") baseDamageSaves = workflow.saves ?? new Set()
   if (workflow.shouldRollOtherDamage) {
     if ((workflow.otherDamageFormula ?? "") !== "" && configSettings.singleConcentrationRoll) {
       appliedDamage = await applyTokenDamageMany(
         {
           applyDamageDetails: [
-            { label: "defaultDamage", damageDetail: workflow.damageDetail, damageTotal: workflow.damageTotal },
+            {
+              label: "defaultDamage",
+              damageDetail: workflow.damageDetail,
+              damageTotal: workflow.damageTotal,
+              saves: baseDamageSaves, //((getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") === "default") ? undefined : workflow.saves,
+              superSavers: workflow.superSavers,
+              semiSuperSavers: workflow.semiSuperSavers
+            },
             {
               label: "otherDamage",
               damageDetail: workflow.otherDamageDetail,
@@ -924,7 +966,14 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
               superSavers: workflow.superSavers,
               semiSuperSavers: workflow.semiSuperSavers
             },
-            { label: "bonusDamage", damageDetail: workflow.bonusDamageDetail, damageTotal: workflow.bonusDamageTotal }
+            {
+              label: "bonusDamage",
+              damageDetail: workflow.bonusDamageDetail,
+              damageTotal: workflow.bonusDamageTotal,
+              saves: baseDamageSaves, // ((getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") === "default") ? undefined : workflow.saves,
+              superSavers: workflow.superSavers,
+              semiSuperSavers: workflow.semiSuperSavers
+            }
           ],
           theTargets,
           item,
@@ -932,15 +981,16 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         }
       );
     } else {
-      let savesToUse = (workflow.otherDamageFormula ?? "") !== "" ? undefined : workflow.saves;
+
       appliedDamage = await applyTokenDamageMany(
         {
+
           applyDamageDetails: [
             {
               label: "defaultDamage",
               damageDetail: workflow.damageDetail,
               damageTotal: workflow.damageTotal,
-              saves: savesToUse,
+              saves: baseDamageSaves, // (getProperty(workflow.item, "flags.midiProperties.saveDamage") ?? "default") === "default" ? undefined : workflow.saves,
               superSavers: workflow.superSavers,
               semiSuperSavers: workflow.semiSuperSavers
             },
@@ -948,7 +998,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
               label: "bonusDamage",
               damageDetail: workflow.bonusDamageDetail,
               damageTotal: workflow.bonusDamageTotal,
-              saves: savesToUse,
+              saves: baseDamageSaves, // (getProperty(workflow.item, "flags.midiProperties.saveDamage") ?? "default") === "default" ? undefined : workflow.saves,
               superSavers: workflow.superSavers,
               semiSuperSavers: workflow.semiSuperSavers
             },
@@ -1016,23 +1066,43 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   if (debugEnabled > 1) debug("process damage roll: ", configSettings.autoApplyDamage, workflow.damageDetail, workflow.damageTotal, theTargets, item, workflow.saves)
 }
 
-export let getSaveMultiplierForItem = (item: Item) => {
+export let getSaveMultiplierForItem = (item: Item, itemDamageType) => {
   // find a better way for this ? perhaps item property
   if (!item) return 1;
+
+  // Midi default - base/bonus damage full, other damage half.
+  if (["defaultDamage", "bonusDamage"].includes(itemDamageType) && itemOtherFormula(item) !== ""
+    && getProperty(item, "flags.midiProperties.saveDamage") === "default") {
+    return 1;
+  }
+
   //@ts-expect-error
   if (item.actor && item.type === "spell" && item.system.level === 0) { // cantrip
     //@ts-expect-error .flags v10
     const midiFlags = getProperty(item.actor.flags, "midi-qol");
     if (midiFlags?.potentCantrip) return 0.5;
   }
+  let itemDamageSave = "fulldam";
+  switch (itemDamageType) {
+    case "defaultDamage":
+      itemDamageSave = getProperty(item, "flags.midiProperties.saveDamage");
+      break;
+    case "otherDamage":
+      itemDamageSave = getProperty(item, "flags.midiProperties.otherSaveDamage");
+      break;
+    case "bonusDamage":
+      itemDamageSave = getProperty(item, "flagsmidiProperties.bonusSaveDamage");
+      break;
+  }
 
   //@ts-expect-error item.flags v10
   const midiItemProperties: any = item.flags.midiProperties;
-  if (midiItemProperties?.nodam || midiItemProperties?.saveDamage === "nodam") return 0;
-  if (midiItemProperties?.fulldam || midiItemProperties?.saveDamage === "fulldam") return 1;
-  if (midiItemProperties?.halfdam || midiItemProperties?.saveDamage === "halfdam") return 0.5;
+  if (midiItemProperties?.nodam || itemDamageSave === "nodam") return 0;
+  if (midiItemProperties?.fulldam || itemDamageSave === "fulldam") return 1;
+  if (midiItemProperties?.halfdam || itemDamageSave === "halfdam") return 0.5;
 
-  if (!configSettings.checkSaveText) return configSettings.defaultSaveMult;
+  if (!configSettings.checkSaveText)
+    return configSettings.defaultSaveMult;
   //@ts-expect-error item.system v10
   let description = TextEditor.decodeHTML((item.system.description?.value || "")).toLocaleLowerCase();
 
@@ -1255,6 +1325,7 @@ export function midiCustomEffect(...args) {
         default: // boolean by default
           val = evalCondition(change.value, actor.getRollData())
       }
+      if (debugEnabled > 0) warn("midiCustomEffect | setting ", change.key, " to ", val, " from ", change.value, " on ", actor.name);
       setProperty(actor, change.key, val);
     } catch (err) {
       const message = `midi-qol | midiCustomEffect | custom flag eval error ${change.key} ${change.value}`;
@@ -1582,8 +1653,8 @@ export async function _processOverTime(combat, data, options, user) {
 
     // Remove reaction used status from each combatant
     if (actor && toTest !== prev) {
-        // do the whole thing as a GM to avoid multiple calls to the GM to set/remove flags/conditions
-          await socketlibSocket.executeAsGM("removeActionBonusReaction", { actorUuid: actor.uuid});
+      // do the whole thing as a GM to avoid multiple calls to the GM to set/remove flags/conditions
+      await socketlibSocket.executeAsGM("removeActionBonusReaction", { actorUuid: actor.uuid });
     }
 
     /*
@@ -1626,8 +1697,8 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
   if (typeof item === "string") {
     theItem = MQfromUuid(item);
   } else if (!(item instanceof CONFIG.Item.documentClass)) {
-    // TODO magic items fetch the item call - see when v10 supported
-    theItem = new CONFIG.Item.documentClass(await item.item.data(), { parent: item.actor })
+    const magicItemUuid = item.magicItem.items.find(i => i.id === item.id)?.uuid;
+    theItem = await fromUuid(magicItemUuid);
   } else theItem = item;
   // delete any existing workflow - complete item use always is fresh.
   if (Workflow.getWorkflow(theItem.uuid)) await Workflow.removeWorkflow(theItem.uuid);
@@ -1649,6 +1720,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
       }
 
       Hooks.once(hookName, (workflow) => {
+        if (debugEnabled > 0) warn(`completeItemUse hook fired: ${workflow.workflowName} ${hookName}`)
         if (saveTargets && game.user) {
           game.user?.updateTokenTargets(saveTargets);
         }
@@ -1656,7 +1728,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
       });
 
       if (item.magicItem) {
-        item.magicItem.magicItemActor.roll(item.magicItem.id, item.id)
+        item.magicItem.magicItemActor.roll(item.magicItem.id, item.id);
       } else {
         item.use(config, options).then(result => { if (!result) resolve(result) });
       }
@@ -1724,10 +1796,10 @@ export function checkIncapacitated(tokenRef: Actor | Token | TokenDocument | str
     if (logResult) log(`${tokenDoc.name} is ${getStatusName(configSettings.midiDeadCondition)} and therefore incapacitated`)
     return configSettings.midiDeadCondition;
   }
-  const incapCondtion = globalThis.MidiQOL.incapacitatedConditions.find(cond => hasCondition(tokenDoc, cond));
-  if (incapCondtion) {
-    if (logResult) log(`${tokenDoc.name} has condition ${getStatusName(incapCondtion)} so incapacitated`)
-    return incapCondtion;
+  const incapCondition = globalThis.MidiQOL.incapacitatedConditions.find(cond => hasCondition(tokenDoc, cond));
+  if (incapCondition) {
+    if (logResult) log(`${tokenDoc.name} has condition ${getStatusName(incapCondition)} so incapacitated`)
+    return incapCondition;
   }
   return false;
 }
@@ -1798,7 +1870,7 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
   let tokenTileACBonus = 0;
   let coverData;
   if (!canvas.grid || !canvas.dimensions) undefined;
-  if (!token || x == undefined || y === undefined) return undefined;
+  if (!token || x === undefined || y === undefined) return undefined;
   if (!canvas || !canvas.grid || !canvas.dimensions) return undefined;
   const t2StartX = -Math.max(0, token.document.width - 1);
   const t2StartY = -Math.max(0, token.document.height - 1);
@@ -1853,7 +1925,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   let coverVisible;
   // For levels autocover and simbul's cover calculator pre-compute token cover - full cover means no attack and so return -1
   // otherwise don't bother doing los checks they are overruled by the cover check
-  if (installedModules.get("levelsautocover") && game.settings.get("levelsautocover", "apiMode") && wallblocking && configSettings.optionalRules.wallsBlockRange == "levelsautocover") {
+  if (installedModules.get("levelsautocover") && game.settings.get("levelsautocover", "apiMode") && wallblocking && configSettings.optionalRules.wallsBlockRange === "levelsautocover") {
     //@ts-expect-error
     const levelsautocoverData = AutoCover.calculateCover(t1, t2, getLevelsAutoCoverOptions());
     coverVisible = levelsautocoverData.rawCover > 0;
@@ -2371,7 +2443,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   }
   if (!statusEffect && installedModules.get("condition-lab-triggler")) {
     //@ts-expect-error se.name
-    statusEffect = duplicate(CONFIG.statusEffects.find(se => se.id.startsWith("condition-lab-triggler") && (se.name ?? se.label) == concentrationLabel));
+    statusEffect = duplicate(CONFIG.statusEffects.find(se => se.id.startsWith("condition-lab-triggler") && (se.name ?? se.label) === concentrationLabel));
     if (!statusEffect.name) statusEffect.name = statusEffect.label;
   }
   if (statusEffect) { // found a cub or convenient status effect.
@@ -2719,10 +2791,11 @@ export function MQfromUuid(uuid): any | null {
   return fromUuidSync(uuid)
 }
 
-export function MQfromActorUuid(uuid): any {
+export function MQfromActorUuid(uuid: string | undefined): any {
   let doc = MQfromUuid(uuid);
-  if (doc instanceof CONFIG.Token.documentClass) return doc.actor;
-  if (doc instanceof CONFIG.Actor.documentClass) return doc;
+  if (doc instanceof Actor) return doc;
+  if (doc instanceof Token) return doc.actor;
+  if (doc instanceof TokenDocument) return doc.actor;
   return null;
 }
 
@@ -2731,7 +2804,7 @@ class RollModifyDialog extends Application {
   rollExpanded: boolean;
   timeRemaining: number;
   timeoutId: any;
-  secondTimeoutId: any;
+  seconditimeoutId: any;
 
   data: {
     //@ts-expect-error dnd5e v10
@@ -2762,7 +2835,7 @@ class RollModifyDialog extends Application {
     this.rollExpanded = false;
     if (!data.rollMode) data.rollMode = game.settings.get("core", "rollMode");
     this.timeoutId = setTimeout(() => {
-      if (this.secondTimeoutId) clearTimeout(this.secondTimeoutId);
+      if (this.seconditimeoutId) clearTimeout(this.seconditimeoutId);
       this.timeoutId = undefined;
       this.close();
     }, this.data.timeout * 1000);
@@ -2782,32 +2855,31 @@ class RollModifyDialog extends Application {
     if (this.data.timeout) {
       const padCount = Math.ceil(this.timeRemaining / (this.data.timeout ?? defaultTimeout) * maxPad);
       const pad = "-".repeat(padCount);
-      return `${this.data.title ?? "Dialog"} ${pad}> ${this.timeRemaining}`;
+      return `${this.data.title ?? "Dialog"} ${pad} ${this.timeRemaining}`;
     }
     else return this.data.title ?? "Dialog";
   }
 
-  set1SecondTimeout() {
-    this.secondTimeoutId = setTimeout(() => {
+  set1Seconditimeout() {
+    this.seconditimeoutId = setTimeout(() => {
       if (!this.timeoutId) return;
       this.timeRemaining -= 1;
-      this.render(true);
-      if (this.timeRemaining > 0) this.set1SecondTimeout();
+      this.render(false);
+      if (this.timeRemaining > 0) this.set1Seconditimeout();
     }, 1000)
   }
 
   render(force: boolean = false, options: any = {}) {
-    if (!this.secondTimeoutId) this.set1SecondTimeout();
     const result: any = super.render(force, options);
     const element = this.element;
     const title = element.find(".window-title")[0];
     if (!title) return result;
-
     let color = "red";
     if (this.timeRemaining >= this.data.timeout * 0.75) color = "chartreuse";
     else if (this.timeRemaining >= this.data.timeout * 0.50) color = "yellow";
     else if (this.timeRemaining >= this.data.timeout * 0.25) color = "orange";
     title.style.color = color;
+    if (!this.seconditimeoutId) this.set1Seconditimeout();
     return result;
   }
 
@@ -2888,6 +2960,10 @@ class RollModifyDialog extends Application {
   }
 
   _onClickButton(event) {
+    if (this.seconditimeoutId) {
+      clearTimeout(this.seconditimeoutId);
+      this.seconditimeoutId = 0;
+    }
     const oneUse = true;
     const id = event.currentTarget.dataset.button;
     const button = this.data.buttons[id];
@@ -2904,10 +2980,15 @@ class RollModifyDialog extends Application {
   }
 
   async submit(button) {
+    if (this.seconditimeoutId) {
+      clearTimeout(this.seconditimeoutId);
+    }
     try {
       if (button.callback) {
+
         await button.callback(this, button);
-        // await this.getData({}); Render will do a get data, doing it twice breaks the button data?
+        // await this.getData({}; Render will do a get data, doing it twice breaks the button data?
+        if (this.seconditimeoutId) this.seconditimeoutId = 0;
         this.render(true);
       }
       // this.close();
@@ -2921,7 +3002,7 @@ class RollModifyDialog extends Application {
 
   async close() {
     if (this.timeoutId) clearTimeout(this.timeoutId);
-    if (this.secondTimeoutId) clearTimeout(this.secondTimeoutId);
+    if (this.seconditimeoutId) clearTimeout(this.seconditimeoutId);
     if (this.data.close) this.data.close();
     $(document).off('keydown.chooseDefault');
     return super.close();
@@ -3008,11 +3089,14 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       }, timeout * 1000);
     }
     const callback = async (dialog, button) => {
-      let newRoll;
+      if (this.seconditimeoutId) {
+        clearTimeout(this.seconditimeoutId);
+      }
+      let newRoll; { }
       let reRoll;
       const player = playerForActor(this.actor);
       let chatMessage;
-      const undoId = randomID()
+      const undoId = randomID();
       const undoData: any = {
         id: undoId,
         userId: player?.id ?? "",
@@ -3347,7 +3431,7 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
   //@ts-expect-error v10 isEmpty
   if (!isEmpty(actorUpdates)) await actor.update(actorUpdates);
 
-  if (count.value === "reaction" || countAlt?.value === "reactopm") {
+  if (count.value === "reaction" || countAlt?.value === "reaction") {
     await setReactionUsed(actor);
   }
 }
@@ -3386,25 +3470,33 @@ function maxCastLevel(actor) {
   return pactLevel;
 }
 
-async function getMagicItemReactions(actor: Actor, triggerType: string): Promise<Item[]> {
-  if (!globalThis.MagicItems) return [];
-  const items: Item[] = []
+async function getMagicItemReactions(actor: Actor, triggerType: string): Promise<ReactionItem[]> {
+  //@ts-expect-error .api
+  const api = game.modules.get("magic-items-2")?.api;
+  if (!api) return [];
+  const items: ReactionItem[] = [];
   try {
-    const magicItemActor = globalThis.MagicItems.actor(actor.id);
+    const magicItemActor: any = api.actor(actor.id);
     if (!magicItemActor) return [];
-    // globalThis.MagicItems.actor(_token.actor.id).items[0].ownedEntries[0].ownedItem
     for (let magicItem of magicItemActor.items) {
-      for (let ownedItem of magicItem.ownedEntries) {
-        try {
-          const theItem = await ownedItem.item.data()
-          if (theItem.system.activation.type === triggerType) {
-            items.push(ownedItem);
+      try {
+        if (!magicItem.active) continue;
+        for (let spell of magicItem.spells) {
+          const theSpell: any = await fromUuid(spell.uuid);
+          if (theSpell.system.activation.type.includes("reaction")) {
+            items.push({ "itemName": magicItem.name, itemId: magicItem.id, "actionName": spell.name, "img": spell.img, "id": spell.id, "uuid": spell.uuid, baseItem: theSpell });
           }
-        } catch (err) {
-          const message = `midi-qol | err fetching magic item ${ownedItem.name}`;
-          console.error(message, err);
-          TroubleShooter.recordError(err, message);
         }
+        for (let feature of magicItem.feats) {
+          const theFeat: any = await fromUuid(feature.uuid)
+          if (theFeat.system.activation.type.includes("reaction")) {
+            items.push({ "itemName": magicItem.name, itemId: magicItem.id, "actionName": feature.name, "img": feature.img, "id": feature.id, "uuid": feature.uuid, baseItem: theFeat });
+          }
+        }
+      } catch (err) {
+        const message = `midi-qol | err fetching magic item ${magicItem.name}`;
+        console.error(message, err);
+        TroubleShooter.recordError(err, message);
       }
     }
   } catch (err) {
@@ -3416,7 +3508,7 @@ async function getMagicItemReactions(actor: Actor, triggerType: string): Promise
 }
 
 function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
-  if (item.system.activation?.type !== triggerType) return false;
+  if (!item.system.activation?.type?.includes("reaction")) return false;
   if (item.system.activation?.cost > 0 && onlyZeroCost) return false;
   if (item.type === "spell") {
     if (configSettings.ignoreSpellReactionRestriction) return true;
@@ -3437,6 +3529,32 @@ function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
   return true;
 }
 
+export const reactionTypes = {
+  "reaction": { prompt: "midi-qol.reactionFlavorHit", triggerLabel: "isHit" },
+  "reactiontargeted": { prompt: "midi-qol.reactionFlavorTargeted", triggerLabel: "isTargeted" },
+  "reactionhit": { prompt: "midi-qol.reactionFlavorHit", triggerLabel: "isHit" },
+  "reactionmissed": { prompt: "midi-qol.reactionFlavorMiss", triggerLabel: "isMissed" },
+  "reactioncritical": { prompt: "midi-qol.reactionFlavorCrit", triggerLabel: "isCrit" },
+  "reactionfumble": { prompt: "midi-qol.reactionFlavorFumble", triggerLabel: "isFumble" },
+  "reactionheal": { prompt: "midi-qol.reactionFlavorHeal", triggerLabel: "isHealed" },
+  "reactiondamage": { prompt: "midi-qol.reactionFlavorDamage", triggerLabel: "isDamaged" },
+  "reactionattacked": { prompt: "midi-qol.reactionFlavorAttacked", triggerLabel: "isAttacked" },
+  "reactionpreattack": { prompt: "midi-qol.reactionFlavorPreAttack", triggerLabel: "preAttack" },
+  "reactionsave": { prompt: "midi-qol.reactionFlavorSave", triggerLabel: "isSave" },
+  "reactionsavefail": { prompt: "midi-qol.reactionFlavorSaveFail", triggerLabel: "isSaveFail" },
+  "reactionsavesuccess": { prompt: "midi-qol.reactionFlavorSaveSuccess", triggerLabel: "isSaveSuccess" },
+  "reactionmoved": { prompt: "midi-qol.reactionFlavorMoved", triggerLabel: "isMoved" }
+};
+
+export function reactionPromptFor(triggerType: string): string {
+  if (reactionTypes[triggerType]) return reactionTypes[triggerType].prompt;
+  return "midi-qol.reactionFlavorAttack";
+}
+export function reactionTriggerLabelFor(triggerType: string): string {
+  if (reactionTypes[triggerType]) return reactionTypes[triggerType].triggerLabel;
+  return "reactionHit";
+}
+
 export async function doReactions(targetRef: Token | TokenDocument | string, triggerTokenUuid: string | undefined, attackRoll: Roll, triggerType: string, options: any = {}): Promise<{ name: string | undefined, uuid: string | undefined, ac: number | undefined }> {
   const target = getToken(targetRef);
   try {
@@ -3453,22 +3571,42 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       }
     }
 
-    const usedReaction = hasUsedReaction(target.actor);
     let player = playerFor(getTokenDocument(target));
+    const usedReaction = hasUsedReaction(target.actor);
+    const reactionSetting = getReactionSetting(player);
     if (getReactionSetting(player) === "none") return noResult;
     if (!player || !player.active) player = ChatMessage.getWhisperRecipients("GM").find(u => u.active);
     if (!player) return noResult;
     const maxLevel = maxCastLevel(target.actor);
     enableNotifications(false);
-    let reactions;
+    let reactions: ReactionItem[] = [];
     let reactionCount = 0;
-    let reactionItemUuidList: string[] = [] // TODO can't pass a Uuid list if magic items included
+    let reactionItemList: ReactionItemReference[] = [];
     try {
-      reactions = target.actor.items.filter(item => itemReaction(item, triggerType, maxLevel, usedReaction));
-      // reactionItemUuidList = reactions.map(item => item.uuid);
-      if (getReactionSetting(player) === "allMI") {
-        reactions = reactions.concat(await getMagicItemReactions(target.actor, triggerType));
+      let possibleReactions: ReactionItem[] = target.actor.items.filter(item => itemReaction(item, triggerType, maxLevel, usedReaction));
+      if (getReactionSetting(player) === "allMI" && !usedReaction) {
+        possibleReactions = possibleReactions.concat(await getMagicItemReactions(target.actor, triggerType));
       }
+      reactions = possibleReactions.filter(item => {
+        const theItem = item instanceof Item ? item : item.baseItem;
+        const reactionCondition = getProperty(theItem, "flags.midi-qol.reactionCondition")
+        if (reactionCondition) {
+          if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using condition ${reactionCondition}`);
+          const returnvalue = evalReactionActivationCondition(options.workflow, reactionCondition, target, { extraData: { reaction: reactionTriggerLabelFor(triggerType) } });
+          return returnvalue;
+        } else {
+          if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using ${triggerType} filter`);
+          //@ts-expect-error .system
+          return theItem.system.activation?.type === triggerType || (triggetType === "reactionhit" && theItem.system.activation?.type === "reaction");
+        }
+      });
+
+      if (debugEnabled > 0)
+        warn(`doReactions ${triggerType} for ${target.actor?.name} ${target.name}`, reactions, possibleReactions);
+      reactionItemList = reactions.map(item => {
+        if (item instanceof Item) return item.uuid;
+        return { "itemName": item.itemName, itemId: item.itemId, "actionName": item.actionName, "img": item.img, "id": item.id, "uuid": item.uuid };
+      });
     } catch (err) {
       const message = `midi-qol | fetching reactions`;
       TroubleShooter.recordError(err, message);
@@ -3477,11 +3615,11 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     }
 
     // TODO Check this for magic items if that makes it to v10
-    if (await asyncHooksCall("midi-qol.ReactionFilter", reactions, options, triggerType) === false) {
+    if (await asyncHooksCall("midi-qol.ReactionFilter", reactions, options, triggerType, reactionItemList) === false) {
       console.warn("midi-qol | Reaction processing cancelled by Hook");
       return { name: "Filter", ac: 0, uuid: undefined };
-    } // else reactionItemUuidList = reactions.map(item => item.uuid);
-    reactionCount = reactions?.length ?? 0;
+    }
+    reactionCount = reactionItemList?.length ?? 0;
     if (!usedReaction) {
       //@ts-expect-error .flags
       const midiFlags: any = target.actor.flags["midi-qol"];
@@ -3495,17 +3633,14 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
 
     if (reactionCount <= 0) return noResult;
 
-    let promptString = "midi-qol.reactionFlavorDamage";
-    if (triggerType === "reactionattack") promptString = "midi-qol.reactionFlavorAttack";
-    if (triggerType === "reactionpreattack") promptString = "midi-qol.reactionFlavorPreAttack";
 
     let chatMessage;
-    const reactionFlavor = game.i18n.format(promptString, { itemName: (options.item?.name ?? "unknown"), actorName: target.name });
+    const reactionFlavor = game.i18n.format(reactionPromptFor(triggerType), { itemName: (options.item?.name ?? "unknown"), actorName: target.name });
     const chatData: any = {
       content: reactionFlavor,
       whisper: [player]
     };
-    const workflow = Workflow.getWorkflow(options?.item?.uuid);
+    const workflow = options.workflow ?? Workflow.getWorkflow(options?.item?.uuid);
 
     if (configSettings.showReactionChatMessage) {
       const player = playerFor(target.document)?.id ?? "";
@@ -3521,7 +3656,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     if (["reactiondamage", "reactionpreattack"].includes(triggerType)) content = reactionFlavor;
     else switch (configSettings.showReactionAttackRoll) {
       case "all":
-        content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll.total ?? ""}</h4>`;
+        content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""}</h4>`;
         break;
       case "allCrit":
         //@ts-expect-error
@@ -3544,7 +3679,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       }, (configSettings.reactionTimeout ?? defaultTimeout) * 1000 * 2);
 
       // Compiler does not realise player can't be undefined to get here
-      player && requestReactions(target, player, triggerTokenUuid, content, triggerType, reactionItemUuidList, resolve, chatMessage, options).then((result) => {
+      player && requestReactions(target, player, triggerTokenUuid, content, triggerType, reactionItemList, resolve, chatMessage, options).then((result) => {
         clearTimeout(timeoutId);
       })
     });
@@ -3567,7 +3702,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
   }
 }
 
-export async function requestReactions(target: Token, player: User, triggerTokenUuid: string | undefined, reactionFlavor: string, triggerType: string, reactionItemUuidList: string[], resolve: ({ }) => void, chatPromptMessage: ChatMessage, options: any = {}) {
+export async function requestReactions(target: Token, player: User, triggerTokenUuid: string | undefined, reactionFlavor: string, triggerType: string, reactionItemList: ReactionItemReference[], resolve: ({ }) => void, chatPromptMessage: ChatMessage, options: any = {}) {
   try {
     const startTime = Date.now();
     if (options.item && options.item instanceof CONFIG.Item.documentClass) {
@@ -3585,7 +3720,7 @@ export async function requestReactions(target: Token, player: User, triggerToken
       triggerTokenUuid,
       triggerType,
       options,
-      reactionItemUuidList
+      reactionItemList
     });
     const endTime = Date.now();
     if (debugEnabled > 0) warn("requestReactions | returned after ", endTime - startTime, result);
@@ -3599,7 +3734,7 @@ export async function requestReactions(target: Token, player: User, triggerToken
   }
 }
 
-export async function promptReactions(tokenUuid: string, reactionItemList: string[], triggerTokenUuid: string | undefined, reactionFlavor: string, triggerType: string, options: any = {}) {
+export async function promptReactions(tokenUuid: string, reactionItemList: ReactionItemReference[], triggerTokenUuid: string | undefined, reactionFlavor: string, triggerType: string, options: any = {}) {
   try {
     const startTime = Date.now();
     const target: Token = MQfromUuid(tokenUuid);
@@ -3610,37 +3745,23 @@ export async function promptReactions(tokenUuid: string, reactionItemList: strin
     // if ( usedReaction && needsReactionCheck(actor)) return false;
     const midiFlags: any = getProperty(actor, "flags.midi-qol");
     let result;
-    let reactionItems;
+    let reactionItems: any = [];
     const maxLevel = maxCastLevel(target.actor);
     enableNotifications(false);
     let reactions;
     let reactionCount = 0;
-    let reactionItemUuidList;
     try {
       enableNotifications(false);
-      /*
-      // camt do this since magic items don't return a valid uuid.
-   enableNotifications(false);
-   try {
-     reactionItems = reactionItemList.map(uuid => MQfromUuid(uuid));
-     // reactionItems = actor.items.filter(item => itemReaction(item, triggerType, maxLevel, usedReaction));
-     if (getReactionSetting(game?.user) === "allMI")
-       reactionItems = reactionItems.concat(await getMagicItemReactions(actor, triggerType));
-   } finally {
-     enableNotifications(true);
-   }
-  */
-      reactionItems = target.actor?.items.filter(item => itemReaction(item, triggerType, maxLevel, usedReaction));
-
-      if (target.actor && getReactionSetting(player) === "allMI") {
-        reactionItems = reactionItems.concat(await getMagicItemReactions(target.actor, triggerType));
-      }
+      enableNotifications(false);
+      for (let ref of reactionItemList) {
+        if (typeof ref === "string") reactionItems.push(await fromUuid(ref));
+        else reactionItems.push(ref);
+      };
     } finally {
       enableNotifications(true);
     }
-
     if (reactionItems.length > 0) {
-      if (await asyncHooksCall("midi-qol.ReactionFilter", reactionItems, options, triggerType) === false) {
+      if (await asyncHooksCall("midi-qol.ReactionFilter", reactionItems, options, triggerType, reactionItemList) === false) {
         console.warn("midi-qol | Reaction processing cancelled by Hook");
         return { name: "Filter" };
       }
@@ -3713,6 +3834,7 @@ export function playerForActor(actor: Actor | undefined | null): User | undefine
 
 //@ts-expect-error dnd5e v10
 export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, triggerTokenUuid: string | undefined, reactionItems: Item[], rollFlavor: string, triggerType: string, options: any = { timeout }) {
+  const noResult = { name: "None" };
   try {
     let timeout = (options.timeout ?? configSettings.reactionTimeout ?? defaultTimeout);
     return new Promise((resolve, reject) => {
@@ -3722,7 +3844,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
       }, timeout * 1000);
       const callback = async function (dialog, button) {
         clearTimeout(timeoutId);
-        const item = reactionItems.find(i => i.id === button.key);
+        const item: any = reactionItems.find(i => i.id === button.key);
         if (item) {
           // await setReactionUsed(actor);
           // No need to set reaction effect since using item will do so.
@@ -3742,13 +3864,34 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
             clearTimeout(useTimeoutId);
             resolve({})
           }, ((timeout) - 1) * 1000);
-          await completeItemUse(item, {}, itemRollOptions);
+          let result: any = noResult;
           clearTimeout(useTimeoutId);
+          if (item instanceof Item) { // a nomral item}
+            result = await completeItemUse(item, {}, itemRollOptions);
+            if (!result.preItemUseComplete) resolve(noResult);
+            else resolve({ name: item?.name, uuid: item?.uuid })
+          } else { // assume it is a magic item item
+            //@ts-expect-error
+            const api = game.modules.get("magic-items-2")?.api;
+            const magicItemActor = api?.actor(actor.id)
+            if (magicItemActor) {
+              // export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | string;
+              const magicItem = magicItemActor.items.find(i => i.id === item.itemId);
+              await completeItemUse({ magicItem, id: item.id }, {}, itemRollOptions);
+              resolve({ name: item?.itemName, uuid: item?.uuid })
+
+            }
+            resolve({ name: item?.itemName, uuid: item?.uuid })
+          }
+
         }
         // actor.reset();
-        resolve({ name: item?.name, uuid: item?.uuid })
+        resolve(noResult)
       };
-
+      const noReaction = async function (dialog, button) {
+        clearTimeout(timeoutId);
+        resolve(noResult);
+      }
       const dialog = new ReactionDialog({
         actor,
         targetObject: this,
@@ -3756,7 +3899,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
         items: reactionItems,
         content: rollFlavor,
         callback,
-        close: resolve,
+        close: noReaction,
         timeout
       }, {
         width: 400
@@ -3780,7 +3923,7 @@ class ReactionDialog extends Application {
   data: {
     //@ts-expect-error dnd5e v10
     actor: globalThis.dnd5e.documents.Actor5e,
-    items: Item[],
+    items: any[],
     title: string,
     content: HTMLElement | JQuery<HTMLElement>,
     callback: () => {},
@@ -3814,16 +3957,16 @@ class ReactionDialog extends Application {
       if (this.data.timeout < maxPad) maxPad = this.data.timeout;
       const padCount = Math.ceil(this.timeRemaining / (this.data.timeout ?? defaultTimeout) * maxPad);
       const pad = "-".repeat(padCount);
-      return `${this.data.title ?? "Dialog"} ${pad}> ${this.timeRemaining}`;
+      return `${this.data.title ?? "Dialog"} ${pad} ${this.timeRemaining}`;
     }
     else return this.data.title ?? "Dialog";
   }
-  async getData(options) {
-    this.data.buttons = this.data.items.reduce((acc: {}, item: Item) => {
+  getData(options) {
+    this.data.buttons = this.data.items.reduce((acc: {}, item: any) => {
       acc[randomID()] = {
         icon: `<div class="item-image"> <image src=${item.img} width="50" height="50" style="margin:10px"></div>`,
-        label: `${item.name}`,
-        value: item.name,
+        label: `${item.name ?? item.actionName}`,
+        value: item.name ?? item.actionName,
         key: item.id,
         callback: this.data.callback,
       }
@@ -3836,18 +3979,18 @@ class ReactionDialog extends Application {
     }
   }
 
-  set1SecondTimeout() {
+  set1Secondtimeout() {
     //@ts-expect-error typeof setTimeout
     this.timeoutId = setTimeout(() => {
       this.timeRemaining -= 1;
-      this.render(true);
-      if (this.timeRemaining > 0) this.set1SecondTimeout();
+      this.render(false);
+      if (this.timeRemaining > 0) this.set1Secondtimeout();
     }, 1000)
   }
 
-  render(force: boolean = false, options: any = {}) {
-    if (!this.timeoutId) this.set1SecondTimeout();
-    const result: any = super.render(force, options);
+  async render(force: boolean = false, options: any = {}) {
+    if (!this.timeoutId) this.set1Secondtimeout();
+    const result: any = await super.render(force, options);
     const element = this.element;
     const title = element.find(".window-title")[0];
     if (!title) return result;
@@ -3886,12 +4029,12 @@ class ReactionDialog extends Application {
 
   async submit(button) {
     try {
+      clearTimeout(this.timeoutId);
       debug("ReactionDialog submit", Date.now() - this.startTime, button.callback)
       if (button.callback) {
         this.data.completed = true;
         await button.callback(this, button)
         this.close();
-        // this.close();
       }
     } catch (err) {
       const message = `Reaction dialog submit`;
@@ -3976,10 +4119,14 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
   return result;
 };
 
-export function evalActivationCondition(workflow: Workflow, condition: string | undefined, target: Token | TokenDocument): boolean {
+export function evalReactionActivationCondition(workflow: Workflow, condition: string | undefined, target: Token | TokenDocument, options: any = {}): boolean {
+  if (options.errorReturn === undefined) options.errorReturn = false
+  return evalActivationCondition(workflow, condition, target, options);
+}
+export function evalActivationCondition(workflow: Workflow, condition: string | undefined, target: Token | TokenDocument, options: any = {}): boolean {
   if (condition === undefined || condition === "") return true;
-  createConditionData({ workflow, target, actor: workflow.actor });
-  const returnValue = evalCondition(condition, workflow.conditionData, true);
+  createConditionData({ workflow, target, actor: workflow.actor, extraData: options?.extraData });
+  const returnValue = evalCondition(condition, workflow.conditionData, options.errorReturn ?? true);
   return returnValue;
 }
 
@@ -4002,10 +4149,29 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
   return systemData.details.type?.value.toLocaleLowerCase() ?? "";
 }
 
-export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined, item?: Item | undefined }) {
+export function effectActivationConditionToUse(workflow: Workflow) {
+  let conditionToUse: string | undefined = undefined;
+  let conditionFlagToUse: string | undefined = undefined;
+  if (getProperty(this, "flags.midi-qol.effectCondition")) {
+    return getProperty(this, "flags.midi-qol.effectCondition");
+  }
+  // This uses the rollOtherDamage setting as a proxy for effect activation
+  if (this.type === "spell" && configSettings.rollOtherSpellDamage === "activation") {
+    return workflow.otherDamageItem?.system.activation?.condition
+  } else if (["rwak", "mwak"].includes(this.system.actionType) && configSettings.rollOtherDamage === "activation") {
+    return workflow.otherDamageItem?.system.activation?.condition;
+  }
+  if (workflow.otherDamageItem?.flags?.midiProperties?.rollOther)
+    return workflow.otherDamageItem?.system.activation?.condition;
+  return undefined;
+}
+
+export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined, item?: Item | undefined, extraData?: any }) {
   const actor = data.workflow?.actor ?? data.actor;
   const item = data.workflow?.item ?? data.item;
-  const rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
+  let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
+  rollData = mergeObject(rollData, data.extraData ?? {});
+  rollData.isAttuned = rollData.item?.attunement !== getSystemCONFIG().attunementTypes.REQUIRED;
 
   try {
     if (data.target) {
@@ -4017,7 +4183,14 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.targetActorId = data.target.actor?.id;
       rollData.raceOrType = data.target.actor ? raceOrType(data.target.actor) : "";
       rollData.typeOrRace = data.target.actor ? typeOrRace(data.target.actor) : "";
+      rollData.target.saved = data.workflow?.saves.has(data.target);
+      rollData.target.failedSave = data.workflow?.failedSaves.has(data.target);
+      rollData.target.superSaver = data.workflow?.superSavers.has(data.target);
+      rollData.semidSuperSaver = data.workflow?.semiSuperSavers.has(data.target);
+      rollData.target.isHit = data.workflow?.hitTargets.has(data.target);
+      rollData.target.isHitEC = data.workflow?.hitTargets.has(data.target);
     }
+
     rollData.humanoid = globalThis.MidiQOL.humanoid;
     rollData.tokenUuid = data.workflow?.tokenUuid;
     rollData.tokenId = data.workflow?.tokenId;
@@ -4025,6 +4198,12 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     rollData.effects = actor?.effects;
     if (data.workflow) {
       Object.assign(rollData.workflow, data.workflow);
+      rollData.workflow.otherDamageItem = data.workflow.otherDamageItem?.getRollData().item;
+      rollData.workflow.hasSave = data.workflow.hasSave;
+      rollData.workflow.saveItem = data.workflow.saveItem.getRollData().item;
+      rollData.workflow.otherDamageFormula = data.workflow.otherDamageFormula;
+      rollData.workflow.shouldRollDamage = data.workflow.shouldRollDamage;
+
       delete rollData.workflow.undoData;
       delete rollData.workflow.conditionData;
     }
@@ -4032,8 +4211,9 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     if (data.workflow?.item) rollData.workflow.item = data.workflow.item.getRollData()?.item;
     rollData.CONFIG = CONFIG;
     rollData.CONST = CONST;
+
   } catch (err) {
-    const message = `midi-qol | createCondtionData`;
+    const message = `midi-qol | createConditionData`;
     TroubleShooter.recordError(err, message);
     console.warn(message, err);
   } finally {
@@ -4175,7 +4355,6 @@ export async function setReactionUsed(actor: Actor) {
   if (reactionEffect) {
     //@ts-expect-error .dfreds
     const effectInterface = game.dfreds.effectInterface;
-    // await tempCEaddEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
     await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
     //@ts-expect-error se.name
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name ?? se.label) === i18n("DND5E.Reaction")))) {
@@ -4197,16 +4376,16 @@ export async function setBonusActionUsed(actor: Actor) {
     }
   await actor.setFlag("midi-qol", "actions.bonusActionCombatRound", game.combat?.round);
   const result = await actor.setFlag("midi-qol", "actions.bonus", true);
-  if (debugEnabled > 0) warn("setBonusActionUsed | starting");
+  if (debugEnabled > 0) warn("setBonusActionUsed | finishing");
   return result;
 }
 
 export async function removeActionUsed(actor: Actor) {
-  return await actor?.setFlag("midi-qol", "actions.action", false);
+  if (game.user?.isGM) return await actor?.setFlag("midi-qol", "actions.action", false);
+  else return await socketlibSocket.executeAsGM("_gmSetFlag", { base: "midi-qol", key: "actions.action", value: false, actorUuid: actor.uuid })
 }
 
 export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
-
   let effectRemoved = false;
   if (removeCEEffect && getConvenientEffectsReaction() && !effectRemoved) {
     //@ts-expect-error
@@ -4306,6 +4485,7 @@ export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false
   await actor.setFlag("midi-qol", "actions.bonus", false);
   return actor?.unsetFlag("midi-qol", "actions.bonusActionCombatRound");
 }
+
 
 export function needsReactionCheck(actor) {
   return (configSettings.enforceReactions === "all" || configSettings.enforceReactions === actor.type)
@@ -4831,6 +5011,7 @@ export async function doConcentrationCheck(actor, saveDC) {
   setProperty(itemData, "system.save.scaling", "flat");
   setProperty(itemData, "name", concentrationCheckItemDisplayName);
   setProperty(itemData, "system.target.type", "self");
+  setProperty(itemData, "flags.midi-qol.noProvokeReaction", true);
   return await _doConcentrationCheck(actor, itemData)
 }
 
@@ -4944,7 +5125,20 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
       if (rollMode !== "blindroll" && game.user) whisperIds.concat(game.user);
     }
     if (!hideRoll) {
-      let displayRoll = deepClone(roll);
+      //@ts-expect-error
+      let displayRoll = Roll.fromData(roll.toJSON()); // make a copy of the roll
+      if (game.user?.isGM && configSettings.addFakeDice) {
+        for (let term of displayRoll.terms) {
+          if (term instanceof Die) {
+            // for attack rolls only add a d20 if only one was rolled - else it becomes clear what is happening
+            if (["attackRoll", "attackRollD20"].includes(rollType ?? "") && term.faces === 20 && term.number !== 1) continue;
+            let numExtra = Math.ceil(term.number * Math.random());
+            let extraDice = new Die({ faces: term.faces, number: numExtra }).evaluate();
+            term.number += numExtra;
+            term.results = term.results.concat(extraDice.results);
+          }
+        }
+      }
       displayRoll.terms.forEach(term => {
         if (term.options?.flavor) term.options.flavor = term.options.flavor.toLocaleLowerCase();
       });
@@ -5283,5 +5477,90 @@ export function getAutoTarget(item: Item): string {
   return autoTarget;
 }
 export function hasAutoPlaceTemplate(item) {
-  return item && item.hasAreaTarget && ["self"].includes(item.system.range?.units) && ["radius", "sphere", "cylinder", "cube"].includes(item.system.target.type);
+  return item && item.hasAreaTarget && ["self"].includes(item.system.range?.units) && ["radius", "squareRadius"].includes(item.system.target.type);
+}
+
+export function itemOtherFormula(item): string {
+  if (item.type === "weapon" && !item?.system.properties?.ver && ((item.system.formula ?? "") === ""))
+    return item?.system.damage.versatile ?? "";
+  return item?.system.formula ?? "";
+}
+export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
+  if (!bonusRoll) return roll;
+  if (!roll) return bonusRoll;
+  if (bonusRoll.terms[0] instanceof OperatorTerm) {
+    roll.terms = roll.terms.concat(bonusRoll.terms);
+  } else {
+    roll.terms = roll.terms.concat([new OperatorTerm({ operator: "+" })]);
+    roll.terms = roll.terms.concat(bonusRoll.terms);
+  }
+  //@ts-expect-error
+  roll._formula = Roll.getFormula(roll.terms);
+  //@ts-expect-error
+  roll._total = (roll.total ?? 0) + (bonusRoll.total ?? 0);
+  return roll;
+}
+
+export async function chooseEffect({ speaker, actor, token, character, item, args, scope, workflow, options }) {
+  
+  let second1TimeoutId;
+  let timeRemaining;
+  if (!item) return false;
+  const effects = item.effects.filter(e => !e.transfer && getProperty(e, "flags.dae.dontApply") === true);
+  if (effects.length === 0) {
+    if (debugEnabled > 0) warn(`chooseEffect | no effects found for ${item.name}`);
+    return false;
+  }
+
+  let targets = workflow.applicationTargets;
+  if (!targets || targets.size === 0) return;
+  let returnValue = new Promise((resolve, reject) => {
+    const callback = async function (dialog, html, event) {
+      clearTimeout(timeoutId);
+      const effectData = this.toObject();
+      effectData.origin = item.uuid;
+      if (this.toObject()) {
+        if (this.debugEnabled) warn(`chooseEffect | applying effect ${this.name} to ${targets.size} targets`, targets)
+        for (let target of targets) {
+          await target.actor.createEmbeddedDocuments("ActiveEffect", [effectData])
+        }
+      }
+      resolve(this);
+    }
+    let buttons = {};
+    for (let effect of effects) {
+      buttons[effect.id] = {
+        label: effect.name,
+        callback: callback.bind(effect),
+        icon: `<div class="item-image"> <image src=${effect.img} width="50" height="50" style="margin:10px"></div>`,
+      };
+    }
+    let timeout = (options?.timeout ?? configSettings.reactionTimeout ?? defaultTimeout);
+    timeRemaining = timeout;
+    let dialog = new Dialog({
+      title: `${i18n("CONTROLS.CommonSelect")} ${i18n("DOCUMENT.ActiveEffect")}: ${timeRemaining}s`,
+      content: `${i18n("EFFECT.StatusTarget")}: [${[...targets].map(t => t.name)}]`,
+      buttons,
+      close: () => { clearTimeout(timeoutId); clearTimeout(second1TimeoutId); },
+      default: ''
+    });
+    dialog.render(true);
+    const set1SecondTimeout = function() {
+      second1TimeoutId = setTimeout(() => {
+        if (!timeoutId) return;
+        timeRemaining -= 1;
+        dialog.data.title = `${i18n("CONTROLS.CommonSelect")} ${i18n("DOCUMENT.ActiveEffect")}: ${timeRemaining}s`;
+        dialog.render(false);
+        if (timeRemaining > 0) set1SecondTimeout();
+      }, 1000)
+    }
+    let timeoutId = setTimeout(() => {
+      if (debugEnabled > 0) warn(`chooseEffect | timeout fired closing dialog`);
+      clearTimeout(second1TimeoutId);
+      dialog.close();
+      reject("timeout");
+    }, timeout * 1000);
+    set1SecondTimeout();
+  })
+  return await returnValue;
 }

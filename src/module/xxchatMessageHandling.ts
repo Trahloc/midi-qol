@@ -1,6 +1,6 @@
 import { debug, warn, i18n, error, gameStats, debugEnabled, MQdefaultDamageType, i18nFormat } from "../midi-qol.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
-import { DDBGameLogWorkflow, Workflow, WORKFLOWSTATES } from "./workflow.js";
+import { DDBGameLogWorkflow, Workflow } from "./workflow.js";
 import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll } from "./settings.js";
 import { createDamageDetail, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat, getConcentrationLabel, itemRequiresConcentration } from "./utils.js";
 import { shouldRollOtherDamage } from "./itemhandling.js";
@@ -77,8 +77,7 @@ export function betterRollsUpdate(message, update, options, user) {
     //@ts-ignore evaluate
     workflow.otherDamageRoll = otherDamageRoll;
   }
-  workflow.performState(workflow.WorkflowState_ConfirmRoll)
-  // REFACTOR workflow.next(WORKFLOWSTATES.DAMAGEROLLCOMPLETE);
+  workflow.performEvent(workflow.Events.RollConfirmed);
   return true;
 }
 
@@ -426,7 +425,12 @@ export let chatDamageButtons = (message, html, data) => {
     }
     let itemUuid = `Actor.${actorId}.Item.${itemId}`;
     // find the item => workflow => damageList, totalDamage
-    const defaultDamageType = (item?.system.damage.parts[0] && item?.system.damage?.parts[0][1]) ?? "bludgeoning";
+    let defaultDamageType;
+    if (isNewerVersion(game.system.data.version, "2.4.99")) {
+      defaultDamageType = (item?.system.damage?.parts[0]?.damageType) ?? "bludgeoning";
+    } else {
+      defaultDamageType = (item?.system.damage?.parts[0] && item?.system.damage.parts[0][1]) ?? "bludgeoning";
+    }
     // TODO fix this for versatile damage
     const damageList = createDamageDetail({ roll: message.rolls[0], item, ammo: null, versatile: false, defaultType: defaultDamageType });
     const totalDamage = message.rolls[0].total;
@@ -512,6 +516,7 @@ export function processItemCardCreation(message, user) {
   const midiFlags = message.flags["midi-qol"];
   if (user === game.user?.id && midiFlags?.workflowId) { // check to see if it is a workflow
     const workflow = Workflow.getWorkflow(midiFlags.workflowId);
+
     if (!workflow) return;
     if (!workflow.itemCardId) {
       workflow.itemCardId = message.id;
@@ -521,13 +526,14 @@ export function processItemCardCreation(message, user) {
       workflow.needItemCard = false;
       return;
     }
+    workflow.performEvent(workflow.Events.ItemCardCreated, {messageId: message.id, messageData: message});
+    /*
     if (workflow.kickStart) {
       workflow.kickStart = false;
-      // REFACTOR return workflow.next(WORKFLOWSTATES.NONE);
-      workflow.performState(workflow.WorkflowState_Start);
+      workflow.performEvent(workflow.Events.StartState);
     } else
-      // REFACTOR workflow.next(WORKFLOWSTATES.AWAITITEMCARD);
-      workflow.performState(workflow.WorkflowState_AwaitItemCard);
+      workflow.performEvent(workflow.Events.StartState);
+      */
   }
 }
 
@@ -593,8 +599,7 @@ export async function onChatCardAction(event) {
           if (workflow) {
             workflow.forceApplyEffects = true; // don't overwrite the application targets
             workflow.applicationTargets = game.user?.targets;
-            // REFACTOR if (workflow.applicationTargets.size > 0) await workflow.next(WORKFLOWSTATES.APPLYDYNAMICEFFECTS);
-            if (workflow.applicationTargets.size > 0) workflow.performState(workflow.WorkflowState_ApplyDynamicEffects)
+            workflow.performEvent(workflow.Events.ApplyDynamicEffectsButtonClicked);
           } else {
             ui.notifications?.warn(i18nFormat("midi-qol.NoWorkflow", { itemName: item.name }));
           }
@@ -772,9 +777,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
       workflow.next(WORKFLOWSTATES.WAITFORATTACKROLL);
     }
     */
-    if (workflow.currentAction === workflow.WorkflowState_WaitForAttackRoll) {
-      workflow.performState(workflow.WorkflowState_WaitForAttackRoll);
-    }
+    workflow.performEvent(workflow.Events.AttackRolled);
   }
 
   if (["damage", "heal"].includes(flags.dnd5e.roll.type)) {
@@ -793,15 +796,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
       workflow.needsOtherDamage = false;
     }
     workflow.damageRolled = true;
-    /* REFACTOR
-    if (workflow.currentState === WORKFLOWSTATES.WAITFORDAMAGEROLL) {
-      // the workflow is already waiting for us - toggle attack roll complete and restart the workflow
-      workflow.next(WORKFLOWSTATES.WAITFORDAMAGEROLL);
-    }
-    */
-    if (workflow.currentAction === workflow.WorkflowState_WaitForDamageRoll) {
-      workflow.performState(workflow.WorkflowState_WaitForDamageRoll);
-    }
+    workflow.performEvent(workflow.Events.DamageRolled);
   }
 }
 
