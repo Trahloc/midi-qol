@@ -658,7 +658,6 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
         }
         if (workflow.damageRollCount > 0) { // re-rolling damage counts as new damage
           const itemCard = await this.displayCard(mergeObject(options, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
-          console.error("display card finished ", itemCard.id)
           workflow.itemCardId = itemCard.id;
           workflow.needItemCard = false;
         }
