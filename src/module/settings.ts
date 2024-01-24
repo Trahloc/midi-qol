@@ -165,6 +165,7 @@ class ConfigSettings {
   useCustomSounds: boolean = true;
   usePlayerPortrait: boolean = false;
   useTokenNames: boolean = false;
+  undoChatColor: string = "Delete";
   undoWorkflow: boolean = false;
   weaponHitSound: string = "";
   weaponUseSound: string = "";
@@ -268,10 +269,12 @@ export function collectSettingData() {
   };
   data.flags["exportSource"] = {
     system: game.system.id,
-    //@ts-ignore
+    //@ts-expect-error version
     coreVersion: game.version ?? game?.version,
-    //@ts-ignore version v10
-    systemVersion: game.system.version
+    //@ts-expect-error version
+    systemVersion: game.system.version,
+    //@ts-expect-error
+    midiVersion: game.modules.get("midi-qol")?.version,
   };
   return data;
 }
@@ -303,6 +306,8 @@ export async function importSettingsFromJSON(json) {
   //@ts-expect-error _sheet
   const settingsAppId = game.settings._sheet?.appId;
   if (settingsAppId) ui.windows[settingsAppId]?.render(true);
+  const exportSource = json.flags?.exportSource;
+  ui.notifications?.notify(`Importing settings from foundry version ${exportSource?.coreVersion} dnd ${exportSource?.systemVersion} midi ${exportSource?.midiVersion}`);
 }
 export let fetchSoundSettings = () => {
   midiSoundSettings = game.settings.get("midi-qol", "MidiSoundSettings") ?? {};
@@ -456,6 +461,7 @@ export let fetchParams = () => {
   if (configSettings.removeConcentrationEffects === undefined) configSettings.removeConcentrationEffects = "effects";
   if (configSettings.doConcentrationCheck === undefined) configSettings.doConcentrationCheck = configSettings.removeConcentration;;
   if (configSettings.undoWorkflow === undefined) configSettings.undoWorkflow = false;
+  if (configSettings.undoChatColor === undefined) configSettings.undoChatColor = "Delete";
   if (configSettings.enforceSingleWeaponTarget == undefined) configSettings.enforceSingleWeaponTarget = false;
   configSettings.hidePlayerDamageCard = true;
   configSettings.quickSettings = true;

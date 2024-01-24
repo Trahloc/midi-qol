@@ -44,7 +44,8 @@ export function getModuleVersion(moduleName): string {
   return modVer;
 }
 export let setupModules = () => {
-  if (isNewerVersion(game.system.data.version, "2.4.99")) {
+  //@ts-expect-error .version
+  if (isNewerVersion(game.system.version, "2.4.99")) {
     ui.notifications?.error("Midi qol has not been tested with dnd 2.5.0 and there are known breaking changes");
   }
   for (let name of Object.keys(REQUIRED_MODULE_VERSIONS)) { 

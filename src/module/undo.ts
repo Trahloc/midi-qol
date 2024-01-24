@@ -20,7 +20,7 @@ interface undoTokenActorEntry {
   actorData: any;
   tokenData: any;
 }
-interface undoDataDef{
+interface undoDataDef {
   id: string;
   userId: string;
   userName: string;
@@ -51,7 +51,7 @@ export function _queueUndoDataDirect(undoDataDef) {
   const actor = fromUuidSync(undoDataDef.actorUuid);
   if (!actor) return;
   undoData.id = undoDataDef.id ?? randomID();
-  undoData.actorEntry = {actorUuid: undoDataDef.actorUuid, tokenUuid: undoDataDef.tokendocUuid, actorData: actor?.toObject(true), tokenData: tokenDoc?.toObject(true) };
+  undoData.actorEntry = { actorUuid: undoDataDef.actorUuid, tokenUuid: undoDataDef.tokendocUuid, actorData: actor?.toObject(true), tokenData: tokenDoc?.toObject(true) };
   undoData.chatCardUuids = undoDataDef.chatCardUuids ?? [];
   undoData.itemCardId = undoDataDef.itemCardId;
   undoData.actorName = actor.name;
@@ -63,8 +63,8 @@ export function _queueUndoDataDirect(undoDataDef) {
   undoData.isReaction = undoDataDef.isReaction;
 
   if (undoData.targets) {
-      for (let undoEntry of undoDataDef.allTargets) {
-      let {actorUuid, tokenUuid} = undoEntry;
+    for (let undoEntry of undoDataDef.allTargets) {
+      let { actorUuid, tokenUuid } = undoEntry;
       const targetData = createTargetData(tokenUuid)
       if (targetData) {
         mergeObject(undoEntry, targetData, { inplace: true });
@@ -77,7 +77,7 @@ export function _queueUndoDataDirect(undoDataDef) {
 export async function saveUndoData(workflow: Workflow): Promise<boolean> {
   if (!configSettings.undoWorkflow) return true;
   workflow.undoData = {};
-  workflow.undoData.id = workflow.id; 
+  workflow.undoData.id = workflow.id;
   workflow.undoData.userId = game.user?.id;
   workflow.undoData.itemName = workflow.item?.name;
   workflow.undoData.itemUuid = workflow.item?.uuid;
@@ -125,13 +125,13 @@ export function startUndoWorkflow(undoData: any): boolean {
   undoData.allTargets = new Collection; // every token referenced by the workflow
   const concentrationData = getProperty(actor, "flags.midi-qol.concentration-data");
   // if (concentrationData && concentrationData.uuid == undoData.itemUuid) { // only add concentration targets if this item caused the concentration
-  if (concentrationData) { 
+  if (concentrationData) {
     concentrationData.targets?.forEach(({ actorUuid, tokenUuid }) => {
-    if (actorUuid === undoData.actorUuid) return;
-    const targetData = createTargetData(tokenUuid);
-    if (!undoData.allTargets.get(actorUuid) && targetData) undoData.allTargets.set(actorUuid, targetData)
-  });
-}
+      if (actorUuid === undoData.actorUuid) return;
+      const targetData = createTargetData(tokenUuid);
+      if (!undoData.allTargets.get(actorUuid) && targetData) undoData.allTargets.set(actorUuid, targetData)
+    });
+  }
   addQueueEntry(startedUndoDataQueue, undoData);
   return true;
 }
@@ -275,7 +275,7 @@ export async function undoTillWorkflow(workflowId: string, undoTarget: boolean, 
     if (undoDataQueue.length > 0 && removeWorkflow) {
       const workflow = undoDataQueue.shift();
       // This should be unneeded as removing the chat card should trigger removal of the workflow
-      socketlibSocket.executeAsUser("removeWorkflow", workflow.userId, workflow.id); 
+      socketlibSocket.executeAsUser("removeWorkflow", workflow.userId, workflow.id);
     }
   } finally {
     if (queueLength !== undoDataQueue.length) Hooks.callAll("midi-qol.removeUndoEntry");
@@ -313,13 +313,14 @@ export async function _removeMostRecentWorkflow() {
   return;
 }
 
-export function _removeChatCards(data: { chatCardUuids: string[] }) {
+export async function _removeChatCards(data: { chatCardUuids: string[] }) {
   // TODO see if this might be async and awaited
   if (!data.chatCardUuids) return;
   try {
     for (let uuid of data.chatCardUuids) {
       //@ts-expect-error fromUuidSync
-      fromUuidSync(uuid)?.delete();
+      const card = await fromUuidSync(uuid);
+      removeChatCard(card);
     }
   } catch (err) {
     debugger;
@@ -419,7 +420,7 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
   else await actor.updateEmbeddedDocuments("Item", actorData.items, { keepId: true, isUndo: true });
 
   if (actorData.effects?.length > 0) {
-    if (dae?.actionQueue) await dae.actionQueue.add(actor.updateEmbeddedDocuments.bind(actor), "ActiveEffect", actorData.effects, { keepId: true, isUndo: true });  
+    if (dae?.actionQueue) await dae.actionQueue.add(actor.updateEmbeddedDocuments.bind(actor), "ActiveEffect", actorData.effects, { keepId: true, isUndo: true });
     else await actor.updateEmbeddedDocuments("ActiveEffect", actorData.effects, { keepId: true, isUndo: true });
   }
 
@@ -442,19 +443,29 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
   }
 }
 
+export async function removeChatCard(chatCard: ChatMessage | undefined) {
+  //@ts-expect-error
+  if (!chatCard || !chatCard.content) return;
+  const shouldDelete = configSettings.undoChatColor === "Delete";
+  if (shouldDelete) return await chatCard.delete();
+  //@ts-expect-error
+  return await chatCard.update({ content: `<div style="background-color: ${configSettings.undoChatColor};"> ${chatCard.content}</div>` });
+}
+
 export async function undoWorkflow(undoData: any) {
   log(`Undoing workflow for Player ${undoData.userName} Token: ${undoData.actorEntry.actorData.name} Item: ${undoData.itemName ?? ""}`)
   for (let templateUuid of undoData.templateUuids)
     //@ts-expect-error fromUuidSync
     await fromUuidSync(templateUuid)?.delete();
-    if (globalThis.Sequencer && undoData.sequencerUuid) await globalThis.Sequencer.EffectManager.endEffects({ origin: undoData.sequencerUuid })
+  if (globalThis.Sequencer && undoData.sequencerUuid) await globalThis.Sequencer.EffectManager.endEffects({ origin: undoData.sequencerUuid })
 
   for (let undoEntry of undoData.allTargets) {
     log("undoing target ", undoEntry.actorData?.name ?? undoEntry.tokenData?.name, undoEntry)
     await undoSingleTokenActor(undoEntry)
   };
   await undoSingleTokenActor(undoData.actorEntry);
+  const shouldDelete = false;
   // delete cards...
-  if (undoData.itemCardId) await game.messages?.get(undoData.itemCardId)?.delete();
-  _removeChatCards({ chatCardUuids: undoData.chatCardUuids });
+  if (undoData.itemCardId) await removeChatCard(game.messages?.get(undoData.itemCardId));
+  await _removeChatCards({ chatCardUuids: undoData.chatCardUuids });
 }

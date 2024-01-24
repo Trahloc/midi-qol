@@ -1,3 +1,6 @@
+## 11.3.13.2
+* Various fixes - thanks @Elwin
+* Fix for MiM2 being disabled via a late change in 1.3.13 to fix concentration effect not found in embedded collection errors.
 
 ## 11.3.13
 * Final changes to auto place templates. (sorry about the mucking around) Only radius/squared-radius templates are auto placed. 

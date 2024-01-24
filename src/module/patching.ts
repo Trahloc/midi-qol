@@ -138,9 +138,9 @@ async function doRollSkill(wrapped, ...args) {
     // options = foundry.utils.mergeObject(options, mapSpeedKeys(null, "ability"), { inplace: false, overwrite: true });
     const keyOptions = mapSpeedKeys(undefined, "ability");
     if (options.mapKeys !== false) {
-      if (keyOptions?.advantage === true) options.advantage = options.advantage || keyOptions.advantage;
-      if (keyOptions?.disadvantage === true) options.disadvantage = options.disadvantage || keyOptions.disadvantage;
-      if (keyOptions?.fastForwardAbility === true) options.fastForward = options.fastForward || keyOptions.fastForwardAbility;
+      if (keyOptions?.advantage === true) options.advantage = true;
+      if (keyOptions?.disadvantage === true) options.disadvantage = true;
+      if (keyOptions?.fastForwardAbility === true) options.fastForward = true;
       if (keyOptions?.advantage || keyOptions?.disadvantage) options.fastForward = true;
     }
     // mergeKeyboardOptions(options, mapSpeedKeys(undefined, "ability"));
@@ -384,17 +384,17 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       options.parts = ["-100"];
       success = false;
     }
-    // Hack for MTB bug
-    if (options.event?.advantage || options.event?.altKey) options.advantage = true;
-    if (options.event?.disadvantage || options.event?.ctrlKey) options.disadvantage = true;
-    if (options.fromMars5eChatCard) options.fastForward = autoFastForwardAbilityRolls;
+
+    if (options.event?.advantage || options.event?.altKey) options.advantage ||= true;
+    if (options.event?.disadvantage || options.event?.ctrlKey) options.disadvantage ||= true;
+    if (options.fromMars5eChatCard) options.fastForward ||= autoFastForwardAbilityRolls;
 
     const chatMessage = options.chatMessage;
     const keyOptions = mapSpeedKeys(undefined, "ability");
     if (options.mapKeys !== false) {
-      if (keyOptions?.advantage === true) options.advantage = options.advantage || keyOptions.advantage;
-      if (keyOptions?.disadvantage === true) options.disadvantage = options.disadvantage || keyOptions.disadvantage;
-      if (keyOptions?.fastForwardAbility === true) options.fastForward = options.fastForward || keyOptions.fastForwardAbility;
+      if (keyOptions?.advantage === true) options.advantage = true;
+      if (keyOptions?.disadvantage === true) options.disadvantage = true;
+      if (keyOptions?.fastForwardAbility === true) options.fastForward = true;
       if (keyOptions?.advantage || keyOptions?.disadvantage) options.fastForward = true;
     }
 

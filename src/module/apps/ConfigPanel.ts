@@ -24,7 +24,7 @@ export class ConfigPanel extends FormApplication {
   constructor(...args) {
     super(args);
     this.configHookId = Hooks.on("midi-qol.ConfigSettingsChanged", () => {
-      this.close({force: true});
+      this.close({ force: true });
     })
   }
 
@@ -38,17 +38,17 @@ export class ConfigPanel extends FormApplication {
     }
     let wallsBlockRangeOptions = duplicate(geti18nOptions("WallsBlockRangeOptionsNew"));
     let CoverCalculationOptions = duplicate(geti18nOptions("CoverCalculationOptions"));
-    [{id: "levelsautocover", name: "'Levels Auto Cover'"}, {id:"simbuls-cover-calculator", name: "'Simbuls Cover Calculator'"}, {id: "tokencover", name: "Alternative Token Cover"}].forEach(module => {
+    [{ id: "levelsautocover", name: "'Levels Auto Cover'" }, { id: "simbuls-cover-calculator", name: "'Simbuls Cover Calculator'" }, { id: "tokencover", name: "Alternative Token Cover" }].forEach(module => {
       if (!installedModules.get(module.id)) {
         wallsBlockRangeOptions[module.id] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: module.name })}`;
         CoverCalculationOptions[module.id] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: module.name })}`;
       }
     });
     if (!installedModules.get("levels")) {
-      wallsBlockRangeOptions["centerLevels"] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing:"Levels" })}`;
+      wallsBlockRangeOptions["centerLevels"] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Levels" })}`;
     }
     let HiddenAdvantageOptions = duplicate(geti18nOptions("HiddenAdvantageOptions"));
-    [{id: "perceptive", name: "Perceptive"}].forEach(module => {
+    [{ id: "perceptive", name: "Perceptive" }].forEach(module => {
       if (!installedModules.get(module.id)) {
         HiddenAdvantageOptions[module.id] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: module.name })}`;
       }
@@ -118,15 +118,14 @@ export class ConfigPanel extends FormApplication {
       HiddenAdvantageOptions,
       ConfirmAttackDamageOptions: geti18nOptions("ConfirmAttackDamageOptions"),
       ChallengeModeArmorOptions: geti18nOptions("ChallengeModeArmorOptions"),
-      RollSkillsBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().skills).reduce((acc, s) => { acc[s] = getSystemCONFIG().skills[s].label; return acc }, {})),
-      RollSavesBlindOptions: mergeObject({"none": "None", "all": "All", "death": i18n("DND5E.DeathSave")}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
-      RollChecksBlindOptions: mergeObject({"none": "None", "all": "All"}, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
+      RollSkillsBlindOptions: mergeObject({ "none": "None", "all": "All" }, Object.keys(getSystemCONFIG().skills).reduce((acc, s) => { acc[s] = getSystemCONFIG().skills[s].label; return acc }, {})),
+      RollSavesBlindOptions: mergeObject({ "none": "None", "all": "All", "death": i18n("DND5E.DeathSave") }, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
+      RollChecksBlindOptions: mergeObject({ "none": "None", "all": "All" }, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
       //@ts-expect-error
-      StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name =  i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, {"none": "None"}),
+      StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name = i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, { "none": "None" }),
       SaveDROrderOptions: geti18nOptions("SaveDROrderOptions"),
-
+      ColorOptions: colorList.reduce((acc, c) => { acc[c] = c; return acc }, {"Delete": "Delete"}),
     };
-
     if (debugEnabled > 0) warn("Config Panel: getData ", data)
     return data;
   }
@@ -155,13 +154,13 @@ export class ConfigPanel extends FormApplication {
     html.find("#midi-qol-export-config").on("click", exportSettingsToJSON)
     html.find("#midi-qol-import-config").on("click", async () => {
       if (await importFromJSONDialog()) {
-        this.close({force: true});
+        this.close({ force: true });
       }
     });
     html.find('.midi-qol-blind-select').hover(this.selectHover.bind(this), this.selectHoverOut.bind(this))
     html.find(".import-quick-setting").on("click", async function (event) {
       const key = event.currentTarget.id;
-      if (await applySettings.bind(this)(key)) this.close({force: true});
+      if (await applySettings.bind(this)(key)) this.close({ force: true });
       // this.render();
     }.bind(this))
   }
@@ -609,3 +608,152 @@ export async function applySettings(key: string) {
   }
   return false;
 }
+const colorList = [
+  `AliceBlue`,
+  `AntiqueWhite`,
+  `Aqua`,
+  `Aquamarine`,
+  `Azure`,
+  `Beige`,
+  `Bisque`,
+  `Black`,
+  `BlanchedAlmond`,
+  `Blue`,
+  `BlueViolet`,
+  `Brown`,
+  `BurlyWood`,
+  `CadetBlue`,
+  `Chartreuse`,
+  `Chocolate`,
+  `Coral`,
+  `CornflowerBlue`,
+  `Cornsilk`,
+  `Crimson`,
+  `Cyan`,
+  `DarkBlue`,
+  `DarkCyan`,
+  `DarkGoldenRod`,
+  `DarkGray`,
+  `DarkGrey`,
+  `DarkGreen`,
+  `DarkKhaki`,
+  `DarkMagenta`,
+  `DarkOliveGreen`,
+  `Darkorange`,
+  `DarkOrchid`,
+  `DarkRed`,
+  `DarkSalmon`,
+  `DarkSeaGreen`,
+  `DarkSlateBlue`,
+  `DarkSlateGray`,
+  `DarkSlateGrey`,
+  `DarkTurquoise`,
+  `DarkViolet`,
+  `DeepPink`,
+  `DeepSkyBlue`,
+  `DimGray`,
+  `DimGrey`,
+  `DodgerBlue`,
+  `FireBrick`,
+  `FloralWhite`,
+  `ForestGreen`,
+  `Fuchsia`,
+  `Gainsboro`,
+  `GhostWhite`,
+  `Gold`,
+  `GoldenRod`,
+  `Gray`,
+  `Grey`,
+  `Green`,
+  `GreenYellow`,
+  `HoneyDew`,
+  `HotPink`,
+  `IndianRed`,
+  `Indigo`,
+  `Ivory`,
+  `Khaki`,
+  `Lavender`,
+  `LavenderBlush`,
+  `LawnGreen`,
+  `LemonChiffon`,
+  `LightBlue`,
+  `LightCoral`,
+  `LightCyan`,
+  `LightGoldenRodYellow`,
+  `LightGray`,
+  `LightGrey`,
+  `LightGreen`,
+  `LightPink`,
+  `LightSalmon`,
+  `LightSeaGreen`,
+  `LightSkyBlue`,
+  `LightSlateGray`,
+  `LightSlateGrey`,
+  `LightSteelBlue`,
+  `LightYellow`,
+  `Lime`,
+  `LimeGreen`,
+  `Linen`,
+  `Magenta`,
+  `Maroon`,
+  `MediumAquaMarine`,
+  `MediumBlue`,
+  `MediumOrchid`,
+  `MediumPurple`,
+  `MediumSeaGreen`,
+  `MediumSlateBlue`,
+  `MediumSpringGreen`,
+  `MediumTurquoise`,
+  `MediumVioletRed`,
+  `MidnightBlue`,
+  `MintCream`,
+  `MistyRose`,
+  `Moccasin`,
+  `NavajoWhite`,
+  `Navy`,
+  `OldLace`,
+  `Olive`,
+  `OliveDrab`,
+  `Orange`,
+  `OrangeRed`,
+  `Orchid`,
+  `PaleGoldenRod`,
+  `PaleGreen`,
+  `PaleTurquoise`,
+  `PaleVioletRed`,
+  `PapayaWhip`,
+  `PeachPuff`,
+  `Peru`,
+  `Pink`,
+  `Plum`,
+  `PowderBlue`,
+  `Purple`,
+  `Red`,
+  `RosyBrown`,
+  `RoyalBlue`,
+  `SaddleBrown`,
+  `Salmon`,
+  `SandyBrown`,
+  `SeaGreen`,
+  `SeaShell`,
+  `Sienna`,
+  `Silver`,
+  `SkyBlue`,
+  `SlateBlue`,
+  `SlateGray`,
+  `SlateGrey`,
+  `Snow`,
+  `SpringGreen`,
+  `SteelBlue`,
+  `Tan`,
+  `Teal`,
+  `Thistle`,
+  `Tomato`,
+  `Turquoise`,
+  `Violet`,
+  `Wheat`,
+  `White`,
+  `WhiteSmoke`,
+  `Yellow`,
+  `YellowGreen`,
+]

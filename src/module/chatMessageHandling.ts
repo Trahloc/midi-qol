@@ -281,7 +281,10 @@ export let hideStuffHandler = (message, html, data) => {
     // hide tool tips from non-gm
     html.find(".midi-qol-save-tooltip").hide();
     // if not showing saving throw total hide from players
-    if (configSettings.autoCheckSaves === "allNoRoll") html.find(".midi-qol-save-total").hide();
+    if (configSettings.autoCheckSaves === "allNoRoll") {
+      html.find(".midi-qol-save-total").hide();
+      html.find(".midi-qol-save-full-display").hide();
+    }
     // Hide the save dc if required
     if (!configSettings.displaySaveDC) {
       html.find(".midi-qol-saveDC").hide();
@@ -422,7 +425,8 @@ export let chatDamageButtons = (message, html, data) => {
     let itemUuid = `Actor.${actorId}.Item.${itemId}`;
     // find the item => workflow => damageList, totalDamage
     let defaultDamageType;
-    if (isNewerVersion(game.system.data.version, "2.4.99")) {
+    //@ts-expect-error .version
+    if (isNewerVersion(game.system.version, "2.4.99")) {
       defaultDamageType = (item?.system.damage?.parts[0]?.damageType) ?? "bludgeoning";
     } else {
       defaultDamageType = (item?.system.damage?.parts[0] && item?.system.damage.parts[0][1]) ?? "bludgeoning";
@@ -513,21 +517,13 @@ export function processItemCardCreation(message, user) {
   if (user === game.user?.id && midiFlags?.workflowId) { // check to see if it is a workflow
     const workflow = Workflow.getWorkflow(midiFlags.workflowId);
     if (!workflow) return;
-    if (!workflow.itemCardId) {
-      workflow.itemCardId = message.id;
-      workflow.needItemCard = false;
-    } else { // already had an item card so it is a reroll do advance the state will happen automatically
-      workflow.itemCardId = message.id;
-      workflow.needItemCard = false;
-      return;
+    if (debugEnabled > 0) warn("processItemCardCreation", message.id, workflow.itemCardId, workflow.workflowName)
+    workflow.itemCardId = message.id;
+    workflow.needItemCard = false;
+    const shouldUnsuspend = ([workflow.WorkflowState_AwaitItemCard, workflow.WorkflowState_AwaitTemplate, workflow.WorkflowState_NoAction].includes(workflow.currentAction) && workflow.suspended && !workflow.needTemplate && !workflow.needItemCard && workflow.preItemUseComplete); if (debugEnabled > 0) warn(`chat card created: unsuspending ${workflow.workflowName} ${workflow.nameForState(workflow.currentAction)} unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}, itemUseomplete: ${workflow.preItemUseComplete}`);
+    if (shouldUnsuspend) {
+      workflow.unSuspend({ itemCardId: message.id, itemUseComplete: true });
     }
-    /*
-    if (workflow.kickStart) {
-      workflow.kickStart = false;
-      workflow.performState(workflow.WorkflowState_Start);
-    } else
-      workflow.performState(workflow.WorkflowState_AwaitItemCard);
-      */
   }
 }
 
@@ -766,7 +762,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     workflow.attackRollHTML = message.content;
     workflow.attackRolled = true;
     if (workflow.currentAction === workflow.WorkflowState_WaitForAttackRoll) {
-      if (workflow.suspended) workflow.unsuspend({attackRoll: workflow.attackRoll})
+      if (workflow.suspended) workflow.unsuspend({ attackRoll: workflow.attackRoll })
       // TODO NW workflow.performState(workflow.WorkflowState_WaitForAttackRoll,{attackRoll: workflow.attackRoll});
     }
   }
@@ -788,7 +784,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     }
     workflow.damageRolled = true;
     if (workflow.currentAction === workflow.WorkflowState_WaitForDamageRoll) {
-      if (workflow.suspended) workflow.unSuspend({damageRoll: workflow.damageRoll})
+      if (workflow.suspended) workflow.unSuspend({ damageRoll: workflow.damageRoll })
       // TODO NW workflow.performState(workflow.WorkflowState_WaitForDamageRoll);
     }
   }

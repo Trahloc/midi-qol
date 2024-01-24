@@ -3597,7 +3597,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
         } else {
           if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using ${triggerType} filter`);
           //@ts-expect-error .system
-          return theItem.system.activation?.type === triggerType || (triggetType === "reactionhit" && theItem.system.activation?.type === "reaction");
+          return theItem.system.activation?.type === triggerType || (triggerType === "reactionhit" && theItem.system.activation?.type === "reaction");
         }
       });
 
@@ -3868,7 +3868,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
           clearTimeout(useTimeoutId);
           if (item instanceof Item) { // a nomral item}
             result = await completeItemUse(item, {}, itemRollOptions);
-            if (!result.preItemUseComplete) resolve(noResult);
+            if (!result?.preItemUseComplete) resolve(noResult);
             else resolve({ name: item?.name, uuid: item?.uuid })
           } else { // assume it is a magic item item
             //@ts-expect-error
@@ -4200,7 +4200,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       Object.assign(rollData.workflow, data.workflow);
       rollData.workflow.otherDamageItem = data.workflow.otherDamageItem?.getRollData().item;
       rollData.workflow.hasSave = data.workflow.hasSave;
-      rollData.workflow.saveItem = data.workflow.saveItem.getRollData().item;
+      rollData.workflow.saveItem = data.workflow.saveItem?.getRollData().item;
       rollData.workflow.otherDamageFormula = data.workflow.otherDamageFormula;
       rollData.workflow.shouldRollDamage = data.workflow.shouldRollDamage;
 
@@ -5481,7 +5481,7 @@ export function hasAutoPlaceTemplate(item) {
 }
 
 export function itemOtherFormula(item): string {
-  if (item.type === "weapon" && !item?.system.properties?.ver && ((item.system.formula ?? "") === ""))
+  if (item?.type === "weapon" && !item?.system.properties?.ver && ((item.system.formula ?? "") === ""))
     return item?.system.damage.versatile ?? "";
   return item?.system.formula ?? "";
 }

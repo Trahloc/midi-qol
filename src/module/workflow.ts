@@ -134,18 +134,6 @@ export class Workflow {
     return itemOtherFormula(this.otherDamageItem);
   }
 
-  get currentState(): number {
-    const msg = `Workflow ${this.id} currentState deprecated use workflow.currentAction instead`
-    //@ts-expect-error logCompatabilityWarning
-    logCompatibilityWarning(msg, { since: "11.2.5", until: "12.0.0" });
-    return this._currentState;
-  }
-  set currentState(currentState: number) {
-    const msg = `Workflow ${this.id} currentState deprecated use workflow.currentAction instead`
-    //@ts-expect-error logCompatabilityWarning
-    logCompatibilityWarning(msg, { since: "11.2.5", until: "12.0.0" });
-    this._currentState = currentState;
-  }
   public processAttackEventOptions() { }
 
   get shouldRollDamage(): boolean {
@@ -487,7 +475,7 @@ export class Workflow {
         }
         const name = this.nameForState(newState);
         const currentName = this.nameForState(this.currentAction);
- 
+
         if (this.currentAction !== newState) {
           if (await this.callHooksForAction("post", this.currentAction) === false && !isAborting) {
             console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by post ${this.nameForState(this.currentAction)} Hook`)
@@ -927,7 +915,8 @@ export class Workflow {
 
     // apply damage to targets plus saves plus immunities
     // done here cause not needed for betterrolls workflow
-    if (isNewerVersion(game.system.data.version, "2.4.99")) {
+    //@ts-expect-error .version
+    if (isNewerVersion(game.system.version, "2.4.99")) {
       this.defaultDamageType = this.item.system.damage?.parts[0].damageType || this.defaultDamageType || MQdefaultDamageType;
     } else {
       this.defaultDamageType = this.item.system.damage?.parts[0][1] || this.defaultDamageType || MQdefaultDamageType;
@@ -2652,41 +2641,38 @@ export class Workflow {
     let noDamageText = "";
     let halfDamageText = "";
     // TODO display bonus damage if required
-    switch (getSaveMultiplierForItem(this.saveItem, "defaultDamage")) {
-      case 0:
-        // noDamage.push("Base");
-        noDamage.push(`Base &#48;`)
-        break;
-      case 1:
-        // fullDamage.push("Ba1se");
-        noDamage.push(`Base &#49;`)
-        break
-      default:
-        halfDamage.push(`Base &frac12;`)
-      // halfDamage.push("Base");
+    if (this.item.hasDamage) {
+      switch (getSaveMultiplierForItem(this.saveItem, "defaultDamage")) {
+        case 0:
+          noDamage.push(`Base &#48;`)
+          break;
+        case 1:
+          fullDamage.push(`Base &#49;`)
+          break
+        default:
+          halfDamage.push(`Base &frac12;`)
+      }
     }
     if (itemOtherFormula(this.otherDamageItem) !== "") {
       switch (getSaveMultiplierForItem(this.otherDamageItem, "otherDamage")) {
         case 0:
-          // noDamage.push("Other");
           noDamage.push("Other &#48;")
           break;
         case 1:
           fullDamage.push("Other &#49;")
-          // fullDamage.push("Other");
           break;
         default:
           halfDamage.push("Other &frac12;");
-        // halfDamage.push("Other");
       }
     }
     if (fullDamage.length > 0) fullDamageText = i18nFormat("midi-qol.fullDamageText", { damageType: fullDamage.join(", ") });
     if (noDamage.length > 0) noDamageText = i18nFormat("midi-qol.noDamageText", { damageType: noDamage.join(", ") });
     if (halfDamage.length > 0) halfDamageText = i18nFormat("midi-qol.halfDamageText", { damageType: halfDamage.join(", ") });
     let templateData = {
+      fullDamageText,
       halfDamageText,
       noDamageText,
-      fullDamageText,
+      fullSaveDisplay: false && this.item?.flags["midi-qol"]?.isConcentrationCheck,
       saves: this.saveDisplayData,
       // TODO force roll damage
     }
@@ -3297,7 +3283,8 @@ export class Workflow {
         rollDetail,
         id: target.id,
         adv,
-        saveStyle
+        saveStyle,
+        rollHtml: (false && this.item?.flags["midi-qol"]?.isConcentrationCheck ? await midiRenderRoll(rollDetail) : "")
       });
       i++;
     }
@@ -4254,7 +4241,8 @@ export class TrapWorkflow extends Workflow {
 
     // If the item does damage, use the same damage type as the item
     let defaultDamageType;
-    if (isNewerVersion(game.system.data.version, "2.4.99")) {
+    //@ts-expect-error .version
+    if (isNewerVersion(game.system.version, "2.4.99")) {
       defaultDamageType = this.item?.system.damage?.parts[0].damageType || this.defaultDamageType;
     } else {
       defaultDamageType = this.item?.system.damage?.parts[0][1] || this.defaultDamageType;
@@ -4360,7 +4348,8 @@ export class DDBGameLogWorkflow extends Workflow {
     return this.WorkflowState_DamageRollComplete;
   }
   async WorkflowState_DamageRollComplete(context: any = {}): Promise<WorkflowState> {
-    if (isNewerVersion(game.system.data.version, "2.4.99")) {
+    //@ts-expect-error .version
+    if (isNewerVersion(game.system.version, "2.4.99")) {
       this.defaultDamageType = this.item.system.damage?.parts[0].damageType || this.defaultDamageType || MQdefaultDamageType;
     } else {
       this.defaultDamageType = this.item.system.damage?.parts[0][1] || this.defaultDamageType || MQdefaultDamageType;
