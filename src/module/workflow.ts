@@ -1,6 +1,6 @@
 import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, allAttackTypes, i18nFormat } from "../midi-qol.js";
 import { postTemplateConfirmTargets, preTemplateTargets, selectTargets, shouldRollOtherDamage, templateTokens } from "./itemhandling.js";
-import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
+import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getSelfTargetSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, getSystemCONFIG, tokenForActor, getSelfTarget, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getLinkText, getIconFreeLink, completeItemUse, getStatusName, hasUsedReaction, getConcentrationEffect, needsReactionCheck, hasUsedBonusAction, needsBonusActionCheck, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo } from "./utils.js"
@@ -785,7 +785,7 @@ export class Workflow {
         // Assumes workflow.undoData.chatCardUuids has been initialised
         if (this.undoData && message) {
           this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([message.uuid]);
-          socketlibSocket.executeAsGM("updateUndoChatCardUuids", this.undoData);
+          untimedExecuteAsGM("updateUndoChatCardUuids", this.undoData);
         }
       }
     }
@@ -840,6 +840,7 @@ export class Workflow {
       // record the data - currently done in item handling
       return this.WorkflowState_ConfirmRoll;
     }
+    if (context.attackRoll) return this.WorkflowState_AttackRollComplete;
     if (debugEnabled > 1) debug(`wait for damage roll has damage ${itemHasDamage(this.item)} isfumble ${this.isFumble} no auto damage ${this.noAutoDamage}`);
     if (checkMechanic("actionSpecialDurationImmediate"))
       expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"]);
@@ -1308,7 +1309,7 @@ export class Workflow {
 
   async WorkflowState_Cancel(context: any = {}): Promise<WorkflowState> {
     // cancel will undo the workflow if it exists
-    configSettings.undoWorkflow && !await socketlibSocket.executeAsGM("undoTillWorkflow", this.uuid, true, true);
+    configSettings.undoWorkflow && !await untimedExecuteAsGM("undoTillWorkflow", this.uuid, true, true);
     return this.WorkflowState_Abort
   }
   async WorkflowState_RollFinished(context: any = {}): Promise<WorkflowState> {
@@ -2421,8 +2422,7 @@ export class Workflow {
     let chatMessage: ChatMessage | undefined = game.messages?.get(this.itemCardId ?? "");
     //@ts-ignore .content v10
     let content = (chatMessage && duplicate(chatMessage.content)) ?? "";
-    // TODO work out what to do if we are a damage only workflow and betters rolls is active - display update wont work.
-    if (getRemoveDamageButtons(this.item) || this.workflowType !== "Workflow" && configSettings.confirmAttackDamage === "none") {
+    if ((getRemoveDamageButtons(this.item) && configSettings.confirmAttackDamage === "none") || this.workflowType !== "Workflow") {
       const versatileRe = /<button data-action="versatile">[^<]*<\/button>/
       const damageRe = /<button data-action="damage">[^<]*<\/button>/
       const formulaRe = /<button data-action="formula">[^<]*<\/button>/
@@ -2624,7 +2624,7 @@ export class Workflow {
           // Assumes workflow.undoData.chatCardUuids has been initialised
           if (this.undoData && result) {
             this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([result.uuid]);
-            socketlibSocket.executeAsGM("updateUndoChatCardUuids", this.undoData);
+            untimedExecuteAsGM("updateUndoChatCardUuids", this.undoData);
           }
         }
       }
@@ -2653,6 +2653,19 @@ export class Workflow {
           halfDamage.push(`Base &frac12;`)
       }
     }
+    if (this.bonusDamageDetail?.length > 0 && getSaveMultiplierForItem(this.saveItem, "defaultDamage") !== getSaveMultiplierForItem(this.saveItem, "bonusDamage")) {
+      switch (getSaveMultiplierForItem(this.saveItem, "bonusDamage")) {
+        case 0:
+          noDamage.push(`Bonus &#48;`)
+          break;
+        case 1:
+          fullDamage.push(`Bonus &#49;`)
+          break
+        default:
+          halfDamage.push(`Bonus &frac12;`)
+      }
+    }
+
     if (itemOtherFormula(this.otherDamageItem) !== "") {
       switch (getSaveMultiplierForItem(this.otherDamageItem, "otherDamage")) {
         case 0:
@@ -2665,6 +2678,7 @@ export class Workflow {
           halfDamage.push("Other &frac12;");
       }
     }
+
     if (fullDamage.length > 0) fullDamageText = i18nFormat("midi-qol.fullDamageText", { damageType: fullDamage.join(", ") });
     if (noDamage.length > 0) noDamageText = i18nFormat("midi-qol.noDamageText", { damageType: noDamage.join(", ") });
     if (halfDamage.length > 0) halfDamageText = i18nFormat("midi-qol.halfDamageText", { damageType: halfDamage.join(", ") });
@@ -2739,7 +2753,7 @@ export class Workflow {
         // Assumes workflow.undoData.chatCardUuids has been initialised
         if (this.undoData && result) {
           this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([result.uuid]);
-          socketlibSocket.executeAsGM("updateUndoChatCardUuids", this.undoData);
+          untimedExecuteAsGM("updateUndoChatCardUuids", this.undoData);
         }
       }
     };
@@ -3410,7 +3424,7 @@ export class Workflow {
       const brFlags = message.flags?.betterrolls5e;
       if (configSettings.undoWorkflow) {
         this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([message.uuid]);
-        socketlibSocket.executeAsGM("updateUndoChatCardUuids", this.undoData);
+        untimedExecuteAsGM("updateUndoChatCardUuids", this.undoData);
       }
 
       if (brFlags) {
@@ -3607,7 +3621,7 @@ export class Workflow {
                 result = await doReactions(targetToken, this.tokenUuid, this.attackRoll, "reactionhit", { item: this.item, workflow: this, workflowOptions });
               }
               else
-                result = await doReactions(targetToken, this.tokenUuid, this.attackRoll, "reactionmiss", { item: this.item, workflow: this, workflowOptions });
+                result = await doReactions(targetToken, this.tokenUuid, this.attackRoll, "reactionmissed", { item: this.item, workflow: this, workflowOptions });
 
             }
             // TODO what else to do once rolled

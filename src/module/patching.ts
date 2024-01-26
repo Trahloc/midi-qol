@@ -5,7 +5,7 @@ import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEff
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
-import { socketlibSocket } from "./GMAction.js";
+import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 let libWrapper;
@@ -1059,7 +1059,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
           if (effectsToDelete?.length > 0) {
             const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
             if (debugEnabled > 0) warn("removeConcentration | removing effects", targetActor?.name, effectsToDelete, options);
-            promises.push(socketlibSocket.executeAsGM("deleteEffects", {
+            promises.push(untimedExecuteAsGM("deleteEffects", {
               actorUuid: target.actorUuid, effectsToDelete,
               options: mergeObject(deleteOptions, { concentrationDeleted: true, concentrationEffectsDeleted: true, noConcentrationCheck: true })
             }));
@@ -1116,7 +1116,7 @@ export async function removeConcentrationOld(actor: Actor, concentrationUuid: st
       options.noConcentrationCheck = true;
       options.concentrationDeleted = true;
       options.concentrationEffectsDeleted = true;
-      result = await socketlibSocket.executeAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true, options });
+      result = await untimedExecuteAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true, options });
       debug("finsihed remove concentration effects", actor?.name)
     }
   } catch (err) {

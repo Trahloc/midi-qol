@@ -93,6 +93,8 @@
     <select name="flags.midiProperties.saveDamage" data-dtype="String">
       {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.saveDamage}} </select>
   </div>
+  {{/if}}
+  {{#if (and item.hasSave item.hasDamage)}}
   <div class="form-group">
     <label>{{ localize "midi-qol.Saves"}} Bonus</label>
     <select name="flags.midiProperties.bonusSaveDamage" data-dtype="String">

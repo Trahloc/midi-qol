@@ -7,7 +7,7 @@ import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
 import { defaultRollOptions, removeConcentration } from "./patching.js";
 import { saveUndoData } from "./undo.js";
-import { socketlibSocket } from "./GMAction.js";
+import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 
@@ -624,7 +624,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.disadvantage = false;
       workflow.rollOptions.rollToggle = globalThis.MidiKeyManager.pressedKeys.rollToggle;
       if (workflow.currentAction !== workflow.WorkflowState_Completed && configSettings.undoWorkflow) {
-        socketlibSocket.executeAsGM("undoTillWorkflow", workflow.id, false, false);
+        untimedExecuteAsGM("undoTillWorkflow", workflow.id, false, false);
       }
     }
     if (workflow && !workflow.reactionQueried) {
@@ -1029,7 +1029,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
         // Assumes workflow.undoData.chatCardUuids has been initialised
         if (workflow.undoData && card) {
           workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat([card.uuid]);
-          socketlibSocket.executeAsGM("updateUndoChatCardUuids", workflow.undoData);
+          untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
         }
       }
     }

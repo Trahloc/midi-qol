@@ -3,10 +3,10 @@ import { preloadTemplates } from './module/preloadTemplates.js';
 import { checkModules, installedModules, setupModules } from './module/setupModules.js';
 import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
 import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Hooks.js';
-import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket } from './module/GMAction.js';
+import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
-import { addConcentration, applyTokenDamage, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { addConcentration, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -438,6 +438,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     addConcentration: async function addConcentration(actorRef: Actor | string, concentrationData: ConcentrationData): Promise<void>,
     applyTokenDamage: async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
     canSense: function canSense(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): boolean,
+    canSense: function canSee(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string): boolean,
     cansSenseModes: function canSenseModes(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): Array<string>,
     checkIncapacitated: function checkIncapacitated(actor: Actor, logResult?: true): boolean,
     checkNearby: function checkNearby(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
@@ -533,6 +534,7 @@ function setupMidiQOLApi() {
     addConcentration,
     addUndoChatMessage,
     applyTokenDamage,
+    canSee,
     canSense,
     canSenseModes,
     checkIncapacitated,
@@ -610,12 +612,12 @@ function setupMidiQOLApi() {
     Workflow,
     moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }, animate: boolean = true) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
-      if (tokenUuid) return socketlibSocket.executeAsGM("moveToken", { tokenUuid, newCenter, animate });
+      if (tokenUuid) return untimedExecuteAsGM("moveToken", { tokenUuid, newCenter, animate });
     },
     moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }, animate: boolean = true) => {
       const targetUuid = getTokenDocument(targetRef)?.uuid;
       if (point && targetUuid && distance)
-        return socketlibSocket.executeAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate })
+        return untimedExecuteAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate })
     }
   });
   globalThis.MidiQOL.actionQueue = new Semaphore();

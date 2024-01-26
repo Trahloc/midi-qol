@@ -126,7 +126,7 @@ export class SaferSocket {
 
   async executeAsGM(handler, ...args) {
     if (!this.canCall(handler)) return false;
-    return await this.#_socketlibSocket.executeAsGM(handler, ...args);
+    return await untimedExecuteAsGM(handler, ...args);
   }
   async executeAsUser(handler, userId, ...args) {
     if (!this.canCall(handler)) return false;
@@ -330,18 +330,26 @@ export function GMupdateEntityStats(data: { id: any; currentStats: any; }) {
 }
 
 export async function timedExecuteAsGM(toDo: string, data: any) {
-  if (!debugCallTiming) return socketlibSocket.executeAsGM(toDo, data);
+  if (!debugCallTiming) return untimedExecuteAsGM(toDo, data);
   const start = Date.now();
   data.playerId = game.user?.id;
-  const returnValue = await socketlibSocket.executeAsGM(toDo, data);
+  const returnValue = await untimedExecuteAsGM(toDo, data);
   log(`executeAsGM: ${toDo} elapsed: ${Date.now() - start}ms`)
   return returnValue;
 }
 
+export async function untimedExecuteAsGM(toDo: string, ...args) {
+  if (!socketlibSocket) return undefined;
+  const myScene = game.user?.viewedScene;
+  const gmOnScene = game.users?.filter(u => u.active && u.isGM && u.viewedScene === myScene);
+  if (!gmOnScene || gmOnScene.length === 0) return socketlibSocket.executeAsGM(toDo, ...args);
+  else return socketlibSocket.executeAsUser(toDo, gmOnScene[0].id, ...args);
+}
+
 export async function timedAwaitExecuteAsGM(toDo: string, data: any) {
-  if (!debugCallTiming) return await socketlibSocket.executeAsGM(toDo, data);
+  if (!debugCallTiming) return await untimedExecuteAsGM(toDo, data);
   const start = Date.now();
-  const returnValue = await socketlibSocket.executeAsGM(toDo, data);
+  const returnValue = await untimedExecuteAsGM(toDo, data);
   log(`await executeAsGM: ${toDo} elapsed: ${Date.now() - start}ms`)
   return returnValue;
 }

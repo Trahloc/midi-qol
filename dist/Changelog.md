@@ -1,3 +1,19 @@
+## 11.3.15
+* Added missing text for undo chat card color label/hint.
+* Fixed reaction "isMissed".
+* Fixed countdown timer on bonus dialog.
+* If multiple GMs are connected midi will pass executeAsGM calls to a GM on the player's viewed scene, if there is one. This also means that if there is more than GM midi will prompt for reactions from a GM viewing the scene if possible.
+* Fixed magic items 2 api call not being awaited when doing a reaction. The current version of magic items 2 (1.4.7) seems to have a bug in the api so reactions with magic items won't work until that is resolved.
+* Added the option for optional.name.whatever CuSTOM ItemMacro/function/Macro to support the macro returning a string which will be treated as any of the other modifiers, e.g. reroll, 1d4, 6 etc. The existing functionality of the macro/function returning a roll instance to replace the roll will still work.
+* Added MidiQOL.canSee(token, target) which returns true if the token can see the target. Thanks @Elwin
+* If base damage/bonus damage have the same save setting, or there is no save for the item the damage from both is combined into a single pool, so that damage resistance will behave as expected.
+
+## 11.3.14
+* Various fixes - thanks @Elwin
+* Fix for MiM2 being disabled via a late change in 1.3.13 to fix concentration effect not found in embedded collection errors.
+* Added setting to keep "undone" workflow chatcards - which can be recoloured when undone - LemonChiffon is my preferred colour. The chat cards are live and allow you to apply damage as you wish.
+* Fix to support Monks Token Bar skip roll dialog setting.
+
 
 ## 11.3.13
 * Final changes to auto place templates. (sorry about the mucking around) Only radius/squared-radius templates are auto placed. 

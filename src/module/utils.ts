@@ -2,7 +2,7 @@ import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamag
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
-import { socketlibSocket, timedAwaitExecuteAsGM } from "./GMAction.js";
+import { socketlibSocket, timedAwaitExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
@@ -861,7 +861,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       // Assumes workflow.undoData.chatCardUuids has been initialised
       if (workflow.undoData) {
         workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat(chatCardUuids);
-        socketlibSocket.executeAsGM("updateUndoChatCardUuids", workflow.undoData);
+        untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
       }
     }
   }
@@ -911,22 +911,42 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
   if (debugEnabled > 0) warn("processDamageRoll | damage details pre merge are ", workflow.damageDetail, workflow.bonusDamageDetail);
   let totalDamage = 0;
-  let merged = workflow.damageDetail.concat(workflow.bonusDamageDetail ?? []).reduce((acc, item) => {
-    acc[item.type] = (acc[item.type] ?? 0) + item.damage;
-    return acc;
-  }, {});
-  if ((Object.keys(merged).length === 1 && Object.keys(merged)[0] === "midi-none")
-    && (workflow.otherDamageDetail.length === 0
-      || (workflow.otherDamageDetail.length === 1 && workflow.otherDamageDetail[0] === "midi-none"))
-  ) return;
+  
+  if (workflow.saveItem?.hasSave && 
+    (getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") !== 
+    (getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default")) { 
+      // need to keep bonus damage and base damage separate
+    let merged = (workflow.bonusDamageDetail ?? []).reduce((acc, item) => {
+      acc[item.type] = (acc[item.type] ?? 0) + item.damage;
+      return acc;
+    }, {});
+    workflow.bonusDamageDetail = Object.keys(merged).map((key) => { return { damage: Math.max(0, merged[key]), type: key } });
 
-  //TODO come back and decide if -ve damage per type should be allowed, no in the case of 1d4 -2, yes? in the case of -1d4[fire]
-  const newDetail = Object.keys(merged).map((key) => { return { damage: Math.max(0, merged[key]), type: key } });
-  totalDamage = newDetail.reduce((acc, value) => acc + value.damage, 0);
-  workflow.damageDetail = newDetail;
-  workflow.damageTotal = totalDamage;
-  workflow.bonusDamageDetail = undefined;
-  workflow.bonusDamageTotal = undefined;
+    const baseNoDamage = workflow.damageDetail.length === 0 || (workflow.damageDetail.length === 1 && workflow.damageDetail[0] === "midi-none");
+    const bonusNoDamage = workflow.bonusDamageDetail.length === 0 || (workflow.bonusDamageDetail.length === 1 && workflow.bonusDamageDetail[0] === "midi-none");
+    const otherNoDamage = workflow.otherDamageDetail.length === 0 || (workflow.otherDamageDetail.length === 1 && workflow.otherDamageDetail[0] === "midi-none");
+    if (baseNoDamage && bonusNoDamage && otherNoDamage) return;
+    const baseTotalDamage = workflow.damageDetail.reduce((acc, value) => acc + value.damage, 0);
+    const bonusTotalDamage = workflow.bonusDamageDetail.reduce((acc, value) => acc + value.damage, 0);
+    workflow.bonusDamageTotal = bonusTotalDamage;
+  } else { // merge bonus damage and base damage together.
+    let merged = workflow.damageDetail.concat(workflow.bonusDamageDetail ?? []).reduce((acc, item) => {
+      acc[item.type] = (acc[item.type] ?? 0) + item.damage;
+      return acc;
+    }, {});
+    if ((Object.keys(merged).length === 1 && Object.keys(merged)[0] === "midi-none")
+      && (workflow.otherDamageDetail.length === 0
+        || (workflow.otherDamageDetail.length === 1 && workflow.otherDamageDetail[0] === "midi-none"))
+    ) return;
+
+    //TODO come back and decide if -ve damage per type should be allowed, no in the case of 1d4 -2, yes? in the case of -1d4[fire]
+    const newDetail = Object.keys(merged).map((key) => { return { damage: Math.max(0, merged[key]), type: key } });
+    totalDamage = newDetail.reduce((acc, value) => acc + value.damage, 0);
+    workflow.damageDetail = newDetail;
+    workflow.damageTotal = totalDamage;
+    workflow.bonusDamageDetail = undefined;
+    workflow.bonusDamageTotal = undefined;
+  }
   let savesToUse = (workflow.otherDamageFormula ?? "") !== "" ? new Set() : workflow.saves;
   // TODO come back and remove bonusDamage from the args to applyTokenDamageMany
   // Don't check for critical - RAW say these don't get critical damage
@@ -940,10 +960,10 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   // if default save damage then we do full full damage if other damage is being rolled.
   else if ((getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") === "default"
     && itemOtherFormula(workflow.saveItem) === "") baseDamageSaves = workflow.saves ?? new Set();
-  if ((getProperty(workflow.saveItem, "flags.midiProperties.bonusDamage") ?? "default") !== "default")
+  if ((getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default") !== "default")
     bonusDamageSaves = workflow.saves;
   // if default save damage then we do full full damage if other damage is being rolled.
-  else if ((getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") === "default"
+  else if ((getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default") === "default"
     && itemOtherFormula(workflow.saveItem) === "") baseDamageSaves = workflow.saves ?? new Set()
   if (workflow.shouldRollOtherDamage) {
     if ((workflow.otherDamageFormula ?? "") !== "" && configSettings.singleConcentrationRoll) {
@@ -970,7 +990,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
               label: "bonusDamage",
               damageDetail: workflow.bonusDamageDetail,
               damageTotal: workflow.bonusDamageTotal,
-              saves: baseDamageSaves, // ((getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") === "default") ? undefined : workflow.saves,
+              saves: bonusDamageSaves,
               superSavers: workflow.superSavers,
               semiSuperSavers: workflow.semiSuperSavers
             }
@@ -998,11 +1018,10 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
               label: "bonusDamage",
               damageDetail: workflow.bonusDamageDetail,
               damageTotal: workflow.bonusDamageTotal,
-              saves: baseDamageSaves, // (getProperty(workflow.item, "flags.midiProperties.saveDamage") ?? "default") === "default" ? undefined : workflow.saves,
+              saves: bonusDamageSaves,
               superSavers: workflow.superSavers,
               semiSuperSavers: workflow.semiSuperSavers
             },
-
           ],
           theTargets,
           item,
@@ -1044,7 +1063,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
             label: "bonusDamage",
             damageDetail: workflow.bonusDamageDetail,
             damageTotal: workflow.bonusDamageTotal,
-            saves: workflow.saves,
+            saves: bonusDamageSaves,
             superSavers: workflow.superSavers,
             semiSuperSavers: workflow.semiSuperSavers
           },
@@ -1091,7 +1110,7 @@ export let getSaveMultiplierForItem = (item: Item, itemDamageType) => {
       itemDamageSave = getProperty(item, "flags.midiProperties.otherSaveDamage");
       break;
     case "bonusDamage":
-      itemDamageSave = getProperty(item, "flagsmidiProperties.bonusSaveDamage");
+      itemDamageSave = getProperty(item, "flags.midiProperties.bonusSaveDamage");
       break;
   }
 
@@ -1395,7 +1414,7 @@ export async function processOverTime(wrapped, data, options, user) {
 export async function doOverTimeEffect(actor, effect, startTurn: boolean = true, options: any = { saveToUse: undefined, rollFlags: undefined, isActionSave: false }) {
   if (game.user?.isGM)
     return gmOverTimeEffect(actor, effect, startTurn, options);
-  return socketlibSocket.executeAsGM("gmOverTimeEffect", { actorUuid: actor.uuid, effectUuid: effect.uuid, startTurn, options })
+  return untimedExecuteAsGM("gmOverTimeEffect", { actorUuid: actor.uuid, effectUuid: effect.uuid, startTurn, options })
 }
 
 export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true, options: any = { saveToUse: undefined, rollFlags: undefined, rollMode: undefined }) {
@@ -1654,7 +1673,7 @@ export async function _processOverTime(combat, data, options, user) {
     // Remove reaction used status from each combatant
     if (actor && toTest !== prev) {
       // do the whole thing as a GM to avoid multiple calls to the GM to set/remove flags/conditions
-      await socketlibSocket.executeAsGM("removeActionBonusReaction", { actorUuid: actor.uuid });
+      await untimedExecuteAsGM("removeActionBonusReaction", { actorUuid: actor.uuid });
     }
 
     /*
@@ -1664,7 +1683,7 @@ export async function _processOverTime(combat, data, options, user) {
       if (midiFlags.optional) {
         for (let key of Object.keys(midiFlags.optional)) {
           if (midiFlags.optional[key].used) {
-            socketlibSocket.executeAsGM("_gmSetFlag", { actorUuid: actor.uuid, base: "midi-qol", key: `optional.${key}.used`, value: false })
+            untimedExecuteAsGM("_gmSetFlag", { actorUuid: actor.uuid, base: "midi-qol", key: `optional.${key}.used`, value: false })
             // await actor.setFlag("midi-qol", `optional.${key}.used`, false)
           }
         }
@@ -2850,7 +2869,7 @@ class RollModifyDialog extends Application {
     }, { overwrite: true });
   }
   get title() {
-    let maxPad = 30;
+    let maxPad = 1;
     if (this.data.timeout < maxPad) maxPad = this.data.timeout
     if (this.data.timeout) {
       const padCount = Math.ceil(this.timeRemaining / (this.data.timeout ?? defaultTimeout) * maxPad);
@@ -2860,26 +2879,26 @@ class RollModifyDialog extends Application {
     else return this.data.title ?? "Dialog";
   }
 
-  set1Seconditimeout() {
+  set1SecondTimeout() {
     this.seconditimeoutId = setTimeout(() => {
       if (!this.timeoutId) return;
       this.timeRemaining -= 1;
       this.render(false);
-      if (this.timeRemaining > 0) this.set1Seconditimeout();
+      if (this.timeRemaining > 0) this.set1SecondTimeout();
     }, 1000)
   }
 
-  render(force: boolean = false, options: any = {}) {
-    const result: any = super.render(force, options);
+  async render(force: boolean = false, options: any = {}) {
+    const result: any = await super.render(force, options);
     const element = this.element;
     const title = element.find(".window-title")[0];
+    if (!this.seconditimeoutId) this.set1SecondTimeout();
     if (!title) return result;
     let color = "red";
     if (this.timeRemaining >= this.data.timeout * 0.75) color = "chartreuse";
     else if (this.timeRemaining >= this.data.timeout * 0.50) color = "yellow";
     else if (this.timeRemaining >= this.data.timeout * 0.25) color = "orange";
     title.style.color = color;
-    if (!this.seconditimeoutId) this.set1Seconditimeout();
     return result;
   }
 
@@ -3107,10 +3126,11 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         actorName: this.actor.name,
         isReaction: true
       }
-      await socketlibSocket.executeAsGM("queueUndoDataDirect", undoData)
+      await untimedExecuteAsGM("queueUndoDataDirect", undoData)
 
       const rollMode = getProperty(this.actor, button.key)?.rollMode ?? game.settings.get("core", "rollMode");
       if (!hasEffectGranting(this.actor, button.key, flagSelector)) return;
+      let resultApplied = false; // This is just for macro calls
       if (button.value.trim().startsWith("ItemMacro") || button.value.trim().startsWith("Macro") || button.value.trim().startsWith("function")) {
         let result;
         if (this instanceof Workflow || this.workflow) {
@@ -3121,8 +3141,12 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           let macroToCall = button.value;
           if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
           result = await (this.workflow ?? this).callMacro(this.workflow?.item ?? this.item, macroToCall, macroData, { roll: this[rollId] });
-          if (result instanceof Roll) newRoll = result;
-          else newRoll = this[rollId];
+          if (typeof result === "string") button.value = result;
+          else {
+            resultApplied = true;
+            if (result instanceof Roll) newRoll = result;
+            else newRoll = this[rollId];
+          }
         } else {
           const itemUuidOrName = button.value.split(".").slice(1).join(".");
           //@ts-expect-error
@@ -3137,12 +3161,18 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           let macroToCall = button.value;
           if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
           result = await dummyWorkflow.callMacro(item, macroToCall, macroData, { roll: this[rollId] })
-          if (result instanceof Roll) newRoll = result;
-          else newRoll = this[rollId];
+          if (typeof result === "string")
+            button.value = result;
+          else {
+            if (result instanceof Roll) newRoll = result;
+            else newRoll = this[rollId];
+            resultApplied = true;
+          }
         }
         if (result === undefined) console.warn(`midi-qol | bonusDialog | no way to call macro ${button.value}`)
         // do the roll modifications
-      } else switch (button.value) {
+      }
+      if (!resultApplied) switch (button.value) {
         case "reroll": reRoll = await this[rollId].reroll({ async: true });
           if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId, rollMode);
           newRoll = reRoll; break;
@@ -3285,7 +3315,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       dialog.data.flags = bonusFlags;
       dialog.render(true);
       // dialog.close();
-      if (chatMessage) socketlibSocket.executeAsGM("updateUndoChatCardUuidsById", { id: undoId, chatCardUuids: [(await chatMessage).uuid] });
+      if (chatMessage) untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: undoId, chatCardUuids: [(await chatMessage).uuid] });
     }
     let content;
     let rollMode: any = options?.rollMode ?? game.settings.get("core", "rollMode");
@@ -3476,7 +3506,7 @@ async function getMagicItemReactions(actor: Actor, triggerType: string): Promise
   if (!api) return [];
   const items: ReactionItem[] = [];
   try {
-    const magicItemActor: any = api.actor(actor.id);
+    const magicItemActor: any = await api.actor(actor);
     if (!magicItemActor) return [];
     for (let magicItem of magicItemActor.items) {
       try {
@@ -3714,14 +3744,26 @@ export async function requestReactions(target: Token, player: User, triggerToken
       options.workflow = options.workflow.macroDataToObject(options.workflow.getMacroDataObject());
     */
     if (options.workflow) delete options.workflow;
-    const result = await socketlibSocket.executeAsUser("chooseReactions", player.id, {
-      tokenUuid: target.document?.uuid ?? target.uuid,
-      reactionFlavor,
-      triggerTokenUuid,
-      triggerType,
-      options,
-      reactionItemList
-    });
+    let result;
+    if (player.isGM) {
+      result = await untimedExecuteAsGM("chooseReactions", {
+        tokenUuid: target.document?.uuid ?? target.uuid,
+        reactionFlavor,
+        triggerTokenUuid,
+        triggerType,
+        options,
+        reactionItemList
+      });
+    } else {
+      result = await socketlibSocket.executeAsUser("chooseReactions", player.id, {
+        tokenUuid: target.document?.uuid ?? target.uuid,
+        reactionFlavor,
+        triggerTokenUuid,
+        triggerType,
+        options,
+        reactionItemList
+      });
+    }
     const endTime = Date.now();
     if (debugEnabled > 0) warn("requestReactions | returned after ", endTime - startTime, result);
     resolve(result);
@@ -3873,7 +3915,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
           } else { // assume it is a magic item item
             //@ts-expect-error
             const api = game.modules.get("magic-items-2")?.api;
-            const magicItemActor = api?.actor(actor.id)
+            const magicItemActor = await api?.actor(actor)
             if (magicItemActor) {
               // export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | string;
               const magicItem = magicItemActor.items.find(i => i.id === item.itemId);
@@ -4382,7 +4424,7 @@ export async function setBonusActionUsed(actor: Actor) {
 
 export async function removeActionUsed(actor: Actor) {
   if (game.user?.isGM) return await actor?.setFlag("midi-qol", "actions.action", false);
-  else return await socketlibSocket.executeAsGM("_gmSetFlag", { base: "midi-qol", key: "actions.action", value: false, actorUuid: actor.uuid })
+  else return await untimedExecuteAsGM("_gmSetFlag", { base: "midi-qol", key: "actions.action", value: false, actorUuid: actor.uuid })
 }
 
 export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
@@ -4446,7 +4488,7 @@ export async function expirePerTurnBonusActions(combat: Combat, data, options) {
           if (isUsed) {
             const key = usedKey.replace("flags.midi-qol.", "");
             //TODO turn this into actor updates instead of each flag
-            await socketlibSocket.executeAsGM("_gmUnsetFlag", { actorUuid: actor.uuid, base: "midi-qol", key });
+            await untimedExecuteAsGM("_gmUnsetFlag", { actorUuid: actor.uuid, base: "midi-qol", key });
           }
         }
       }
@@ -5502,7 +5544,7 @@ export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
 }
 
 export async function chooseEffect({ speaker, actor, token, character, item, args, scope, workflow, options }) {
-  
+
   let second1TimeoutId;
   let timeRemaining;
   if (!item) return false;
@@ -5545,7 +5587,7 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
       default: ''
     });
     dialog.render(true);
-    const set1SecondTimeout = function() {
+    const set1SecondTimeout = function () {
       second1TimeoutId = setTimeout(() => {
         if (!timeoutId) return;
         timeRemaining -= 1;
@@ -5563,4 +5605,16 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
     set1SecondTimeout();
   })
   return await returnValue;
+}
+export function canSee(tokenEntity, targetEntity) {
+  const NON_SIGHT_CONSIDERED_SIGHT = ["blindsight"];
+  //@ts-expect-error
+  const detectionModes = CONFIG.Canvas.detectionModes;
+  const sightDetectionModes = Object.keys(detectionModes).filter(
+    (d) =>
+      //@ts-expect-error DetectionMode
+      detectionModes[d].type === DetectionMode.DETECTION_TYPES.SIGHT ||
+      NON_SIGHT_CONSIDERED_SIGHT.includes[d]
+  );
+  return canSense(tokenEntity, targetEntity, sightDetectionModes);
 }

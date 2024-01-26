@@ -2,7 +2,7 @@ import { debug, warn, i18n, error, debugEnabled, MQdefaultDamageType, i18nFormat
 import { DDBGameLogWorkflow, Workflow } from "./workflow.js";
 import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll } from "./settings.js";
 import { createDamageDetail, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat } from "./utils.js";
-import { socketlibSocket } from "./GMAction.js";
+import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 export const MAESTRO_MODULE_NAME = "maestro";
 export const MODULE_LABEL = "Maestro";
@@ -596,7 +596,7 @@ export async function onChatCardAction(event) {
         }
         break;
       case "Xconfirm-damage-roll-cancel":
-        if (!await socketlibSocket.executeAsGM("undoTillWorkflow", item.uuid, true, true)) {
+        if (!await untimedExecuteAsGM("undoTillWorkflow", item.uuid, true, true)) {
           await game.messages?.get(messageId)?.delete();
         };
         break;
