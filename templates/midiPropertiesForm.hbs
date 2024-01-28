@@ -55,7 +55,13 @@
   <div class="form-group">
     <label>{{ localize "midi-qol.confirmTargetsProp"}}</label>
     <select name="flags.midiProperties.confirmTargets" data-dtype="String">
-      {{selectOptions ConfirmTargetOptions selected=flags.midiProperties.confirmTargets}} </select>
+      {{selectOptions ConfirmTargetOptions selected=item.flags.midiProperties.confirmTargets}} </select>
+  </div>
+  {{#if true}}
+  <div class="form-group">
+    <label>{{ localize "midi-qol.AttackPerTarget.Name"}}</label>
+    <select name="flags.midi-qol.rollAttackPerTarget" data-dtype="String">
+      {{selectOptions ConfirmTargetOptions selected=item.flags.midi-qol.rollAttackPerTarget}} </select>
   </div>
   {{#if (or item.hasAttack item.hasDamage)}}
   <div class="form-group">
@@ -64,6 +70,7 @@
       {{selectOptions RemoveAttackDamageButtonsOptions selected=item.flags.midi-qol.removeAttackDamageButtons}}
     </select>
   </div>
+  {{/if}}
   {{/if}}
 
   <div class="form-group">

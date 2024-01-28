@@ -1091,7 +1091,7 @@ export let getSaveMultiplierForItem = (item: Item, itemDamageType) => {
 
   // Midi default - base/bonus damage full, other damage half.
   if (["defaultDamage", "bonusDamage"].includes(itemDamageType) && itemOtherFormula(item) !== ""
-    && getProperty(item, "flags.midiProperties.saveDamage") === "default") {
+    && ["default", undefined].includes(getProperty(item, "flags.midiProperties.saveDamage"))) {
     return 1;
   }
 
@@ -1737,10 +1737,9 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
         // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
         hookName = "midi-qol.postCleanup";
       }
-
       Hooks.once(hookName, (workflow) => {
         if (debugEnabled > 0) warn(`completeItemUse hook fired: ${workflow.workflowName} ${hookName}`)
-        if (saveTargets && game.user) {
+        if (!workflow.aborted && saveTargets && game.user) {
           game.user?.updateTokenTargets(saveTargets);
         }
         resolve(workflow);

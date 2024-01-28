@@ -173,6 +173,7 @@ function addConfigOptions() {
     config.midiProperties = {};
     // Add additonal vision types? How to modify token properties doing this.
     config.midiProperties["confirmTargets"] = i18n("midi-qol.confirmTargetsProp");
+    // config.midiProperties["attackPerTarget"] = "attack per target";
     config.midiProperties["nodam"] = i18n("midi-qol.noDamageSaveProp");
     config.midiProperties["fulldam"] = i18n("midi-qol.fullDamageSaveProp");
     config.midiProperties["halfdam"] = i18n("midi-qol.halfDamageSaveProp");

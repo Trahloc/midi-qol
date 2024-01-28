@@ -142,7 +142,7 @@ export async function postTemplateConfirmTargets(item, options, pressedKeys, wor
 
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   if (debugEnabled > 0) {
-    warn("doItemUse called with", this.name, config, options);
+    warn("doItemUse called with", this.name, config, options, game.user?.targets);
   }
   try {
     // if confirming can't reroll till the first workflow is completed.
@@ -151,9 +151,11 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const validStates = [previousWorkflow.WorkflowState_Completed, previousWorkflow.WorkflowState_Start, previousWorkflow.WorkflowState_RollFinished]
       if (!(validStates.includes(previousWorkflow.currentAction))) {// && configSettings.confirmAttackDamage !== "none") {
         if (configSettings.autoCompleteWorkflow) {
+          previousWorkflow.aborted = true;
           await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
           await Workflow.removeWorkflow(this.uuid);
         } else if (previousWorkflow.currentAction === previousWorkflow.WorkflowState_WaitForDamageRoll && previousWorkflow.hitTargets.size === 0) {
+          previousWorkflow.aborted = true;
           await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
         } else {
           //@ts-expect-error
@@ -187,8 +189,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
 
     const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
-
-
     let tokenToUse;
     let targetConfirmationHasRun = false;
     const selfTarget = this.system.target?.type === "self";
@@ -196,7 +196,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     // remove selection of untargetable targets
     if (canvas?.scene) {
-
       const tokensIdsToUse: Array<string> = Array.from(targetsToUse).map(t => t.id);
       game.user?.updateTokenTargets(tokensIdsToUse)
     }
@@ -205,7 +204,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       targetsToUse = new Set();
     }
 
-    let attackPerTarget = (configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true) && options.workflowOptions?.attackPerTarget !== false;
+    let attackPerTarget = getProperty(this, "flags?.midi-qol.rollAttackPerTarget") !== "never" && options.workflowOptions?.attackPerTarget !== false && (getProperty(this, "flags.midi-qol.rollAttackPerTarget") === "always" || configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true);
     // Special check for scriptlets ammoSelector - if scriptlets is going to fail and rerun the item use don't start attacks per target
     const ammoSelectorEnabled = safeGetGameSetting("dnd5e-scriplets", "ammoSelector") !== "none" && safeGetGameSetting("dnd5e-scriptlets", "ammoSelector") !== undefined;
     const ammoSelectorFirstPass = ammoSelectorEnabled

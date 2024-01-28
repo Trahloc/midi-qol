@@ -1,10 +1,16 @@
+## 11.3.16
+* Fix for not display base damage  save multiplier correctly.
+* Fix for incorrectly migrating existing save multiplier fields when editing an item with other damage.
+* Added attack roll per target as a per item setting, midi-settings, always, never. Never should be useful for those items that do not work correctly with multiple attack rolls.
+* Fix for auto cancelling attacks resetting the targeted tokens when doing attack roll per target.
+
 ## 11.3.15
 * Added missing text for undo chat card color label/hint.
 * Fixed reaction "isMissed".
 * Fixed countdown timer on bonus dialog.
 * If multiple GMs are connected midi will pass executeAsGM calls to a GM on the player's viewed scene, if there is one. This also means that if there is more than GM midi will prompt for reactions from a GM viewing the scene if possible.
 * Fixed magic items 2 api call not being awaited when doing a reaction. The current version of magic items 2 (1.4.7) seems to have a bug in the api so reactions with magic items won't work until that is resolved.
-* Added the option for optional.name.whatever CuSTOM ItemMacro/function/Macro to support the macro returning a string which will be treated as any of the other modifiers, e.g. reroll, 1d4, 6 etc. The existing functionality of the macro/function returning a roll instance to replace the roll will still work.
+* Added the option for optional.name.whatever CUSTOM ItemMacro/function/Macro to support the macro returning a string which will be used as the roll modifier, e.g. reroll, 1d4, 6 etc. The existing functionality of the macro/function returning a roll instance to replace the roll will still work.
 * Added MidiQOL.canSee(token, target) which returns true if the token can see the target. Thanks @Elwin
 * If base damage/bonus damage have the same save setting, or there is no save for the item the damage from both is combined into a single pool, so that damage resistance will behave as expected.
 

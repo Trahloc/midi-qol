@@ -1369,7 +1369,7 @@ export class Workflow {
       const templateString = " " + i18n("midi-qol.MeasuredTemplate");
       if (selfTarget) {
         let effect = this.item.actor.effects.find(ef => ef.name === this.item.name + templateString);
-        if (effect) { // effect already applied
+        if (effect) { // effect already applied - TODO decide if we update the effect or delete it via stackable.
           const newChanges = duplicate(effect.changes);
           newChanges.push({ key: "flags.dae.deleteUuid", mode: 5, value: this.templateUuid, priority: 20 });
           await effect.update({ changes: newChanges });
@@ -1380,6 +1380,7 @@ export class Workflow {
             icon: this.item?.img,
             label: this.item?.name + templateString,
             duration: {},
+            flags: {dae: {stackable: "none"}},
             changes: [
               { key: "flags.dae.deleteUuid", mode: 5, value: this.templateUuid, priority: 20 }, // who is marked
             ]
@@ -1394,7 +1395,7 @@ export class Workflow {
               rounds: convertedDuration.rounds,
               turns: convertedDuration.turns,
               startRound: game.combat?.round,
-              startTurn: game.combat?.turn
+              startTurn: game.combat?.turn,
             }
           }
           await this.actor.createEmbeddedDocuments("ActiveEffect", [effectData]);

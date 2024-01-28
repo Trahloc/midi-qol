@@ -361,7 +361,7 @@ export function initHooks() {
       }
     }
     setProperty(data, "flags.midiProperties", item.flags?.midiProperties ?? {});
-    if (item && ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(item.type)) {
+    if (["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(item?.type)) {
       for (let prop of Object.keys(midiProps)) {
         if (getProperty(item, `system.properties.${prop}`) !== undefined
           && getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
@@ -372,7 +372,18 @@ export function initHooks() {
           } else setProperty(data, `flags.midiProperties.${prop}`, false);
         }
       }
-
+      if (!getProperty(data, "flags.midi-qol.rollAttackPerTarget")) setProperty(data, "flags.midi-qol.rollAttackPerTarget", "default" );
+      if (item.system.formula !== "" || (item.system.damage?.versatile && !item.system.properties?.ver)) {
+        if (data.flags.midiProperties?.fulldam !== undefined) {
+          if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["otherSaveDamage"] = "fulldam";
+        }
+        if (data.flags.midiProperties?.halfdam !== undefined) {
+          if (data.flags.midiProperties?.halfdam) data.flags.midiProperties["otherSaveDamage"] = "halfdam";
+        }
+        if (data.flags.midiProperties?.nodam !== undefined) {
+          if (data.flags.midiProperties?.nodam) data.flags.midiProperties["otherSaveDamage"] = "nodam";
+        }
+      } else {
       // Migrate existing saving throw damage multipliers to the new saveDamage
       if (data.flags.midiProperties?.fulldam !== undefined) {
         if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["saveDamage"] = "fulldam";
@@ -383,6 +394,7 @@ export function initHooks() {
       if (data.flags.midiProperties?.nodam !== undefined) {
         if (data.flags.midiProperties?.nodam) data.flags.midiProperties["saveDamage"] = "nodam";
       }
+    }
       if (data.flags.midiProperties["saveDamage"] === undefined)
         data.flags.midiProperties["saveDamage"] = "default";
       if (data.flags.midiProperties["confirmTargets"] === true)
@@ -391,7 +403,6 @@ export function initHooks() {
         data.flags.midiProperties["confirmTargets"] = "never";
       else if (data.flags.midiProperties["confirmTargets"] === undefined)
         data.flags.midiProperties["confirmTargets"] = "default";
-
       delete data.flags.midiProperties.fulldam;
       delete data.flags.midiProperties.halfdam;
       delete data.flags.midiProperties.nodam;
