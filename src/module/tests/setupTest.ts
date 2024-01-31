@@ -1,5 +1,6 @@
 import { applySettings } from "../apps/ConfigPanel.js";
-import { applyTokenDamage, completeItemUse } from "../utils.js";
+import { applyTokenDamage, completeItemUse, findNearby } from "../utils.js";
+import { TrapWorkflow } from "../workflow.js";
 
 const actor1Name = "actor1";
 const actor2Name = "actor2";
@@ -7,7 +8,7 @@ const target1Name = "Orc1";
 const target2Name = "Orc2";
 const target3Name = "Skeleton1";
 
-const workflowOptions = {targetConfirmation: "none"};
+const workflowOptions = { targetConfirmation: "none" };
 export async function busyWait(seconds: number) {
   return (new Promise(resolve => setTimeout(resolve, seconds * 1000)));
 }
@@ -72,7 +73,7 @@ async function registerTests() {
       (context) => {
         const { describe, it, assert } = context;
 
-        describe("Damage Only Workflow", function () {
+        describe("Damage Only Workflow/TrapWorkflow", function () {
           it("apply a DamageOnlyWorkflow", async function () {
             await resetActors();
             const actor = getActor(actor2Name);
@@ -83,7 +84,7 @@ async function registerTests() {
             const item = getActorItem(actor, "Toll the Dead");
             if (target?.actor) await target.actor.setFlag("midi-qol", "fail.ability.save.all", true);
             try {
-              const workflow = await completeItemUse(item, {}, {workflowOptions})
+              const workflow = await completeItemUse(item, {}, { workflowOptions })
               target?.actor?.unsetFlag("midi-qol", "fail.ability.save.all");
               assert.ok(!!workflow);
             } catch (err) {
@@ -92,9 +93,39 @@ async function registerTests() {
             } finally {
             }
           });
+          it("rolls a TrapWorkflow", async function () {
+            await resetActors();
+            try {
+
+              const trapWorkflowMacro = game.macros?.getName("TrapWorkflowTest");
+              const targetToken = getToken(target1Name)
+              const targetActor = targetToken?.actor;
+              const spell = game.items?.getName("FireballTest")?.toObject();
+              assert.ok(spell);
+              if (spell && targetToken) {
+                setProperty(spell, "system.save", { ability: 'dex', dc: 15, scaling: 'flat' });
+                setProperty(spell, "system.preparation", { mode: 'innate', prepared: 'true' });
+                const trapItem = new Item.implementation(spell, { parent: targetActor });
+                const templateLocation = targetToken.center;
+                const workflow: TrapWorkflow = new TrapWorkflow(targetActor, trapItem, undefined, templateLocation);
+                assert.ok(trapWorkflowMacro, "TrapWorkflowTest macro not found");
+                assert.ok(!!workflow && workflow instanceof TrapWorkflow);
+                await busyWait(0.5);
+                const fireballEffect = targetToken?.actor?.effects.find(e => e.data.label === "FireballTest Template");
+                assert.ok(fireballEffect, "No template effect found");
+                await fireballEffect?.delete();
+                assert.ok(workflow?.targets.size === 2, "Wrong number of targets");
+                assert.ok(workflow.damageRoll, "No damage roll");
+              }
+            } catch (err) {
+              console.error("TrapWorkflow Error", err);
+              assert.ok(false);
+            } finally {
+            }
+          })
         });
       },
-      { displayName: "Midi Tests DOW" },
+      { displayName: "Midi Tests DOW/TrapWorkflow" },
     );
     globalThis.quench.registerBatch(
       "quench.midi-qol.abilityrolls",
@@ -113,8 +144,8 @@ async function registerTests() {
             setProperty(actor, "flags.midi-qol.advantage.all", true);
             const result = await actor.rollSkill("prc", { chatMessage: false, fastForward: true })
               .then(skillRoll => { delete actor.flags["midi-qol"].advantage.all; actor.prepareData(); assert.equal(skillRoll.terms[0].number, 2) });
-              return result
-            });
+            return result
+          });
           it("roll perception - adv.skill.all", async function () {
             setProperty(actor, "flags.midi-qol.advantage.skill.all", true);
             const result = await actor.rollSkill("prc", { chatMessage: false, fastForward: true })
@@ -163,7 +194,7 @@ async function registerTests() {
               });
             });
             const cls = getDocumentClass("Combat");
-            const combat = await cls.create({scene: canvas?.scene?.id, active: true}, {render: false});
+            const combat = await cls.create({ scene: canvas?.scene?.id, active: true }, { render: false });
             // await combat?.startCombat();
             await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
             await combat?.delete();
@@ -181,7 +212,7 @@ async function registerTests() {
             });
             const cls = getDocumentClass("Combat");
             let scene = canvas?.scene;
-            const combat = await cls.create({scene: scene?.id, active: true}, {render: true});
+            const combat = await cls.create({ scene: scene?.id, active: true }, { render: true });
             await combat?.startCombat();
             await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
             await combat?.delete();
@@ -201,7 +232,7 @@ async function registerTests() {
             });
             const cls = getDocumentClass("Combat");
             let scene = canvas?.scene;
-            const combat = await cls.create({scene: scene?.id, active: true});
+            const combat = await cls.create({ scene: scene?.id, active: true });
             await combat?.startCombat();
             await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
             await combat?.delete();
@@ -261,7 +292,7 @@ async function registerTests() {
             game.user?.updateTokenTargets([target?.id ?? ""]);
             const item = actor.items.getName("Saving Throw Test");
             assert.ok(item);
-            const workflow = await completeItemUse(item, {}, {workflowOptions});
+            const workflow = await completeItemUse(item, {}, { workflowOptions });
             assert.ok(workflow.saveResults.length === 1);
             assert.equal(workflow.saveResults[0].terms[0].results.length, 1);
             assert.ok(workflow.saveResults[0].formula.startsWith("1d20"))
@@ -275,7 +306,7 @@ async function registerTests() {
             assert.ok(item);
             //@ts-ignore .flags v10
             target?.actor && setProperty(target.actor.flags, "midi-qol.magicResistance.all", true)
-            const workflow = await completeItemUse(item, {}, {workflowOptions});
+            const workflow = await completeItemUse(item, {}, { workflowOptions });
             assert.equal(workflow.saveResults.length, 1);
             assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
             assert.ok(workflow.saveResults[0].formula.startsWith("2d20kh"))
@@ -291,7 +322,7 @@ async function registerTests() {
             assert.ok(item);
             //@ts-ignore .flags v10
             target?.actor && setProperty(target.actor.flags, "midi-qol.magicVulnerability.all", true)
-            const workflow = await completeItemUse(item, {}, {workflowOptions});
+            const workflow = await completeItemUse(item, {}, { workflowOptions });
             assert.equal(workflow.saveResults.length, 1);
             assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
             assert.ok(workflow.saveResults[0].formula.startsWith("2d20kl"))
@@ -314,7 +345,7 @@ async function registerTests() {
             const target = getToken(target2Name);
             const item = getActorItem(actor, "Longsword");
             game.user?.updateTokenTargets([target?.id ?? ""]);
-            return completeItemUse(item, {}, {workflowOptions}).then(workflow => assert.ok(!!workflow));
+            return completeItemUse(item, {}, { workflowOptions }).then(workflow => assert.ok(!!workflow));
           });
 
           it("applies cub conditions", async function () {
@@ -328,7 +359,7 @@ async function registerTests() {
             if (cubInterface.hasCondition("Blinded", [target]))
               await cubInterface.removeCondition("Blinded", [target]);
             assert.ok(!cubInterface.hasCondition("Blinded", [target]));
-            assert.ok(!!(await completeItemUse(actor.items.getName("Cub Test"), {}, {workflowOptions})));
+            assert.ok(!!(await completeItemUse(actor.items.getName("Cub Test"), {}, { workflowOptions })));
             await busyWait(0.5);
             assert.ok(cubInterface.hasCondition("Blinded", [target]));
             //@ts-ignore .label v10
@@ -355,7 +386,7 @@ async function registerTests() {
             if (await ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid))
               await ceInterface.removeEffect({ effectName: "Deafened", uuid: target?.actor?.uuid });
             assert.ok(!ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid));
-            await completeItemUse(actor.items.getName("CE Test"), {}, {workflowOptions});
+            await completeItemUse(actor.items.getName("CE Test"), {}, { workflowOptions });
             await busyWait(0.5);
             assert.ok(await ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid));
             //@ts-ignore .label v10
@@ -380,12 +411,12 @@ async function registerTests() {
             setProperty(actor.flags, "midi-qol.advantage.all", true);
             //@ts-ignore .abilities
             assert.ok(actor.system.abilities.str.mod > 0, "non zero str mod")
-            await completeItemUse(actor.items.getName("AppliesDamage"), {}, {workflowOptions});
+            await completeItemUse(actor.items.getName("AppliesDamage"), {}, { workflowOptions });
             //@ts-ignore .flags v10
             delete actor.flags["midi-qol"].advantage.all;
             const newHp = target?.actor?.system.attributes.hp.value;
             //@ts-ignore
-            assert.equal(newHp, oldHp - 10 -actor.system.abilities.str.mod);
+            assert.equal(newHp, oldHp - 10 - actor.system.abilities.str.mod);
             return true;
           });
           it("applies activation condition", async function () {
@@ -396,7 +427,7 @@ async function registerTests() {
             game.user?.updateTokenTargets([target2?.id ?? "", target3?.id ?? ""]);
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
-            await completeItemUse(actor.items.getName("MODTest"), {} , {advantage: true, workflowOptions}); // does 10 + 10 to undead
+            await completeItemUse(actor.items.getName("MODTest"), {}, { advantage: true, workflowOptions }); // does 10 + 10 to undead
             const condition2 = target2.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             const condition3 = target3.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             if (condition2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", condition2.map(ae => ae.id))
@@ -414,7 +445,7 @@ async function registerTests() {
             game.user?.updateTokenTargets([target2?.id ?? "", target3?.id ?? ""]);
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
-            await completeItemUse(actor.items.getName("MODTestNoActivation"), {}, {workflowOptions}); // does 10 + 10 to undead
+            await completeItemUse(actor.items.getName("MODTestNoActivation"), {}, { workflowOptions }); // does 10 + 10 to undead
             const condition2 = target2.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             const condition3 = target3.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
             if (condition2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", condition2.map(ae => ae.id))
@@ -439,7 +470,7 @@ async function registerTests() {
               hasEffect = target?.actor?.effects.filter(a => (a.name || a.label) === "Macro Execute Test") ?? [];
               if (hasEffect?.length > 0) await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", hasEffect.map(e => e.id));
               game.user?.updateTokenTargets([target?.id ?? ""]);
-              await completeItemUse(actor.items.getName("Macro Execute Test"), {}, {workflowOptions});
+              await completeItemUse(actor.items.getName("Macro Execute Test"), {}, { workflowOptions });
               //@ts-ignore .flags v10
               let flags: any = actor.flags["midi-qol"];
               assert.equal(flags?.test, "metest")
@@ -464,31 +495,31 @@ async function registerTests() {
           it("tests macro.tokenMagic", async function () {
             this.timeout(10000);
             const actor = getActor(actor1Name);
-            const effectData = { 
-              label: "test effect", 
-              changes: [{key: "macro.tokenMagic", mode: 0, value: "blur"}]
+            const effectData = {
+              label: "test effect",
+              changes: [{ key: "macro.tokenMagic", mode: 0, value: "blur" }]
             };
             assert.ok(globalThis.TokenMagic);
             const theEffects: any[] = await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
             //@ts-ignore .label v10
-            assert.ok(actor.effects.find(ef=> (ef.name || ef.label) === (effectData.name ?? effectData.label)));
+            assert.ok(actor.effects.find(ef => (ef.name || ef.label) === (effectData.name ?? effectData.label)));
             await busyWait(3);
-            const actorToken = canvas?.tokens?.placeables.find(t=> t.name === (actor.token?.name ?? actor.name))
+            const actorToken = canvas?.tokens?.placeables.find(t => t.name === (actor.token?.name ?? actor.name))
             assert.ok(actorToken, "found actor token");
-            assert.ok(globalThis.TokenMagic.hasFilterId(actorToken,"blur"), "applied blur effect");
-            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef=>ef.id));
+            assert.ok(globalThis.TokenMagic.hasFilterId(actorToken, "blur"), "applied blur effect");
+            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id));
             await busyWait(3);
-            assert.equal(globalThis.TokenMagic.hasFilterId(actorToken,"blur"), false, "test blur");
+            assert.equal(globalThis.TokenMagic.hasFilterId(actorToken, "blur"), false, "test blur");
             return true;
           });
-/*          it("tests blur removal", async function() {
-            const actor = getActor(actor1Name);
-            const actorToken = canvas?.tokens?.placeables.find(t=> t.name === actor.token?.name)
-            this.retries(10);
-            await busyWait(1);
-            assert.equal(globalThis.TokenMagic.hasFilterId(actorToken,"blur"), false, "test blur");
-          });
-*/
+          /*          it("tests blur removal", async function() {
+                      const actor = getActor(actor1Name);
+                      const actorToken = canvas?.tokens?.placeables.find(t=> t.name === actor.token?.name)
+                      this.retries(10);
+                      await busyWait(1);
+                      assert.equal(globalThis.TokenMagic.hasFilterId(actorToken,"blur"), false, "test blur");
+                    });
+          */
         });
         describe("onUse Macro Tests", async function () {
           it("Calls actor onUseMacros", async function () {
@@ -496,11 +527,11 @@ async function registerTests() {
             const actor = getActor(actor2Name);
             const macroPasses: string[] = [];
             const hookid = Hooks.on("OnUseMacroTest", (pass: string) => macroPasses.push(pass));
-            await completeItemUse(actor.items.getName("OnUseMacroTest"), {}, {workflowOptions}); // Apply the effect
+            await completeItemUse(actor.items.getName("OnUseMacroTest"), {}, { workflowOptions }); // Apply the effect
             //@ts-ignore
             const target = getToken(target2Name);
             game.user?.updateTokenTargets([target?.id ?? ""]);
-            await completeItemUse(actor.items.getName("Longsword"), {}, {workflowOptions}); // Apply the effect
+            await completeItemUse(actor.items.getName("Longsword"), {}, { workflowOptions }); // Apply the effect
             Hooks.off("OnUseMacroTest", hookid);
             //@ts-ignore .label v10
             let hasEffects: any = actor.effects.filter(a => (a.name || a.label) === "OnUseMacroTest") ?? [];
@@ -508,15 +539,15 @@ async function registerTests() {
             await actor.deleteEmbeddedDocuments("ActiveEffect", hasEffects.map(e => e.id))
             console.warn("Actual Passes", macroPasses);
             console.warn("en.json passes", Object.keys(game.i18n.translations["midi-qol"]["onUseMacroOptions"]))
-            const expectedPasses = ['preTargeting', 'preItemRoll', 'preStart', 
-            'postStart', 'preAoETargetConfirmation', 'postAoETargetConfirmation', 
-            'preValidateRoll', 'postValidateRoll', 'prePreambleComplete', 
-            'preambleComplete', 'postPreambleComplete', 'preWaitForAttackRoll', 
-            'postWaitForAttackRoll', 'preWaitForDamageRoll', 'postWaitForDamageRoll', 
-            'preWaitForSaves', 'preSave', 'postWaitForSaves', 'preSavesComplete', 
-            'postSave', 'postSavesComplete', 'preAllRollsComplete', 'postAllRollsComplete', 
-            'preApplyDynamicEffects', 'preActiveEffects', 'postApplyDynamicEffects', 
-            'preRollFinished', 'postActiveEffects', 'postRollFinished', 'preCleanup'];
+            const expectedPasses = ['preTargeting', 'preItemRoll', 'preStart',
+              'postStart', 'preAoETargetConfirmation', 'postAoETargetConfirmation',
+              'preValidateRoll', 'postValidateRoll', 'prePreambleComplete',
+              'preambleComplete', 'postPreambleComplete', 'preWaitForAttackRoll',
+              'postWaitForAttackRoll', 'preWaitForDamageRoll', 'postWaitForDamageRoll',
+              'preWaitForSaves', 'preSave', 'postWaitForSaves', 'preSavesComplete',
+              'postSave', 'postSavesComplete', 'preAllRollsComplete', 'postAllRollsComplete',
+              'preApplyDynamicEffects', 'preActiveEffects', 'postApplyDynamicEffects',
+              'preRollFinished', 'postActiveEffects', 'postRollFinished', 'preCleanup'];
             console.warn("Expected Passes", expectedPasses);
             console.warn("Actual passes", macroPasses);
             // Test for all passes except "all"
@@ -531,7 +562,7 @@ async function registerTests() {
             const macroPasses: string[] = [];
             const expectedPasses = ['preTargeting', 'preItemRoll', 'preambleComplete', 'preSave', 'postSave', 'preActiveEffects', 'postActiveEffects'];
             const hookid = Hooks.on("Item OnUseMacroTest", (pass: string) => macroPasses.push(pass));
-            await completeItemUse(actor.items.getName("Item OnUseMacroTest"), {}, {workflowOptions});
+            await completeItemUse(actor.items.getName("Item OnUseMacroTest"), {}, { workflowOptions });
             Hooks.off("OnUseMacroTest", hookid);
             for (let expectedPass of expectedPasses) {
               assert.ok(macroPasses.includes(expectedPass), `onUseMacro pass ${expectedPass}`);
@@ -556,24 +587,24 @@ async function registerTests() {
           it("Tests condition immunity disables effect", async function () {
             if (!ceInterface) assert.ok(false, "Convenient Effects Interface not found")
             await ceInterface.addEffect({ effectName: "Paralyzed", uuid: actor.uuid });
-          try {
-            // assert.ok(await ceInterface.hasEffectApplied("Paralyzed", actor?.uuid));
-            //@ts-ignore .label v10
-            const theEffect: ActiveEffect | undefined = actor.effects.find(ef => (ef.name || ef.label) === "Paralyzed");
-            assert.ok(theEffect, "not paralyzed");
-            //@ts-ignore .disabled v10
-            assert.ok(!(theEffect?.isSuppressed || theEffect.disabled), "paralyzed suppressed");
-            await actor.update({ "system.traits.ci.value": ["paralyzed"] });
-            //@ts-ignore .disabled v10
-            assert.ok(theEffect?.disabled || theEffect?.isSuppressed, "paralyzed not suppressed");
-            await actor.update({ "system.traits.ci.value": [] });
-            //@ts-ignore .disabled v10
-            assert.ok(!(theEffect?.disabled || theEffect.isSuppressed), "traits not disabled");
-          } finally {
-            await actor.update({ "system.traits.ci.value": [] });
-            await ceInterface.removeEffect({ effectName: "Paralyzed", uuid: actor.uuid });
-            assert.ok(!(await ceInterface.hasEffectApplied("Paralyzed", actor?.uuid)));
-          }
+            try {
+              // assert.ok(await ceInterface.hasEffectApplied("Paralyzed", actor?.uuid));
+              //@ts-ignore .label v10
+              const theEffect: ActiveEffect | undefined = actor.effects.find(ef => (ef.name || ef.label) === "Paralyzed");
+              assert.ok(theEffect, "not paralyzed");
+              //@ts-ignore .disabled v10
+              assert.ok(!(theEffect?.isSuppressed || theEffect.disabled), "paralyzed suppressed");
+              await actor.update({ "system.traits.ci.value": ["paralyzed"] });
+              //@ts-ignore .disabled v10
+              assert.ok(theEffect?.disabled || theEffect?.isSuppressed, "paralyzed not suppressed");
+              await actor.update({ "system.traits.ci.value": [] });
+              //@ts-ignore .disabled v10
+              assert.ok(!(theEffect?.disabled || theEffect.isSuppressed), "traits not disabled");
+            } finally {
+              await actor.update({ "system.traits.ci.value": [] });
+              await ceInterface.removeEffect({ effectName: "Paralyzed", uuid: actor.uuid });
+              assert.ok(!(await ceInterface.hasEffectApplied("Paralyzed", actor?.uuid)));
+            }
           })
         });
       },
@@ -583,12 +614,12 @@ async function registerTests() {
       "quench.midi-qol.overTimeTests",
       (context) => {
         const { describe, it, assert } = context;
-        describe("overTime effects", async function() {
-          it ("test overtime effect run and removed on combat update", async function() {
+        describe("overTime effects", async function () {
+          it("test overtime effect run and removed on combat update", async function () {
             this.timeout(20000);
             let scene = canvas?.scene;
             const cls = getDocumentClass("Combat");
-            const combat = await cls.create({scene: scene?.id, active: true}, {render: true});
+            const combat = await cls.create({ scene: scene?.id, active: true }, { render: true });
             await combat?.startCombat();
             assert.ok(combat);
             const token = getToken(target2Name);
@@ -607,14 +638,15 @@ async function registerTests() {
             const hp = actor?.system.attributes.hp.value;
             await combat?.createEmbeddedDocuments("Combatant", [createData]);
 
-            const effectData = { 
-              label: "test over time", 
-              changes: [{key: "flags.midi-qol.OverTime.Test", mode: 0, value: `turn=end,
+            const effectData = {
+              label: "test over time",
+              changes: [{
+                key: "flags.midi-qol.OverTime.Test", mode: 0, value: `turn=end,
               removeCondition=true,
               damageRoll=15,
               damageType=acid,
               label=OverTime test`}],
-              duration: {rounds: 10}
+              duration: { rounds: 10 }
             }
             const theEffects: any[] | undefined = await actor?.createEmbeddedDocuments("ActiveEffect", [effectData]);
             assert.ok(theEffects?.length, "Effects created");
@@ -643,66 +675,66 @@ async function registerTests() {
       "quench.midi-qol.midi-qol.flagTests",
       (context) => {
         const { describe, it, assert } = context;
-        describe("midi flag tests", async function() {
+        describe("midi flag tests", async function () {
           it("sets advantage.all false", async function () {
             await resetActors();
             const actor = getActor(actor2Name);
-            const effectData = { 
-              label: "test effect", 
-              changes: [{key: "flags.midi-qol.advantage.all", mode: 0, value: "false"}]
+            const effectData = {
+              label: "test effect",
+              changes: [{ key: "flags.midi-qol.advantage.all", mode: 0, value: "false" }]
             }
             const theEffects: any[] = await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
             assert.ok(getProperty(actor, "flags.midi-qol.advantage.all") === false, "advantage all false");
-            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef=>ef.id))
+            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
             assert.ok(getProperty(actor, "flags.midi-qol.advantage.all") === undefined, "advantage all removed")
           });
           it("sets advantage.all 0", async function () {
             await resetActors();
             const actor = getActor(actor2Name);
-            const effectData = { 
-              label: "test effect", 
-              changes: [{key: "flags.midi-qol.advantage.all", mode: 0, value: "0"}]
+            const effectData = {
+              label: "test effect",
+              changes: [{ key: "flags.midi-qol.advantage.all", mode: 0, value: "0" }]
             }
             const theEffects: any[] = await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
             assert.ok(getProperty(actor, "flags.midi-qol.advantage.all") === false, "advantage all false");
-            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef=>ef.id))
+            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
             assert.ok(getProperty(actor, "flags.midi-qol.advantage.all") === undefined, "advantage all removed")
           });
           it("sets advantage.all true", async function () {
             await resetActors();
             const actor = getActor(actor2Name);
-            const effectData = { 
-              label: "test effect", 
-              changes: [{key: "flags.midi-qol.advantage.all", mode: 0, value: "true"}]
+            const effectData = {
+              label: "test effect",
+              changes: [{ key: "flags.midi-qol.advantage.all", mode: 0, value: "true" }]
             }
             const theEffects: any[] = await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
             assert.ok(getProperty(actor, "flags.midi-qol.advantage.all") === true, "advantage all set to true");
-            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef=>ef.id))
+            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
             assert.ok(getProperty(actor, "flags.midi-qol.advantage.all") === undefined, "advantage all removed")
           });
           it("sets advantage.all 1", async function () {
             await resetActors();
             const actor = getActor(actor2Name);
-            const effectData = { 
-              label: "test effect", 
-              changes: [{key: "flags.midi-qol.advantage.all", mode: 0, value: "1"}]
+            const effectData = {
+              label: "test effect",
+              changes: [{ key: "flags.midi-qol.advantage.all", mode: 0, value: "1" }]
             }
             const theEffects: any[] = await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
             assert.ok(getProperty(actor, "flags.midi-qol.advantage.all") === true, "advantage all set to true");
-            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef=>ef.id))
+            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
             assert.ok(getProperty(actor, "flags.midi-qol.advantage.all") === undefined, "advantage all removed")
           });
           it("sets DR.all", async function () {
             await resetActors();
             const actor = getActor(actor2Name);
-            const effectData = { 
-              label: "test effect", 
-              changes: [{key: "flags.midi-qol.DR.all", mode: 0, value: "10"}]
+            const effectData = {
+              label: "test effect",
+              changes: [{ key: "flags.midi-qol.DR.all", mode: 0, value: "10" }]
             }
             const theEffects: any[] = await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
             assert.equal("string", typeof getProperty(actor, "flags.midi-qol.DR.all"))
             assert.ok(Number.isNumeric(getProperty(actor, "flags.midi-qol.DR.all")));
-            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef=>ef.id))
+            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
             assert.ok(getProperty(actor, "flags.midi-qol.DR.all") === undefined)
           });
 
@@ -714,16 +746,16 @@ async function registerTests() {
       "quench.midi-qol.midi-qol.otherTests",
       (context) => {
         const { describe, it, assert } = context;
-        describe("midi other tests", async function() {
+        describe("midi other tests", async function () {
           it("tests applyTokenDamageMany", async function () {
             await resetActors();
             const token = getToken(target2Name);
             const oldHp = getProperty(token?.actor ?? {}, "system.attributes.hp.value");
 
-            await applyTokenDamage([{damage:5,type:'piercing'}],5,new Set([token]),null,new Set(),{});
+            await applyTokenDamage([{ damage: 5, type: 'piercing' }], 5, new Set([token]), null, new Set(), {});
             assert.equal(getProperty(token?.actor ?? {}, "system.attributes.hp.value"), oldHp - 5)
 
-            await applyTokenDamage([{damage:5,type:'healing'}],5,new Set([token]),null,new Set(),{});
+            await applyTokenDamage([{ damage: 5, type: 'healing' }], 5, new Set([token]), null, new Set(), {});
             assert.equal(getProperty(token?.actor ?? {}, "system.attributes.hp.value"), oldHp)
           });
         });

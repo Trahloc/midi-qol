@@ -45,7 +45,15 @@ export interface Options {
   autoRollDamage: boolean | undefined,
   fastForwardAttack: boolean | undefined,
   fastForwardDamage: boolean | undefined,
-  fastForwardAbility: boolean | undefined
+  fastForwardAbility: boolean | undefined,
+  isMagicSave?: boolean,
+  saveItemUuid?: string,
+  saveItem?: Item,
+  item?: Item,
+  itemUuid?: string,
+  simulate?: boolean,
+  target?: number,
+  rollType?: string
 };
 export const defaultRollOptions: Options = {
   event: undefined,
@@ -640,7 +648,7 @@ export function procAbilityAdvantage(actor, rollType, abilityId, options: Option
 
   options.fastForward = options.fastForward || options.event?.fastKey;
   if (advantage || disadvantage) {
-    const conditionData = createConditionData({ workflow: options.workflow, target: tokenForActor(actor), actor });
+    const conditionData = createConditionData({ workflow: options.workflow, target: tokenForActor(actor), actor, item: options.item ?? options.itemUuid ?? options.saveItem ?? options.saveItemUuid });
     if (advantage) {
       if (advantage.all && evalCondition(advantage.all, conditionData)) {
         withAdvantage = true;
@@ -688,7 +696,7 @@ export function procAdvantageSkill(actor, skillId, options: Options): Options {
   var withAdvantage = options.advantage;
   var withDisadvantage = options.disadvantage;
   if (advantage || disadvantage) {
-    const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
+    const conditionData = createConditionData({ workflow: undefined, target: undefined, actor, item: options.item ?? options.itemUuid ?? options.saveItem ?? options.saveItemUuid });
     if (advantage?.all && evalCondition(advantage.all, conditionData)) {
       withAdvantage = true;
     }
@@ -1943,6 +1951,7 @@ function itemGetRollData(wrapped, ...args) {
   data.item.flags = this.flags;
   data.item.midiFlags = getProperty(this, "flags.midi-qol");
   data.item.name = this.name;
+  data.item.type = this.type;
   return data;
 }
 function _filterItems(wrapped, items, filters) {

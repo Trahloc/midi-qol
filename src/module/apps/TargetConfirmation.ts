@@ -98,11 +98,27 @@ export class TargetConfirmationDialog extends Application {
         if (token && computeFlankingStatus(token, target)) details.push((i18n("midi-qol.Flanked")));
       }
 
+      let attackerToken = token;
+      if (token && checkMechanic("checkRange") !== "none" && (["mwak", "msak", "mpak", "rwak", "rsak", "rpak"].includes(this.data.item.system.actionType))) {
+        const { result, attackingToken } = checkRange(this.data.item, token, new Set([target]), false);
+        if (attackingToken) attackerToken = attackingToken;
+        switch (result) {
+          case "normal":
+            details.push(`${i18n("DND5E.RangeNormal")}`);
+            break;
+          case "dis":
+            details.push(`${i18n("DND5E.RangeLong")}`);
+            break;
+          case "fail":
+            details.push(`${i18n("midi-qol.OutOfRange")}`);
+            break;
+        }
+      }
       // TODO look at doing save cover bonus calculations here - need the template
       if (typeof configSettings.optionalRules.coverCalculation === "string" && configSettings.optionalRules.coverCalculation !== "none") {
         const isRangeTargeting = ["ft", "m"].includes(this.data.item?.system.target?.units) && ["creature", "ally", "enemy"].includes(this.data.item?.system.target?.type);
         if (!this.data.item?.hasAreaTarget && !isRangeTargeting) {
-          const targetCover = token ? computeCoverBonus(token, target, this.data.item) : 0;
+          const targetCover = attackerToken ? computeCoverBonus(attackerToken, target, this.data.item) : 0;
           switch (targetCover) {
             case HALF_COVER:
               details.push(`${i18n("DND5E.CoverHalf")} ${i18n("DND5E.Cover")}`);
@@ -119,20 +135,7 @@ export class TargetConfirmationDialog extends Application {
           }
         }
       }
-      if (token && checkMechanic("checkRange") !== "none" && (["mwak", "msak", "mpak", "rwak", "rsak", "rpak"].includes(this.data.item.system.actionType))) {
-        const { result, attackingToken } = checkRange(this.data.item, token, new Set([target]), false);
-        switch (result) {
-          case "normal":
-            details.push(`${i18n("DND5E.RangeNormal")}`);
-            break;
-          case "dis":
-            details.push(`${i18n("DND5E.RangeLong")}`);
-            break;
-          case "fail":
-            details.push(`${i18n("midi-qol.OutOfRange")}`);
-            break;
-        }
-      }
+
       let name;
       if (game.user?.isGM) {
         name = getIconFreeLink(target);
@@ -197,7 +200,7 @@ export class TargetConfirmationDialog extends Application {
     if (canvas) {
       let targetNames = html[0].getElementsByClassName("content-link midi-qol");
       for (let targetName of targetNames) {
-        targetName.addEventListener("click", async (event) => { 
+        targetName.addEventListener("click", async (event) => {
           event.stopPropagation();
           const doc = await fromUuid(event.currentTarget.dataset.uuid);
           //@ts-expect-error .sheet
@@ -210,7 +213,7 @@ export class TargetConfirmationDialog extends Application {
         i.closest(".midi-qol-box").addEventListener("contextmenu", (event) => {
           const token = getToken(i.id);
           if (token) {
-            token.setTarget(false, {user: game.user, releaseOthers: false, groupSelection: true });
+            token.setTarget(false, { user: game.user, releaseOthers: false, groupSelection: true });
           }
         });
         i.closest(".midi-qol-box").addEventListener('click', async function () {
@@ -221,16 +224,16 @@ export class TargetConfirmationDialog extends Application {
         i.closest(".midi-qol-box").addEventListener('mouseover', function () {
           const token = getToken(i.id);
           if (token) {
-          //@ts-expect-error .ping
-          token.hover = true;
+            //@ts-expect-error .ping
+            token.hover = true;
             token.refresh();
           }
         });
         i.closest(".midi-qol-box").addEventListener('mouseout', function () {
           const token = getToken(i.id);
           if (token) {
-          //@ts-expect-error .ping
-          token.hover = false;
+            //@ts-expect-error .ping
+            token.hover = false;
             token.refresh();
           }
         });

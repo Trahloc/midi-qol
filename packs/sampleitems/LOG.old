@@ -1,7 +1,20 @@
-2024/01/24-14:48:03.729028 7fd2dffff640 Recovering log #389
-2024/01/24-14:48:03.736954 7fd2dffff640 Delete type=0 #389
-2024/01/24-14:48:03.736982 7fd2dffff640 Delete type=3 #387
-2024/01/24-14:56:06.843514 7fd2dd7ff640 Level-0 table #394: started
-2024/01/24-14:56:06.843551 7fd2dd7ff640 Level-0 table #394: 0 bytes OK
-2024/01/24-14:56:06.846957 7fd2dd7ff640 Delete type=0 #392
-2024/01/24-14:56:06.853666 7fd2dd7ff640 Manual compaction at level-0 from '!folders!03xh8o98NV0wViRp' @ 72057594037927935 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at (end)
+2024/01/29-15:47:44.648740 7fd2de7fc640 Recovering log #397
+2024/01/29-15:47:44.656669 7fd2de7fc640 Delete type=2 #319
+2024/01/29-15:47:44.656739 7fd2de7fc640 Delete type=3 #343
+2024/01/29-15:47:44.656761 7fd2de7fc640 Delete type=3 #395
+2024/01/29-15:47:44.656782 7fd2de7fc640 Delete type=0 #345
+2024/01/29-15:47:44.656796 7fd2de7fc640 Delete type=3 #320
+2024/01/29-15:47:44.656816 7fd2de7fc640 Delete type=0 #322
+2024/01/29-15:47:44.656830 7fd2de7fc640 Delete type=2 #347
+2024/01/29-15:47:44.656890 7fd2de7fc640 Delete type=0 #397
+2024/01/29-15:51:05.978839 7fd2dd7ff640 Level-0 table #402: started
+2024/01/29-15:51:05.981898 7fd2dd7ff640 Level-0 table #402: 21389 bytes OK
+2024/01/29-15:51:05.985355 7fd2dd7ff640 Delete type=0 #400
+2024/01/29-15:51:05.985531 7fd2dd7ff640 Manual compaction at level-0 from '!folders!03xh8o98NV0wViRp' @ 72057594037927935 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at '!items.effects!pySMGesH4kCQFwWt.YORAdBBkqyYwsqFa' @ 243 : 1
+2024/01/29-15:51:05.985539 7fd2dd7ff640 Compacting 1@0 + 1@1 files
+2024/01/29-15:51:05.992586 7fd2dd7ff640 Generated table #403@0: 173 keys, 251558 bytes
+2024/01/29-15:51:05.992604 7fd2dd7ff640 Compacted 1@0 + 1@1 files => 251558 bytes
+2024/01/29-15:51:05.995883 7fd2dd7ff640 compacted to: files[ 0 1 0 0 0 0 0 ]
+2024/01/29-15:51:05.995977 7fd2dd7ff640 Delete type=2 #402
+2024/01/29-15:51:05.996058 7fd2dd7ff640 Delete type=2 #358
+2024/01/29-15:51:06.006549 7fd2dd7ff640 Manual compaction at level-0 from '!items.effects!pySMGesH4kCQFwWt.YORAdBBkqyYwsqFa' @ 243 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at (end)

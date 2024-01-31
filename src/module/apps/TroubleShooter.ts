@@ -530,7 +530,6 @@ export class TroubleShooter extends FormApplication {
         case "fast-rolls":
         case "faster-rolling-by-default-5e":
         case "gm-paranoia-taragnor":
-        case "heartbeat":
         case "max-crit":
         case "mre-dnd5e":
         case "multiattack-5e":

@@ -246,6 +246,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           }, { inplace: false, overwrite: true });
           if (debugEnabled > 0) warn(`doItemUse | ${nameToUse} ${target.name} config`, config, "options", newOptions);
           const result = await completeItemUse(this, config, newOptions);
+          if (result.aborted) break;
           allowAmmoUpdates = false;
           if (debugEnabled > 0) warn(`doItemUse | for ${nameToUse} result is`, result);
           // After the first do not consume resources
@@ -1045,8 +1046,10 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
       }
       otherRollOptions.critical = (workflow.otherDamageItem?.flags.midiProperties?.critOther ?? false) && (workflow.isCritical || workflow.rollOptions.critical);
       if ((workflow.otherDamageFormula ?? "") !== "") { // other damage formula swaps in versatile if needed
+        let otherRollData = workflow.otherDamageItem?.getRollData();
+        otherRollData.spellLevel = spellLevel;
         //@ts-ignore
-        let otherRollResult = new CONFIG.Dice.DamageRoll(workflow.otherDamageFormula, workflow.otherDamageItem?.getRollData(), otherRollOptions);
+        let otherRollResult = new CONFIG.Dice.DamageRoll(workflow.otherDamageFormula, otherRollData, otherRollOptions);
         otherResult = await otherRollResult?.evaluate({ async: true, maximize: needsMaxDamage, minimize: needsMinDamage });
         if (otherResult?.total) {
           switch (game.system.id) {

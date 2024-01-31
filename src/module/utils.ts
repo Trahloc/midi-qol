@@ -615,8 +615,6 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
           }
           if (semiSuperSavers.has(t) && itemSaveMultiplier === 0.5)
             mult = saves.has(t) ? 0 : 1;
-
-          if (uncannyDodge) mult = mult / 2;
           damageDetailItem.damage = damageDetailItem.damage * mult;
         }
       }
@@ -741,7 +739,6 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             mult = saves.has(t) ? 0 : 1;
         }
         if (uncannyDodge) mult = mult / 2;
-
         const resMult = getTraitMult(targetActor, type, item);
         mult = mult * resMult;
         damageDetailItem.damageMultiplier = mult;
@@ -911,11 +908,11 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
   if (debugEnabled > 0) warn("processDamageRoll | damage details pre merge are ", workflow.damageDetail, workflow.bonusDamageDetail);
   let totalDamage = 0;
-  
-  if (workflow.saveItem?.hasSave && 
-    (getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") !== 
-    (getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default")) { 
-      // need to keep bonus damage and base damage separate
+
+  if (workflow.saveItem?.hasSave &&
+    (getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") !==
+    (getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default")) {
+    // need to keep bonus damage and base damage separate
     let merged = (workflow.bonusDamageDetail ?? []).reduce((acc, item) => {
       acc[item.type] = (acc[item.type] ?? 0) + item.damage;
       return acc;
@@ -966,7 +963,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   else if ((getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default") === "default"
     && itemOtherFormula(workflow.saveItem) === "") baseDamageSaves = workflow.saves ?? new Set()
   if (workflow.shouldRollOtherDamage) {
-    if ((workflow.otherDamageFormula ?? "") !== "" && configSettings.singleConcentrationRoll) {
+    if (workflow.otherDamageRoll && configSettings.singleConcentrationRoll) {
       appliedDamage = await applyTokenDamageMany(
         {
           applyDamageDetails: [
@@ -1298,6 +1295,8 @@ export function midiCustomEffect(...args) {
     "flags.midi-qol.optional",
     "flags.midi-qol.advantage",
     "flags.midi-qol.disadvantage",
+    "flags.midi-qol.superSaver",
+    "flags.midi-qol.semiSuperSaver",
     "flags.midi-qol.grants",
     "flags.midi-qol.fail",
     "flags.midi-qol.max.damage",
@@ -1465,6 +1464,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
     const saveAbilityString = (details.saveAbility ?? "");
     const saveAbility = (saveAbilityString.includes("|") ? saveAbilityString.split("|") : [saveAbilityString]).map(s => s.trim().toLocaleLowerCase())
     const label = (details.name ?? details.label ?? "Damage Over Time").replace(/"/g, "");
+    const chatFlavor = details.chatFlavor ?? "";
     if (actionSave && startTurn && changeTurnEnd) {
       const chatData = {
         speaker: ChatMessage.getSpeaker({ actor }),
@@ -1579,6 +1579,9 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         setProperty(itemData.flags, "midiProperties.nodam", true);
       }
       itemData.name = label;
+      itemData.system.chatFlavor = chatFlavor;
+      itemData.system.description.chat = effect.description;
+
       itemData._id = randomID();
       // roll the damage and save....
       const theTargetToken = getSelfTarget(actor);
@@ -1603,7 +1606,13 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         setProperty(itemData, "flags.midi-qol.onUseMacroName", macroToCall);
         setProperty(itemData, "flags.midi-qol.onUseMacroParts", new OnUseMacros(macroToCall));
       }
-      let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor });
+      // Try and find the source actor for the overtime effect so that optional bonuses etc can fire.
+      //@ts-expect-error
+      let origin: any = fromUuidSync(effect.origin);
+      while (origin && !(origin instanceof Actor)) {
+        origin = origin?.parent;
+      }
+      let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: ((origin instanceof Actor) ? origin : actor) });
       if (!actionSave && saveRemove && saveDC > -1)
         failedSaveOverTimeEffectsToDelete[ownedItem.uuid] = { actor, effectId: effect.id };
 
@@ -2176,7 +2185,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
         }
       }
       // check the range
-      const distance = getDistance(token, target, configSettings.optionalRules.wallsBlockRange);
+      const distance = getDistance(token, target, configSettings.optionalRules.wallsBlockRange && !getProperty(item, "flags.midiProperties.ignoreTotalCover"));
 
       if ((longRange !== 0 && distance > longRange) || (distance > range && longRange === 0)) {
         log(`${target.name} is too far ${distance} from your character you cannot hit`)
@@ -3132,45 +3141,34 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       let resultApplied = false; // This is just for macro calls
       if (button.value.trim().startsWith("ItemMacro") || button.value.trim().startsWith("Macro") || button.value.trim().startsWith("function")) {
         let result;
+        let workflow;
         if (this instanceof Workflow || this.workflow) {
-          const macroData = this.workflow?.getMacroData() ?? this.getMacroData();
-          macroData.macroPass = `${button.key}`;
-          macroData.tag = "optional";
-          macroData.roll = this[rollId];
-          let macroToCall = button.value;
-          if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
-          result = await (this.workflow ?? this).callMacro(this.workflow?.item ?? this.item, macroToCall, macroData, { roll: this[rollId] });
-          if (typeof result === "string") button.value = result;
-          else {
-            resultApplied = true;
-            if (result instanceof Roll) newRoll = result;
-            else newRoll = this[rollId];
-          }
+          workflow = this.workflow ?? this;
         } else {
           const itemUuidOrName = button.value.split(".").slice(1).join(".");
           //@ts-expect-error
           let item = fromUuidSync(itemUuidOrName);
           if (!item && this.actor) item = this.actor.items.getName(itemUuidOrName);
           if (!item && this instanceof Actor) item = this.items.getName(itemUuidOrName);
-          const dummyWorkflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
-          const macroData = dummyWorkflow.getMacroData();
-          macroData.macroPass = `${button.key}`;
-          macroData.tag = `optional`;
-          macroData.roll = this[rollId];
-          let macroToCall = button.value;
-          if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
-          result = await dummyWorkflow.callMacro(item, macroToCall, macroData, { roll: this[rollId] })
-          if (typeof result === "string")
-            button.value = result;
-          else {
-            if (result instanceof Roll) newRoll = result;
-            else newRoll = this[rollId];
-            resultApplied = true;
-          }
+          workflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
         }
-        if (result === undefined) console.warn(`midi-qol | bonusDialog | no way to call macro ${button.value}`)
-        // do the roll modifications
+        const macroData = workflow.getMacroData();
+        macroData.macroPass = `${button.key}.${flagSelector}`;
+        macroData.tag = "optional";
+        macroData.roll = this[rollId];
+        let macroToCall = button.value;
+        if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
+        result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll: this[rollId] });
+        if (typeof result === "string")
+          button.value = result;
+        else {
+          if (result instanceof Roll) newRoll = result;
+          else newRoll = this[rollId];
+          resultApplied = true;
+        }
+        if (result === undefined && debugEnabled > 0) console.warn(`midi-qol | bonusDialog | macro ${button.value} return undefined`)
       }
+      // do the roll modifications
       if (!resultApplied) switch (button.value) {
         case "reroll": reRoll = await this[rollId].reroll({ async: true });
           if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId, rollMode);
@@ -3229,25 +3227,14 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           } else {
             //@ts-expect-error
             newRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
-            newRoll.terms.push(new OperatorTerm({ operator: "+" }));
-            if (Number.isNumeric(button.value)) {
-              newRoll.terms.push(new NumericTerm({ number: Number(button.value) }));
-              // this[rollId].result = `${this[rollId].result} + ${Number(button.value)}`;
-              newRoll._total = this[rollId]._total + Number(button.value);
-              newRoll._formula = `${this[rollId]._formula} + ${Number(button.value)}`
-            } else {
-              let rollData: any = {}
-              if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
-              else rollData = this.actor?.getRollData() ?? this;
-              const tempRoll = new Roll(button.value, rollData);
-              await tempRoll.evaluate({ async: true });
-              if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
-              newRoll._total = this[rollId]._total + tempRoll.total;
-              newRoll._formula = `${this[rollId]._formula} + ${tempRoll.formula}`
-              newRoll.terms = newRoll.terms.concat(tempRoll.terms);
-            }
-            //newRoll = new CONFIG.Dice.D20Roll(`${this[rollId].result} + ${button.value}`, (this.item ?? this.actor).getRollData(), rollOptions);
+            let rollData: any = {}
+            if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
+            else rollData = this.actor?.getRollData() ?? this;
+            const tempRoll = new Roll(button.value, rollData).roll({ async: false });
+            if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
+            newRoll = addRollTo(newRoll, tempRoll);
           }
+          //newRoll = new CONFIG.Dice.D20Roll(`${this[rollId].result} + ${button.value}`, (this.item ?? this.actor).getRollData(), rollOptions);
           break;
       }
 
@@ -3681,24 +3668,25 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     const rollOptions = geti18nOptions("ShowReactionAttackRollOptions");
     // {"none": "Attack Hit", "d20": "d20 roll only", "d20Crit": "d20 + Critical", "all": "Whole Attack Roll"},
 
-    let content;
-    if (["reactiondamage", "reactionpreattack"].includes(triggerType)) content = reactionFlavor;
-    else switch (configSettings.showReactionAttackRoll) {
-      case "all":
-        content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""}</h4>`;
-        break;
-      case "allCrit":
-        //@ts-expect-error
-        const criticalString = attackRoll?.isCritical ? `<span style="color: green">(${i18n("DND5E.Critical")})</span>` : "";
-        content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll.total ?? ""} ${criticalString}</h4>`;
-        break;
-      case "d20":
-        //@ts-expect-error
-        const theRoll = attackRoll?.terms[0]?.results ? attackRoll.terms[0].results[0].result : attackRoll?.terms[0]?.total ? attackRoll.terms[0].total : "";
-        content = `<h4>${reactionFlavor} ${rollOptions.d20} ${theRoll}</h4>`;
-        break;
-      default:
-        content = reactionFlavor;
+    let content = reactionFlavor;
+    if (["isHit", "isMissed", "isCrit", "isFumble", "isDamaged", "isAttacked"].includes(reactionTriggerLabelFor(triggerType))) {
+      switch (configSettings.showReactionAttackRoll) {
+        case "all":
+          content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""}</h4>`;
+          break;
+        case "allCrit":
+          //@ts-expect-error
+          const criticalString = attackRoll?.isCritical ? `<span style="color: green">(${i18n("DND5E.Critical")})</span>` : "";
+          content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""} ${criticalString}</h4>`;
+          break;
+        case "d20":
+          //@ts-expect-error
+          const theRoll = attackRoll?.terms[0]?.results ? attackRoll.terms[0].results[0].result : attackRoll?.terms[0]?.total ? attackRoll.terms[0].total : "";
+          content = `<h4>${reactionFlavor} ${rollOptions.d20} ${theRoll}</h4>`;
+          break;
+        default:
+          content = reactionFlavor;
+      }
     }
 
     let result: any = await new Promise((resolve) => {
@@ -4166,7 +4154,7 @@ export function evalReactionActivationCondition(workflow: Workflow, condition: s
 }
 export function evalActivationCondition(workflow: Workflow, condition: string | undefined, target: Token | TokenDocument, options: any = {}): boolean {
   if (condition === undefined || condition === "") return true;
-  createConditionData({ workflow, target, actor: workflow.actor, extraData: options?.extraData });
+  createConditionData({ workflow, target, actor: workflow.actor, extraData: options?.extraData, item: options.item });
   const returnValue = evalCondition(condition, workflow.conditionData, options.errorReturn ?? true);
   return returnValue;
 }
@@ -4207,9 +4195,16 @@ export function effectActivationConditionToUse(workflow: Workflow) {
   return undefined;
 }
 
-export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined, item?: Item | undefined, extraData?: any }) {
+export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined, item?: Item | string | undefined, extraData?: any }) {
   const actor = data.workflow?.actor ?? data.actor;
-  const item = data.workflow?.item ?? data.item;
+  let item;
+  if (data.item) {
+    if (data.item instanceof Item) item = data.item;
+    else if (typeof data.item === "string")
+      //@ts-expect-error
+      item = fromUuidSync(data.item);
+  }
+  if (!item) item = data.workflow?.item;
   let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
   rollData = mergeObject(rollData, data.extraData ?? {});
   rollData.isAttuned = rollData.item?.attunement !== getSystemCONFIG().attunementTypes.REQUIRED;
@@ -5529,17 +5524,22 @@ export function itemOtherFormula(item): string {
 export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
   if (!bonusRoll) return roll;
   if (!roll) return bonusRoll;
+  //@ts-expect-error _evaluated
+  if (!roll._evaluated) roll = roll.clone().evaluate({async: false});
+  //@ts-expect-error _evaluate
+  if (!bonusRoll.evaluated) bonusRoll = bonusRoll.clone().evaluate({async: false})
+  let terms;
   if (bonusRoll.terms[0] instanceof OperatorTerm) {
-    roll.terms = roll.terms.concat(bonusRoll.terms);
+    terms = roll.terms.concat(bonusRoll.terms);
   } else {
-    roll.terms = roll.terms.concat([new OperatorTerm({ operator: "+" })]);
-    roll.terms = roll.terms.concat(bonusRoll.terms);
+    const operatorTerm = new OperatorTerm({ operator: "+" });
+    //@ts-expect-error _evaluated
+    operatorTerm._evaluated = true;
+    terms = roll.terms.concat([operatorTerm]);
+    terms = terms.concat(bonusRoll.terms);
   }
-  //@ts-expect-error
-  roll._formula = Roll.getFormula(roll.terms);
-  //@ts-expect-error
-  roll._total = (roll.total ?? 0) + (bonusRoll.total ?? 0);
-  return roll;
+  let newRoll = Roll.fromTerms(terms)
+  return newRoll;
 }
 
 export async function chooseEffect({ speaker, actor, token, character, item, args, scope, workflow, options }) {

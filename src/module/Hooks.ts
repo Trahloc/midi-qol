@@ -616,8 +616,10 @@ export function initHooks() {
 
     // Assume a square grid for gridless
     //@ts-expect-error .grid v10
-    if (canvas.scene?.grid.type === CONST.GRID_TYPES.GRIDLESS)
-      coords = [Math.floor(dropData.x / grid_size) * grid_size, Math.floor(dropData.y / grid_size) * grid_size];
+    if (canvas.scene?.grid.type === CONST.GRID_TYPES.GRIDLESS) {
+      // targetObjects expects the cords to be top left corner of the token, so we need to adjust for that
+      coords  = [dropData.x - grid_size/2, dropData.y - grid_size/2];
+    }
     const targetCount = canvas.tokens?.targetObjects({
       x: coords[0],
       y: coords[1],

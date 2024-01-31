@@ -1,3 +1,20 @@
+## 11.3.17
+* The item proptery ignore total cover will now also ignore walls blocking an attack.
+* added item.name to the fields available in an activation condition.
+* Cover check will now use the overridden attacking token if there is one.
+* Cleaned up the reaction message including fixing an error in the case that there is no attack roll.
+* Added superSavers, semiSuperSavers to effects that can have evaluation conditions. See the new sample Item Circle of Power.
+* Fix for TrapWorkflow looping on damage rolls.
+* Fix for drag/drop targeting in gridless scenes.
+* Fix for auto template removal triggering removal of caster self effects.
+* Fix for uncanny dodge being counted twice when Save/DR/dr is set for the damage application order.
+* Added @spellLevel to the data availabile in other damage rolls, e.g. (@spellLevel)d8 as the other damage formula
+* For macro writers
+  - bonus dialog macro calls (optional.name.XXX) now have the full flag setting in args[0].macroPass, e.g. flags.optional.NAME.save.con for a con save, the roll is available in options.roll, which is the complete roll so far including any other optional bonuses that have been applied.
+  - Macros for preDamageRollComplete (preferred) and postDamageRoll (deprecated) are called after all damage rolls have been done (including bonus damage rolls), but before any processing of the rolls. So you can freely change (via the workflow.setDamageRoll/setOtherDamageRoll/setBonusDamageRoll) at that point and the changes will be included in the rest of the damage application processing.
+  - added utility MidiQOL.addRollTo(roll: Roll, bonusRoll: Roll): Roll, which will merge the terms from roll and bonusRoll and return a new roll from the merged result. If required a "+" term will be inserted. If either roll has not be evaluated it will be in the call.
+    - for example workflow.setDamageRoll(MidiQOL.addRollTo(workflow.damageRoll, new Roll("1d4)))
+
 ## 11.3.16
 * Fix for not display base damage  save multiplier correctly.
 * Fix for incorrectly migrating existing save multiplier fields when editing an item with other damage.
