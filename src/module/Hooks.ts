@@ -312,6 +312,7 @@ export function initHooks() {
   });
 
   function getItemSheetData(data, item) {
+
     const doConditionFixes = true;
     const config = getSystemCONFIG();
     const midiProps = config.midiProperties;
@@ -372,7 +373,7 @@ export function initHooks() {
           } else setProperty(data, `flags.midiProperties.${prop}`, false);
         }
       }
-      if (!getProperty(data, "flags.midi-qol.rollAttackPerTarget")) setProperty(data, "flags.midi-qol.rollAttackPerTarget", "default" );
+      if (!getProperty(data, "flags.midi-qol.rollAttackPerTarget")) setProperty(data, "flags.midi-qol.rollAttackPerTarget", "default");
       if (item.system.formula !== "" || (item.system.damage?.versatile && !item.system.properties?.ver)) {
         if (data.flags.midiProperties?.fulldam !== undefined) {
           if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["otherSaveDamage"] = "fulldam";
@@ -384,17 +385,17 @@ export function initHooks() {
           if (data.flags.midiProperties?.nodam) data.flags.midiProperties["otherSaveDamage"] = "nodam";
         }
       } else {
-      // Migrate existing saving throw damage multipliers to the new saveDamage
-      if (data.flags.midiProperties?.fulldam !== undefined) {
-        if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["saveDamage"] = "fulldam";
+        // Migrate existing saving throw damage multipliers to the new saveDamage
+        if (data.flags.midiProperties?.fulldam !== undefined) {
+          if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["saveDamage"] = "fulldam";
+        }
+        if (data.flags.midiProperties?.halfdam !== undefined) {
+          if (data.flags.midiProperties?.halfdam) data.flags.midiProperties["saveDamage"] = "halfdam";
+        }
+        if (data.flags.midiProperties?.nodam !== undefined) {
+          if (data.flags.midiProperties?.nodam) data.flags.midiProperties["saveDamage"] = "nodam";
+        }
       }
-      if (data.flags.midiProperties?.halfdam !== undefined) {
-        if (data.flags.midiProperties?.halfdam) data.flags.midiProperties["saveDamage"] = "halfdam";
-      }
-      if (data.flags.midiProperties?.nodam !== undefined) {
-        if (data.flags.midiProperties?.nodam) data.flags.midiProperties["saveDamage"] = "nodam";
-      }
-    }
       if (data.flags.midiProperties["saveDamage"] === undefined)
         data.flags.midiProperties["saveDamage"] = "default";
       if (data.flags.midiProperties["confirmTargets"] === true)
@@ -618,7 +619,7 @@ export function initHooks() {
     //@ts-expect-error .grid v10
     if (canvas.scene?.grid.type === CONST.GRID_TYPES.GRIDLESS) {
       // targetObjects expects the cords to be top left corner of the token, so we need to adjust for that
-      coords  = [dropData.x - grid_size/2, dropData.y - grid_size/2];
+      coords = [dropData.x - grid_size / 2, dropData.y - grid_size / 2];
     }
     const targetCount = canvas.tokens?.targetObjects({
       x: coords[0],
@@ -642,6 +643,8 @@ export function initHooks() {
 }
 
 function setupMidiFlagTypes() {
+  //@ts-expect-error
+  const systemVersion = game.system.version;
   let config: any = getSystemCONFIG();
   let attackTypes = allAttackTypes.concat(["heal", "other", "save", "util"])
 
@@ -671,9 +674,15 @@ function setupMidiFlagTypes() {
     midiFlagTypes[`flags.midi-qol.DR.non-physical`] = "string";
     midiFlagTypes[`flags.midi-qol.DR.final`] = "number";
 
-    Object.keys(config.damageResistanceTypes).forEach(dt => {
-      midiFlagTypes[`flags.midi-qol.DR.${dt}`] = "string";
-    })
+    if (isNewerVersion(systemVersion, "2.99")) {
+      Object.keys(config.damageTypes).forEach(dt => {
+        midiFlagTypes[`flags.midi-qol.DR.${dt}`] = "string";
+      })
+    } else {
+      Object.keys(config.damageResistanceTypes).forEach(dt => {
+        midiFlagTypes[`flags.midi-qol.DR.${dt}`] = "string";
+      })
+    }
   }
 
   // midiFlagTypes[`flags.midi-qol.optional.NAME.attack.all`] = "string";

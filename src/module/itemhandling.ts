@@ -782,6 +782,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
         while (ammoUpdate.length > 0) ammoUpdate.pop();
       }
     });
+    delete wrappedOptions.event;
     let result: Roll = await wrapped(wrappedOptions);
 
     if (!result) return result;
@@ -837,7 +838,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
   }
 }
 
-export async function doDamageRoll(wrapped, { event = {}, systemCard = false, spellLevel = null, powerLevel = null, versatile = null, options = {} } = {}) {
+export async function doDamageRoll(wrapped, { event = undefined, systemCard = false, spellLevel = null, powerLevel = null, versatile = null, options = {} } = {}) {
   try {
     const pressedKeys = globalThis.MidiKeyManager.pressedKeys; // record the key state if needed
     let workflow = Workflow.getWorkflow(this.uuid);
@@ -1201,6 +1202,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     let versaBtnText = i18n(`${systemString}.Versatile`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) versaBtnText += ` ${i18n("midi-qol.fastForward")}`;
 
+    console.error("display card ", this.system.level)
     const templateData = {
       actor: this.actor,
       // tokenId: token?.id,

@@ -3139,7 +3139,19 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       const rollMode = getProperty(this.actor, button.key)?.rollMode ?? game.settings.get("core", "rollMode");
       if (!hasEffectGranting(this.actor, button.key, flagSelector)) return;
       let resultApplied = false; // This is just for macro calls
-      if (button.value.trim().startsWith("ItemMacro") || button.value.trim().startsWith("Macro") || button.value.trim().startsWith("function")) {
+      let macroToCall;
+      const allFlagSelector = flagSelector.split(".").slice(0, -1).join(".") + ".all";
+      let specificMacro = false;
+      const possibleMacro = getProperty(this.actor, `${button.key}.${flagSelector}`) ||
+        getProperty(this.actor, `${button.key}.${allFlagSelector}`);
+      if (possibleMacro && (button.value.trim().startsWith("ItemMacro") || button.value.trim().startsWith("Macro") || button.value.trim().startsWith("function"))) {
+        macroToCall = button.value;
+        if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
+        specificMacro = true;
+      } else if (getProperty(this.actor, `${button.key}.macroToCall`)?.trim()) {
+        macroToCall = getProperty(this.actor, `${button.key}.macroToCall`)?.trim();
+      }
+      if (macroToCall) {
         let result;
         let workflow;
         if (this instanceof Workflow || this.workflow) {
@@ -3156,18 +3168,23 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         macroData.macroPass = `${button.key}.${flagSelector}`;
         macroData.tag = "optional";
         macroData.roll = this[rollId];
-        let macroToCall = button.value;
-        if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
-        result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll: this[rollId] });
+ 
+        result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll: this[rollId], bonus: (!specificMacro ? button.value: undefined) });
         if (typeof result === "string")
           button.value = result;
         else {
-          if (result instanceof Roll) newRoll = result;
-          else newRoll = this[rollId];
-          resultApplied = true;
+          if (result instanceof Roll) {
+            newRoll = result;
+            resultApplied = true;
+          }
+          if (specificMacro) {
+            newRoll = this[rollId];
+            resultApplied = true;
+          }
         }
         if (result === undefined && debugEnabled > 0) console.warn(`midi-qol | bonusDialog | macro ${button.value} return undefined`)
       }
+
       // do the roll modifications
       if (!resultApplied) switch (button.value) {
         case "reroll": reRoll = await this[rollId].reroll({ async: true });
@@ -3256,21 +3273,6 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       this[rollId] = newRoll;
       this[rollTotalId] = newRoll.total;
       this[rollHTMLId] = await midiRenderRoll(newRoll);
-      const macroToCall = getProperty(this.actor, `${button.key}.macroToCall`)?.trim();
-      if (macroToCall) {
-        if (this instanceof Workflow) {
-          const macroData = this.getMacroData();
-          this.callMacro(this.item, macroToCall, macroData, {})
-        } else if (this.actor) {
-          let item;
-          if (typeof macroToCall === "string" && macroToCall.startsWith("ItemMacro.")) {
-            const itemName = macroToCall.split(".").slice(1).join(".");
-            item = this.actor.items.getName(itemName);
-          }
-          const dummyWorkflow = new DummyWorkflow(this.actor, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
-          dummyWorkflow.callMacro(item, macroToCall, dummyWorkflow.getMacroData(), {})
-        } else console.warn(`midi-qol | bonusDialog | no way to call macro ${macroToCall}`)
-      }
 
       //@ts-expect-error D20Roll
       let originalRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
@@ -5525,9 +5527,9 @@ export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
   if (!bonusRoll) return roll;
   if (!roll) return bonusRoll;
   //@ts-expect-error _evaluated
-  if (!roll._evaluated) roll = roll.clone().evaluate({async: false});
+  if (!roll._evaluated) roll = roll.clone().evaluate({ async: false });
   //@ts-expect-error _evaluate
-  if (!bonusRoll.evaluated) bonusRoll = bonusRoll.clone().evaluate({async: false})
+  if (!bonusRoll.evaluated) bonusRoll = bonusRoll.clone().evaluate({ async: false })
   let terms;
   if (bonusRoll.terms[0] instanceof OperatorTerm) {
     terms = roll.terms.concat(bonusRoll.terms);

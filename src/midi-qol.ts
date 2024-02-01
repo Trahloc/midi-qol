@@ -169,6 +169,8 @@ Hooks.once('setup', function () {
 
 function addConfigOptions() {
   let config = getSystemCONFIG();
+  //@ts-expect-error
+  const systemVersion = game.system.version;
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     config.midiProperties = {};
     // Add additonal vision types? How to modify token properties doing this.
@@ -188,9 +190,14 @@ function addConfigOptions() {
     config.midiProperties["toggleEffect"] = i18n("midi-qol.toggleEffectProp");
     config.midiProperties["ignoreTotalCover"] = i18n("midi-qol.ignoreTotalCover");
     config.midiProperties["saveDamage"] = "Save Damage";
-    config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save",
-    config.midiProperties["otherSaveDamage"] = "Other Damage Save",
-    config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
+    config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
+    config.midiProperties["otherSaveDamage"] = "Other Damage Save";
+    if (isNewerVersion(systemVersion, "2.99")) {
+      config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg" };
+    } else {
+      config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
+    }
+
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
     config.customDamageResistanceTypes = {
       "silver": i18n("midi-qol.NonSilverPhysical"),
@@ -200,17 +207,24 @@ function addConfigOptions() {
       "magic": i18n("midi-qol.Magical"),
       "physical": i18n("midi-qol.NonMagicalPhysical")
     }
-    config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
-    config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
-    config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
-    config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
-    config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
-    config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
-    config.damageResistanceTypes["healing"] = config.healingTypes.healing;
-    config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
-
-    //@ts-expect-error
-    if (isNewerVersion(game.system.version, "2.0.3")) {
+    if (!isNewerVersion(systemVersion, "2.99")) {
+      config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
+      config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
+      config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
+      config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
+      config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
+      config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
+      config.damageResistanceTypes["healing"] = config.healingTypes.healing;
+      config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
+    }
+    if (isNewerVersion(systemVersion, "2.99")) {
+      //@ts-expect-error
+      game.system.config.traits.di.configKey = "damageTypes";
+      //@ts-expect-error
+      game.system.config.traits.dr.configKey = "damageTypes";
+      //@ts-expect-error
+      game.system.config.traits.dv.configKey = "damageTypes";
+    } else if (isNewerVersion(systemVersion, "2.0.3")) {
       //@ts-expect-error
       game.system.config.traits.di.configKey = "damageResistanceTypes";
       //@ts-expect-error
@@ -233,9 +247,9 @@ function addConfigOptions() {
     config.midiProperties["concentration"] = i18n("midi-qol.concentrationActivationCondition");
     config.midiProperties["saveDamage"] = "Save Damage";
     config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save",
-    config.midiProperties["otherSaveDamage"] = "Other Damage Save",
+      config.midiProperties["otherSaveDamage"] = "Other Damage Save",
 
-    config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
+      config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
 
     config.abilityActivationTypes["reactiondamage"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionDamaged")}`;
     config.abilityActivationTypes["reactionmanual"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionManual")}`;
@@ -317,7 +331,7 @@ Hooks.once('ready', function () {
       type: Boolean
     };
 
-    getSystemCONFIG().areaTargetTypes["squareRadius"] = {label: i18n("midi-qol.squareRadius"), template :"rect"};
+    getSystemCONFIG().areaTargetTypes["squareRadius"] = { label: i18n("midi-qol.squareRadius"), template: "rect" };
 
     if (game.user?.isGM) {
       const instanceId = game.settings.get("midi-qol", "instanceId");
@@ -369,7 +383,7 @@ Hooks.once('ready', function () {
   }
   readyHooks();
   readyPatching();
-  
+
   if (midiSoundSettingsBackup) game.settings.set("midi-qol", "MidiSoundSettings-backup", midiSoundSettingsBackup)
 
   // Make midi-qol targets hoverable
@@ -662,6 +676,8 @@ function doRoll(event = { shiftKey: false, ctrlKey: false, altKey: false, metaKe
 
 function setupMidiFlags() {
   let config = getSystemCONFIG();
+  //@ts-expect-error
+  const systemVersion = game.system.version;
   midiFlags.push("flags.midi-qol.advantage.all")
   midiFlags.push("flags.midi-qol.disadvantage.all")
   midiFlags.push("flags.midi-qol.advantage.attack.all")
@@ -819,9 +835,12 @@ function setupMidiFlags() {
     midiFlags.push(`flags.midi-qol.damage.reroll-kh`);
     midiFlags.push(`flags.midi-qol.damage.reroll-kl`);
 
-    Object.keys(config.damageResistanceTypes).forEach(dt => {
-      midiFlags.push(`flags.midi-qol.DR.${dt}`);
-    })
+    if (isNewerVersion(systemVersion, "2.99")) {
+    } else {
+      Object.keys(config.damageTypes).forEach(dt => {
+        midiFlags.push(`flags.midi-qol.DR.${dt}`);
+      })
+    }
     midiFlags.push(`flags.midi-qol.DR.healing`);
     midiFlags.push(`flags.midi-qol.DR.temphp`);
   } else if (game.system.id === "sw5e") {

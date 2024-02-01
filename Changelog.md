@@ -1,5 +1,13 @@
+## 11.3.18
+* Some more enhancements to optional.Name.macroToCall and optional.name.xxxx CUSTOM ItemMacro/Macro/function
+  - Optional.Name.macroToCall is called whenever a flag selector matches in the optional.NAME effect,
+    e.g. optional.NAME.save.all OVERRIDE 1d4 / optional.NAME.macroToCall CUSTOM macro.myMacro. myMacro will be called whenever a saving throw is made. The macro can return a roll (which will replace the entire saving throw), a string (which is any of the optional.NAME roll modifiers which will replace the 1d4 effect) or anything else which will be ignored and the 1d4 bonus will be applied.
+  - Optional.NAME.save.all CUSTOM Macro.myMacro will be called whenever there is a save and can return a roll (whill replace the entire saving throw) or 1 of the optional.NAME modifiers which will be used as the roll modifier, anything else will be ignored and the bonus will have no effect on the roll.
+  - If there is a optional.NAME.XXX CUSTOM Macro.mymacro that will be called in preference to optional.NAME.macroToCall. That is only one macro call per bonus.
+  - In all cases args[0].macroPass will have the full selector, e.g. flags.midi-qol.optional.NAME.save.str that identifies the roll being performed, options.roll will have the roll to date, with any previous bonus modifiers applied.
+
 ## 11.3.17
-* The item proptery ignore total cover will now also ignore walls blocking an attack.
+* The item property ignore total cover will now also ignore walls blocking an attack.
 * added item.name to the fields available in an activation condition.
 * Cover check will now use the overridden attacking token if there is one.
 * Cleaned up the reaction message including fixing an error in the case that there is no attack roll.
@@ -8,7 +16,8 @@
 * Fix for drag/drop targeting in gridless scenes.
 * Fix for auto template removal triggering removal of caster self effects.
 * Fix for uncanny dodge being counted twice when Save/DR/dr is set for the damage application order.
-* Added @spellLevel to the data availabile in other damage rolls, e.g. (@spellLevel)d8 as the other damage formula
+* For overtime effects, chatFlavor=some text, in the overtime definition will be used as the chat flavor for the item when rolled. Further the overtime effect description will be copied to the overtime items chat description.
+* Added @spellLevel to the data available in other damage rolls, e.g. (@spellLevel)d8 as the other damage formula
 * For macro writers
   - bonus dialog macro calls (optional.name.XXX) now have the full flag setting in args[0].macroPass, e.g. flags.optional.NAME.save.con for a con save, the roll is available in options.roll, which is the complete roll so far including any other optional bonuses that have been applied.
   - Macros for preDamageRollComplete (preferred) and postDamageRoll (deprecated) are called after all damage rolls have been done (including bonus damage rolls), but before any processing of the rolls. So you can freely change (via the workflow.setDamageRoll/setOtherDamageRoll/setBonusDamageRoll) at that point and the changes will be included in the rest of the damage application processing.
