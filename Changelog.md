@@ -1,3 +1,6 @@
+## 11.3.18
+* Mark module as not compatible with dnd3.0
+
 ## 11.3.17
 * The item proptery ignore total cover will now also ignore walls blocking an attack.
 * added item.name to the fields available in an activation condition.
