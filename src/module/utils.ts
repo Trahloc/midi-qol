@@ -1385,7 +1385,7 @@ function replaceAtFields(value, context, options: { blankValue: string | number,
   if (!value.includes("@")) return value;
   let re = /@[\w\._\-]+/g
   let result = duplicate(value);
-  result = result.replace("@item.level", "@itemLevel") // fix for outdated item.level
+  // result = result.replace("@item.level", "@itemLevel") // fix for outdated item.level - this is wrong but will cause problems
   result = result.replace("@flags.midi-qol", "@flags.midiqol");
   // Remove @data references allow a little bit of recursive lookup
   do {
@@ -4234,6 +4234,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     rollData.effects = actor?.effects;
     if (data.workflow) {
       Object.assign(rollData.workflow, data.workflow);
+      rollData.spellLevel = data.workflow.spellLevel;
       rollData.workflow.otherDamageItem = data.workflow.otherDamageItem?.getRollData().item;
       rollData.workflow.hasSave = data.workflow.hasSave;
       rollData.workflow.saveItem = data.workflow.saveItem?.getRollData().item;

@@ -1,3 +1,7 @@
+## 11.3.19
+* Choosing a roll mode in the attack or damage roll dialog will override the chat card roll mode when using merge cards.
+* Confirming that workflow.spellLevel is the level the spell was cast at, as  convenience workflow.item.system.spellLevel is set to the level the spell was cast at.
+
 ## 11.3.18
 * Mark module as not compatible with dnd3.0
 

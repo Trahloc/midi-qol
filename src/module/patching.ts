@@ -1948,6 +1948,7 @@ function actorGetRollData(wrapped, ...args) {
 function itemGetRollData(wrapped, ...args) {
   const data = wrapped(...args);
   if (!data) return data;
+  if (this.system.spellLevel) data.item.spellLevel = this.system.spellLevel; // since it's wrapped the this in wrapped call does not have the spelllevel?
   data.item.flags = this.flags;
   data.item.midiFlags = getProperty(this, "flags.midi-qol");
   data.item.name = this.name;

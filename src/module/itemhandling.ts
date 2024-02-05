@@ -430,7 +430,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     workflow.rangeDetails = rangeDetails;
     workflow.castData = {
       baseLevel: this.system.level,
-      castLevel: workflow.itemLevel,
+      castLevel: workflow.spellLevel,
       itemUuid: workflow.itemUuid
     };
     if (configSettings.undoWorkflow) await saveUndoData(workflow);
@@ -854,6 +854,8 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
 
     if (workflow?.workflowType === "TrapWorkflow") workflow.rollOptions.fastForward = true;
 
+    this.system.spellLevel = workflow ? workflow.spellLevel : this.system.level;
+    this.system.itemLevel = this.system.spellLevel;
     const damageRollStart = Date.now();
     if (!enableWorkflow || !workflow) {
       if (!workflow && debugEnabled > 0) warn("Roll Damage: No workflow for item ", this.name);
@@ -1148,11 +1150,14 @@ export function preItemUsageConsumptionHook(item, config, options): boolean {
   }
   // need to get spell level from the html returned in result
   if (item.type === "spell") {
-    workflow.itemLevel = item.system.level;
+    workflow.spellLevel = item.system.level;
+    workflow.itemLevel = workflow.spellLevel;
     workflow.castData.castLevel = item.system.level;
   }
   if (item.type === "power") {
-    workflow.itemLevel = item.system.level;
+    workflow.spellLevel = item.system.level;
+    workflow.powerLevel = item.system.level;
+    workflow.itemLevel = workflow.spellLevel;
     workflow.castData.castLevel = item.system.level;
   }
   return true;
@@ -1175,7 +1180,10 @@ export async function wrappedDisplayCard(wrapped, options) {
     let { systemCard, workflowId, minimalCard, createMessage, workflow } = options ?? {};
     // let workflow = options.workflow; // Only DamageOnlyWorkflow passes this in
     if (workflowId) workflow = Workflow.getWorkflow(this.uuid);
-    if (workflow) workflow.itemLevel = this.system.level;
+    if (workflow) {
+      workflow.spellLevel = this.system.level;
+      workflow.itemLevel = workflow.spellLevel;
+    }
     if (systemCard === undefined) systemCard = false;
     if (!workflow) return wrapped(options);
     if (debugEnabled > 0) warn("show item card ", this, this.actor, this.actor.token, systemCard, workflow);
@@ -1201,6 +1209,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     let versaBtnText = i18n(`${systemString}.Versatile`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) versaBtnText += ` ${i18n("midi-qol.fastForward")}`;
 
+    console.error("display card ", this.system.level)
     const templateData = {
       actor: this.actor,
       // tokenId: token?.id,
