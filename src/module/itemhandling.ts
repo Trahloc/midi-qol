@@ -246,7 +246,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           }, { inplace: false, overwrite: true });
           if (debugEnabled > 0) warn(`doItemUse | ${nameToUse} ${target.name} config`, config, "options", newOptions);
           const result = await completeItemUse(this, config, newOptions);
-          if (result.aborted) break;
+          if (result?.aborted) break;
           allowAmmoUpdates = false;
           if (debugEnabled > 0) warn(`doItemUse | for ${nameToUse} result is`, result);
           // After the first do not consume resources
