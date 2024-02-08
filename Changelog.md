@@ -1,3 +1,17 @@
+## 11.4.0
+  * Major changes:
+    - system.properties is now a set, rather than an object, so any reference will have to change.
+    - **BREAKING** If an item has more than one damage line it it's damage roll dnd5e will return an array of rolls, each containing a roll for the line. 
+      - There is a paramater to dnd5e.damageRoll to return a single roll for backwards compatibiltiy, but that will only return the first line of the damage spec.
+      - workflow.damageRoll is a join of all the damageRolls
+      - workflow.damageRolls is all of the results. Midi will use workflow.damageRolls interenally for calculations.
+  * Because dnd5e does a lot of work when a chat card is updated (and midi updates the chat card a lot) - I have put in a quick and dirty debounce interval world setting, which will throttle chat card updates, default is 100ms, but you can set it to 0 to have no throttling. I can't tell if it makes a difference or not. Please experiment - especially on machines a long way from your server - this should cut down on database transactions. Ive not seen any problems - but concurrency is a bitch - set it to 0 if things break.
+  * I have tested simple, items, items with other rolls set, saving throws, template targeting, spells, applying effects, advantage attribution, damage application, undoing damage via chat cards, passive effects, macro.createItem, macro.executeMacro, macro.ItemMacro, Status Effects (but there is some strangeness there sitll), bleeding/dead status updates, concentration (for some reason it does not time out - will need to look at that), merged/unmerged cards and probably some other stuff.
+  * I have not tested undo workflows at all, so treat with caution.
+  * I have not tested bonus damage rolls.
+  * You will need the updated times-up for effect expiration to work.
+
+
 ## 11.3.18
 * Some more enhancements to optional.Name.macroToCall and optional.name.xxxx CUSTOM ItemMacro/Macro/function
   - Optional.Name.macroToCall is called whenever a flag selector matches in the optional.NAME effect,

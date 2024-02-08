@@ -1,7 +1,6 @@
-import { debug, i18n, log } from "../midi-qol.js";
+import { debug, i18n, log, GameSystemConfig } from "../midi-qol.js";
 import { configSettings, midiSoundSettings } from "./settings.js";
 import { dice3dEnabled } from "./setupModules.js";
-import { getSystemCONFIG } from "./utils.js";
 import { Workflow } from "./workflow.js";
 
 interface rollSpec {
@@ -34,17 +33,15 @@ export class MidiSounds {
   }
 
   static ActionTypes(): any {
-    //@ts-ignore
-    const config = getSystemCONFIG();
     const systemId = game.system.id.toUpperCase();
     let damageEntries: any = {};
-    Object.keys(config.damageTypes).forEach(
-      key => damageEntries[key] = `${i18n(`${systemId}.Damage`)}: ${config.damageTypes[key]}`
+    Object.keys(GameSystemConfig.damageTypes).forEach(
+      key => damageEntries[key] = `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes[key]}`
     );
 
     let itemActionEntries: any = {};
-    Object.keys(config.itemActionTypes).forEach(
-      key => itemActionEntries[key] = `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes[key]}`
+    Object.keys(GameSystemConfig.itemActionTypes).forEach(
+      key => itemActionEntries[key] = `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes[key]}`
     );
 
     let actionTypes = {
@@ -69,29 +66,29 @@ export class MidiSounds {
       fumble: `${i18n(`${systemId}.Attack`)}: ${i18n("midi-qol.FumbleSoundName")}`,
       hit: `${i18n(`${systemId}.Attack`)}: ${i18n("midi-qol.Hits")}`,
       miss: `${i18n(`${systemId}.Attack`)}: ${i18n("midi-qol.Misses")}`,
-      abil: `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes["abil"]}`,
-      heal: `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes["heal"]}`,
-      msak: `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes[`${game.system.id === "sw5e" ? "mpak" : "msak"}`]}`,
-      mwak: `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes["mwak"]}`,
-      other: `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes["other"]}`,
-      rsak: `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes[`${game.system.id === "sw5e" ? "rpak" : "rsak"}`]}`,
-      rwak: `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes["rwak"]}`,
-      save: `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes["save"]}`,
-      util: `${i18n(`${systemId}.Action`)}: ${config.itemActionTypes["util"]}`,
-      acid: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.acid}`,
-      bludgeoning: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.bludgeoning}`,
-      cold: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.cold}`,
-      fire: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.fire}`,
-      force: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.force}`,
-      lightning: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.lightning}`,
-      necrotic: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.necrotic}`,
-      piercing: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.piercing}`,
-      poison: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.poison}`,
-      psychic: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.psychic}`,
-      radiant: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.radiant}`,
-      slashing: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.slashing}`,
-      thunder: `${i18n(`${systemId}.Damage`)}: ${config.damageTypes.thunder}`,
-      "midi-none": `${i18n(`${systemId}.Damage`)}: ${config.damageTypes["midi-none"]}`,
+      abil: `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes["abil"]}`,
+      heal: `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes["heal"]}`,
+      msak: `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes[`${game.system.id === "sw5e" ? "mpak" : "msak"}`]}`,
+      mwak: `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes["mwak"]}`,
+      other: `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes["other"]}`,
+      rsak: `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes[`${game.system.id === "sw5e" ? "rpak" : "rsak"}`]}`,
+      rwak: `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes["rwak"]}`,
+      save: `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes["save"]}`,
+      util: `${i18n(`${systemId}.Action`)}: ${GameSystemConfig.itemActionTypes["util"]}`,
+      acid: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.acid}`,
+      bludgeoning: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.bludgeoning}`,
+      cold: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.cold}`,
+      fire: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.fire}`,
+      force: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.force}`,
+      lightning: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.lightning}`,
+      necrotic: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.necrotic}`,
+      piercing: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.piercing}`,
+      poison: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.poison}`,
+      psychic: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.psychic}`,
+      radiant: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.radiant}`,
+      slashing: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.slashing}`,
+      thunder: `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes.thunder}`,
+      "midi-none": `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes["midi-none"]}`,
       none: i18n("None")
     }
   }
@@ -126,14 +123,14 @@ export class MidiSounds {
     MidiSounds.weaponBaseTypes = {};
     // TODO remove this if dnd5e getBaseItem bug is fixed
     const config: any = CONFIG;
-    const packname = getSystemCONFIG()?.sourcePacks.ITEMS;
+    const packname = GameSystemConfig.sourcePacks.ITEMS;
     if (packname) {
       const packObject = game.packs.get(packname);
       // TODO check this for v10 compendia
       //@ts-ignore getindex 0 params
       await packObject?.getIndex({ fields: ["system.armor.type", "system.toolType", "system.weaponType", "img"] });
 
-      const weaponTypes = Object.keys(getSystemCONFIG().weaponTypes);
+      const weaponTypes = Object.keys(GameSystemConfig.weaponTypes);
       const sheetClass = config.Item.sheetClasses.weapon[`${game.system.id}.ItemSheet5e`].cls;
       for (let wt of weaponTypes) {
         const baseTypes = await MidiSounds.getItemBaseTypes("weapon", wt);
@@ -144,7 +141,7 @@ export class MidiSounds {
   }
 
   static async getItemBaseTypes(type: string, weaponType: string) {
-    const ConfigSettings = getSystemCONFIG();
+    const ConfigSettings = GameSystemConfig;
     //@ts-ignore DND5e
     const baseIds = ConfigSettings[`${type}Ids`];
     if (baseIds === undefined) return {};

@@ -15,8 +15,8 @@
         "id": "dnd5e",
         "type": "system",
         "compatibility": {
-          "minimum": "2.0.3",
-          "maximum": "2.99"
+          "minimum": "3.0",
+          "maximum": "3.3"
         }
       },
       {
@@ -106,7 +106,7 @@
     "allowBugReporter": true
   },
   "url": "https://gitlab.com/tposney/midi-qol",
-  "manifest": "https://gitlab.com/tposney/midi-qol/raw/v11/package/module.json",
-  "download": "https://gitlab.com/tposney/midi-qol/raw/v11/package/midi-qol-v{{version}}.zip",
-  "changelog": "https://gitlab.com/tposney/midi-qol/raw/v11/Changelog.md"
+  "manifest": "https://gitlab.com/tposney/midi-qol/raw/dnd3/package/module.json",
+  "download": "https://gitlab.com/tposney/midi-qol/raw/dnd3/package/midi-qol-v{{version}}.zip",
+  "changelog": "https://gitlab.com/tposney/midi-qol/raw/dnd3/Changelog.md"
 }

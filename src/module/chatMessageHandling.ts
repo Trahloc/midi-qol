@@ -771,7 +771,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     workflow.needItemCard = false;
     workflow.attackRolled = true;
     if (!workflow.damageRolled) {
-      workflow.damageRoll = message.roll ?? undefined;
+      workflow.setDamageRolls(message.roll ? [message.roll] : undefined);
       workflow.damageTotal = message.roll?.total ?? 0;
       //@ts-ignore content v10
       workflow.damageRollHTML = message.content;

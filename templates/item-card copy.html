@@ -1,11 +1,10 @@
-<div class="dnd5e chat-card item-card midi-qol-item-card" 
-  data-actor-id="{{actor.id}}" data-item-id="{{item._id}}"
-  data-actor-uuid="{{actor.uuid}}" data-item-uuid="{{itemUuid}}"
-  {{#if tokenId}}data-token-id="{{tokenId}}" {{/if}} 
-  {{#if tokenUuid}}data-token-uuid="{{tokenUuid}}" {{/if}} 
-  {{#if isSpell}}data-spell-level="{{item.system.level}}" {{/if}}
-  {{#if isPower}}data-power-level="{{item.system.level}}" {{/if}}>
-  
+
+
+<div class="dnd5e chat-card item-card midi-qol-item-card" data-actor-id="{{actor.id}}" data-item-id="{{item._id}}"
+  data-actor-uuid="{{actor.uuid}}" data-item-uuid="{{itemUuid}}" {{#if tokenId}}data-token-id="{{tokenId}}" {{/if}}
+  {{#if tokenUuid}}data-token-uuid="{{tokenUuid}}" {{/if}} {{#if isSpell}}data-spell-level="{{item.system.level}}"
+  {{/if}} {{#if isPower}}data-power-level="{{item.system.level}}" {{/if}}>
+
   <header class="card-header flexrow">
     <img src="{{item.img}}" title="{{item.name}}" width="36" height="36" />
     <h3 class="item-name">{{item.name}}</h3>
@@ -13,7 +12,11 @@
 
   <div class="card-content">
     {{#unless hideItemDetails}}
-    {{{data.description.value}}}
+    {{#if data.description.chat}}
+      {{{data.description.chat}}}
+    {{else}}
+      {{{data.description.value}}}
+    {{/if}}
     {{#if data.materials.value}}
     <p><strong>{{ RequiredMaterials }}</strong> {{data.materials.value}}</p>
     {{/if}}
@@ -21,8 +24,21 @@
   </div>
 
   <div class="card-buttons">
-    {{#if hasAttack}}<button data-action="attack">{{ Attack }}</button>{{/if}}
-
+    {{#if hasAttack}}
+    {{#if mergeCardMulti}}
+    <div class="midi-qol-attack-buttons flexrow 5">
+      <button data-action="attack-dis" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Disadvantage'}}"><i
+          class="fas fa-caret-down"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
+      <button data-action="attack" style="flex: 3 1 0">{{ Attack }}</button>
+      <button data-action="attack-adv" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Advantage'}}"><i
+          class="fas fa-caret-up"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
+    </div>
+    {{else}}
+    <div class="midi-qol-attack-buttons">
+      <button data-action="attack">{{ Attack }}</button>
+    </div>
+    {{/if}}
+    {{/if}}
     {{#if condensed}}
     <div class="flexrow 2">
       <div class="midi-qol-attack-roll">
@@ -35,32 +51,46 @@
     {{else}}
     <div>
       <div class="flexrow 1">
-        <div class="midi-qol-attack-roll"><div class="end-midi-qol-attack-roll"></div>
+        <div class="midi-qol-attack-roll">
+          <div class="end-midi-qol-attack-roll"></div>
         </div>
       </div>
       <div class="flexrow 1">
-        <div class="midi-qol-damage-roll"><div class="end-midi-qol-damage-roll"></div>
+        <div class="midi-qol-damage-roll">
+          <div class="end-midi-qol-damage-roll"></div>
         </div>
       </div>
     </div>
     {{/if}}
     <div class="flexrow 1">
-      <div class="midi-qol-bonus-roll"><div class="end-midi-qol-bonus-roll"></div>
+      <div class="midi-qol-bonus-roll">
+        <div class="end-midi-qol-bonus-roll"></div>
       </div>
     </div>
     <div class="flexrow 1">
-      <div class="midi-qol-other-roll"><div class="end-midi-qol-other-roll"></div>
+      <div class="midi-qol-other-roll">
+        <div class="end-midi-qol-other-roll"></div>
       </div>
     </div>
 
     {{#if hasDamage}}
-    <button data-action="damage">
-      {{ dmgBtnText }}
-    </button>
+    {{#if mergeCardMulti}}
+    <div class="midi-qol-damage-buttons flexrow 5">
+      <button data-action="damage-nocritical" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Normal'}}"><i
+          class="fas fa-dice-d6"></i></button>
+      <button data-action="damage" style="flex:3 1 0">{{ dmgBtnText }}</button>
+      <button data-action="damage-critical" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Critical'}}"><i
+          class="fas fa-dice-d6"></i><i class="fas fa-dice-d6"></i></button>
+    </div>
+    {{else}}
+    <div class="midi-qol-damage-buttons">
+      <button data-action="damage">{{ dmgBtnText }}</button>
+    </div>
+    {{/if}}
     {{/if}}
 
     {{#if isVersatile}}
-    <button data-action="versatile">{{ versaBtnText }}</button>
+    <button class="midi-qol-versatile-damage-button" data-action="versatile">{{ versaBtnText }}</button>
     {{/if}}
 
     {{#if hasSave}}
@@ -70,7 +100,7 @@
     {{/if}}
 
     {{#if data.formula}}
-    <button data-action="formula">{{ OtherFormula }}</button>
+    <button class="midi-qol-otherDamage-button" data-action="formula">{{ OtherFormula }}</button>
     {{/if}}
 
     {{#if hasAreaTarget}}
@@ -87,9 +117,27 @@
     <button data-action="applyEffects">{{ localize "midi-qol.ApplyEffects" }}</button>
     {{/if}}
     {{#if isMerge}}
-    <div class="midi-qol-hits-display"><div class="end-midi-qol-hits-display"></div>
+    <div class="midi-qol-hits-display">
+      <div class="end-midi-qol-hits-display"></div>
     </div>
-    <div class="midi-qol-saves-display"><div class="end-midi-qol-saves-display"></div>
+    <div class="midi-qol-saves-display">
+      <div class="end-midi-qol-saves-display"></div>
+    </div>
+    {{/if}}
+    {{#if confirmAttackDamage}}
+    <div class="midi-qol-confirm-damage-roll">
+      <div class="flexrow 3">
+        <button class="midi-qol-confirm-damage-roll-complete-miss"
+          data-action="confirm-damage-roll-complete-miss">{{localize "midi-qol.ConfirmMiss"}}</button>
+        <button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">{{localize
+          "midi-qol.ConfirmRoll"}}</button>
+        <button class="midi-qol-confirm-damage-roll-complete-hit"
+          data-action="confirm-damage-roll-complete-hit">{{localize "midi-qol.ConfirmHit"}}</button>
+      </div>
+      {{#if canCancel}}
+      <button class="midi-qol-confirm-damage-roll-cancel" data-action="confirm-damage-roll-cancel">{{localize
+        "Cancel"}}</button>
+      {{/if}}
     </div>
     {{/if}}
   </div>

@@ -1,11 +1,11 @@
 import { _mergeUpdate } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/utils/helpers.mjs";
-import { debug, setDebugLevel, warn, i18n, debugEnabled, geti18nTranslations, geti18nOptions } from "../midi-qol.js";
+import { debug, setDebugLevel, i18n, debugEnabled, geti18nTranslations, geti18nOptions } from "../midi-qol.js";
 import { ConfigPanel } from "./apps/ConfigPanel.js"
 import { SoundConfigPanel } from "./apps/SoundConfigPanel.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configureDamageRollDialog } from "./patching.js";
 import { TargetConfirmationConfig } from "./apps/TargetConfirmationConfig.js";
-import { getSystemCONFIG } from "./utils.js";
+import { _updateAction } from "./utils.js";
 
 export var itemRollButtons: boolean;
 export var criticalDamage: string;
@@ -23,6 +23,9 @@ export var dragDropTargeting: boolean;
 export var targetConfirmation: any;
 export var midiSoundSettings: any = {};
 export var midiSoundSettingsBackup: any = undefined;
+export var DebounceInterval: number;
+export var _debouncedUpdateAction;
+
 
 export const defaultTargetConfirmationSettings = {
   enabled: false,
@@ -264,6 +267,7 @@ export function collectSettingData() {
     forceHideRoll,
     enableWorkflow,
     dragDropTargeting,
+    DebounceInterval,
     targetConfirmation,
     flags: {}
   };
@@ -301,6 +305,7 @@ export async function importSettingsFromJSON(json) {
   await game.settings.set("midi-qol", "ForceHideRoll", json.forceHideRoll);
   await game.settings.set("midi-qol", "EnableWorkflow", json.enableWorkflow);
   await game.settings.set("midi-qol", "DragDropTarget", json.dragDropTargeting);
+  await game.settings.set("midi-qol", "DebounceInterval", json.DebounceInterval);
   await game.settings.set("midi-qol", "TargetConfirmation", json.targetConfirmation);
   await game.settings.set("midi-qol", "MidiSoundSettings", json.midiSoundSettings ?? {});
   //@ts-expect-error _sheet
@@ -484,8 +489,8 @@ export let fetchParams = () => {
   if (configSettings.midiUnconsciousCondition === undefined) configSettings.midiUnconsciousCondition = "none";
   // Fix for typo in en.json
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapcitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
-  if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated"; 
-  if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated"; 
+  if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated";
+  if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated";
   if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
 
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
@@ -505,6 +510,8 @@ export let fetchParams = () => {
   let debugText: string = String(game.settings.get("midi-qol", "Debug"));
   forceHideRoll = Boolean(game.settings.get("midi-qol", "ForceHideRoll"));
   dragDropTargeting = Boolean(game.settings.get("midi-qol", "DragDropTarget"));
+  DebounceInterval = Number(game.settings.get("midi-qol", "DebounceInterval"));
+  _debouncedUpdateAction = debounce(_updateAction, DebounceInterval);
   targetConfirmation = game.settings.get("midi-qol", "TargetConfirmation");
   if (configSettings.griddedGridless === undefined) configSettings.griddedGridless = false;
   if (configSettings.gridlessFudge === undefined) configSettings.gridlessFudge = 0;
@@ -744,7 +751,6 @@ export const registerSettings = function () {
     choices: geti18nOptions("AutoRemoveTargetsOptions"),
     onChange: fetchParams
   });
-
   game.settings.registerMenu("midi-qol", "midi-qol", {
     name: i18n("midi-qol.config"),
     label: "midi-qol.WorkflowSettings",
@@ -755,7 +761,7 @@ export const registerSettings = function () {
   });
 
   game.settings.registerMenu("midi-qol", "TargetConfirmationConfig", {
-    name:  i18n("midi-qol.TargetConfirmationConfig.Name"),
+    name: i18n("midi-qol.TargetConfirmationConfig.Name"),
     label: i18n("midi-qol.TargetConfirmationConfig.Name"),
     hint: i18n("midi-qol.TargetConfirmationConfig.Hint"),
     icon: "fas fa-dice-d20",
@@ -781,6 +787,16 @@ export const registerSettings = function () {
     type: Boolean,
     //@ts-ignore v10
     requiresReload: true
+  });
+
+  game.settings.register("midi-qol", "DebounceInterval", {
+    name: "Debounce Interval (in ms)",
+    hint: "Chat message updates will only happen this often",
+    scope: "world",
+    default: 100,
+    type: Number,
+    config: true,
+    onChange: fetchParams
   });
 
   game.settings.register("midi-qol", "Debug", {

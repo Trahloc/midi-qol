@@ -1,7 +1,7 @@
-import { log, debug, i18n, error, i18nFormat, warn, debugEnabled } from "../midi-qol.js";
+import { log, debug, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSelfTarget, getSpeaker, getSystemCONFIG, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSelfTarget, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -112,18 +112,17 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
         detail: detail
       }
       let title;
-      let config = getSystemCONFIG();
       let systemString = game.system.id.toUpperCase();
-      if (config.abilities[detail]?.label || config.skills[detail]?.label) {
+      if (GameSystemConfig.abilities[detail]?.label || GameSystemConfig.skills[detail]?.label) {
         if (detail.startsWith("fail")) title = "Failed Save Check";
-        else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail].label ?? "" });
-        else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail].label ?? "" });
-        else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail].label ?? "" });
+        else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: GameSystemConfig.abilities[detail].label ?? "" });
+        else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: GameSystemConfig.abilities[detail].label ?? "" });
+        else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: GameSystemConfig.skills[detail].label ?? "" });
       } else {
         if (detail.startsWith("fail")) title = "Failed Save Check";
-        else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: config.abilities[detail] ?? "" });
-        else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: config.abilities[detail] ?? "" });
-        else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: config.skills[detail] ?? "" });
+        else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: GameSystemConfig.abilities[detail] ?? "" });
+        else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: GameSystemConfig.abilities[detail] ?? "" });
+        else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: GameSystemConfig.skills[detail] ?? "" });
       }
       await bonusDialog.bind(data)(
         bonusFlags,
@@ -182,6 +181,7 @@ async function doRollSkill(wrapped, ...args) {
     } else {
       procOptions.chatMessage = false;
       if (!procOptions.parts || procOptions.parts.length === 0) delete procOptions.parts;
+      delete procOptions.event;
       // result = await wrapped.call(this, skillId, procOptions);
       result = await wrapped(skillId, procOptions);
     }
@@ -417,7 +417,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     let result;
     if (!options.parts || procOptions.parts.length === 0) delete options.parts;
     procOptions.chatMessage = false;
-
+    delete procOptions.event;
     result = await wrapped(abilityId, procOptions);
     if (success === false) {
       result = new Roll("-1[auto fail]").evaluate({ async: false })
@@ -464,7 +464,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       setProperty(messageData, "flags", options.flags ?? {})
       setProperty(messageData, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
       setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
-      messageData.template = "modules/midi-qol/templates/roll.html";
+      messageData.template = "modules/midi-qol/templates/roll-base.html";
       const saveRollMode = game.settings.get("core", "rollMode");
       if (rollMode === "blindroll") {
         game.settings.set("core", "rollMode", rollMode);
@@ -568,7 +568,7 @@ async function doPreRollAbilityHook(rollType: string, item, rollData: any, abili
   if (!rollData.parts || procOptions.parts.length === 0) delete rollData.parts;
   rollData = mergeObject(rollData, procOptions);
   if (chatMessage !== false && result) {
-    rollData.template = "modules/midi-qol/templates/roll.html";
+    rollData.template = "modules/midi-qol/templates/roll-base.html";
   }
   return true;
 }
@@ -1740,10 +1740,10 @@ export function processTraits(actor) {
             // trait.custom = addCustomTrait(trait.custom, i18n("midi-qol.Magical"));
             break
           case "healing":
-            // trait.custom = addCustomTrait(trait.custom, getSystemCONFIG().healingTypes.healing);
+            // trait.custom = addCustomTrait(trait.custom, systemConfig.healingTypes.healing);
             break
           case "temphp":
-            // trait.custom = addCustomTrait(trait.custom, getSystemCONFIG().healingTypes.temphp);
+            // trait.custom = addCustomTrait(trait.custom, systemConfig.healingTypes.temphp);
             break
           default:
             trait.value.add(traitString);
@@ -1810,12 +1810,12 @@ export function migrateTraits(actor) {
               log(`${actor.name} mapping "magic" to ${trait.custom}`)
               break
             case "healing":
-              trait.custom = addCustomTrait(trait.custom, getSystemCONFIG().healingTypes.healing);
+              trait.custom = addCustomTrait(trait.custom, GameSystemConfig.healingTypes.healing);
               trait.value.delete("healing");
               log(`${actor.name} mapping "healing" to ${trait.custom}`)
               break
             case "temphp":
-              trait.custom = addCustomTrait(trait.custom, getSystemCONFIG().healingTypes.temphp);
+              trait.custom = addCustomTrait(trait.custom, GameSystemConfig.healingTypes.temphp);
               trait.value.delete("temphp");
               log(`${actor.name} mapping "temphp" to ${trait.custom}`)
               break
@@ -1865,12 +1865,12 @@ export function migrateTraits(actor) {
               log(`${actor.name} mapping "magic" to ${trait.custom}`)
               break
             case "healing":
-              trait.custom = addCustomTrait(trait.custom, getSystemCONFIG().healingTypes.healing);
+              trait.custom = addCustomTrait(trait.custom, GameSystemConfig.healingTypes.healing);
               trait.value = removeTraitValue(trait.value, "healing");
               log(`${actor.name} mapping "healing" to ${trait.custom}`)
               break
             case "temphp":
-              trait.custom = addCustomTrait(trait.custom, getSystemCONFIG().healingTypes.temphp);
+              trait.custom = addCustomTrait(trait.custom, GameSystemConfig.healingTypes.temphp);
               trait.value = removeTraitValue(trait.value, "temphp");
               log(`${actor.name} mapping "temphp" to ${trait.custom}`)
               break
@@ -1900,7 +1900,7 @@ function removeTraitValue(traitValue: string[] | Set<string>, toRemove): string[
 }
 
 function addPhysicalDamages(traitValue) {
-  const phsyicalDamageTypes = Object.keys(getSystemCONFIG().physicalDamageTypes);
+  const phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
 
   for (let dt of phsyicalDamageTypes) {
     if (traitValue instanceof Set) traitValue.add(dt);
@@ -1938,9 +1938,9 @@ function actorGetRollData(wrapped, ...args) {
   data.midiFlags = (this.flags && this.flags["midi-qol"]) ?? {};
   if (game.system.id === "dnd5e") {
     data.cfg = {};
-    data.cfg.armorClasses = getSystemCONFIG().armorClasses;
-    data.cfg.actorSizes = getSystemCONFIG().actorSizes;
-    data.cfg.skills = getSystemCONFIG().skills;
+    data.cfg.armorClasses = GameSystemConfig.armorClasses;
+    data.cfg.actorSizes = GameSystemConfig.actorSizes;
+    data.cfg.skills = GameSystemConfig.skills;
   }
   return data;
 }

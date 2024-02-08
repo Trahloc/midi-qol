@@ -1,8 +1,7 @@
 import { criticalDamage, nsaFlag, coloredBorders, autoFastForwardAbilityRolls, importSettingsFromJSON, exportSettingsToJSON, enableWorkflow } from "../settings.js"
 import { configSettings } from "../settings.js"
-import { warn, i18n, error, debug, gameStats, debugEnabled, geti18nOptions, log } from "../../midi-qol.js";
+import { warn, i18n, error, debug, gameStats, debugEnabled, geti18nOptions, log, GameSystemConfig } from "../../midi-qol.js";
 import { installedModules } from "../setupModules.js";
-import { getSystemCONFIG } from "../utils.js";
 
 const PATH = "./modules/midi-qol/sample-config/";
 
@@ -118,9 +117,9 @@ export class ConfigPanel extends FormApplication {
       HiddenAdvantageOptions,
       ConfirmAttackDamageOptions: geti18nOptions("ConfirmAttackDamageOptions"),
       ChallengeModeArmorOptions: geti18nOptions("ChallengeModeArmorOptions"),
-      RollSkillsBlindOptions: mergeObject({ "none": "None", "all": "All" }, Object.keys(getSystemCONFIG().skills).reduce((acc, s) => { acc[s] = getSystemCONFIG().skills[s].label; return acc }, {})),
-      RollSavesBlindOptions: mergeObject({ "none": "None", "all": "All", "death": i18n("DND5E.DeathSave") }, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
-      RollChecksBlindOptions: mergeObject({ "none": "None", "all": "All" }, Object.keys(getSystemCONFIG().abilities).reduce((acc, s) => { acc[s] = getSystemCONFIG().abilities[s].label; return acc }, {})),
+      RollSkillsBlindOptions: mergeObject({ "none": "None", "all": "All" }, Object.keys(GameSystemConfig.skills).reduce((acc, s) => { acc[s] = GameSystemConfig.skills[s].label; return acc }, {})),
+      RollSavesBlindOptions: mergeObject({ "none": "None", "all": "All", "death": i18n("DND5E.DeathSave") }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
+      RollChecksBlindOptions: mergeObject({ "none": "None", "all": "All" }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
       //@ts-expect-error
       StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name = i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, { "none": "None" }),
       SaveDROrderOptions: geti18nOptions("SaveDROrderOptions"),

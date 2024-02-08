@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
-import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getSystemCONFIG, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -44,6 +44,10 @@ export function getCanvas(): Canvas | undefined {
 export let i18n = key => {
   return game.i18n.localize(key);
 };
+export function i18nSystem(key) {
+  const keyHeader = game.system.id.toUpperCase();
+  return i18n(`${keyHeader}.${key}`);
+}
 export let i18nFormat = (key, data = {}) => {
   return game.i18n.format(key, data);
 }
@@ -77,7 +81,8 @@ export let overTimeEffectsToDelete = {};
 export let failedSaveOverTimeEffectsToDelete = {}
 export let MQItemMacroLabel: string;
 export let MQDeferMacroLabel: string;
-export let MQOnUseOptions
+export let MQOnUseOptions;
+export let GameSystemConfig;
 export const MESSAGETYPES = {
   HITS: 1,
   SAVES: 2,
@@ -101,7 +106,8 @@ Hooks.once("levelsReady", function () {
 
 Hooks.once('init', async function () {
   console.log('midi-qol | Initializing midi-qol');
-
+  //@ts-expect-error
+  GameSystemConfig = game.system.config;
   allAttackTypes = ["rwak", "mwak", "rsak", "msak"];
   if (game.system.id === "sw5e")
     allAttackTypes = ["rwak", "mwak", "rpak", "mpak"];
@@ -168,7 +174,9 @@ Hooks.once('setup', function () {
 });
 
 function addConfigOptions() {
-  let config = getSystemCONFIG();
+  
+  //@ts-expect-error
+  let config = game.system.config;
   //@ts-expect-error
   const systemVersion = game.system.version;
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
@@ -208,6 +216,16 @@ function addConfigOptions() {
       "physical": i18n("midi-qol.NonMagicalPhysical")
     }
     if (!isNewerVersion(systemVersion, "2.99")) {
+      config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
+      config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
+      config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
+      config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
+      config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
+      config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
+      config.damageResistanceTypes["healing"] = config.healingTypes.healing;
+      config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
+    } else {
+      config.damageResistanceTypes = {};
       config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
       config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
       config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
@@ -277,7 +295,8 @@ function addConfigOptions() {
 /* ------------------------------------ */
 Hooks.once('ready', function () {
   addConfigOptions();
-  const config = getSystemCONFIG();
+  //@ts-expect-error
+  const config = game.system.config;
   registerSettings();
   gameStats = new RollStats();
   actorAbilityRollPatching();
@@ -324,14 +343,15 @@ Hooks.once('ready', function () {
   MidiSounds.midiSoundsReadyHooks();
 
   if (game.system.id === "dnd5e") {
-    getSystemCONFIG().characterFlags["spellSniper"] = {
+    //@ts-expect-error
+    game.system.config.characterFlags["spellSniper"] = {
       name: "Spell Sniper",
       hint: "Spell Sniper",
       section: i18n("DND5E.Feats"),
       type: Boolean
     };
-
-    getSystemCONFIG().areaTargetTypes["squareRadius"] = { label: i18n("midi-qol.squareRadius"), template: "rect" };
+    //@ts-expect-error
+    game.system.config.areaTargetTypes["squareRadius"] = { label: i18n("midi-qol.squareRadius"), template: "rect" };
 
     if (game.user?.isGM) {
       const instanceId = game.settings.get("midi-qol", "instanceId");
@@ -675,7 +695,8 @@ function doRoll(event = { shiftKey: false, ctrlKey: false, altKey: false, metaKe
 }
 
 function setupMidiFlags() {
-  let config = getSystemCONFIG();
+  //@ts-expect-error
+  let config = game.system.config;
   //@ts-expect-error
   const systemVersion = game.system.version;
   midiFlags.push("flags.midi-qol.advantage.all")
@@ -836,6 +857,11 @@ function setupMidiFlags() {
     midiFlags.push(`flags.midi-qol.damage.reroll-kl`);
 
     if (isNewerVersion(systemVersion, "2.99")) {
+      Object.keys(config.damageTypes).forEach(key => {
+        midiFlags.push(`flags.midi-qol.DR.${key}`);
+
+      // TODO dbd3 - see how to present label but check key  midiFlags.push(`flags.midi-qol.DR.${config.damageTypes[key].label}`);
+      });
     } else {
       Object.keys(config.damageTypes).forEach(dt => {
         midiFlags.push(`flags.midi-qol.DR.${dt}`);

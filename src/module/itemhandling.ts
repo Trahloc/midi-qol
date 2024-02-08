@@ -1,7 +1,7 @@
-import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes } from "../midi-qol.js";
+import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig } from "../midi-qol.js";
 import { DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, getSystemCONFIG, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -10,6 +10,7 @@ import { saveUndoData } from "./undo.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
+import { ChatMessageMidi } from "./ChatMessageMidi.js";
 
 function itemRequiresPostTemplateConfiramtion(item): boolean {
   const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
@@ -209,7 +210,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const ammoSelectorEnabled = safeGetGameSetting("dnd5e-scriplets", "ammoSelector") !== "none" && safeGetGameSetting("dnd5e-scriptlets", "ammoSelector") !== undefined;
     const ammoSelectorFirstPass = ammoSelectorEnabled
       && !options.ammoSelector?.hasRun
-      && this.system.properties?.amm === true
+      && this.system.properties?.has("amm") === true
       && this.type == "weapon";
     if (selfTarget) attackPerTarget = false;
     attackPerTarget &&= this.hasAttack;
@@ -541,7 +542,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         item = item.clone({ "system.target.value": templateOptions.distance, "system.target.type": "square" })
       }
       else
-        templateOptions.distance = Math.ceil(target.value + Math.max(width/2, height/2, 0) * (canvas?.dimensions?.distance ?? 0));
+        templateOptions.distance = Math.ceil(target.value + Math.max(width / 2, height / 2, 0) * (canvas?.dimensions?.distance ?? 0));
 
       if (useSquare) {
         const adjust = (templateOptions.distance ?? target.value) / 2;
@@ -563,7 +564,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       //@ts-expect-error .canvas
       let template = game.system.canvas.AbilityTemplate.fromItem(item, templateOptions);
       const templateData = template.document.toObject();
-      if (this.item) setProperty(templateData,  "flags.midi-qol.itemUuid", this.item.uuid );
+      if (this.item) setProperty(templateData, "flags.midi-qol.itemUuid", this.item.uuid);
       if (this.actor) setProperty(templateData, "flags.midi-qol.actorUuid", this.actor.uuid);
       if (!getProperty(templateData, "flags.dnd5e.origin")) setProperty(templateData, "flags.dnd5e.origin", this.item?.uuid);
       //@ts-expect-error
@@ -601,7 +602,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const shouldUnsuspend = ([workflow.WorkflowState_AwaitItemCard, workflow.WorkflowState_AwaitTemplate, workflow.WorkflowState_NoAction].includes(workflow.currentAction) && workflow.suspended && !workflow.needTemplate && !workflow.needItemCard);
     if (debugEnabled > 0) warn(`Item use complete: unsuspending ${workflow.workflowName} ${workflow.nameForState(workflow.currentAction)} unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}`);
     if (shouldUnsuspend) {
-      workflow.unSuspend({itemUseComplete: true});
+      workflow.unSuspend({ itemUseComplete: true });
     }
     return result;
   } catch (err) {
@@ -651,7 +652,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
       if (workflow.attackRoll && workflow.currentAction === workflow.WorkflowState_Completed) {
         // we are re-rolling the attack.
-        workflow.damageRoll = undefined;
+        workflow.setDamageRolls(undefined)
         if (workflow.itemCardId) {
           await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardId);
           await Workflow.removeItemCardConfirmRollButton(workflow.itemCardId);
@@ -673,19 +674,19 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
     const promises: Promise<any>[] = [];
     if (!getProperty(this, "flags.midi-qol.noProvokeReaction")) {
-    for (let targetToken of workflow.targets) {
-      promises.push(new Promise(async resolve => {
-        //@ts-expect-error targetToken Type
-        const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: mergeObject(workflow.workflowOptions, { sourceActorUuid: this.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
-        if (result?.name) {
-          //@ts-expect-error _initialize()
-          targetToken.actor?._initialize();
-          // targetToken.actor?.prepareData(); // allow for any items applied to the actor - like shield spell
-        }
-        resolve(result);
-      }));
+      for (let targetToken of workflow.targets) {
+        promises.push(new Promise(async resolve => {
+          //@ts-expect-error targetToken Type
+          const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: mergeObject(workflow.workflowOptions, { sourceActorUuid: this.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
+          if (result?.name) {
+            //@ts-expect-error _initialize()
+            targetToken.actor?._initialize();
+            // targetToken.actor?.prepareData(); // allow for any items applied to the actor - like shield spell
+          }
+          resolve(result);
+        }));
+      }
     }
-  }
     await Promise.allSettled(promises);
 
     // Compute advantage
@@ -782,7 +783,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
         while (ammoUpdate.length > 0) ammoUpdate.pop();
       }
     });
-    delete wrappedOptions.event;
+    delete wrappedOptions.event; // for dnd5e stop the event being passed to the roll or errors will happend
     let result: Roll = await wrapped(wrappedOptions);
 
     if (!result) return result;
@@ -794,6 +795,8 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     const minflags = getProperty(this.flags, "midi-qol.min") ?? {};
     if ((minflags.attack && (minflags.attack.all || minflags.attack[this.system.actionType])) ?? false)
       result = await result.reroll({ minimize: true })
+    if (["formulaadv", "adv"].includes(configSettings.rollAlternate))
+      addAdvAttribution(result, workflow.attackAdvAttribution)
     await workflow.setAttackRoll(result);
 
     // workflow.ammo = this._ammo; Work out why this was here - seems to just break stuff
@@ -823,12 +826,10 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       return;
     }
 
-    if (["formulaadv", "adv"].includes(configSettings.rollAlternate))
-      workflow.attackRollHTML = addAdvAttribution(workflow.attackRollHTML, workflow.attackAdvAttribution)
     if (debugCallTiming) log(`final item.rollAttack():  elapsed ${Date.now() - attackRollStart}ms`);
 
     // Can this cause a race condition?
-    if (workflow.suspended) workflow.unSuspend({attackRoll: result})
+    if (workflow.suspended) workflow.unSuspend({ attackRoll: result })
     // workflow.performState(workflow.WorkflowState_AttackRollComplete);
     return result;
   } catch (err) {
@@ -839,6 +840,8 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 }
 
 export async function doDamageRoll(wrapped, { event = undefined, systemCard = false, spellLevel = null, powerLevel = null, versatile = null, options = {} } = {}) {
+  //@ts-expect-error
+  const DamageRoll = CONFIG.Dice.DamageRoll;
   try {
     const pressedKeys = globalThis.MidiKeyManager.pressedKeys; // record the key state if needed
     let workflow = Workflow.getWorkflow(this.uuid);
@@ -918,12 +921,13 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     if (options?.critical !== undefined) workflow.isCritical = options?.critical;
     const wrappedRollStart = Date.now();
     workflow.damageRollCount += 1;
-    let result: Roll;
-    let result2: Roll;
+    let result: Array<Roll>;
+    let result2: Array<Roll>;
     if (!workflow.rollOptions.other) {
       const damageRollOptions = mergeObject(options, {
         fastForward: workflow.workflowOptions?.fastForwardDamage ?? workflow.rollOptions.fastForwardDamage,
-        chatMessage: false
+        chatMessage: false,
+        returnMultiple: true,
       },
         { overwrite: true, insertKeys: true, insertValues: true });
 
@@ -932,17 +936,23 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
         spellLevel: workflow.rollOptions.spellLevel,
         powerLevel: workflow.rollOptions.spellLevel,
         versatile: workflow.rollOptions.versatile,
-        event: {},
+        // dnd3 event: {},
+        event: undefined,
         options: damageRollOptions
       };
+
       result = await wrapped(damageRollData);
+
       if (getProperty(this.parent, "flags.midi-qol.damage.advantage")) result2 = await wrapped(damageRollData)
 
       if (debugCallTiming) log(`wrapped item.rollDamage():  elapsed ${Date.now() - wrappedRollStart}ms`);
     } else { // roll other damage instead of main damage.
-      //@ts-ignore
-      result = new CONFIG.Dice.DamageRoll(workflow.otherDamageFormula, workflow.otherDamageItem?.getRollData(), { critical: workflow.rollOptions.critical || workflow.isCritical });
-      result = await result?.evaluate({ async: true });
+      // This is problematic - the dice roll can have multiple damage types in it, 
+
+      let tempRoll = new DamageRoll(workflow.otherDamageFormula, workflow.otherDamageItem?.getRollData(), { critical: workflow.rollOptions.critical || workflow.isCritical, returnMultiple: false });
+      tempRoll = Roll.fromTerms(tempRoll.terms);
+      tempRoll.evaluate({ async: false })
+      result = [tempRoll];
     }
     if (!result) { // user backed out of damage roll or roll failed
       return;
@@ -992,49 +1002,52 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     }, { "flags.dnd5e.roll": { type: "damage", itemId: this.id } });
     if (game.system.id === "sw5e") setProperty(messageData, "flags.sw5e.roll", { type: "damage", itemId: this.id })
     if (needsMaxDamage)
-      result = await new Roll(result.formula).roll({ maximize: true });
+      result = result.map(r => new DamageRoll(r.formula).roll({ maximize: true, async: false }));
     else if (needsMinDamage)
-      result = await new Roll(result.formula).roll({ minimize: true });
+      result = result.map(r => new DamageRoll(r.formula).roll({ minimize: true, async: false }));
     else if (getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") || getProperty(this.parent, "flags.midi-qol.damage.reroll-kl")) {
-      result2 = await result.reroll({ async: true });
-      if (result2?.total && result?.total) {
-        if ((getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") && (result2?.total > result?.total)) ||
-          (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl") && (result2?.total < result?.total))) {
-          [result, result2] = [result2, result];
-        }
-        // display roll not being used.
-        if (workflow.workflowOptions?.damageRollDSN !== false) await displayDSNForRoll(result2, "damageRoll");
-        await result2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
+      result2 = result.map(r => r.reroll({ async: false }));
+      if ((getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") && (sumRolls(result2) > sumRolls(result)))
+        || (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl") && (sumRolls(result2) < sumRolls(result)))) {
+        [result, result2] = [result2, result];
+      }
+      // display roll not being used.
+      if (workflow.workflowOptions?.damageRollDSN !== false) {
+        let promises = result2.map(r => displayDSNForRoll(r, "damageRoll"));
+        await Promise.all(promises);
+      }
+      DamageRoll.toMessage(result2, messageData, { rollMode: game.settings.get("core", "rollMode") });
+      // await result2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
+    }
+    setDamageRollMinTerms(result)
+
+    if (this.system.actionType === "heal" && !Object.keys(GameSystemConfig.healingTypes).includes(workflow.defaultDamageType ?? "")) workflow.defaultDamageType = "healing";
+
+    workflow.damageDetail = createDamageDetail({ roll: result, item: this, ammo: workflow.ammo, versatile: workflow.rollOptions.versatile, defaultType: workflow.defaultDamageType });
+    await workflow.setDamageRolls(result);
+    if (workflow.workflowOptions?.damageRollDSN !== false) {
+      let promises = result.map(r => displayDSNForRoll(r, "damageRoll"));
+      await Promise.all(promises);
+    }
+    /* dnd3 need to convert processDamageRoll bonus to work with an array of rolls
+    skip for now.
+    result = await processDamageRollBonusFlags.bind(workflow)();
+    if (result instanceof Array) await workflow.setDamageRolls(result);
+    else workflow.setDamageRolls[result];
+    */
+    let card;
+    if (!configSettings.mergeCard) {
+      card = await DamageRoll.toMessage(result, messageData, { rollMode: game.settings.get("core", "rollMode") });
+      // card = await result.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
+    }
+    if (workflow && configSettings.undoWorkflow) {
+      // Assumes workflow.undoData.chatCardUuids has been initialised
+      if (workflow.undoData && card) {
+        workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat([card.uuid]);
+        untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
       }
     }
-    if (result?.total) {
-      for (let term of result.terms) {
-        // I don't like the default display and it does not look good for dice so nice - fiddle the results for maximised rolls
-        if (term instanceof Die && term.modifiers.includes(`min${term.faces}`)) {
-          for (let result of term.results) {
-            result.result = term.faces;
-          }
-        }
-      }
-
-      if (this.system.actionType === "heal" && !Object.keys(getSystemCONFIG().healingTypes).includes(workflow.defaultDamageType ?? "")) workflow.defaultDamageType = "healing";
-
-      workflow.damageDetail = createDamageDetail({ roll: result, item: this, ammo: workflow.ammo, versatile: workflow.rollOptions.versatile, defaultType: workflow.defaultDamageType });
-      await workflow.setDamageRoll(result);
-      if (workflow.workflowOptions?.damageRollDSN !== false) await displayDSNForRoll(result, "damageRoll");
-      result = await processDamageRollBonusFlags.bind(workflow)();
-      await workflow.setDamageRoll(result);
-      let card;
-      if (!configSettings.mergeCard) card = await result.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
-      if (workflow && configSettings.undoWorkflow) {
-        // Assumes workflow.undoData.chatCardUuids has been initialised
-        if (workflow.undoData && card) {
-          workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat([card.uuid]);
-          untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
-        }
-      }
-    }
-    // await workflow.setDamageRoll(result);
+    // await workflow.setDamageRolls(result);
     let otherResult: Roll | undefined = undefined;
     let otherResult2: Roll | undefined = undefined;
 
@@ -1049,8 +1062,9 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
       if ((workflow.otherDamageFormula ?? "") !== "") { // other damage formula swaps in versatile if needed
         let otherRollData = workflow.otherDamageItem?.getRollData();
         otherRollData.spellLevel = spellLevel;
-        //@ts-ignore
-        let otherRollResult = new CONFIG.Dice.DamageRoll(workflow.otherDamageFormula, otherRollData, otherRollOptions);
+        let otherRollResult = new DamageRoll(workflow.otherDamageFormula, otherRollData, otherRollOptions);
+        otherRollResult = Roll.fromTerms(otherRollResult.terms); // coerce it back to a roll
+        // let otherRollResult = new Roll.fromRoll((workflow.otherDamageFormula, otherRollData, otherRollOptions);
         otherResult = await otherRollResult?.evaluate({ async: true, maximize: needsMaxDamage, minimize: needsMinDamage });
         if (otherResult?.total) {
           switch (game.system.id) {
@@ -1085,28 +1099,16 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
               // display roll not being used
               if (workflow.workflowOptions?.damageRollDSN !== false) await displayDSNForRoll(otherResult2, "damageRoll");
               await otherResult2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
-
             }
           }
 
+          setDamageRollMinTerms([otherResult]);
           for (let term of otherResult.terms) {
-            // I don't like the default display and it does not look good for dice so nice - fiddle the results for maximised rolls
-            if (term instanceof Die && term.modifiers.includes(`min${term.faces}`)) {
-              for (let result of term.results) {
-                result.result = term.faces;
-              }
-            }
             if (term.options?.flavor) {
               term.options.flavor = getDamageType(term.options.flavor);
             }
           }
-
           workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: "" });
-          for (let term of otherResult.terms) { // set the damage flavor
-            if (term.options?.flavor) {
-              term.options.flavor = getDamageFlavor(term.options.flavor);
-            }
-          }
           if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
           if (!configSettings.mergeCard) await otherResult?.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") })
           await workflow.setOtherDamageRoll(otherResult);
@@ -1118,7 +1120,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     workflow.bonusDamageHTML = null;
     if (debugCallTiming) log(`item.rollDamage():  elapsed ${Date.now() - damageRollStart}ms`);
 
-    if (workflow.suspended) workflow.unSuspend({damageRoll: result, otherDamageRoll: workflow.otherDamageRoll});
+    if (workflow.suspended) workflow.unSuspend({ damageRoll: result, otherDamageRoll: workflow.otherDamageRoll });
     // workflow.performState(workflow.WorkflowState_ConfirmRoll);
     return result;
   } catch (err) {
@@ -1128,6 +1130,20 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
   }
 }
 
+function setDamageRollMinTerms(rolls: Array<Roll> | undefined) {
+  if (rolls && sumRolls(rolls)) {
+    for (let roll of rolls) {
+      for (let term of roll.terms) {
+        // I don't like the default display and it does not look good for dice so nice - fiddle the results for maximised rolls
+        if (term instanceof Die && term.modifiers.includes(`min${term.faces}`)) {
+          for (let result of term.results) {
+            result.result = term.faces;
+          }
+        }
+      }
+    }
+  }
+}
 export function preRollDamageHook(item, rollConfig) {
   if (item.flags.midiProperties?.offHandWeapon) {
     rollConfig.data.mod = Math.min(0, rollConfig.data.mod);
@@ -1202,15 +1218,15 @@ export async function wrappedDisplayCard(wrapped, options) {
     let versaBtnText = i18n(`${systemString}.Versatile`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) versaBtnText += ` ${i18n("midi-qol.fastForward")}`;
 
-    console.error("display card ", this.system.level)
     const templateData = {
       actor: this.actor,
       // tokenId: token?.id,
       tokenId: token?.document?.uuid ?? token?.uuid ?? null, // v10 change tokenId is a token Uuid
       tokenUuid: token?.document?.uuid ?? token?.uuid ?? null,
+      hasButtons: true,
       item: this, // TODO check this v10
       itemUuid: this.uuid,
-      data: await getChatData.bind(this)(),
+      data: await this.system.getCardData(),
       labels: this.labels,
       condensed: this.hasAttack && configSettings.mergeCardCondensed,
       hasAttack: !minimalCard && this.hasAttack && (systemCard || needAttackButton || configSettings.confirmAttackDamage !== "none"),
@@ -1228,6 +1244,7 @@ export async function wrappedDisplayCard(wrapped, options) {
       versaBtnText,
       showProperties: workflow.workflowType === "Workflow",
       hasEffects,
+      effects: this.effects,
       isMerge: configSettings.mergeCard,
       mergeCardMulti: configSettings.mergeCardMulti && (this.hasAttack || this.hasDamage),
       confirmAttackDamage: configSettings.confirmAttackDamage !== "none" && (this.hasAttack || this.hasDamage),
@@ -1241,7 +1258,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     }
 
     const templateType = ["tool"].includes(this.type) ? this.type : "item";
-    const template = `modules/midi-qol/templates/${templateType}-card.html`;
+    const template = `modules/midi-qol/templates/${templateType}-card.hbs`;
     const html = await renderTemplate(template, templateData);
     if (debugEnabled > 1) debug(" Show Item Card ", configSettings.useTokenNames, (configSettings.useTokenNames && token) ? token?.name : this.actor.name, token, token?.name, this.actor.name)
     let theSound = configSettings.itemUseSound;
@@ -1278,13 +1295,21 @@ export async function wrappedDisplayCard(wrapped, options) {
     if (!this.id || (this.type === "consumable" && !this.actor.items.has(this.id))) {
       chatData.flags[`${game.system.id}.itemData`] = this.toObject(); // TODO check this v10
     }
+    setProperty(chatData, `flags.${game.system.id}.roll.type`, "other");
 
     chatData.flags = mergeObject(chatData.flags, options.flags);
     Hooks.callAll("dnd5e.preDisplayCard", this, chatData, options);
     workflow.chatUseFlags = getProperty(chatData, "flags") ?? {};
 
     ChatMessage.applyRollMode(chatData, options.rollMode ?? game.settings.get("core", "rollMode"));
-    const card = createMessage !== false ? ChatMessage.create(chatData) : chatData;
+    let card;
+    if (createMessage == false) card = chatData;
+    if (configSettings.mergeCard) {
+      card = await ChatMessageMidi.create(chatData)
+    } else {
+      //@ts-expect-error
+      card = createMessage !== false ? await game.system.documents.ChatMessage5e.create(chatData) : chatData;
+    }
     Hooks.callAll("dnd5e.displayCard", this, card);
     return card;
   } catch (err) {
@@ -1292,24 +1317,6 @@ export async function wrappedDisplayCard(wrapped, options) {
     TroubleShooter.recordError(message, err);
     throw err;
   }
-}
-
-async function getChatData() {
-  if (!this.system.activation?.condition) return this.getChatData();
-  const cond = this.system.activation.condition;
-  let result;
-  try {
-    const matchList = ["includes\\(", "<", ">", "==", "!=", '"', '@', 'raceOrType', 'true', 'false'];
-    let regex = new RegExp('\\b(' + matchList.join('|') + ')\\b', 'gi');
-    const match = this.system.activation.condition.match(regex);
-    if (match) this.system.activation.condition = "...";
-    result = await this.getChatData();
-  } catch (err) {
-    result = this.getChatData();
-  } finally {
-    if (cond) this.system.activation.condition = cond;
-  }
-  return result;
 }
 
 export async function resolveTargetConfirmation(item, options: any, pressedKeys: any): Promise<boolean> {
@@ -1348,7 +1355,7 @@ export async function showItemInfo() {
     tokenUuid: token?.document?.uuid ?? token?.uuid,
     item: this,
     itemUuid: this.uuid,
-    data: await this.getChatData(),
+    data: await await this.system.getCardData(),
     labels: this.labels,
     condensed: false,
     hasAttack: false,
@@ -1367,7 +1374,7 @@ export async function showItemInfo() {
   };
 
   const templateType = ["tool"].includes(this.type) ? this.type : "item";
-  const template = `modules/midi-qol/templates/${templateType}-card.html`;
+  const template = `modules/midi-qol/templates/${templateType}-card.hbs`;
   const html = await renderTemplate(template, templateData);
 
   const chatData = {
@@ -1613,11 +1620,11 @@ export function shouldRollOtherDamage(workflow: Workflow, conditionFlagWeapon: s
     } else if (["rwak", "mwak"].includes(this.system.actionType) && conditionFlagWeapon !== "none") {
       rollOtherDamage =
         (conditionFlagWeapon === "ifSave" && workflow.otherDamageItem.hasSave) ||
-        ((conditionFlagWeapon === "activation") && (this.system.attunement !== getSystemCONFIG().attunementTypes.REQUIRED));
+        ((conditionFlagWeapon === "activation") && (this.system.attunement !== GameSystemConfig.attunementTypes.REQUIRED));
       conditionFlagToUse = conditionFlagWeapon;
       conditionToUse = workflow.otherDamageItem?.system.activation?.condition
     }
-    if (workflow.otherDamageItem?.flags?.midiProperties?.rollOther && this.system.attunement !== getSystemCONFIG().attunementTypes.REQUIRED) {
+    if (workflow.otherDamageItem?.flags?.midiProperties?.rollOther && this.system.attunement !== GameSystemConfig.attunementTypes.REQUIRED) {
       rollOtherDamage = true;
       conditionToUse = workflow.otherDamageItem?.system.activation?.condition
       conditionFlagToUse = "activation"

@@ -1,8 +1,8 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete } from "../midi-qol.js";
-import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting } from "./settings.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete, GameSystemConfig } from "../midi-qol.js";
+import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
-import { socketlibSocket, timedAwaitExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
+import { socketlibSocket, timedAwaitExecuteAsGM, untimedExecuteAsGM, updateEffects } from "./GMAction.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
@@ -10,6 +10,7 @@ import { OnUseMacros } from "./apps/Item.js";
 import { Options } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
+import { DEFAULT_MACRO_ICON } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/constants.mjs.js";
 
 const defaultTimeout = 30;
 export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | String;
@@ -18,21 +19,23 @@ export type ReactionItem = { itemName: string, itemId: string, actionName: strin
 
 
 export function getDamageType(flavorString): string | undefined {
-  const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
-  const allDamageTypeEntries = Object.entries(getSystemCONFIG().damageTypes).concat(Object.entries(getSystemCONFIG().healingTypes));
+  //@ts-expect-error
+  const validDamageTypes = Object.entries(GameSystemConfig.damageTypes).map(e => {e[1] = e[1].label; return e}).deepFlatten().concat(Object.entries(GameSystemConfig.healingTypes).deepFlatten())
+  const allDamageTypeEntries = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));
   if (validDamageTypes.includes(flavorString)) {
-    const damageEntry: any = allDamageTypeEntries?.find(e => e[1] === flavorString);
+    //@ts-expect-error
+    const damageEntry: any = allDamageTypeEntries?.find(e => e[1].label === flavorString);
     return damageEntry ? damageEntry[0] : flavorString
   }
   return undefined;
 }
 
 export function getDamageFlavor(damageType): string | undefined {
-  const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
-  const allDamageTypeEntries = Object.entries(getSystemCONFIG().damageTypes).concat(Object.entries(getSystemCONFIG().healingTypes));
+  const validDamageTypes = Object.entries(GameSystemConfig.damageTypes).deepFlatten().concat(Object.entries(GameSystemConfig.healingTypes).deepFlatten())
+  const allDamageTypeEntries = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));
   if (validDamageTypes.includes(damageType)) {
     const damageEntry: any = allDamageTypeEntries?.find(e => e[0] === damageType);
-    return damageEntry ? damageEntry[1] : damageType
+    return damageEntry ? damageEntry[1].label : damageType
   }
   return undefined;
 }
@@ -42,178 +45,81 @@ export function getDamageFlavor(damageType): string | undefined {
  */
 export function createDamageDetail({ roll, item, versatile, defaultType = MQdefaultDamageType, ammo }): { damage: unknown; type: string; }[] {
   let damageParts = {};
-  const rollTerms = roll?.terms ?? [];
-  //@ts-expect-error .version
-  const systemVersion = game.system.version;
-  let evalString = "";
-  let parts = duplicate(item?.system.damage.parts ?? []);
-  if (versatile && item?.system.damage.versatile) {
-    if (isNewerVersion(systemVersion, "2.4.99")) {
-      parts[0].formula = item.system.damage.versatile;
-    } else
-      parts[0][0] = item.system.damage.versatile;
-  }
-  if (ammo) parts = parts.concat(ammo.system.damage.parts)
-
-  // create data for a synthetic roll
-  let rollData = item ? item.getRollData() : {};
-  rollData.mod = 0;
-  if (debugEnabled > 1) debug("CrreateDamageDetail: Passed roll is ", roll)
-  if (debugEnabled > 1) debug("CrreateDamageDetail: Damage spec is ", parts)
-  let partPos = 0;
-  const validDamageTypes = Object.entries(getSystemCONFIG().damageTypes).deepFlatten().concat(Object.entries(getSystemCONFIG().healingTypes).deepFlatten())
-  const allDamageTypeEntries = Object.entries(getSystemCONFIG().damageTypes).concat(Object.entries(getSystemCONFIG().healingTypes));
-
-  // If we have an item we can use it to work out each of the damage lines that are being rolled
-  for (let part of parts) { // each spec,type is one of the damage lines
-    let spec, type;
-    if (isNewerVersion(systemVersion, "2.4.99")) {
-      let { damageType, formula } = part;
-      spec = formula;
-      type = damageType;
-    } else {
-      [spec, type] = part;
+  //@ts-expect-error
+  const DamageRoll = CONFIG.Dice.DamageRoll;
+  if (roll instanceof Array) {
+    // If we received an array we have an array of damage rolls
+    for (let r of roll) {
+      damageParts[r.options.type || defaultType] = r.total + (damageParts[r.options.type || defaultType] ?? 0);
     }
-    if (partPos >= rollTerms.length) continue;
-    // TODO look at replacing this with a map/reduce
-    if (debugEnabled > 1) debug("CrreateDamageDetail: single Spec is ", spec, type, item)
-    let formula = Roll.replaceFormulaData(spec, rollData, { missing: "0", warn: false });
-    // However will be a problem longer term when async not supported?? What to do
-    let dmgSpec: Roll | undefined;
-    try {
-      // TODO Check if we actually have to to do the roll - intermeidate terms and simplifying the roll are the two bits to think about
-      dmgSpec = new Roll(formula, rollData).evaluate({ async: false });
-    } catch (err) {
-      const message = `midi-qol | CrreateDamageDetail | DmgSpec not valid ${formula}`;
-      TroubleShooter.recordError(err, message);
-      error(message, err)
-      dmgSpec = undefined;
-      break;
-    }
-    if (!dmgSpec || dmgSpec.terms?.length < 1) break;
-    // dmgSpec is now a roll with the right terms (but nonsense value) to pick off the right terms from the passed roll
-    // Because damage spec is rolled it drops the leading operator terms, so do that as well
-    for (let i = 0; i < dmgSpec.terms.length; i++) { // grab all the terms for the current damage line
-      // rolls can have extra operator terms if mods are negative so test is
-      // if the current roll term is an operator but the next damage spec term is not 
-      // add the operator term to the eval string and advance the roll term counter
-      // eventually rollTerms[partPos] will become undefined so it can't run forever
-      while (rollTerms[partPos] instanceof CONFIG.Dice.termTypes.OperatorTerm &&
-        !(dmgSpec.terms[i] instanceof CONFIG.Dice.termTypes.OperatorTerm)) {
-        evalString += rollTerms[partPos].operator + " ";
-        partPos += 1;
-      }
-      if (rollTerms[partPos]) {
-        const hasDivideMultiply = rollTerms[partPos + 1] instanceof OperatorTerm && ["/", "*"].includes(rollTerms[partPos + 1].operator);
-        if (rollTerms[partPos] instanceof OperatorTerm) {
-          evalString += rollTerms[partPos].operator + " ";
-        }
-
-        if (rollTerms[partPos] instanceof DiceTerm || rollTerms[partPos] instanceof NumericTerm) {
-          const flavorDamageType = getDamageType(rollTerms[partPos]?.options?.flavor);
-          type = flavorDamageType ?? type;
-          if (!rollTerms[partPos]?.options.flavor) {
-            setProperty(rollTerms[partPos].options, "flavor", getDamageFlavor(type));
-          }
-
-          evalString += rollTerms[partPos]?.total;
-          if (!hasDivideMultiply) {
-            // let result = Roll.safeEval(evalString);
-            let result = new Roll(evalString).evaluate({ async: false }).total;
-            damageParts[type || defaultType] = (damageParts[type || defaultType] || 0) + result;
-            evalString = "";
-          }
-        }
-        if (rollTerms[partPos] instanceof PoolTerm) {
-          const flavorDamageType = getDamageType(rollTerms[partPos]?.options?.flavor);
-          type = flavorDamageType ?? type;
-          if (!rollTerms[partPos]?.options.flavor) {
-            setProperty(rollTerms[partPos].options, "flavor", getDamageFlavor(type));
-          }
-          evalString += rollTerms[partPos]?.total;
-        }
-      }
+  } else if (roll instanceof DamageRoll) {
+    damageParts[roll.options.type || defaultType] = roll.total + (damageParts[roll.options.type || defaultType] ?? 0);
+  } else {
+    let evalString = "";
+    let damageType: string | undefined = defaultType;
+    let partPos = 0;
+    let rollTerms = roll.terms;
+    let numberTermFound = false; // We won't evaluate until at least 1 numeric term is found
+    while (partPos < rollTerms.length) {
+      // Accumulate the text for each of the terms until we have enough to eval
+      const evalTerm = rollTerms[partPos];
       partPos += 1;
-    }
-    // Each damage line is added together and we can skip the operator term
-    partPos += 1;
-    if (evalString !== "") {
-      // let result = Roll.safeEval(evalString);
-      let result = new Roll(evalString).evaluate({ async: false }).total;
-      damageParts[type || defaultType] = (damageParts[type || defaultType] || 0) + result;
-      evalString = "";
-    }
-  }
-  // We now have all of the item's damage lines (or none if no item)
-  // Now just add up the other terms - using any flavor types for the rolls we get
-  // we stepped one term too far so step back one
-  partPos = Math.max(0, partPos - 1);
-
-  // process the rest of the roll as a sequence of terms.
-  // Each might have a damage flavour so we do them expression by expression
-
-  evalString = "";
-  let damageType: string | undefined = defaultType;
-  let numberTermFound = false; // We won't evaluate until at least 1 numeric term is found
-  while (partPos < rollTerms.length) {
-    // Accumulate the text for each of the terms until we have enough to eval
-    const evalTerm = rollTerms[partPos];
-    partPos += 1;
-    if (evalTerm instanceof DiceTerm) {
-      // this is a dice roll
-      damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
-      if (!evalTerm?.options.flavor) {
-        setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
+      if (evalTerm instanceof DiceTerm) {
+        // this is a dice roll
+        damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
+        if (!evalTerm?.options.flavor) {
+          setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
+        }
+        numberTermFound = true;
+        evalString += evalTerm.total;
+      } else if (evalTerm instanceof Die) { // special case for better rolls that does not return a proper roll
+        damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
+        if (!evalTerm?.options.flavor) {
+          setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
+        }
+        numberTermFound = true;
+        evalString += evalTerm.total;
+      } else if (evalTerm instanceof NumericTerm) {
+        damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
+        if (!evalTerm?.options.flavor) {
+          setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
+        }
+        numberTermFound = true;
+        evalString += evalTerm.total;
       }
-      numberTermFound = true;
-      evalString += evalTerm.total;
-    } else if (evalTerm instanceof Die) { // special case for better rolls that does not return a proper roll
-      damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
-      if (!evalTerm?.options.flavor) {
-        setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
+      if (evalTerm instanceof PoolTerm) {
+        damageType = getDamageType(evalTerm?.options?.flavor) ?? damageType;
+        if (!evalTerm?.options.flavor) {
+          setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
+        }
+        evalString += evalTerm.total;
       }
-      numberTermFound = true;
-      evalString += evalTerm.total;
-    } else if (evalTerm instanceof NumericTerm) {
-      damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
-      if (!evalTerm?.options.flavor) {
-        setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
-      }
-      numberTermFound = true;
-      evalString += evalTerm.total;
-    }
-    if (evalTerm instanceof PoolTerm) {
-      damageType = getDamageType(evalTerm?.options?.flavor) ?? damageType;
-      if (!evalTerm?.options.flavor) {
-        setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
-      }
-      evalString += evalTerm.total;
-    }
-    if (evalTerm instanceof OperatorTerm) {
-      if (["*", "/"].includes(evalTerm.operator)) {
-        // multiply or divide keep going
-        evalString += evalTerm.total
-      } else if (["-", "+"].includes(evalTerm.operator)) {
-        if (numberTermFound) { // we have a number and a +/- so we can eval the term (do it straight away so we get the right damage type)
-          let result = Roll.safeEval(evalString);
-          damageParts[damageType || defaultType] = (damageParts[damageType || defaultType] || 0) + result;
-          // reset for the next term - we don't know how many there will be
-          evalString = "";
-          damageType = defaultType;
-          numberTermFound = false;
-          evalString = evalTerm.operator;
-        } else { // what to do with parenthetical term or others?
-          evalString += evalTerm.total;
+      if (evalTerm instanceof OperatorTerm) {
+        if (["*", "/"].includes(evalTerm.operator)) {
+          // multiply or divide keep going
+          evalString += evalTerm.total
+        } else if (["-", "+"].includes(evalTerm.operator)) {
+          if (numberTermFound) { // we have a number and a +/- so we can eval the term (do it straight away so we get the right damage type)
+            let result = Roll.safeEval(evalString);
+            damageParts[damageType || defaultType] = (damageParts[damageType || defaultType] || 0) + result;
+            // reset for the next term - we don't know how many there will be
+            evalString = "";
+            damageType = defaultType;
+            numberTermFound = false;
+            evalString = evalTerm.operator;
+          } else { // what to do with parenthetical term or others?
+            evalString += evalTerm.total;
+          }
         }
       }
     }
-  }
-  // evalString contains the terms we have not yet evaluated so do them now
+    // evalString contains the terms we have not yet evaluated so do them now
 
-  if (evalString) {
-    const damage = Roll.safeEval(evalString);
-    // we can always add since the +/- will be recorded in the evalString
-    damageParts[damageType || defaultType] = (damageParts[damageType || defaultType] || 0) + damage;
+    if (evalString) {
+      const damage = Roll.safeEval(evalString);
+      // we can always add since the +/- will be recorded in the evalString
+      damageParts[damageType || defaultType] = (damageParts[damageType || defaultType] || 0) + damage;
+    }
   }
   const damageDetail = Object.entries(damageParts).map(([type, damage]) => { return { damage, type } });
   if (debugEnabled > 1) debug("CreateDamageDetail: Final damage detail is ", damageDetail);
@@ -300,16 +206,16 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
   if (dmgTypeString.includes("healing") || dmgTypeString.includes("temphp")) totalMult = -1;
   if (dmgTypeString.includes("midi-none")) return 0;
   if (configSettings.damageImmunities === "none") return totalMult;
-  const phsyicalDamageTypes = Object.keys(getSystemCONFIG().physicalDamageTypes);
+  const phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
 
   if (dmgTypeString !== "") {
     // if not checking all damage counts as magical
-    let magicalDamage = item?.system.properties?.mgc || item?.flags?.midiProperties?.magicdam;
+    let magicalDamage = item?.system.properties?.has("mgc") || item?.flags?.midiProperties?.magicdam;
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.system.attackBonus > 0);
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.type !== "weapon");
     magicalDamage = magicalDamage || (configSettings.requireMagical === "nonspell" && item?.type === "spell");
-    const silverDamage = item?.system.properties?.sil || magicalDamage;
-    const adamantineDamage = item?.system.properties?.ada;
+    const silverDamage = item?.system.properties.has("sil") || magicalDamage;
+    const adamantineDamage = item?.system.properties?.has("ada");
     const physicalDamage = phsyicalDamageTypes.includes(dmgTypeString);
 
     let traitList = [
@@ -326,54 +232,51 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
       if (actor.system.traits[type].custom?.length > 0) {
         customs = actor.system.traits[type].custom.split(";").map(s => s.trim())
       }
-      // process new bypasses settings
-      //@ts-expect-error
-      if (isNewerVersion(game.system.version, "2.0.3")) {
-        const bypasses = actor.system.traits[type].bypasses ?? new Set();
-        if (magicalDamage && physicalDamage && bypasses.has("mgc")) continue; // magical damage bypass of trait.
-        if (adamantineDamage && physicalDamage && bypasses.has("ada")) continue;
-        if (silverDamage && physicalDamage && bypasses.has("sil")) continue;
-        // process new custom field versions
-        if (!["healing", "temphp"].includes(dmgTypeString)) {
-          if (customs.includes(dmgTypeString) || trait.has(dmgTypeString)) {
-            totalMult = totalMult * mult;
-            continue;
-          }
-          if (!magicalDamage && (trait.has("nonmagic") || customs.includes(getSystemCONFIG().damageResistanceTypes["nonmagic"]))) {
-            totalMult = totalMult * mult;
-            continue;
-          } else if (!magicalDamage && physicalDamage && (trait.has("physical") || customs.includes(getSystemCONFIG().customDamageResistanceTypes?.physical))) {
-            totalMult = totalMult * mult;
-            continue;
-          } else if (magicalDamage && trait.has("magic")) {
-            totalMult = totalMult * mult;
-            continue;
-          }
 
-          else if (item?.type === "spell" && trait.has("spell")) {
+      const bypasses = actor.system.traits[type].bypasses ?? new Set();
+      if (magicalDamage && physicalDamage && bypasses.has("mgc")) continue; // magical damage bypass of trait.
+      if (adamantineDamage && physicalDamage && bypasses.has("ada")) continue;
+      if (silverDamage && physicalDamage && bypasses.has("sil")) continue;
+      // process new custom field versions
+      if (!["healing", "temphp"].includes(dmgTypeString)) {
+        if (customs.includes(dmgTypeString) || trait.has(dmgTypeString)) {
+          totalMult = totalMult * mult;
+          continue;
+        }
+        if (!magicalDamage && (trait.has("nonmagic") || customs.includes(GameSystemConfig.damageResistanceTypes["nonmagic"]))) {
+          totalMult = totalMult * mult;
+          continue;
+        } else if (!magicalDamage && physicalDamage && (trait.has("physical") || customs.includes(GameSystemConfig.customDamageResistanceTypes?.physical))) {
+          totalMult = totalMult * mult;
+          continue;
+        } else if (magicalDamage && trait.has("magic")) {
+          totalMult = totalMult * mult;
+          continue;
+        }
+
+        else if (item?.type === "spell" && trait.has("spell")) {
+          totalMult = totalMult * mult;
+          continue;
+        } else if (item?.type === "power" && trait.has("power")) {
+          totalMult = totalMult * mult;
+          continue;
+        }
+        if (customs.length > 0) {
+          if (!magicalDamage && (customs.includes("nonmagic") || customs.includes(GameSystemConfig.customDamageResistanceTypes?.nonmagic))) {
             totalMult = totalMult * mult;
             continue;
-          } else if (item?.type === "power" && trait.has("power")) {
+          } else if (!magicalDamage && physicalDamage && (customs.includes("physical") || customs.includes(GameSystemConfig.customDamageResistanceTypes?.physical))) {
             totalMult = totalMult * mult;
             continue;
-          }
-          if (customs.length > 0) {
-            if (!magicalDamage && (customs.includes("nonmagic") || customs.includes(getSystemCONFIG().customDamageResistanceTypes?.nonmagic))) {
-              totalMult = totalMult * mult;
-              continue;
-            } else if (!magicalDamage && physicalDamage && (customs.includes("physical") || customs.includes(getSystemCONFIG().customDamageResistanceTypes?.physical))) {
-              totalMult = totalMult * mult;
-              continue;
-            } else if (magicalDamage && (customs.includes("magic") || customs.includes(getSystemCONFIG().customDamageResistanceTypes.magic))) {
-              totalMult = totalMult * mult;
-              continue;
-            } else if (item?.type === "spell" && (customs.includes("spell") || customs.includes(getSystemCONFIG().customDamageResistanceTypes.spell))) {
-              totalMult = totalMult * mult;
-              continue;
-            } else if (item?.type === "power" && (customs.includes("power") || customs.includes(getSystemCONFIG().customDamageResistanceTypes.power))) {
-              totalMult = totalMult * mult;
-              continue;
-            }
+          } else if (magicalDamage && (customs.includes("magic") || customs.includes(GameSystemConfig.customDamageResistanceTypes.magic))) {
+            totalMult = totalMult * mult;
+            continue;
+          } else if (item?.type === "spell" && (customs.includes("spell") || customs.includes(GameSystemConfig.customDamageResistanceTypes.spell))) {
+            totalMult = totalMult * mult;
+            continue;
+          } else if (item?.type === "power" && (customs.includes("power") || customs.includes(GameSystemConfig.customDamageResistanceTypes.power))) {
+            totalMult = totalMult * mult;
+            continue;
           }
         }
 
@@ -388,60 +291,6 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
         }
 
         if (trait.has(dmgTypeString))
-          totalMult = totalMult * mult;
-      } else {
-        const bypasses = actor.system.traits[type].bypasses ?? [];
-        if (magicalDamage && physicalDamage && bypasses.includes("mgc")) continue; // magical damage bypass of trait.
-        if (adamantineDamage && physicalDamage && bypasses.includes("ada")) continue;
-        if (silverDamage && physicalDamage && bypasses.includes("sil")) continue;
-        // process new custom field versions
-        if (!["healing", "temphp"].includes(dmgTypeString)) {
-          if (customs.includes(dmgTypeString)) {
-            totalMult = totalMult * mult;
-            continue;
-          }
-          if (!magicalDamage && (trait.includes("nonmagic") || customs.includes(getSystemCONFIG().damageResistanceTypes["nonmagic"]))) {
-            totalMult = totalMult * mult;
-            continue;
-          } else if (magicalDamage && trait.includes("magic")) {
-            totalMult = totalMult * mult;
-            continue;
-          }
-          else if (item?.type === "spell" && trait.includes("spell")) {
-            totalMult = totalMult * mult;
-            continue;
-          } else if (item?.type === "power" && trait.includes("power")) {
-            totalMult = totalMult * mult;
-            continue;
-          }
-          if (customs.length > 0) {
-            if (!magicalDamage && (customs.includes("nonmagic") || customs.includes(getSystemCONFIG().damageResistanceTypes["nonmagic"]))) {
-              totalMult = totalMult * mult;
-              continue;
-            } else if (magicalDamage && (customs.includes("magic") || customs.includes(getSystemCONFIG().damageResistanceTypes["magic"]))) {
-              totalMult = totalMult * mult;
-              continue;
-            } else if (item?.type === "spell" && (customs.includes("spell") || customs.includes(getSystemCONFIG().damageResistanceTypes["spell"]))) {
-              totalMult = totalMult * mult;
-              continue;
-            } else if (item?.type === "power" && (customs.includes("power") || customs.includes(getSystemCONFIG().damageResistanceTypes["power"]))) {
-              totalMult = totalMult * mult;
-              continue;
-            }
-          }
-        }
-
-        // Support old style leftover settings
-        if (configSettings.damageImmunities === "immunityPhysical") {
-          if (!magicalDamage && trait.includes("physical"))
-            trait = trait.concat(phsyicalDamageTypes)
-          if (!(magicalDamage || silverDamage) && trait.includes("silver"))
-            trait = trait.concat(phsyicalDamageTypes)
-          if (!(magicalDamage || adamantineDamage) && trait.includes("adamant"))
-            trait = trait.concat(phsyicalDamageTypes)
-        }
-
-        if (trait.includes(dmgTypeString))
           totalMult = totalMult * mult;
       }
     }
@@ -549,14 +398,14 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       DRAll += (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
     }
     let DRAllRemaining = DRAll;
-    // const magicalDamage = (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties["mgc"]);
-    let magicalDamage = item?.system.properties?.mgc || item?.flags?.midiProperties?.magicdam;
+    // const magicalDamage = (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties.has("mgc"));
+    let magicalDamage = item?.system.properties?.has("mgc") || item?.flags?.midiProperties?.magicdam;
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.system.attackBonus > 0);
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.type !== "weapon");
     magicalDamage = magicalDamage || (configSettings.requireMagical === "nonspell" && item?.type === "spell");
 
-    const silverDamage = magicalDamage || (item?.type === "weapon" && item?.system.properties["sil"]);
-    const adamantineDamage = item?.system.properties?.ada;
+    const silverDamage = magicalDamage || (item?.type === "weapon" && item?.system.properties?.has("sil"));
+    const adamantineDamage = item?.system.properties?.has("ada");
 
     let AR = 0; // Armor reduction for challenge mode armor etc.
     const ac = targetActor.system.attributes.ac;
@@ -765,12 +614,12 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       appliedDamage -= DRAll;
       totalDamage -= DRAll;
     }
-    if (false && !Object.keys(getSystemCONFIG().healingTypes).includes(dmgType)) {
+    if (false && !Object.keys(GameSystemConfig.healingTypes).includes(dmgType)) {
       totalDamage = Math.max(totalDamage, 0);
       appliedDamage = Math.max(appliedDamage, 0);
     }
     if (AR > 0 && appliedDamage > 0 && ["challenge", "scale"].includes(checkRule("challengeModeArmor"))
-      && !Object.keys(getSystemCONFIG().healingTypes).includes(dmgType)) {
+      && !Object.keys(GameSystemConfig.healingTypes).includes(dmgType)) {
       totalDamage = appliedDamage;
       if (checkRule("challengeModeArmor") === "scale" || (checkRule("challengeModeArmor") === "challenge" && workflow.hitTargetsEC.has(t))) // TODO: the hitTargetsEC test won't ever fire?
         appliedDamage = Math.max(0, appliedDamage - AR)
@@ -1205,7 +1054,7 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
       LMRTFY.onMessage(socketData);
     } else { // display a chat message to the user telling them to save
       const actorName = actor.name;
-      let abilityString = getSystemCONFIG().abilities[ability];
+      let abilityString = GameSystemConfig.abilities[ability];
       if (abilityString.label) abilityString = abilityString.label;
       let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityString} ${i18n("midi-qol.saving-throw")}`;
       if (advantage && !disadvantage) content = content + ` (${i18n("DND5E.Advantage")}) - ${flavor})`;
@@ -1549,16 +1398,16 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       if (rollTypeString === "skill" && !actionSave) { // skill checks for this is a fiddle - set a midi flag so that the midi save roll will pick it up.
         itemData.system.actionType = "save";
         let skill = saveAbility[0];
-        if (!getSystemCONFIG().skills[skill]) { // not a skill id see if the name matches an entry
+        if (!GameSystemConfig.skills[skill]) { // not a skill id see if the name matches an entry
           //@ts-expect-error
-          const skillEntry = Object.entries(getSystemCONFIG().skills).find(([id, entry]) => entry.label.toLocaleLowerCase() === skill)
+          const skillEntry = Object.entries(GameSystemConfig.skills).find(([id, entry]) => entry.label.toLocaleLowerCase() === skill)
           if (skillEntry) skill = skillEntry[0];
           /*
           //@ts-expect-error
-          const hasEntry = Object.values(getSystemCONFIG().skills).map(entry => entry.label.toLowerCase()).includes(saveAbility)
+          const hasEntry = Object.values(systemConfig.skills).map(entry => entry.label.toLowerCase()).includes(saveAbility)
 
           if (hasEntry) {
-            skill = Object.keys(getSystemCONFIG().skills).find(id => getSystemCONFIG().skills[id].label.toLocaleLowerCase() === saveAbility[0])
+            skill = Object.keys(systemConfig.skills).find(id => systemConfig.skills[id].label.toLocaleLowerCase() === saveAbility[0])
           }
           */
         }
@@ -2167,11 +2016,11 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     }
     if (item.system.range.units === "touch") {
       range = canvas?.dimensions?.distance ?? 5;
-      if (getProperty(item, "system.properties.rch")) range += canvas?.dimensions?.distance ?? 5;
+      if (item.system.properties?.has("rch")) range += canvas?.dimensions?.distance ?? 5;
       longRange = 0;
     }
 
-    if (["mwak", "msak", "mpak"].includes(item.system.actionType) && !item.system.properties?.thr) longRange = 0;
+    if (["mwak", "msak", "mpak"].includes(item.system.actionType) && !item.system.properties?.has("thr")) longRange = 0;
     for (let target of targets) {
       if (target === token) continue;
       // check if target is burrowing
@@ -3053,7 +2902,7 @@ export async function processAttackRollBonusFlags() { // bound to workflow
     .map(flag => `flags.midi-qol.optional.${flag}`);
 
   if (bonusFlags.length > 0) {
-    this.attackRollHTML = await midiRenderRoll(this.attackRoll);
+    this.attackRollHTML = await midiRenderAttackRoll(this.attackRoll);
     await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
   }
   if (this.targets.size === 1) {
@@ -3074,7 +2923,7 @@ export async function processAttackRollBonusFlags() { // bound to workflow
         })
         .map(flag => `flags.midi-qol.optional.${flag}`);
       if (bonusFlags.length > 0) {
-        this.attackRollHTML = await midiRenderRoll(this.attackRoll);
+        this.attackRollHTML = await midiRenderAttackRoll(this.attackRoll);
         await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, "attackRoll", "attackTotal", "attackRollHTML")
       }
     }
@@ -3096,6 +2945,7 @@ export async function processDamageRollBonusFlags(): Promise<Roll> { // bound to
     .map(flag => `flags.midi-qol.optional.${flag}`);
   if (bonusFlags.length > 0) {
     this.damageRollHTML = await midiRenderRoll(this.damageRoll);
+    // TODO dnd3 work out what this means for multiple rolls
     await bonusDialog.bind(this)(bonusFlags, damageBonus, false, `${this.actor.name} - ${i18n("DND5E.Damage")} ${i18n("DND5E.Roll")}`, "damageRoll", "damageTotal", "damageRollHTML")
   }
   return this.damageRoll;
@@ -3168,8 +3018,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         macroData.macroPass = `${button.key}.${flagSelector}`;
         macroData.tag = "optional";
         macroData.roll = this[rollId];
- 
-        result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll: this[rollId], bonus: (!specificMacro ? button.value: undefined) });
+
+        result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll: this[rollId], bonus: (!specificMacro ? button.value : undefined) });
         if (typeof result === "string")
           button.value = result;
         else {
@@ -3286,7 +3136,6 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         newRoll.options.rollMode = rollMode;
         resolve(newRoll);
         if (showRoll) {
-          // const oldRollHTML = await originalRoll.render() ?? this[rollId].result
           const newRollHTML = reRoll ? await midiRenderRoll(reRoll) : await midiRenderRoll(newRoll);
           const chatData: any = {
             // content: `${this[rollId].result} -> ${newRoll.formula} = ${newRoll.total}`,
@@ -3535,15 +3384,10 @@ function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
     if (item.system.preparation?.prepared !== true && item.system.preparation?.mode === "prepared") return false;
     if (item.system.preparation.mode !== "innate") return item.system.level <= maxLevel;
   }
-  if (item.system.attunement === getSystemCONFIG().attunementTypes.REQUIRED) return false;
-  //@ts-expect-error .version
-  if (isNewerVersion(game.system.version, "2.3.9")) {
-    if (!item._getUsageUpdates({ consumeUsage: item.hasLimitedUses, consumeResource: item.hasResource, slotLevel: false }))
-      return false;
-  } else {
-    if (!item._getUsageUpdates({ consumeRecharge: item.system.recharge?.value, consumeResource: true, consumeSpellLevel: false, consumeUsage: item.system.uses?.max > 0, consumeQuantity: item.type === "consumable" }))
-      return false;
-  }
+  if (item.system.attunement === GameSystemConfig.attunementTypes.REQUIRED) return false;
+  if (!item._getUsageUpdates({ consumeUsage: item.hasLimitedUses, consumeResource: item.hasResource, slotLevel: false }))
+    return false;
+
   return true;
 }
 
@@ -4209,7 +4053,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   if (!item) item = data.workflow?.item;
   let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
   rollData = mergeObject(rollData, data.extraData ?? {});
-  rollData.isAttuned = rollData.item?.attunement !== getSystemCONFIG().attunementTypes.REQUIRED;
+  rollData.isAttuned = rollData.item?.attunement !== GameSystemConfig.attunementTypes.REQUIRED;
 
   try {
     if (data.target) {
@@ -4618,25 +4462,53 @@ function hookCall(entry, args) {
   }
 }
 
-export function addAdvAttribution(html: any, advAttribution: Set<string>) {
+export function  addAdvAttribution(roll: Roll, advAttribution: Set<string>) {
   // <section class="tooltip-part">
   let advHtml: string = "";
   if (advAttribution && advAttribution.size > 0) {
     advHtml = Array.from(advAttribution).reduce((prev, s) => prev += `${s}<br>`, "");
-    html = html.replace(`<section class="tooltip-part">`, `<section class="tooltip-part">${advHtml}`);
+    setProperty(roll, "options.advTooltip", advHtml);
   }
-  return html;
 }
 
-export async function midiRenderRoll(roll: Roll | undefined) {
+function getTooltip(roll) {
+  const parts = roll.dice.map(d => d.getTooltipData());
+  return renderTemplate("modules/midi-qol/templates/tooltip.html", { advTooltip: roll.options?.advTooltip, parts });
+}
+
+export async function midiRenderRoll(roll) {
+  return roll.render();
+}
+export async function midiRenderAttackRoll(roll) {
+  // return roll.render({ template: "modules/midi-qol/templates/attack-roll.html" });
+  return midiRenderTemplateRoll(roll, "modules/midi-qol/templates/attack-roll.html")
+}
+
+export async function midiRenderDamageRoll(roll) {
+  return midiRenderTemplateRoll(roll, "modules/midi-qol/templates/damage-roll.html")
+  return roll.render({template: "modules/midi-qol/templates/damage-roll.html"});
+  return midiRenderTemplateRoll(roll, "modules/midi-qol/templates/damage-roll.html")
+}
+
+export function midiRenderOtherDamageRoll(roll) {
+  return roll.render({template: "modules/midi-qol/templates/other-damage-roll.html"})
+}
+export function midiRenderBonusDamageRoll(roll) {
+  midiRenderTemplateRoll(roll, "modules/midi-qol/templates/bonus-damage-roll.html")
+  return roll.render({template: "modules/midi-qol/templates/bonus-damage-roll.html"});
+}
+
+export async function midiRenderTemplateRoll(roll: Roll | undefined, template: string) {
   if (!roll) return "";
-  switch (configSettings.rollAlternate) {
-    case "formula":
-    case "formulaadv": return roll.render({ template: "modules/midi-qol/templates/rollAlternate.html" });
-    case "adv":
-    case "off":
-    default: return roll.render(); // "off"
-  }
+  const chatData = {
+    formula: roll.formula,
+    user: game.user?.id,
+    tooltip: await getTooltip(roll),
+    //@ts-expect-error
+    flavor: roll.options?.flavor,
+    total: (roll.total !== undefined) ? Math.round((roll.total) * 100) / 100 : "???"
+  };
+  return renderTemplate(template, chatData);
 }
 export function heightIntersects(targetDocument: any /*TokenDocument*/, flankerDocument: any /*TokenDocument*/): boolean {
   const targetElevation = targetDocument.elevation ?? 0;
@@ -5016,18 +4888,6 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   return Array.from(matchedModes);
 }
 
-export function getSystemCONFIG(): any {
-  switch (game.system.id) {
-    //@ts-expect-error .
-    case "dnd5e": return CONFIG.DND5E;
-    //@ts-expect-error .
-    case "sw5e": return { ...CONFIG.SW5E, skills: { ...CONFIG.SW5E.skills, ...CONFIG.SW5E.starshipSkills } };
-    //@ts-expect-error .
-    case "n5e": return CONFIG.N5E;
-    default: return {};
-  }
-}
-
 export function tokenForActor(actorRef: Actor | string): Token | undefined {
   let actor: Actor;
   if (!actorRef) return undefined
@@ -5233,33 +5093,31 @@ export function hasWallBlockingCondition(target: any /*Token*/): boolean {
 }
 
 function contestedRollFlavor(baseFlavor: string | undefined, rollType: string, ability: string): string {
-  const config = getSystemCONFIG();
   let flavor;
   let title;
   if (rollType === "test" || rollType === "abil") {
-    const label = config.abilities[ability]?.label ?? ability;
+    const label = GameSystemConfig.abilities[ability]?.label ?? ability;
     flavor = game.i18n.format("DND5E.AbilityPromptTitle", { ability: label });
   } else if (rollType === "save") {
-    const label = config.abilities[ability].label;
+    const label = GameSystemConfig.abilities[ability].label;
     flavor = game.i18n.format("DND5E.SavePromptTitle", { ability: label });
   } else if (rollType === "skill") {
-    flavor = game.i18n.format("DND5E.SkillPromptTitle", { skill: config.skills[ability]?.label ?? "" });
+    flavor = game.i18n.format("DND5E.SkillPromptTitle", { skill: GameSystemConfig.skills[ability]?.label ?? "" });
   }
   return `${baseFlavor ?? i18n("midi-qol.ContestedRoll")} ${flavor}`;
 }
 export function validRollAbility(rollType: string, ability: string): string | undefined {
-  const config = getSystemCONFIG();
   if (typeof ability !== "string") return undefined;
   ability = ability.toLocaleLowerCase().trim();
   switch (rollType) {
     case "test":
     case "abil":
     case "save":
-      if (config.abilities[ability]) return ability;
-      return Object.keys(config.abilities).find(abl => config.abilities[abl].label.toLocaleLowerCase() === ability.trim().toLocaleLowerCase())
+      if (GameSystemConfig.abilities[ability]) return ability;
+      return Object.keys(GameSystemConfig.abilities).find(abl => GameSystemConfig.abilities[abl].label.toLocaleLowerCase() === ability.trim().toLocaleLowerCase())
     case "skill":
-      if (config.skills[ability]) return ability;
-      return Object.keys(config.skills).find(skl => config.skills[skl].label.toLocaleLowerCase() === ability.trim().toLocaleLowerCase())
+      if (GameSystemConfig.skills[ability]) return ability;
+      return Object.keys(GameSystemConfig.skills).find(skl => GameSystemConfig.skills[skl].label.toLocaleLowerCase() === ability.trim().toLocaleLowerCase())
     default: return undefined;
   }
 }
@@ -5519,7 +5377,7 @@ export function hasAutoPlaceTemplate(item) {
 }
 
 export function itemOtherFormula(item): string {
-  if (item?.type === "weapon" && !item?.system.properties?.ver && ((item.system.formula ?? "") === ""))
+  if (item?.type === "weapon" && !item?.isVersatle && ((item.system.formula ?? "") === ""))
     return item?.system.damage.versatile ?? "";
   return item?.system.formula ?? "";
 }
@@ -5618,4 +5476,27 @@ export function canSee(tokenEntity, targetEntity) {
       NON_SIGHT_CONSIDERED_SIGHT.includes[d]
   );
   return canSense(tokenEntity, targetEntity, sightDetectionModes);
+}
+
+export function sumRolls(rolls: Array<Roll> | undefined = []): number {
+  if (!rolls) return 0;
+  return rolls.reduce((total, b) => total + (b?.total ?? 0), 0);
+}
+
+const updatesCache = {};
+export async function _updateAction(document) {
+  if (!updatesCache[document.uuid]) return;
+  const updates = updatesCache[document.uuid];
+  updatesCache[document.uuid] = undefined;
+  if (DebounceInterval) console.log("Doing updateAction");
+  // console.log("Doing updateAction", updatesCache[document.uuid]);
+  return document.update(updates);
+}
+
+export async function debounceUpdate(document, updates) {
+  updatesCache[document.uuid] = mergeObject((updatesCache[document.uuid] ?? {}), updates, { inplace: false, overwrite: true, insertKeys: true, insertValues: true})
+  if (!DebounceInterval) return _updateAction(document);
+  if (updatesCache[document.uuid]) {console.log("Already some updates here!", DebounceInterval)}
+  else console.log("No updates cached", DebounceInterval)
+  return _debouncedUpdateAction(document);
 }

@@ -1,7 +1,7 @@
-import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log } from "../midi-qol.js";
+import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, getSystemCONFIG, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
@@ -314,7 +314,7 @@ export function initHooks() {
   function getItemSheetData(data, item) {
 
     const doConditionFixes = true;
-    const config = getSystemCONFIG();
+    const config = GameSystemConfig;
     const midiProps = config.midiProperties;
     if (!item) {
       const message = "item not defined in getItemSheetData";
@@ -331,7 +331,7 @@ export function initHooks() {
       MacroPassOptions: Workflow.allMacroPasses,
       showCEOff: false,
       showCEOn: false,
-      hasOtherDamage: ![undefined, ""].includes(item.system.formula) || (item.system.damage?.versatile && !item.system.properties?.ver),
+      hasOtherDamage: ![undefined, ""].includes(item.system.formula) || (item.system.damage?.versatile && !item.system.properties?.has("ver")),
       showHeader: !configSettings.midiFieldsTab,
       midiPropertyLabels: midiProps,
       SaveDamageOptions: geti18nOptions("SaveDamageOptions"),
@@ -364,9 +364,9 @@ export function initHooks() {
     setProperty(data, "flags.midiProperties", item.flags?.midiProperties ?? {});
     if (["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(item?.type)) {
       for (let prop of Object.keys(midiProps)) {
-        if (getProperty(item, `system.properties.${prop}`) !== undefined
+        if (item.system.properties?.has(prop)
           && getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
-          setProperty(item, `flags.midiProperties.${prop}`, item.system.properties[prop]);
+          setProperty(item, `flags.midiProperties.${prop}`, true);
         } else if (getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
           if (["saveDamage", "confirmTargets", "otherSaveDamage", "bonusSaveDamage"].includes(prop)) {
             setProperty(data, `flags.midiProperties.${prop}`, "default");
@@ -374,7 +374,7 @@ export function initHooks() {
         }
       }
       if (!getProperty(data, "flags.midi-qol.rollAttackPerTarget")) setProperty(data, "flags.midi-qol.rollAttackPerTarget", "default");
-      if (item.system.formula !== "" || (item.system.damage?.versatile && !item.system.properties?.ver)) {
+      if (item.system.formula !== "" || (item.system.damage?.versatile && !item.system.properties?.has("ver"))) {
         if (data.flags.midiProperties?.fulldam !== undefined) {
           if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["otherSaveDamage"] = "fulldam";
         }
@@ -570,7 +570,7 @@ export function initHooks() {
         if (["creature", "ally", "enemy"].includes(item.system.target?.type) && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
           const targetElement = html.find('select[name="system.target.type"]');
           const targetUnitHTML = `
-              <select name="system.target.units" data-tooltip="${i18n(getSystemCONFIG().TargetUnits)}">
+              <select name="system.target.units" data-tooltip="${i18n(GameSystemConfig.TargetUnits)}">
               <option value="" ${item.system.target.units === '' ? "selected" : ''}></option>
               <option value="ft" ${item.system.target.units === 'ft' ? "selected" : ''}>Feet</option>
               <option value="mi " ${item.system.target.units === 'mi' ? "selected" : ''}>Miles</option>
@@ -588,7 +588,7 @@ export function initHooks() {
   Hooks.on("preUpdateItem", (candidate, updates, options, user) => {
     if (updates.system?.target) {
       const targetType = updates.system.target?.type ?? candidate.system.target?.type;
-      const noUnits = !["creature", "ally", "enemy"].includes(targetType) && !(targetType in getSystemCONFIG().areaTargetTypes);
+      const noUnits = !["creature", "ally", "enemy"].includes(targetType) && !(targetType in GameSystemConfig.areaTargetTypes);
       if (noUnits) {
         setProperty(updates, "system.target.units", null);
       }
@@ -645,7 +645,7 @@ export function initHooks() {
 function setupMidiFlagTypes() {
   //@ts-expect-error
   const systemVersion = game.system.version;
-  let config: any = getSystemCONFIG();
+  let config: any = GameSystemConfig;
   let attackTypes = allAttackTypes.concat(["heal", "other", "save", "util"])
 
   attackTypes.forEach(at => {

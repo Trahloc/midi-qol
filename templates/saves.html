@@ -1,11 +1,10 @@
-<div>
-  <div class="midi-qol-nobox midi-qol-saves-display">
-    <span>
+<div class="midi-qol-box">
+  <strong>{{{saveDisplayFlavor}}}</strong>
+    <span style="text-align: center;">
       <label class="midi-qol-bigger-text">{{{fullDamageText}}}</label>
       <label class="midi-qol-bigger-text">{{{halfDamageText}}}</label>
       <label class="midi-qol-bigger-text">{{{noDamageText}}}</label>
     </span>
-  </div>
   {{#each saves as |save iid|}}
   <div class="midi-qol-flex-container">
     <div class="midi-qol-target-npc-GM midi-qol-target-name" id={{save.id}}> {{{save.gmName}}}</div>
