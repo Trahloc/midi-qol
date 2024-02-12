@@ -1,3 +1,8 @@
+## 11.3.21
+* Enable the midi-tab for tools
+* Only display reaction activation if the item is a reaction item
+* Only display other damage activation is the item has other damage to roll (including for non-versatile weapons with a verstaile damge formula set)
+
 ## 11.3.20
 * Fix for item rolls throwing an error when range calculations abort the roll. Thanks @thatlonelybugbear
 

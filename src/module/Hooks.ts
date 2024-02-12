@@ -337,7 +337,8 @@ export function initHooks() {
       ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions"),
       AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
       AutoTargetOptions: autoTargetOptions,
-      RemoveAttackDamageButtonsOptions
+      RemoveAttackDamageButtonsOptions,
+      hasReaction: item.system.activation?.type?.includes("reaction")
     });
     if (!getProperty(item, "flags.midi-qol.autoTarget")) {
       setProperty(data, "flags.midi-qol.autoTarget", "default");
@@ -436,7 +437,7 @@ export function initHooks() {
       title: 'Midi Qol',
       tabId: "midi-qol-properties-tab",
       path: '/modules/midi-qol/templates/midiPropertiesForm.hbs',
-      enabled: (data) => { return ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(data.item.type) },
+      enabled: (data) => { return ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver", "tool"].includes(data.item.type) },
       getData: (data) => {
         data = getItemSheetData(data, data.item);
         data.showHeader = false;
@@ -514,7 +515,7 @@ export function initHooks() {
     const item = app.object;
     if (!item) return;
     if (app.constructor.name !== "Tidy5eKgarItemSheet") {
-      if (!item || !["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(data.item.type))
+      if (!item || !["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver", "tool"].includes(data.item.type))
         return;
 
       if (configSettings.midiFieldsTab) {
