@@ -973,7 +973,7 @@ export async function rollInitiativeDialog(wrapped, rollOptions: any = { fastFor
   this._cachedInitiativeRoll = roll;
   rollOptions.createCombatants = true;
   await this.rollInitiative({ createCombatants: true });
-  delete this._cahcedInitiativeRoll;
+  delete this._cachedInitiativeRoll;
 }
 
 export function getInitiativeRoll(wrapped, options: any = { advantageMode: 0, fastForward: autoFastForwardAbilityRolls }) {
