@@ -110,7 +110,7 @@ async function registerTests() {
                 const workflow: TrapWorkflow = new TrapWorkflow(targetActor, trapItem, undefined, templateLocation);
                 assert.ok(trapWorkflowMacro, "TrapWorkflowTest macro not found");
                 assert.ok(!!workflow && workflow instanceof TrapWorkflow);
-                await busyWait(0.5);
+                await busyWait(1);
                 const fireballEffect = targetToken?.actor?.effects.find(e => e.data.label === "FireballTest Template");
                 assert.ok(fireballEffect, "No template effect found");
                 await fireballEffect?.delete();

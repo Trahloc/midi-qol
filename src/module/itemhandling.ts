@@ -1107,7 +1107,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
               term.options.flavor = getDamageType(term.options.flavor);
             }
           }
-          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: "" });
+          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: workflow.otherDamageItem.system.damage?.parts[0][1] ?? "midi-none"});
           if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
           if (!configSettings.mergeCard) await otherResult?.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") })
           await workflow.setOtherDamageRoll(otherResult);
