@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
-import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -513,6 +513,10 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     log: function log(...args: any[]): void,
     midiFlags: string[],
     midiRenderRoll: function midiRenderRoll(roll: Roll),
+    midiRenderAttackRoll: function midiRenderAttackRoll(roll, options);
+    midiRenderDamageRoll: function midiRenderDamageRoll(roll, options);
+    midiRenderBonusDamageRoll: function midiRenderBonusDamageRoll(roll, options);
+    midiRenderOtherDamageRoll: function midiRenderOtherDamageRoll(roll, options);
     midiSoundSettings: function(): any,
     MQfromActorUuid: function MQfromActorUuid(actorUuid: string): Actor | undefined,
     MQfromUuid: function MQfromUuid(uuid: string): Actor | Item | TokenDocument | undefined,
@@ -615,6 +619,10 @@ function setupMidiQOLApi() {
     log,
     midiFlags,
     midiRenderRoll,
+    midiRenderAttackRoll,
+    midiRenderDamageRoll,
+    midiRenderBonusDamageRoll,
+    midiRenderOtherDamageRoll,
     midiSoundSettings: () => { return midiSoundSettings },
     MQfromActorUuid,
     MQfromUuid,

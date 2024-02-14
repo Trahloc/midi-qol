@@ -1,4 +1,4 @@
-import { debug, warn, i18n, error, debugEnabled, MQdefaultDamageType, i18nFormat } from "../midi-qol.js";
+import { debug, warn, i18n, error, debugEnabled, MQdefaultDamageType, i18nFormat, GameSystemConfig } from "../midi-qol.js";
 import { DDBGameLogWorkflow, Workflow } from "./workflow.js";
 import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll } from "./settings.js";
 import { createDamageDetail, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat } from "./utils.js";
@@ -6,76 +6,6 @@ import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 export const MAESTRO_MODULE_NAME = "maestro";
 export const MODULE_LABEL = "Maestro";
-
-export function betterRollsUpdate(message, update, options, user) {
-  if (game.user?.id !== user) return true;
-  const flags = message.flags;
-  if (update.flags && update.flags["midi-qol"]) {
-    // Should be a hits display update
-    return true;
-  }
-
-  const brFlags: any = flags?.betterrolls5e;
-  if (!brFlags) return true;
-  let actorId = brFlags.actorId;
-  let tokenId = brFlags.tokenId;
-  if (tokenId && !tokenId.startsWith("Scene")) { // remove when BR passes a uuid instead of constructed id.
-    const parts = tokenId.split(".");
-    tokenId = `Scene.${parts[0]}.Token.${parts[1]}`
-  }
-  let token: Token = tokenId && MQfromUuid(tokenId)
-
-  let actor;
-  if (token) actor = token.actor;
-  else actor = game.actors?.get(actorId);
-  let damageList: any[] = [];
-  let otherDamageList: any[] = [];
-  const item = actor?.items.get(brFlags.itemId)
-  if (!actor || !brFlags.itemId) return;
-  let itemUuid = `${actor.uuid}.Item.${brFlags.itemId}`;
-  let workflow = Workflow.getWorkflow(itemUuid);
-  if (!workflow || workflow.damageRolled) return true;
-  let otherDamageRoll;
-  for (let entry of brFlags.entries) {
-    if (entry.type === "damage-group") {
-      for (const subEntry of entry.entries) {
-        let damage = subEntry.baseRoll?.total ?? 0;
-        let type = subEntry.damageType;
-        if (workflow.isCritical && subEntry.critRoll) {
-          damage += subEntry.critRoll.total;
-        }
-        if (type === "") {
-          type = MQdefaultDamageType;
-          if (item?.system.actionType === "heal") type = "healing";
-        }
-        // Check for versatile and flag set. TODO damageIndex !== other looks like nonsense.
-        if (subEntry.damageIndex !== "other")
-          damageList.push({ type, damage });
-        else {
-          otherDamageList.push({ type, damage });
-          if (subEntry.baseRoll instanceof Roll) otherDamageRoll = subEntry.baseRoll;
-          else otherDamageRoll = Roll.fromData(subEntry.baseRoll);
-        }
-      }
-    }
-  }
-  workflow.damageRolled = true;
-  // Assume it is a damage roll
-  workflow.damageDetail = damageList;
-  workflow.damageTotal = damageList.reduce((acc, a) => a.damage + acc, 0);
-  if (!workflow.shouldRollOtherDamage) {
-    otherDamageList = [];
-    // TODO find out how to remove it from the better rolls card?
-  }
-
-  workflow.damageRolled = true;
-  if (otherDamageList.length > 0) {
-    workflow.otherDamageTotal = otherDamageList.reduce((acc, a) => a.damage + acc, 0);
-    workflow.otherDamageRoll = otherDamageRoll;
-  }
-  workflow.performState(workflow.WorkflowState_ConfirmRoll)
-  return true;
-}
 
 export let colorChatMessageHandler = (message, html, data) => {
   if (coloredBorders === "none") return true;
@@ -224,7 +154,7 @@ export let hideStuffHandler = (message, html, data) => {
     && !game.user?.isGM
     && message.whisper.length > 0 && !message.whisper.includes(game.user?.id)
     && !message.isAuthor) {
-    html.hide();
+    html.remove();
     return;
   }
 
@@ -237,8 +167,6 @@ export let hideStuffHandler = (message, html, data) => {
 
   if (game.user?.isGM) {
     let ids = html.find(".midi-qol-target-name")
-    // const actor = game.actors.get(message?.speaker.actor)
-    // let buttonTargets = html.getElementsByClassName("minor-qol-target-npc");
     ids.hover(_onTargetHover, _onTargetHoverOut)
     ids.click(_onTargetSelect);
 
@@ -257,27 +185,7 @@ export let hideStuffHandler = (message, html, data) => {
     ui.chat.scrollBottom
     return;
 
-  } else { // not a GM
-    /* - turned off so that players can see player rolls.
-    // Hide saving throws/checks if not rolled by me.
-    if (
-      (game.user?.id !== message.user.id)
-      && ["all", "whisper", "allNoRoll"].includes(configSettings.autoCheckSaves)
-      && message.isRoll
-      && (message.flavor?.includes(i18n("DND5E.ActionSave")) || message.flavor?.includes(i18n("DND5E.ActionAbil")))
-    ) {
-      html.hide();
-    }
-    // better rolls save handler
-    if (
-    (game.user?.id !== message.user.id)
-      && (configSettings.autoCheckSaves !== "allShow")
-      && message.flags?.betterrolls5e?.fields
-      && message.flags.betterrolls5e.fields.some(f => f[0] === "check")
-    ) {
-      html.hide();
-    }
-*/
+  } else {
     // hide tool tips from non-gm
     html.find(".midi-qol-save-tooltip").hide();
     // if not showing saving throw total hide from players
@@ -290,11 +198,8 @@ export let hideStuffHandler = (message, html, data) => {
       html.find(".midi-qol-saveDC").hide();
     }
     if (message.blind) {
-      // html.find(".midi-qol-attack-roll .dice-total").text(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-      html.find(".midi-qol-attack-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-      html.find(".midi-qol-damage-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-      html.find(".midi-qol-other-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-      html.find(".midi-qol-bonus-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
+      html.find(".midi-attack-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
+      // html.find(".midi-damage-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
       if (!(message.flags && message.flags["monks-tokenbar"])) // not a monks roll
         html.find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
       // html.find(".dice-result").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`); Monks saving throw css
@@ -321,81 +226,16 @@ export let hideStuffHandler = (message, html, data) => {
     }
 
     if (!game.user?.isGM)
+      // Can update the attack roll here, but damage rolls are redone in the ChatmessageMidi code so do the hiding for those there
       html.find(".midi-qol-confirm-damage-roll-cancel").hide();
 
     // hide the gm version of the name from` players
     html.find(".midi-qol-target-npc-GM").hide();
-    if (message.user?.isGM) {
-      const d20AttackRoll = getProperty(message.flags, "midi-qol.d20AttackRoll");
-      if (configSettings.hideRollDetails === "all" || getProperty(message.flags, "midi-qol.GMOnlyAttackRoll")) {
-        html.find(".dice-tooltip").remove();
-        // html.find(".midi-qol-attack-roll .dice-total").text(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-        html.find(".midi-qol-attack-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-        html.find(".midi-qol-damage-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-        html.find(".midi-qol-other-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-        html.find(".midi-qol-bonus-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-        if (!(message.flags && message.flags["monks-tokenbar"])) // not a monks roll
-          html.find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-        // html.find(".dice-result").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`); Monks saving throw css
-        //TODO this should probably just check formula
-      } else if (configSettings.hideRollDetails !== "none") {
-        // in all cases remove the tooltip and formula from the non gm client
-        html.find(".dice-tooltip").remove();
-        html.find(".dice-formula").remove();
-
-        if (d20AttackRoll && configSettings.hideRollDetails === "d20AttackOnly") {
-          html.find(".midi-qol-attack-roll .dice-total").text(`(d20) ${d20AttackRoll}`);
-          html.find(".midi-qol-damage-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          html.find(".midi-qol-other-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          html.find(".midi-qol-bonus-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-        } else if (d20AttackRoll && configSettings.hideRollDetails === "d20Only") {
-          html.find(".midi-qol-attack-roll .dice-total").text(`(d20) ${d20AttackRoll}`);
-          html.find(".midi-qol-other-roll").find(".dice-tooltip").remove();
-          html.find(".midi-qol-other-roll").find(".dice-formula").remove();
-          html.find(".midi-qol-bonus-roll").find(".dice-tooltip").remove();
-          html.find(".midi-qol-bonus-roll").find(".dice-formula").remove();
-          /* TODO remove this pending feedback
-                html.find(".midi-qol-damage-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-                html.find(".midi-qol-other-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-                html.find(".midi-qol-bonus-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          */
-        } else if (d20AttackRoll && ["hitDamage", "hitCriticalDamage"].includes(configSettings.hideRollDetails)) {
-          const hitFlag = getProperty(message.flags, "midi-qol.isHit");
-          const hitString = hitFlag === undefined ? "" : hitFlag ? i18n("midi-qol.hits") : i18n("midi-qol.misses");
-          html.find(".midi-qol-attack-roll .dice-total").text(`${hitString}`);
-          if (configSettings.hideRollDetails === "hitDamage") {
-            html.find(".midi-qol-attack-roll .dice-total").removeClass("critical");
-            html.find(".midi-qol-attack-roll .dice-total").removeClass("fumble");
-          }
-
-          html.find(".midi-qol-other-roll").find(".dice-tooltip").remove();
-          html.find(".midi-qol-other-roll").find(".dice-formula").remove();
-          html.find(".midi-qol-bonus-roll").find(".dice-tooltip").remove();
-          html.find(".midi-qol-bonus-roll").find(".dice-formula").remove();
-        } else if (["details", "detailsDSN"].includes(configSettings.hideRollDetails)) {
-          // html.find(".dice-tooltip").remove();
-          // html.find(".dice-formula").remove();
-        }
-      }
-    }
-
   }
   //@ts-ignore
   setTimeout(() => ui.chat.scrollBottom(), 0);
   return true;
 
-}
-
-export function betterRollsButtons(message, html, data) {
-  if (!message.flags.betterrolls5e) return;
-  //@ts-ignore speaker
-  const betterRollsFlags = message.flags.betterrolls5e;
-  if (!Workflow.getWorkflow(betterRollsFlags.itemId)) {
-    html.find('.card-buttons-midi-br').remove();
-  } else {
-    html.find('.card-buttons-midi-br').off("click", 'button');
-    html.find('.card-buttons-midi-br').on("click", 'button', onChatCardAction.bind(this))
-  }
 }
 
 export let chatDamageButtons = (message, html, data) => {
@@ -412,6 +252,9 @@ export let chatDamageButtons = (message, html, data) => {
     let item;
     let itemId;
     let actorId = message.speaker.actor;
+    //@ts-expect-error
+    let theRolls = message.rolls.filter(r => r instanceof CONFIG.Dice.DamageRoll);
+    if (theRolls.length === 0) return;
     if (message.flags?.dnd5e?.roll?.type === "damage") {
       itemId = message.flags.dnd5e?.roll.itemId;
       if (game.system.id === "sw5e" && !itemId) itemId = message.flags.sw5e?.roll.itemId;
@@ -432,8 +275,8 @@ export let chatDamageButtons = (message, html, data) => {
       defaultDamageType = (item?.system.damage?.parts[0] && item?.system.damage.parts[0][1]) ?? "bludgeoning";
     }
     // TODO fix this for versatile damage
-    const damageList = createDamageDetail({ roll: message.rolls[0], item, ammo: null, versatile: false, defaultType: defaultDamageType });
-    const totalDamage = message.rolls[0].total;
+    const damageList = createDamageDetail({ roll: theRolls, item, ammo: null, versatile: false, defaultType: defaultDamageType });
+    const totalDamage = theRolls.reduce((acc, r) => r.total + acc, 0);
     addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, "damage", ".dice-total", "position:relative; top:5px; color:blue");
   } else if (getProperty(message, "flags.midi-qol.damageDetail") || getProperty(message, "flags.midi-qol.otherDamageDetail")) {
     let midiFlags = getProperty(message, "flags.midi-qol");
@@ -544,110 +387,103 @@ export async function onChatCardAction(event) {
   if (!message?.user) return;
 
   //@ts-ignore speaker
-  const betterRollsFlags: any = message.flags.betterrolls5e;
   var actor, item;
-  if (betterRollsFlags) {
-    actor = game.actors?.get(betterRollsFlags.actorId);
-    item = actor.items.get(betterRollsFlags.itemId);
-  } else {
-    // Recover the actor for the chat card
-    //@ts-ignore
-    actor = await CONFIG.Item.documentClass._getChatCardActor(card);
-    if (!actor) return;
 
-    // Get the Item from stored flag data or by the item ID on the Actor
-    const storedData = message?.getFlag(game.system.id, "itemData");
-    //@ts-ignore
-    item = storedData ? new CONFIG.Item.documentClass(storedData, { parent: actor }) : actor.items.get(card.dataset.itemId);
+  // Recover the actor for the chat card
+  //@ts-ignore
+  actor = await CONFIG.Item.documentClass._getChatCardActor(card);
+  if (!actor) return;
 
-    const spellLevel = parseInt(card.dataset.spellLevel) || null;
-    const workflowId = getProperty(message, "flags.midi-qol.workflowId");
+  // Get the Item from stored flag data or by the item ID on the Actor
+  const storedData = message?.getFlag(game.system.id, "itemData");
+  //@ts-ignore
+  item = storedData ? new CONFIG.Item.documentClass(storedData, { parent: actor }) : actor.items.get(card.dataset.itemId);
 
-    switch (action) {
-      case "applyEffects":
-        if (!actor || !item) return;
-        if ((targets?.size ?? 0) === 0) return;
-        button.disabled = false;
-        if (game.user?.id !== message.user?.id) {
-          // applying effects on behalf of another user;
-          if (!game.user?.isGM) {
-            ui.notifications?.warn("Only the GM can apply effects for other players")
-            return;
-          }
-          if (game.user.targets.size === 0) {
-            ui.notifications?.warn(i18n("midi-qol.noTokens"));
-            return;
-          }
-          const result = (await socketlibSocket.executeAsUser("applyEffects", message.user?.id, {
-            workflowId: item.uuid,
-            targets: Array.from(game.user.targets).map(t => t.document.uuid)
-          }));
+  const spellLevel = parseInt(card.dataset.spellLevel) || null;
+  const workflowId = getProperty(message, "flags.midi-qol.workflowId");
+
+  switch (action) {
+    case "applyEffects":
+      if (!actor || !item) return;
+      if ((targets?.size ?? 0) === 0) return;
+      button.disabled = false;
+      if (game.user?.id !== message.user?.id) {
+        // applying effects on behalf of another user;
+        if (!game.user?.isGM) {
+          ui.notifications?.warn("Only the GM can apply effects for other players")
+          return;
+        }
+        if (game.user.targets.size === 0) {
+          ui.notifications?.warn(i18n("midi-qol.noTokens"));
+          return;
+        }
+        const result = (await socketlibSocket.executeAsUser("applyEffects", message.user?.id, {
+          workflowId: item.uuid,
+          targets: Array.from(game.user.targets).map(t => t.document.uuid)
+        }));
 
 
+      } else {
+        let workflow = Workflow.getWorkflow(item.uuid);
+        if (workflow) {
+          workflow.forceApplyEffects = true; // don't overwrite the application targets
+          workflow.applicationTargets = game.user?.targets;
+          if (workflow.applicationTargets.size > 0) workflow.performState(workflow.WorkflowState_ApplyDynamicEffects)
         } else {
-          let workflow = Workflow.getWorkflow(item.uuid);
-          if (workflow) {
-            workflow.forceApplyEffects = true; // don't overwrite the application targets
-            workflow.applicationTargets = game.user?.targets;
-            if (workflow.applicationTargets.size > 0) workflow.performState(workflow.WorkflowState_ApplyDynamicEffects)
-          } else {
-            ui.notifications?.warn(i18nFormat("midi-qol.NoWorkflow", { itemName: item.name }));
-          }
+          ui.notifications?.warn(i18nFormat("midi-qol.NoWorkflow", { itemName: item.name }));
         }
-        break;
-      case "Xconfirm-damage-roll-cancel":
-        if (!await untimedExecuteAsGM("undoTillWorkflow", item.uuid, true, true)) {
-          await game.messages?.get(messageId)?.delete();
-        };
-        break;
-      case "confirm-damage-roll-complete":
-      case "confirm-damage-roll-complete-hit":
-      case "confirm-damage-roll-complete-miss":
-      case "confirm-damage-roll-cancel":
-        if (message.user?.id) {
-          if (!game.user?.isGM && configSettings.confirmAttackDamage === "gmOnly") {
-            return;
-          }
-          const user = game.users?.get(message.user?.id);
-          if (user?.active) {
-            let actionToCall = {
-              "confirm-damage-roll-complete": "confirmDamageRollComplete",
-              "confirm-damage-roll-complete-hit": "confirmDamageRollCompleteHit",
-              "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss",
-              "confirm-damage-roll-cancel": "cancelWorkflow"
-            }[action];
-            socketlibSocket.executeAsUser(actionToCall, message.user?.id, { workflowId, itemCardId: message.id }).then(result => {
-              if (typeof result === "string") ui.notifications?.warn(result);
-            });
-          } else {
-            await Workflow.removeItemCardAttackDamageButtons(messageId);
-            await Workflow.removeItemCardConfirmRollButton(messageId);
-          }
+      }
+      break;
+    case "Xconfirm-damage-roll-cancel":
+      if (!await untimedExecuteAsGM("undoTillWorkflow", item.uuid, true, true)) {
+        await game.messages?.get(messageId)?.delete();
+      };
+      break;
+    case "confirm-damage-roll-complete":
+    case "confirm-damage-roll-complete-hit":
+    case "confirm-damage-roll-complete-miss":
+    case "confirm-damage-roll-cancel":
+      if (message.user?.id) {
+        if (!game.user?.isGM && configSettings.confirmAttackDamage === "gmOnly") {
+          return;
         }
-        break;
-      case "attack-adv":
-      case "attack-dis":
-        await item.rollAttack({
-          event,
-          spellLevel,
-          advantage: action === "attack-adv",
-          disadvantage: action === "attack-dis",
-          fastForward: true
-        })
-        break;
-      case "damage-critical":
-      case "damage-nocritical":
-        await item.rollDamage({
-          event,
-          spellLevel,
-          options: { critical: action === 'damage-critical' }
-        })
-      default:
-        break;
-    }
-
+        const user = game.users?.get(message.user?.id);
+        if (user?.active) {
+          let actionToCall = {
+            "confirm-damage-roll-complete": "confirmDamageRollComplete",
+            "confirm-damage-roll-complete-hit": "confirmDamageRollCompleteHit",
+            "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss",
+            "confirm-damage-roll-cancel": "cancelWorkflow"
+          }[action];
+          socketlibSocket.executeAsUser(actionToCall, message.user?.id, { workflowId, itemCardId: message.id }).then(result => {
+            if (typeof result === "string") ui.notifications?.warn(result);
+          });
+        } else {
+          await Workflow.removeItemCardAttackDamageButtons(messageId);
+          await Workflow.removeItemCardConfirmRollButton(messageId);
+        }
+      }
+      break;
+    case "attack-adv":
+    case "attack-dis":
+      await item.rollAttack({
+        event,
+        spellLevel,
+        advantage: action === "attack-adv",
+        disadvantage: action === "attack-dis",
+        fastForward: true
+      })
+      break;
+    case "damage-critical":
+    case "damage-nocritical":
+      await item.rollDamage({
+        event,
+        spellLevel,
+        options: { critical: action === 'damage-critical' }
+      })
+    default:
+      break;
   }
-
   button.disabled = false;
 }
 

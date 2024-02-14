@@ -3,7 +3,9 @@
     <div class="dice-flavor">{{flavor}}</div>
     {{/if}}
     <div class="dice-result">
+      {{#unless tooltipFormula}}
         <div class="dice-formula">{{formula}}</div>
+      {{/unless}}
         {{{tooltip}}}
         <h4 class="dice-total">{{total}}</h4>
     </div>

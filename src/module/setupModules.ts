@@ -27,7 +27,7 @@ export const REQUIRED_MODULE_VERSIONS = {
   "ready-set-roll-5e": "1.2.0",
   "simbuls-cover-calculator":  "1.0.2",
   "socketlib": "0.0",
-  "times-up": "11.0.4",
+  "times-up": "11.3.0",
   "tokencover": "0.6.0",
   "walledtemplates": "0.0.0",
   "wjmais": "0.0.0",
@@ -83,6 +83,9 @@ export function checkModules() { // this really should happen in TroubleShooter
   const notificationVersion = game.settings.get("midi-qol", "notificationVersion");
 
   checkCubInstalled();
+  if (game.modules.get("times-up")?.active && !installedModules.get("times-up")) {
+    ui.notifications?.warn("Times-up installed but is an out of date version please update times-up", {permanent: true, localize: true});
+  }
 }
 
 export function checkCubInstalled() {

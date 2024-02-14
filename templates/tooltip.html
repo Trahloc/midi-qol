@@ -1,8 +1,13 @@
 {{#if parts.length}}
 <div class="dice-tooltip">
+  {{#if tooltipFormula}}
+  <section class="tooltip-part">
+    <div class="dice-formula">{{formula}}</div>
+  </section>
+  {{/if}}
   {{#if advTooltip}}
     <section class="tooltp-part">
-      {{{advTooltip}}}
+      {{advTooltip}}
     </section>
   {{/if}}
     {{#each parts}}

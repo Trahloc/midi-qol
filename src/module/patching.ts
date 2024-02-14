@@ -1,7 +1,7 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSelfTarget, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSelfTarget, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -767,7 +767,7 @@ function _midiATIRefresh(template) {
     if (template.item) {
       templateTokens(template, getSelfTarget(template.item.parent), !getProperty(template.item, "flags.midi-qol.AoETargetTypeIncludeSelf"), getProperty(template.item, "flags.midi-qol.AoETargetType"), autoTarget);
       return true;
-    } else 
+    } else
       templateTokens(template);
     return true;
   }
@@ -1016,6 +1016,9 @@ export function getItemEffectsToDelete(args: { actor: Actor, origin: string, ign
       return [];
     }
     effectsToDelete = actor?.effects?.filter(ef => {
+      if (installedModules.get("times-up")) {
+        if (globalThis.TimesUp.isEffectExpired(ef, { combat: game.combat })) return false;
+      }
       //@ts-expect-error .origin .flags
       return ef.origin === origin
         && !ignore.includes(ef.uuid)
@@ -1031,16 +1034,24 @@ export function getItemEffectsToDelete(args: { actor: Actor, origin: string, ign
     return [];
   }
 }
-export async function removeConcentration(actor: Actor, deleteEffectUuid: string | undefined, options: any) {
+
+export function canRemoveConcentration(concentrationData, deletedUuid: string): boolean {
+  if (concentrationData?.templates.filter(templateUuid => templateUuid !== deletedUuid).length > 0) return false;
+  const remainingEffects = getConcentrationEffectsRemaining(concentrationData, deletedUuid);
+  return remainingEffects.length <= 1;
+}
+
+export async function removeConcentrationEffects(actor: Actor, deletedEffectUuid: string | undefined, options: any) {
   let result;
   try {
-    if (debugEnabled > 0) warn("removeConcentration | ", actor?.name, deleteEffectUuid, options)
+    if (debugEnabled > 0) warn("removeConcentrationEffects | ", actor?.name, deletedEffectUuid, options)
     const concentrationData: any = duplicate(actor.getFlag("midi-qol", "concentration-data") ?? {});
     // if (!concentrationData) return;
     const promises: any = [];
     await actor.unsetFlag("midi-qol", "concentration-data");
-    if (!options.concentrationTemplatesDeleted && concentrationData?.templates) {
+    if (concentrationData?.templates) {
       for (let templateUuid of concentrationData.templates) {
+        if (templateUuid === deletedEffectUuid) continue;
         //@ts-expect-error fromUuidSync
         const template = fromUuidSync(templateUuid);
         if (debugEnabled > 0) warn("removeConcentration | removing template", actor?.name, templateUuid, options);
@@ -1048,7 +1059,7 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
       }
     }
 
-    if (concentrationData?.removeUuids?.length > 0 && !options.concentrationItemsDeleted) {
+    if (concentrationData?.removeUuids?.length > 0) {
       for (let removeUuid of concentrationData.removeUuids) {
         //@ts-expect-error fromUuidSync
         const entity = fromUuidSync(removeUuid);
@@ -1057,96 +1068,29 @@ export async function removeConcentration(actor: Actor, deleteEffectUuid: string
       };
     }
     if (concentrationData?.targets && !options.concentrationEffectsDeleted) {
-      if (deleteEffectUuid === undefined) options.concentrationDeleted = true; // concnetration effect will be picked up in the delete effects call
       debug("About to remove concentration effects", actor?.name);
       options.noConcentrationCheck = true;
-      for (let target of concentrationData.targets) {
-        const targetActor = MQfromActorUuid(target.actorUuid);
-        if (targetActor) {
-          const effectsToDelete = getItemEffectsToDelete({ actor: targetActor, origin: concentrationData.uuid, ignore: [deleteEffectUuid ?? ""], ignoreTransfer: true, options });
-          if (effectsToDelete?.length > 0) {
-            const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
-            if (debugEnabled > 0) warn("removeConcentration | removing effects", targetActor?.name, effectsToDelete, options);
-            promises.push(untimedExecuteAsGM("deleteEffects", {
-              actorUuid: target.actorUuid, effectsToDelete,
-              options: mergeObject(deleteOptions, { concentrationDeleted: true, concentrationEffectsDeleted: true, noConcentrationCheck: true })
-            }));
-          }
-        }
-      }
-    }
-    if (!options.concentrationDeleted) {
-      const concentrationEffect = getConcentrationEffect(actor);
-      // remove concentration if the concentration not removed and the deleted effect is not the concentration effect
-      if (concentrationEffect?.id && !options.concentrationDeleted && deleteEffectUuid !== concentrationEffect.uuid) {
-        if (debugEnabled > 0) warn("removeConcentration | removing concentration effect", actor.name, concentrationEffect?.id, options);
-        promises.push(actor?.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id],
-          mergeObject(options, { concentrationDeleted: true, concentrationEffectsDeleted: true, noConcentrationCheck: true })));
+      const effectsToDelete = getConcentrationEffectsRemaining(concentrationData, deletedEffectUuid);
+      if (effectsToDelete.length > 0) {
+        const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
+        promises.push(untimedExecuteAsGM("deleteEffectsByUuid", {
+          effectsToDelete: effectsToDelete.map(ef => ef.uuid),
+          options: mergeObject(deleteOptions, { noConcentrationCheck: true })
+        }));
       }
     }
     result = await Promise.allSettled(promises);
-    if(debugEnabled > 0) warn("removeConcentration | finished", actor?.name);
+    if (debugEnabled > 0) warn("removeConcentration | finished", actor?.name);
   } catch (err) {
     const message = `error when attempting to remove concentration for ${actor?.name}`;
     console.warn(message, err);
     TroubleShooter.recordError(err, message);
   } finally {
-    return undefined;
+    return result;
     // return await concentrationEffect?.delete();
   }
 }
 
-/*
-export async function removeConcentrationOld(actor: Actor, concentrationUuid: string, options: any) {
-  let result;
-  try {
-    const concentrationData: any = actor.getFlag("midi-qol", "concentration-data");
-    if (!concentrationData) return;
-    await actor.unsetFlag("midi-qol", "concentration-data");
-    if (!options.templatesDeleted) {
-      if (concentrationData.templates) {
-        for (let templateUuid of concentrationData.templates) {
-          const template = await fromUuid(templateUuid);
-          if (template) await template.delete();
-        }
-      }
-    }
-
-    if (concentrationData.removeUuids?.length > 0) {
-      for (let removeUuid of concentrationData.removeUuids) {
-        //@ts-expect-error fromUuidSync
-        const entity = fromUuidSync(removeUuid);
-        await entity?.delete();
-      };
-    }
-    if (concentrationData.targets && !options.concentrationEffectsDeleted) {
-      debug("About to remove concentration effects", actor?.name);
-      options.noConcentrationCheck = true;
-      options.concentrationDeleted = true;
-      options.concentrationEffectsDeleted = true;
-      result = await untimedExecuteAsGM("deleteItemEffects", { ignore: [concentrationUuid], targets: concentrationData.targets, origin: concentrationData.uuid, ignoreTransfer: true, options });
-      debug("finsihed remove concentration effects", actor?.name)
-    }
-  } catch (err) {
-    const message = `error when attempting to remove concentration for ${actor?.name}`;
-    console.warn(message, err);
-    TroubleShooter.recordError(err, message);
-  } finally {
-    if (!options.concentrationDeleted) {
-      const concentrationEffect = getConcentrationEffect(actor);
-      try {
-        options.concentrationEffectsDeleted = true;
-        options.concenterationDeleted = true;
-        if (concentrationEffect?.id)
-          return await actor?.deleteEmbeddedDocuments("ActiveEffect", [concentrationEffect.id], options);
-      } catch (err) {
-      }
-    }
-    return undefined;
-    // return await concentrationEffect?.delete();
-  }
-}
-*/
 
 export async function zeroHPExpiry(actor, update, options, user) {
   const hpUpdate = getProperty(update, "system.attributes.hp.value");
@@ -1323,7 +1267,7 @@ export function configureDamageRollDialog() {
 function _getUsageConfig(wrapped): any {
   //Radius tempalte spells with self/spec/any will auto place the template so don't prompt for it in config.
   const config = wrapped();
-//  const autoCreatetemplate = this.hasAreaTarget && ["self"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
+  //  const autoCreatetemplate = this.hasAreaTarget && ["self"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
   const autoCreatetemplate = this.hasAreaTarget && hasAutoPlaceTemplate(this);
   if (autoCreatetemplate) config.createMeasuredTemplate = null;
   return config;
@@ -1345,23 +1289,18 @@ export let itemPatching = () => {
 
 export async function checkDeleteTemplate(templateDocument, options, user) {
   if (user !== game.user?.id) return;
+  if (options.undo) return;
   try {
     const uuid = getProperty(templateDocument, "flags.midi-qol.originUuid");
     const actor = MQfromUuid(uuid)?.actor;
-    if (!(actor instanceof CONFIG.Actor.documentClass)) return true;
+    if (!(actor instanceof CONFIG.Actor.documentClass)) return;
     const concentrationData = getProperty(actor, "flags.midi-qol.concentration-data");
-    if (!concentrationData || concentrationData.templates.length === 0) return true;
-    const concentrationTemplates = concentrationData.templates.filter(templateUuid => templateUuid !== templateDocument.uuid);
-    if (concentrationTemplates.length === 0 // no templates left
-      && concentrationData.targets.length === 1 // only one target left - me
-      && concentrationData.removeUuids.length === 0 // no remove uuids left
-      && ["effectsTemplates"].includes(configSettings.removeConcentrationEffects)
-    ) {
-      options.templatesDeleted = true;
-      await removeConcentration(actor, undefined, mergeObject(options, { concentrationTemplatesDeleted: true }));
+    if (!concentrationData || concentrationData.templates.length === 0) return;
+    if (canRemoveConcentration(concentrationData, templateDocument.uuid)) {
+      await removeConcentrationEffects(actor, templateDocument.uuid, options);
     } else if (concentrationData.templates.length >= 1) {
       // update the concentration templates
-      concentrationData.templates = concentrationTemplates;
+      concentrationData.templates = concentrationData.templates.filter(uuid => uuid !== templateDocument.uuid);
       await actor.setFlag("midi-qol", "concentration-data", concentrationData);
     }
   } catch (err) {
@@ -1470,7 +1409,7 @@ async function _preCreateActiveEffect(wrapped, data, options, user): Promise<voi
     if (!(parent instanceof CONFIG.Actor.documentClass)) return;
     if (globalThis.MidiQOL.incapacitatedConditions.some(condition => this.statuses.has(condition))) {
       if (debugEnabled > 0) warn(`on createActiveEffect ${this.name} ${this.id} removing concentration for ${parent.name}`)
-      await removeConcentration(parent, undefined, { noConcentrationCheck: true });
+      await removeConcentrationEffects(parent, undefined, { noConcentrationCheck: false });
     }
   } catch (err) {
     const message = "midi-qol | error in preCreateActiveEffect";

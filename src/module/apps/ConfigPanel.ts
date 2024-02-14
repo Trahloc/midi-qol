@@ -80,18 +80,17 @@ export class ConfigPanel extends FormApplication {
       damageImmunitiesOptions: geti18nOptions("damageImmunitiesOptions"),
       showItemDetailsOptions: geti18nOptions("showItemDetailsOptions"),
       doReactionsOptions: geti18nOptions("DoReactionsOptions"),
+      wallsBlockRangeOptions,
       gmDoReactionsOptions: geti18nOptions("GMDoReactionsOptions"),
+      AutoCEEffectsOptions: geti18nOptions("AutoCEEffectsOptions"),
       rollOtherDamageOptions: geti18nOptions("RollOtherDamageOptions"),
       showReactionAttackRollOptions: geti18nOptions("ShowReactionAttackRollOptions"),
-      wallsBlockRangeOptions,
       CoverCalculationOptions,
-      AutoCEEffectsOptions: geti18nOptions("AutoCEEffectsOptions"),
       RecordAOOOptions: geti18nOptions("RecordAOOOptions"),
       EnforceReactionsOptions: geti18nOptions("EnforceReactionsOptions"),
       AutoEffectsOptions: geti18nOptions("AutoEffectsOptions"),
       RequireMagicalOptions: geti18nOptions("RequireMagicalOptions"),
-      //@ts-ignore
-      itemTypeLabels: CONFIG.Item.typeLabels,
+      itemTypeLabels: Object.keys(CONFIG.Item.typeLabels).filter(key => !["backpack","base"].includes(key)).reduce((acc, key) => {acc[key] = CONFIG.Item.typeLabels[key]; return acc}, {}),
       hasConvenientEffects: installedModules.get("dfreds-convenient-effects"),
       hideRollDetailsOptions: geti18nOptions("hideRollDetailsOptions"),
       checkFlankingOptions: geti18nOptions("CheckFlankingOptions"),
@@ -240,7 +239,7 @@ export class ItemTypeSelector extends FormApplication {
 
     // Populate choices
     //@ts-ignore
-    const choices: {} = duplicate(CONFIG.Item.typeLabels);
+    const choices: {} = Object.keys(CONFIG.Item.typeLabels).filter(key => !["backpack","base"].includes(key)).reduce((acc, key) => {acc[key] = CONFIG.Item.typeLabels[key]; return acc}, {});
     for (let [k, v] of Object.entries(choices)) {
       choices[k] = {
         label: i18n(v),

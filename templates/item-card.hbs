@@ -179,63 +179,56 @@
     </div>
     {{else}}
     <div>
-      <div class="flexrow 1">
-        <div class="midi-qol-attack-roll">
-          <div class="end-midi-qol-attack-roll"></div>
-        </div>
+      <div class="midi-qol-attack-roll">
+        <div class="end-midi-qol-attack-roll"></div>
       </div>
       <div class="midi-qol-hits-display">
         <div class="end-midi-qol-hits-display"></div>
       </div>
-      <div class="flexrow 1">
-        <div class="midi-qol-damage-roll">
-          <div class="end-midi-qol-damage-roll"></div>
-        </div>
+      <div class="midi-qol-damage-roll">
+        <div class="end-midi-qol-damage-roll"></div>
       </div>
     </div>
     {{/if}}
   </div>
   {{/if}}
-  <div class="flexrow 1">
-    <div class="midi-qol-bonus-roll">
-      <div class="end-midi-qol-bonus-roll"></div>
+    <div class="midi-qol-other-damage-roll">
+      <div class="end-midi-qol-other-damage-roll"></div>
     </div>
-  </div>
-  <div class="flexrow 1">
-    <div class="midi-qol-other-roll">
-      <div class="end-midi-qol-other-roll"></div>
+    <div class="midi-qol-bonus-damage-roll">
+      <div class="end-midi-qol-bonus-bonus-roll"></div>
     </div>
-  </div>
+
   {{#if isMerge}}
-  <div class="midi-qol-saves-display">
-    <div class="end-midi-qol-saves-display"></div>
-  </div>
+    <div class="midi-qol-saves-display">
+      <div class="end-midi-qol-saves-display"></div>
+    </div>
   {{/if}}
 
   {{!-- Reactions --}}
   {{#if (and data.activation.condition (eq data.activation.type "reaction"))}}
-  <p class="supplement"><strong>{{ localize "DND5E.Reaction" }}</strong>{{ data.activation.condition }}</p>
+    <p class="supplement"><strong>{{ localize "DND5E.Reaction" }}</strong>{{ data.activation.condition }}</p>
   {{/if}}
 
   {{!-- Materials --}}
   {{#if data.materials.value}}
-  <p class="supplement"><strong>{{ localize "DND5E.Materials" }}</strong>{{ data.materials.value }}</p>
+    <p class="supplement"><strong>{{ localize "DND5E.Materials" }}</strong>{{ data.materials.value }}</p>
   {{/if}}
 
   {{!-- Item Properties --}}
   {{#if data.hasProperties}}
-  <ul class="card-footer pills unlist">
-    {{#each data.tags}}
-    <li class="pill pill-sm">
-      <span class="label">{{ this }}</span>
-    </li>
-    {{/each}}
-    {{#each data.properties}}
-    <li class="pill pill-sm">
-      <span class="label">{{ this }}</span>
-    </li>
-    {{/each}}
-  </ul>
+    <ul class="card-footer pills unlist">
+      {{#each data.tags}}
+      <li class="pill pill-sm">
+        <span class="label">{{ this }}</span>
+      </li>
+      {{/each}}
+      {{#each data.properties}}
+      <li class="pill pill-sm">
+        <span class="label">{{ this }}</span>
+      </li>
+      {{/each}}
+    </ul>
   {{/if}}
 
   {{!-- Applicable Effects --}}

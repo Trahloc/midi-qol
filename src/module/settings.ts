@@ -116,7 +116,7 @@ class ConfigSettings {
   hideRollDetails: string = "none";
   ignoreSpellReactionRestriction: boolean = false;
   itemRollStartWorkflow: boolean = false;
-  itemTypeList: any = null;
+  itemTypeList: string[] = [];
   itemUseSound: string = "";
   keepRollStats: boolean = false;
   keyMapping = defaultKeyMapping;
@@ -287,27 +287,37 @@ export function exportSettingsToJSON() {
   saveDataToFile(JSON.stringify(collectSettingData(), null, 2), "text/json", filename);
 }
 
+function removeOldValues(theObject: any) {
+  if (typeof theObject !== "object") return theObject;
+  Object.keys(theObject).forEach(key => {
+    if (theObject[key]?.newValue !== undefined) {
+      theObject[key] = theObject[key].newValue;
+    }
+  });
+  return theObject;
+}
 export async function importSettingsFromJSON(json) {
   if (typeof json === "string")
     json = JSON.parse(json);
   if (json.midiSettings) { // this is a trouble shooter file
     json = json.midiSettings;
   }
-  await game.settings.set("midi-qol", "ConfigSettings", json.configSettings);
-  await game.settings.set("midi-qol", "ItemRollButtons", json.itemRollButtons);
-  await game.settings.set("midi-qol", "CriticalDamage", json.criticalDamage);
-  await game.settings.set("midi-qol", "CriticalDamageGM", json.criticalDamageGM);
-  await game.settings.set("midi-qol", "showGM", json.nsaFlag);
-  await game.settings.set("midi-qol", "ColoredBorders", json.coloredBorders);
-  await game.settings.set("midi-qol", "AddChatDamageButtons", json.addChatDamageButtons);
-  await game.settings.set("midi-qol", "AutoFastForwardAbilityRolls", json.autoFastForwardAbilityRolls);
-  await game.settings.set("midi-qol", "AutoRemoveTargets", json.autoRemoveTargets);
-  await game.settings.set("midi-qol", "ForceHideRoll", json.forceHideRoll);
-  await game.settings.set("midi-qol", "EnableWorkflow", json.enableWorkflow);
-  await game.settings.set("midi-qol", "DragDropTarget", json.dragDropTargeting);
-  await game.settings.set("midi-qol", "DebounceInterval", json.DebounceInterval);
-  await game.settings.set("midi-qol", "TargetConfirmation", json.targetConfirmation);
-  await game.settings.set("midi-qol", "MidiSoundSettings", json.midiSoundSettings ?? {});
+
+  await game.settings.set("midi-qol", "ConfigSettings", removeOldValues(json.configSettings));
+  await game.settings.set("midi-qol", "ItemRollButtons", removeOldValues(json.itemRollButtons));
+  await game.settings.set("midi-qol", "CriticalDamage", removeOldValues(json.criticalDamage));
+  await game.settings.set("midi-qol", "CriticalDamageGM", removeOldValues(json.criticalDamageGM));
+  await game.settings.set("midi-qol", "showGM", removeOldValues(json.nsaFlag));
+  await game.settings.set("midi-qol", "ColoredBorders", removeOldValues(json.coloredBorders));
+  await game.settings.set("midi-qol", "AddChatDamageButtons", removeOldValues(json.addChatDamageButtons));
+  await game.settings.set("midi-qol", "AutoFastForwardAbilityRolls", removeOldValues(json.autoFastForwardAbilityRolls));
+  await game.settings.set("midi-qol", "AutoRemoveTargets", removeOldValues(json.autoRemoveTargets));
+  await game.settings.set("midi-qol", "ForceHideRoll", removeOldValues(json.forceHideRoll));
+  await game.settings.set("midi-qol", "EnableWorkflow", removeOldValues(json.enableWorkflow));
+  await game.settings.set("midi-qol", "DragDropTarget", removeOldValues(json.dragDropTargeting));
+  await game.settings.set("midi-qol", "DebounceInterval", removeOldValues(json.DebounceInterval));
+  await game.settings.set("midi-qol", "TargetConfirmation", removeOldValues(json.targetConfirmation));
+  await game.settings.set("midi-qol", "MidiSoundSettings", removeOldValues(json.midiSoundSettings) ?? {});
   //@ts-expect-error _sheet
   const settingsAppId = game.settings._sheet?.appId;
   if (settingsAppId) ui.windows[settingsAppId]?.render(true);
@@ -454,6 +464,7 @@ export let fetchParams = () => {
   const itemList = Object.keys(CONFIG.Item.typeLabels);
   if (!configSettings.itemTypeList && itemList.length > 0) {
     configSettings.itemTypeList = itemList;
+    configSettings.itemTypeList.filter((type) => !["base", "backpack"].includes(type));
   }
   if (configSettings.defaultSaveMult === undefined) configSettings.defaultSaveMult = 0.5;
   if (configSettings.ignoreSpellReactionRestriction === undefined) configSettings.ignoreSpellReactionRestriction = false;
@@ -793,7 +804,7 @@ export const registerSettings = function () {
     name: "Debounce Interval (in ms)",
     hint: "Chat message updates will only happen this often",
     scope: "world",
-    default: 100,
+    default: 0,
     type: Number,
     config: true,
     onChange: fetchParams

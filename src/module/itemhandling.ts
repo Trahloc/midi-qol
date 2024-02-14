@@ -5,7 +5,7 @@ import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRol
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
-import { defaultRollOptions, removeConcentration } from "./patching.js";
+import { defaultRollOptions, removeConcentrationEffects } from "./patching.js";
 import { saveUndoData } from "./undo.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
@@ -376,10 +376,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     if (this.type === "spell" && shouldAllowRoll) {
       const midiFlags = this.actor.flags["midi-qol"];
-      const needsVerbal = this.system.components?.vocal;
-      const needsSomatic = this.system.components?.somatic;
-      const needsMaterial = this.system.components?.material;
-
+      const needsVerbal = this.system.properties.has("vocal");
+      const needsSomatic = this.system.properties.has("somatic");
+      const needsMaterial = this.system.properties.has("material");
       //TODO Consider how to disable this check for DamageOnly workflows and trap workflows
       if (midiFlags?.fail?.spell?.all) {
         ui.notifications?.warn("You are unable to cast the spell");
@@ -586,7 +585,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (needsConcentration && checkConcentration) {
       const concentrationEffect = getConcentrationEffect(this.actor);
       if (concentrationEffect) {
-        await removeConcentration(this.actor, undefined, { concentrationEffectsDeleted: false, templatesDeleted: false });
+        await removeConcentrationEffects(this.actor, undefined, {noConcentrationCheck: false});
       }
     }
     if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
@@ -1084,8 +1083,8 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
             title,
             flavor: title,
             speaker,
-          }, { "flags.dnd5e.roll": { type: "damage", itemId: this.id } });
-          if (game.system.id === "sw5e") setProperty(messageData, "flags.sw5e.roll", { type: "other", itemId: this.id })
+          }, { "flags.dnd5e.roll": { type: "midi", itemId: this.id } });
+          if (game.system.id === "sw5e") setProperty(messageData, "flags.sw5e.roll", { type: "midi", itemId: this.id })
 
           if (
             (getProperty(this.parent, "flags.midi-qol.damage.reroll-kh")) ||
@@ -1116,7 +1115,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
       }
     }
 
-    workflow.bonusDamageRoll = null;
+    workflow.bonusDamageRolls = null;
     workflow.bonusDamageHTML = null;
     if (debugCallTiming) log(`item.rollDamage():  elapsed ${Date.now() - damageRollStart}ms`);
 
@@ -1295,7 +1294,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     if (!this.id || (this.type === "consumable" && !this.actor.items.has(this.id))) {
       chatData.flags[`${game.system.id}.itemData`] = this.toObject(); // TODO check this v10
     }
-    setProperty(chatData, `flags.${game.system.id}.roll.type`, "other");
+    setProperty(chatData, `flags.${game.system.id}.roll.type`, "midi");
 
     chatData.flags = mergeObject(chatData.flags, options.flags);
     Hooks.callAll("dnd5e.preDisplayCard", this, chatData, options);

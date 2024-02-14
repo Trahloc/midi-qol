@@ -1,14 +1,13 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig } from "../midi-qol.js";
-import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, betterRollsButtons, processCreateDDBGLMessages, ddbglPendingHook, betterRollsUpdate, checkOverTimeSaves } from "./chatMessageHandling.js";
-import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile } from "./utils.js";
+import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
+import { processUndoDamageCard, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
-import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentration, zeroHPExpiry } from "./patching.js";
+import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentrationEffects, zeroHPExpiry, canRemoveConcentration } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
-import { get } from "jquery";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -106,9 +105,11 @@ export let readyHooks = async () => {
     }
   });
 
+
   // Handle removal of concentration
   Hooks.on("deleteActiveEffect", (...args) => {
     let [deletedEffect, options, user] = args;
+    if (options.undo) return; // TODO check that this is right
     const checkConcentration = configSettings.concentrationAutomation;
     if (!checkConcentration || options.noConcentrationCheck) return;
     //@ts-expect-error activeGM
@@ -116,55 +117,18 @@ export let readyHooks = async () => {
     if (!(deletedEffect.parent instanceof CONFIG.Actor.documentClass)) return;
     if (debugEnabled > 0) warn("deleteActiveEffectHook", deletedEffect, deletedEffect.parent.name, options);
     const concentrationLabel: any = getConcentrationLabel();
-    let isConcentration = deletedEffect.name === concentrationLabel;
+    const isConcentration = getProperty(deletedEffect, "flags.midi-qol.isConcentration") ?? false;
     async function changefunc() {
       try {
-        const origin = await fromUuid(deletedEffect.origin);
-        if (isConcentration && !options.noConcentrationCheck) {
-          options.concentrationEffectsDeleted = false;
-          options.concentrationDeleted = true;
-          return await removeConcentration(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { concentrationDeleted: true, noConcnetrationCheck: true }));
-        }
-        if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass && !options.noConcentrationCheck) {
-          const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
-          if (concentrationData && deletedEffect.origin === concentrationData.uuid) {
-            const newTargets: { tokenUuid: string, actorUuid: string }[] = [];
-            const allConcentrationTargets = concentrationData.targets.filter(target => {
-              let actor = MQfromActorUuid(target.actorUuid);
-              const hasEffects = actor?.effects.some(effect =>
-                effect.origin === concentrationData.uuid
-                && !effect.flags.dae.transfer
-                && effect.uuid !== deletedEffect.uuid);
-              return hasEffects;
-            });
-
-            const concentrationTargets = concentrationData.targets.filter(target => {
-              let actor = MQfromActorUuid(target.actorUuid);
-              const hasEffects = actor?.effects.some(effect =>
-                effect.origin === concentrationData.uuid
-                && !effect.flags.dae.transfer
-                && effect.uuid !== deletedEffect.uuid
-                && effect.name !== concentrationLabel);
-              return hasEffects;
-            });
-            const concentrationExpired = (getConcentrationEffect(origin.parent)?.duration?.remaining ?? 1) <= 0;
-            if (concentrationExpired) {
-              await removeConcentration(origin.parent, deletedEffect.uuid, mergeObject(options, { concentrationEffectsDeleted: true, concentrationDeleted: false, noConcentrationCheck: true }));
-            } else {
-              const templatesRemain = configSettings.removeConcentrationEffects === "effectsTemplates" && concentrationData.templates.length > 0;
-              if (!options.noConcentrationCheck
-                && ["effects", "effectsTemplates"].includes(configSettings.removeConcentrationEffects)
-                && concentrationTargets.length < 1
-                && concentrationTargets.length < concentrationData.targets.length
-                && !templatesRemain
-                && concentrationData.removeUuids.length === 0) {
-                // only non concentration effects left
-                await removeConcentration(origin.parent, deletedEffect.uuid, mergeObject(options, { concentrationEffectsDeleted: true, concentrationDeleted: undefined }));
-              } else if (concentrationData.targets.length !== allConcentrationTargets.length) {
-                // update the concentration data
-                concentrationData.targets = allConcentrationTargets;
-                await origin.parent.setFlag("midi-qol", "concentration-data", concentrationData);
-              }
+        if (isConcentration) {
+          if (!options.noConcentrationCheck)
+            removeConcentrationEffects(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { noConcnetrationCheck: true }));
+        } else {
+          const origin = await fromUuid(deletedEffect.origin);
+          if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass && !options.noConcentrationCheck) {
+            const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
+            if (concentrationData && deletedEffect.origin === concentrationData.uuid && canRemoveConcentration(concentrationData, deletedEffect.uuid)) {
+              removeConcentrationEffects(origin.parent, deletedEffect.uuid, mergeObject(options, { noConcentrationCheck: true }));  
             }
           }
         }
@@ -250,7 +214,6 @@ export function initHooks() {
 
   Hooks.on("updateChatMessage", (message, update, options, user) => {
     hideRollUpdate(message, update, options, user);
-    betterRollsUpdate(message, update, options, user);
     //@ts-ignore scrollBottom
     ui.chat?.scrollBottom();
   });
@@ -268,7 +231,6 @@ export function initHooks() {
     processUndoDamageCard(message, html, data);
     colorChatMessageHandler(message, html, data);
     hideRollRender(message, html, data);
-    betterRollsButtons(message, html, data);
     hideStuffHandler(message, html, data);
   });
 
@@ -338,7 +300,8 @@ export function initHooks() {
       ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions"),
       AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
       AutoTargetOptions: autoTargetOptions,
-      RemoveAttackDamageButtonsOptions
+      RemoveAttackDamageButtonsOptions,
+      hasReaction: item.system.activation?.type?.includes("reaction")
     });
     if (!getProperty(item, "flags.midi-qol.autoTarget")) {
       setProperty(data, "flags.midi-qol.autoTarget", "default");
@@ -437,7 +400,7 @@ export function initHooks() {
       title: 'Midi Qol',
       tabId: "midi-qol-properties-tab",
       path: '/modules/midi-qol/templates/midiPropertiesForm.hbs',
-      enabled: (data) => { return ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(data.item.type) },
+      enabled: (data) => { return ["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver", "tool"].includes(data.item.type) },
       getData: (data) => {
         data = getItemSheetData(data, data.item);
         data.showHeader = false;
@@ -452,7 +415,7 @@ export function initHooks() {
     api.itemSummary.registerCommands([
       {
         label: i18n("midi-qol.buttons.roll"),
-        enabled: (params) => ["weapon", "spell", "power", "feat"].includes(params.item.type),
+        enabled: (params) => ["weapon", "spell", "power", "feat", "tool", "consumable"].includes(params.item.type),
         iconClass: 'fas fa-dice-d20',
         execute: (params) => {
           if (debugEnabled > 1) log('roll', params.item);
@@ -515,7 +478,7 @@ export function initHooks() {
     const item = app.object;
     if (!item) return;
     if (app.constructor.name !== "Tidy5eKgarItemSheet") {
-      if (!item || !["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(data.item.type))
+      if (!item || !["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver", "tool"].includes(data.item.type))
         return;
 
       if (configSettings.midiFieldsTab) {

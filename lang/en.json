@@ -347,7 +347,7 @@
   "midi-qol.confirmTargetsProp": "Confirm Targets",
   "midi-qol.noDamageSaveProp": "No Damage Save",
   "midi-qol.fullDamageSaveProp": "Full Damage Save",
-  "midi-qol.defaultDamageType": "None",
+  "midi-qol.defaultDamageType": "midi-none",
   "midi-qol.halfDamageSaveProp": "Half Damage Save",
   "midi-qol.rollOtherProp": "Also Roll Other",
   "midi-qol.otherCritProp": "Critical Other",

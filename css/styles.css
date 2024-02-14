@@ -389,3 +389,6 @@
   font-family: var(--font-primary);
   position: relative;
 }
+.midi-bonus-damage-flavor {
+  text-align: center;
+}

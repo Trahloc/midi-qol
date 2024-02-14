@@ -266,12 +266,9 @@ export class MidiKeyManager {
       precedence: normalPrecedence
     });
   }
-
 }
 
 export function mapSpeedKeys(keys: Options | undefined, type: string, forceToggle = false): Options | undefined {
-  // if (installedModules.get("betterrolls5e")) return undefined;
-
   const pressedKeys = deepClone(keys ?? globalThis.MidiKeyManager.pressedKeys);
   let hasToggle = pressedKeys.rollToggle || forceToggle;
   if (pressedKeys.rollToggle && forceToggle) hasToggle = false;

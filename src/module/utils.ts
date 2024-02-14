@@ -20,7 +20,7 @@ export type ReactionItem = { itemName: string, itemId: string, actionName: strin
 
 export function getDamageType(flavorString): string | undefined {
   //@ts-expect-error
-  const validDamageTypes = Object.entries(GameSystemConfig.damageTypes).map(e => {e[1] = e[1].label; return e}).deepFlatten().concat(Object.entries(GameSystemConfig.healingTypes).deepFlatten())
+  const validDamageTypes = Object.entries(GameSystemConfig.damageTypes).map(e => { e[1] = e[1].label; return e }).deepFlatten().concat(Object.entries(GameSystemConfig.healingTypes).deepFlatten())
   const allDamageTypeEntries = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));
   if (validDamageTypes.includes(flavorString)) {
     //@ts-expect-error
@@ -47,13 +47,31 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
   let damageParts = {};
   //@ts-expect-error
   const DamageRoll = CONFIG.Dice.DamageRoll;
+  if (roll instanceof DamageRoll) {
+    roll = [roll];
+  }
   if (roll instanceof Array) {
     // If we received an array we have an array of damage rolls
     for (let r of roll) {
-      damageParts[r.options.type || defaultType] = r.total + (damageParts[r.options.type || defaultType] ?? 0);
+      let rr = r;
+      for (let i = rr.terms.length - 1; i >= 0;) {
+        const term = rr.terms[i--];
+        if (!(term instanceof NumericTerm) && !(term instanceof DiceTerm)) continue;
+        const flavorType = getDamageType(term.flavor);
+        let type = flavorType ? flavorType : rr.options.type;
+        if (!type) type = defaultType;
+        let multiplier = 1
+        let operator = rr.terms[i];
+        while (operator instanceof OperatorTerm) {
+          if (operator.operator === "-") multiplier *= -1;
+          operator = roll.entries[i--];
+        }
+        let value = Number((term?.total ?? "0")) * multiplier;
+        damageParts[type] = value + (damageParts[type] ?? 0);
+        damageParts[type]
+      }
     }
-  } else if (roll instanceof DamageRoll) {
-    damageParts[roll.options.type || defaultType] = roll.total + (damageParts[roll.options.type || defaultType] ?? 0);
+    //  damageParts[r.options.type || defaultType] = r.total + (damageParts[r.options.type || defaultType] ?? 0);
   } else {
     let evalString = "";
     let damageType: string | undefined = defaultType;
@@ -3970,9 +3988,8 @@ export function getConcentrationLabel(): string {
  * @returns the concentration effect if present and null otherwise
  */
 export function getConcentrationEffect(actor): ActiveEffect | undefined {
-  let concentrationLabel = getConcentrationLabel();
-  const result = actor.effects.find(ef => ef.name === concentrationLabel);
-  return result;
+  // concentration should not be a passive effect so don't need to do applied effects
+  return actor?.effects.find(ef => getProperty(ef, "flags.midi-qol.isConcentration"));
 }
 
 function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined) {
@@ -4462,7 +4479,7 @@ function hookCall(entry, args) {
   }
 }
 
-export function  addAdvAttribution(roll: Roll, advAttribution: Set<string>) {
+export function addAdvAttribution(roll: Roll, advAttribution: Set<string>) {
   // <section class="tooltip-part">
   let advHtml: string = "";
   if (advAttribution && advAttribution.size > 0) {
@@ -4471,41 +4488,53 @@ export function  addAdvAttribution(roll: Roll, advAttribution: Set<string>) {
   }
 }
 
-function getTooltip(roll) {
+function getTooltip(roll, options: any = {}) {
   const parts = roll.dice.map(d => d.getTooltipData());
-  return renderTemplate("modules/midi-qol/templates/tooltip.html", { advTooltip: roll.options?.advTooltip, parts });
+  parts.tooltipFormula = options?.tooltipFormula ?? false;
+  parts.formula = roll.formula;
+  const templateData = {
+    advTooltip: roll.options?.advTooltip,
+    tooltipFormula: options?.tooltipFormula ?? false,
+    formula: roll.formula,
+    parts
+  };
+  return renderTemplate("modules/midi-qol/templates/tooltip.html", templateData);
 }
 
 export async function midiRenderRoll(roll) {
   return roll.render();
 }
-export async function midiRenderAttackRoll(roll) {
-  // return roll.render({ template: "modules/midi-qol/templates/attack-roll.html" });
-  return midiRenderTemplateRoll(roll, "modules/midi-qol/templates/attack-roll.html")
+export async function midiRenderAttackRoll(roll, options?: any) {
+  options = mergeObject(options ?? {}, { tooltipFormula: ["formula", "formulaadv"].includes(configSettings.rollAlternate) });
+  return midiRenderTemplateRoll(roll, "modules/midi-qol/templates/attack-roll.html", options)
 }
 
-export async function midiRenderDamageRoll(roll) {
-  return midiRenderTemplateRoll(roll, "modules/midi-qol/templates/damage-roll.html")
-  return roll.render({template: "modules/midi-qol/templates/damage-roll.html"});
-  return midiRenderTemplateRoll(roll, "modules/midi-qol/templates/damage-roll.html")
+export async function midiRenderDamageRoll(roll, options?: any) {
+  options = mergeObject(options ?? {}, { tooltipFormula: ["formula", "formulaadv"].includes(configSettings.rollAlternate) });
+  let html = midiRenderTemplateRoll(roll, "modules/midi-qol/templates/damage-roll.html", options)
+  return html;
 }
 
-export function midiRenderOtherDamageRoll(roll) {
-  return roll.render({template: "modules/midi-qol/templates/other-damage-roll.html"})
+export function midiRenderOtherDamageRoll(roll, options?: any) {
+  options = mergeObject(options ?? {}, { tooltipFormula: ["formula", "formulaadv"].includes(configSettings.rollAlternate) });
+  let html = midiRenderTemplateRoll(roll, "modules/midi-qol/templates/other-damage-roll.html", options);
+  return html;
 }
-export function midiRenderBonusDamageRoll(roll) {
-  midiRenderTemplateRoll(roll, "modules/midi-qol/templates/bonus-damage-roll.html")
-  return roll.render({template: "modules/midi-qol/templates/bonus-damage-roll.html"});
+export function midiRenderBonusDamageRoll(roll, options?: any) {
+  options = mergeObject(options ?? {}, { tooltipFormula: ["formula", "formulaadv"].includes(configSettings.rollAlternate) });
+  let html = midiRenderTemplateRoll(roll, "modules/midi-qol/templates/bonus-damage-roll.html", options);
+  return html;
 }
 
-export async function midiRenderTemplateRoll(roll: Roll | undefined, template: string) {
+export async function midiRenderTemplateRoll(roll: Roll | undefined, template: string, options?: any) {
   if (!roll) return "";
   const chatData = {
     formula: roll.formula,
     user: game.user?.id,
-    tooltip: await getTooltip(roll),
+    tooltip: await getTooltip(roll, options),
+    tooltipFormula: options?.tooltipFormula ?? false,
     //@ts-expect-error
-    flavor: roll.options?.flavor,
+    flavor: options?.flavor ?? roll.options?.flavor,
     total: (roll.total !== undefined) ? Math.round((roll.total) * 100) / 100 : "???"
   };
   return renderTemplate(template, chatData);
@@ -4964,8 +4993,9 @@ export function procActorSaveBonus(actor: Actor, rollType: string, item: Item): 
 }
 
 
-export async function displayDSNForRoll(roll: Roll | undefined, rollType: string | undefined, defaultRollMode: string | undefined = undefined) {
-  if (!roll) return;
+export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollType: string | undefined, defaultRollMode: string | undefined = undefined) {
+  if (!rolls) return;
+  if (!(rolls instanceof Array)) rolls = [rolls];
   /*
   "midi-qol.hideRollDetailsOptions": {
     "none": "None",
@@ -4977,84 +5007,86 @@ export async function displayDSNForRoll(roll: Roll | undefined, rollType: string
     "d20AttackOnly": "Show attack D20 Only",
     "all": "Entire Roll"
   },*/
-  if (dice3dEnabled()) {
-    //@ts-expect-error game.dice3d
-    const dice3d = game.dice3d;
-    const hideRollOption = configSettings.hideRollDetails;
-    let ghostRoll = false;
-    let whisperIds: User[] | null = null;
-    const rollMode = defaultRollMode || game.settings.get("core", "rollMode");
-    let hideRoll = (["all"].includes(hideRollOption) && game.user?.isGM) ? true : false;
-    if (!game.user?.isGM) hideRoll = false;
-    else if (hideRollOption !== "none") {
-      if (configSettings.gmHide3dDice && game.user?.isGM) hideRoll = true;
-      if (game.user?.isGM && !hideRoll) {
-        switch (rollType) {
-          case "attackRollD20":
-            if (["d20Only", "d20AttackOnly", "detailsDSN"].includes(hideRollOption)) {
-              for (let i = 1; i < roll.dice.length; i++) { // hide everything except the d20
-                roll.dice[i].results.forEach(r => setProperty(r, "hidden", true));
-              }
+  for (let roll of rolls) {
+    if (dice3dEnabled()) {
+      //@ts-expect-error game.dice3d
+      const dice3d = game.dice3d;
+      const hideRollOption = configSettings.hideRollDetails;
+      let ghostRoll = false;
+      let whisperIds: User[] | null = null;
+      const rollMode = defaultRollMode || game.settings.get("core", "rollMode");
+      let hideRoll = (["all"].includes(hideRollOption) && game.user?.isGM) ? true : false;
+      if (!game.user?.isGM) hideRoll = false;
+      else if (hideRollOption !== "none") {
+        if (configSettings.gmHide3dDice && game.user?.isGM) hideRoll = true;
+        if (game.user?.isGM && !hideRoll) {
+          switch (rollType) {
+            case "attackRollD20":
+              if (["d20Only", "d20AttackOnly", "detailsDSN"].includes(hideRollOption)) {
+                for (let i = 1; i < roll.dice.length; i++) { // hide everything except the d20
+                  roll.dice[i].results.forEach(r => setProperty(r, "hidden", true));
+                }
+                hideRoll = false;
+              } else if ((["hitDamage", "all", "hitCriticalDamage", "details"].includes(hideRollOption) && game.user?.isGM))
+                hideRoll = true;
+              break;
+            case "attackRoll":
+              hideRoll = hideRollOption !== "detailsDSN";
+              break;
+            case "damageRoll":
+              hideRoll = hideRollOption !== "detailsDSN";
+              break;
+            default:
               hideRoll = false;
-            } else if ((["hitDamage", "all", "hitCriticalDamage", "details"].includes(hideRollOption) && game.user?.isGM))
-              hideRoll = true;
-            break;
-          case "attackRoll":
-            hideRoll = hideRollOption !== "detailsDSN";
-            break;
-          case "damageRoll":
-            hideRoll = hideRollOption !== "detailsDSN";
-            break;
-          default:
-            hideRoll = false;
-            break;
-        }
-      }
-    }
-    if (hideRoll && configSettings.ghostRolls && game.user?.isGM && !configSettings.gmHide3dDice) {
-      ghostRoll = true;
-      hideRoll = false;
-    } else {
-      ghostRoll = rollMode === "blindroll";
-    }
-
-    if (rollMode === "selfroll" || rollMode === "gmroll" || rollMode === "blindroll") {
-      whisperIds = ChatMessage.getWhisperRecipients("GM");
-      if (rollMode !== "blindroll" && game.user) whisperIds.concat(game.user);
-    }
-    if (!hideRoll) {
-      //@ts-expect-error
-      let displayRoll = Roll.fromData(roll.toJSON()); // make a copy of the roll
-      if (game.user?.isGM && configSettings.addFakeDice) {
-        for (let term of displayRoll.terms) {
-          if (term instanceof Die) {
-            // for attack rolls only add a d20 if only one was rolled - else it becomes clear what is happening
-            if (["attackRoll", "attackRollD20"].includes(rollType ?? "") && term.faces === 20 && term.number !== 1) continue;
-            let numExtra = Math.ceil(term.number * Math.random());
-            let extraDice = new Die({ faces: term.faces, number: numExtra }).evaluate();
-            term.number += numExtra;
-            term.results = term.results.concat(extraDice.results);
+              break;
           }
         }
       }
-      displayRoll.terms.forEach(term => {
-        if (term.options?.flavor) term.options.flavor = term.options.flavor.toLocaleLowerCase();
-      });
-      if (ghostRoll) {
-        const promises: Promise<any>[] = [];
-        promises.push(dice3d?.showForRoll(displayRoll, game.user, true, ChatMessage.getWhisperRecipients("GM"), !game.user?.isGM));
-        if (game.settings.get("dice-so-nice", "showGhostDice")) {
-          //@ts-expect-error .ghost
-          displayRoll.ghost = true;
-          promises.push(dice3d?.showForRoll(displayRoll, game.user, true, game.users?.players.map(u => u.id), game.user?.isGM));
+      if (hideRoll && configSettings.ghostRolls && game.user?.isGM && !configSettings.gmHide3dDice) {
+        ghostRoll = true;
+        hideRoll = false;
+      } else {
+        ghostRoll = rollMode === "blindroll";
+      }
+
+      if (rollMode === "selfroll" || rollMode === "gmroll" || rollMode === "blindroll") {
+        whisperIds = ChatMessage.getWhisperRecipients("GM");
+        if (rollMode !== "blindroll" && game.user) whisperIds.concat(game.user);
+      }
+      if (!hideRoll) {
+        //@ts-expect-error
+        let displayRoll = Roll.fromData(roll.toJSON()); // make a copy of the roll
+        if (game.user?.isGM && configSettings.addFakeDice) {
+          for (let term of displayRoll.terms) {
+            if (term instanceof Die) {
+              // for attack rolls only add a d20 if only one was rolled - else it becomes clear what is happening
+              if (["attackRoll", "attackRollD20"].includes(rollType ?? "") && term.faces === 20 && term.number !== 1) continue;
+              let numExtra = Math.ceil(term.number * Math.random());
+              let extraDice = new Die({ faces: term.faces, number: numExtra }).evaluate();
+              term.number += numExtra;
+              term.results = term.results.concat(extraDice.results);
+            }
+          }
         }
-        await Promise.allSettled(promises);
-      } else
-        await dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, rollMode === "blindroll" && !game.user?.isGM)
+        displayRoll.terms.forEach(term => {
+          if (term.options?.flavor) term.options.flavor = term.options.flavor.toLocaleLowerCase();
+        });
+        if (ghostRoll) {
+          const promises: Promise<any>[] = [];
+          promises.push(dice3d?.showForRoll(displayRoll, game.user, true, ChatMessage.getWhisperRecipients("GM"), !game.user?.isGM));
+          if (game.settings.get("dice-so-nice", "showGhostDice")) {
+            //@ts-expect-error .ghost
+            displayRoll.ghost = true;
+            promises.push(dice3d?.showForRoll(displayRoll, game.user, true, game.users?.players.map(u => u.id), game.user?.isGM));
+          }
+          await Promise.allSettled(promises);
+        } else
+          await dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, rollMode === "blindroll" && !game.user?.isGM)
+      }
     }
+    //mark all dice as shown - so that toMessage does not trigger additional display on other clients
+    roll.dice.forEach(d => d.results.forEach(r => setProperty(r, "hidden", true)));
   }
-  //mark all dice as shown - so that toMessage does not trigger additional display on other clients
-  roll.dice.forEach(d => d.results.forEach(r => setProperty(r, "hidden", true)));
 }
 
 export function isReactionItem(item): boolean {
@@ -5279,13 +5311,8 @@ export function calcTokenCover(attacker: Token | TokenDocument, target: Token | 
 
 export function itemRequiresConcentration(item): boolean {
   if (!item) return false;
-  if (item.system.activation?.condition?.toLocaleLowerCase().includes(i18n("midi-qol.concentrationActivationCondition").toLocaleLowerCase())) {
-    console.warn("midi-qol | itemRequiresConcentration | concentration activation condition deprecated use concentration component/midiProperty");
-  }
-  return item.system.components?.concentration
-    || item.flags.midiProperties?.concentration
-    || item.system.porperties?.concentration // for the future case of dnd5e 2.x
-    || item.system.activation?.condition?.toLocaleLowerCase().includes(i18n("midi-qol.concentrationActivationCondition").toLocaleLowerCase());
+  return item.system.properties.has("concentration")
+    || item.flags.midiProperties?.concentration;
 }
 
 const MaxNameLength = 20;
@@ -5377,7 +5404,7 @@ export function hasAutoPlaceTemplate(item) {
 }
 
 export function itemOtherFormula(item): string {
-  if (item?.type === "weapon" && !item?.isVersatle && ((item.system.formula ?? "") === ""))
+  if (item?.type === "weapon" && !item?.isVersatile && ((item.system.formula ?? "") === ""))
     return item?.system.damage.versatile ?? "";
   return item?.system.formula ?? "";
 }
@@ -5485,18 +5512,61 @@ export function sumRolls(rolls: Array<Roll> | undefined = []): number {
 
 const updatesCache = {};
 export async function _updateAction(document) {
-  if (!updatesCache[document.uuid]) return;
-  const updates = updatesCache[document.uuid];
-  updatesCache[document.uuid] = undefined;
+  if (!updatesCache[document.id]) return;
+  const updates = updatesCache[document.id];
+  delete updatesCache[document.id];
   if (DebounceInterval) console.log("Doing updateAction");
-  // console.log("Doing updateAction", updatesCache[document.uuid]);
+  // console.log("Doing updateAction", updatesCache[document.id]);
   return document.update(updates);
 }
 
-export async function debounceUpdate(document, updates) {
-  updatesCache[document.uuid] = mergeObject((updatesCache[document.uuid] ?? {}), updates, { inplace: false, overwrite: true, insertKeys: true, insertValues: true})
-  if (!DebounceInterval) return _updateAction(document);
-  if (updatesCache[document.uuid]) {console.log("Already some updates here!", DebounceInterval)}
-  else console.log("No updates cached", DebounceInterval)
+export async function debounceUpdate(document, updates, immediate = false) {
+  if (!DebounceInterval) return await document.update(updates);
+  updatesCache[document.id] = mergeObject((updatesCache[document.id] ?? {}), updates, { inplace: false, overwrite: true, insertKeys: true, insertValues: true })
+  if (immediate) return _updateAction(document);
+  if (updatesCache[document.id]) { console.log("Already some updates here!", DebounceInterval) }
+  else console.log("No updates cached", DebounceInterval);
+  clearUpdatesCache(document.id);
   return _debouncedUpdateAction(document);
+}
+export function getUpdatesCache(document) {
+  if (!updatesCache[document.id]) return {};
+  return updatesCache[document.id]
+}
+export function clearUpdatesCache(id: string | undefined | null) {
+  if (!id) return;
+  delete updatesCache[id];
+}
+
+export function getCachedChatMessage(id: string | undefined | null) {
+  if (!id) return undefined;
+  let chatMessage: ChatMessage | undefined = game.messages?.get(id);
+  let updates = chatMessage?.id && updatesCache[chatMessage.id];
+  //@ts-expect-error
+  if (updates) chatMessage?.updateSource(updates);
+  return chatMessage;
+}
+
+export function getConcentrationEffectsRemaining(concentrationData, deletedUuid: string | undefined): ActiveEffect[] {
+  const allConcentrationEffects = concentrationData.targets?.reduce((effects, target) => {
+    let actor = MQfromActorUuid(target.actorUuid);
+    let matchEffects = actor?.effects.filter(effect => {
+      let matched = effect.origin === concentrationData.uuid
+        && !effect.flags.dae.transfer
+        && effect.uuid !== deletedUuid;
+      matched = matched && !isEffectExpired(effect);
+      return matched;
+    }) ?? [];
+    return effects.concat(matchEffects);
+  }, []);
+  return allConcentrationEffects;
+}
+
+export function isEffectExpired(effect): boolean {
+  if (installedModules.get("times-up") && globalThis.TimesUp.isEffectExpired) {
+    return globalThis.TimesUp.isEffectExpired(effect);
+  }
+  // TODO find out how to check some other module can delete expired effects
+  // return effect.updateDuration().remaining ?? false;
+  return false;
 }

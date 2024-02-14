@@ -1,11 +1,12 @@
 import { checkRule, configSettings } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
 import { Workflow } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
 import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _removeMostRecentWorkflow, _undoMostRecentWorkflow, undoTillWorkflow, _queueUndoDataDirect, updateUndoChatCardUuidsById } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { installedModules } from "./setupModules.js";
 
 export var socketlibSocket: any = undefined;
 var traitList = { di: {}, dr: {}, dv: {} };
@@ -30,6 +31,7 @@ export let setupSocket = () => {
   socketlibSocket.register("D20Roll", _D20Roll);
   socketlibSocket.register("ddbglPendingFired", ddbglPendingFired);
   socketlibSocket.register("deleteEffects", deleteEffects);
+  socketlibSocket.register("deleteEffectsByUuid", deleteEffectsByUuid);
   socketlibSocket.register("deleteItemEffects", deleteItemEffects);
   socketlibSocket.register("deleteToken", deleteToken);
   socketlibSocket.register("gmOverTimeEffect", _gmOverTimeEffect);
@@ -80,6 +82,7 @@ export class SaferSocket {
       case "confirmDamageRollCompleteMiss":
       case "cancelWorkflow":
       case "createChatMessage":
+      case "createEffects":
       case "D20Roll":
       case "log":
       case "monksTokenBarSaves":
@@ -93,19 +96,20 @@ export class SaferSocket {
 
       case "addConvenientEffect":
       case "createActor":
-      case "createEffects":
       case "createReverseDamageCard":
+      case "deleteEffects":
       case "deleteItemEffects":
       case "deleteToken":
       case "removeEffects":
       case "updateActor":
       case "updateEffects":
+        case "_gmSetFlag":
+      case "_gmUnsetFlag":
         if (game.user?.isTrusted) return true;
         ui.notifications?.warn(`midi-qol | user ${game.user?.name} must be a trusted player to call ${handler} and will be disabled in the future`);
         return true; // TODO change this to false in the future.
 
-      case "_gmSetFlag":
-      case "_gmUnsetFlag":
+
       case "ddbglPendingFired":
       case "gmOverTimeEffect":
       case "queueUndoData":
@@ -118,6 +122,7 @@ export class SaferSocket {
       case "updateEntityStats":
       case "updateUndoChatCardUuids":
       case "updateUndoChatCardUuidsById":
+      case "deleteEffectsByUuid":
       default:
         error(`Non-GMs are not allowed to call ${handler}`);
         return false;
@@ -155,7 +160,7 @@ export class SaferSocket {
   }
 }
 
-export async function removeActionBonusReaction(data: {actorUuid: string}) {
+export async function removeActionBonusReaction(data: { actorUuid: string }) {
   const actor = MQfromActorUuid(data.actorUuid);
   if (!actor) return;
   if (hasUsedReaction(actor)) await removeReactionUsed(actor);
@@ -171,7 +176,7 @@ async function _removeEffect(data: { effectUuid: string }) {
   return effect.delete();
 }
 
-async function _removeCEEffect(data: {effectName: string, uuid: string}) {
+async function _removeCEEffect(data: { effectName: string, uuid: string }) {
   //@ts-expect-error
   return game.dfreds.effectInterface?.removeEffect({ effectName: data.effectName, uuid: data.uuid });
 }
@@ -467,16 +472,25 @@ async function deleteToken(data: { tokenUuid: string }) {
   }
 }
 
+export async function deleteEffectsByUuid(data: { effectsToDelete: string[], options: any }) {
+  for (let effectUuid of data.effectsToDelete) {
+    //@ts-expect-error fromUuidSync
+    const effect = fromUuidSync(effectUuid);
+    if (effect !== undefined && !isEffectExpired(effect)) await effect.delete();
+  }
+}
+
 export async function deleteEffects(data: { actorUuid: string, effectsToDelete: string[], options: any }) {
   const actor = MQfromActorUuid(data.actorUuid);
   if (!actor) return;
   // Check that none of the effects were deleted while we were waiting to execute
-  const finalEffectsToDelete = actor.effects.filter(ef => data.effectsToDelete.includes(ef.id)).map(ef => ef.id);
+  let finalEffectsToDelete = actor.effects.filter(ef => data.effectsToDelete.includes(ef.id) && !isEffectExpired(ef));
+  finalEffectsToDelete = finalEffectsToDelete.map(ef => ef.id);
   try {
     if (debugEnabled > 0) warn("_deleteEffects started", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
     const result = await actor.deleteEmbeddedDocuments("ActiveEffect", finalEffectsToDelete, data.options);
-  if (debugEnabled > 0) warn("_deleteEffects completed", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
-  return result;
+    if (debugEnabled > 0) warn("_deleteEffects completed", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
+    return result;
   } catch (err) {
     const message = `deleteEffects | remote delete effects error`;
     console.warn(message, err);
@@ -500,11 +514,17 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
         effectsToDelete = actor?.effects?.filter(ef => {
           return ef.origin === origin && !ignore.includes(ef.uuid) && (!data.ignoreTransfer || ef.flags?.dae?.transfer !== true)
         });
+        if (installedModules.get("times-up")) {
+          if (globalThis.TimesUp.isEffectExpired) {
+            effectsToDelete = effectsToDelete.filter(ef => !globalThis.TimesUp.isEffectExpired(ef), {});
+          }
+          else effectsToDelete = effectsToDelete.filter(ef => !(ef.updateDuration().remaining <= 0));
+        }
         debug("deleteItemEffects: effectsToDelete ", actor.name, effectsToDelete, options)
         if (effectsToDelete?.length > 0) {
           try {
             // for (let ef of effectsToDelete) ef.delete();
-            options = mergeObject(options ?? {}, { parent: actor, concentrationEffectsDeleted: true, concentrationDeleted: true });
+            options = mergeObject(options ?? {}, { parent: actor, concentrationDeleted: true });
             if (debugEnabled > 0) warn("deleteItemEffects ", actor.name, effectsToDelete, options);
             await ActiveEffect.deleteDocuments(effectsToDelete.map(ef => ef.id), options);
             // await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id), {strict: false, invalid: false});
