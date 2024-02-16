@@ -360,12 +360,13 @@ export function processItemCardCreation(message, user) {
   if (user === game.user?.id && midiFlags?.workflowId) { // check to see if it is a workflow
     const workflow = Workflow.getWorkflow(midiFlags.workflowId);
     if (!workflow) return;
-    if (debugEnabled > 0) warn("processItemCardCreation", message.id, workflow.itemCardId, workflow.workflowName)
+    if (debugEnabled > 0) warn("processItemCardCreation", message.id, workflow.itemCardId, workflow.ItemCardUuid, workflow.workflowName)
     workflow.itemCardId = message.id;
+    workflow.itemCardUuid = message.uuid;
     workflow.needItemCard = false;
     const shouldUnsuspend = ([workflow.WorkflowState_AwaitItemCard, workflow.WorkflowState_AwaitTemplate, workflow.WorkflowState_NoAction].includes(workflow.currentAction) && workflow.suspended && !workflow.needTemplate && !workflow.needItemCard && workflow.preItemUseComplete); if (debugEnabled > 0) warn(`chat card created: unsuspending ${workflow.workflowName} ${workflow.nameForState(workflow.currentAction)} unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}, itemUseomplete: ${workflow.preItemUseComplete}`);
     if (shouldUnsuspend) {
-      workflow.unSuspend({ itemCardId: message.id, itemUseComplete: true });
+      workflow.unSuspend({ itemCardId: message.id, itemCarduuid: message.uuid, itemUseComplete: true });
     }
   }
 }
@@ -455,7 +456,7 @@ export async function onChatCardAction(event) {
             "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss",
             "confirm-damage-roll-cancel": "cancelWorkflow"
           }[action];
-          socketlibSocket.executeAsUser(actionToCall, message.user?.id, { workflowId, itemCardId: message.id }).then(result => {
+          socketlibSocket.executeAsUser(actionToCall, message.user?.id, { workflowId, itemCardId: message.id, itemCardUuid: message.uuid }).then(result => {
             if (typeof result === "string") ui.notifications?.warn(result);
           });
         } else {

@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig } from "../midi-qol.js";
 import { DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -652,14 +652,16 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       if (workflow.attackRoll && workflow.currentAction === workflow.WorkflowState_Completed) {
         // we are re-rolling the attack.
         workflow.setDamageRolls(undefined)
-        if (workflow.itemCardId) {
-          await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardId);
-          await Workflow.removeItemCardConfirmRollButton(workflow.itemCardId);
+        if (workflow.itemCardUuid) {
+          await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid);
+          await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
         }
         if (workflow.damageRollCount > 0) { // re-rolling damage counts as new damage
           const itemCard = await this.displayCard(mergeObject(options, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
           workflow.itemCardId = itemCard.id;
+          workflow.itemCardUuid = itemCard.uuid;
           workflow.needItemCard = false;
+
         }
       }
     }
@@ -876,7 +878,8 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     }
 
     if (workflow.damageRollCount > 0) { // we are re-rolling the damage. redisplay the item card but remove the damage if the roll was finished
-      let chatMessage = game.messages?.get(workflow.itemCardId ?? "");
+      let chatMessage = getCachedDocument(workflow.itemCardUuid);
+      // let chatMessage = game.messages?.get(workflow.itemCardId ?? "");
       //@ts-ignore content v10
       let content = (chatMessage && chatMessage.content) ?? "";
       let data;
@@ -894,12 +897,14 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
         content = content.replace(searchRe, replaceString);
       }
       if (data && workflow.currentAction === workflow.WorkflowState_Completed) {
-        if (workflow.itemCardId) {
-          await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardId);
-          await Workflow.removeItemCardConfirmRollButton(workflow.itemCardId);
+        if (workflow.itemCardUuid) {
+          await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid);
+          await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
         }
         delete data._id;
-        workflow.itemCardId = (await ChatMessage.create(data))?.id;
+        const itemCard = await ChatMessage.create(data);
+        workflow.itemCardId = itemCard?.id;
+        workflow.itemCardUuid = itemCard?.uuid;
       }
     };
 
@@ -1079,13 +1084,14 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
           }
           const title = `${this.name} - ${actionFlavor}`;
 
-          messageData = mergeObject({
+          const messageData = {
             title,
             flavor: title,
             speaker,
-          }, { "flags.dnd5e.roll": { type: "midi", itemId: this.id } });
-          if (game.system.id === "sw5e") setProperty(messageData, "flags.sw5e.roll", { type: "midi", itemId: this.id })
-
+            itemId: this.id
+          };
+          if (configSettings.mergeCard) 
+            setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
           if (
             (getProperty(this.parent, "flags.midi-qol.damage.reroll-kh")) ||
             (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl"))) {

@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
-import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -174,7 +174,7 @@ Hooks.once('setup', function () {
 });
 
 function addConfigOptions() {
-  
+
   //@ts-expect-error
   let config = game.system.config;
   //@ts-expect-error
@@ -497,6 +497,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     displayDSNForRoll: async function displayDSNForRoll(roll: Roll | undefined, rollType: string | undefined, defaultRollMode: string | undefined = undefined),
     doMidiConcentrationCheck: async function doMidiConcentrationCheck(actor: Actor, saveDC),
     findNearby(disposition: number | string | null | Array<string | number>, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined, relative: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false, relative: true }): Token[];
+    getCachedChatMessage()
     getChanges: function getChanges(actorOrItem: Actor | Item, key: string): any[],
     getConcentrationEffect: function getConcentrationEffect(actor: Actor): ActiveEffect | undefined,
     geti18nOptions: function geti18nOptions(key: string): any,
@@ -591,6 +592,7 @@ function setupMidiQOLApi() {
     collectSettingData,
     contestedRoll,
     DamageOnlyWorkflow,
+    debouncedUpdate,
     debug,
     displayDSNForRoll,
     doConcentrationCheck,
@@ -600,6 +602,7 @@ function setupMidiQOLApi() {
     enableWorkflow,
     findNearby,
     gameStats,
+    getCachedChatMessage: getCachedDocument,
     getChanges, // (actorOrItem, key) - what effects on the actor or item target the specific key
     getConcentrationEffect,
     getDistance: getDistanceSimpleOld,
@@ -868,7 +871,7 @@ function setupMidiFlags() {
       Object.keys(config.damageTypes).forEach(key => {
         midiFlags.push(`flags.midi-qol.DR.${key}`);
 
-      // TODO dbd3 - see how to present label but check key  midiFlags.push(`flags.midi-qol.DR.${config.damageTypes[key].label}`);
+        // TODO dbd3 - see how to present label but check key  midiFlags.push(`flags.midi-qol.DR.${config.damageTypes[key].label}`);
       });
     } else {
       Object.keys(config.damageTypes).forEach(dt => {
@@ -951,6 +954,24 @@ const MQMacros = [
     version: "11.0.9.1",
     permission: { default: 1 },
     commandText: `MidiQOL.TroubleShooter.exportTroubleShooterData()`
+  },
+  {
+    name: "Midi: Clear Scene Token Legacy Passive Effects",
+    checkVersion: true,
+    version: "11.4.1.2",
+    commandText: `await MidiQOL.removeSceneDAEPassiveEffects()`
+  },
+  {
+    name: "Midi: Clear All Actors Legacy Passive Effects",
+    checkVersion: true,
+    version: "11.4.1.2",
+    commandText: `await MidiQOL.removeActorsDAEPassiveEffects()`
+  },
+  {
+    name: "Midi: Clear All Compendium Legacy Passive Effects",
+    checkVersion: true,
+    version: "11.4.1.2",
+    commandText: `await MidiQOL.removeCompendiaDAEPassiveEffects()`
   }
 ]
 export async function createMidiMacros() {
@@ -1008,3 +1029,4 @@ function midiOnerror(event: string | Event, source?: string | undefined, lineno?
   return false;
 }
 // globalThis.onerror = midiOnerror;
+

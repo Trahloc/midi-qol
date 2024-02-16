@@ -392,3 +392,43 @@
 .midi-bonus-damage-flavor {
   text-align: center;
 }
+.dnd5e2 .midi-buttons button {
+  background: var(--dnd5e-color-card);
+  font-family: var(--dnd5e-font-roboto);
+  font-weight: bold;
+  font-size: var(--font-size-11);
+  text-transform: uppercase;
+  padding: 0.05rem;
+  border: 1px solid var(--color-border-light-2);
+  box-shadow: 0 0 8px var(--dnd5e-shadow-15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+}
+
+.dnd5e2.chat-card.midi-chat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  /* Effects Tray */
+}
+.dnd5e.chat-card.midi-chat-card .card-buttons {
+  margin: 2px 0;
+  height: 18px;
+  line-height: 14px;
+}
+
+.dnd5e.chat-card.midi-chat-card.card-buttons button {
+  color: red;
+  font-size: var(--font-size-12);
+  height: 18px;
+  line-height: 12px;
+  margin: 2px 0;
+}
+.dnd5e.chat-card.midi-chat-card .card-buttons span {
+  display: block;
+  line-height: 18px;
+  text-align: center;
+  border: 1px solid var(--dnd5e-border-light);
+}

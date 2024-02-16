@@ -1,4 +1,5 @@
-import { GameSystemConfig, debugEnabled, i18n, log } from "../midi-qol.js";
+import { get } from "jquery";
+import { GameSystemConfig, debugEnabled, i18n, log, warn } from "../midi-qol.js";
 import { RollStatsDisplay } from "./apps/RollStatsDisplay.js";
 import { configSettings } from "./settings.js";
 
@@ -20,61 +21,6 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
     let tooltipFormula = ["formula", "formulaadv"].includes(configSettings.rollAlternate);
     let diceFormula = `<div class="dice-formula">${formula}</div>`;
     if (this.user.isGM && !game.user?.isGM) {
-      /*
-      if (message.user?.isGM) {
-        const d20AttackRoll = getProperty(message.flags, "midi-qol.d20AttackRoll");
-        if (configSettings.hideRollDetails === "all" || getProperty(message.flags, "midi-qol.GMOnlyAttackRoll")) {
-          html.find(".dice-tooltip").remove();
-          // html.find(".midi-qol-attack-roll .dice-total").text(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          html.find(".midi-qol-attack-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          html.find(".midi-qol-damage-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          html.find(".midi-qol-other-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          html.find(".midi-qol-bonus-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          if (!(message.flags && message.flags["monks-tokenbar"])) // not a monks roll
-            html.find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          // html.find(".dice-result").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`); Monks saving throw css
-          //TODO this should probably just check formula
-        } else if (configSettings.hideRollDetails !== "none") {
-          // in all cases remove the tooltip and formula from the non gm client
-          html.find(".dice-tooltip").remove();
-          html.find(".dice-formula").remove();
-  
-          if (d20AttackRoll && configSettings.hideRollDetails === "d20AttackOnly") {
-            html.find(".midi-qol-attack-roll .dice-total").text(`(d20) ${d20AttackRoll}`);
-            html.find(".midi-qol-damage-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-            html.find(".midi-qol-other-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-            html.find(".midi-qol-bonus-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-          } else if (d20AttackRoll && configSettings.hideRollDetails === "d20Only") {
-            html.find(".midi-qol-attack-roll .dice-total").text(`(d20) ${d20AttackRoll}`);
-            html.find(".midi-qol-other-roll").find(".dice-tooltip").remove();
-            html.find(".midi-qol-other-roll").find(".dice-formula").remove();
-            html.find(".midi-qol-bonus-roll").find(".dice-tooltip").remove();
-            html.find(".midi-qol-bonus-roll").find(".dice-formula").remove();
-            /* TODO remove this pending feedback
-                  html.find(".midi-qol-damage-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-                  html.find(".midi-qol-other-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-                  html.find(".midi-qol-bonus-roll").find(".dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
-            * /
-          } else if (d20AttackRoll && ["hitDamage", "hitCriticalDamage"].includes(configSettings.hideRollDetails)) {
-            const hitFlag = getProperty(message.flags, "midi-qol.isHit");
-            const hitString = hitFlag === undefined ? "" : hitFlag ? i18n("midi-qol.hits") : i18n("midi-qol.misses");
-            html.find(".midi-qol-attack-roll .dice-total").text(`${hitString}`);
-            if (configSettings.hideRollDetails === "hitDamage") {
-              html.find(".midi-qol-attack-roll .dice-total").removeClass("critical");
-              html.find(".midi-qol-attack-roll .dice-total").removeClass("fumble");
-            }
-  
-            html.find(".midi-qol-other-roll").find(".dice-tooltip").remove();
-            html.find(".midi-qol-other-roll").find(".dice-formula").remove();
-            html.find(".midi-qol-bonus-roll").find(".dice-tooltip").remove();
-            html.find(".midi-qol-bonus-roll").find(".dice-formula").remove();
-          } else if (["details", "detailsDSN"].includes(configSettings.hideRollDetails)) {
-            // html.find(".dice-tooltip").remove();
-            // html.find(".dice-formula").remove();
-          }
-        }
-      }
-      */
       switch (configSettings.hideRollDetails) {
         case "none":
           break;
@@ -113,15 +59,15 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
 
     const roll = document.createElement("div");
     roll.classList.add("dice-roll");
-    roll.innerHTML = `
+    const tooltip =
+      roll.innerHTML = `
       <div class="dice-result">
         ${tooltipFormula ? "" : diceFormula}
         <div class="dice-tooltip">
-          ${hideToolTip ? "" :
-        //@ts-expect-error
-        Object.entries(breakdown).reduce((str, [type, { total, constant, dice }]) => {
-          const config = GameSystemConfig.damageTypes[type] ?? GameSystemConfig.healingTypes[type];
-          return `${str}
+          ${ //@ts-expect-error
+      Object.entries(breakdown).reduce((str, [type, { total, constant, dice }]) => {
+        const config = GameSystemConfig.damageTypes[type] ?? GameSystemConfig.healingTypes[type];
+        return `${str}
               <section class="tooltip-part">
               ${tooltipFormula && str === "" ? diceFormula : ""}
               </section>
@@ -143,7 +89,7 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
                 </div>
               </section>
             `;
-        }, "")}
+      }, "")}
         </div>
         <h4 class="dice-total">${total}</h4>
       </div>
@@ -166,30 +112,24 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
           const flavor = document.createElement("div");
           const flavors = rollsToCheck.map(r => r.options.flavor ?? r.options.type);
           const bonusDamageFlavor = flavors.join(", ");
-          // const bonusDamageFlavor = `<span>(${rollsToCheck.map(r => r.options.flavor ?? r.options.type)})</span>`;
           flavor.classList.add("midi-bonus-damage-flavor");
           flavor.innerHTML = bonusDamageFlavor;
           html.querySelector(`.midi-qol-${rType}-roll`)?.appendChild(flavor);
         }
         html.querySelector(`.midi-qol-${rType}-roll`)?.appendChild(roll);
+        if (this.user.isGM && !game.user?.isGM && configSettings.hideRollDetails !== "none") {
+          html.querySelectorAll(".dice-roll").forEach(el => el.removeEventListener("click", this._onClickDiceRoll.bind(this)));
+          if (configSettings.hideRollDetails !== "none") html.querySelectorAll(`.midi-${rType}-roll .dice-tooltip`)?.forEach(el => el.remove());
+          if (configSettings.hideRollDetails !== "none") html.querySelectorAll(`.midi-${rType}-roll .dice-formula`)?.forEach(el => el.remove());
+        }
       }
     }
-    /*
-    const otherRolls = this.rolls.filter(r => getProperty(r, "options.midi-qol.rollType") === "other");
-    // otherRolls.forEach(r => r.terms.forEach(t => t.options.flavor = t.options?.flavor.label ?? ""))
-    if (otherRolls?.length) {
-      let roll = this.collectRolls(otherRolls);
-      html.querySelectorAll(".midi-other-damage-roll")?.forEach(el => el.remove());
-      roll.classList.add("midi-other-roll");
-      html.querySelector(".midi-qol-other-roll")?.appendChild(roll);
-    }
-    */
   }
   enrichAttackRolls(html) {
     if (this.user.isGM && game.user?.isGM) return;
     const hitFlag = getProperty(this.flags, "midi-qol.isHit");
     const hitString = hitFlag === undefined ? "" : hitFlag ? i18n("midi-qol.hits") : i18n("midi-qol.misses");
-    let attackRollText;;
+    let attackRollText;
     switch (configSettings.hideRollDetails) {
       case "none":
         break;
@@ -218,17 +158,26 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
         break;
     }
     if (attackRollText) html.querySelectorAll(".midi-attack-roll .dice-total")?.forEach(el => el.innerHTML = attackRollText);
-    if (configSettings.hideRollDetails !== "none") html.querySelectorAll(".midi-attack-roll .dice-tooltip")?.forEach(el => el.remove());
-    if (configSettings.hideRollDetails !== "none") html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.remove());
+    if (this.user.isGM && !game.user?.isGM && configSettings.hideRollDetails) {
+      if (configSettings.hideRollDetails !== "none") html.querySelectorAll(".midi-attack-roll .dice-tooltip")?.forEach(el => el.classList.add("secret-roll"));
+      if (configSettings.hideRollDetails !== "none") html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.classList.add("secret-roll"));
+      
+    }
   }
-
   _enrichChatCard(html) {
-    if (getProperty(this, "flags.dnd5e.roll.type") !== "midi") return super._enrichChatCard(html);
-    this.enrichAttackRolls(html);
+    if (getProperty(this, "flags.dnd5e.roll.type") && getProperty(this, "flags.dnd5e.roll.type") !== "midi") return super._enrichChatCard(html);
+    if (!getProperty(this, "flags.dnd5e.roll.type") && this.rolls.length > 0) return super._enrichChatCard(html);
+    if (!getProperty(this, "flags.dnd5e.roll.type")) {
+      html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
+      return;
+    }
+    if (debugEnabled > 1) warn("Enriching chat card", this.id);
     super._enrichChatCard(html);
+    this.enrichAttackRolls(html); // This has to run first to stop errors when ChatMessage5e._enrichDamageTooltip runs
+    html.querySelectorAll(".dice-roll").forEach(el => el.removeEventListener("click", super._onClickDiceRoll.bind(this)));
+    html.querySelectorAll(".dice-roll").forEach(el => el.removeEventListener("click", super._onClickDiceRoll.bind(this)));
   }
 }
-
 
 Hooks.once("init", () => {
   console.warn("Registering ChatMessageMidi");

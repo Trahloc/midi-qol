@@ -3,12 +3,13 @@ import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templ
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getSelfTargetSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getSelfTarget, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getLinkText, getIconFreeLink, completeItemUse, getStatusName, hasUsedReaction, getConcentrationEffect, needsReactionCheck, hasUsedBonusAction, needsBonusActionCheck, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debounceUpdate, getCachedChatMessage, clearUpdatesCache, getDamageType } from "./utils.js"
+import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getSelfTargetSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getSelfTarget, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getLinkText, getIconFreeLink, completeItemUse, getStatusName, hasUsedReaction, getConcentrationEffect, needsReactionCheck, hasUsedBonusAction, needsBonusActionCheck, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail, removeConcentrationEffects } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { saveTargetsUndoData } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { message } from "gulp-typescript/release/utils.js";
 
 export const shiftOnlyEvent = { shiftKey: true, altKey: false, ctrlKey: false, metaKey: false, type: "" };
 export function noKeySet(event) { return !(event?.shiftKey || event?.ctrlKey || event?.altKey || event?.metaKey) }
@@ -32,6 +33,7 @@ export class Workflow {
   //@ts-ignore dnd5e v10
   item: globalThis.dnd5e.documents.Item5e;
   itemCardId: string | undefined | null;
+  itemCardUuid: string | undefined | null;
   itemCardData: {};
   displayHookId: number | null;
   templateElevation: number;
@@ -178,9 +180,12 @@ export class Workflow {
       if (existing) {
         Workflow.removeWorkflow(item.uuid);
         //TODO check this
-        if ([existing.WorkflowState_RollFinished, existing.WorkflowState_WaitForDamageRoll].includes(existing.currentAction) && existing.itemCardId) {
-          clearUpdatesCache(existing.itemCardId);
-          game.messages?.get(existing.itemCardId)?.delete();
+        if ([existing.WorkflowState_RollFinished, existing.WorkflowState_WaitForDamageRoll].includes(existing.currentAction) && existing.itemCardUuid) {
+          clearUpdatesCache(existing.itemCardUuid);
+          //@ts-expect-error
+          const existingCard = fromUuidSync(existing.itemCardUuid);
+          if (existingCard) existingCard.delete();
+          // game.messages?.get(existing.itemCardId ?? "")?.delete();
         }
       }
     }
@@ -312,9 +317,8 @@ export class Workflow {
     return true;
   }
 
-  static async removeItemCardConfirmRollButton(itemCardId: string) {
-    const chatMessage = getCachedChatMessage(itemCardId);
-    //@ts-expect-error .content
+  static async removeItemCardConfirmRollButton(itemCardUuid: string) {
+    const chatMessage = getCachedDocument(itemCardUuid);
     let content = chatMessage?.content && duplicate(chatMessage.content);
     if (!content) return;
     const confirmMissRe = /<button class="midi-qol-confirm-damage-roll-complete-miss" data-action="confirm-damage-roll-complete-miss">[^<]*?<\/button>/;
@@ -326,14 +330,13 @@ export class Workflow {
     const cancelRe = /<button class="midi-qol-confirm-damage-roll-cancel" data-action="confirm-damage-roll-cancel">[^<]*?<\/button>/;
     content = content?.replace(cancelRe, "");
     // TODO come back and make this cached.
-    return debounceUpdate(chatMessage, { content });
+    return debouncedUpdate(chatMessage, { content });
     // return chatMessage.update({ content });
   }
 
-  static async removeItemCardAttackDamageButtons(itemCardId: string, removeAttackButtons: boolean = true, removeDamageButtons: boolean = true) {
+  static async removeItemCardAttackDamageButtons(itemCardUuid: string, removeAttackButtons: boolean = true, removeDamageButtons: boolean = true) {
     try {
-      const chatMessage = getCachedChatMessage(itemCardId);
-      //@ts-expect-error .content
+      const chatMessage = getCachedDocument(itemCardUuid);
       let content = chatMessage?.content && duplicate(chatMessage.content);
       if (!content) return;
       // TODO work out what to do if we are a damage only workflow and betters rolls is active - display update wont work.
@@ -355,7 +358,7 @@ export class Workflow {
         content = content?.replace(versatileRe, "<div></div>")
       }
       // Come back and make this cached.
-      debounceUpdate(chatMessage, { content });
+      await debouncedUpdate(chatMessage, { content });
       // return chatMessage.update({ content });
     } catch (err) {
       const message = `removeAttackDamageButtons`;
@@ -379,14 +382,14 @@ export class Workflow {
     }
     delete Workflow._workflows[id];
     // Remove buttons
-    if (workflow.itemCardId) {
+    if (workflow.itemCardUuid) {
       if (workflow.currentAction === workflow.WorkflowState_ConfirmRoll) {
-        const itemCard = getCachedChatMessage(workflow.itemCardId);
+        const itemCard = getCachedDocument(workflow.itemCardUuid);
         if (itemCard) await itemCard.delete();
-        clearUpdatesCache(workflow.itemCardId);
+        clearUpdatesCache(workflow.itemCardUuid);
       } else {
-        await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardId);
-        await Workflow.removeItemCardConfirmRollButton(workflow.itemCardId);
+        await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid);
+        await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
       }
     }
   }
@@ -458,8 +461,9 @@ export class Workflow {
       this.templateUuid = context.templateDocument?.uuid;
       this.needTemplate = false;
     }
-    if (context.itemCardId) {
+    if (context.itemCardUuid) {
       this.itemCardId = context.itemCardId;
+      this.itemCardUuid = context.itemCardUuid;
       this.needItemCard = false;
     }
     if (context.itemUseComplete) this.preItemUseComplete = true;
@@ -627,10 +631,9 @@ export class Workflow {
     }
 
     // Some modules stop being able to get the item card id.
-    if (!this.itemCardId) return this.WorkflowState_AoETargetConfirmation;
+    if (!this.itemCardUuid) return this.WorkflowState_AoETargetConfirmation;
 
-    const chatMessage = getCachedChatMessage(this.itemCardId);
-    //@ts-expect-error .content
+    const chatMessage = getCachedDocument(this.itemCardUuid);
     if (!chatMessage?.content) return this.WorkflowState_AoETargetConfirmation;
     // remove the place template button from the chat card.
     this.targets = validTargetTokens(this.targets);
@@ -750,9 +753,8 @@ export class Workflow {
     this.autoRollAttack = this.rollOptions.advantage || this.rollOptions.disadvantage || this.rollOptions.autoRollAttack;
     if (!this.autoRollAttack) {
       // Not auto rolling attack so setup the buttons to display advantage/disadvantage
-      const chatMessage = getCachedChatMessage(this.itemCardId);
+      const chatMessage = getCachedDocument(this.itemCardUuid);
       const isFastRoll = this.rollOptions.fastForwarAttack ?? isAutoFastAttack(this);
-      //@ts-expect-error .content
       let content = chatMessage?.content && duplicate(chatMessage.content)
       if (content && (!this.autoRollAttack || !isFastRoll)) {
         // provide a hint as to the type of roll expected.
@@ -887,7 +889,7 @@ export class Workflow {
 
     if (this.shouldRollDamage) {
       if (debugEnabled > 0) warn("waitForDamageRoll | rolling damage ", this.event, configSettings.autoRollAttack, configSettings.autoFastForward)
-      const storedData: any = getCachedChatMessage(this.itemCardId)?.getFlag(game.system.id, "itemData");
+      const storedData: any = getCachedDocument(this.itemCardUuid)?.getFlag(game.system.id, "itemData");
       if (storedData) { // If magic items is being used it fiddles the roll to include the item data
         this.item = new CONFIG.Item.documentClass(storedData, { parent: this.actor })
       }
@@ -898,8 +900,7 @@ export class Workflow {
       return this.WorkflowState_Suspend;
     } else {
       this.processDamageEventOptions();
-      const chatMessage = getCachedChatMessage(this.itemCardId);
-      //@ts-expect-error .content
+      const chatMessage = getCachedDocument(this.itemCardUuid);
       if (chatMessage?.content) {
         // provide a hint as to the type of roll expected.
         //@ts-ignore .content v10
@@ -932,9 +933,9 @@ export class Workflow {
     return this.WorkflowState_DamageRollStarted;
   }
   async WorkflowState_DamageRollStarted(context: any = {}): Promise<WorkflowState> {
-    if (this.itemCardId) {
-      await Workflow.removeItemCardAttackDamageButtons(this.itemCardId, getRemoveAttackButtons(this.item), getRemoveDamageButtons(this.item));
-      await Workflow.removeItemCardConfirmRollButton(this.itemCardId);
+    if (this.itemCardUuid) {
+      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, getRemoveAttackButtons(this.item), getRemoveDamageButtons(this.item));
+      await Workflow.removeItemCardConfirmRollButton(this.itemCardUuid);
     }
     if (getAutoTarget(this.item) === "none" && this.item?.hasAreaTarget && !this.item.hasAttack) {
       // we are not auto targeting so for area effect attacks, without hits (e.g. fireball)
@@ -1197,6 +1198,7 @@ export class Workflow {
               critical: this.isCritical,
               fumble: this.isFumble,
               itemCardId: this.itemCardId,
+              itemCardUuid: this.itemCardUuid,
               metaData,
               selfEffects: "none",
               spellLevel: (this.itemLevel ?? 0),
@@ -1263,6 +1265,7 @@ export class Workflow {
             critical: this.isCritical,
             fumble: this.isFumble,
             itemCardId: this.itemCardId,
+            itemCardUuid: this.itemCardUuid,
             tokenId: this.tokenId,
             tokenUuid: this.tokenUuid,
             actorId: this.actor?.id,
@@ -1312,6 +1315,9 @@ export class Workflow {
   }
 
   async WorkflowState_Completed(context: any = {}): Promise<WorkflowState> {
+    if (this.itemCardUuid) {
+      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, getRemoveAttackButtons(this.item), getRemoveDamageButtons(this.item));
+    }
     if (context.attackRoll) return this.WorkflowState_AttackRollComplete;
     if (context.damageRoll) return this.WorkflowState_ConfirmRoll;
     return this.WorkflowState_Suspend;
@@ -1322,15 +1328,14 @@ export class Workflow {
       Hooks.off("createMeasuredTemplate", this.placeTemplateHookId)
       Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId)
     }
-    clearUpdatesCache(this.itemCardId);
-    if (this.itemCardId) await game.messages?.get(this.itemCardId)?.delete();
+    if (this.itemCarduuid) {
+      clearUpdatesCache(this.itemCardUuid);
+      //@ts-expect-error
+      const message = fromUuidsSync(this.itemCardUuid);
+      if (message) await message.delete();
+    // if (this.itemCardId) await game.messages?.get(this.itemCardId)?.delete();
+    }
 
-    /*
-        if (this.itemCardId) {
-          await Workflow.removeItemCardAttackDamageButtons(this.itemCardId, getRemoveAttackButtons(), getRemoveDamageButtons());
-          await Workflow.removeItemCardConfirmRollButton(this.itemCardId);
-        }
-        */
     if (this.templateUuid) {
       const templateToDelete = await fromUuid(this.templateUuid);
       if (templateToDelete) await templateToDelete.delete();
@@ -1356,14 +1361,13 @@ export class Workflow {
     ];
     await this.expireTargetEffects(specialExpiries)
     const rollFinishedStartTime = Date.now();
-    const chatMessage = getCachedChatMessage(this.itemCardId ?? "");
-    //@ts-expect-error .content
+    const chatMessage = getCachedDocument(this.itemCardUuid ?? "");
     let content = chatMessage?.content && duplicate(chatMessage?.content);
     if (content && getRemoveAttackButtons(this.item) && chatMessage && configSettings.confirmAttackDamage === "none") {
       let searchRe = /<button data-action="attack">[^<]*<\/button>/;
       searchRe = /<div class="midi-attack-buttons".*<\/div>/
       content = content.replace(searchRe, "");
-      await debounceUpdate(chatMessage, {
+      await debouncedUpdate(chatMessage, {
         "content": content,
         timestamp: Date.now(),
         "flags.midi-qol.type": MESSAGETYPES.ITEM,
@@ -2175,6 +2179,7 @@ export class Workflow {
       isVersatile: this.rollOptions.versatile || this.isVersatile || this.workflowOptions.isVersatile,
       item: itemData,
       itemCardId: this.itemCardId,
+      itemCardUuid: this.itemCardUuid,
       itemData,
       itemUuid: this.item?.uuid,
       otherDamageDetail: this.otherDamageDetail,
@@ -2354,21 +2359,20 @@ export class Workflow {
   }
 
   async removeEffectsButton() {
-    if (!this.itemCardId) return;
-    const chatMessage = getCachedChatMessage(this.itemCardId);
-    //@ts-expect-error .content
+    if (!this.itemCardUuid) return;
+    const chatMessage = getCachedDocument(this.itemCardUuid);
     if (chatMessage?.content) {
       const buttonRe = /<button data-action="applyEffects">[^<]*<\/button>/;
       //@ts-ignore .content v10
       let content = duplicate(chatMessage.content);
       content = content?.replace(buttonRe, "");
-      await debounceUpdate(chatMessage, { content });
+      await debouncedUpdate(chatMessage, { content });
       // await chatMessage.update({ content })
     }
   }
 
   async displayAttackRoll(doMerge, displayOptions: any = {}) {
-    const chatMessage = getCachedChatMessage(this.itemCardId);
+    const chatMessage = getCachedDocument(this.itemCardUuid);
     //@ts-ignore .content v10
     let content = chatMessage && duplicate(chatMessage.content);
     //@ts-ignore .flags v10
@@ -2461,18 +2465,20 @@ export class Workflow {
         }, { overwrite: true, inplace: false }
         )
       }
-      await debounceUpdate(chatMessage, { content, flags: newFlags, rolls: [this.attackRoll] });
+      await debouncedUpdate(chatMessage, { content, flags: newFlags, rolls: [this.attackRoll]}, true);
       // await chatMessage?.update({ content, flags: newFlags, rolls: [this.attackRoll] });
     }
   }
 
   async displayDamageRoll(doMerge) {
-    const chatMessage = getCachedChatMessage(this.itemCardId);
+    const chatMessage = getCachedDocument(this.itemCardUuid);
     let messageRolls: Roll[] = [];
-    if (this.attackRoll) messageRolls.push(this.attackRoll);
-    if (this.damageRolls) messageRolls.push(...this.damageRolls);
-    if (this.bonusDamageRolls) messageRolls.push(...this.bonusDamageRolls);
-    if (this.otherDamageRoll) messageRolls.push(this.otherDamageRoll);
+    if (doMerge) {
+      if (this.attackRoll) messageRolls.push(this.attackRoll);
+      if (this.damageRolls) messageRolls.push(...this.damageRolls);
+      if (this.bonusDamageRolls) messageRolls.push(...this.bonusDamageRolls);
+      if (this.otherDamageRoll) messageRolls.push(this.otherDamageRoll);
+    }
     //@ts-ignore .content v10
     let content = (chatMessage && duplicate(chatMessage.content)) ?? "";
     if ((getRemoveDamageButtons(this.item) && configSettings.confirmAttackDamage === "none") || this.workflowType !== "Workflow") {
@@ -2557,7 +2563,7 @@ export class Workflow {
       content = content.replace(damageButtonRe, `<button data-action="damage" style="flex:3 1 0">$2</button>`);
 
     }
-    await debounceUpdate(chatMessage, { "content": content, flags: newFlags, rolls: (messageRolls) });
+    await debouncedUpdate(chatMessage, { "content": content, flags: newFlags, rolls: (messageRolls) }, false);
     // await chatMessage?.update({ "content": content, flags: newFlags, rolls: (messageRolls) });
   }
 
@@ -2587,7 +2593,7 @@ export class Workflow {
         isHit: this.hitTargets.has(targetToken)
       };
     }
-    await this.displayHits(whisper, configSettings.mergeCard && this.itemCardId, false);
+    await this.displayHits(whisper, configSettings.mergeCard && this.itemCardUuid, false);
   }
 
   async displayHits(whisper = false, doMerge, showHits = true) {
@@ -2603,7 +2609,7 @@ export class Workflow {
     };
     if (debugEnabled > 0) warn("displayHits |", templateData, whisper, doMerge);
     const hitContent = await renderTemplate("modules/midi-qol/templates/hits.html", templateData) || "No Targets";
-    const chatMessage = getCachedChatMessage(this.itemCardId);
+    const chatMessage = getCachedDocument(this.itemCardUuid);
 
     if (doMerge && chatMessage) {
       //@ts-ignore .content v10
@@ -2627,7 +2633,7 @@ export class Workflow {
           replaceString = `<div class="midi-qol-hits-display">${hitContent}<div class="end-midi-qol-hits-display">`
           content = content.replace(searchString, replaceString);
 
-          await debounceUpdate(chatMessage, {
+          await debouncedUpdate(chatMessage, {
             "content": content,
             timestamp: Date.now(),
             "flags.midi-qol.type": MESSAGETYPES.HITS,
@@ -2757,11 +2763,10 @@ export class Workflow {
       saves: this.saveDisplayData,
       // TODO force roll damage
     }
-    const chatMessage = getCachedChatMessage(this.itemCardId);
+    const chatMessage = getCachedDocument(this.itemCardUuid);
     if (doMerge && chatMessage) {
       templateData.saveDisplayFlavor = this.saveDisplayFlavor;
       const saveContent = await renderTemplate("modules/midi-qol/templates/saves.html", templateData);
-      //@ts-expect-error .content
       let content = duplicate(chatMessage.content)
       var searchString;
       var replaceString;
@@ -2775,7 +2780,7 @@ export class Workflow {
           searchString = /<div class="midi-qol-saves-display">[\s\S]*?<div class="end-midi-qol-saves-display">/;
           replaceString = `<div class="midi-qol-saves-display"><div data-item-id="${this.item.id}">${saveContent}</div><div class="end-midi-qol-saves-display">`
           content = content.replace(searchString, replaceString);
-          await debounceUpdate(chatMessage, {
+          await debouncedUpdate(chatMessage, {
             content,
             type: CONST.CHAT_MESSAGE_TYPES.OTHER,
             "flags.midi-qol.type": MESSAGETYPES.SAVES,
@@ -2970,7 +2975,7 @@ export class Workflow {
             saveDetails.disadvantage = true;
           }
         }
-        // Check grant's save fields
+        // Check grants save fields
         const grantSaveAdvantageFlags = getProperty(this.actor, `flags.midi-qol.grants.advantage.${flagRollType}`);
         const grantSaveDisadvantageFlags = getProperty(this.actor, `flags.midi-qol.grants.disadvantage.${flagRollType}`);
         if ((grantSaveAdvantageFlags?.all && evalCondition(grantSaveAdvantageFlags.all, conditionData))
@@ -2990,13 +2995,17 @@ export class Workflow {
         if (simulate) promptPlayer = false;
         let GMprompt;
         let gmMonksTB;
+        let gmRER;
         let playerLetme = !player?.isGM && ["letme", "letmeQuery"].includes(configSettings.playerRollSaves);
         let gmLetme = player?.isGM && ["letme", "letmeQuery"].includes(GMprompt);
+        let playerRER = !player?.isGM && ["rer"].includes(configSettings.playerRollSaves);
         const playerChat = !player?.isGM && ["chat"].includes(configSettings.playerRollSaves);
         if (player?.isGM) {
           const targetDocument = getTokenDocument(target);
           const monksTBSetting = targetDocument?.isLinked ? configSettings.rollNPCLinkedSaves === "mtb" : configSettings.rollNPCSaves === "mtb"
+          const EpicRollsSetting = targetDocument?.isLinked ? configSettings.rollNPCLinkedSaves === "rer" : configSettings.rollNPCSaves === "rer"
           gmMonksTB = installedModules.get("monks-tokenbar") && monksTBSetting;
+          gmRER = installedModules.get("epic-rolls") && EpicRollsSetting;
           GMprompt = (targetDocument?.isLinked ? configSettings.rollNPCLinkedSaves : configSettings.rollNPCSaves);
 
           promptPlayer = !["auto", "autoDialog"].includes(GMprompt);
@@ -4110,7 +4119,7 @@ export class Workflow {
 export class DamageOnlyWorkflow extends Workflow {
   //@ts-ignore dnd5e v10
   constructor(actor: globalThis.dnd5e.documents.Actor5e, token: Token, damageTotal: number, damageType: string, targets: [Token], roll: Roll,
-    options: { flavor: string, itemCardId: string, damageList: [], useOther: boolean, itemData: {}, isCritical: boolean }) {
+    options: { flavor: string, itemCardId: string, itemCardUuid: string, damageList: [], useOther: boolean, itemData: {}, isCritical: boolean }) {
     if (!actor) actor = token.actor ?? targets[0]?.actor;
     //@ts-ignore spurious error on t.object
     const theTargets = targets.map(t => t instanceof TokenDocument ? t.object : t);
@@ -4122,6 +4131,11 @@ export class DamageOnlyWorkflow extends Workflow {
     this.defaultDamageType = GameSystemConfig.damageTypes[damageType] || damageType;
     this.damageList = options.damageList;
     this.itemCardId = options.itemCardId;
+    if (options.itemCardUuid) this.itemCardUuid = options.itemCardUuid;
+    else {
+      const message = game.messages?.get(options.itemCardId);
+      if (message) this.itemCardUuid = message?.uuid;
+    }
     this.useOther = options.useOther ?? true;
     let damageRoll = roll;
     if (!damageRoll) {
@@ -4151,13 +4165,13 @@ export class DamageOnlyWorkflow extends Workflow {
       this.item = new CONFIG.Item.documentClass(this.itemData, { parent: this.actor });
       setProperty(this.item, "flags.midi-qol.onUseMacroName", null);
     } else this.item = null;
-    if (this.itemCardId === "new" && this.item) { // create a new chat card for the item
+    if ((this.itemCardId === "new" || this.itemCardUuid === "new") && this.item) { // create a new chat card for the item
       this.createCount += 1;
       // this.itemCard = await showItemCard.bind(this.item)(false, this, true);
       //@ts-ignore .displayCard
       this.itemCard = await this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true });
-
       this.itemCardId = this.itemCard.id;
+      this.itemCardUuid = this.itemCard.uuid;
       // Since this could to be the same item don't roll the on use macro, since this could loop forever
     }
 
@@ -4167,7 +4181,7 @@ export class DamageOnlyWorkflow extends Workflow {
     this.attackTotal = 9999;
     await this.checkHits();
     const whisperCard = configSettings.autoCheckHit === "whisper" || game.settings.get("core", "rollMode") === "blindroll";
-    await this.displayHits(whisperCard, configSettings.mergeCard && this.itemCardId);
+    await this.displayHits(whisperCard, configSettings.mergeCard && (this.itemCardId || this.itemCardUuid));
 
     if (this.actor) { // Hacky process bonus flags
       // TODO come back and fix this for dnd3
@@ -4175,15 +4189,15 @@ export class DamageOnlyWorkflow extends Workflow {
       this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
     }
 
-    if (configSettings.mergeCard && this.itemCardId) {
-      this.damageRollHTML = await midiRenderRoll(this.damageRoll);
+    if (configSettings.mergeCard && (this.itemCardId || this.itemCardUuid)) {
+      this.damageRollHTML = await midiRenderDamageRoll(this.damageRoll);
       this.damageCardData = {
         flavor: "damage flavor",
         //@ts-expect-error
         roll: this.damageRolls ?? null,
         speaker: this.speaker
       }
-      await this.displayDamageRoll(configSettings.mergeCard && this.itemCardId)
+      await this.displayDamageRoll(configSettings.mergeCard && (this.itemCardId || this.itemCardUuid))
     } else {
       //@ts-expect-error
       CONFIG.Dice.DamageRoll.toMessaage(this.damageRolls, { flavor: this.damageFlavor });
@@ -4225,7 +4239,11 @@ export class TrapWorkflow extends Workflow {
     this.saveTargets = validTargetTokens(game.user?.targets);
     this.effectsAlreadyExpired = [];
     this.onUseMacroCalled = false;
-    this.itemCardID = await (this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true })).id;
+    const itemCard = await (this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true }));
+    if (itemCard) {
+      this.itemCardUuid = itemCard.uuid;
+      this.itemCardId = itemCard.id
+    }
 
     // this.itemCardId = (await showItemCard.bind(this.item)(false, this, true))?.id;
     //@ts-ignore TODO this is just wrong fix

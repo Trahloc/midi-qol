@@ -801,7 +801,7 @@ export const registerSettings = function () {
   });
 
   game.settings.register("midi-qol", "DebounceInterval", {
-    name: "Debounce Interval (in ms)",
+    name: "Chat Message Cache Time (ms)",
     hint: "Chat message updates will only happen this often",
     scope: "world",
     default: 0,

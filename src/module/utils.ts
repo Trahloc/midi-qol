@@ -717,6 +717,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       damageList: damageList,
       targetNames,
       chatCardId: workflow.itemCardId,
+      chatCardUuid: workflow.itemCardUuid,
       flagTags: workflow.flagTags,
       updateContext: mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
       forceApply: options.forceApply,
@@ -1178,7 +1179,7 @@ export function midiCustomEffect(...args) {
     const args = change.value.split(",")?.map(arg => arg.trim());
     const currentFlag = getProperty(actor, "flags.midi-qol.onUseMacroName") ?? "";
     if (args[0] === "ItemMacro") { // rewrite the ItemMacro if there is an origin
-      if (change.effect?.origin.includes("Item.")) {
+      if (change.effect?.origin?.includes("Item.")) {
         args[0] = `ItemMacro.${change.effect.origin}`;
       }
     }
@@ -1187,7 +1188,7 @@ export function midiCustomEffect(...args) {
     setProperty(actor, "flags.midi-qol.onUseMacroName", macroString)
     return true;
   } else if (change.key.startsWith("flags.midi-qol.optional.") && change.value.trim() === "ItemMacro") {
-    if (change.effect?.origin.includes("Item.")) {
+    if (change.effect?.origin?.includes("Item.")) {
       const macroString = `ItemMacro.${change.effect.origin}`;
       setProperty(actor, change.key, macroString)
     } else setProperty(actor, change.key, change.value);
@@ -5158,6 +5159,7 @@ export async function contestedRoll(data: {
   target: { rollType: string, ability: string, token: Token | TokenDocument | string, rollOptions: any },
   displayResults: boolean,
   itemCardId: string,
+  itemCardUuid: string,
   flavor: string,
   rollOptions: any,
   success: (results) => {}, failure: (results) => {}, drawn: (results) => {}
@@ -5166,7 +5168,7 @@ export async function contestedRoll(data: {
   const target = data.target;
   const sourceToken = getToken(source?.token);
   const targetToken = getToken(target?.token);
-  const { rollOptions, success, failure, drawn, displayResults, itemCardId, flavor } = data;
+  const { rollOptions, success, failure, drawn, displayResults, itemCardId, itemCardUuid, flavor } = data;
 
   let canProceed = true;
   if (!source || !target || !sourceToken || !targetToken || !source.rollType || !target.rollType || !source.ability || !target.ability || !validRollAbility(source.rollType, source.ability) || !validRollAbility(target.rollType, target.ability)) {
@@ -5512,39 +5514,45 @@ export function sumRolls(rolls: Array<Roll> | undefined = []): number {
 
 const updatesCache = {};
 export async function _updateAction(document) {
-  if (!updatesCache[document.id]) return;
-  const updates = updatesCache[document.id];
-  delete updatesCache[document.id];
-  if (DebounceInterval) console.log("Doing updateAction");
-  // console.log("Doing updateAction", updatesCache[document.id]);
+  if (!updatesCache[document.uuid]) return;
+  const updates = updatesCache[document.uuid];
+  clearUpdatesCache(document.uuid);
+  if (debugEnabled > 0) warn("update action | Doing updateAction");
   return document.update(updates);
 }
 
-export async function debounceUpdate(document, updates, immediate = false) {
-  if (!DebounceInterval) return await document.update(updates);
-  updatesCache[document.id] = mergeObject((updatesCache[document.id] ?? {}), updates, { inplace: false, overwrite: true, insertKeys: true, insertValues: true })
+export async function debouncedUpdate(document, updates, immediate = false) {
+  if (!DebounceInterval || !configSettings.mergeCard) {
+    if (debugEnabled > 0) console.warn("debouncedUpdate | performing update");
+    return await document.update(updates);
+  }
+  if (debugEnabled > 0) {
+    if (updatesCache[document.uuid]) warn("debouncedUpdate | Cache not empty");
+   else warn("debouncedUpdate | cache empty");
+   warn("debouce update ", updates, )
+   
+  }
+  updatesCache[document.uuid] = mergeObject((updatesCache[document.uuid] ?? {}), updates, { overwrite: true })
   if (immediate) return _updateAction(document);
-  if (updatesCache[document.id]) { console.log("Already some updates here!", DebounceInterval) }
-  else console.log("No updates cached", DebounceInterval);
-  clearUpdatesCache(document.id);
   return _debouncedUpdateAction(document);
 }
 export function getUpdatesCache(document) {
-  if (!updatesCache[document.id]) return {};
-  return updatesCache[document.id]
+  if (!updatesCache[document.uuid]) return {};
+  return updatesCache[document.uuid]
 }
-export function clearUpdatesCache(id: string | undefined | null) {
-  if (!id) return;
-  delete updatesCache[id];
+export function clearUpdatesCache(uuid: string | undefined | null) {
+  if (!uuid) return;
+  delete updatesCache[uuid];
 }
 
-export function getCachedChatMessage(id: string | undefined | null) {
-  if (!id) return undefined;
-  let chatMessage: ChatMessage | undefined = game.messages?.get(id);
-  let updates = chatMessage?.id && updatesCache[chatMessage.id];
+export function getCachedDocument(uuid: string | undefined | null) {
+  if (!uuid) return undefined;
   //@ts-expect-error
-  if (updates) chatMessage?.updateSource(updates);
-  return chatMessage;
+  const document = fromUuidSync(uuid);
+  // let chatMessage: ChatMessage | undefined = game.messages?.get(id);
+  let updates = document?.uuid && updatesCache[document.uuid];
+  if (updates) document?.updateSource(updates);
+  return document;
 }
 
 export function getConcentrationEffectsRemaining(concentrationData, deletedUuid: string | undefined): ActiveEffect[] {

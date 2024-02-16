@@ -35,6 +35,7 @@ interface undoDataDef {
   templateUuids: string[] | undefined;
   sequencerUuid: string | undefined;
   itemCardId: string | undefined;
+  itemCardUuid: string | undefined;
   targets: { actorUuid: string, tokenUuid: string }[] | undefined;
 }
 
@@ -54,6 +55,7 @@ export function _queueUndoDataDirect(undoDataDef) {
   undoData.actorEntry = { actorUuid: undoDataDef.actorUuid, tokenUuid: undoDataDef.tokendocUuid, actorData: actor?.toObject(true), tokenData: tokenDoc?.toObject(true) };
   undoData.chatCardUuids = undoDataDef.chatCardUuids ?? [];
   undoData.itemCardId = undoDataDef.itemCardId;
+  undoData.itemCardUuid = undoDataDef.itemCardUuid;
   undoData.actorName = actor.name;
   undoData.itemName = undoDataDef.itemName;
   undoData.userName = undoDataDef.userName;
@@ -167,6 +169,7 @@ export async function saveTargetsUndoData(workflow: Workflow) {
   });
   workflow.undoData.serverTime = game.time.serverTime;
   workflow.undoData.itemCardId = workflow.itemCardId;
+  workflow.undoData.itemCardUuid = workflow.itemCardUuid;
   if (workflow.templateUuid) workflow.undoData.templateUuids.push(workflow.templateUuid);
   return untimedExecuteAsGM("queueUndoData", workflow.undoData)
 }
@@ -466,6 +469,13 @@ export async function undoWorkflow(undoData: any) {
   await undoSingleTokenActor(undoData.actorEntry);
   const shouldDelete = false;
   // delete cards...
-  if (undoData.itemCardId) await removeChatCard(game.messages?.get(undoData.itemCardId));
+  if (undoData.itemCardUuid) {
+    if (undoData.itemCardIdUuid) {
+      //@ts-expect-error
+      const message = fromUuidSync(undoData.itemCardUuid);
+      await removeChatCard(message);
+    }
+  }
+  // if (undoData.itemCardId) await removeChatCard(game.messages?.get(undoData.itemCardId));
   await _removeChatCards({ chatCardUuids: undoData.chatCardUuids });
 }

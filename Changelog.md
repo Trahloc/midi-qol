@@ -1,34 +1,73 @@
-## 11.4.1
-* Fix for rolling versatile damage as other damage when it shouldn't
-* Improve midi's tooltip handling. If set to put the formula in the tooltip it does so for all rolls.
-* Implemented the GM roll hiding settings.
-* Switched createEffects, gmSetFlag and gmUnsetFlag to be always allowed in SaferSocket
-* More changes to concentration which now integrates properly with times-up and is much simplified, midi now complains if your times-up version is out of date.
-* Fixed deprecation warnings for typeLabels
-* Fixed deprecation warnings for system.components -> system.properties
-* Removed all references to better rolls - it will be a complete re-implementation to support it.
-* Deprecated chatMessage.flags.midi-qol.roll in favor of ChatMessage.rolls.
-* Bonus Damage Macro returns have been enhanced. You may now return {damageRoll: string, damageType: string, flavor: string } or [{damageRoll, damageType, flavor}],  all of the damage rolls will be converted into a DamageRoll with a type "damageType", if not present the flavor will be tried as a damage type, if there is still no damage type the damage type of the first entry in item.data.parts[0][1] will be used (so that the damage will be the same type as the weapon that attack), failing that it will default to midi-none which is an untyped damage.
-  - Midi store damage bonus rolls as an array of DamageRolls, like damageRolls.
-* If you specify damage parts as "1d4 + @mod + 2d4[fire] + 6", with a damage type of bludgeoning, midi will interprest that as "1d4 + @mod + 6" bludgeoning and 2d4 fire. This is a slight change to 11.3.X which would treat it as "1d4 + @mod" bludgeoning and "2d4 + 6" fire.  I don't expect that to impact many users.
-* Midi will now correctly split out damage types for xdn[damageType] in damage rolls definitions as well.
+## 11.4.2
+* This is the first public beta release of midi-qol for dnd5e 3.0+. You cannot install this from the foundry modules list, you must install via the module.json link:
+  https://gitlab.com/tposney/midi-qol/raw/dnd3/package/module.json
+  - Once installed, updates can be handled via the update button. To go back to the dnd5e 2.4 version uninstall and re-install midi from the install module list.
+* Disclaimer: **While Midi's attack/damage chat card is based on the dnd5e chat card it is NOT the same. Any problems with the chat card should be reported here and not in the dnd5e foundry discord. They are not responsible for the card and connot help.**
+* If you are updating your world to dnd5e 3.0 you **MUST** **MUST** take a backup before doing so. Foundry really makes this easy so make sure you take a backup. If things break you will need the backup to recover.
+* This is a **beta** release so please do **not** update to this if you can't deal with bugs - there are bound to be some - and certainly don't do update close to game time.
+* This release requires the latest versions of dae and (if using it) times-up.
+* The major change is the shift to the new dnd5e chat cards. This has rquired a lot of changes under the hood.
+* You're imported chat log will be rendered, but the roll break downs are not compatible with the new chat card style. I can't see anything to do about that - sorry.
+* Once you start your world, there are likely to be many duplicated passive effects on actors.  Especially if you are using DAE. DAE will create macros to fix these. See the DAE release notes - and you need to be on the latest version.
 
-Known Issues: 
-  When prompting for reactions the chat card is not obfuscated so players can see the attack/damage rolls.
+Proposed Migration Steps:
+1. Set the world to safe startup (i.e. disable all modules). From the edit world options - this is important.
+2. Upgrade dnd5e
+3. Launch the world (**MAKE A BACKUP** - I cannot overstate how important this is)
+4. expect lot's of errors (1 for each chat card at least).
+5. Enable midi-qol and depenencies
+6. Restart
+7. Run the DAE included macros to clean up dae created passive effects (dae will create the world macros you need), at least run the actors macro and then for each scene.
+8. You should be ready to go
 
-Not Tested:
+* Midi does a lot of updates to the chat card and with the dnd5e chat card enrichment this can be quite expensive, for example 9 chat card database updates and 6 chat card enrichments for a single weapon attack workflow.
+  - On slower machines, or with a slow database this can result in a noticeable delay in completing rolls. 
+  - A new experimental world setting, Chat Message Cache Time has been introduced which batches updates to the midi item chat card and releases them every N milliseconds - 0 disables the cache. On my test machine a cache time of 10ms, drops the database and chat message enrichement counts to 3 and 3 and is noticeably faster. However this may interact very badly with modules/macros that update midi's chat card so be aware of the potential issue and feel free to disable the cache by setting the cache time to 0.
+* Improved midi's tooltip handling. If set to put the formula in the tooltip it does so for all rolls.
+* Implemented the GM roll hiding settings for the new chat card.
+* If you specify damage parts as ``1d4 + @mod + 2d4[fire] + 6``, with a weapon damage type of bludgeoning, midi will interpret that as ``1d4 + @mod + 6`` bludgeoning and ``2d4`` fire. This is a slight change to 11.3.X which would treat it as ``1d4 + @mod`` bludgeoning and ``2d4 + 6`` fire.  I don't expect that to impact many users.
+  - It is recommended that you use multiple damage lines for different damgae types.
+* **Breaking** Removed support for putting concentration in the activation condition text, use the system property or the midi property.
+
+**Known Issues**: 
+* When prompting for reactions the chat card is not obfuscated so players can see the attack/damage rolls.
+
+**Not Tested**:
   Challenge Mode Armor
   Active Defence.
 
+**Bug Fixes**:
+  - More changes to concentration which now integrates properly with times-up and is much simplified, midi now complains if your times-up version is out of date.
+   Fix for rolling versatile damage as other damage when it shouldn't
+  - Switched createEffects, gmSetFlag and gmUnsetFlag to be always allowed in SaferSocket
+  - Fixed deprecation warnings for typeLabels
+  - Fixed deprecation warnings for system.components -> system.properties
+  - Deprecated chatMessage.flags.midi-qol.roll in favor of ChatMessage.rolls.
+
+**For macro writers**
+* **Breaking** (for some). workflow.damageRoll -> workflow.damageRolls (an array). Midi provides backward compatible workflow.damageRoll get/set methods, but migration to arrays of rolls is strongly recommened.
+* **Breaking** bonusDamageRoll -> bonusDamageRolls (an array). Backwards compatible get/set methods included.
+* Bonus Damage Macro returns have been enhanced. 
+  - You may now return {damageRoll: string, damageType: string, flavor: string } or [{damageRoll, damageType, flavor}],  each of the damage rolls will be converted into a DamageRoll with a type "damageType".
+  - if no damageType is present the flavor will be tried as a damage type
+  - if there is still no damage type the damage type of the first entry in item.data.parts[0][1] will be used (so that the damage will be the same type as the weapon that attack)
+  - failing that it will default to midi-none which is an untyped damage.
+* Midi will now correctly split out damage types for xdn[damageType] in damage roll specs as well.
+* As discussed above midi can buffer chat card updates so if you access the chat card your version will be out of whack with what midi thinks it is.
+  - MidiQOL.getCachedDocument(documentUuid) will return midi's internal verison of the document, currently midi only buffers chat card updates.
+  - MidiQOL.debouncedUpdate(document, changes) - will update the document and include midi's internally cached changes.
+
+## 11.4.1
+- closed alpha
+
 ## 11.4.0
-  * Major changes:
-    - system.properties is now a set, rather than an object, so any reference will have to change.
+  * Alpha version:
+    - system.properties is now a set, rather than an object, so any reference inside macros will have to change.
     - **BREAKING** If an item has more than one damage line it it's damage roll dnd5e will return an array of rolls, each containing a roll for the line. 
       - There is a paramater to dnd5e.damageRoll to return a single roll for backwards compatibiltiy, but that will only return the first line of the damage spec.
       - workflow.damageRoll is a join of all the damageRolls
       - workflow.damageRolls is all of the results. Midi will use workflow.damageRolls interenally for calculations.
   * **Breaking** Removed support for putting concentration in the activation condition text, use the system property or the midi property.
-  * Because dnd5e does a lot of work when a chat card is updated (and midi updates the chat card a lot) - I have put in a quick and dirty debounce interval world setting, which will throttle chat card updates, default is 100ms, but you can set it to 0 to have no throttling. I can't tell if it makes a difference or not. Please experiment - especially on machines a long way from your server - this should cut down on database transactions. Ive not seen any problems - but concurrency is a bitch - set it to 0 if things break.
   * I have tested simple, items, items with other rolls set, saving throws, template targeting, spells, applying effects, advantage attribution, damage application, undoing damage via chat cards, passive effects, macro.createItem, macro.executeMacro, macro.ItemMacro, Status Effects (but there is some strangeness there sitll), bleeding/dead status updates, concentration (for some reason it does not time out - will need to look at that), merged/unmerged cards and probably some other stuff.
   * I have not tested undo workflows at all, so treat with caution.
   * I have not tested bonus damage rolls.

@@ -292,7 +292,8 @@
     "letme": "Let Me Roll That For You",
     "letmeQuery": "LMRTFY + Query",
     "chat": "Chat Message",
-    "mtb": "Monks Token Bar"
+    "mtb": "Monks Token Bar",
+    "rer": "Rippers Epic Rolls"
   },
   "midi-qol.playerRollSavesOptionsReduced": {
     "none": "None",
