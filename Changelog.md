@@ -2,6 +2,7 @@
 * This is the first public beta release of midi-qol for dnd5e 3.0+. You cannot install this from the foundry modules list, you must install via the module.json link:
   https://gitlab.com/tposney/midi-qol/raw/dnd3/package/module.json
   - Once installed, updates can be handled via the update button. To go back to the dnd5e 2.4 version uninstall and re-install midi from the install module list.
+  - You must be on dae 11.3.3.
 * Disclaimer: **While Midi's attack/damage chat card is based on the dnd5e chat card it is NOT the same. Any problems with the chat card should be reported here and not in the dnd5e foundry discord. They are not responsible for the card and connot help.**
 * If you are updating your world to dnd5e 3.0 you **MUST** **MUST** take a backup before doing so. Foundry really makes this easy so make sure you take a backup. If things break you will need the backup to recover.
 * This is a **beta** release so please do **not** update to this if you can't deal with bugs - there are bound to be some - and certainly don't do update close to game time.

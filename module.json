@@ -39,7 +39,10 @@
       },
       {
         "id": "dae",
-        "type": "module"
+        "type": "module",
+        "compatibility": {
+          "minimum": "11.3.3"
+        }
       }
     ]
   },
