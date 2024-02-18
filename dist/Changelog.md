@@ -1,3 +1,7 @@
+## 1.4.4
+* Player skill/save/check rolls that are marked as always blind will now be blind for gmrolls.
+* Reactions wont prompt for targetconfirmation anymore unless the item specifies it.
+
 ## 11.4.3
 * onUseMacros referencing ItemMacro for passive effects will now ignore the origin and use the effect's parent item. This should resolve most of the issues with item origins being wrong.
 * reinstated the correct handling of options.noOnuseMacro when calling a completeItemUse.

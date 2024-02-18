@@ -3765,7 +3765,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
             checkGMStatus: false,
             targetUuids: [triggerTokenUuid],
             isReaction: true,
-            targetConfirmation: "none"
+            workflowOptions: {targetConfirmation: "none"}
           });
           let useTimeoutId = setTimeout(() => {
             clearTimeout(useTimeoutId);
