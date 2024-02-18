@@ -171,20 +171,11 @@ async function doRollSkill(wrapped, ...args) {
     }
 
     let result;
-    if (installedModules.get("betterrolls5e")) {
-      let event = {};
-      if (procOptions.advantage) { options.advantage = true; event = { shiftKey: true } };
-      if (procOptions.disadvantage) { options.disadvantage = true; event = { ctrlKey: true } };
-      options.event = event;
-      result = wrapped(skillId, options);
-      if (chatMessage !== false) return result;
-      result = await result;
-    } else {
+
       procOptions.chatMessage = false;
       if (!procOptions.parts || procOptions.parts.length === 0) delete procOptions.parts;
       // result = await wrapped.call(this, skillId, procOptions);
       result = await wrapped(skillId, procOptions);
-    }
     if (!result) return result;
 
     const flavor = result.options?.flavor;
@@ -209,7 +200,7 @@ async function doRollSkill(wrapped, ...args) {
     if (chatMessage !== false && result) {
       const saveRollMode = game.settings.get("core", "rollMode");
       const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
-      if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll"].includes(rollMode)) {
+      if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
         rollMode = "blindroll";
         game.settings.set("core", "rollMode", "blindroll");
       }
@@ -442,7 +433,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
     let blindCheckRoll;
     let blindSaveRoll;
-    if (!game.user?.isGM && ["publicroll", "roll"].includes(rollMode)) switch (rollType) {
+    if (!game.user?.isGM && ["publicroll", "roll", "gmroll"].includes(rollMode)) switch (rollType) {
       case "check":
         blindCheckRoll = configSettings.rollChecksBlind.includes("all") || configSettings.rollChecksBlind.includes(abilityId);
         if (blindCheckRoll) rollMode = "blindroll";

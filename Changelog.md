@@ -1,3 +1,9 @@
+## 11.3.22
+* Fix for cachedInitiativeRoll - thanks @thatlongleybugbear
+* Fix for gm rolls showing player skill/save/check rolls when hide rolls is set to for that roll
+* Fix for not being able to force set target confirmation in reaction rolls
+
+
 ## 11.3.21
 * Enable the midi-tab for tools
 * Only display reaction activation if the item is a reaction item
