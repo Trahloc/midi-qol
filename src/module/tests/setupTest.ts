@@ -111,7 +111,7 @@ async function registerTests() {
                 assert.ok(trapWorkflowMacro, "TrapWorkflowTest macro not found");
                 assert.ok(!!workflow && workflow instanceof TrapWorkflow);
                 await busyWait(1);
-                const fireballEffect = targetToken?.actor?.effects.find(e => e.data.label === "FireballTest Template");
+                const fireballEffect = targetToken?.actor?.effects.find(e => e.name === "FireballTest Template");
                 assert.ok(fireballEffect, "No template effect found");
                 await fireballEffect?.delete();
                 assert.ok(workflow?.targets.size === 2, "Wrong number of targets");
@@ -362,8 +362,7 @@ async function registerTests() {
             assert.ok(!!(await completeItemUse(actor.items.getName("Cub Test"), {}, { workflowOptions })));
             await busyWait(0.5);
             assert.ok(cubInterface.hasCondition("Blinded", [target]));
-            //@ts-ignore .label v10
-            const effect: ActiveEffect | undefined = target?.actor?.effects.find(e => (e.name || e.label) === "Cub Test");
+            const effect: ActiveEffect | undefined = target?.actor?.effects.find(e => e.name === "Cub Test");
             results = await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", [effect?.id ?? "bad"]);
             // results = await globalThis.DAE.actionQueue.add(target.actor?.deleteEmbeddedDocuments.bind(target.actor),"ActiveEffect", [effect?.id ?? "bad"]);
             await busyWait(0.5);
@@ -389,8 +388,7 @@ async function registerTests() {
             await completeItemUse(actor.items.getName("CE Test"), {}, { workflowOptions });
             await busyWait(0.5);
             assert.ok(await ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid));
-            //@ts-ignore .label v10
-            const effect: ActiveEffect | undefined = target?.actor?.effects.find(e => (e.name || e.label) === "CE Test");
+            const effect: ActiveEffect | undefined = target?.actor?.effects.find(e => e.name === "CE Test");
             results = await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", [effect?.id ?? "bad"]);
             await busyWait(0.1);
             if (await ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid)) {
@@ -428,8 +426,8 @@ async function registerTests() {
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
             await completeItemUse(actor.items.getName("MODTest"), {}, { advantage: true, workflowOptions }); // does 10 + 10 to undead
-            const condition2 = target2.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
-            const condition3 = target3.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
+            const condition2 = target2.actor.effects.contents.filter(ef => (ef.name) === "Frightened");
+            const condition3 = target3.actor.effects.contents.filter(ef => (ef.name) === "Frightened");
             if (condition2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", condition2.map(ae => ae.id))
             if (condition3.length) await target3.actor.deleteEmbeddedDocuments("ActiveEffect", condition3.map(ae => ae.id))
             assert.equal(target2hp - 10, target2?.actor?.system.attributes.hp.value, "non undead takes 10 hp");
@@ -446,8 +444,8 @@ async function registerTests() {
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
             await completeItemUse(actor.items.getName("MODTestNoActivation"), {}, { workflowOptions }); // does 10 + 10 to undead
-            const condition2 = target2.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
-            const condition3 = target3.actor.effects.contents.filter(ef => (ef.name || ef.label) === "Frightened");
+            const condition2 = target2.actor.effects.contents.filter(ef => (ef.name) === "Frightened");
+            const condition3 = target3.actor.effects.contents.filter(ef => (ef.name) === "Frightened");
             if (condition2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", condition2.map(ae => ae.id))
             if (condition3.length) await target3.actor.deleteEmbeddedDocuments("ActiveEffect", condition3.map(ae => ae.id))
             assert.equal(target2hp - 20, target2?.actor?.system.attributes.hp.value, "non undead takes 10 hp");
@@ -463,30 +461,25 @@ async function registerTests() {
             assert.ok(actor);
             assert.ok(target);
             try {
-              //@ts-ignore .label v10
-              let hasEffect: any[] = actor.effects.filter(a => (a.name || a.label) === "Macro Execute Test") ?? [];
+              let hasEffect: any[] = actor.effects.filter(e => e.name === "Macro Execute Test") ?? [];
               if (hasEffect?.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", hasEffect.map(e => e.id))
-              //@ts-ignore .label v10
-              hasEffect = target?.actor?.effects.filter(a => (a.name || a.label) === "Macro Execute Test") ?? [];
+              hasEffect = target?.actor?.effects.filter(e => e.name === "Macro Execute Test") ?? [];
               if (hasEffect?.length > 0) await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", hasEffect.map(e => e.id));
               game.user?.updateTokenTargets([target?.id ?? ""]);
               await completeItemUse(actor.items.getName("Macro Execute Test"), {}, { workflowOptions });
-              //@ts-ignore .flags v10
+              //@ts-expect-error .flags
               let flags: any = actor.flags["midi-qol"];
               assert.equal(flags?.test, "metest")
-              //@ts-ignore .label v10
-              hasEffect = target?.actor?.effects.filter(a => (a.name || a.label) === "Macro Execute Test") ?? [];
+              hasEffect = target?.actor?.effects.filter(e => e.name === "Macro Execute Test") ?? [];
               assert.ok(hasEffect);
               await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", hasEffect.map(e => e.id));
-              //@ts-ignore .flags v10
+              //@ts-expect-error .flags
               flags = getProperty(actor.flags, "midi-qol.test");
               assert.ok(!flags?.test);
-              //@ts-ignore .label v10
-              hasEffect = target?.actor?.effects.filter(a => (a.name || a.label) === "Macro Execute Test") ?? [];
+              hasEffect = target?.actor?.effects.filter(e => e.name === "Macro Execute Test") ?? [];
               assert.equal(hasEffect.length, 0)
             } finally {
-              //@ts-ignore .label v10
-              let hasEffect: any = target?.actor?.effects.filter(a => (a.name || a.label) === "Macro Execute Test") ?? [];
+              let hasEffect: any = target?.actor?.effects.filter(e => e.name === "Macro Execute Test") ?? [];
               await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", hasEffect.map(e => e.id));
               await actor.unsetFlag("midi-qol", "test")
             }
@@ -496,13 +489,12 @@ async function registerTests() {
             this.timeout(10000);
             const actor = getActor(actor1Name);
             const effectData = {
-              label: "test effect",
+              name: "test effect",
               changes: [{ key: "macro.tokenMagic", mode: 0, value: "blur" }]
             };
             assert.ok(globalThis.TokenMagic);
             const theEffects: any[] = await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
-            //@ts-ignore .label v10
-            assert.ok(actor.effects.find(ef => (ef.name || ef.label) === (effectData.name ?? effectData.label)));
+            assert.ok(actor.effects.find(ef => (ef.name === effectData.name)));
             await busyWait(3);
             const actorToken = canvas?.tokens?.placeables.find(t => t.name === (actor.token?.name ?? actor.name))
             assert.ok(actorToken, "found actor token");
@@ -533,8 +525,7 @@ async function registerTests() {
             game.user?.updateTokenTargets([target?.id ?? ""]);
             await completeItemUse(actor.items.getName("Longsword"), {}, { workflowOptions }); // Apply the effect
             Hooks.off("OnUseMacroTest", hookid);
-            //@ts-ignore .label v10
-            let hasEffects: any = actor.effects.filter(a => (a.name || a.label) === "OnUseMacroTest") ?? [];
+            let hasEffects: any = actor.effects.filter(e => e.name === "OnUseMacroTest") ?? [];
             assert.ok(hasEffects);
             await actor.deleteEmbeddedDocuments("ActiveEffect", hasEffects.map(e => e.id))
             console.warn("Actual Passes", macroPasses);
@@ -589,8 +580,7 @@ async function registerTests() {
             await ceInterface.addEffect({ effectName: "Paralyzed", uuid: actor.uuid });
             try {
               // assert.ok(await ceInterface.hasEffectApplied("Paralyzed", actor?.uuid));
-              //@ts-ignore .label v10
-              const theEffect: ActiveEffect | undefined = actor.effects.find(ef => (ef.name || ef.label) === "Paralyzed");
+              const theEffect: ActiveEffect | undefined = actor.effects.find(ef => ef.name === "Paralyzed");
               assert.ok(theEffect, "not paralyzed");
               //@ts-ignore .disabled v10
               assert.ok(!(theEffect?.isSuppressed || theEffect.disabled), "paralyzed suppressed");

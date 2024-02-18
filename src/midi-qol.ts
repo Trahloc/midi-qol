@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
-import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -502,6 +502,8 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     getConcentrationEffect: function getConcentrationEffect(actor: Actor): ActiveEffect | undefined,
     geti18nOptions: function geti18nOptions(key: string): any,
     geti18nTranslations: function geti18nTranslations(): any,
+    getTokenForActor: function getTokenForActor(actor: Actor): Token | undefined,
+    getTokenForActorAsSet: function getTokenForActorAsSet(actor: Actor): Set<Token>,
     getTokenPlayerName: function getTokenPlayerName(token: Token | TokenDocument | string): string,
     getTraitMult: function getTraitMult(actor: Actor, damageType: string, item: Item): number,
     hasCondition: function hasCondition(tokenRef: Token | TokenDocument | UUID, condition: string): boolean,
@@ -609,6 +611,8 @@ function setupMidiQOLApi() {
     geti18nOptions,
     geti18nTranslations,
     getTokenPlayerName,
+    getTokenForActor,
+    getTokenForActorAsSet,
     getTraitMult: getTraitMult,
     getUndoQueue,
     hasCondition,

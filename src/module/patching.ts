@@ -1,7 +1,7 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getSelfTarget, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -765,7 +765,7 @@ function _midiATIRefresh(template) {
   } else {
     const distance: number = template.distance ?? 0;
     if (template.item) {
-      templateTokens(template, getSelfTarget(template.item.parent), !getProperty(template.item, "flags.midi-qol.AoETargetTypeIncludeSelf"), getProperty(template.item, "flags.midi-qol.AoETargetType"), autoTarget);
+      templateTokens(template, getTokenForActor(template.item.parent), !getProperty(template.item, "flags.midi-qol.AoETargetTypeIncludeSelf"), getProperty(template.item, "flags.midi-qol.AoETargetType"), autoTarget);
       return true;
     } else
       templateTokens(template);

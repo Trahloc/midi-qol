@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig } from "../midi-qol.js";
 import { DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getSelfTargetSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -601,7 +601,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const shouldUnsuspend = ([workflow.WorkflowState_AwaitItemCard, workflow.WorkflowState_AwaitTemplate, workflow.WorkflowState_NoAction].includes(workflow.currentAction) && workflow.suspended && !workflow.needTemplate && !workflow.needItemCard);
     if (debugEnabled > 0) warn(`Item use complete: unsuspending ${workflow.workflowName} ${workflow.nameForState(workflow.currentAction)} unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}`);
     if (shouldUnsuspend) {
-      workflow.unSuspend({ itemUseComplete: true });
+      workflow.unSuspend.bind(workflow)({ itemUseComplete: true });
     }
     return result;
   } catch (err) {
@@ -646,7 +646,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     workflow.systemCard = options.systemCard;
     if (["Workflow"].includes(workflow.workflowType)) {
       if (this.system.target?.type === self) {
-        workflow.targets = getSelfTargetSet(this.actor)
+        workflow.targets = getTokenForActorAsSet(this.actor)
       } else if (game.user?.targets?.size ?? 0 > 0) workflow.targets = validTargetTokens(game.user?.targets);
 
       if (workflow.attackRoll && workflow.currentAction === workflow.WorkflowState_Completed) {
@@ -830,7 +830,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     if (debugCallTiming) log(`final item.rollAttack():  elapsed ${Date.now() - attackRollStart}ms`);
 
     // Can this cause a race condition?
-    if (workflow.suspended) workflow.unSuspend({ attackRoll: result })
+    if (workflow.suspended) workflow.unSuspend.bind(workflow)({ attackRoll: result })
     // workflow.performState(workflow.WorkflowState_AttackRollComplete);
     return result;
   } catch (err) {
@@ -1125,7 +1125,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     workflow.bonusDamageHTML = null;
     if (debugCallTiming) log(`item.rollDamage():  elapsed ${Date.now() - damageRollStart}ms`);
 
-    if (workflow.suspended) workflow.unSuspend({ damageRoll: result, otherDamageRoll: workflow.otherDamageRoll });
+    if (workflow.suspended) workflow.unSuspend.bind(workflow)({ damageRoll: result, otherDamageRoll: workflow.otherDamageRoll });
     // workflow.performState(workflow.WorkflowState_ConfirmRoll);
     return result;
   } catch (err) {
@@ -1600,7 +1600,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   if (this instanceof TrapWorkflow) return;
   if (workflow.needTemplate) {
     workflow.needTemplate = false;
-    if (workflow.suspended) workflow.unSuspend({ templateDocument });
+    if (workflow.suspended) workflow.unSuspend.bind(workflow)({ templateDocument });
     // TODO NW return workflow.performState(workflow.WorkflowState_AwaitTemplate);
   }
   return;

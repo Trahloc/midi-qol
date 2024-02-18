@@ -1,3 +1,10 @@
+## 11.4.3
+* onUseMacros referencing ItemMacro for passive effects will now ignore the origin and use the effect's parent item. This should resolve most of the issues with item origins being wrong.
+* reinstated the correct handling of options.noOnuseMacro when calling a completeItemUse.
+* added options.noTargetOnusemacro for completeItemUse to block triggering of target macros.
+* workflow.setDamageRoll(roll) will coerce the roll into a damage rol and if no damage type is set will set it to the damage typeof the first damage line in workflow.item
+* Added MidiQOL.getTokenForActor, MidiQOL.getTokenForActorAsSet
+
 ## 11.4.2
 * This is the first public beta release of midi-qol for dnd5e 3.0+. You cannot install this from the foundry modules list, you must install via the module.json link:
   https://gitlab.com/tposney/midi-qol/raw/dnd3/package/module.json
@@ -45,7 +52,7 @@ Proposed Migration Steps:
   - Fixed deprecation warnings for system.components -> system.properties
   - Deprecated chatMessage.flags.midi-qol.roll in favor of ChatMessage.rolls.
 
-**For macro writers**
+* **For macro writers**
 * **Breaking** (for some). workflow.damageRoll -> workflow.damageRolls (an array). Midi provides backward compatible workflow.damageRoll get/set methods, but migration to arrays of rolls is strongly recommened.
 * **Breaking** bonusDamageRoll -> bonusDamageRolls (an array). Backwards compatible get/set methods included.
 * Bonus Damage Macro returns have been enhanced. 

@@ -2,9 +2,25 @@
 ![](https://img.shields.io/badge/Foundry-v11-informational)
 ![Forge Installs](https://img.shields.io/badge/dynamic/json?label=Forge%20Installs&query=package.installs&suffix=%25&url=https%3A%2F%2Fforge-vtt.com%2Fapi%2Fbazaar%2Fpackage%2Fmidi-qol&colorB=4aa94a)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tposney)
+Discord link for my modules https://discord.gg/CvNUBVBpT9
 
 ## Breaking News
-Discord link for my modules https://discord.gg/CvNUBVBpT9
+There is a **BETA** release of midi-qol for dnd5e 3.0 available. The module is only available as a manifest.json install. 
+
+If you want to try it out here are the steps to take. Doing them in the right order is **important**.
+* Set you world to safe mode (in edit world) so that no modules will load on migration.
+* Make a backup of the world. This is always a good idea but is an absolute **must** do for this upgrade. (You will be prompted when you start the world, I've put it as a step here to make sure you have a usable backup in case you disable the auto backup).
+* Upgrade dnd5e to 3.0+
+* Make sure DAE is the latest version.
+* Choose install module and, at the bottom of the window is a field called manifest url, put https://gitlab.com/tposney/midi-qol/raw/dnd3/package/module.json into that field and click install.
+* If you use times-up you **MUST** install this version via the same manifest install with this url https://gitlab.com/tposney/times-up/raw/dndv3/package/module.json.
+* Launch the world. You will be prompted to make a backup. Wait for the migration to complete. There will be lots of errors - at least one for each chat message. Don't worry yet.
+* Enable Midi-qol and dependencies and restart. 
+* Once you have migrated you may notice that some of your characters have duplicated passive effects. This is due to a system problem not updating a field (origin) in items when actors are imported. You can fix most of these by running the macro **DAE: Clear All Actors DAE Passive Effects** which the latest version of DAE will create in your macro library.
+
+**If you want to go back to backed up version**
+Uninstall and reinstall midi-qol and times-up - this will install the 2.4.1 compatible versions.
+Uninstall dnd5e 3.0, and reinstall dnd5e 2.4.1 with the provided link, then restore your backup  https://github.com/foundryvtt/dnd5e/releases/download/release-2.4.1/system.json
 
 ### Custom Sounds rewritten
 You will have to change your configuration

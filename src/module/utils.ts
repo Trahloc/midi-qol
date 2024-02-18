@@ -45,14 +45,26 @@ export function getDamageFlavor(damageType): string | undefined {
  */
 export function createDamageDetail({ roll, item, versatile, defaultType = MQdefaultDamageType, ammo }): { damage: unknown; type: string; }[] {
   let damageParts = {};
+  let rolls = roll;
   //@ts-expect-error
   const DamageRoll = CONFIG.Dice.DamageRoll;
-  if (roll instanceof DamageRoll) {
-    roll = [roll];
+  if (rolls instanceof DamageRoll) {
+    rolls = [rolls];
   }
-  if (roll instanceof Array) {
+  if (item?.system.damage?.parts[0]) {
+    defaultType = item.system.damage.parts[0][1]
+  }
+  if (rolls instanceof Array) {
+    /*
+    for (let i = 0; i < item.system.damageParts.length; i++) {
+      let r = rolls[i];
+      let type = r.options.type || defaultType;
+      damageParts[type] = r.total + (damageParts[type] ?? 0);
+    }
+    */
     // If we received an array we have an array of damage rolls
-    for (let r of roll) {
+    for (let r of rolls) {
+      if (!r.options.type) r.options.type = defaultType;
       let rr = r;
       for (let i = rr.terms.length - 1; i >= 0;) {
         const term = rr.terms[i--];
@@ -64,7 +76,7 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
         let operator = rr.terms[i];
         while (operator instanceof OperatorTerm) {
           if (operator.operator === "-") multiplier *= -1;
-          operator = roll.entries[i--];
+          operator = rolls.entries[i--];
         }
         let value = Number((term?.total ?? "0")) * multiplier;
         damageParts[type] = value + (damageParts[type] ?? 0);
@@ -72,7 +84,7 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
       }
     }
     //  damageParts[r.options.type || defaultType] = r.total + (damageParts[r.options.type || defaultType] ?? 0);
-  } else {
+  } else { // rolls is a single roll and not a DamageRoll
     let evalString = "";
     let damageType: string | undefined = defaultType;
     let partPos = 0;
@@ -144,7 +156,7 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
   return damageDetail;
 }
 
-export function getSelfTarget(actor): Token {
+export function getTokenForActor(actor): Token {
   if (actor.token) return actor.token.object; //actor.token is a token document.
   const token = tokenForActor(actor);
   if (token) return token;
@@ -155,8 +167,8 @@ export function getSelfTarget(actor): Token {
   return new cls(tokenData, { actor });
 }
 
-export function getSelfTargetSet(actor): Set<Token> {
-  const selfTarget = getSelfTarget(actor);
+export function getTokenForActorAsSet(actor): Set<Token> {
+  const selfTarget = getTokenForActor(actor);
   if (selfTarget) return new Set([selfTarget]);
   return new Set();
 }
@@ -766,7 +778,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
   let hitTargets: Set<Token | TokenDocument> = new Set([...workflow.hitTargets, ...workflow.hitTargetsEC]);
   let theTargets = new Set(workflow.targets);
-  if (item?.system.target?.type === "self") theTargets = getSelfTargetSet(actor) || theTargets;
+  if (item?.system.target?.type === "self") theTargets = getTokenForActorAsSet(actor) || theTargets;
   let effectsToExpire: string[] = [];
   if (hitTargets.size > 0 && item?.hasAttack) effectsToExpire.push("1Hit");
   if (hitTargets.size > 0 && item?.hasDamage) effectsToExpire.push("DamageDealt");
@@ -1178,8 +1190,9 @@ export function midiCustomEffect(...args) {
   } else if (change.key === "flags.midi-qol.onUseMacroName") {
     const args = change.value.split(",")?.map(arg => arg.trim());
     const currentFlag = getProperty(actor, "flags.midi-qol.onUseMacroName") ?? "";
-    if (args[0] === "ItemMacro") { // rewrite the ItemMacro if there is an origin
-      if (change.effect?.origin?.includes("Item.")) {
+    if (args[0] === "ItemMacro") { // rewrite the ItemMacro if possible
+      if (change.effect.transfer) args[0] = `ItemMacro.${change.effect.parent.uuid}`;
+      else if (change.effect?.origin?.includes("Item.")) {
         args[0] = `ItemMacro.${change.effect.origin}`;
       }
     }
@@ -1452,7 +1465,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
 
       itemData._id = randomID();
       // roll the damage and save....
-      const theTargetToken = getSelfTarget(actor);
+      const theTargetToken = getTokenForActor(actor);
       const theTargetId = theTargetToken?.document.id;
       const theTargetUuid = theTargetToken?.document.uuid;
       if (game.user && theTargetId) game.user.updateTokenTargets([theTargetId]);
@@ -1588,7 +1601,7 @@ export async function completeItemRoll(item, options: any) {
   return completeItemUse(item, {}, options);
 }
 
-export async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false }) {
+export async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false, targetUuids: [] }) {
   let theItem: any;
   if (typeof item === "string") {
     theItem = MQfromUuid(item);
@@ -2329,7 +2342,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   //@ts-expect-error .dfreds
   const dfreds = game.dfreds;
   // await item.actor.unsetFlag("midi-qol", "concentration-data");
-  let selfTarget = actor.token ? actor.token.object : getSelfTarget(actor);
+  let selfTarget = actor.token ? actor.token.object : getTokenForActor(actor);
   if (!selfTarget) return;
   const concentrationLabel = getConcentrationLabel();
   let statusEffect;
@@ -2420,7 +2433,7 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
     }
 
     if (!selfTargeted) {
-      let selfTarget = actor.token ? actor.token.object : getSelfTarget(actor);
+      let selfTarget = actor.token ? actor.token.object : getTokenForActor(actor);
       targets.push({ tokenUuid: selfTarget.uuid, actorUuid: actor.uuid })
     }
     let templates = concentrationData.templateUuid ? [concentrationData.templateUuid] : [];
@@ -4947,7 +4960,7 @@ async function _doConcentrationCheck(actor, itemData) {
   let result;
   // actor took damage and is concentrating....
   const saveTargets = game.user?.targets;
-  const theTargetToken = getSelfTarget(actor);
+  const theTargetToken = getTokenForActor(actor);
   const theTarget = theTargetToken?.document.id;
   if (game.user && theTarget) game.user.updateTokenTargets([theTarget]);
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor })
