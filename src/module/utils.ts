@@ -4694,7 +4694,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
     for (let ally of allies) {
       if (ally.document.uuid === token.document.uuid) continue;
       const actor: any = ally.actor;
-      if (actor?.system.attrbutes?.hp?.value <= 0) continue;
+      if (actor?.system.attributes?.hp?.value <= 0) continue;
       if (!heightIntersects(target.document, ally.document)) continue;
       if (installedModules.get("dfreds-convenient-effects")) {
         //@ts-expect-error

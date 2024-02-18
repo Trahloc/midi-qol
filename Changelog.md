@@ -1,8 +1,11 @@
+## 11.3.23
+* Fix for checking flanking ignoring tokens with hp <= 0
+* remove console.error debug left in
+
 ## 11.3.22
 * Fix for cachedInitiativeRoll - thanks @thatlongleybugbear
 * Fix for gm rolls showing player skill/save/check rolls when hide rolls is set to for that roll
 * Fix for not being able to force set target confirmation in reaction rolls
-
 
 ## 11.3.21
 * Enable the midi-tab for tools

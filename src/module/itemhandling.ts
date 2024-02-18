@@ -1209,7 +1209,6 @@ export async function wrappedDisplayCard(wrapped, options) {
     let versaBtnText = i18n(`${systemString}.Versatile`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) versaBtnText += ` ${i18n("midi-qol.fastForward")}`;
 
-    console.error("display card ", this.system.level)
     const templateData = {
       actor: this.actor,
       // tokenId: token?.id,
