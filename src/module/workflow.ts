@@ -3421,6 +3421,7 @@ export class Workflow {
     const mflags = message.flags["monks-tokenbar"];
     for (let key of Object.keys(mflags)) {
       if (!key.startsWith("token")) continue;
+      if (!mflags[key].roll) continue;
       const requestId = key.replace("token", "");
       if (!mflags[key].reveal) continue; // Must be showing the roll
       if (this.saveRequests[requestId]) {

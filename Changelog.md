@@ -1,7 +1,11 @@
+## 11.4.4.1
+* Fix for always rolling versatile as other damage.
+* Monks token bar works for saves again
+
 ## 11.4.4
 * Active defence works again.
 * Changed hits and save cards to be more like dnd5e cards. **As with item cards please do not bug the dnd5e guys with issues on the midi chat cards** They cannot help and are not responsible in any way for those cards.
-* Fix for rolling versatile damage as other damge when weapon is not versatile.
+* Fix for rolling versatile damage as other damage when weapon is not versatile.
 * Cleaned up roll hiding.
 * The existing setting to show numeric results for hits will now simply display the target armor class in the hits summary card. Since you could always do the arithmetic there's not much point doing anything else.
 * Rolling a save from the item card now picks up bonuses/prof.
@@ -9,7 +13,7 @@
 * Player skill/save/check rolls that are marked as always blind will now be blind for gmrolls.
 * Reactions wont prompt for target confirmation anymore unless the item specifies it.
 * Midi now integrates with Anonymous again to hide target token names.
-* The tool tips /hover behaviour has changed sligtly - all for the GM.
+* The tool tips /hover behaviour has changed slightly - all for the GM.
   - Hovering over the targets name will highlight it on the map.
   - Left clicking on the targets name will select the target
   - Right clicking on the target's name will open the character sheet for the target.
@@ -26,7 +30,7 @@
   - Provided you fetch the item card via ``message = workflow.chatCard``, you can use ``message.update(updates)`` to make changes. (This has only been tested a bit - so expect errors - if you change the update cache time to 0 and retest in the event of problems that can tell you if the cached updates are an issue.)
 * New prettier EffectChooser - thanks @thatlonelybugbear
 * Change all references from CUB to CLT.
-* For those manipulating transfer effects, you need to be aware that in dnd5e 3.0+ transfer effect origins point to the item that was added to the actor (i.e. the world/compendium item) rather than the actor item. Dae 11.3.7 provided the option to rewrite those to the actor's item. Longer term you should be depending on effect.parent for transfer effects and effect.origin for non-ransfer effects.
+* For those manipulating transfer effects, you need to be aware that in dnd5e 3.0+ transfer effect origins point to the item that was added to the actor (i.e. the world/compendium item) rather than the actor item. Dae 11.3.7 provided the option to rewrite those to the actor's item. Longer term you should be depending on effect.parent for transfer effects and effect.origin for non-transfer effects.
 
 ## 11.4.3
 * onUseMacros referencing ItemMacro for passive effects will now ignore the origin and use the effect's parent item. This should resolve most of the issues with item origins being wrong.

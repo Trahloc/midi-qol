@@ -880,3 +880,33 @@ export const itemJSONData = {
     },
   }
 }
+
+/*
+// Assume options includes ignore set correctly via apply token damage many
+// options.ignore = false
+// Also that damages has been created as the merged set of damages
+// set options.multiplier based on save since it is not calculated inside.
+
+Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
+  // Only processed multiplier from options
+  //? how to insert midi flags.XXXXX into system.traits.
+  // traits.di/dr/dv traits.
+  // ignore (modification, resistance, immunity, vulnerability) true/false
+  // traits (di/dr/dv/dm) 
+  // dm.amount[damageType] = roll expression
+  // resistances, immunities, vulnerabilities are simple boolean
+  // deals with
+
+});
+
+Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
+// After mods/immunities applied
+});
+
+Hooks.on("dnd5e.preApplyDamage", (actor, amount, updates, options) => {
+// fail the hook and call create reverse damage card
+});
+
+Hooks.on("dnd5e.applyDamage", (actor, amount, options) => {
+})
+*/

@@ -5437,7 +5437,7 @@ export function hasAutoPlaceTemplate(item) {
 }
 
 export function itemOtherFormula(item): string {
-  const isVersatle = item?.isVersatile && item.system.poperties?.has("ver");
+  const isVersatle = item?.isVersatile && item.system.properties?.has("ver");
   if ((item.system.formula ?? "") !== "") return item.system.formula;
   if (item?.type === "weapon" && !isVersatle) return item.system.damage.versatile ?? "";
   return "";
