@@ -2,23 +2,35 @@
   {{#unless oneCard}}
   <div>{{attackType}}</div>
   {{/unless}}
-  <div class="midi-qol-box">
+  <div class="dnd5e2 evaluation">
     {{#each hits as |hit iid|}}
-    <div class="midi-qol-flex-container">
-      {{#if ../showHits}}
-      <div style="{{hit.hitStyle}}">
-        <strong>{{hit.hitString}}</strong>
-        {{#if ../displayHitResultNumeric}}
-        ({{hit.hitResultNumeric}})
+    <div>
+      <div class="target {{hit.hitClass}}" style="height: 38px; align-content: center;">
+        <img src="{{hit.img}}" height="30" style="max-height: 95%; aspect-ratio: 1; width: unset;border-width: 2px;" />
+        <div class="name-stacked">
+          <span class="midi-qol-target-name title" id="{{hit.target.id}}" data-uuid="{{hit.target.document.uuid}}">
+            <div class="midi-qol-gmTokenName">
+            {{{hit.gmName}}}
+            </div>
+            <div class="midi-qol-playerTokenName">
+            {{hit.playerName}}
+            </div>
+            <i class="fas {{hit.hitSymbol}}"></i>
+          </span>
+        </div>
+        {{#if showAC}}
+        <div class="{{hit.acClass}}">
+          <span>
+          <i class="fas fa-shield-halved"></i>
+          {{#if hit.bonusAC}}
+          <span style="font-weight: bold;">{{hit.ac}}+{{hit.bonusAC}}</span>
+          {{else}}
+          <span style="font-weight: bold;">{{hit.ac}}</span>
+          {{/if}}
+          </span>
+        </div>
         {{/if}}
       </div>
-      {{/if}}
-      <div class="midi-qol-target-npc-GM midi-qol-target-name" id={{hit.target.id}}> {{{hit.gmName}}}</div>
-      <div class="midi-qol-target-npc-Player midi-qol-target-name" id={{hit.target.id}}> {{hit.playerName}}</div>
-      <div><img src="{{hit.img}}" width="30" height="30" style="border:0px" /></div>
-      {{#if hit.bonusAC}}
-      <div>+{{hit.bonusAC}} {{localize "midi-qol.BonusACCover"}}</div>
-      {{/if}}
     </div>
     {{/each}}
   </div>

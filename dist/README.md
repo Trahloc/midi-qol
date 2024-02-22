@@ -2,7 +2,7 @@
 ![](https://img.shields.io/badge/Foundry-v11-informational)
 ![Forge Installs](https://img.shields.io/badge/dynamic/json?label=Forge%20Installs&query=package.installs&suffix=%25&url=https%3A%2F%2Fforge-vtt.com%2Fapi%2Fbazaar%2Fpackage%2Fmidi-qol&colorB=4aa94a)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tposney)
-Discord link for my modules https://discord.gg/CvNUBVBpT9
+Discord link for my modules https://discord.gg/BCAYr2D7wE
 
 ## Breaking News
 There is a **BETA** release of midi-qol for dnd5e 3.0 available. The module is only available as a manifest.json install. 

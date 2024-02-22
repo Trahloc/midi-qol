@@ -1,12 +1,10 @@
-import { get } from "jquery";
 import { GameSystemConfig, debugEnabled, i18n, log, warn } from "../midi-qol.js";
-import { RollStatsDisplay } from "./apps/RollStatsDisplay.js";
 import { configSettings } from "./settings.js";
 
 export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
   constructor(...args) {
     super(...args);
-    if (debugEnabled > 0) log("Chat message midi constructor", ...args)
+    if (debugEnabled > 1) log("Chat message midi constructor", ...args)
   }
 
   collectRolls(rolls) {
@@ -17,60 +15,39 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
       return obj;
     }, { formula: [], total: 0, breakdown: {} });
     formula = formula.join(" + ");
-    let hideToolTip = false;
-    let tooltipFormula = ["formula", "formulaadv"].includes(configSettings.rollAlternate);
-    let diceFormula = `<div class="dice-formula">${formula}</div>`;
-    if (this.user.isGM && !game.user?.isGM) {
+    let formulaInToolTip = ["formula", "formulaadv"].includes(configSettings.rollAlternate);
+    let hideDetails = this.user.isGM && !game.user?.isGM && (configSettings.hideRollDetails ?? "none") !== "none";
+    let hideFormula = this.user.isGM && !game.user?.isGM && (configSettings.hideRollDetails ?? "none") !== "none";
+    if (this.user.isGM && !game.user?.isGM && (configSettings.hideRollDetails ?? "none") !== "none") {
       switch (configSettings.hideRollDetails) {
         case "none":
           break;
         case "detailsDSN":
-          hideToolTip = true;
-          tooltipFormula = true;
           break;
         case "details":
-          hideToolTip = true;
-          tooltipFormula = true;
           break;
         case "d20Only":
-          hideToolTip = true;
-          tooltipFormula = true;
           break;
         case "hitDamage":
-          hideToolTip = true;
-          tooltipFormula = true;
           break;
         case "hitCriticalDamage":
-          hideToolTip = true;
-          tooltipFormula = true;
           break;
         case "d20AttackOnly":
           total = "Damage Roll";
-          hideToolTip = true;
-          tooltipFormula = true;
           break;
         case "all":
           total = "Damage Roll";
-          hideToolTip = true;
-          tooltipFormula = true;
           break;
       }
     }
 
     const roll = document.createElement("div");
     roll.classList.add("dice-roll");
-    const tooltip =
-      roll.innerHTML = `
-      <div class="dice-result">
-        ${tooltipFormula ? "" : diceFormula}
-        <div class="dice-tooltip">
-          ${ //@ts-expect-error
-      Object.entries(breakdown).reduce((str, [type, { total, constant, dice }]) => {
-        const config = GameSystemConfig.damageTypes[type] ?? GameSystemConfig.healingTypes[type];
-        return `${str}
-              <section class="tooltip-part">
-              ${tooltipFormula && str === "" ? diceFormula : ""}
-              </section>
+    let tooltipContents = ""
+    //@ts-expect-error
+    if (!hideDetails) tooltipContents = Object.entries(breakdown).reduce((str, [type, { total, constant, dice }]) => {
+      const config = GameSystemConfig.damageTypes[type] ?? GameSystemConfig.healingTypes[type];
+      return `${str}
               <section class="tooltip-part">
                 <div class="dice">
                   <ol class="dice-rolls">
@@ -89,13 +66,23 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
                 </div>
               </section>
             `;
-      }, "")}
+    }, "");
+
+    let diceFormula = "";
+    if (!hideFormula) diceFormula = `<div class="dice-formula">${formula}</div>`;
+    roll.innerHTML = `
+      <div class="dice-result">
+      ${formulaInToolTip ? "" : diceFormula}
+        <div class="dice-tooltip">
+          ${formulaInToolTip ? diceFormula : ""}
+          ${tooltipContents}
         </div>
         <h4 class="dice-total">${total}</h4>
       </div>
     `;
     return roll;
   }
+
   _enrichDamageTooltip(rolls, html) {
     if (!configSettings.mergeCard) {
       return super._enrichDamageTooltip(rolls, html);
@@ -106,7 +93,6 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
       if (rollsToCheck?.length) {
         let roll = this.collectRolls(rollsToCheck);
         roll.classList.add(`midi-${rType}-roll`);
-
         html.querySelectorAll(`.midi-${rType}-roll`)?.forEach(el => el.remove());
         if (rType === "bonus-damage") {
           const flavor = document.createElement("div");
@@ -117,19 +103,19 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
           html.querySelector(`.midi-qol-${rType}-roll`)?.appendChild(flavor);
         }
         html.querySelector(`.midi-qol-${rType}-roll`)?.appendChild(roll);
-        if (this.user.isGM && !game.user?.isGM && configSettings.hideRollDetails !== "none") {
-          html.querySelectorAll(".dice-roll").forEach(el => el.removeEventListener("click", this._onClickDiceRoll.bind(this)));
-          if (configSettings.hideRollDetails !== "none") html.querySelectorAll(`.midi-${rType}-roll .dice-tooltip`)?.forEach(el => el.remove());
-          if (configSettings.hideRollDetails !== "none") html.querySelectorAll(`.midi-${rType}-roll .dice-formula`)?.forEach(el => el.remove());
+        if ((configSettings.hideRollDetails ?? "none") !== "none" && !game.user?.isGM && this.user.isGM) {
+          html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
         }
       }
     }
   }
+
   enrichAttackRolls(html) {
-    if (this.user.isGM && game.user?.isGM) return;
+    if (!this.user.isGM || game.user?.isGM) return;
     const hitFlag = getProperty(this.flags, "midi-qol.isHit");
     const hitString = hitFlag === undefined ? "" : hitFlag ? i18n("midi-qol.hits") : i18n("midi-qol.misses");
     let attackRollText;
+    let removeFormula = (configSettings.hideRollDetails ?? "none") !== "none";
     switch (configSettings.hideRollDetails) {
       case "none":
         break;
@@ -158,26 +144,35 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
         break;
     }
     if (attackRollText) html.querySelectorAll(".midi-attack-roll .dice-total")?.forEach(el => el.innerHTML = attackRollText);
-    if (this.user.isGM && !game.user?.isGM && configSettings.hideRollDetails) {
-      if (configSettings.hideRollDetails !== "none") html.querySelectorAll(".midi-attack-roll .dice-tooltip")?.forEach(el => el.classList.add("secret-roll"));
-      if (configSettings.hideRollDetails !== "none") html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.classList.add("secret-roll"));
-      
+    if (this.user.isGM && !game.user?.isGM && removeFormula) {
+      html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.remove());
+      html.querySelectorAll(".midi-attack-roll .dice-tooltip")?.forEach(el => el.remove());
+      html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
     }
   }
   _enrichChatCard(html) {
-    if (getProperty(this, "flags.dnd5e.roll.type") && getProperty(this, "flags.dnd5e.roll.type") !== "midi") return super._enrichChatCard(html);
-    if (!getProperty(this, "flags.dnd5e.roll.type") && this.rolls.length > 0) return super._enrichChatCard(html);
-    if (!getProperty(this, "flags.dnd5e.roll.type")) {
+    if ((getProperty(this, "flags.midi-qol.roll")?.length > 0) && getProperty(this, "flags.dnd5e.roll.type") !== "midi") {
+      // this.rolls = getProperty(this, "flags.midi-qol.roll");
+      super._enrichChatCard(html);
       html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
-      return;
+      return; // Old form midi chat card tht causes dnd5e to throw errors
     }
+    if (getProperty(this, "flags.dnd5e.roll.type") !== "midi") return super._enrichChatCard(html);
     if (debugEnabled > 1) warn("Enriching chat card", this.id);
-    super._enrichChatCard(html);
     this.enrichAttackRolls(html); // This has to run first to stop errors when ChatMessage5e._enrichDamageTooltip runs
-    html.querySelectorAll(".dice-roll").forEach(el => el.removeEventListener("click", super._onClickDiceRoll.bind(this)));
-    html.querySelectorAll(".dice-roll").forEach(el => el.removeEventListener("click", super._onClickDiceRoll.bind(this)));
+    super._enrichChatCard(html);
+    if (this.user.isGM && (configSettings.hideRollDetails ?? "none") !== "none" && !game.user?.isGM) {
+      html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
+      html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
+    }
+  }
+
+  noDiceClicks(event) { 
+    event.stopImmediatePropagation();
+    return;
   }
 }
+
 
 Hooks.once("init", () => {
   console.warn("Registering ChatMessageMidi");

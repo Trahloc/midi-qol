@@ -1,5 +1,8 @@
-<div class="dnd5e2 chat-card midi-chat-card item-card" data-actor-id="{{ actor.id }}" data-item-id="{{ item.id }}" {{#if
-  tokenId}}data-token-id="{{tokenId}}" {{/if}} {{#if isSpell}}data-spell-level="{{ item.system.level }}" {{/if}}>
+<div class="dnd5e2 chat-card midi-chat-card item-card " data-actor-id="{{ actor.id }}" data-item-id="{{ item.id }}"
+  data-actor-uuid="{{ actor.uuid }}" date-item-uuid="{{ item.uuid }}" 
+  {{#if tokenId}}data-token-id="{{tokenId}}" data-token-uuid={{tokenUuid}}{{/if}} 
+  {{#if isSpell}}data-spell-level="{{ item.system.level }}" {{/if}}
+  {{#if isPower}}data-power-level="{{item.system.level}}" {{/if}}>
 
   {{!-- Collapsible Item Details --}}
   <section class="card-header description collapsible">
@@ -70,12 +73,19 @@
 
 
     {{!-- Saving Throw --}}
+
     {{#if hasSave}}
-    <button data-action="save" data-ability="{{data.save.ability}}">
+    {{#with item.system.save}}
+    <button data-action="save" data-ability="{{ability}}" dats-dc="{{dc}}">
+      {{#with (lookup (lookup @root.config.abilities ability) "label") as |abilityLabel|}}
+      <span class="visible-dc">{{ localize "DND5E.SavingThrowDC" dc=../dc ability=abilityLabel }}</span>
+      <span class="hidden-dc">{{ localize "DND5E.SavePromptTitle" ability=abilityLabel }}</span>
       {{ SavingThrow }} {{labels.save}}
+      {{/with}}
     </button>
+    {{/with}}
     {{/if}}
-    <!-- dnd5e save
+    <!-- dnd5e
     {{#if hasSave}}
     {{#with item.system.save}}
     <button type="button" data-action="save" data-ability="{{ ability }}" data-dc="{{ dc }}">
@@ -87,10 +97,9 @@
     </button>
     {{/with}}
     {{/if}}
-    <-->
-
+<-->
     {{!-- Other Formula --}}
-    {{#if data.formula}}
+    {{#if item.system.formula}}
     <button class="midi-qol-otherDamage-button" data-action="formula">{{ OtherFormula }}</button>
     {{/if}}
     <!-- dnd5e
@@ -130,7 +139,7 @@
 
     {{!-- Ability Check --}}
     {{#if hasAbilityCheck}}
-    <button data-action="abilityCheck" data-ability="{{data.ability}}">{{labels.abilityCheck}}</button>
+    <button data-action="abilityCheck" data-ability="{{item.sytem.ability}}">{{labels.abilityCheck}}</button>
     {{/if}}
     <!-- dnd5e>
     {{#if hasAbilityCheck}}
@@ -178,16 +187,14 @@
       <div class="end-midi-qol-hits-display"></div>
     </div>
     {{else}}
-    <div>
-      <div class="midi-qol-attack-roll">
-        <div class="end-midi-qol-attack-roll"></div>
-      </div>
-      <div class="midi-qol-hits-display">
-        <div class="end-midi-qol-hits-display"></div>
-      </div>
-      <div class="midi-qol-damage-roll">
-        <div class="end-midi-qol-damage-roll"></div>
-      </div>
+    <div class="midi-qol-attack-roll">
+      <div class="end-midi-qol-attack-roll"></div>
+    </div>
+    <div class="midi-qol-hits-display">
+      <div class="end-midi-qol-hits-display"></div>
+    </div>
+    <div class="midi-qol-damage-roll">
+      <div class="end-midi-qol-damage-roll"></div>
     </div>
     {{/if}}
     <div class="midi-qol-other-damage-roll">
@@ -199,6 +206,7 @@
     <div class="midi-qol-saves-display">
       <div class="end-midi-qol-saves-display"></div>
     </div>
+
   </div>
   {{/if}}
 

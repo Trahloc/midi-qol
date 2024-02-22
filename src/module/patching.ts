@@ -1091,7 +1091,6 @@ export async function removeConcentrationEffects(actor: Actor, deletedEffectUuid
   }
 }
 
-
 export async function zeroHPExpiry(actor, update, options, user) {
   const hpUpdate = getProperty(update, "system.attributes.hp.value");
   if (hpUpdate !== 0) return;

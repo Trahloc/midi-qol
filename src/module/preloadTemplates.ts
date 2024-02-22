@@ -9,7 +9,6 @@ export async function preloadTemplates() {
     "modules/midi-qol/templates/dialog.html",
     "modules/midi-qol/templates/hits.html",
     "modules/midi-qol/templates/item-card-buttons.html",
-    "modules/midi-qol/templates/item-card.html",
     "modules/midi-qol/templates/item-card.hbs",
     "modules/midi-qol/templates/itemTypeSelector.html",
     "modules/midi-qol/templates/midiPropertiesForm.hbs",

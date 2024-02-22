@@ -348,27 +348,27 @@ async function registerTests() {
             return completeItemUse(item, {}, { workflowOptions }).then(workflow => assert.ok(!!workflow));
           });
 
-          it("applies cub conditions", async function () {
+          it("applies clt conditions", async function () {
             let results: any;
             //@ts-ignore
-            const cubInterface: any = game?.cub;
-            assert.ok(!!cubInterface);
+            const cltInterface: any = game?.clt;
+            assert.ok(!!cltInterface);
             const target = getToken(target2Name);
             const actor = getActor(actor1Name);
             game.user?.updateTokenTargets([target?.id ?? ""]);
-            if (cubInterface.hasCondition("Blinded", [target]))
-              await cubInterface.removeCondition("Blinded", [target]);
-            assert.ok(!cubInterface.hasCondition("Blinded", [target]));
-            assert.ok(!!(await completeItemUse(actor.items.getName("Cub Test"), {}, { workflowOptions })));
+            if (cltInterface.hasCondition("Blinded", [target]))
+              await cltInterface.removeCondition("Blinded", [target]);
+            assert.ok(!cltInterface.hasCondition("Blinded", [target]));
+            assert.ok(!!(await completeItemUse(actor.items.getName("Clt Test"), {}, { workflowOptions })));
             await busyWait(0.5);
-            assert.ok(cubInterface.hasCondition("Blinded", [target]));
-            const effect: ActiveEffect | undefined = target?.actor?.effects.find(e => e.name === "Cub Test");
+            assert.ok(cltInterface.hasCondition("Blinded", [target]));
+            const effect: ActiveEffect | undefined = target?.actor?.effects.find(e => e.name === "Clt Test");
             results = await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", [effect?.id ?? "bad"]);
             // results = await globalThis.DAE.actionQueue.add(target.actor?.deleteEmbeddedDocuments.bind(target.actor),"ActiveEffect", [effect?.id ?? "bad"]);
             await busyWait(0.5);
-            if (cubInterface.hasCondition("Blinded", [target])) {
-              console.warn("testCubCondition", "Blinded not removed")
-              await cubInterface.removeCondition("Blinded", [target]);
+            if (cltInterface.hasCondition("Blinded", [target])) {
+              console.warn("testcltCondition", "Blinded not removed")
+              await cltInterface.removeCondition("Blinded", [target]);
               return false;
             }
             return true;

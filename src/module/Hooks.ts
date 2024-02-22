@@ -1,13 +1,14 @@
-import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig } from "../midi-qol.js";
+import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentrationEffects, zeroHPExpiry, canRemoveConcentration } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
+import { isEmptyObject } from "jquery";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -55,6 +56,26 @@ export let readyHooks = async () => {
 
   Hooks.on("ddb-game-log.pendingRoll", (data) => {
     ddbglPendingHook(data);
+  });
+
+  Hooks.on("preUpdateChatMessage", (message, update, options, user) => {
+    try {
+      console.warn("preUpdateChatMessage inserting updates", message.uuid, getUpdatesCache(message.uuid));
+      if (!getCachedDocument(message.uuid)) return true;
+      const cachedUpdates = getUpdatesCache(message.uuid);
+      clearUpdatesCache(message.uuid);
+      //@ts-expect-error
+      if (!foundry.utils.isEmpty(cachedUpdates)) {
+        if (debugEnabled > 0) warn("preUpdateChatMessage inserting updates", message.uuid, update, cachedUpdates);
+        console.warn("preUpdateChatMessage inserting updates", message.uuid, update, cachedUpdates);
+        Object.keys(cachedUpdates).forEach(key => {
+          if (!getProperty(update, key)) setProperty(update, key, cachedUpdates[key])
+        })
+      }
+      return true;
+    } finally {
+      return true;
+    }
   });
 
   Hooks.on("deleteMeasuredTemplate", checkDeleteTemplate);
@@ -128,7 +149,7 @@ export let readyHooks = async () => {
           if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass && !options.noConcentrationCheck) {
             const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
             if (concentrationData && deletedEffect.origin === concentrationData.uuid && canRemoveConcentration(concentrationData, deletedEffect.uuid)) {
-              removeConcentrationEffects(origin.parent, deletedEffect.uuid, mergeObject(options, { noConcentrationCheck: true }));  
+              removeConcentrationEffects(origin.parent, deletedEffect.uuid, mergeObject(options, { noConcentrationCheck: true }));
             }
           }
         }
@@ -472,6 +493,30 @@ export function initHooks() {
         },
       },
     ]);
+    api.registerItemContent(
+      new api.models.HtmlContent({
+        html: (data) => {
+          const tooltip = `${SystemString}.TargetUnits`
+          return `
+          <select name="system.target.units" data-tooltip="${i18n(tooltip)}">
+          <option value="" ${data.item.system.target.units === '' ? "selected" : ''}></option>
+          <option value="ft" ${data.item.system.target.units === 'ft' ? "selected" : ''}>Feet</option>
+          <option value="mi " ${data.item.system.target.units === 'mi' ? "selected" : ''}>Miles</option>
+          <option value="m" ${data.item.system.target.units === 'm' ? "selected" : ''}>Meters</option>
+          <option value="km" ${data.item.system.target.units === 'km' ? "selected" : ''}>Kilometers</option>
+          </select>
+        `;
+        },
+        injectParams: {
+          selector: `[data-tidy-field="system.target.type"]`,
+          position: "beforebegin",
+        },
+        enabled: (data) =>
+          ["creature", "ally", "enemy"].includes(data.item.system.target?.type) &&
+          !data.item.hasAreaTarget,
+      })
+    );
+
   });
 
   Hooks.on("renderItemSheet", (app, html, data) => {

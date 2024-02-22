@@ -1,4 +1,4 @@
-import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig } from "../midi-qol.js";
+import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString } from "../midi-qol.js";
 import { DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
 import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument } from "./utils.js";
@@ -39,7 +39,7 @@ export function requiresTargetConfirmation(item, options): boolean {
       return true;
     }
     if (targetConfirmation.all &&
-      (item.system.target?.type || item.system.range?.value)) {
+      ((item.system.target?.type ?? "") !== "" || item.system.range?.value)) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.all");
       return true;
     }
@@ -51,7 +51,7 @@ export function requiresTargetConfirmation(item, options): boolean {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.hasCreatureTarget");
       return true;
     }
-    if (targetConfirmation.noneTargeted && (item.system.target?.type || item.hasAttack) && numTargets === 0) {
+    if (targetConfirmation.noneTargeted && ((item.system.target?.type ?? "") !== "" || item.hasAttack) && numTargets === 0) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.noneTargeted");
       return true;
     }
@@ -216,7 +216,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     attackPerTarget &&= this.hasAttack;
     attackPerTarget &&= options.createMessage !== false;
     if (attackPerTarget && (!ammoSelectorEnabled || ammoSelectorFirstPass)) {
-      if (this.system.target?.type !== "") {
+      if ((this.system.target?.type ?? "") !== "") {
         if (!(await preTemplateTargets(this, options, pressedKeys)))
           return null;
       }
@@ -313,7 +313,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const existingWorkflow = Workflow.getWorkflow(this.uuid);
     if (existingWorkflow) await Workflow.removeWorkflow(this.uuid);
     if (cancelWorkflow) return null;
-    if (this.system.target?.type !== "" && !targetConfirmationHasRun) {
+    if ((this.system.target?.type ?? "") !== "" && !targetConfirmationHasRun) {
       if (!(await preTemplateTargets(this, options, pressedKeys)))
         return null;
       //@ts-expect-error
@@ -334,7 +334,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     // only allow weapon attacks against at most the specified number of targets
     let allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
     if (configSettings.enforceSingleWeaponTarget
-      && this.system.target?.type === null
+      && (this.system.target?.type ?? "") === ""
       && allAttackTypes.includes(this.system.actionType)) {
       // we have a weapon with no creature limit set.
       allowedTargets = 1;
@@ -645,7 +645,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
     workflow.systemCard = options.systemCard;
     if (["Workflow"].includes(workflow.workflowType)) {
-      if (this.system.target?.type === self) {
+      if (this.system.target?.type === "self") {
         workflow.targets = getTokenForActorAsSet(this.actor)
       } else if (game.user?.targets?.size ?? 0 > 0) workflow.targets = validTargetTokens(game.user?.targets);
 
@@ -699,6 +699,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
     // Active defence resolves by triggering saving throws and returns early
     if (game.user?.isGM && workflow.useActiveDefence) {
+      delete options.event; // for dnd 3.0
       let result: Roll = await wrapped(mergeObject(options, {
         advantage: false,
         disadvantage: workflow.rollOptions.disadvantage,
@@ -1201,7 +1202,6 @@ export async function wrappedDisplayCard(wrapped, options) {
     if (systemCard === undefined) systemCard = false;
     if (!workflow) return wrapped(options);
     if (debugEnabled > 0) warn("show item card ", this, this.actor, this.actor.token, systemCard, workflow);
-    const systemString = game.system.id.toUpperCase();
     let token = tokenForActor(this.actor);
 
     let needAttackButton = !getRemoveAttackButtons(this) || configSettings.mergeCardMulti || configSettings.confirmAttackDamage !== "none" ||
@@ -1218,9 +1218,9 @@ export async function wrappedDisplayCard(wrapped, options) {
     const hideItemDetails = (["none", "cardOnly"].includes(configSettings.showItemDetails) || (configSettings.showItemDetails === "pc" && !isPlayerOwned))
       || !configSettings.itemTypeList.includes(this.type);
     const hasEffects = !["applyNoButton"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "Workflow" && this.effects.find(ae => !ae.transfer && !getProperty(ae, "flags.dae.dontApply"));
-    let dmgBtnText = (this.system?.actionType === "heal") ? i18n(`${systemString}.Healing`) : i18n(`${systemString}.Damage`);
+    let dmgBtnText = (this.system?.actionType === "heal") ? i18n(`${SystemString}.Healing`) : i18n(`${SystemString}.Damage`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) dmgBtnText += ` ${i18n("midi-qol.fastForward")}`;
-    let versaBtnText = i18n(`${systemString}.Versatile`);
+    let versaBtnText = i18n(`${SystemString}.Versatile`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) versaBtnText += ` ${i18n("midi-qol.fastForward")}`;
 
     const templateData = {
@@ -1229,10 +1229,11 @@ export async function wrappedDisplayCard(wrapped, options) {
       tokenId: token?.document?.uuid ?? token?.uuid ?? null, // v10 change tokenId is a token Uuid
       tokenUuid: token?.document?.uuid ?? token?.uuid ?? null,
       hasButtons: true,
-      item: this, // TODO check this v10
-      itemUuid: this.uuid,
+      item: this,
       data: await this.system.getCardData(),
       labels: this.labels,
+      //@ts-expect-error
+      config: game.system.config,
       condensed: this.hasAttack && configSettings.mergeCardCondensed,
       hasAttack: !minimalCard && this.hasAttack && (systemCard || needAttackButton || configSettings.confirmAttackDamage !== "none"),
       isHealing: !minimalCard && this.isHealing && (systemCard || configSettings.autoRollDamage !== "always"),
@@ -1253,12 +1254,12 @@ export async function wrappedDisplayCard(wrapped, options) {
       isMerge: configSettings.mergeCard,
       mergeCardMulti: configSettings.mergeCardMulti && (this.hasAttack || this.hasDamage),
       confirmAttackDamage: configSettings.confirmAttackDamage !== "none" && (this.hasAttack || this.hasDamage),
-      RequiredMaterials: i18n(`${systemString}.RequiredMaterials`),
-      Attack: i18n(`${systemString}.Attack`),
-      SavingThrow: i18n(`${systemString}.SavingThrow`),
-      OtherFormula: i18n(`${systemString}.OtherFormula`),
-      PlaceTemplate: i18n(`${systemString}.PlaceTemplate`),
-      Use: i18n(`${systemString}.Use`),
+      RequiredMaterials: i18n(`${SystemString}.RequiredMaterials`),
+      Attack: i18n(`${SystemString}.Attack`),
+      SavingThrow: i18n(`${SystemString}.SavingThrow`),
+      OtherFormula: i18n(`${SystemString}.OtherFormula`),
+      PlaceTemplate: i18n(`${SystemString}.PlaceTemplate`),
+      Use: i18n(`${SystemString}.Use`),
       canCancel: configSettings.undoWorkflow // TODO enable this when more testing done.
     }
 
@@ -1280,7 +1281,7 @@ export async function wrappedDisplayCard(wrapped, options) {
       user: game.user?.id,
       type: CONST.CHAT_MESSAGE_TYPES.OTHER,
       content: html,
-      flavor: this.system.chatFlavor || this.name,
+      flavor: this.system.chatFlavor,
       //@ts-expect-error token vs tokenDocument
       speaker: ChatMessage.getSpeaker({ actor: this.actor, token: (token?.document ?? token) }),
       flags: {

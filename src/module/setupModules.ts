@@ -83,14 +83,4 @@ export function checkModules() { // this really should happen in TroubleShooter
   const midiVersion = game.modules.get("midi-qol").version;
   const notificationVersion = game.settings.get("midi-qol", "notificationVersion");
 
-  checkCubInstalled();
-  if (game.modules.get("times-up")?.active && !installedModules.get("times-up")) {
-    ui.notifications?.warn("Times-up installed but is an out of date version please update times-up", {permanent: true, localize: true});
-  }
-}
-
-export function checkCubInstalled() {
-  if (game.user?.isGM && installedModules.get("combat-utility-belt")) {
-    ui.notifications?.warn("midi-qol.cubNotSupported", {permanent: true, localize: true})
-  }
 }

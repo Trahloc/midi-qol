@@ -11,6 +11,7 @@ import { Options } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 import { DEFAULT_MACRO_ICON } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/constants.mjs.js";
+import { isVoidExpression } from "typescript";
 
 const defaultTimeout = 30;
 export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | String;
@@ -354,6 +355,7 @@ export interface applyDamageDetails {
   semiSuperSavers?: Set<Token | TokenDocument>;
 }
 
+
 export async function applyTokenDamageMany({ applyDamageDetails, theTargets, item,
   options = { hitTargets: new Set(), existingDamage: [], workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false } }:
   { applyDamageDetails: applyDamageDetails[]; theTargets: Set<Token | TokenDocument>; item: any; options?: { hitTargets: Set<Token | TokenDocument>, existingDamage: any[][]; workflow: Workflow | undefined; updateContext: any | undefined; forceApply: boolean, noConcentrationCheck: boolean }; }): Promise<any[]> {
@@ -675,7 +677,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     ditem.critical = workflow?.isCritical;
     ditem.wasHit = options.hitTargets.has(t);
     //@ts-expect-error isEmtpy Allow macros to fiddle with the damage
-    if (!isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
+    if (!isEmpty(workflow) && configSettings.allowUseMacro && !workflow?.options?.noTargetOnuseMacro && workflow.item?.flags) {
       workflow.damageItem = ditem;
       await workflow.triggerTargetMacros(["preTargetDamageApplication"], [t]);
       ditem = workflow.damageItem;
@@ -683,7 +685,11 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     workflow.damageItem = ditem;
     await asyncHooksCallAll(`midi-qol.preTargetDamageApplication`, t, { item, workflow, damageItem: ditem, ditem });
     ditem = workflow.damageItem;
-
+    const dnd5eDamages = ditem.damageDetail[0].reduce((acc, detail) => {
+      acc[detail.type] = Math.floor((detail.damage - (detail.DR ?? 0)) * detail.damageMultiplier)
+      return acc;
+    }, {});
+    Hooks.call("dnd5e.calculateDamage", t.actor, dnd5eDamages, {});
     // delete workflow.damageItem
     damageList.push(ditem);
     targetNames.push(t.name)
@@ -1615,7 +1621,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
     return new Promise((resolve) => {
       let saveTargets = Array.from(game.user?.targets ?? []).map(t => { return t.id });
       let selfTarget = false;
-      if (options.targetUuids && game.user && theItem.system.target.type !== "self") {
+      if (options.targetUuids?.length > 0 && game.user && theItem.system.target.type !== "self") {
         game.user.updateTokenTargets([]);
         for (let targetUuid of options.targetUuids) {
           const theTarget = MQfromUuid(targetUuid);
@@ -2347,14 +2353,15 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   const concentrationLabel = getConcentrationLabel();
   let statusEffect;
   if (installedModules.get("dfreds-convenient-effects")) {
+
     statusEffect = dfreds.effectInterface?.findEffectByName(concentrationLabel).toObject();
   }
   if (!statusEffect && installedModules.get("condition-lab-triggler")) {
-    //@ts-expect-error se.name
-    statusEffect = duplicate(CONFIG.statusEffects.find(se => se.id.startsWith("condition-lab-triggler") && (se.name ?? se.label) === concentrationLabel));
-    if (!statusEffect.name) statusEffect.name = statusEffect.label;
+    //@ts-expect-error
+    const clt = game.clt;
+    statusEffect = duplicate(clt.conditions.find(se => se.name === concentrationLabel));
   }
-  if (statusEffect) { // found a cub or convenient status effect.
+  if (statusEffect) { // found a clt or convenient status effect.
     const itemDuration = item?.system.duration;
     // set the token as concentrating
     if (installedModules.get("dae")) {
@@ -2372,12 +2379,11 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
       }
     }
     statusEffect.origin = item?.uuid
-    setProperty(statusEffect.flags, "midi-qol.isConcentration", statusEffect.origin);
-    setProperty(statusEffect.flags, "dae.transfer", false);
-    setProperty(statusEffect, "transfer", false);
-    if (statusEffect.tint === null) delete statusEffect.tint;
+    setProperty(statusEffect, "flags.midi-qol.isConcentration", statusEffect.origin);
+    setProperty(statusEffect, "flags.dae.transfer", false);
+    // if (statusEffect.tint === null) delete statusEffect.tint;
     // condition-lab-triggler has a name in the label field
-    const existing = selfTarget.actor?.effects.find(e => e.name === (statusEffect.name ?? statusEffect.label)); // TODO should be able to remove this .label
+    const existing = selfTarget.actor?.effects.find(e => e.name === statusEffect.name); // TODO should be able to remove this .label
     // if (existing) await existing.delete();
 
     // return await selfTarget.document.toggleActiveEffect(statusEffect, { active: true })
@@ -2594,9 +2600,9 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
   if (td.hasStatusEffect(condition.toLocaleLowerCase()) || td.hasStatusEffect(condition)) return 1;
 
   //@ts-expect-error
-  const cub = game.cub;
-  if (installedModules.get("condition-lab-triggler") && condition === "invisible" && cub.hasCondition("Invisible", [td.object], { warn: false })) return 1;
-  if (installedModules.get("condition-lab-triggler") && condition === "hidden" && cub.hasCondition("Hidden", [td.object], { warn: false })) return 1;
+  const clt = game.clt;
+  if (installedModules.get("condition-lab-triggler") && condition === "invisible" && clt.hasCondition("Invisible", [td.object], { warn: false })) return 1;
+  if (installedModules.get("condition-lab-triggler") && condition === "hidden" && clt.hasCondition("Hidden", [td.object], { warn: false })) return 1;
   if (installedModules.get("dfreds-convenient-effects")) {
     //@ts-expect-error .dfreds
     const CEInt = game.dfreds?.effectInterface;
@@ -3765,7 +3771,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
             checkGMStatus: false,
             targetUuids: [triggerTokenUuid],
             isReaction: true,
-            workflowOptions: {targetConfirmation: "none"}
+            workflowOptions: { targetConfirmation: "none" }
           });
           let useTimeoutId = setTimeout(() => {
             clearTimeout(useTimeoutId);
@@ -3780,15 +3786,17 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
           } else { // assume it is a magic item item
             //@ts-expect-error
             const api = game.modules.get("magic-items-2")?.api;
-            const magicItemActor = await api?.actor(actor)
-            if (magicItemActor) {
-              // export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | string;
-              const magicItem = magicItemActor.items.find(i => i.id === item.itemId);
-              await completeItemUse({ magicItem, id: item.id }, {}, itemRollOptions);
-              resolve({ name: item?.itemName, uuid: item?.uuid })
+            if (api) {
+              const magicItemActor = await api?.actor(actor)
+              if (magicItemActor) {
+                // export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | string;
+                const magicItem = magicItemActor.items.find(i => i.id === item.itemId);
+                await completeItemUse({ magicItem, id: item.id }, {}, itemRollOptions);
+                resolve({ name: item?.itemName, uuid: item?.uuid })
 
-            }
-            resolve({ name: item?.itemName, uuid: item?.uuid })
+              }
+              resolve({ name: item?.itemName, uuid: item?.uuid })
+            } else resolve(noResult);
           }
 
         }
@@ -4610,7 +4618,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
     for (let ally of allies) {
       if (ally.document.uuid === token.document.uuid) continue;
       const actor: any = ally.actor;
-      if (actor?.system.attrbutes?.hp?.value <= 0) continue;
+      if (actor?.system.attributes?.hp?.value <= 0) continue;
       if (!heightIntersects(target.document, ally.document)) continue;
       if (installedModules.get("dfreds-convenient-effects")) {
         //@ts-expect-error
@@ -5339,14 +5347,24 @@ export function getLinkText(entity: Token | TokenDocument | Actor | Item | null 
   return `@UUID[${entity.uuid}]{${entity.name?.slice(0, MaxNameLength - 5)}}`;
 }
 
+export function getTokenName(entity: Token | TokenDocument | undefined): string {
+  if (!entity) return "<unknown>";
+  entity = getToken(entity)
+  if (!(entity instanceof Token)) return "<unknown>";
+  if (configSettings.useTokenNames) return entity.name ?? entity.actor?.name ?? "<unknown>";
+  else return entity.actor?.name ?? entity.name ?? "<unknown>";
+}
+
 export function getIconFreeLink(entity: Token | TokenDocument | Item | Actor | null | undefined) {
   if (!entity) return "<unknown>";
   let name = entity.name ?? "unknown";
   if (entity instanceof Token && !configSettings.useTokenNames) name = entity.actor?.name ?? name;
   if (entity instanceof Token) {
-    return `<a class="content-link midi-qol" data-uuid="${entity.actor?.uuid}">${name?.slice(0, MaxNameLength)}</a>`;
+    return name;
+    // return `<a class="content-link midi-qol" data-uuid="${entity.actor?.uuid}">${name?.slice(0, MaxNameLength)}</a>`;
   } else {
-    return `<a class="content-link midi-qol" data-uuid="${entity.uuid}">${name?.slice(0, MaxNameLength)}</a>`
+    return name;
+    // return `<a class="content-link midi-qol" data-uuid="${entity.uuid}">${name?.slice(0, MaxNameLength)}</a>`
   }
 }
 
@@ -5419,9 +5437,10 @@ export function hasAutoPlaceTemplate(item) {
 }
 
 export function itemOtherFormula(item): string {
-  if (item?.type === "weapon" && !item?.isVersatile && ((item.system.formula ?? "") === ""))
-    return item?.system.damage.versatile ?? "";
-  return item?.system.formula ?? "";
+  const isVersatle = item?.isVersatile && item.system.poperties?.has("ver");
+  if ((item.system.formula ?? "") !== "") return item.system.formula;
+  if (item?.type === "weapon" && !isVersatle) return item.system.damage.versatile ?? "";
+  return "";
 }
 export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
   if (!bonusRoll) return roll;
@@ -5445,7 +5464,126 @@ export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
 }
 
 export async function chooseEffect({ speaker, actor, token, character, item, args, scope, workflow, options }) {
+  let second1TimeoutId;
+  let timeRemaining;
+  if (!item) return false;
+  const effects = item.effects.filter(
+    (e) => !e.transfer && getProperty(e, 'flags.dae.dontApply') === true
+  );
+  if (effects.length === 0) {
+    if (debugEnabled > 0)
+      warn(`chooseEffect | no effects found for ${item.name}`);
+    return false;
+  }
+  let targets = workflow.applicationTargets;
+  if (!targets || targets.size === 0) return;
+  let returnValue = new Promise((resolve, reject) => {
+    const callback = async function (dialog, html, event) {
+      clearTimeout(timeoutId);
+      const effectData = this.toObject();
+      effectData.origin = item.uuid;
+      if (this.toObject()) {
+        if (this.debugEnabled)
+          warn(
+            `chooseEffect | applying effect ${this.name} to ${targets.size} targets`,
+            targets
+          );
+        for (let target of targets) {
+          await target.actor.createEmbeddedDocuments('ActiveEffect', [
+            effectData,
+          ]);
+        }
+      }
+      resolve(this);
+    };
+    const style = `
+			<style>
+			.dnd5e2.effectNoTarget.dialog .dialog-buttons button.dialog-button {
+			  	border: 5px;
+				background: var(--dnd5e-color-grey);
+				margin: 0;
+				display: grid;			
+				grid-template-columns: 40px 150px;
+				grid-gap: 5px
+			}
+	   		.dnd5e2.effectNoTarget.dialog .dialog-buttons button.dialog-button span {
+				overflow: hidden;
+    			text-overflow: ellipsis;
+		  	}
+		   .dnd5e2.effectNoTarget.dialog .window-header .window-title {
+				visibility: visible;
+				color: initial;
+				text-align: center;
+				font-weight: bold;
+		   	}
+			</style>`;
+    function render([html]) {
+      html.parentElement.querySelectorAll('.dialog-button').forEach((n) => {
+        const img = document.createElement('IMG');
+        //@ts-expect-error
+        const eff = fromUuidSync(n.dataset.button);
+        //@ts-expect-error
+        img.src = eff.icon;
+        const effNameSpan = document.createElement('span');
+        effNameSpan.textContent = eff.name;
+        n.innerHTML = '';
+        n.appendChild(img);
+        n.appendChild(effNameSpan);
+        n.dataset.tooltip = eff.name;
+      });
+    }
+    let buttons = {};
+    for (let effect of effects) {
+      buttons[effect.uuid] = {
+        label: effect.name,
+        callback: callback.bind(effect),
+      };
+    }
+    let timeout =
+      options?.timeout ?? configSettings.reactionTimeout ?? defaultTimeout;
+    timeRemaining = timeout;
+    //@ts-expect-error
+    const Mixin = game.system.applications.DialogMixin(Dialog);
+    const dialogOptions = {
+      classes: ['dnd5e2', 'effectNoTarget', 'dialog'],
+      width: 220,
+      height: 'auto',
+    };
+    const data = {
+      title: `${i18n('CONTROLS.CommonSelect')} ${i18n(
+        'DOCUMENT.ActiveEffect'
+      )}: ${timeRemaining}s`,
+      content: `<center><b>${i18n('EFFECT.StatusTarget')}: [</b>${[
+        ...targets,
+      ].map((t) => t.name)}<b>]</b></center> ${style}`,
+      buttons,
+      render,
+    };
 
+    let dialog = new Mixin(data, dialogOptions);
+    dialog.render(true);
+    const set1SecondTimeout = function () {
+      second1TimeoutId = setTimeout(() => {
+        if (!timeoutId) return;
+        timeRemaining -= 1;
+        dialog.data.title = `${i18n('CONTROLS.CommonSelect')} ${i18n(
+          'DOCUMENT.ActiveEffect'
+        )}: ${timeRemaining}s`;
+        dialog.render(false);
+        if (timeRemaining > 0) set1SecondTimeout();
+      }, 1000);
+    };
+    let timeoutId = setTimeout(() => {
+      if (debugEnabled > 0) warn(`chooseEffect | timeout fired closing dialog`);
+      clearTimeout(second1TimeoutId);
+      dialog.close();
+      reject('timeout');
+    }, timeout * 1000);
+    set1SecondTimeout();
+  });
+  return await returnValue;
+}
+export async function chooseEffectOld({ speaker, actor, token, character, item, args, scope, workflow, options }) {
   let second1TimeoutId;
   let timeRemaining;
   if (!item) return false;
@@ -5530,28 +5668,31 @@ export async function _updateAction(document) {
   if (!updatesCache[document.uuid]) return;
   const updates = updatesCache[document.uuid];
   clearUpdatesCache(document.uuid);
-  if (debugEnabled > 0) warn("update action | Doing updateAction");
-  return document.update(updates);
+  if (debugEnabled > 0) warn("update action | Doing updateAction", updates);
+  console.warn("Doing updateAction", updates);
+  //@ts-expect-error
+  const baseDocument = fromUuidSync(document.uuid);
+  return await baseDocument.update(updates);
 }
 
 export async function debouncedUpdate(document, updates, immediate = false) {
   if (!DebounceInterval || !configSettings.mergeCard) {
-    if (debugEnabled > 0) console.warn("debouncedUpdate | performing update");
+    if (debugEnabled > 0) console.warn("debouncedUpdate | performing update", immediate);
     return await document.update(updates);
   }
+  console.warn("debouncedUpdate | performing update", immediate)
   if (debugEnabled > 0) {
     if (updatesCache[document.uuid]) warn("debouncedUpdate | Cache not empty");
-   else warn("debouncedUpdate | cache empty");
-   warn("debouce update ", updates, )
-   
+    else warn("debouncedUpdate | cache empty");
   }
   updatesCache[document.uuid] = mergeObject((updatesCache[document.uuid] ?? {}), updates, { overwrite: true })
-  if (immediate) return _updateAction(document);
-  return _debouncedUpdateAction(document);
+  if (immediate) return await _updateAction(document);
+  return await _debouncedUpdateAction(document);
 }
-export function getUpdatesCache(document) {
-  if (!updatesCache[document.uuid]) return {};
-  return updatesCache[document.uuid]
+export function getUpdatesCache(uuid: string | undefined | null) {
+  if (!uuid) return {};
+  if (!updatesCache[uuid]) return {};
+  return updatesCache[uuid];
 }
 export function clearUpdatesCache(uuid: string | undefined | null) {
   if (!uuid) return;
@@ -5562,9 +5703,8 @@ export function getCachedDocument(uuid: string | undefined | null) {
   if (!uuid) return undefined;
   //@ts-expect-error
   const document = fromUuidSync(uuid);
-  // let chatMessage: ChatMessage | undefined = game.messages?.get(id);
   let updates = document?.uuid && updatesCache[document.uuid];
-  if (updates) document?.updateSource(updates);
+  if (updates) Object.keys(updates).forEach(key => { setProperty(document, key, updates[key]) });
   return document;
 }
 

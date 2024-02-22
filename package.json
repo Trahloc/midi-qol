@@ -3,7 +3,7 @@
 	"title": "Midi QOL",
 	"version": "11.4.4",
 	"description": "Automates rolling weapon/spell attacks and applying damage",
-	"devDir": "/home/timp/foundry-data/foundryv11/Data/modules/",
+	"devDir": "/home/timp/foundry-data/foundryv11dnd3/Data/modules/",
 	"main": "src/midi-qol.ts",
 	"scripts": {
 		"build": "npx gulp",

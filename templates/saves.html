@@ -1,32 +1,36 @@
-<div class="midi-qol-box">
+<div style="text-align: center">
   <strong>{{{saveDisplayFlavor}}}</strong>
-    <span style="text-align: center;">
-      <label class="midi-qol-bigger-text">{{{fullDamageText}}}</label>
-      <label class="midi-qol-bigger-text">{{{halfDamageText}}}</label>
-      <label class="midi-qol-bigger-text">{{{noDamageText}}}</label>
-    </span>
+</div>
+<div style="text-align: center">
+  <strong>
+    {{{fullDamageText}}} {{{halfDamageText}}} {{{noDamageText}}}
+  </strong>
+</div>
+<div class="dnd5e2 evaluation">
   {{#each saves as |save iid|}}
-  <div class="midi-qol-flex-container">
-    <div class="midi-qol-target-npc-GM midi-qol-target-name" id={{save.id}}> {{{save.gmName}}}</div>
-    <div class="midi-qol-target-npc-Player midi-qol-target-name" id={{save.id}}>{{save.playerName}}</div>
-    <div>
-      <label style="{{save.saveStyle}}">
-        {{save.saveString}}
-      </label>
-      <div class="midi-qol-tooltip midi-qol-save-total">: {{save.rollTotal}}
-        <div class="midi-qol-tooltiptext midi-qol-save-tooltip" style="text-align: left;">
-          <div>{{save.rollDetail.formula}}</div>
-          <div>{{save.rollDetail.result}}</div>
-        </div>
+  <div>
+    <div class="target {{save.saveClass}}" style="height: 38px; align-content: center;">
+      <img src="{{save.img}}" height="30" style="max-height: 95%; aspect-ratio: 1; width: unset;border-width: 2px;" />
+      <div class="name-stacked">
+        <span class="midi-qol-target-name title midi-qol-tooltip " id="{{save.target.id}}"
+          data-uuid="{{save.target.document.uuid}}">
+          <div class="midi-qol-gmTokenName">
+            {{{save.gmName}}}
+          </div>
+          <div class="midi-qol-playerTokenName">
+            {{save.playerName}}
+          </div>
+          <i class="fas {{save.saveSymbol}}"></i>
+          <div class="midi-qol-tooltiptext midi-qol-save-tooltip" style="text-align: left;">
+            <div>{{save.rollDetail.formula}}</div>
+            <div>{{save.rollDetail.result}}</div>
+          </div>
+        </span>
       </div>
-      {{adv}}
+      <div class="midi-qol-save-total">
+        <span style="font-weight: bold;">{{save.rollTotal}}</span>
+      </div>
     </div>
-    <div><img src="{{save.img}}" height="30" style="border:0px"></div>
   </div>
-  {{#if ../fullSaveDisplay}}
-  <div class="midi-qol-save-full-display">
-    {{{save.rollHtml}}}
-  </div>
-  {{/if}}
   {{/each}}
 </div>

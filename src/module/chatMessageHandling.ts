@@ -111,6 +111,14 @@ let _onTargetSelect = (event) => {
   token?.control({ multiSelect: false, releaseOthers: true });
 };
 
+function _onTargetShow(event) {
+  event.stopImmediatePropagation();
+  event.preventDefault();
+  if (!canvas?.scene?.active) return;
+  const token = canvas.tokens?.get(event.currentTarget.id);
+  if (token) token.actor?.sheet?.render(true);
+}
+
 export let hideRollRender = (msg, html, data) => {
   if (forceHideRoll && (msg.whisper.length > 0 || msg?.blind)) {
     if (!game.user?.isGM && !msg.isAuthor && msg.whisper.indexOf(game.user?.id) === -1) {
@@ -165,11 +173,13 @@ export let hideStuffHandler = (message, html, data) => {
     html.find(".midi-qol-versatile-damage-button").hide();
   }
 
+
   if (game.user?.isGM) {
     let ids = html.find(".midi-qol-target-name")
     ids.hover(_onTargetHover, _onTargetHoverOut)
     ids.click(_onTargetSelect);
-
+    ids.contextmenu(_onTargetShow)
+    html.find(".midi-qol-playerTokenName").remove();
     if (configSettings.hidePlayerDamageCard && $(html).find(".midi-qol-player-damage-card").length) html.hide();
 
     if ($(html).find(".midi-qol-hits-display").length) {
@@ -190,7 +200,7 @@ export let hideStuffHandler = (message, html, data) => {
     html.find(".midi-qol-save-tooltip").hide();
     // if not showing saving throw total hide from players
     if (configSettings.autoCheckSaves === "allNoRoll") {
-      html.find(".midi-qol-save-total").hide();
+      html.find(".midi-qol-save-total").remove();
       html.find(".midi-qol-save-full-display").hide();
     }
     // Hide the save dc if required
@@ -219,18 +229,22 @@ export let hideStuffHandler = (message, html, data) => {
         html.hide();
       }
     }
+    if (!configSettings.displayHitResultNumeric) {
+      html.find(".midi-qol-npc-ac").remove();
+    }
+
     if (message.user?.id !== game.user?.id || configSettings.confirmAttackDamage === "gmOnly") {
       html.find(".midi-qol-confirm-damage-roll-complete-hit").hide();
       html.find(".midi-qol-confirm-damage-roll-complete-miss").hide();
       html.find(".midi-qol-confirm-damage-roll-complete-critical").hide();
     }
 
-    if (!game.user?.isGM)
+    if (!game.user?.isGM) {
       // Can update the attack roll here, but damage rolls are redone in the ChatmessageMidi code so do the hiding for those there
       html.find(".midi-qol-confirm-damage-roll-cancel").hide();
-
-    // hide the gm version of the name from` players
-    html.find(".midi-qol-target-npc-GM").hide();
+      // hide the gm version of the name from` players
+      html.find(".midi-qol-gmTokenName").remove();
+    }
   }
   //@ts-ignore
   setTimeout(() => ui.chat.scrollBottom(), 0);

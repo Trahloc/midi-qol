@@ -27,6 +27,7 @@ export let warn = (...args) => { if (debugEnabled > 0) console.warn("midi-qol | 
 export let error = (...args) => console.error("midi-qol | ", ...args);
 export let timelog = (...args) => warn("midi-qol | ", Date.now(), ...args);
 export var levelsAPI;
+export var allDamageTypes;
 
 declare global {
   interface LenientGlobalVariableTypes {
@@ -83,6 +84,8 @@ export let MQItemMacroLabel: string;
 export let MQDeferMacroLabel: string;
 export let MQOnUseOptions;
 export let GameSystemConfig;
+export let SystemString;
+
 export const MESSAGETYPES = {
   HITS: 1,
   SAVES: 2,
@@ -108,6 +111,7 @@ Hooks.once('init', async function () {
   console.log('midi-qol | Initializing midi-qol');
   //@ts-expect-error
   GameSystemConfig = game.system.config;
+  SystemString = game.system.id.toUpperCase();
   allAttackTypes = ["rwak", "mwak", "rsak", "msak"];
   if (game.system.id === "sw5e")
     allAttackTypes = ["rwak", "mwak", "rpak", "mpak"];
@@ -264,11 +268,9 @@ function addConfigOptions() {
     config.midiProperties["critOther"] = i18n("midi-qol.otherCritProp");
     config.midiProperties["concentration"] = i18n("midi-qol.concentrationActivationCondition");
     config.midiProperties["saveDamage"] = "Save Damage";
-    config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save",
-      config.midiProperties["otherSaveDamage"] = "Other Damage Save",
-
-      config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
-
+    config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
+    config.midiProperties["otherSaveDamage"] = "Other Damage Save";
+    config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
     config.abilityActivationTypes["reactiondamage"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionDamaged")}`;
     config.abilityActivationTypes["reactionmanual"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionManual")}`;
     config.customDamageResistanceTypes = {
@@ -294,9 +296,14 @@ function addConfigOptions() {
 /* When ready							*/
 /* ------------------------------------ */
 Hooks.once('ready', function () {
-  addConfigOptions();
   //@ts-expect-error
   const config = game.system.config;
+  addConfigOptions();
+  allDamageTypes = {};
+  allDamageTypes.none = duplicate(config.damageTypes["midi-none"]);
+  allDamageTypes.none.label = i18n("DND5E.None");
+  allDamageTypes[""] = allDamageTypes.none
+  allDamageTypes = mergeObject(allDamageTypes, mergeObject(config.damageTypes, config.healingTypes, { inplace: false }));
   registerSettings();
   gameStats = new RollStats();
   actorAbilityRollPatching();
