@@ -1,3 +1,8 @@
+## 11.3.24
+* Fix for latest Monks Token Bar release.
+* Fix for tidysheet5e not having distance field for "Ally", "Creature", "Enemy" target type.
+* Fix for rolls not completeing if the returned damage is 0.
+
 ## 11.3.23
 * Fix for checking flanking ignoring tokens with hp <= 0
 * remove console.error debug left in

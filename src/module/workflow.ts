@@ -621,7 +621,7 @@ export class Workflow {
     return this.WorkflowState_AoETargetConfirmation;
   }
   async WorkflowState_AoETargetConfirmation(context: any = {}): Promise<WorkflowState> {
-    if (this.item?.system.target?.type !== "" && this.workflowOptions.targetConfirmation !== "none") {
+    if ((this.item?.system.target?.type ?? "") !== "" && this.workflowOptions.targetConfirmation !== "none") {
       if (!await postTemplateConfirmTargets(this.item, this.workflowOptions, {}, this)) {
         return this.WorkflowState_Abort;
       }
@@ -981,7 +981,7 @@ export class Workflow {
       if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preSave"), "OnUse", "preSave");
     }
 
-    if (this.workflowType === "Workflow" && !this.item?.hasAttack && this.item?.system.target?.type !== "self") { // Allow editing of targets if there is no attack that has already been processed.
+    if (this.workflowType === "Workflow" && !this.item?.hasAttack && (this.item?.system.target?.type ?? "") !== "self") { // Allow editing of targets if there is no attack that has already been processed.
       this.targets = new Set(game.user?.targets);
       this.hitTargets = new Set(this.targets);
     }
@@ -3351,6 +3351,7 @@ export class Workflow {
       if (!key.startsWith("token")) continue;
       const requestId = key.replace("token", "");
       if (!mflags[key].reveal) continue; // Must be showing the roll
+      if (!mflags[key].roll) continue; // Must have a roll
       if (this.saveRequests[requestId]) {
         let roll;
         try {

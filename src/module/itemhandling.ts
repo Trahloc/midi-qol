@@ -215,7 +215,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     attackPerTarget &&= this.hasAttack;
     attackPerTarget &&= options.createMessage !== false;
     if (attackPerTarget && (!ammoSelectorEnabled || ammoSelectorFirstPass)) {
-      if (this.system.target?.type !== "") {
+      if ((this.system.target?.type ?? "") !== "") {
         if (!(await preTemplateTargets(this, options, pressedKeys)))
           return null;
       }
@@ -312,7 +312,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const existingWorkflow = Workflow.getWorkflow(this.uuid);
     if (existingWorkflow) await Workflow.removeWorkflow(this.uuid);
     if (cancelWorkflow) return null;
-    if (this.system.target?.type !== "" && !targetConfirmationHasRun) {
+    if ((this.system.target?.type ?? "") !== "" && !targetConfirmationHasRun) {
       if (!(await preTemplateTargets(this, options, pressedKeys)))
         return null;
       //@ts-expect-error
@@ -333,7 +333,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     // only allow weapon attacks against at most the specified number of targets
     let allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
     if (configSettings.enforceSingleWeaponTarget
-      && this.system.target?.type === null
+      && (this.system.target?.type ?? "") === ""
       && allAttackTypes.includes(this.system.actionType)) {
       // we have a weapon with no creature limit set.
       allowedTargets = 1;
@@ -645,7 +645,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
     workflow.systemCard = options.systemCard;
     if (["Workflow"].includes(workflow.workflowType)) {
-      if (this.system.target?.type === self) {
+      if (this.system.target?.type === "self") {
         workflow.targets = getSelfTargetSet(this.actor)
       } else if (game.user?.targets?.size ?? 0 > 0) workflow.targets = validTargetTokens(game.user?.targets);
 
@@ -717,7 +717,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       || workflow?.workflowOptions?.advantage
       || workflow.flankingAdvantage;
     if (workflow.noAdvantage) advantage = false;
-    // Attribute advantaage
+    // Attribute advantage
     if (workflow.rollOptions.advantage) {
       workflow.attackAdvAttribution.add(`ADV:keyPress`);
       workflow.advReminderAttackAdvAttribution.add(`ADV:keyPress`);
@@ -863,7 +863,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
     }
 
     const midiFlags = workflow.actor.flags["midi-qol"]
-    if (workflow.currentAction !== workflow.WorkflowStaate_WaitForDamageRoll && workflow.noAutoAttack) {
+    if (workflow.currentAction !== workflow.WorkflowState_WaitForDamageRoll && workflow.noAutoAttack) {
       // TODO NW check this allow damage roll to go ahead if it's an ordinary roll
       workflow.currentAction = workflow.WorkflowState_WaitForDamageRoll;
     }
@@ -1008,7 +1008,7 @@ export async function doDamageRoll(wrapped, { event = {}, systemCard = false, sp
         await result2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
       }
     }
-    if (result?.total) {
+    if (result?.total !== undefined) {
       for (let term of result.terms) {
         // I don't like the default display and it does not look good for dice so nice - fiddle the results for maximised rolls
         if (term instanceof Die && term.modifiers.includes(`min${term.faces}`)) {

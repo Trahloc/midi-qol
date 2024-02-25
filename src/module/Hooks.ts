@@ -509,6 +509,33 @@ export function initHooks() {
         },
       },
     ]);
+
+
+    api.registerItemContent(
+      new api.models.HtmlContent({
+        html: (data) => {
+          const systemString = game.system.id.toUpperCase();
+          const tooltip = `${systemString}.TargetUnits`
+          return `
+          <select name="system.target.units" data-tooltip="${i18n(tooltip)}">
+          <option value="" ${data.item.system.target.units === '' ? "selected" : ''}></option>
+          <option value="ft" ${data.item.system.target.units === 'ft' ? "selected" : ''}>Feet</option>
+          <option value="mi " ${data.item.system.target.units === 'mi' ? "selected" : ''}>Miles</option>
+          <option value="m" ${data.item.system.target.units === 'm' ? "selected" : ''}>Meters</option>
+          <option value="km" ${data.item.system.target.units === 'km' ? "selected" : ''}>Kilometers</option>
+          </select>
+        `;
+        },
+        injectParams: {
+          selector: `[data-tidy-field="system.target.type"]`,
+          position: "beforebegin",
+        },
+        enabled: (data) =>
+          ["creature", "ally", "enemy"].includes(data.item.system.target?.type) &&
+          !data.item.hasAreaTarget,
+      })
+    );
+
   });
 
   Hooks.on("renderItemSheet", (app, html, data) => {
@@ -765,7 +792,7 @@ export const overTimeJSONData = {
       "dt": null,
       "conditions": ""
     },
-    "weaponType": "simpleM",
+    "weaponType": "improv",
     "properties": {
       "ada": false,
       "amm": false,
@@ -822,7 +849,7 @@ export const itemJSONData = {
     "actionType": "save",
     "attackBonus": 0,
     "chatFlavor": "",
-    "weaponType": "simpleM",
+    "weaponType": "improv",
     "proficient": false,
     "attributes": {
       "spelldc": 10
