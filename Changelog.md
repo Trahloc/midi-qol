@@ -1,3 +1,8 @@
+## 11.4.5
+* Fix for not calling onUseMacros
+* Fix for not removing apply active effects cards.
+* Fix for some cases when otherdamage roll would throw an error.
+
 ## 11.4.4.1
 * Fix for always rolling versatile as other damage.
 * Monks token bar works for saves again

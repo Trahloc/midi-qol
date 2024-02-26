@@ -440,7 +440,7 @@ export class Workflow {
     return true;
   }
   async callOnUseMacrosForAction(prePost: ("pre" | "post"), action: WorkflowState): Promise<(damageBonusMacroResult | boolean | undefined)[]> {
-    if (!configSettings.allowUseMacro || !this.options.noOnUseMacros) {
+    if (!configSettings.allowUseMacro || this.options.noOnUseMacros === false) {
       warn(`Calling ${prePost}${this.nameForState(action)} disabled due to macro call settings`);
       return [];
     }
@@ -1320,6 +1320,7 @@ export class Workflow {
       Hooks.off("createMeasuredTemplate", this.placeTemplateHookId)
       Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId)
     }
+    if (configSettings.autoItemEffects === "applyRemove") await this.removeEffectsButton();
     // TODO see if we can delete the workflow - I think that causes problems for Crymic
     //@ts-ignore scrollBottom protected
     ui.chat?.scrollBottom();
@@ -1340,12 +1341,9 @@ export class Workflow {
       Hooks.off("createMeasuredTemplate", this.placeTemplateHookId)
       Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId)
     }
-    if (this.itemCarduuid) {
-      clearUpdatesCache(this.itemCardUuid);
-      //@ts-expect-error
-      const message = fromUuidsSync(this.itemCardUuid);
-      if (message) await message.delete();
-      // if (this.itemCardId) await game.messages?.get(this.itemCardId)?.delete();
+    if (this.chatCard) {
+      this.chatCard.delete();
+      clearUpdatesCache(this.chatCard.uuid);
     }
 
     if (this.templateUuid) {
@@ -1464,9 +1462,9 @@ export class Workflow {
       await this.callMacros(this.item, this.onUseMacros?.getMacros("postActiveEffects"), "OnUse", "postActiveEffects");
       if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("postActiveEffects"), "OnUse", "postActiveEffects");
     }
-    if (this.item)
+    // if (this.item)
       // delete Workflow._workflows[this.itemId];
-      await asyncHooksCallAll("minor-qol.RollComplete", this); // just for the macro writers.
+
     await asyncHooksCallAll("midi-qol.RollComplete", this);
     if (this.item) await asyncHooksCallAll(`midi-qol.RollComplete.${this.item?.uuid}`, this);
     if (this.aborted) return this.WorkflowState_Abort;  // TODO This is wrong
