@@ -1,7 +1,7 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -124,14 +124,15 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
         else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: GameSystemConfig.abilities[detail] ?? "" });
         else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: GameSystemConfig.skills[detail] ?? "" });
       }
-      await bonusDialog.bind(data)(
+      const newRoll = await bonusDialog.bind(data)(
         bonusFlags,
         detail ? `${category}.${detail}` : category,
         checkMechanic("displayBonusRolls"),
         `${actor.name} - ${title}`,
-        "roll", "rollTotal", "rollHTML"
+        data.roll,
+        "roll"
       );
-      result = data.roll;
+      result = newRoll;
     }
   }
   return result;
@@ -1094,11 +1095,11 @@ export async function removeConcentrationEffects(actor: Actor, deletedEffectUuid
 export async function zeroHPExpiry(actor, update, options, user) {
   const hpUpdate = getProperty(update, "system.attributes.hp.value");
   if (hpUpdate !== 0) return;
-  const expiredEffects: string[] = [];
+  const expiredEffects: ActiveEffect[] = [];
   for (let effect of actor.effects) {
-    if (effect.flags?.dae?.specialDuration?.includes("zeroHP")) expiredEffects.push(effect.id)
+    if (effect.flags?.dae?.specialDuration?.includes("zeroHP")) expiredEffects.push(effect)
   }
-  if (expiredEffects.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", expiredEffects, { "expiry-reason": "midi-qol:zeroHP" })
+  if (expiredEffects.length > 0) await expireEffects(actor, expiredEffects, { "expiry-reason": "midi-qol:zeroHP" })
 }
 
 export async function checkWounded(actor, update, options, user) {
@@ -1110,15 +1111,14 @@ export async function checkWounded(actor, update, options, user) {
   // return wrapped(update,options,user);
   if (hpUpdate === undefined && (!vitalityResource || vitalityUpdate === undefined)) return;
   const attributes = actor.system.attributes;
-  const needsBeaten = vitalityResource ? vitalityUpdate <= 0 : hpUpdate <= 0;
-  if (configSettings.addWounded > 0 && hpUpdate !== undefined && configSettings.addWoundedStyle !== "none") {
-    const woundedLevel = attributes.hp.max * configSettings.addWounded / 100;
-    const needsWounded = hpUpdate > 0 && hpUpdate < woundedLevel && !needsBeaten;
+  const needsBeaten = vitalityResource ? vitalityUpdate <= 0 : attributes.hp.value <= 0;
+  if (configSettings.addWounded > 0 && configSettings.addWoundedStyle !== "none") {
+    const needsWounded = attributes.hp.pct < configSettings.addWounded && !needsBeaten;
     const woundedStatus = getWoundedStatus();
     if (!woundedStatus) {
       const message = "wounded status condition not set - please update your midi-qol dead condition on the mechanics tab";
       TroubleShooter.recordError(new Error(message), "In check wounded");
-      ui.notifications?.error(`midi-qol | ${message}`);
+      ui.notifications?.warn(`midi-qol | ${message}`);
     } else if (installedModules.get("dfreds-convenient-effects") && woundedStatus.id.startsWith("Convenient Effect:")) {
       const wounded = await ConvenientEffectsHasEffect((woundedStatus.name), actor, false);
       if (wounded !== needsWounded) {

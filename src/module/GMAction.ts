@@ -1,6 +1,6 @@
 import { checkRule, configSettings } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
 import { Workflow } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
@@ -289,8 +289,8 @@ export async function removeEffects(data: { actorUuid: string; effects: string[]
       debug("removeFunc: remove effects started")
       const actor = MQfromActorUuid(data.actorUuid);
       if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
-      const effectIds = data.effects.filter(efId => actor?.effects.find(effect => efId === effect.id));
-      if (effectIds?.length > 0) return actor?.deleteEmbeddedDocuments("ActiveEffect", effectIds, data.options)
+      const effectsToDelete = actor?.appliedEffects.filter(ef => data.effects.includes(ef.id));
+      return await expireEffects(actor, effectsToDelete, data.options);
     } catch (err) {
       const message = `GMACTION: remove effects error for ${data?.actorUuid}`;
       console.warn(message, err);
@@ -476,7 +476,12 @@ export async function deleteEffectsByUuid(data: { effectsToDelete: string[], opt
   for (let effectUuid of data.effectsToDelete) {
     //@ts-expect-error fromUuidSync
     const effect = fromUuidSync(effectUuid);
-    if (effect !== undefined && !isEffectExpired(effect)) await effect.delete();
+    if (effect !== undefined && !isEffectExpired(effect)) {
+      if (effect.transfer)
+        await effect.update({ disabled: true });
+      else 
+        await effect.delete();
+    }
   }
 }
 
@@ -484,11 +489,10 @@ export async function deleteEffects(data: { actorUuid: string, effectsToDelete: 
   const actor = MQfromActorUuid(data.actorUuid);
   if (!actor) return;
   // Check that none of the effects were deleted while we were waiting to execute
-  let finalEffectsToDelete = actor.effects.filter(ef => data.effectsToDelete.includes(ef.id) && !isEffectExpired(ef));
-  finalEffectsToDelete = finalEffectsToDelete.map(ef => ef.id);
+  let finalEffectsToDelete = actor.appliedEffects.filter(ef => data.effectsToDelete.includes(ef.id) && !isEffectExpired(ef));
   try {
     if (debugEnabled > 0) warn("_deleteEffects started", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
-    const result = await actor.deleteEmbeddedDocuments("ActiveEffect", finalEffectsToDelete, data.options);
+    const result = await expireEffects(actor, finalEffectsToDelete, data.options)
     if (debugEnabled > 0) warn("_deleteEffects completed", actor.name, data.effectsToDelete, finalEffectsToDelete, data.options)
     return result;
   } catch (err) {
@@ -508,11 +512,17 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
         let actor = idData.tokenUuid ? MQfromActorUuid(idData.tokenUuid) : idData.actorUuid ? MQfromUuid(idData.actorUuid) : undefined;
         if (actor?.actor) actor = actor.actor;
         if (!actor) {
-          warn("could not find actor for ", idData.tokenUuid);
+          error("GMAction:deleteItemEffects | could not find actor for ", idData.tokenUuid);
           continue;
         }
-        effectsToDelete = actor?.effects?.filter(ef => {
-          return ef.origin === origin && !ignore.includes(ef.uuid) && (!data.ignoreTransfer || ef.flags?.dae?.transfer !== true)
+        let originEntity = await fromUuid(origin);
+        if (!originEntity) {
+          error("GMAction:deleteItemEffects | could not find origin for ", origin);
+          continue;
+        }
+        effectsToDelete = actor?.appliedEffects?.filter(ef => {
+          if (originEntity instanceof ActiveEffect) originEntity = originEntity.parent;
+          return ef.originEntity === originEntity && !ignore.includes(ef.uuid) && (!data.ignoreTransfer || !ef.transfer)
         });
         if (installedModules.get("times-up")) {
           if (globalThis.TimesUp.isEffectExpired) {
@@ -526,8 +536,7 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
             // for (let ef of effectsToDelete) ef.delete();
             options = mergeObject(options ?? {}, { parent: actor, concentrationDeleted: true });
             if (debugEnabled > 0) warn("deleteItemEffects ", actor.name, effectsToDelete, options);
-            await ActiveEffect.deleteDocuments(effectsToDelete.map(ef => ef.id), options);
-            // await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete.map(ef => ef.id), {strict: false, invalid: false});
+            await expireEffects(actor, effectsToDelete, options);
           } catch (err) {
             const message = `delete item effects failed for ${actor?.name} ${actor?.uuid}`;
             console.warn(message, err);

@@ -1,7 +1,7 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache, tokenForActor, getSaveMultiplierForItem, expireEffects } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentrationEffects, zeroHPExpiry, canRemoveConcentration } from "./patching.js";
@@ -44,7 +44,8 @@ export let readyHooks = async () => {
       const specialDuration = getProperty(ef.flags, "dae.specialDuration");
       return specialDuration?.includes("isMoved");
     }) ?? [];
-    if (expiredEffects.length > 0) actor?.deleteEmbeddedDocuments("ActiveEffect", expiredEffects.map(ef => ef.id), { "expiry-reason": "midi-qol:isMoved" });
+    if (expiredEffects.length > 0) expireEffects(actor, expiredEffects, { "expiry-reason": "midi-qol:isMoved" });
+
   });
 
   Hooks.on("template3dUpdatePreview", (at, t) => {
@@ -67,7 +68,6 @@ export let readyHooks = async () => {
       //@ts-expect-error
       if (!foundry.utils.isEmpty(cachedUpdates)) {
         if (debugEnabled > 0) warn("preUpdateChatMessage inserting updates", message.uuid, update, cachedUpdates);
-        console.warn("preUpdateChatMessage inserting updates", message.uuid, update, cachedUpdates);
         Object.keys(cachedUpdates).forEach(key => {
           if (!getProperty(update, key)) setProperty(update, key, cachedUpdates[key])
         })
@@ -145,7 +145,10 @@ export let readyHooks = async () => {
           if (!options.noConcentrationCheck)
             removeConcentrationEffects(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { noConcnetrationCheck: true }));
         } else {
-          const origin = await fromUuid(deletedEffect.origin);
+          let origin = await fromUuid(deletedEffect.origin);
+          if (origin instanceof ActiveEffect) { // created by dnd5e
+            origin = origin.parent;
+          }
           if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass && !options.noConcentrationCheck) {
             const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
             if (concentrationData && deletedEffect.origin === concentrationData.uuid && canRemoveConcentration(concentrationData, deletedEffect.uuid)) {
@@ -213,8 +216,8 @@ export function restManager(actor, result) {
     return specialDuration && ((result.longRest && specialDuration.includes(`longRest`))
       || (result.newDay && specialDuration.includes(`newDay`))
       || specialDuration.includes(`shortRest`));
-  }).map(ef => ef.id);
-  if (myExpiredEffects?.length > 0) actor?.deleteEmbeddedDocuments("ActiveEffect", myExpiredEffects, { "expiry-reason": "midi-qol:rest" });
+  });
+  if (myExpiredEffects?.length > 0) expireEffects(actor, myExpiredEffects, { "expiry-reason": "midi-qol:rest" });
 }
 
 export function initHooks() {
@@ -266,16 +269,16 @@ export function initHooks() {
 
     if (failedSaveOverTimeEffectsToDelete[wfuuid]) {
       if (workflow.saves.size === 1 || !workflow.hasSave) {
-        let effectId = failedSaveOverTimeEffectsToDelete[wfuuid].effectId;
-        let actor = failedSaveOverTimeEffectsToDelete[wfuuid].actor;
-        await actor.deleteEmbeddedDocuments("ActiveEffect", [effectId]), { "expiry-reason": "midi-qol:overTime" };
+        //@ts-expect-error
+        let effect = fromUuidSync(failedSaveOverTimeEffectsToDelete[wfuuid].uuid);
+        expireEffects(effect.parent, [effect], { "expiry-reason": "midi-qol:overTime" });
       }
       delete failedSaveOverTimeEffectsToDelete[wfuuid];
     }
     if (overTimeEffectsToDelete[wfuuid]) {
-      let effectId = overTimeEffectsToDelete[wfuuid].effectId;
-      let actor = overTimeEffectsToDelete[wfuuid].actor;
-      await actor.deleteEmbeddedDocuments("ActiveEffect", [effectId]), { "expiry-reason": "midi-qol:overTime" };
+      //@ts-expect-error
+      let effect = fromUuidSync(overTimeEffectsToDelete[wfuuid].uuid);
+      expireEffects(effect.parent, [effect], { "expiry-reason": "midi-qol:overTime" });
       delete overTimeEffectsToDelete[wfuuid];
     }
     if (debugEnabled > 1) debug("Finished the roll", wfuuid)
@@ -881,32 +884,66 @@ export const itemJSONData = {
   }
 }
 
-/*
-// Assume options includes ignore set correctly via apply token damage many
-// options.ignore = false
-// Also that damages has been created as the merged set of damages
-// set options.multiplier based on save since it is not calculated inside.
-
 Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
-  // Only processed multiplier from options
-  //? how to insert midi flags.XXXXX into system.traits.
-  // traits.di/dr/dv traits.
-  // ignore (modification, resistance, immunity, vulnerability) true/false
-  // traits (di/dr/dv/dm) 
-  // dm.amount[damageType] = roll expression
-  // resistances, immunities, vulnerabilities are simple boolean
-  // deals with
-
+  if (!configSettings.v3DamageApplication) return true;
+  if (!options.midi) return true;
+  const mo = options.midi;
+  if (mo.saveMultiplier !== undefined) options.multiplier = mo.saveMultiplier;
+  else if (mo.saves.has(mo.token)) {
+    options.multiplier = getSaveMultiplierForItem(mo.item, mo.type);
+  } else if (mo.superSavers.has(mo.token)) {
+    options.multiplier = getSaveMultiplierForItem(mo.item, mo.type) === 0.5 ? 0 : 0.5;
+  } else if (mo.semiSuperSavers.has(mo.token)) {
+    options.multiplier = getSaveMultiplierForItem(mo.item, mo.type) === 0.5 ? 0 : 1;
+  }
+  return true;
 });
 
 Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
-// After mods/immunities applied
+  if (!configSettings.v3DamageApplication) return true;
+  // Apply absorption
+  // Deal with healing damage (i.e. set to -ve)
+  for (let di of damages) {
+    if (Object.keys(GameSystemConfig.healingTypes).includes(di.type)) {
+      di.value = -di.value;
+    }
+  }
+  setProperty(options, "midi.damages", damages);
+  // Insert DR.ALL as a -ve damage value maxed at the total damage.
+  if (getProperty(actor, "system.traits.dm.midi-qol.all")) {
+    const drAll = getProperty(actor, "system.traits.dm.midi-qol.all");
+    if (drAll) {
+      let dr = new Roll(drAll, actor.getRollData()).evaluate({ async: false })?.total;
+      if (dr) {
+        const totalDamage = damages.reduce((a, b) => a + b.value, 0);
+        if (Math.sign(totalDamage) !== Math.sign(dr + totalDamage)) {
+          dr = -totalDamage;
+        }
+        damages.push({ type: "none", value: dr });
+      }
+    }
+  }
+  return true;
 });
 
 Hooks.on("dnd5e.preApplyDamage", (actor, amount, updates, options) => {
-// fail the hook and call create reverse damage card
+  if (!configSettings.v3DamageApplication) return true;
+  const vitalityResource = checkRule("vitalityResource");
+  if (getProperty(updates, "system.attributes.hp.value") === 0 && typeof vitalityResource === "string" && getProperty(actor, vitalityResource) !== undefined) {
+    // actor is reduced to zero so update vitaility resource
+    const hp = actor.system.attributes.hp;
+    const vitalityDamage = amount - (hp.temp + hp.value);
+    updates[vitalityResource] = getProperty(actor, vitalityResource) - vitalityDamage;
+  } 
+  if (options.midi) {
+    setProperty(options, "midi.amount", amount);
+    setProperty(options, "midi.updates", updates);
+  }
+  // TODO monitor core modifyTokenAttribute hook to see if we can pass options to it.
+  return false;
 });
 
 Hooks.on("dnd5e.applyDamage", (actor, amount, options) => {
+  if (!configSettings.v3DamageApplication) return true;
+  return true
 })
-*/

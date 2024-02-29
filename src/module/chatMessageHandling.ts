@@ -436,8 +436,6 @@ export async function onChatCardAction(event) {
           workflowId: item.uuid,
           targets: Array.from(game.user.targets).map(t => t.document.uuid)
         }));
-
-
       } else {
         let workflow = Workflow.getWorkflow(item.uuid);
         if (workflow) {

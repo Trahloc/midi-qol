@@ -146,7 +146,37 @@ Hooks.once('init', async function () {
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
   specials["flags.midi-qol.onUseMacroName"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
   specials["flags.midi-qol.optional.NAME.macroToCall"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
-
+  specials[`system.traits.dm.midi.all`] = ["", -1]
+  specials[`system.traits.dm.midi.non-magical`] = ["", -1]
+  specials[`system.traits.dm.midi.non-magical-physical`] = ["", -1]
+  specials[`system.traits.dm.midi.non-silver`] = ["", -1]
+  specials[`system.traits.dm.midi.non-adamant`] = ["", -1]
+  specials[`system.traits.dm.midi.non-physical`] = ["", -1]
+  specials[`system.traits.dm.midi.final`] = ["", -1]
+});
+Hooks.on("dae.addFieldMappings", (fieldMappings) => {
+  if (configSettings.v3DamageApplication) {
+    //@ts-expect-error
+    for (let key of Object.keys(game.system.config.damageTypes ?? {})) {
+      fieldMappings[`flags.midi-qol.DR.${key}`] = `system.traits.dm.amount.${key}`;
+    }
+    //@ts-expect-error
+    for (let key of Object.keys(game.system.config.healingTypes ?? {})) {
+      fieldMappings[`flags.midi-qol.DR.${key}`] = `system.traits.dm.amount.${key}`;
+    }
+    fieldMappings["flags.midi-qol.DR.all"] = "system.traits.dm.midi.all";
+    //@ts-expect-error
+    Object.keys(game.system.config.itemActionTypes).forEach(aType => {
+      fieldMappings[`flags.mii-qol.DR.${aType}`] = `system.traits.dm.midi.${aType}`;
+      fieldMappings[`flags.midi-qol.DR.all`] = `system.traits.dm.midi.all`;
+      fieldMappings[`flags.midi-qol.DR.non-magical`] = `system.traits.dm.midi.non-magical`;
+      fieldMappings[`flags.midi-qol.DR.non-magical-physical`] = `system.traits.dm.midi.non-magical-physical`;
+      fieldMappings[`flags.midi-qol.DR.non-silver`] = `system.traits.dm.midi.non-silver`;
+      fieldMappings[`flags.midi-qol.DR.non-adamant`] = `system.traits.dm.midi.non-adamant`;
+      fieldMappings[`flags.midi-qol.DR.non-physical`] = `system.traits.dm.midi.non-physical`;
+      fieldMappings[`flags.midi-qol.DR.final`] = `system.traits.dm.midi.final`;
+    });
+  }
 });
 /* ------------------------------------ */
 /* Setup module							*/
@@ -206,8 +236,11 @@ function addConfigOptions() {
     config.midiProperties["otherSaveDamage"] = "Other Damage Save";
     if (isNewerVersion(systemVersion, "2.99")) {
       config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg" };
+      config.damageTypes["none"] = { label: i18n("DND5E.None"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg" };
     } else {
       config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
+      config.damageTypes["none"] = i18n("DND5E.None");
+
     }
 
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom

@@ -891,5 +891,7 @@
   "midi-qol.AddFakeDice.Name": "Add fake dice to GM Dice So Nice rolls",
   "midi-qol.MidiFieldsTab.Name": "Display Midi item fields in a separate tab",
   "midi-qol.UndoChatColor.Name": "Undo Chat Cards Color",
-  "midi-qol.UndoChatColor.Hint": "Delete means remove the chat card on undo. Otherwise the undone chats are recoloured"
+  "midi-qol.UndoChatColor.Hint": "Delete means remove the chat card on undo. Otherwise the undone chats are recoloured",
+  "midi-qol.v3DamageApplication.Name": "Use DND5E damage applicaiton",
+  "midi-qol.v3DamageApplication.Hint": "Do not enable - author testing only. If enabled midi qill use the dnd5e damage application workflow and hooks. Changing requires reload"
 }

@@ -1,4 +1,4 @@
-import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString } from "../midi-qol.js";
+import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MQdefaultDamageType } from "../midi-qol.js";
 import { DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
 import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, getDamageFlavor, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument } from "./utils.js";
@@ -651,7 +651,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
       if (workflow.attackRoll && workflow.currentAction === workflow.WorkflowState_Completed) {
         // we are re-rolling the attack.
-        workflow.setDamageRolls(undefined)
+        await workflow.setDamageRolls(undefined)
         if (workflow.itemCardUuid) {
           await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid);
           await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
@@ -1028,18 +1028,15 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
 
     if (this.system.actionType === "heal" && !Object.keys(GameSystemConfig.healingTypes).includes(workflow.defaultDamageType ?? "")) workflow.defaultDamageType = "healing";
 
-    workflow.damageDetail = createDamageDetail({ roll: result, item: this, ammo: workflow.ammo, versatile: workflow.rollOptions.versatile, defaultType: workflow.defaultDamageType });
+    workflow.damageDetail = createDamageDetail({ roll: result, item: this, ammo: workflow.ammo, defaultType: workflow.defaultDamageType, versatile: workflow.rollOptions.versatile });
     await workflow.setDamageRolls(result);
     if (workflow.workflowOptions?.damageRollDSN !== false) {
       let promises = result.map(r => displayDSNForRoll(r, "damageRoll"));
       await Promise.all(promises);
     }
-    /* dnd3 need to convert processDamageRoll bonus to work with an array of rolls
-    skip for now.
     result = await processDamageRollBonusFlags.bind(workflow)();
     if (result instanceof Array) await workflow.setDamageRolls(result);
-    else workflow.setDamageRolls[result];
-    */
+    else await workflow.setDamageRolls[result];
     let card;
     if (!configSettings.mergeCard) {
       card = await DamageRoll.toMessage(result, messageData, { rollMode: game.settings.get("core", "rollMode") });
@@ -1071,7 +1068,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
         otherRollResult = Roll.fromTerms(otherRollResult.terms); // coerce it back to a roll
         // let otherRollResult = new Roll.fromRoll((workflow.otherDamageFormula, otherRollData, otherRollOptions);
         otherResult = await otherRollResult?.evaluate({ async: true, maximize: needsMaxDamage, minimize: needsMinDamage });
-        if (otherResult?.total) {
+        if (otherResult?.total !== undefined) {
           switch (game.system.id) {
             case "sw5e":
               actionFlavor = game.i18n.localize(this.system.actionType === "heal" ? "SW5E.Healing" : "SW5E.OtherFormula");
@@ -1097,7 +1094,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
             (getProperty(this.parent, "flags.midi-qol.damage.reroll-kh")) ||
             (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl"))) {
             otherResult2 = await otherResult.reroll({ async: true });
-            if (otherResult2?.total && otherResult?.total) {
+            if (otherResult2?.total !== undefined && otherResult?.total !== undefined) {
               if ((getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") && (otherResult2?.total > otherResult?.total)) ||
                 (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl") && (otherResult2?.total < otherResult?.total))) {
                 [otherResult, otherResult2] = [otherResult2, otherResult];
@@ -1114,7 +1111,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
               term.options.flavor = getDamageType(term.options.flavor);
             }
           }
-          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: workflow.otherDamageItem.system.damage?.parts[0][1] ?? "midi-none"});
+          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: workflow.otherDamageItem.system.damage?.parts[0]?.[1] ?? workflow.defaultDamageType ?? MQdefaultDamageType});
           if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
           if (!configSettings.mergeCard) await otherResult?.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") })
           await workflow.setOtherDamageRoll(otherResult);

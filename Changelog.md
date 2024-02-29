@@ -1,7 +1,19 @@
 ## 11.4.5
 * Fix for not calling onUseMacros
-* Fix for not removing apply active effects cards.
+* Fix for not removing apply active effects buttons on cards.
 * Fix for some cases when otherdamage roll would throw an error.
+* Midi will make transfer effects as disabled rather than deleting them on effect expiry.
+* Allow tool rolls again.
+* **Breaking** Damage type "None" will be applied as damage to the target actor. This is in line with what dnd5e does.
+* optional.NAME.damage.XXX flags now work again. There is a change in the behaviour, the bonus damage only applies to the first damage roll for the item, relevant for re-roll actions.
+
+**Known Issues**
+* Rolls not obfuscated when doing reactions.
+* Epic rolls support not implemented yet
+
+**For Macro Writers**
+* **Braking** Dmaage only workflows currently must create a new chat card rather than adding to an existing chat card and will do so even if an existing item card id is passed in. (you don't need to change your macros) I will revisit this later.
+* Midi expects concentration, reaction, bonus action, flanked and flanking to be non-transfer effects. Things will break if they are not.
 
 ## 11.4.4.1
 * Fix for always rolling versatile as other damage.
