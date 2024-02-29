@@ -154,7 +154,7 @@
     "explodeCharacter": "Esplodi i dadi critici del personaggio",
     "explodeNPC": "Esplodi i dadi critici dell'NPC",
     "baseDamage": "Solo Danno Extra dell'Arma"
-}
+},
 "midi-qol.MergeCard.Name": "Unisci i Lanci in una sola scheda",
 "midi-qol.MergeCard.Hint": "Unisci Attacchi, Colpi, Danni, Tiri di Salvataggio in una sola scheda chat",
 "midi-qol.MergeCardCondensed.Name": "Condensa Lanci di Attacco/Danno",
@@ -416,7 +416,7 @@
     "none": "Mai",
     "effects": "Controlla gli Effetti",
     "effectsTemplates": "Controlla gli Effetti e i Modelli"
-}
+},
 "midi-qol.GMSettings": "Impostazioni GM",
 "midi-qol.PlayerSettings": "Impostazioni Giocatore",
 "midi-qol.SoundSettings.Tab": "Suoni",
@@ -769,7 +769,7 @@
   "undoFirstWorkflow": "Annulla il Primo Flusso di Lavoro in Cima",
   "GMOnly": "Solo il GM può annullare i flussi di lavoro"
 },
-"midi-qol.cubNotSupported": "Combat Utility Belt non sarà migrato alla versione 11. Midi rimuoverà il supporto per CUB nella versione 11.1.0 di Midi."
+"midi-qol.cubNotSupported": "Combat Utility Belt non sarà migrato alla versione 11. Midi rimuoverà il supporto per CUB nella versione 11.1.0 di Midi.",
 "midi-qol.ContestedRoll": "Tiro Contestato",
 "midi-qol.versus": "contro",
 "midi-qol.Skipped": "Saltato",
