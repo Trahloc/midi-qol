@@ -387,7 +387,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     appliedTempHP = 0;
     let DRAll = 0;
     // damage absorption:
-    const absorptions = getProperty(targetActor, "system.traits.dm.midi.absorption") ?? {};
+    const absorptions = getProperty(targetActor, "flags.midi-qol.absorption") ?? {};
 
     const firstDamageHealing = applyDamageDetails[0].damageDetail && ["healing", "temphp"].includes(applyDamageDetails[0].damageDetail[0]?.type);
     const isHealing = ("heal" === workflow.item?.system.actionType) || firstDamageHealing;
@@ -415,9 +415,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         // This should be a roll?
         DRAll = getProperty(t, "actor.system.attributes.equip.armor.dr") ?? 0;
       }
-    } else if (getProperty(targetActor, "system.traits.dm.midi.all") !== undefined)
-      DRAll = (new Roll((`${getProperty(targetActor, "system.traits.dm.midi.all") || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
-    if (item?.hasAttack && getProperty(targetActor, `system.traits.dm.midi.${item?.system.actionType}`)) {
+    } else if (getProperty(targetActor, "flags.midi-qol.DR.all") !== undefined)
+      DRAll = (new Roll((`${getProperty(targetActor, "flags.midi-qol.DR.all") || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+    if (item?.hasAttack && getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`)) {
       DRAll += (new Roll((`${getProperty(targetActor, `ssystem.tratits.dm.midi.${item?.system.actionType}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
     }
     let DRAllRemaining = DRAll;
@@ -496,7 +496,6 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         type = type ?? MQdefaultDamageType;
         const physicalDamage = ["bludgeoning", "slashing", "piercing"].includes(type);
 
-        // note for dnd5e 3.0 no way to do absorption so will have to modify damages directly
         if (absorptions[type] && absorptions[type] !== false) {
           const abMult = Number.isNumeric(absorptions[type]) ? Number(absorptions[type]) : 1;
           damageDetailItem.damage = damageDetailItem.damage * abMult;
@@ -506,15 +505,15 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         let DRType = 0;
         if (type.toLowerCase() !== "temphp") dmgType = type.toLowerCase();
         // Pick the highest DR applicable to the damage type being inflicted.
-        if (getProperty(targetActor, `system.traits.dm.acount.${type}`)) {
-          DRType = (new Roll((`${getProperty(targetActor, `system.traits.dm.amount.${type}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+        if (getProperty(targetActor, `flags.midi-qol.DR.${type}`)) {
+          DRType = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.${type}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
           if (DRType < 0) {
             damageDetailItem.damage -= DRType;
             DRType = 0;
           }
         }
-        if (!nonMagicalPysicalDRUsed && physicalDamage && !magicalDamage && getProperty(targetActor, `system.traits.dm.midi.non-magical-physical`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `system.traits.dm.midi.non-magical-physical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+        if (!nonMagicalPysicalDRUsed && physicalDamage && !magicalDamage && getProperty(targetActor, `flags.midi-qol.DR.non-magical-physical`)) {
+          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-magical-physical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -522,8 +521,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonMagicalDRUsed && !magicalDamage && getProperty(targetActor, `system.traits.dm.midi.non-magical`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `system.traits.dm.midi.non-magical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+        if (!nonMagicalDRUsed && !magicalDamage && getProperty(targetActor, `flags.midi-qol.DR.non-magical`)) {
+          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-magical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -531,8 +530,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonSilverDRUsed && physicalDamage && !silverDamage && getProperty(targetActor, `system.traits.dm.midi.non-silver`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `system.traits.dm.midi.non-silver`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+        if (!nonSilverDRUsed && physicalDamage && !silverDamage && getProperty(targetActor, `flags.midi-qol.DR.non-silver`)) {
+          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-silver`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -540,8 +539,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonAdamantineDRUsed && physicalDamage && !adamantineDamage && getProperty(targetActor, `system.traits.dm.midi.non-adamant`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `system.traits.dm.midi.non-adamant`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0
+        if (!nonAdamantineDRUsed && physicalDamage && !adamantineDamage && getProperty(targetActor, `flags.midi-qol.DR.non-adamant`)) {
+          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-adamant`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -549,8 +548,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!physicalDRUsed && physicalDamage && getProperty(targetActor, `system.traits.dm.midi.physical`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `system.traits.dm.midi.physical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+        if (!physicalDRUsed && physicalDamage && getProperty(targetActor, `flags.midi-qol.DR.physical`)) {
+          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.physical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -558,8 +557,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonPhysicalDRUsed && !physicalDamage && getProperty(targetActor, `system.traits.dm.midi.non-physical`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `system.traits.dm.midi.non-physical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+        if (!nonPhysicalDRUsed && !physicalDamage && getProperty(targetActor, `flags.midi-qol.DR.non-physical`)) {
+          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-physical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
