@@ -250,6 +250,7 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
     }
     for (let { type, mult } of traitList) {
       let trait = deepClone(actor.system.traits[type].value);
+      trait = trait.map(dt => dt.toLowerCase());
       let customs: string[] = [];
       if (actor.system.traits[type].custom?.length > 0) {
         customs = actor.system.traits[type].custom.split(";").map(s => s.trim())
@@ -311,7 +312,6 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
           if (!(magicalDamage || adamantineDamage) && trait.has("adamant"))
             phsyicalDamageTypes.forEach(dt => trait.add(dt))
         }
-
         if (trait.has(dmgTypeString))
           totalMult = totalMult * mult;
       }
@@ -2676,7 +2676,7 @@ export async function expireMyEffects(effectsToExpire: string[]) {
       (expireHit && this.item?.hasAttack && specialDuration.includes(`1Hit:${this.item?.system.actionType}`) && this.hitTargets.size > 0) ||
       (expireDamage && this.item?.hasDamage && specialDuration.includes("DamageDealt")) ||
       (expireInitiative && specialDuration.includes("Initiative"))
-  }).map(ef => ef.id);
+  });
   if (debugEnabled > 1) debug("expire my effects", myExpiredEffects, expireAction, expireAttack, expireHit);
   this.effectsAlreadyExpired = this.effectsAlreadyExpired.concat(effectsToExpire);
   if (myExpiredEffects?.length > 0) await expireEffects(this.actor, myExpiredEffects, { "expiry-reason": `midi-qol:${effectsToExpire}` });
@@ -3182,8 +3182,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
 
       //@ts-expect-error D20Roll
       let originalRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
-      dialog.data.rollHTML = rollHTML;
-      dialog.data.content = "This is a test";
+      // dialog.data.rollHTML = rollHTML;
+      dialog.data.content = rollHTML;
       await removeEffectGranting(this.actor, button.key);
       bonusFlags = bonusFlags.filter(bf => bf !== button.key)
       // this.actor.reset();

@@ -1,3 +1,11 @@
+## 11.4.6
+* Fix for special duration expiries, 1Hit, 1Attack etc
+* Fix for bonus dialogs displaying "This is a test".
+* Fix for not matching custom damage types when applying immunity/resistance
+
+## 11.4.5.1
+* Back out changes for system.traits.dm. If you updated to 11.4.5 you should upgrade to this version
+
 ## 11.4.5
 * Fix for not calling onUseMacros
 * Fix for not removing apply active effects buttons on cards.

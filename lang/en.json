@@ -399,6 +399,7 @@
   "midi-qol.AutoFastForwardAttack.Name": "Auto fast forward attack",
   "midi-qol.AutoFastForwardDamage.Name": "Auto fast forward damage",
   "midi-qol.midi-none": "No Damage",
+  "midi-qol.noType": "No Type",
   "midi-qol.ItemList": "Choose items which display details on item card",
   "midi-qol.DisplayItems": "Show Details",
   "midi-qol.fastForward": "(fast)",

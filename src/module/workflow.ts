@@ -2893,8 +2893,11 @@ export class Workflow {
       rollDC = this.babonus.saveDC;
     }
     const playerMonksTB = !simulate && installedModules.get("monks-tokenbar") && configSettings.playerRollSaves === "mtb";
+    const playerEpicRolls = !simulate && installedModules.get("epic-rolls-5e") && configSettings.playerRollSaves === "rer"
     let monkRequestsPlayer: any[] = [];
+    let rerRequestsPlayer: any[] = [];
     let monkRequestsGM: any[] = [];
+    let rerRequestsGM: any[] = [];
     let showRoll = configSettings.autoCheckSaves === "allShow";
     if (simulate) showRoll = false;
     const isMagicSave = this.saveItem?.type === "spell" || this.saveItem?.flags.midiProperties?.magiceffect || this.item?.flags.midiProperties?.magiceffect;
@@ -3013,9 +3016,9 @@ export class Workflow {
         if (player?.isGM) {
           const targetDocument = getTokenDocument(target);
           const monksTBSetting = targetDocument?.isLinked ? configSettings.rollNPCLinkedSaves === "mtb" : configSettings.rollNPCSaves === "mtb"
-          const EpicRollsSetting = targetDocument?.isLinked ? configSettings.rollNPCLinkedSaves === "rer" : configSettings.rollNPCSaves === "rer"
+          const epicRollsSetting = targetDocument?.isLinked ? configSettings.rollNPCLinkedSaves === "rer" : configSettings.rollNPCSaves === "rer"
           gmMonksTB = installedModules.get("monks-tokenbar") && monksTBSetting;
-          gmRER = installedModules.get("epic-rolls") && EpicRollsSetting;
+          gmRER = installedModules.get("epic-rolls-5e") && epicRollsSetting;
           GMprompt = (targetDocument?.isLinked ? configSettings.rollNPCLinkedSaves : configSettings.rollNPCSaves);
 
           promptPlayer = !["auto", "autoDialog"].includes(GMprompt);
@@ -3023,6 +3026,7 @@ export class Workflow {
           if (simulate) {
             gmMonksTB = false;
             GMprompt = false;
+            gmRER = false;
             promptPlayer = false;
             showRollDialog = false;
           }
@@ -3063,6 +3067,7 @@ export class Workflow {
             fastForward: false,
             isMagicSave
           })
+        } else if ((!player?.isGM && playerEpicRolls) || (player?.isGM && gmRER)) {
         } else if (player?.active && (playerLetme || gmLetme || playerChat)) {
           if (debugEnabled > 0) warn(`checkSaves | Player ${player?.name} controls actor ${target.actor.name} - requesting ${this.saveItem.system.save.ability} save`);
           promises.push(new Promise((resolve) => {
@@ -4117,7 +4122,7 @@ export class Workflow {
 
   async setBonusDamageRolls(rolls: Array<Roll> | undefined) {
     if (!rolls) {
-      this.bonusDamaageRolls = undefined;
+      this.bonusDamageRolls = undefined;
       return;
     };
     this.bonusDamageRolls = rolls;

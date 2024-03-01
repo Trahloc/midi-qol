@@ -235,11 +235,11 @@ function addConfigOptions() {
     config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
     config.midiProperties["otherSaveDamage"] = "Other Damage Save";
     if (isNewerVersion(systemVersion, "2.99")) {
+      config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg"};
       config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg" };
-      config.damageTypes["none"] = { label: i18n("DND5E.None"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg" };
     } else {
-      config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
       config.damageTypes["none"] = i18n("DND5E.None");
+      config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
 
     }
 
