@@ -1,3 +1,8 @@
+## 11.4.7 
+* Support for custom damage types (custom dnd5e module)
+* Fix for flags.midi-qol.mwak/rsak/etc.type.
+* Added some tests for flags.DR.
+
 ## 11.4.6
 * Fix for special duration expiries, 1Hit, 1Attack etc
 * Fix for bonus dialogs displaying "This is a test".

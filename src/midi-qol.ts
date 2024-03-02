@@ -168,14 +168,14 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
     //@ts-expect-error
     Object.keys(game.system.config.itemActionTypes).forEach(aType => {
       fieldMappings[`flags.mii-qol.DR.${aType}`] = `system.traits.dm.midi.${aType}`;
-      fieldMappings[`flags.midi-qol.DR.all`] = `system.traits.dm.midi.all`;
-      fieldMappings[`flags.midi-qol.DR.non-magical`] = `system.traits.dm.midi.non-magical`;
-      fieldMappings[`flags.midi-qol.DR.non-magical-physical`] = `system.traits.dm.midi.non-magical-physical`;
-      fieldMappings[`flags.midi-qol.DR.non-silver`] = `system.traits.dm.midi.non-silver`;
-      fieldMappings[`flags.midi-qol.DR.non-adamant`] = `system.traits.dm.midi.non-adamant`;
-      fieldMappings[`flags.midi-qol.DR.non-physical`] = `system.traits.dm.midi.non-physical`;
-      fieldMappings[`flags.midi-qol.DR.final`] = `system.traits.dm.midi.final`;
     });
+    fieldMappings[`flags.midi-qol.DR.all`] = `system.traits.dm.midi.all`;
+    fieldMappings[`flags.midi-qol.DR.non-magical`] = `system.traits.dm.midi.non-magical`;
+    fieldMappings[`flags.midi-qol.DR.non-magical-physical`] = `system.traits.dm.midi.non-magical-physical`;
+    fieldMappings[`flags.midi-qol.DR.non-silver`] = `system.traits.dm.midi.non-silver`;
+    fieldMappings[`flags.midi-qol.DR.non-adamant`] = `system.traits.dm.midi.non-adamant`;
+    fieldMappings[`flags.midi-qol.DR.non-physical`] = `system.traits.dm.midi.non-physical`;
+    fieldMappings[`flags.midi-qol.DR.final`] = `system.traits.dm.midi.final`;
   }
 });
 /* ------------------------------------ */
@@ -235,7 +235,7 @@ function addConfigOptions() {
     config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
     config.midiProperties["otherSaveDamage"] = "Other Damage Save";
     if (isNewerVersion(systemVersion, "2.99")) {
-      config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg"};
+      config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg" };
       config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg" };
     } else {
       config.damageTypes["none"] = i18n("DND5E.None");

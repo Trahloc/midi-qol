@@ -17,6 +17,7 @@ export async function resetActors() {
     const a = getActor(name);
     //@ts-ignore .system
     await a.update({ "data.attributes.hp.value": getProperty(a.system, "attributes.hp.max") });
+    if (a.effects?.contents.length > 0) await a.deleteEmbeddedDocuments("ActiveEffect", a?.effects?.contents?.map(e => e.id ?? ""));
   }
 }
 
@@ -717,17 +718,68 @@ async function registerTests() {
           it("sets DR.all", async function () {
             await resetActors();
             const actor = getActor(actor2Name);
+            const target = getToken(target2Name);
+            if (!target || !actor) {
+              assert.ok(false, "no target or actor");
+              return;
+            }
             const effectData = {
               label: "test effect",
               changes: [{ key: "flags.midi-qol.DR.all", mode: 0, value: "10" }]
             }
-            const theEffects: any[] = await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
-            assert.equal("string", typeof getProperty(actor, "flags.midi-qol.DR.all"))
-            assert.ok(Number.isNumeric(getProperty(actor, "flags.midi-qol.DR.all")));
-            await actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
+            const theEffects: any[] | undefined = await target?.actor?.createEmbeddedDocuments("ActiveEffect", [effectData]);
+            assert.equal("string", typeof getProperty(target, "actor.flags.midi-qol.DR.all"))
+            assert.ok(Number.isNumeric(getProperty(target, "actor.flags.midi-qol.DR.all")));
+            const oldHp = getProperty(target, "actor.system.attributes.hp.value");
+            game.user?.updateTokenTargets([target?.id ?? ""]);
+            await completeItemUse(actor.items.getName("AppliesDamage"), {}, { workflowOptions });
+            game.user?.updateTokenTargets([]);
+            const newHp = getProperty(target, "actor.system.attributes.hp.value");
+            assert.equal(newHp, oldHp - getProperty(actor, "system.abilities.str.mod"));
+            await target.actor?.deleteEmbeddedDocuments("ActiveEffect", theEffects?.map(ef => ef.id) ?? [])
             assert.ok(getProperty(actor, "flags.midi-qol.DR.all") === undefined)
           });
 
+          it("sets DR.rwak", async function () {
+            await resetActors();
+            const actor = getActor(actor2Name);
+            const target: any = getToken(target2Name);
+            const oldHp = getProperty(target?.actor, "system.attributes.hp.value");
+            game.user?.updateTokenTargets([target?.id ?? ""]);
+            const effectData = {
+              label: "test effect",
+              changes: [{ key: "flags.midi-qol.DR.rwak", mode: 0, value: "10" }]
+            };
+            const theEffects: any[] = await target.actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
+            assert.ok(Number.isNumeric(getProperty(target.actor, "flags.midi-qol.DR.rwak")));
+            await completeItemUse(actor.items.getName("AppliesDamage"), {}, { workflowOptions });
+            game.user?.updateTokenTargets([]);
+            const newHp = target?.actor?.system.attributes.hp.value;
+            //@ts-ignore
+            assert.equal(newHp, oldHp - actor.system.abilities.str.mod);
+            await target.actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
+            assert.ok(getProperty(target.actor, "flags.midi-qol.DR.rwak") === undefined)
+          });
+          it("sets DR.piercing", async function () {
+            await resetActors();
+            const actor = getActor(actor2Name);
+            const target: any = getToken(target2Name);
+            const oldHp = getProperty(target?.actor, "system.attributes.hp.value");
+            game.user?.updateTokenTargets([target?.id ?? ""]);
+            const effectData = {
+              label: "test effect",
+              changes: [{ key: "flags.midi-qol.DR.piercing", mode: 0, value: "10" }]
+            };
+            const theEffects: any[] = await target.actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
+            assert.ok(Number.isNumeric(getProperty(target.actor, "flags.midi-qol.DR.piercing")));
+            await completeItemUse(actor.items.getName("AppliesDamage"), {}, { workflowOptions });
+            game.user?.updateTokenTargets([]);
+            const newHp = target?.actor?.system.attributes.hp.value;
+            //@ts-ignore
+            assert.equal(newHp, oldHp - actor.system.abilities.str.mod);
+            await target.actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
+            assert.ok(getProperty(target.actor, "flags.midi-qol.DR.piercing") === undefined)
+          });
         });
       },
       { displayName: "Midi Flag Tests" },

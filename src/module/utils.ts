@@ -19,12 +19,15 @@ export type ReactionItem = { itemName: string, itemId: string, actionName: strin
 
 export function getDamageType(flavorString): string | undefined {
   if (flavorString === '') return "none";
+  if (GameSystemConfig.damageTypes[flavorString] !== undefined) {
+    return flavorString;
+  }
   //@ts-expect-error
-  const validDamageTypes = Object.entries(GameSystemConfig.damageTypes).map(e => { e[1] = e[1].label; return e }).deepFlatten().concat(Object.entries(GameSystemConfig.healingTypes).deepFlatten())
+  const validDamageTypes = Object.entries(GameSystemConfig.damageTypes).map(e => { e[1] = e[1].label.toLowerCase(); return e }).deepFlatten().concat(Object.entries(GameSystemConfig.healingTypes).deepFlatten())
   const allDamageTypeEntries = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));
-  if (validDamageTypes.includes(flavorString)) {
+  if (validDamageTypes.includes(flavorString?.toLowerCase()) || validDamageTypes.includes(flavorString)) {
     //@ts-expect-error
-    const damageEntry: any = allDamageTypeEntries?.find(e => e[1].label === flavorString);
+    const damageEntry: any = allDamageTypeEntries?.find(e => e[1].label.toLowerCase() === flavorString.toLowerCase());
     return damageEntry ? damageEntry[0] : flavorString
   }
   return undefined;
@@ -223,7 +226,7 @@ export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, 
  */
 
 export let getTraitMult = (actor, dmgTypeString, item): number => {
-  dmgTypeString = dmgTypeString.toLowerCase();
+  dmgTypeString = getDamageType(dmgTypeString);
   let totalMult = 1;
   if (dmgTypeString.includes("healing") || dmgTypeString.includes("temphp")) totalMult = -1;
   if (dmgTypeString.includes("midi-none")) return 0;
@@ -231,6 +234,7 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
   const phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
 
   if (dmgTypeString !== "") {
+
     // if not checking all damage counts as magical
     let magicalDamage = item?.system.properties?.has("mgc") || item?.flags?.midiProperties?.magicdam;
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.system.attackBonus > 0);
@@ -248,9 +252,10 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
     if (game.system.id === "sw5e" && actor.type === "starship" && actor.system.attributes.hp.tenp > 0) {
       traitList = [{ type: "sdi", mult: 0 }, { type: "sdr", mult: configSettings.damageResistanceMultiplier }, { type: "sdv", mult: configSettings.damageVulnerabilityMultiplier }];
     }
+
     for (let { type, mult } of traitList) {
       let trait = deepClone(actor.system.traits[type].value);
-      trait = trait.map(dt => dt.toLowerCase());
+      // trait = trait.map(dt => dt.toLowerCase());
       let customs: string[] = [];
       if (actor.system.traits[type].custom?.length > 0) {
         customs = actor.system.traits[type].custom.split(";").map(s => s.trim())
@@ -418,7 +423,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     } else if (getProperty(targetActor, "flags.midi-qol.DR.all") !== undefined)
       DRAll = (new Roll((`${getProperty(targetActor, "flags.midi-qol.DR.all") || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
     if (item?.hasAttack && getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`)) {
-      DRAll += (new Roll((`${getProperty(targetActor, `ssystem.tratits.dm.midi.${item?.system.actionType}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+      DRAll += (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
     }
     let DRAllRemaining = DRAll;
     // const magicalDamage = (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties.has("mgc"));
