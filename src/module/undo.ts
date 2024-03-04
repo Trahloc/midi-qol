@@ -1,5 +1,5 @@
 
-import { debugEnabled, error, log, warn } from "../midi-qol.js";
+import { debug, debugEnabled, error, log, warn } from "../midi-qol.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { configSettings } from "./settings.js";
 import { busyWait } from "./tests/setupTest.js";
@@ -323,7 +323,7 @@ export async function _removeChatCards(data: { chatCardUuids: string[] }) {
     for (let uuid of data.chatCardUuids) {
       //@ts-expect-error fromUuidSync
       const card = await fromUuidSync(uuid);
-      removeChatCard(card);
+      await removeChatCard(card);
     }
   } catch (err) {
     debugger;
@@ -450,7 +450,10 @@ export async function removeChatCard(chatCard: ChatMessage | undefined) {
   //@ts-expect-error
   if (!chatCard || !chatCard.content) return;
   const shouldDelete = configSettings.undoChatColor === "Delete";
-  if (shouldDelete) return await chatCard.delete();
+  if (shouldDelete) {
+    if (debugEnabled > 1) debug("Deleting chat card ", chatCard.id, chatCard.uuid);
+    return await chatCard.delete();
+  }
   //@ts-expect-error
   return await chatCard.update({ content: `<div style="background-color: ${configSettings.undoChatColor};"> ${chatCard.content}</div>` });
 }
@@ -470,11 +473,9 @@ export async function undoWorkflow(undoData: any) {
   const shouldDelete = false;
   // delete cards...
   if (undoData.itemCardUuid) {
-    if (undoData.itemCardIdUuid) {
       //@ts-expect-error
       const message = fromUuidSync(undoData.itemCardUuid);
       await removeChatCard(message);
-    }
   }
   // if (undoData.itemCardId) await removeChatCard(game.messages?.get(undoData.itemCardId));
   await _removeChatCards({ chatCardUuids: undoData.chatCardUuids });

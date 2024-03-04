@@ -15,7 +15,7 @@ export const REQUIRED_MODULE_VERSIONS = {
   "df-templates": "1.0.0",
   "dfreds-convenient-effects": "5.0.4",
   "dice-so-nice": "4.1.1", 
-  "epic-rolls": "3.1.1",
+  "epic-rolls-5e": "3.1.1",
   "levels": "3.0.6", 
   "levelsautocover": "1.4",
   "levelsvolumetrictemplates": "0.0.0",

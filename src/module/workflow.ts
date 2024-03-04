@@ -10,6 +10,7 @@ import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { saveTargetsUndoData } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { message } from "gulp-typescript/release/utils.js";
+import { busyWait } from "./tests/setupTest.js";
 
 export const shiftOnlyEvent = { shiftKey: true, altKey: false, ctrlKey: false, metaKey: false, type: "" };
 export function noKeySet(event) { return !(event?.shiftKey || event?.ctrlKey || event?.altKey || event?.metaKey) }
@@ -304,6 +305,7 @@ export class Workflow {
     }
     this.needTemplate = (getAutoTarget(this.item) !== "none" && this.item?.hasAreaTarget && !hasAutoPlaceTemplate(this.item));
     if (this.needTemplate && options.noTemplateHook !== true) {
+      if (debugEnabled > 0) warn("registering for preCreateMeasuredTemplate, createMeasuredTemplate")
       this.preCreateTemplateHookId = Hooks.once("preCreateMeasuredTemplate", this.setTemplateFlags.bind(this));
       this.placeTemplateHookId = Hooks.once("createMeasuredTemplate", selectTargets.bind(this));
     }
@@ -320,6 +322,7 @@ export class Workflow {
   }
 
   setTemplateFlags(templateDoc, data, context, user): boolean {
+    if (debugEnabled > 0) warn("setTemplateFlags", templateDoc, this.item?.uuid, this.actor.uuid)
     if (this.item) templateDoc.updateSource({ "flags.midi-qol.itemUuid": this.item.uuid });
     if (this.actor) templateDoc.updateSource({ "flags.midi-qol.actorUuid": this.actor.uuid });
     if (!getProperty(templateDoc, "flags.dnd5e.origin")) templateDoc.updateSource({ "flags.dnd5e.origin": this.item?.uuid });
@@ -473,6 +476,8 @@ export class Workflow {
       this.templateId = context.templateDocument?.id;
       this.templateUuid = context.templateDocument?.uuid;
       this.needTemplate = false;
+      if (!this.needItemCard) context.itemUseComplete = true;
+      if (debugEnabled > 0) warn(`${this.workflowName} unsuspend with template ${this.templateId}`, this.suspended, context.templateDocument.flags, this.nameForState(this.currentAction));
     }
     if (context.itemCardUuid) {
       this.itemCardId = context.itemCardId;
@@ -580,6 +585,7 @@ export class Workflow {
   }
 
   async WorkflowState_NoAction(context: any = {}): Promise<WorkflowState> {
+    if (debugEnabled > 0) warn("WorkflowState_NoAction", context); 
     if (context.itemUseComplete) return this.WorkflowState_Start;
     return this.WorkflowState_Suspend;
   }
@@ -3068,6 +3074,26 @@ export class Workflow {
             isMagicSave
           })
         } else if ((!player?.isGM && playerEpicRolls) || (player?.isGM && gmRER)) {
+          promises.push(new Promise((resolve) => {
+            let requestId = target?.actor?.uuid ?? randomID();
+            this.saveRequests[requestId] = resolve;
+          }));
+
+          if (isMagicSave) {
+            if (magicResistance && saveDetails.disadvantage) saveDetails.advantage = true;
+            if (magicVulnerability && saveDetails.advantage) saveDetails.disadvantage = true;
+          }
+          const requests = player?.isGM ? rerRequestsGM : rerRequestsPlayer;
+          requests.push({
+            actorUuid: target.actor.uuid,
+            token: target.id,
+            advantage: saveDetails.advantage,
+            disadvantage: saveDetails.disadvantage,
+            // altKey: advantage === true,
+            // ctrlKey: disadvantage === true,
+            fastForward: false,
+            isMagicSave
+          })
         } else if (player?.active && (playerLetme || gmLetme || playerChat)) {
           if (debugEnabled > 0) warn(`checkSaves | Player ${player?.name} controls actor ${target.actor.name} - requesting ${this.saveItem.system.save.ability} save`);
           promises.push(new Promise((resolve) => {
@@ -3138,9 +3164,9 @@ export class Workflow {
       console.warn(err)
     } finally {
     }
+    const monkRequests = monkRequestsPlayer.concat(monkRequestsGM);
 
-    if (!whisper) {
-      const monkRequests = monkRequestsPlayer.concat(monkRequestsGM);
+    if (!whisper && monkRequests.length > 0) {
       const requestData: any = {
         tokenData: monkRequests,
         request: `${rollType === "abil" ? "ability" : rollType}:${this.saveItem.system.save.ability}`,
@@ -3149,10 +3175,8 @@ export class Workflow {
       };
       // Display dc triggers the tick/cross on monks tb
       if (configSettings.displaySaveDC && "whisper" !== configSettings.autoCheckSaves) requestData.dc = rollDC
-      if (monkRequests.length > 0) {
-        timedExecuteAsGM("monksTokenBarSaves", requestData);
-      };
-    } else {
+      timedExecuteAsGM("monksTokenBarSaves", requestData);
+    } else if (monkRequestsPlayer.length > 0 || monkRequestsGM.length > 0) {
       const requestDataGM: any = {
         tokenData: monkRequestsGM,
         request: `${rollType === "abil" ? "ability" : rollType}:${this.saveItem.system.save.ability}`,
@@ -3180,11 +3204,46 @@ export class Workflow {
       if (monkRequestsGM.length > 0) {
         timedExecuteAsGM("monksTokenBarSaves", requestDataGM);
       };
-
-
     }
+    const rerRequests = rerRequestsPlayer.concat(rerRequestsGM);
+    if (rerRequests.length > 0) {
+      // rollType is save/abil/skill
+      const rerType = (rollType === "abil") ? "check" : rollType;
+      const rerRequest: any = {
+        actors: rerRequests.map(request => request.actorUuid),
+        contestants: [],
+        type: `${rerType}.${this.saveItem.system.save.ability}`,
+        options: {
+          DC: rollDC,
+          showDC: configSettings.displaySaveDC,
+          blindRoll: configSettings.autoCheckSaves === "whisper",
+          showRollResults: false, // configSettings.autoCheckSaves === "allShow",
+          hideNames: true,
+          noMessage: true
+        }
+      };
+      //@ts-expect-error
+      ui?.EpicRolls5e.requestRoll(rerRequest).then((rerResult: any) => {
+        if (rerResult.cancelled) {
+          const roll = new Roll("-1").evaluate({async: false});
+          for (let uuid of rerRequest.actors) {
+            const fn = this.saveRequests[uuid];
+            delete this.saveRequests[uuid];
+            fn(roll)
+          }
+        } else for (let rerRoll of rerResult.results) {
+          const actorUuid = rerRoll.actor.uuid;
+          const fn = this.saveRequests[actorUuid];
+          delete this.saveRequests[actorUuid];
+          const roll = Roll.fromJSON(JSON.stringify(rerRoll.roll));
+          fn(roll);
+        }
+      })
+    };
+
     if (debugEnabled > 1) debug("check saves: requests are ", this.saveRequests)
     var results = await Promise.all(promises);
+  if (rerRequests?.length > 0) await busyWait(0.01);
     delete this.saveDetails;
 
     // replace betterrolls results (customRoll) with pseudo normal roll
@@ -3546,7 +3605,6 @@ export class Workflow {
   }
 
   processCustomRoll(customRoll: any) {
-
     const formula = "1d20";
     const isSave = customRoll.fields.find(e => e[0] === "check");
     if (!isSave) return true;
@@ -4522,7 +4580,7 @@ export class DDBGameLogWorkflow extends Workflow {
     return super.WorkflowState_AwaitTemplate;
   }
   async WorkflowState_WaitForDamageRoll(context: any = {}): Promise<WorkflowState> {
-    if (!this.damageRolled) return;
+    if (!this.damageRolled) this.WorkflowState_Suspend;
     if (this.needsOtherDamage) return;
     const allHitTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
     this.failedSaves = new Set(allHitTargets);

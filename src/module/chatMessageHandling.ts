@@ -611,7 +611,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     workflow.attackRollHTML = message.content;
     workflow.attackRolled = true;
     if (workflow.currentAction === workflow.WorkflowState_WaitForAttackRoll) {
-      if (workflow.suspended) workflow.unsuspend({ attackRoll: workflow.attackRoll })
+      if (workflow.suspended) workflow.unSuspend({ attackRoll: workflow.attackRoll })
       // TODO NW workflow.performState(workflow.WorkflowState_WaitForAttackRoll,{attackRoll: workflow.attackRoll});
     }
   }

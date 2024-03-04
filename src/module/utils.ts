@@ -22,12 +22,18 @@ export function getDamageType(flavorString): string | undefined {
   if (GameSystemConfig.damageTypes[flavorString] !== undefined) {
     return flavorString;
   }
+  if (GameSystemConfig.healingTypes[flavorString] !== undefined) {
+    return flavorString;
+  }
   //@ts-expect-error
-  const validDamageTypes = Object.entries(GameSystemConfig.damageTypes).map(e => { e[1] = e[1].label.toLowerCase(); return e }).deepFlatten().concat(Object.entries(GameSystemConfig.healingTypes).deepFlatten())
-  const allDamageTypeEntries = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));
-  if (validDamageTypes.includes(flavorString?.toLowerCase()) || validDamageTypes.includes(flavorString)) {
+  const validDamageTypes = Object.entries(GameSystemConfig.damageTypes).map(e => { e[1] = e[1].label.toLowerCase(); return e }).deepFlatten().concat(Object.entries(GameSystemConfig.healingTypes).deepFlatten());
+  //@ts-expect-error
+  const validHealingTypes = Object.entries(GameSystemConfig.healingTypes).map(e => { e[1] = e[1].label.toLowerCase(); return e }).deepFlatten();
+  const validDamagingTypes = validDamageTypes.concat(validHealingTypes);
+  const allDamagingTypeEntries = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));
+  if (validDamagingTypes.includes(flavorString?.toLowerCase()) || validDamageTypes.includes(flavorString)) {
     //@ts-expect-error
-    const damageEntry: any = allDamageTypeEntries?.find(e => e[1].label.toLowerCase() === flavorString.toLowerCase());
+    const damageEntry: any = allDamagingTypeEntries?.find(e => e[1].label.toLowerCase() === flavorString.toLowerCase());
     return damageEntry ? damageEntry[0] : flavorString
   }
   return undefined;
@@ -65,7 +71,7 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
         const term = rr.terms[i--];
         if (!(term instanceof NumericTerm) && !(term instanceof DiceTerm)) continue;
         const flavorType = getDamageType(term.flavor);
-        let type = (flavorType) ? flavorType : rr.options.type;
+        let type = (term.flavor !== "") ? flavorType : rr.options.type;
         if (!type || type === "none") type = r.options.type ?? defaultType;
         let multiplier = 1
         let operator = rr.terms[i];
@@ -234,7 +240,6 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
   const phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
 
   if (dmgTypeString !== "") {
-
     // if not checking all damage counts as magical
     let magicalDamage = item?.system.properties?.has("mgc") || item?.flags?.midiProperties?.magicdam;
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.system.attackBonus > 0);
@@ -317,9 +322,10 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
           if (!(magicalDamage || adamantineDamage) && trait.has("adamant"))
             phsyicalDamageTypes.forEach(dt => trait.add(dt))
         }
-        if (trait.has(dmgTypeString))
-          totalMult = totalMult * mult;
+
       }
+      if (trait.has(dmgTypeString))
+      totalMult = totalMult * mult;
     }
   }
   return totalMult;
@@ -1712,7 +1718,7 @@ export function checkIncapacitated(tokenRef: Actor | Token | TokenDocument | str
     if (typeof vitalityResource === "string" && getProperty(tokenDoc.actor, vitalityResource.trim()) !== undefined) {
       const vitality = getProperty(tokenDoc.actor, vitalityResource.trim()) ?? 0;
       //@ts-expect-error .system
-      if (vitality <= 0 && actor?.system.attributes?.hp?.value <= 0) {
+      if (vitality <= 0 && tokenDoc?.actor?.system.attributes?.hp?.value <= 0) {
         if (logResult) log(`${tokenDoc.actor.name} is dead and therefore incapacitated`);
         return "dead";
       }
@@ -3482,7 +3488,8 @@ export async function bonusDialogOld(bonusFlags, flagSelector, showRoll, title, 
 export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.documents.Actor5e, flag: string) {
   const countValue = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`);
   const altCountValue = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.countAlt`);
-  return getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`) && getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.countAlt`)
+  const countRemaining =  getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`) && getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.countAlt`)
+  return countRemaining;
 }
 //@ts-expect-error dnd5e v10
 export function getOptionalCountRemaining(actor: globalThis.dnd5e.documents.Actor5e, flag: string) {

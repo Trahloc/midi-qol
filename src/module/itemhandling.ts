@@ -1544,7 +1544,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   //@ts-expect-error
   const workflow = this?.currentAction ? this : Workflow.getWorkflow(templateDocument.flags?.dnd5e?.origin);
   if (workflow === undefined) return true;
-
+  if (debugEnabled > 0) warn("selectTargets ", workflow, templateDocument, data, user);
   const selfToken = getToken(workflow.tokenUuid);
   let ignoreSelf: boolean = false;
   if (workflow?.item && workflow.item.hasAreaTarget
@@ -1579,8 +1579,9 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   let targeting = getAutoTarget(item);
   workflow.templateId = templateDocument?.id;
   workflow.templateUuid = templateDocument?.uuid;
-  if (user === game.user?.id && item) templateDocument.setFlag("midi-qol", "originUuid", item.uuid); // set a refernce back to the item that created the template.
+  // if (user === game.user?.id && item) templateDocument.setFlag("midi-qol", "originUuid", item.uuid); // set a refernce back to the item that created the template.
   if (targeting === "none") { // this is no good
+
     Hooks.callAll("midi-qol-targeted", workflow.targets);
     return true;
   }
@@ -1596,6 +1597,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   workflow.hitTargets = new Set(workflow.targets);
   workflow.templateData = templateDocument.toObject(); // TODO check this v10
   if (this instanceof TrapWorkflow) return;
+  if (debugEnabled > 0) warn("selectTargets ", workflow?.suspended, workflow?.needTemplate, templateDocument);
   if (workflow.needTemplate) {
     workflow.needTemplate = false;
     if (workflow.suspended) workflow.unSuspend.bind(workflow)({ templateDocument });

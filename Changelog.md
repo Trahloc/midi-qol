@@ -1,3 +1,11 @@
+## 11.4.8
+* Support for epic rolls when doing saving throws etc.
+* Fix for not removing chat cards when undoing workflows.
+* Fix for template targeting in rippers 3d modules.
+* Re-enabled dr/di/dv for healing/tempHp - requires dae update to 11.3.12
+* Incorporate some changes for ddb gamelog.
+* Fix for incapacitated check when using vitality resource.
+
 ## 11.4.7 
 * Support for custom damage types (custom dnd5e module)
 * Fix for flags.midi-qol.mwak/rsak/etc.type.
