@@ -585,7 +585,7 @@ export class Workflow {
   }
 
   async WorkflowState_NoAction(context: any = {}): Promise<WorkflowState> {
-    if (debugEnabled > 0) warn("WorkflowState_NoAction", context); 
+    if (debugEnabled > 0) warn("WorkflowState_NoAction", context);
     if (context.itemUseComplete) return this.WorkflowState_Start;
     return this.WorkflowState_Suspend;
   }
@@ -1112,7 +1112,7 @@ export class Workflow {
     this.activationFails = new Set();
     let items: any[] = [];
     if (this.item) items.push(this.item);
-    if (this.ammo && !installedModules.get("betterrolls5e")) items.push(this.ammo);
+    if (this.ammo) items.push(this.ammo);
     for (let theItem of items) {
       for (let token of this.targets) {
         const activationCondition = effectActivationConditionToUse.bind(theItem)(this)
@@ -1570,27 +1570,20 @@ export class Workflow {
     // Check hidden
     if (checkRule("hiddenAdvantage") && checkRule("HiddenAdvantage") !== "none" && target) {
 
-      if (checkRule("hiddenAdvantage") === "perceptive") {
+      if (checkRule("hiddenAdvantage") === "perceptive" && installedModules.get("perceptive")) {
         //@ts-expect-error .api
         const perceptiveApi = game.modules.get("perceptive")?.api;
-        const tokenHidden = await perceptiveApi?.PerceptiveFlags.canbeSpotted(token?.document) ?? false;
-        const targetHidden = await perceptiveApi?.PerceptiveFlags.canbeSpotted(target?.document) ?? false;
-        const tokenSpotted = await perceptiveApi?.isSpottedby(token, target, { LOS: false, Range: true, Effects: false, canbeSpotted: true }) ?? true;
-        const targetSpotted = await perceptiveApi?.isSpottedby(target, token, { LOS: false, Range: true, Effects: false, canbeSpotted: true }) ?? true;
-        if (tokenHidden) {
-          if (!tokenSpotted) {
-            this.attackAdvAttribution.add("ADV:hidden");
-            this.advReminderAttackAdvAttribution.add("ADV:Hidden");
-            this.advantage = true;
-          }
+        const tokenSpotted = await perceptiveApi?.isSpottedby(token, target, { LOS: false, Range: true, Effects: true, Hidden: false, canbeSpotted: true }) ?? true;
+        const targetSpotted = await perceptiveApi?.isSpottedby(target, token, { LOS: false, Range: true, Effects: true, Hidden: false, canbeSpotted: true }) ?? true;
+        if (!tokenSpotted) {
+          this.attackAdvAttribution.add("ADV:hidden");
+          this.advReminderAttackAdvAttribution.add("ADV:Hidden");
+          this.advantage = true;
         }
-
-        if (targetHidden) {
-          if (!targetSpotted) {
-            this.attackAdvAttribution.add("DIS:hidden");
-            this.advReminderAttackAdvAttribution.add("DIS:Hidden Foe");
-            this.disadvantage = true;
-          }
+        if (!targetSpotted) {
+          this.attackAdvAttribution.add("DIS:hidden");
+          this.advReminderAttackAdvAttribution.add("DIS:Hidden Foe");
+          this.disadvantage = true;
         }
       }
 
@@ -1613,7 +1606,7 @@ export class Workflow {
     // Nearby foe gives disadvantage on ranged attacks
     if (checkRule("nearbyFoe")
       && !getProperty(this.actor, "flags.midi-qol.ignoreNearbyFoes")
-      && (["rwak", "rsak", "rpak"].includes(actType) || (this.item.system.properties?.thr && actType !== "mwak"))) {
+      && (["rwak", "rsak", "rpak"].includes(actType) || (this.item.system.properties?.has("thr") && actType !== "mwak"))) {
       let nearbyFoe;
       // special case check for thrown weapons within 5 feet, treat as a melee attack - (players will forget to set the property)
       const me = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
@@ -1841,10 +1834,12 @@ export class Workflow {
 
   }
 
-  async triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets) {
+  async triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets, options: any = {}) {
+    let results = {};
     for (let target of targets) {
+      results[target.document.uuid] = [];
+      let result = results[target.document.uuid];
       const actorOnUseMacros = getProperty(target.actor ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
-
       const wasAttacked = this.item?.hasAttack;
       const wasHit = (this.item ? wasAttacked : true) && (this.hitTargets?.has(target) || this.hitTargetsEC?.has(target));
       const wasMissed = (this.item ? wasAttacked : true) && !this.hitTargets?.has(target) && !this.hitTargetsEC?.has(target);
@@ -1854,89 +1849,101 @@ export class Workflow {
 
       if (wasAttacked && triggerList.includes("isAttacked")) {
         //@ts-ignore
-        await this.callMacros(this.item,
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isAttacked"),
           "TargetOnUse",
           "isAttacked",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
       if (triggerList.includes("postTargetEffectApplication")) {
-        await this.callMacros(this.item,
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("postTargetEffectApplication"),
           "TargetOnUse",
           "postTargetEffectApplication",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
       // If auto applying damage can do a better test when damage application has been calculdated
       if (wasDamaged && triggerList.includes("isDamaged") && !configSettings.autoApplyDamage.toLocaleLowerCase().includes("yes")) {
-        await this.callMacros(this.item,
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isDamaged"),
           "TargetOnUse",
           "isDamaged",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
       if (wasHit && triggerList.includes("isHit")) {
-        await this.callMacros(this.item,
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isHit"),
           "TargetOnUse",
           "isHit",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
       if (wasMissed && triggerList.includes("isMissed")) {
-        await this.callMacros(this.item,
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isMissed"),
           "TargetOnUse",
           "isMissed",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
       if (triggerList.includes("preTargetDamageApplication")) {
-        await this.callMacros(this.item,
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("preTargetDamageApplication"),
           "TargetOnUse",
           "preTargetDamageApplication",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
 
       if (this.saveItem?.hasSave && triggerList.includes("preTargetSave")) {
-        await this.callMacros(this.item,
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("preTargetSave"),
           "TargetOnUse",
           "preTargetSave",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
 
       if (this.saveItem?.hasSave && triggerList.includes("isAboutToSave")) {
-        await this.callMacros(this.item,
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isAboutToSave"),
           "TargetOnUse",
           "isAboutToSave",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
 
       if (target.actor?.uuid !== this.actor.uuid && triggerList.includes("1Reaction")) {
       }
-      if (this.saveItem?.hasSave && triggerList.includes("isSaveSuccess") && this.saves.has(target)) {
-        await this.callMacros(this.item,
+      if (this.saveItem?.hasSave && triggerList.includes("isSaveSuccess") && (this.saves.has(target) || options.saved === true)) {
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isSaveSuccess"),
           "TargetOnUse",
           "isSaveSuccess",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
-      if (this.saveItem?.hasSave && triggerList.includes("isSaveFailure") && !this.saves.has(target)) {
-        await this.callMacros(this.item,
+      if (this.saveItem?.hasSave && triggerList.includes("isSaveFailure") && (!this.saves.has(target) || options.saved === false)) {
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isSaveFailure"),
           "TargetOnUse",
           "isSaveFailure",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
       if (this.saveItem?.hasSave && triggerList.includes("isSave")) {
-        await this.callMacros(this.item,
+        result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isSave"),
           "TargetOnUse",
           "isSave",
-          { actor: target.actor, token: target });
+          { actor: target.actor, token: target })
+        );
       }
     }
+    return results;
   }
 
   async expireTargetEffects(expireList: string[]) {
@@ -2251,6 +2258,7 @@ export class Workflow {
     let results: Array<damageBonusMacroResult | any> = await Promise.allSettled(values);
     if (debugEnabled === 1 && results.length) warn("callMacros | macro data ", macroData);
     results = results.map(p => p.value);
+    console.error("macro call results ", results)
     return results;
   }
 
@@ -3219,13 +3227,18 @@ export class Workflow {
           blindRoll: configSettings.autoCheckSaves === "whisper",
           showRollResults: false, // configSettings.autoCheckSaves === "allShow",
           hideNames: true,
-          noMessage: true
+          noMessage: true,
+          rollSettings: rerRequests.map(request => ({
+            advantage: request.advantage,
+            disadvantage: request.disadvantage,
+            uuid: request.actorUuid
+          })),
         }
       };
       //@ts-expect-error
       ui?.EpicRolls5e.requestRoll(rerRequest).then((rerResult: any) => {
         if (rerResult.cancelled) {
-          const roll = new Roll("-1").evaluate({async: false});
+          const roll = new Roll("-1").evaluate({ async: false });
           for (let uuid of rerRequest.actors) {
             const fn = this.saveRequests[uuid];
             delete this.saveRequests[uuid];
@@ -3243,7 +3256,7 @@ export class Workflow {
 
     if (debugEnabled > 1) debug("check saves: requests are ", this.saveRequests)
     var results = await Promise.all(promises);
-  if (rerRequests?.length > 0) await busyWait(0.01);
+    if (rerRequests?.length > 0) await busyWait(0.01);
     delete this.saveDetails;
 
     // replace betterrolls results (customRoll) with pseudo normal roll
@@ -3267,8 +3280,8 @@ export class Workflow {
         results[i] = await new Roll("1").roll({ async: true });
       }
       let result = results[i];
-      let rollTotal = results[i]?.total || 0;
-      let rollDetail = result;
+      let saveRollTotal = results[i]?.total || 0;
+      let saveRoll = result;
       if (result?.terms[0]?.options?.advantage) this.advantageSaves.add(target);
       else this.advantageSaves.delete(target);
       if (result?.terms[0]?.options?.disadvantage) this.disadvantageSaves.add(target);
@@ -3279,9 +3292,9 @@ export class Workflow {
       }
       let isFumble = false;
       let isCritical = false;
-      if (rollDetail?.terms && !result?.isBR && rollDetail.terms[0]) { // normal d20 roll/lmrtfy/monks roll
-        const dterm: DiceTerm = rollDetail.terms[0];
-        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (rollDetail.total);
+      if (saveRoll?.terms && !result?.isBR && saveRoll.terms[0]) { // normal d20 roll/lmrtfy/monks roll
+        const dterm: DiceTerm = saveRoll.terms[0];
+        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
         //@ts-ignore
         isFumble = diceRoll <= (dterm.options?.fumble ?? 1)
         //@ts-ignore
@@ -3330,11 +3343,11 @@ export class Workflow {
           coverSaveBonus = computeCoverBonus(this.token, target, this.saveItem);
         }
       }
-      rollTotal += coverSaveBonus;
-      let saved = rollTotal >= rollDC;
+      saveRollTotal += coverSaveBonus;
+      let saved = saveRollTotal >= rollDC;
 
       if (checkRule("criticalSaves")) { // normal d20 roll/lmrtfy/monks roll
-        saved = (isCritical || rollTotal >= rollDC) && !isFumble;
+        saved = (isCritical || saveRollTotal >= rollDC) && !isFumble;
       }
       if (getProperty(this.actor, "flags.midi-qol.sculptSpells") && (this.rangeTargeting || this.temptargetConfirmation) && this.item?.system.school === "evo" && this.preSelectedTargets.has(target)) {
         saved = true;
@@ -3352,7 +3365,22 @@ export class Workflow {
           await doReactions(target, this.tokenUuid, this.attackRoll, "reactionsavefail", { workflow: this, item: this.saveItem })
       }
       if (isCritical) this.criticalSaves.add(target);
-      if (!result?.isBR && !saved) {
+      let rollResults;
+      if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) rollResults = await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], new Set([target]), {saved});
+      const newRoll = rollResults[target.document.uuid]?.[0];
+      console.error(newRoll);
+      if ( newRoll instanceof Roll) {
+        saveRoll = newRoll;
+        saveRollTotal = newRoll.total;
+        saved = saveRollTotal >= rollDC;
+        const dterm: DiceTerm = saveRoll.terms[0];
+        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
+        //@ts-ignore
+        isFumble = diceRoll <= (dterm.options?.fumble ?? 1)
+        //@ts-ignore
+        isCritical = diceRoll >= (dterm.options?.critical ?? 20);
+      }
+      if (!saved) {
         //@ts-ignore
         if (!(result instanceof CONFIG.Dice.D20Roll)) result = CONFIG.Dice.D20Roll.fromJSON(JSON.stringify(result));
         // const newRoll = await bonusCheck(target.actor, result, rollType, "fail")
@@ -3375,13 +3403,13 @@ export class Workflow {
               });
 
             }
-            rollTotal = newRoll.total;
-            rollDetail = newRoll;
+            saveRollTotal = newRoll.total;
+            saveRoll = newRoll;
           }
         }
-        saved = rollTotal >= rollDC;
-        const dterm: DiceTerm = rollDetail.terms[0];
-        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (rollDetail.total);
+        saved = saveRollTotal >= rollDC;
+        const dterm: DiceTerm = saveRoll.terms[0];
+        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
         //@ts-ignore
         isFumble = diceRoll <= (dterm.options?.fumble ?? 1)
         //@ts-ignore
@@ -3398,13 +3426,13 @@ export class Workflow {
         if (checkBonus) {
           const rollBonus = (await new Roll(`${checkBonus}`, target.actor?.getRollData()).evaluate({ async: true }));
           result = addRollTo(result, rollBonus);
-          rollTotal = result.total;
-          rollDetail = result;
+          saveRollTotal = result.total;
+          saveRoll = result;
           //TODO 
           // rollDetail = (await new Roll(`${rollDetail.total} + ${rollBonus}`).evaluate({ async: true }));
-          saved = rollTotal >= rollDC;
+          saved = saveRollTotal >= rollDC;
           if (checkRule("criticalSaves")) { // normal d20 roll/lmrtfy/monks roll
-            saved = (isCritical || rollTotal >= rollDC) && !isFumble;
+            saved = (isCritical || saveRollTotal >= rollDC) && !isFumble;
           }
         }
       }
@@ -3413,9 +3441,9 @@ export class Workflow {
         this.saves.add(target);
         this.failedSaves.delete(target);
       }
-      if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], new Set([target]));
 
-      if (game.user?.isGM) log(`Ability save/check: ${target.name} rolled ${rollTotal} vs ${rollAbility} DC ${rollDC}`);
+
+      if (game.user?.isGM) log(`Ability save/check: ${target.name} rolled ${saveRollTotal} vs ${rollAbility} DC ${rollDC}`);
       let saveString = i18n(saved ? "midi-qol.save-success" : "midi-qol.save-failure");
       let adv = "";
       if (configSettings.displaySaveAdvantage) {
@@ -3453,12 +3481,12 @@ export class Workflow {
         target,
         saveString,
         saveSymbol: saved ? "fa-check" : "fa-times",
-        rollTotal,
-        rollDetail,
+        rollTotal: saveRollTotal,
+        rollDetail: saveRoll,
         id: target.id,
         adv,
         saveClass: saved ? "hit" : "miss",
-        rollHtml: (false && this.item?.flags["midi-qol"]?.isConcentrationCheck ? await midiRenderRoll(rollDetail) : "")
+        rollHtml: (false && this.item?.flags["midi-qol"]?.isConcentrationCheck ? await midiRenderRoll(saveRoll) : "")
       });
       i++;
     }
@@ -4237,7 +4265,7 @@ export class DamageOnlyWorkflow extends Workflow {
       //@ts-expect-error
       theItem = new CONFIG.Item.documentClass({ name: options.flavor ?? "Damage Only Workflow", type: "feat", _id: randomID(), system: { actionType: "other", save: { type: "" } } }, { parent: actor });
     }
-    super(actor, theItem, ChatMessage.getSpeaker({ token, actor }), new Set(theTargets), shiftOnlyEvent)
+    super(actor, theItem, ChatMessage.getSpeaker({ token, actor }), new Set(theTargets), {event: shiftOnlyEvent, noOnUseMacro: true})
     this.itemData = theItem?.toObject();
     // Do the supplied damageRoll
     this.flavor = options.flavor;
@@ -4331,7 +4359,6 @@ export class DamageOnlyWorkflow extends Workflow {
 }
 
 export class TrapWorkflow extends Workflow {
-
   templateLocation: { x: number, y: number, direction?: number, removeDelay?: number } | undefined;
   saveTargets: any;
 

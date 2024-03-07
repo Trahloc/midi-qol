@@ -60,7 +60,34 @@ export class ConfigPanel extends FormApplication {
       configSettings.addWoundedStyle = "normal";
     const AddWoundedOptions = duplicate(geti18nOptions("AddDeadOptions"));
     delete AddWoundedOptions["none"];
-
+    let rollNPCSavesOptions = duplicate(geti18nOptions("rollNPCSavesOptions"));
+    for (let key of Object.keys(rollNPCSavesOptions)) {
+      switch (key) {
+        case "letme":
+        case "letmeQuery":
+          if (!installedModules.get("lmrtfy")) rollNPCSavesOptions[key] = `${rollNPCSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "LMRTFY" })}`;  
+          break;
+        case "mtb":
+          if (!installedModules.get("monks-tokenbar")) rollNPCSavesOptions[key] = `${rollNPCSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Monks Token Bar" })}`;
+          break;
+        case "rer":
+          if (!installedModules.get("epic-rolls-5e")) rollNPCSavesOptions[key] = `${rollNPCSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Epic Rolls" })}`;
+      }
+    }
+    let playerRollSavesOptions = duplicate(geti18nOptions("playerRollSavesOptions"));
+    for (let key of Object.keys(playerRollSavesOptions)) {
+      switch (key) {
+        case "letme":
+        case "letmeQuery":
+          if (!installedModules.get("lmrtfy")) playerRollSavesOptions[key] = `${playerRollSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "LMRTFY" })}`;  
+          break;
+        case "mtb":
+          if (!installedModules.get("monks-tokenbar")) playerRollSavesOptions[key] = `${playerRollSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Monks Token Bar" })}`;
+          break;
+        case "rer":
+          if (!installedModules.get("epic-rolls-5e")) playerRollSavesOptions[key] = `${playerRollSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Epic Rolls" })}`;
+      }
+    };
     let data = {
       QuickSettingsBlurb: geti18nOptions("QuickSettingsBlurb"),
       configSettings,
@@ -97,8 +124,8 @@ export class ConfigPanel extends FormApplication {
       hideRollDetailsHint: i18n("midi-qol.HideRollDetails.HintLong"),
       nsaFlag,
       coloredBorders,
-      playerRollSavesOptions: (autoFastForwardAbilityRolls && false) ? geti18nOptions("playerRollSavesOptionsReduced") : geti18nOptions("playerRollSavesOptions"),
-      rollNPCSavesOptions: geti18nOptions("rollNPCSavesOptions"),
+      playerRollSavesOptions: (autoFastForwardAbilityRolls && false) ? geti18nOptions("playerRollSavesOptionsReduced") : playerRollSavesOptions,
+      rollNPCSavesOptions,
       //@ts-ignore .map undefined
       customSoundsPlaylistOptions: game.playlists.contents.reduce((acc, e) => { acc[e.id] = e.name; return acc }, {}) || {},
       //@ts-ignore .sounds

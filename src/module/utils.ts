@@ -4383,6 +4383,8 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.workflow.saveItem = data.workflow.saveItem?.getRollData().item;
       rollData.workflow.otherDamageFormula = data.workflow.otherDamageFormula;
       rollData.workflow.shouldRollDamage = data.workflow.shouldRollDamage;
+      rollData.workflow.hasAttack = data.workflow.item.hasAttack;
+      data.workflow.hasDamage = data.workflow.item.hasDamage;
 
       delete rollData.workflow.undoData;
       delete rollData.workflow.conditionData;

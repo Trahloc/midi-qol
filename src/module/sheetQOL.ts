@@ -41,7 +41,7 @@ let enableSheetQOL = (app, html, data) => {
   }
   if (configSettings.allowActorUseMacro) {
     // Add actor macros
-    html.find('.config-button[data-action="flags').parent().parent().append(`<div class="form-fields">
+    html.find('.config-button[data-action="senses').parent().parent().parent().append(`<div>
       <label>${i18n("midi-qol.ActorOnUseMacros")}</label>
       <a class="config-button midiqol-onuse-macros" data-action="midi-onuse-macros" title="midi onuse macros">
         <i class="fas fa-cog"></i>

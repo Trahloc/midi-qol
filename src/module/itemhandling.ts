@@ -469,7 +469,8 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (!shouldRoll) return workflow.performState(workflow.WorkflowState_Abort); // user aborted roll TODO should the workflow be deleted?
     }
 
-    if (await asyncHooksCall("midi-qol.preItemRoll", workflow) === false || await asyncHooksCall(`midi-qol.preItemRoll.${this.uuid}`, workflow) === false) {
+    const hookAbort = await asyncHooksCall("midi-qol.preItemRoll", workflow) === false || await asyncHooksCall(`midi-qol.preItemRoll.${this.uuid}`, workflow) === false;
+    if (hookAbort || workflow.aborted) {
       console.warn("midi-qol | attack roll blocked by preItemRoll hook");
       workflow.aborted = true;
       return workflow.performState(workflow.WorkflowState_Abort)

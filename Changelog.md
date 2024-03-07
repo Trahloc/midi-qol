@@ -1,3 +1,11 @@
+## 11.4.9
+* Support advantage/disadvantage settings for saving throws using Epic Rolls. Adv/Dis will be highlighted for the per actor rolls and will apply to the roll.
+* In the config panel note if a saving throw module dependency is not installed.
+* Incorporate changes for new perceptive 3.2.1. Midi will only use perceptive if it is active and at least version 3.2.1
+* Fix for potential infinite loop when calling DamageOnlyWorkflow.
+* Actor On Use Macro button now only displays when the sheet is in edit mode and is no located at the bottom of the traits list.
+* Updated sneak attack for change in system.properties.has("fin").
+
 ## 11.4.8
 * Support for epic rolls when doing saving throws etc.
 * Fix for not removing chat cards when undoing workflows.

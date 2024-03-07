@@ -785,25 +785,6 @@ export const overTimeJSONData = {
       "conditions": ""
     },
     "weaponType": "simpleM",
-    "properties": {
-      "ada": false,
-      "amm": false,
-      "fin": false,
-      "fir": false,
-      "foc": false,
-      "hvy": false,
-      "lgt": false,
-      "lod": false,
-      "mgc": false,
-      "rch": false,
-      "rel": false,
-      "ret": false,
-      "sil": false,
-      "spc": false,
-      "thr": false,
-      "two": false,
-      "ver": false,
-    },
     "proficient": false,
     "attributes": {
       "spelldc": 10

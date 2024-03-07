@@ -371,6 +371,7 @@ export class TroubleShooter extends FormApplication {
     data.summary.midiSettings["Expire 1Hit/1Attack/1Action on roll"] = checkMechanic("actionSpecialDurationImmediate");
     data.summary.midiSettings["Inapacitated Actors can't Take Actions"] = checkMechanic("incapacitated");
     data.summary.midiSettings["Calculate Cover"] = geti18nOptions("CoverCalculationOptions")[configSettings.optionalRules.coverCalculation];
+    data.summary.midiSettings["Add Fake GM Dice"] = configSettings.addFakeDice;
     data.summary.knownModules = {};
     let tempModules = {};
     // Find modules by id
