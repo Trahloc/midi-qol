@@ -3,7 +3,7 @@
 * In the config panel note if a saving throw module dependency is not installed.
 * Incorporate changes for new perceptive 3.2.1. Midi will only use perceptive if it is active and at least version 3.2.1
 * Fix for potential infinite loop when calling DamageOnlyWorkflow.
-* Actor On Use Macro button now only displays when the sheet is in edit mode and is no located at the bottom of the traits list.
+* Actor On Use Macro button now only displays when the sheet is in edit mode and is now located at the bottom of the traits list.
 * Updated sneak attack for change in system.properties.has("fin").
 
 ## 11.4.8

@@ -3368,7 +3368,6 @@ export class Workflow {
       let rollResults;
       if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) rollResults = await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], new Set([target]), {saved});
       const newRoll = rollResults[target.document.uuid]?.[0];
-      console.error(newRoll);
       if ( newRoll instanceof Roll) {
         saveRoll = newRoll;
         saveRollTotal = newRoll.total;
