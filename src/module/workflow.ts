@@ -2258,7 +2258,6 @@ export class Workflow {
     let results: Array<damageBonusMacroResult | any> = await Promise.allSettled(values);
     if (debugEnabled === 1 && results.length) warn("callMacros | macro data ", macroData);
     results = results.map(p => p.value);
-    console.error("macro call results ", results)
     return results;
   }
 

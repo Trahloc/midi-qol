@@ -1,3 +1,7 @@
+## 11.4.10
+* Incorporate changes for it.json PR from @thatlonelybugbear
+* Remove debug left in
+
 ## 11.4.9
 * Support advantage/disadvantage settings for saving throws using Epic Rolls. Adv/Dis will be highlighted for the per actor rolls and will apply to the roll.
 * In the config panel note if a saving throw module dependency is not installed.
