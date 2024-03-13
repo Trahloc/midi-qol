@@ -1,3 +1,6 @@
+## 11.4.11.1
+* Fix for dsn bonus roll not matching what is in the chat card.
+
 ## 11.4.11
 * **BREAKING** Removed support for system activation condition. This may break items so do not upgrade just before game time. Version 11.4.10 is available via a manifest install just in case from https://gitlab.com/tposney/midi-qol/raw/dnd3/package/module11410.json
 * Hit and saves display will now deal with very long token names.
