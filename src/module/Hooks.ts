@@ -61,7 +61,6 @@ export let readyHooks = async () => {
 
   Hooks.on("preUpdateChatMessage", (message, update, options, user) => {
     try {
-      console.warn("preUpdateChatMessage inserting updates", message.uuid, getUpdatesCache(message.uuid));
       if (!getCachedDocument(message.uuid)) return true;
       const cachedUpdates = getUpdatesCache(message.uuid);
       clearUpdatesCache(message.uuid);
@@ -251,7 +250,7 @@ export function initHooks() {
 
   Hooks.on("renderChatMessage", (message, html, data) => {
     if (debugEnabled > 1) debug("render message hook ", message.id, message, html, data);
-    chatDamageButtons(message, html, data);
+    // chatDamageButtons(message, html, data); This no longer works since the html is rewritten
     processUndoDamageCard(message, html, data);
     colorChatMessageHandler(message, html, data);
     hideRollRender(message, html, data);
@@ -298,8 +297,6 @@ export function initHooks() {
   });
 
   function getItemSheetData(data, item) {
-
-    const doConditionFixes = true;
     const config = GameSystemConfig;
     const midiProps = config.midiProperties;
     if (!item) {
@@ -400,24 +397,9 @@ export function initHooks() {
         setProperty(data, "flags.midi-qol.otherCondition", "isAttuned");
       }
       delete data.flags.midiProperties.rollOther;
-
-      if (doConditionFixes) {
-        if ((getProperty(data.item, "flags.midi-qol.effectCondition") ?? "") === "") {
-          if (getProperty(data.item, "flags.midi-qol.effectActivation") === false) {
-            setProperty(data.item, "flags.midi-qol.effectCondition", "");
-            // if (data.editable) setProperty(data.item, "flags.midi-qol.effectCondition", "");
-          } else if (getProperty(data.item, "flags.midi-qol.effectActivation") === true) {
-            setProperty(data.item, "flags.midi-qol.effectCondition", getProperty(item, "system.activation.condition") ?? "");
-            // if (data.editable) setProperty(data.item, "flags.midi-qol.effectCondition", getProperty(item, "system.activation.condition") ?? "");
-          }
-          setProperty(data, "flags.midi-qol.effectActivation", undefined);
-          // if (data.editable) setProperty(data.item, "flags.midi-qol.effectActivation", undefined);
-        } else setProperty(data.item, "flags.midi-qol.effectCondition", getProperty(item, "flags.midi-qol.effectCondition"));
-      } else setProperty(data.item, "flags.midi-qol.effectCondition", getProperty(item, "flags.midi-qol.effectCondition"));
+      return data;
     }
-    return data;
   }
-
 
   Hooks.once('tidy5e-sheet.ready', (api) => {
     const myTab = new api.models.HandlebarsTab({
@@ -914,14 +896,15 @@ Hooks.on("dnd5e.preApplyDamage", (actor, amount, updates, options) => {
     // actor is reduced to zero so update vitaility resource
     const hp = actor.system.attributes.hp;
     const vitalityDamage = amount - (hp.temp + hp.value);
-    updates[vitalityResource] = getProperty(actor, vitalityResource) - vitalityDamage;
-  } 
+    updates[vitalityResource] = Math.max(0, getProperty(actor, vitalityResource) - vitalityDamage);
+  }
   if (options.midi) {
     setProperty(options, "midi.amount", amount);
     setProperty(options, "midi.updates", updates);
+    return false;
   }
   // TODO monitor core modifyTokenAttribute hook to see if we can pass options to it.
-  return false;
+  return true;
 });
 
 Hooks.on("dnd5e.applyDamage", (actor, amount, options) => {

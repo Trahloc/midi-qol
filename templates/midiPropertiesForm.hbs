@@ -73,12 +73,6 @@
   {{/if}}
   {{/if}}
 
-  <div class="form-group">
-    <label>{{localize "midi-qol.EffectActivation"}}</label>
-    <input type="checkbox" name="flags.midi-qol.effectActivation" data-dtype="Boolean" {{checked
-      item.flags.midi-qol.effectActivation}} />
-  </div>
-
   {{#if showCEOff}}
   <div class="form-group">
     <label>{{localize "midi-qol.convenientEffectsOff"}}</label>
@@ -120,7 +114,7 @@
   <div class="form-group stacked weapon-properties">
     {{#each flags.midiProperties as |value key|}}
     {{#unless (or (eq key "saveDamage") (eq key "bonusSaveDamage") (eq key
-    "otherSaveDamage") (eq key "confirmTargets") )}}
+    "otherSaveDamage") (eq key "confirmTargets") (eq key "grpact") )}}
     <label class="checkbox">
       <input type="checkbox" name="flags.midiProperties.{{key}}" {{checked value}} />
       {{lookup ../midiPropertyLabels key}}

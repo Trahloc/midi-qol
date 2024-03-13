@@ -325,7 +325,7 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
 
       }
       if (trait.has(dmgTypeString))
-      totalMult = totalMult * mult;
+        totalMult = totalMult * mult;
     }
   }
   return totalMult;
@@ -708,7 +708,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         "TargetOnUse",
         healedDamaged,
         { actor: t.actor, token: t });
-        //@ts-expect-error
+      //@ts-expect-error
       const expiredEffects = t?.actor?.appliedEffects.filter(ef => {
         const specialDuration = getProperty(ef, "flags.dae.specialDuration");
         if (!specialDuration) return false;
@@ -1963,9 +1963,10 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
       // token 2 is within t1's size so height difference is functionally 0
       heightDifference = 0;
     } else if (t1Elevation < t2Elevation) { // t2 above t1
-      heightDifference = t2Elevation - t1TopElevation;
-    } else if (t1Elevation > t2Elevation) { // t1 above t2
-      heightDifference = t1Elevation - t2TopElevation;
+			heightDifference = Math.max(0, t2Elevation - t1TopElevation);
+		}
+		else if (t1Elevation > t2Elevation) { // t1 above t2
+			heightDifference = Math.max(0, t1Elevation - t2TopElevation);
     }
     //@ts-expect-error diagonalRule from DND5E
     const rule = canvas.grid.diagonalRule
@@ -2371,78 +2372,60 @@ export async function addConcentration(actorRef: Actor | string, concentrationDa
 // Add the concentration marker to the character and update the duration if possible
 export async function addConcentrationEffect(actor, concentrationData: ConcentrationData) {
   const item = concentrationData.item;
-  //@ts-expect-error .dfreds
-  const dfreds = game.dfreds;
-  // await item.actor.unsetFlag("midi-qol", "concentration-data");
+  let duration = {};
   let selfTarget = actor.token ? actor.token.object : getTokenForActor(actor);
-  if (!selfTarget) return;
-  const concentrationLabel = getConcentrationLabel();
-  let statusEffect;
-  if (installedModules.get("dfreds-convenient-effects")) {
+  const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget?.id));
+  const convertedDuration = globalThis.DAE.convertDuration(item.system.duration, inCombat);
+  if (convertedDuration?.type === "seconds") {
+    duration = { seconds: convertedDuration.seconds, startTime: game.time.worldTime }
+  } else if (convertedDuration?.type === "turns") {
+    duration = {
+      rounds: convertedDuration.rounds,
+      turns: convertedDuration.turns,
+      startRound: game.combat?.round,
+      startTurn: game.combat?.turn
+    }
+  }
+  //@ts-expect-error
+  let statusEffect = await ActiveEffect.implementation.fromStatusEffect("concentrating", { parent: actor });
+  if (!statusEffect) { // Try and see if there is another status effect we can use
+    statusEffect = CONFIG.statusEffects.find(e => {
+      //@ts-expect-error
+      const statuses = e.statuses;
+      switch (foundry.utils.getType(statuses)) {
+        case "Array": return statuses.includes("concentrating");
+        case "Set": return statuses.has("concentrating");
+        default: return false;
+      }
+    });
+    if (statusEffect) {
+      statusEffect = new ActiveEffect.implementation(duplicate(statusEffect), {keepId: true});
+    }
+  }
+  if (!statusEffect) {
+    const message = "No concentration effect found";
+    TroubleShooter.recordError(new Error("message"), "Add concentration effect");
+    console.error("midi-qol | addConcentrationEffect | ", message);
+    return;
+  }
+  const effectUpdates = {
+    origin: item.uuid,
+    disabled: false,
+    duration,
+    transfer: false,
+    flags: {
+      "midi-qol": { isConcentration: item?.uuid },
+    }
+  };
+  const existingEffect = actor.effects.get(statusEffect.id);
+  if (existingEffect) {
+    return existingEffect.update(effectUpdates);
+  }
 
-    statusEffect = dfreds.effectInterface?.findEffectByName(concentrationLabel).toObject();
-  }
-  if (!statusEffect && installedModules.get("condition-lab-triggler")) {
-    //@ts-expect-error
-    const clt = game.clt;
-    statusEffect = duplicate(clt.conditions.find(se => se.name === concentrationLabel));
-  }
-  if (statusEffect) { // found a clt or convenient status effect.
-    const itemDuration = item?.system.duration;
-    // set the token as concentrating
-    if (installedModules.get("dae")) {
-      const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget.id));
-      const convertedDuration = globalThis.DAE.convertDuration(itemDuration, inCombat);
-      if (convertedDuration?.type === "seconds") {
-        statusEffect.duration = { seconds: convertedDuration.seconds, startTime: game.time.worldTime }
-      } else if (convertedDuration?.type === "turns") {
-        statusEffect.duration = {
-          rounds: convertedDuration.rounds,
-          turns: convertedDuration.turns,
-          startRound: game.combat?.round,
-          startTurn: game.combat?.turn
-        }
-      }
-    }
-    statusEffect.origin = item?.uuid
-    setProperty(statusEffect, "flags.midi-qol.isConcentration", statusEffect.origin);
-    setProperty(statusEffect, "flags.dae.transfer", false);
-    // if (statusEffect.tint === null) delete statusEffect.tint;
-    // condition-lab-triggler has a name in the label field
-    const result = await actor.createEmbeddedDocuments("ActiveEffect", [statusEffect]);
-    return result;
-  } else {
-    const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget.id));
-    const effectData = {
-      changes: [],
-      origin: item.uuid, //flag the effect as associated to the spell being cast
-      disabled: false,
-      icon: itemJSONData.img,
-      label: concentrationLabel,
-      id: concentrationLabel,
-      duration: {},
-      flags: {
-        "midi-qol": { isConcentration: item?.uuid },
-        "dae": { transfer: false }
-      }
-    }
-    setProperty(effectData, "statuses", [concentrationLabel]);
-    if (installedModules.get("dae")) {
-      const convertedDuration = globalThis.DAE.convertDuration(item.system.duration, inCombat);
-      if (convertedDuration?.type === "seconds") {
-        effectData.duration = { seconds: convertedDuration.seconds, startTime: game.time.worldTime }
-      } else if (convertedDuration?.type === "turns") {
-        effectData.duration = {
-          rounds: convertedDuration.rounds,
-          turns: convertedDuration.turns,
-          startRound: game.combat?.round,
-          startTurn: game.combat?.turn
-        }
-      }
-    }
-    if (debugEnabled > 1) debug("adding concentration", actor.name)
-    return await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
-  }
+  statusEffect.updateSource(effectUpdates)
+  if (debugEnabled > 1) debug("adding concentration", actor.name)
+  //@ts-expect-error
+  return await ActiveEffect.implementation.create(statusEffect, { parent: actor, keepId: true })
 }
 
 export async function setConcentrationData(actor, concentrationData: ConcentrationData) {
@@ -2922,7 +2905,7 @@ class RollModifyDialog extends Application {
       if (button.callback) {
         await button.callback(this, button);
         // await this.getData({}; Render will do a get data, doing it twice breaks the button data?
-       
+
         if (this.secondTimeoutId) {
           clearTimeout(this.secondTimeoutId);
           this.secondTimeoutId = 0;
@@ -3158,11 +3141,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             const tempRoll = new DamageRoll(`${button.value}`, rollData, rollOptions);
             await tempRoll.evaluate({ async: true });
             if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
-            //@ts-expect-error TODO find a non-protected way to do this
-            newRoll._total = (roll._total ?? 0) + tempRoll.total;
-            //@ts-expect-error TODO Find a non-protected way to do this
-            newRoll._formula = `${roll._formula ?? ""} + ${tempRoll.formula}`
-            newRoll.terms = newRoll.terms.concat(tempRoll.terms);
+            newRoll = addRollTo(roll, tempRoll);
           } else {
             //@ts-expect-error
             newRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
@@ -3173,7 +3152,6 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
             newRoll = addRollTo(newRoll, tempRoll);
           }
-          //newRoll = new CONFIG.Dice.D20Roll(`${this[rollId].result} + ${button.value}`, (this.item ?? this.actor).getRollData(), rollOptions);
           break;
       }
 
@@ -3197,17 +3175,19 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       dialog.data.content = rollHTML;
       await removeEffectGranting(this.actor, button.key);
       bonusFlags = bonusFlags.filter(bf => bf !== button.key)
-      // this.actor.reset();
       if (bonusFlags.length === 0) {
         dialog.close();
         //@ts-expect-error
         newRoll.options.rollMode = rollMode;
+        // The original roll is displayed before the bonus dialog is called so mark it as displayed
+        DSNMarkDiceDisplayed(originalRoll);
+        // The new roll has had dsn display done for each bonus term/reroll so mark it as displayed
+        DSNMarkDiceDisplayed(newRoll);
         resolve(newRoll);
         if (showRoll) {
           //TODO match the renderRoll to the roll type
-          const newRollHTML = reRoll ? await midiRenderRoll(reRoll) : await midiRenderRoll(newRoll);
+          const newRollHTML = /*reRoll ? await midiRenderRoll(reRoll) :*/ await midiRenderRoll(newRoll);
           const chatData: any = {
-            // content: `${this[rollId].result} -> ${newRoll.formula} = ${newRoll.total}`,
             flavor: `${title} ${button.value}`,
             content: `${rollHTML}<br>${newRollHTML}`,
             whisper: [player?.id ?? ""],
@@ -3488,7 +3468,7 @@ export async function bonusDialogOld(bonusFlags, flagSelector, showRoll, title, 
 export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.documents.Actor5e, flag: string) {
   const countValue = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`);
   const altCountValue = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.countAlt`);
-  const countRemaining =  getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`) && getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.countAlt`)
+  const countRemaining = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`) && getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.countAlt`)
   return countRemaining;
 }
 //@ts-expect-error dnd5e v10
@@ -3924,7 +3904,6 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
     let reactionCount = 0;
     try {
       enableNotifications(false);
-      enableNotifications(false);
       for (let ref of reactionItemList) {
         if (typeof ref === "string") reactionItems.push(await fromUuid(ref));
         else reactionItems.push(ref);
@@ -4270,7 +4249,7 @@ export function getConcentrationLabel(): string {
  */
 export function getConcentrationEffect(actor): ActiveEffect | undefined {
   // concentration should not be a passive effect so don't need to do applied effects
-  return actor?.effects.find(ef => getProperty(ef, "flags.midi-qol.isConcentration"));
+  return actor?.effects.find(ef => ef.statuses.has("concentrating"));
 }
 
 function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined) {
@@ -4323,20 +4302,7 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
 }
 
 export function effectActivationConditionToUse(workflow: Workflow) {
-  let conditionToUse: string | undefined = undefined;
-  let conditionFlagToUse: string | undefined = undefined;
-  if (getProperty(this, "flags.midi-qol.effectCondition")) {
-    return getProperty(this, "flags.midi-qol.effectCondition");
-  }
-  // This uses the rollOtherDamage setting as a proxy for effect activation
-  if (this.type === "spell" && configSettings.rollOtherSpellDamage === "activation") {
-    return workflow.otherDamageItem?.system.activation?.condition
-  } else if (["rwak", "mwak"].includes(this.system.actionType) && configSettings.rollOtherDamage === "activation") {
-    return workflow.otherDamageItem?.system.activation?.condition;
-  }
-  if (workflow.otherDamageItem?.flags?.midiProperties?.rollOther)
-    return workflow.otherDamageItem?.system.activation?.condition;
-  return undefined;
+  return getProperty(this, "flags.midi-qol.effectCondition");
 }
 
 export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined, item?: Item | string | undefined, extraData?: any }) {
@@ -5372,10 +5338,13 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
       }
     }
     //mark all dice as shown - so that toMessage does not trigger additional display on other clients
-    roll.dice.forEach(d => d.results.forEach(r => setProperty(r, "hidden", true)));
+    DSNMarkDiceDisplayed(roll);
   }
 }
 
+export function DSNMarkDiceDisplayed(roll: Roll) {
+  roll.dice.forEach(d => d.results.forEach(r => setProperty(r, "hidden", true)));
+}
 export function isReactionItem(item): boolean {
   if (!item) return false;
   return item.system.activation?.type?.includes("reaction");
@@ -5747,17 +5716,38 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
       clearTimeout(timeoutId);
       const effectData = this.toObject();
       effectData.origin = item.uuid;
+      effectData.flags.dae.dontApply = false;
+      const applyItem = item.clone({effects: [effectData]}, {keepId: true})
+      await globalThis.DAE.doEffects(
+        applyItem, true, targets, {
+          damageTotal: 0,
+          critical: false,
+          fumble: false,
+          itemCardId: "",
+          itemCardUuid: "",
+          metaData: {},
+          selfEffects: "none",
+          spellLevel: (applyItem.level ?? 0),
+          toggleEffect: applyItem?.flags.midiProperties?.toggleEffect,
+          tokenId: token.id,
+          tokenUuid: token.document.uuid,
+          actorUuid: actor.uuid,
+          whisper: false,
+          workflowOptions: this.workflowOptions,
+          context: {
+          }
+        }) 
       if (this.toObject()) {
         if (this.debugEnabled)
           warn(
             `chooseEffect | applying effect ${this.name} to ${targets.size} targets`,
             targets
-          );
+          );/*
         for (let target of targets) {
           await target.actor.createEmbeddedDocuments('ActiveEffect', [
             effectData,
           ]);
-        }
+        }*/
       }
       resolve(this);
     };
@@ -6014,10 +6004,10 @@ export async function expireEffects(actor, effects: ActiveEffect[], options: any
   if (effectsToDelete.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete, options);
   if (effectsToDisable.length > 0) {
     for (let effect of effectsToDisable) {
-      await effect.update({"disabled": true})
+      await effect.update({ "disabled": true })
     }
   }
-  return {deleted: effectsToDelete, disabled: effectsToDisable};
+  return { deleted: effectsToDelete, disabled: effectsToDisable };
 }
 
 export function blankOrUndefinedDamageType(s: string | undefined): string {

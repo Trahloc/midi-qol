@@ -9,8 +9,8 @@
 <div class="dnd5e2 evaluation">
   {{#each saves as |save iid|}}
   <div>
-    <div class="target {{save.saveClass}}" style="height: 38px; align-content: center;">
-      <img src="{{save.img}}" height="30" style="max-height: 95%; aspect-ratio: 1; width: unset;border-width: 2px;" />
+    <div class="target {{save.saveClass}}" style="align-content: center;">
+      <img src="{{save.img}}" height="30" style="max-height: 95%; aspect-ratio: 1; width: unset;border-width: 2px; background-color: var(--dnd5e-background-10);" />
       <div class="name-stacked">
         <span class="midi-qol-target-name title midi-qol-tooltip " id="{{save.target.id}}"
           data-uuid="{{save.target.document.uuid}}">

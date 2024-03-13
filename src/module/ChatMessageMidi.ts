@@ -1,4 +1,5 @@
 import { GameSystemConfig, debugEnabled, i18n, log, warn } from "../midi-qol.js";
+import { chatDamageButtons } from "./chatMessageHandling.js";
 import { configSettings } from "./settings.js";
 import { getDamageType } from "./utils.js";
 
@@ -175,13 +176,19 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
     }
   }
   _enrichChatCard(html) {
+    if (!getProperty(this, "flags.dnd5e.roll")) return super._enrichChatCard(html);
     if ((getProperty(this, "flags.midi-qol.roll")?.length > 0) && getProperty(this, "flags.dnd5e.roll.type") !== "midi") {
-      // this.rolls = getProperty(this, "flags.midi-qol.roll");
+      this.rolls = getProperty(this, "flags.midi-qol.roll");
       super._enrichChatCard(html);
       html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
+      chatDamageButtons(this, html, {});
       return; // Old form midi chat card tht causes dnd5e to throw errors
     }
-    if (getProperty(this, "flags.dnd5e.roll.type") !== "midi") return super._enrichChatCard(html);
+    if (getProperty(this, "flags.dnd5e.roll.type") !== "midi") {
+      super._enrichChatCard(html);
+      chatDamageButtons(this, html, {});
+      return;
+    }
     if (debugEnabled > 1) warn("Enriching chat card", this.id);
     this.enrichAttackRolls(html); // This has to run first to stop errors when ChatMessage5e._enrichDamageTooltip runs
     super._enrichChatCard(html);
@@ -189,6 +196,7 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
       html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
       html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
     }
+    chatDamageButtons(this, html, {});
   }
 
   noDiceClicks(event) { 

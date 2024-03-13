@@ -353,6 +353,15 @@ export let fetchParams = () => {
   if (configSettings.rollOtherDamage === false) configSettings.rollOtherDamage = "none";
   if (configSettings.rollOtherDamage === true) configSettings.rollOtherDamage = "ifSave";
   if (configSettings.rollOtherDamage === undefined) configSettings.rollOtherDamage = "none";
+  if (configSettings.rollOtherSpellDamage === "activation") {
+    ui.notifications?.error("midi-qol | rollOtherSpellDamage is set to activation, this is no longer supported, setting to none"); 
+    configSettings.rollOtherSpellDamage = "none";
+  }
+  if (configSettings.rollOtherSpellDamage === "activation") {
+    ui.notifications?.error("midi-qol | rollOtherSpellDamage is set to activation, this is no longer supported, setting to none");
+    configSettings.rollOtherSpellDamage = "none";
+  }
+  configSettings.effectActivation = false;
   if (!configSettings.rollOtherSpellDamage) configSettings.rollOtherSpellDamage = "none";
   if (!configSettings.rollChecksBlind) configSettings.rollChecksBlind = ["none"];
   //@ts-expect-error type mismatch - this is for legacy true setting

@@ -5,28 +5,29 @@
   <div class="dnd5e2 evaluation">
     {{#each hits as |hit iid|}}
     <div>
-      <div class="target {{hit.hitClass}}" style="height: 38px; align-content: center;">
-        <img src="{{hit.img}}" height="30" style="max-height: 95%; aspect-ratio: 1; width: unset;border-width: 2px;" />
+      <div class="target {{hit.hitClass}}" style="align-content: center;">
+        <img src="{{hit.img}}" height="30" style="max-height: 95%; aspect-ratio: 1; width: unset;border-width: 2px; background-color: var(--dnd5e-background-10);" />
         <div class="name-stacked">
-          <span class="midi-qol-target-name title" id="{{hit.target.id}}" data-uuid="{{hit.target.document.uuid}}">
-            <div class="midi-qol-gmTokenName">
+          <span class="midi-qol-target-name title midi-qol-gmTokenName" id="{{hit.target.id}}"
+            data-uuid="{{hit.target.document.uuid}}">
             {{{hit.gmName}}}
-            </div>
-            <div class="midi-qol-playerTokenName">
+            <i class="fas {{hit.hitSymbol}}"></i>
+          </span>
+          <span class="midi-qol-target-name title midi-qol-playerTokenName" id="{{hit.target.id}}"
+            data-uuid="{{hit.target.document.uuid}}">
             {{hit.playerName}}
-            </div>
             <i class="fas {{hit.hitSymbol}}"></i>
           </span>
         </div>
         {{#if showAC}}
         <div class="{{hit.acClass}}">
           <span>
-          <i class="fas fa-shield-halved"></i>
-          {{#if hit.bonusAC}}
-          <span style="font-weight: bold;">{{hit.ac}}+{{hit.bonusAC}}</span>
-          {{else}}
-          <span style="font-weight: bold;">{{hit.ac}}</span>
-          {{/if}}
+            <i class="fas fa-shield-halved"></i>
+            {{#if hit.bonusAC}}
+            <span style="font-weight: bold;">{{hit.ac}}+{{hit.bonusAC}}</span>
+            {{else}}
+            <span style="font-weight: bold;">{{hit.ac}}</span>
+            {{/if}}
           </span>
         </div>
         {{/if}}

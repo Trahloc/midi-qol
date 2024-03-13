@@ -262,14 +262,17 @@ export let chatDamageButtons = (message, html, data) => {
   if (!shouldAddButtons) {
     return true;
   }
-  if (["other", "damage"].includes(message.flags?.dnd5e?.roll?.type)) {
+  let targetField = ".dice-formula";
+  if (["formula", "formulaadv"].includes(configSettings.rollAlternate))
+    targetField = ".dice-total";
+  if (["damage", "other"].includes(message.flags?.dnd5e?.roll?.type)) {
     let item;
     let itemId;
     let actorId = message.speaker.actor;
     //@ts-expect-error
-    let theRolls = message.rolls.filter(r => r instanceof CONFIG.Dice.DamageRoll);
+    let theRolls = message.rolls.filter(r => r instanceof CONFIG.Dice.DamageRoll || message.flags.dnd5e.roll.type === "other");
     if (theRolls.length === 0) return;
-    if (message.flags?.dnd5e?.roll?.type === "damage") {
+    if (["damage", "other"].includes(message.flags?.dnd5e?.roll?.type)) {
       itemId = message.flags.dnd5e?.roll.itemId;
       if (game.system.id === "sw5e" && !itemId) itemId = message.flags.sw5e?.roll.itemId;
 
@@ -291,12 +294,15 @@ export let chatDamageButtons = (message, html, data) => {
     // TODO fix this for versatile damage
     const damageList = createDamageDetail({ roll: theRolls, item, ammo: null, versatile: false, defaultType: defaultDamageType });
     const totalDamage = theRolls.reduce((acc, r) => r.total + acc, 0);
-    addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, "damage", ".dice-total", "position:relative; top:5px; color:blue");
+    addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, "damage", targetField, "position:relative; top:0px; color:black");
   } else if (getProperty(message, "flags.midi-qol.damageDetail") || getProperty(message, "flags.midi-qol.otherDamageDetail")) {
     let midiFlags = getProperty(message, "flags.midi-qol");
-    addChatDamageButtonsToHTML(midiFlags.damageTotal, midiFlags.damageDetail, html, midiFlags.actorUuid, midiFlags.itemUuid, "damage", ".midi-qol-damage-roll .dice-total");
-    addChatDamageButtonsToHTML(midiFlags.otherDamageTotal, midiFlags.otherDamageDetail, html, midiFlags.actorUuid, midiFlags.itemUuid, "other", ".midi-qol-other-roll .dice-total");
-    addChatDamageButtonsToHTML(midiFlags.bonusDamageTotal, midiFlags.bonusDamageDetail, html, midiFlags.actorUuid, midiFlags.itemUuid, "bonus", ".midi-qol-bonus-roll .dice-total");
+    let targetField = ".dice-formula";
+    if (["formula", "formulaadv"].includes(configSettings.rollAlternate))
+      targetField = ".dice-formula";
+    addChatDamageButtonsToHTML(midiFlags.damageTotal, midiFlags.damageDetail, html, midiFlags.actorUuid, midiFlags.itemUuid, "damage", `.midi-qol-damage-roll ${targetField}`);
+    addChatDamageButtonsToHTML(midiFlags.otherDamageTotal, midiFlags.otherDamageDetail, html, midiFlags.actorUuid, midiFlags.itemUuid, "other", `.midi-qol-other-damage-roll ${targetField}`);
+    addChatDamageButtonsToHTML(midiFlags.bonusDamageTotal, midiFlags.bonusDamageDetail, html, midiFlags.actorUuid, midiFlags.itemUuid, "bonus", `.midi-qol-bonus-damage-roll ${targetField}`);
   }
   return true;
 }
@@ -304,9 +310,9 @@ export let chatDamageButtons = (message, html, data) => {
 export function addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, tag = "damage", toMatch = ".dice-total", style = "margin: 0px;") {
   if (debugEnabled > 1) debug("addChatDamageButtons", totalDamage, damageList, html, actorId, itemUuid, toMatch, html.find(toMatch))
   const btnContainer = $('<span class="dmgBtn-container-mqol"></span>');
-  let btnStylingLimeGreen = `background-color:limegreen; ${style}`;
-  let btnStylingLightGreen = `background-color:lightgreen; ${style}`;
-  let btnStylingRed = `background-color:lightcoral; ${style}`;
+  let btnStylingLimeGreen = `background-color:var(--dnd5e-color-success); ${style}`;
+  let btnStylingLightGreen = `background-color:var(--dnd5e-color-success-background); ${style}`;
+  let btnStylingRed = `background-color: var(--dnd5e-color-failure-background); ${style}`;
   const fullDamageButton = $(`<button class="dice-total-full-${tag}-button dice-total-full-button" style="${btnStylingRed}"><i class="fas fa-user-minus" title="Click to apply up to ${totalDamage} damage to selected token(s)."></i></button>`);
   const halfDamageButton = $(`<button class="dice-total-half-${tag}-button dice-total-half-button" style="${btnStylingRed}"><i title="Click to apply up to ${Math.floor(totalDamage / 2)} damage to selected token(s).">&frac12;</i></button>`);
   const quarterDamageButton = $(`<button class="dice-total-quarter-${tag}-button dice-total-quarter-button" style="${btnStylingRed}"><i title="Click to apply up to ${Math.floor(totalDamage / 4)} damage to selected token(s).">&frac14;</i></button>`);
@@ -322,14 +328,16 @@ export function addChatDamageButtonsToHTML(totalDamage, damageList, html, actorI
   btnContainer.append(fullHealingButton);
   btnContainer.append(fullTempHealingButton);
 
-  const toMatchElement = html.find(toMatch);
+  const toMatchElement = $(html).find(toMatch);
   toMatchElement.addClass("dmgBtn-mqol");
   toMatchElement.append(btnContainer);
+
+  // html.querySelectorAll(toMatch).forEach(el => {el.classList.add("dmgBtn-mdqol"); el.append(btnContainer)});
   // Handle button clicks
   let setButtonClick = (buttonID, mult) => {
-    let button = html.find(buttonID);
+    let button = btnContainer.find(buttonID);
     button.off("click");
-    button.click(async (ev) => {
+    button.on("click", async (ev) => {
       ev.stopPropagation();
       // const item = game.actors.get(actorId).items.get(itemId);
       const item = MQfromUuid(itemUuid);
@@ -358,13 +366,13 @@ export function addChatDamageButtonsToHTML(totalDamage, damageList, html, actorI
   setButtonClick(`.dice-total-full-${tag}-temp-healing-button`, -2);
 
   // logic to only show the buttons when the mouse is within the chat card and a token is selected
-  html.find('.dmgBtn-container-mqol').hide();
+  btnContainer.hide
   $(html).hover(evIn => {
     if (canvas?.tokens?.controlled && canvas.tokens.controlled.length > 0) {
-      html.find('.dmgBtn-container-mqol').show();
+      btnContainer.show();
     }
   }, evOut => {
-    html.find('.dmgBtn-container-mqol').hide();
+    btnContainer.show();
   });
   return html;
 }
@@ -611,7 +619,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     workflow.attackRollHTML = message.content;
     workflow.attackRolled = true;
     if (workflow.currentAction === workflow.WorkflowState_WaitForAttackRoll) {
-      if (workflow.suspended) workflow.unSuspend({ attackRoll: workflow.attackRoll })
+      if (workflow.suspended) workflow.unsuspend({ attackRoll: workflow.attackRoll })
       // TODO NW workflow.performState(workflow.WorkflowState_WaitForAttackRoll,{attackRoll: workflow.attackRoll});
     }
   }

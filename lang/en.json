@@ -325,8 +325,9 @@
   },
   "midi-qol.RollOtherDamageOptions": {
     "none": "Off",
-    "ifSave": "If Save present",
-    "activation": "Activation Condition (deprecated)"
+    "always": "Always Roll",
+    "condition": "Other Condition True",
+    "ifSave": "Condition True & Save present"
   },
   "midi-qol.potion": "Potion",
   "midi-qol.HideRollDetails.Name": "GM Roll details hiding",
@@ -406,7 +407,7 @@
   "midi-qol.fastForward": "(fast)",
   "midi-qol.RollOtherDamage.Name": "Roll Other damage formula for rwak/mwak",
   "midi-qol.RollOtherSpellDamage.Name": "Roll Other damage formula for spells",
-  "midi-qol.RollOtherDamage.Hint": "Off = Don't roll Other damage automatically. ifSave = only roll the Other damage if the item has a save. Activation = roll the Other damage if the activation condition is empty or evaluates to true",
+  "midi-qol.RollOtherDamage.Hint": "Off = Don't roll Other damage automatically. ifSave = only roll the Other damage if the item has a save and the activation condition is not false. Condition = roll the Other damage if the other damage condition is empty or evaluates to true",
   "midi-qol.ApplyEffects": "Apply Active Effects",
   "midi-qol.spell-damage": "Spell Damage",
   "midi-qol.RemoveButtons.Name": "Remove chat card buttons after roll",

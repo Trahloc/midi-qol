@@ -39,7 +39,7 @@
     "useTokenNames": true,
     "fullAuto": false,
     "allowUseMacro": true,
-    "rollOtherDamage": "activation",
+    "rollOtherDamage": "condition",
     "removeButtons": "all",
     "gmRemoveButtons": "all",
     "concentrationAutomation": true,

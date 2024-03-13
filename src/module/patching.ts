@@ -1,7 +1,7 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -171,21 +171,12 @@ async function doRollSkill(wrapped, ...args) {
     }
 
     let result;
-    if (installedModules.get("betterrolls5e")) {
-      let event = {};
-      if (procOptions.advantage) { options.advantage = true; event = { shiftKey: true } };
-      if (procOptions.disadvantage) { options.disadvantage = true; event = { ctrlKey: true } };
-      options.event = event;
-      result = wrapped(skillId, options);
-      if (chatMessage !== false) return result;
-      result = await result;
-    } else {
-      procOptions.chatMessage = false;
-      if (!procOptions.parts || procOptions.parts.length === 0) delete procOptions.parts;
-      delete procOptions.event;
-      // result = await wrapped.call(this, skillId, procOptions);
-      result = await wrapped(skillId, procOptions);
-    }
+
+    procOptions.chatMessage = false;
+    if (!procOptions.parts || procOptions.parts.length === 0) delete procOptions.parts;
+    delete procOptions.event;
+    // result = await wrapped.call(this, skillId, procOptions);
+    result = await wrapped(skillId, procOptions);
     if (!result) return result;
 
     const flavor = result.options?.flavor;
@@ -203,9 +194,11 @@ async function doRollSkill(wrapped, ...args) {
       //@ts-ignore
       result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
     }
+    await displayDSNForRoll(result, "skill", result.options.rollMode);
     let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
     if (!options.simulate) {
       result = await bonusCheck(this, result, "skill", skillId);
+      DSNMarkDiceDisplayed(result);
     }
     if (chatMessage !== false && result) {
       const saveRollMode = game.settings.get("core", "rollMode");
@@ -458,6 +451,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     if (!options.simulate) {
       result = await bonusCheck(this, result, rollType, abilityId);
       if (result.options.rollMode === "blindroll") rollMode = "blindroll";
+      DSNMarkDiceDisplayed(result);
     }
 
     if (chatMessage !== false && result) {
@@ -852,7 +846,7 @@ export function _onFocusIn(event) {
 export function actorPrepareData(wrapped) {
   try {
     setProperty(this, "flags.midi-qol.onUseMacroName", getProperty(this._source, "flags.midi-qol.onUseMacroName"));
-    if (debugEnabled > 0) for (let effect of this.effects) {
+    if (debugEnabled > 0) for (let effect of this.appliedEffects) {
       for (let change of effect.changes) {
         if (change.key === "flags.midi-qol.onUseMacroName") {
           if (change.mode !== CONST.ACTIVE_EFFECT_MODES.CUSTOM) {
@@ -1016,14 +1010,13 @@ export function getItemEffectsToDelete(args: { actor: Actor, origin: string, ign
     if (!actor) {
       return [];
     }
-    effectsToDelete = actor?.effects?.filter(ef => {
+    //@ts-expect-error
+    effectsToDelete = actor?.appliedEffects?.filter(ef => {
       if (installedModules.get("times-up")) {
         if (globalThis.TimesUp.isEffectExpired(ef, { combat: game.combat })) return false;
       }
-      //@ts-expect-error .origin .flags
       return ef.origin === origin
         && !ignore.includes(ef.uuid)
-        //@ts-expect-error .flags
         && (!ignoreTransfer || ef.flags?.dae?.transfer !== true)
     }).map(ef => ef.id);
     warn("getItemEffectsToDelete: effectsToDelete ", actor.name, effectsToDelete, options);
@@ -1047,40 +1040,44 @@ export async function removeConcentrationEffects(actor: Actor, deletedEffectUuid
   try {
     if (debugEnabled > 0) warn("removeConcentrationEffects | ", actor?.name, deletedEffectUuid, options)
     const concentrationData: any = duplicate(actor.getFlag("midi-qol", "concentration-data") ?? {});
-    // if (!concentrationData) return;
-    const promises: any = [];
-    await actor.unsetFlag("midi-qol", "concentration-data");
-    if (concentrationData?.templates) {
-      for (let templateUuid of concentrationData.templates) {
-        if (templateUuid === deletedEffectUuid) continue;
-        //@ts-expect-error fromUuidSync
-        const template = fromUuidSync(templateUuid);
-        if (debugEnabled > 0) warn("removeConcentration | removing template", actor?.name, templateUuid, options);
-        if (template) promises.push(template.delete());
+    if (isObjectEmpty(concentrationData)) {
+      await getConcentrationEffect(actor)?.delete();
+    } else {
+      // if (!concentrationData) return;
+      const promises: any = [];
+      await actor.unsetFlag("midi-qol", "concentration-data");
+      if (concentrationData?.templates) {
+        for (let templateUuid of concentrationData.templates) {
+          if (templateUuid === deletedEffectUuid) continue;
+          //@ts-expect-error fromUuidSync
+          const template = fromUuidSync(templateUuid);
+          if (debugEnabled > 0) warn("removeConcentration | removing template", actor?.name, templateUuid, options);
+          if (template) promises.push(template.delete());
+        }
       }
-    }
 
-    if (concentrationData?.removeUuids?.length > 0) {
-      for (let removeUuid of concentrationData.removeUuids) {
-        //@ts-expect-error fromUuidSync
-        const entity = fromUuidSync(removeUuid);
-        if (debugEnabled > 0) warn("removeConcentration | removing entity", actor?.name, removeUuid, options);
-        if (entity) promises.push(entity.delete())
-      };
-    }
-    if (concentrationData?.targets && !options.concentrationEffectsDeleted) {
-      debug("About to remove concentration effects", actor?.name);
-      options.noConcentrationCheck = true;
-      const effectsToDelete = getConcentrationEffectsRemaining(concentrationData, deletedEffectUuid);
-      if (effectsToDelete.length > 0) {
-        const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
-        promises.push(untimedExecuteAsGM("deleteEffectsByUuid", {
-          effectsToDelete: effectsToDelete.map(ef => ef.uuid),
-          options: mergeObject(deleteOptions, { noConcentrationCheck: true })
-        }));
+      if (concentrationData?.removeUuids?.length > 0) {
+        for (let removeUuid of concentrationData.removeUuids) {
+          //@ts-expect-error fromUuidSync
+          const entity = fromUuidSync(removeUuid);
+          if (debugEnabled > 0) warn("removeConcentration | removing entity", actor?.name, removeUuid, options);
+          if (entity) promises.push(entity.delete())
+        };
       }
+      if (concentrationData?.targets && !options.concentrationEffectsDeleted) {
+        debug("About to remove concentration effects", actor?.name);
+        options.noConcentrationCheck = true;
+        const effectsToDelete = getConcentrationEffectsRemaining(concentrationData, deletedEffectUuid);
+        if (effectsToDelete.length > 0) {
+          const deleteOptions = mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
+          promises.push(untimedExecuteAsGM("deleteEffectsByUuid", {
+            effectsToDelete: effectsToDelete.map(ef => ef.uuid),
+            options: mergeObject(deleteOptions, { noConcentrationCheck: true })
+          }));
+        }
+      }
+      result = await Promise.allSettled(promises);
     }
-    result = await Promise.allSettled(promises);
     if (debugEnabled > 0) warn("removeConcentration | finished", actor?.name);
   } catch (err) {
     const message = `error when attempting to remove concentration for ${actor?.name}`;
@@ -1096,7 +1093,7 @@ export async function zeroHPExpiry(actor, update, options, user) {
   const hpUpdate = getProperty(update, "system.attributes.hp.value");
   if (hpUpdate !== 0) return;
   const expiredEffects: ActiveEffect[] = [];
-  for (let effect of actor.effects) {
+  for (let effect of actor.appliedEffects) {
     if (effect.flags?.dae?.specialDuration?.includes("zeroHP")) expiredEffects.push(effect)
   }
   if (expiredEffects.length > 0) await expireEffects(actor, expiredEffects, { "expiry-reason": "midi-qol:zeroHP" })

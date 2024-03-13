@@ -1000,22 +1000,15 @@ const MQMacros = [
     commandText: `MidiQOL.TroubleShooter.exportTroubleShooterData()`
   },
   {
-    name: "Midi: Clear Scene Token Legacy Passive Effects",
+    name: "MidiQOL.GMShowPlayerDamageCards",
     checkVersion: true,
-    version: "11.4.1.2",
-    commandText: `await MidiQOL.removeSceneDAEPassiveEffects()`
-  },
-  {
-    name: "Midi: Clear All Actors Legacy Passive Effects",
-    checkVersion: true,
-    version: "11.4.1.2",
-    commandText: `await MidiQOL.removeActorsDAEPassiveEffects()`
-  },
-  {
-    name: "Midi: Clear All Compendium Legacy Passive Effects",
-    checkVersion: true,
-    version: "11.4.1.2",
-    commandText: `await MidiQOL.removeCompendiaDAEPassiveEffects()`
+    version: "11.4.10",
+    commandText: `
+    const matches = document.querySelectorAll(".midi-qol-player-damage-card");
+    matches.forEach(element => {
+      let target = element.parentElement.parentElement.parentElement;
+      target.style.display = "inherit";
+    })`
   }
 ]
 export async function createMidiMacros() {

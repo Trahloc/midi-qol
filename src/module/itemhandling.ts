@@ -28,10 +28,12 @@ export function requiresTargetConfirmation(item, options): boolean {
   // For old version of dnd5e-scriptlets
   if (options.workflowdialogOptions?.lateTargeting === "none") return false;
   if (item.system.target?.type === "self") return false;
-  if (options.workflowOptions?.attackPerTarget === true) return false;
+   if (options.workflowOptions?.attackPerTarget === true) return false;
   if (item?.flags?.midiProperties?.confirmTargets === "always") return true;
   if (item?.flags?.midiProperties?.confirmTargets === "never") return false;
-  const numTargets = game.user?.targets?.size ?? 0;
+  let numTargets = game.user?.targets?.size ?? 0;
+  if (numTargets === 0 && configSettings.enforceSingleWeaponTarget && item.type === "weapon") 
+    numTargets = 1;
   const token = tokenForActor(item.actor);
   if (targetConfirmation.enabled) {
     if (options.workflowOptions?.targetConfirmation && options.workflowOptions?.targetConfirmation !== "none") {
@@ -39,7 +41,7 @@ export function requiresTargetConfirmation(item, options): boolean {
       return true;
     }
     if (targetConfirmation.all &&
-      ((item.system.target?.type ?? "") !== "" || item.system.range?.value)) {
+      ((item.system.target?.type ?? "") !== "" || item.system.range?.value || item.hasAttack) && numTargets > 0) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.all");
       return true;
     }
@@ -247,7 +249,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           }, { inplace: false, overwrite: true });
           if (debugEnabled > 0) warn(`doItemUse | ${nameToUse} ${target.name} config`, config, "options", newOptions);
           const result = await completeItemUse(this, config, newOptions);
-          if (result.aborted) break;
+          if (!result || result.aborted) break;
           allowAmmoUpdates = false;
           if (debugEnabled > 0) warn(`doItemUse | for ${nameToUse} result is`, result);
           // After the first do not consume resources
@@ -313,7 +315,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const existingWorkflow = Workflow.getWorkflow(this.uuid);
     if (existingWorkflow) await Workflow.removeWorkflow(this.uuid);
     if (cancelWorkflow) return null;
-    if ((this.system.target?.type ?? "") !== "" && !targetConfirmationHasRun) {
+    if ((!targetConfirmationHasRun && ((this.system.target?.type ?? "") !== "") || configSettings.enforceSingleWeaponTarget)) {
       if (!(await preTemplateTargets(this, options, pressedKeys)))
         return null;
       //@ts-expect-error
@@ -453,7 +455,10 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         content: i18n("midi-qol.EnforceReactions.Content"),
         yes: () => { shouldRoll = true },
       });
-      if (!shouldRoll) return null; // user aborted roll TODO should the workflow be deleted?
+      if (!shouldRoll) {
+        await workflow.performState(workflow.WorkflowState_Abort);
+        return null; // user aborted roll TODO should the workflow be deleted?
+      }
     }
 
     const hasBonusAction = hasUsedBonusAction(this.actor);
@@ -586,7 +591,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if (needsConcentration && checkConcentration) {
       const concentrationEffect = getConcentrationEffect(this.actor);
       if (concentrationEffect) {
-        await removeConcentrationEffects(this.actor, undefined, {noConcentrationCheck: false});
+        await removeConcentrationEffects(this.actor, undefined, { noConcentrationCheck: false });
       }
     }
     if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
@@ -1089,7 +1094,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
             speaker,
             itemId: this.id
           };
-          if (configSettings.mergeCard) 
+          if (configSettings.mergeCard)
             setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
           if (
             (getProperty(this.parent, "flags.midi-qol.damage.reroll-kh")) ||
@@ -1112,10 +1117,14 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
               term.options.flavor = getDamageType(term.options.flavor);
             }
           }
-          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: workflow.otherDamageItem.system.damage?.parts[0]?.[1] ?? workflow.defaultDamageType ?? MQdefaultDamageType});
-          if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
-          if (!configSettings.mergeCard) await otherResult?.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") })
           await workflow.setOtherDamageRoll(otherResult);
+          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: workflow.otherDamageItem.system.damage?.parts[0]?.[1] ?? workflow.defaultDamageType ?? MQdefaultDamageType });
+          if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
+          if (!configSettings.mergeCard) {
+            setProperty(messageData, `flags.${game.system.id}.roll.type`, "other");
+            setProperty(messageData, `flags.${game.system.id}.roll.itemId`, this.id);
+            await otherResult?.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") })
+          }
         }
       }
     }
@@ -1176,6 +1185,7 @@ export function preItemUsageConsumptionHook(item, config, options): boolean {
     workflow.itemLevel = item.system.level;
     workflow.castData.castLevel = item.system.level;
   }
+  workflow.dnd5eConsumptionConfig = config;
   return true;
 }
 
@@ -1608,42 +1618,27 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
 };
 
 // TODO work out this in new setup
-export function shouldRollOtherDamage(workflow: Workflow, conditionFlagWeapon: string, conditionFlagSpell: string) {
-  let rollOtherDamage = false;
+export function shouldRollOtherDamage(workflow: Workflow, conditionFlagNonSpell: string, conditionFlagSpell: string) {
+  if (this.type === "spell" && conditionFlagSpell === "off") return false;
+  if (this.type !== "spell" && conditionFlagNonSpell === "off") return false;
+  if (this.type === "spell" && conditionFlagSpell === "always") return true;
+  if (this.type !== "spell" && conditionFlagNonSpell === "always") return true;
+  let rollOtherDamage = true;
   let conditionToUse: string | undefined = undefined;
-  let conditionFlagToUse: string | undefined = undefined;
   // if (["rwak", "mwak", "rsak", "msak", "rpak", "mpak"].includes(this.system.actionType) && workflow?.hitTargets.size === 0) return false;
   if (getProperty(this, "flags.midi-qol.otherCondition")) {
     conditionToUse = getProperty(this, "flags.midi-qol.otherCondition");
-    conditionFlagToUse = "activation";
-    rollOtherDamage = true;
-  } else {
-    if (this.type === "spell" && conditionFlagSpell !== "none") {
-      rollOtherDamage = (conditionFlagSpell === "ifSave" && this.hasSave)
-        || conditionFlagSpell === "activation";
-      conditionFlagToUse = conditionFlagSpell;
-      conditionToUse = workflow.otherDamageItem?.system.activation?.condition
-    } else if (["rwak", "mwak"].includes(this.system.actionType) && conditionFlagWeapon !== "none") {
-      rollOtherDamage =
-        (conditionFlagWeapon === "ifSave" && workflow.otherDamageItem.hasSave) ||
-        ((conditionFlagWeapon === "activation") && (this.system.attunement !== GameSystemConfig.attunementTypes.REQUIRED));
-      conditionFlagToUse = conditionFlagWeapon;
-      conditionToUse = workflow.otherDamageItem?.system.activation?.condition
-    }
-    if (workflow.otherDamageItem?.flags?.midiProperties?.rollOther && this.system.attunement !== GameSystemConfig.attunementTypes.REQUIRED) {
-      rollOtherDamage = true;
-      conditionToUse = workflow.otherDamageItem?.system.activation?.condition
-      conditionFlagToUse = "activation"
-    }
   }
+  if (this.type === "spell") {
+    rollOtherDamage = conditionFlagSpell !== "ifSave" || this.hasSave;
+  } else if (["rwak", "mwak"].includes(this.system.actionType)) {
+    rollOtherDamage = (conditionFlagNonSpell !== "ifSave" || workflow.otherDamageItem.hasSave);
+  } else if (conditionToUse === "") rollOtherDamage = false;
+  if (!rollOtherDamage) return false;
   //@ts-ignore
-  if (rollOtherDamage && conditionFlagToUse === "activation") {
-    if ((workflow?.hitTargets.size ?? 0) === 0) return false;
-    rollOtherDamage = false;
-    for (let target of workflow.hitTargets) {
-      rollOtherDamage = evalActivationCondition(workflow, conditionToUse, target);
-      if (rollOtherDamage) return true;
-    }
+  for (let target of workflow.hitTargets) {
+    rollOtherDamage = evalActivationCondition(workflow, conditionToUse, target);
+    if (rollOtherDamage) return true;
   }
   return rollOtherDamage;
 }

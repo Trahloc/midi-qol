@@ -1,6 +1,24 @@
+## 11.4.11
+* **BREAKING** Removed support for system activation condition. This may break items so do not upgrade just before game time. Version 11.4.10 is available via a manifest install just in case from https://gitlab.com/tposney/midi-qol/raw/dnd3/package/module11410.json
+* Hit and saves display will now deal with very long token names.
+* Slight change to token display in hits/saves card to make the token image more visible.
+* Fix for checking tokens in range when the attacker has elevation and the target is large.
+* Setting "Weapons attack single target" will now trigger target confirmation (if enabled) as if target type none was in fact 1 creature.
+* Re-enabled chat card damage buttons that apply damage to selected tokens and take into account damage resistance, DR etc, enabled for merge and non-merge damage cards. Enable from the main midi settings, not the workflow settings.
+* Fix for special duration 0 HP to work with passive effects.
+* Fix for midi sounds not picking up all base weapons in the drop down lists.
+* Fix for displaying dice so nice dice multiple times when using a bonus dialog for rolls/saves/skills etc, especially when showing the before and after chat card.
+* Fix for function.MidiQOL.chooseEffect which was not processing the effect's changes before applying them to the targets, with the result that @fields were always evaluated on the target and not on the actor applying the effect. With this change @abilities.dex.mod will be the dex mod of the actor applying the effect, if you want to use the target's value use ##abilities.dex.mod etc
+* workflow.dnd5eConsumptionConfig now holds the dnd5e consumption config from dnd5e.preItemUsageConsumption in case you need to check what, if anything, was consumed.
+* Added new macro MidiQOL.GMShowPlayerDamageCards which will make player damage cards visible - normally the GM cannot see these cards. They will remain visible until the next reload and new player damage cards will not be shown. Useful if you are cleaning up the chat log.
+* New monster feature "Multiattack Automation", for the DM who finds clicking on each of a creature's multi attacks too tiresome. Add the feature and click **Multiattack** in the monster's features.
+* **Breaking** Swtich to preferentially using dnd5e concentration effect, if available. When using the dnd5e concentration status effect, removing concentration from the token hud will also expire dependent effects. Midi will recognise concentration applied via the token hud is present when using an item that requires concentration. 
+* **Breaking** Expect concentration handling to change when dnd5e 3.1 arrives which will take most aspects of concentration handling into core.
+
 ## 11.4.10
-* Incorporate changes for it.json PR from @thatlonelybugbear
-* Remove debug left in
+* Removed an accidental debug left in.
+* Incorporate PR for it.json
+* **Warning** **Breaking** next release of midi (11.4.11) will remove support for using the system activation condition in item checks, for item use checks, other damage roll checks etc. Only the midi conditions will be checked.
 
 ## 11.4.9
 * Support advantage/disadvantage settings for saving throws using Epic Rolls. Adv/Dis will be highlighted for the per actor rolls and will apply to the roll.

@@ -146,7 +146,7 @@ export class MidiSounds {
     const baseIds = ConfigSettings[`${type}Ids`];
     if (baseIds === undefined) return {};
 
-    const typeProperty = type === "armor" ? "armor.type" : `${type}Type`;
+    const typeProperty = `type.value`;
     const baseType = weaponType;
 
     const items = {};
@@ -163,7 +163,8 @@ export class MidiSounds {
       items[name] = baseItem?.name;
     }
     //@ts-ignore lhs[1]
-    return Object.fromEntries(Object.entries(items).sort((lhs, rhs) => lhs[1].localeCompare(rhs[1])));
+    const result =  Object.fromEntries(Object.entries(items).sort((lhs, rhs) => lhs[1].localeCompare(rhs[1])));
+    return result;
   }
 
   static getSpecFor(actorType, type, subtype, weaponSubType, selector) {
