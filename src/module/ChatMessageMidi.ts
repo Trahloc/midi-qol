@@ -9,29 +9,6 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
     if (debugEnabled > 1) log("Chat message midi constructor", ...args)
   }
 
-  _aggregateDamageRoll(roll, breakdown) {
-    for ( let i = roll.terms.length - 1; i >= 0; ) {
-      const term = roll.terms[i--];
-      if ( !(term instanceof NumericTerm) && !(term instanceof DiceTerm) ) continue;
-      const flavor = term.flavor?.toLowerCase();
-      const damageType = flavor === "" ? undefined : getDamageType(flavor);
-      const type = damageType ? damageType : roll.options.type;
-      const aggregate = breakdown[type] ??= { total: 0, constant: 0, dice: [] };
-      const value: number = Number(term.total ?? 0);
-      if ( term instanceof DiceTerm ) aggregate.dice.push(...term.results.map(r => ({
-        result: term.getResultLabel(r), classes: term.getResultCSS(r).filterJoin(" ")
-      })));
-      let multiplier = 1;
-      let operator = roll.terms[i];
-      while ( operator instanceof OperatorTerm ) {
-        if ( operator.operator === "-" ) multiplier *= -1;
-        operator = roll.terms[--i];
-      }
-      aggregate.total += value * multiplier;
-      if ( term instanceof NumericTerm ) aggregate.constant += value * multiplier;
-    }
-  }
-
   collectRolls(rolls) {
     let { formula, total, breakdown } = rolls.reduce((obj: any, r) => {
       obj.formula.push(r.formula);
@@ -113,6 +90,10 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
       return super._enrichDamageTooltip(rolls, html);
     }
     if (getProperty(this, "flags.dnd5e.roll.type") !== "midi") return;
+    if (configSettings.mergeCardMultiDamage) {
+      // clean up the damage displays?
+      return;
+    }
     for (let rType of ["damage", "other-damage", "bonus-damage"]) {
       const rollsToCheck = this.rolls.filter(r => getProperty(r, "options.midi-qol.rollType") === rType);
       if (rollsToCheck?.length) {

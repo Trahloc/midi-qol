@@ -85,6 +85,7 @@ export let MQDeferMacroLabel: string;
 export let MQOnUseOptions;
 export let GameSystemConfig;
 export let SystemString;
+export let systemConcentrationId;
 
 export const MESSAGETYPES = {
   HITS: 1,
@@ -116,6 +117,13 @@ Hooks.once('init', async function () {
   if (game.system.id === "sw5e")
     allAttackTypes = ["rwak", "mwak", "rpak", "mpak"];
   initHooks();
+  if (isNewerVersion("3.1.0", game.system.data.version)) {
+    //@ts-expect-error remove this when dnd5e 3.1 comes out
+    CONFIG.specialStatusEffects.CONCENTRATING = "concentrating";
+  }
+  //@ts-expect-error
+  systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING
+
   globalThis.MidiQOL = { checkIncapacitated };
   // Assign custom classes and constants here
 

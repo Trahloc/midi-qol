@@ -196,24 +196,25 @@ async function doRollSkill(wrapped, ...args) {
     }
     await displayDSNForRoll(result, "skill", result.options.rollMode);
     let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
+    const saveRollMode = game.settings.get("core", "rollMode");
+    const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
+    if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
+      rollMode = "blindroll";
+      game.settings.set("core", "rollMode", "blindroll");
+    }
     if (!options.simulate) {
       result = await bonusCheck(this, result, "skill", skillId);
       DSNMarkDiceDisplayed(result);
     }
     if (chatMessage !== false && result) {
-      const saveRollMode = game.settings.get("core", "rollMode");
-      const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
-      if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
-        rollMode = "blindroll";
-        game.settings.set("core", "rollMode", "blindroll");
-      }
       const args = { "speaker": getSpeaker(this), flavor };
       setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
       if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
       await displayDSNForRoll(result, "skill", rollMode);
-      await result.toMessage(args, { rollMode });
-      game.settings.set("core", "rollMode", saveRollMode);
+      if (getProperty(result.flags, "midi-qol.chatMessageShown") !== true)
+        await result.toMessage(args, { rollMode });
     }
+    game.settings.set("core", "rollMode", saveRollMode);
     let success: boolean | undefined = undefined;
     if (rollTarget !== undefined) {
       success = result.total >= rollTarget;
@@ -436,21 +437,59 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
     let blindCheckRoll;
     let blindSaveRoll;
-    if (!game.user?.isGM && ["publicroll", "roll", "gmroll"].includes(rollMode)) switch (rollType) {
-      case "check":
-        blindCheckRoll = configSettings.rollChecksBlind.includes("all") || configSettings.rollChecksBlind.includes(abilityId);
-        if (blindCheckRoll) rollMode = "blindroll";
-        break;
-      case "save":
-        blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes(abilityId);
-        if (blindSaveRoll) rollMode = "blindroll";
-        break;
+    const saveRollMode = game.settings.get("core", "rollMode");
+    if (!game.user?.isGM && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
+      switch (rollType) {
+        case "check":
+          blindCheckRoll = configSettings.rollChecksBlind.includes("all") || configSettings.rollChecksBlind.includes(abilityId);
+          if (blindCheckRoll) {
+            rollMode = "blindroll";
+            game.settings.set("core", "rollMode", "blindroll");
+          }
+
+          break;
+        case "save":
+          blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes(abilityId);
+          if (blindSaveRoll) {
+            rollMode = "blindroll";
+            game.settings.set("core", "rollMode", "blindroll");
+            break;
+          }
+      }
     }
     await displayDSNForRoll(result, rollType, rollMode);
 
+    /*
+        let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
+        const saveRollMode = game.settings.get("core", "rollMode");
+        const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
+        if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
+          rollMode = "blindroll";
+          game.settings.set("core", "rollMode", "blindroll");
+        }
+        if (!options.simulate) {
+          result = await bonusCheck(this, result, "skill", skillId);
+          DSNMarkDiceDisplayed(result);
+        }
+        if (chatMessage !== false && result) {
+          const args = { "speaker": getSpeaker(this), flavor };
+          setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
+          if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
+          await displayDSNForRoll(result, "skill", rollMode);
+          if (getProperty(result.flags, "midi-qol.chatMessageShown") !== true)
+            await result.toMessage(args, { rollMode });
+        }
+        game.settings.set("core", "rollMode", saveRollMode);
+        let success: boolean | undefined = undefined;
+        if (rollTarget !== undefined) {
+          success = result.total >= rollTarget;
+          result.options.success = success;
+        }
+        await expireRollEffect.bind(this)("Skill", skillId, success);
+    
+    */
     if (!options.simulate) {
       result = await bonusCheck(this, result, rollType, abilityId);
-      if (result.options.rollMode === "blindroll") rollMode = "blindroll";
       DSNMarkDiceDisplayed(result);
     }
 
@@ -460,13 +499,11 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       setProperty(messageData, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
       setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
       messageData.template = "modules/midi-qol/templates/roll-base.html";
-      const saveRollMode = game.settings.get("core", "rollMode");
-      if (rollMode === "blindroll") {
-        game.settings.set("core", "rollMode", rollMode);
-      }
-      await result.toMessage(messageData, { rollMode });
-      game.settings.set("core", "rollMode", saveRollMode);
+      if (getProperty(result.flags, "midi-qol.chatMessageShown") !== true)
+        await result.toMessage(messageData, { rollMode });
     }
+    game.settings.set("core", "rollMode", saveRollMode);
+
     if (rollTarget !== undefined && success === undefined) {
       success = result.total >= rollTarget;
       result.options.success = success;
@@ -1040,7 +1077,8 @@ export async function removeConcentrationEffects(actor: Actor, deletedEffectUuid
   try {
     if (debugEnabled > 0) warn("removeConcentrationEffects | ", actor?.name, deletedEffectUuid, options)
     const concentrationData: any = duplicate(actor.getFlag("midi-qol", "concentration-data") ?? {});
-    if (isObjectEmpty(concentrationData)) {
+    //@ts-expect-error
+    if (isEmpty(concentrationData)) {
       await getConcentrationEffect(actor)?.delete();
     } else {
       // if (!concentrationData) return;

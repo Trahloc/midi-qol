@@ -722,7 +722,7 @@
   },
   "midi-qol.EnforceReactions.Title": "Reaction Used",
   "midi-qol.EnforceReactions.Content": "You have used your reaction this round. Do you want to proceed anyway?",
-  "midi-qol.DisplayHitResultNumeric.Name": "Display how much an attack hit or missed by (per target)",
+  "midi-qol.DisplayHitResultNumeric.Name": "Display target AC",
   "midi-qol.EnforceBonusActions.Title": "Bonus Action Used",
   "midi-qol.EnforceBonusActions.Content": "You have used your bonus action this round. Do you want to proceed anyway?",
   "midi-qol.MidiProperties": "Midi-qol Item Properties",

@@ -1,4 +1,4 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete, GameSystemConfig } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
@@ -1963,10 +1963,10 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
       // token 2 is within t1's size so height difference is functionally 0
       heightDifference = 0;
     } else if (t1Elevation < t2Elevation) { // t2 above t1
-			heightDifference = Math.max(0, t2Elevation - t1TopElevation);
-		}
-		else if (t1Elevation > t2Elevation) { // t1 above t2
-			heightDifference = Math.max(0, t1Elevation - t2TopElevation);
+      heightDifference = Math.max(0, t2Elevation - t1TopElevation);
+    }
+    else if (t1Elevation > t2Elevation) { // t1 above t2
+      heightDifference = Math.max(0, t1Elevation - t2TopElevation);
     }
     //@ts-expect-error diagonalRule from DND5E
     const rule = canvas.grid.diagonalRule
@@ -2230,10 +2230,10 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
       if (!installedModules.get("tokencover")) coverBonus = 0;
       else if (safeGetGameSetting("tokencover", "midiqol-covercheck") === "midiqol-covercheck-none") {
         const coverValue = calcTokenCover(attacker, target);
-        if (coverValue < (safeGetGameSetting("tokencover", "cover-trigger-percent-low") ?? 0.5)) coverBonus = 0;
-        else if (coverValue < (safeGetGameSetting("tokencover", "cover-trigger-percent-medium") ?? 0.75)) coverBonus = HALF_COVER;
-        else if (coverValue < (safeGetGameSetting("tokencover", "cover-trigger-percent-high") ?? 1)) coverBonus = THREE_QUARTERS_COVER;
-        else coverBonus = FULL_COVER;
+        if (coverValue === 4 || coverValue === 3) coverBonus = FULL_COVER;
+        else if (coverValue === 2) coverBonus = THREE_QUARTERS_COVER;
+        else if (coverValue === 1) coverBonus = HALF_COVER;
+        else coverBonus = 0;
       }
       break;
     case "none":
@@ -2387,19 +2387,29 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
     }
   }
   //@ts-expect-error
-  let statusEffect = await ActiveEffect.implementation.fromStatusEffect("concentrating", { parent: actor });
+  let statusEffect = await ActiveEffect.implementation.fromStatusEffect(systemConcentrationId, { parent: actor });
   if (!statusEffect) { // Try and see if there is another status effect we can use
     statusEffect = CONFIG.statusEffects.find(e => {
       //@ts-expect-error
       const statuses = e.statuses;
       switch (foundry.utils.getType(statuses)) {
-        case "Array": return statuses.includes("concentrating");
-        case "Set": return statuses.has("concentrating");
+        case "Array": return statuses.includes(systemConcentrationId) || statuses.includes("Concentrating");
+        case "Set": return statuses.has(systemConcentrationId) || statuses.has("Concentrating");
         default: return false;
       }
     });
     if (statusEffect) {
-      statusEffect = new ActiveEffect.implementation(duplicate(statusEffect), {keepId: true});
+      console.warn("midi-qol | addConcentrationEffect | matched concentration effect by statuses - this will fail in dnd5e 3.1")
+      statusEffect = new ActiveEffect.implementation(duplicate(statusEffect), { keepId: true });
+    }
+
+  }
+  if (!statusEffect) {
+    //@ts-expect-error
+    statusEffect = CONFIG.statusEffects.find(e => e.name.toLowerCase() ===  i18n("EFFECT.DND5E.StatusConcentrating").toLowerCase());
+    if (statusEffect) {
+      console.warn("midi-qol | addConcentrationEffect | matched concentration effect by name - this will fail in dnd5e 3.1")
+      statusEffect = new ActiveEffect.implementation(duplicate(statusEffect), { keepId: true });
     }
   }
   if (!statusEffect) {
@@ -2640,7 +2650,7 @@ export async function removeTokenCondition(token: Token, condition: string) {
   if (hasEffect) await expireEffects(token.actor, [hasEffect], { "expiry-reason": `midi-qol:removeTokenCondition:${condition}` });
 }
 
-// this = {actor, item, myExpiredEffects}
+// this = {actoaddStatusEffectChangebonusDialog(r, item, myExpiredEffects}
 export async function expireMyEffects(effectsToExpire: string[]) {
   const expireHit = effectsToExpire.includes("1Hit") && !this.effectsAlreadyExpired.includes("1Hit");
   const expireAction = effectsToExpire.includes("1Action") && !this.effectsAlreadyExpired.includes("1Action");
@@ -2729,9 +2739,9 @@ class RollModifyDialog extends Application {
     flags: string[],
     flagSelector: string,
     targetObject: any,
-    rollId: string,
-    rollTotalId: string,
-    rollHTMLId: string,
+    // rollId: string,
+    // rollTotalId: string,
+    // rollHTMLId: string,
     title: string,
     content: HTMLElement | JQuery<HTMLElement> | string,
     currentRoll: Roll,
@@ -2848,6 +2858,7 @@ class RollModifyDialog extends Application {
       }
       return obj;
     }, {})
+
     // this.data.content = await midiRenderRoll(this.data.currentRoll);
     // this.data.content = await this.data.currentRoll.render();
     return {
@@ -3001,15 +3012,42 @@ export async function processDamageRollBonusFlags(): Promise<Roll[]> { // bound 
 }
 
 export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, roll: Roll, rollType: string, options: any = {}): Promise<Roll | undefined> {
-  const showDiceSoNice = /* ["attackRoll", "damageRoll"].includes(rollId) && */ dice3dEnabled(); // && configSettings.mergeCard;
+  const showDiceSoNice = dice3dEnabled(); // && configSettings.mergeCard;
   let timeoutId;
   if (!roll) return undefined;
   let newRoll = roll;
+  let originalRoll = roll;
   let rollHTML = await midiRenderRoll(roll);
+  const player = playerForActor(this.actor);
+
   let timeout = options.timeout ?? configSettings.reactionTimeout ?? defaultTimeout
   return new Promise((resolve, reject) => {
-    function onClose() {
+    async function onClose() {
       if (timeoutId) clearTimeout(timeoutId);
+      //@ts-expect-error
+      newRoll.options.rollMode = rollMode;
+      // The original roll is dsn displayed before the bonus dialog is called so mark it as displayed
+      DSNMarkDiceDisplayed(originalRoll);
+      // The new roll has had dsn display done for each bonus term/reroll so mark it as displayed
+      DSNMarkDiceDisplayed(newRoll);
+
+      if (showRoll && newRoll !== originalRoll) {
+        //TODO match the renderRoll to the roll type
+        const newRollHTML = await midiRenderRoll(newRoll);
+        const originalRollHTML = await midiRenderRoll(originalRoll)
+        const chatData: any = {
+          flavor: `${title}`,
+          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
+          content: `${originalRollHTML}<br>${newRollHTML}`,
+          whisper: [player?.id ?? ""],
+          rolls: [originalRoll, newRoll],
+          type: CONST.CHAT_MESSAGE_TYPES.ROLL,
+          sound: CONFIG.sounds.dice
+        };
+        ChatMessage.applyRollMode(chatData, rollMode);
+        ChatMessage.create(chatData);
+        setProperty(newRoll, "flags.midi-qol.chatMessageShown", true);
+      }
       resolve(newRoll)
     }
     if (options.timeout) {
@@ -3023,7 +3061,6 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       }
 
       let reRoll;
-      const player = playerForActor(this.actor);
       let chatMessage;
       const undoId = randomID();
       const undoData: any = {
@@ -3133,8 +3170,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             rollOptions.configured = false;
             // rollOptions = { critical: (this.isCritical || this.rollOptions.critical), configured: false };
             //@ts-expect-error D20Roll
-            newRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
-            newRoll.terms.push(new OperatorTerm({ operator: "+" }));
+            newRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
             let rollData: any = {}
             if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
             else rollData = this.actor?.getRollData() ?? {}; // 
@@ -3158,7 +3194,6 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       if (showRoll && this.category === "ac") { // TODO do a more general fix for displaying this stuff
         const newRollHTML = await midiRenderRoll(newRoll);
         const chatData: any = {
-          // content: `${this[rollId].result} -> ${newRoll.formula} = ${newRoll.total}`,
           flavor: game.i18n.localize("DND5E.ArmorClass"),
           content: `${newRollHTML}`,
           whisper: [player?.id ?? ""]
@@ -3167,42 +3202,31 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         chatMessage = await ChatMessage.create(chatData);
       }
 
-      rollHTML = await roll.render() ?? roll.result
 
-      //@ts-expect-error D20Roll
-      let originalRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
+      //@ ts-expect-error D20Roll
+      // let originalRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
       // dialog.data.rollHTML = rollHTML;
-      dialog.data.content = rollHTML;
       await removeEffectGranting(this.actor, button.key);
-      bonusFlags = bonusFlags.filter(bf => bf !== button.key)
+      bonusFlags = bonusFlags.filter(bf => bf !== button.key);
       if (bonusFlags.length === 0) {
         dialog.close();
-        //@ts-expect-error
-        newRoll.options.rollMode = rollMode;
-        // The original roll is displayed before the bonus dialog is called so mark it as displayed
-        DSNMarkDiceDisplayed(originalRoll);
-        // The new roll has had dsn display done for each bonus term/reroll so mark it as displayed
-        DSNMarkDiceDisplayed(newRoll);
-        resolve(newRoll);
-        if (showRoll) {
-          //TODO match the renderRoll to the roll type
-          const newRollHTML = /*reRoll ? await midiRenderRoll(reRoll) :*/ await midiRenderRoll(newRoll);
-          const chatData: any = {
-            flavor: `${title} ${button.value}`,
-            content: `${rollHTML}<br>${newRollHTML}`,
-            whisper: [player?.id ?? ""],
-            rolls: [originalRoll, newRoll],
-            type: CONST.CHAT_MESSAGE_TYPES.ROLL,
-          };
-          ChatMessage.applyRollMode(chatData, rollMode);
-          chatMessage = ChatMessage.create(chatData);
-        }
+        return;
       }
+      const newRollHTML = /*reRoll ? await midiRenderRoll(reRoll) :*/ await midiRenderRoll(newRoll);
       dialog.data.flags = bonusFlags;
+      dialog.data.currentRoll = newRoll;
+      roll = newRoll;
+      if (game.user?.isGM) {
+        dialog.data.content = newRollHTML;
+      } else {
+        if (["publicroll", "gmroll", "selfroll"].includes(rollMode)) dialog.data.content = newRollHTML;
+        else dialog.data.content = "Hidden Roll";
+      }
       dialog.render(true);
       // dialog.close();
       if (chatMessage) untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: undoId, chatCardUuids: [(await chatMessage).uuid] });
     }
+
     let content;
     let rollMode: any = options?.rollMode ?? game.settings.get("core", "rollMode");
     if (game.user?.isGM) {
@@ -3222,239 +3246,6 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         currentRoll: roll,
         rollHTML,
         rollMode: rollType,
-        callback,
-        close: onClose.bind(this),
-        timeout
-      }, {
-      width: 400
-    }).render(true);
-  });
-}
-
-export async function bonusDialogOld(bonusFlags, flagSelector, showRoll, title, rollId: string, rollTotalId: string, rollHTMLId: string, options: any = {}) {
-  const showDiceSoNice = /* ["attackRoll", "damageRoll"].includes(rollId) && */ dice3dEnabled(); // && configSettings.mergeCard;
-  let timeoutId;
-  let timeout = options.timeout ?? configSettings.reactionTimeout ?? defaultTimeout
-  return new Promise((resolve, reject) => {
-    function onClose() {
-      if (timeoutId) clearTimeout(timeoutId);
-      resolve(null)
-    }
-    if (options.timeout) {
-      timeoutId = setTimeout(() => {
-        resolve(null);
-      }, timeout * 1000);
-    }
-    const callback = async (dialog, button) => {
-      if (this.seconditimeoutId) {
-        clearTimeout(this.seconditimeoutId);
-      }
-      let newRoll; { }
-      let reRoll;
-      const player = playerForActor(this.actor);
-      let chatMessage;
-      const undoId = randomID();
-      const undoData: any = {
-        id: undoId,
-        userId: player?.id ?? "",
-        userName: player?.name ?? "Gamemaster",
-        itemName: button.label,
-        itemUuid: "",
-        actorUuid: this.actor.uuid,
-        actorName: this.actor.name,
-        isReaction: true
-      }
-      await untimedExecuteAsGM("queueUndoDataDirect", undoData)
-
-      const rollMode = getProperty(this.actor, button.key)?.rollMode ?? game.settings.get("core", "rollMode");
-      if (!hasEffectGranting(this.actor, button.key, flagSelector)) return;
-      let resultApplied = false; // This is just for macro calls
-      let macroToCall;
-      const allFlagSelector = flagSelector.split(".").slice(0, -1).join(".") + ".all";
-      let specificMacro = false;
-      const possibleMacro = getProperty(this.actor, `${button.key}.${flagSelector}`) ||
-        getProperty(this.actor, `${button.key}.${allFlagSelector}`);
-      if (possibleMacro && (button.value.trim().startsWith("ItemMacro") || button.value.trim().startsWith("Macro") || button.value.trim().startsWith("function"))) {
-        macroToCall = button.value;
-        if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
-        specificMacro = true;
-      } else if (getProperty(this.actor, `${button.key}.macroToCall`)?.trim()) {
-        macroToCall = getProperty(this.actor, `${button.key}.macroToCall`)?.trim();
-      }
-      if (macroToCall) {
-        let result;
-        let workflow;
-        if (this instanceof Workflow || this.workflow) {
-          workflow = this.workflow ?? this;
-        } else {
-          const itemUuidOrName = button.value.split(".").slice(1).join(".");
-          //@ts-expect-error
-          let item = fromUuidSync(itemUuidOrName);
-          if (!item && this.actor) item = this.actor.items.getName(itemUuidOrName);
-          if (!item && this instanceof Actor) item = this.items.getName(itemUuidOrName);
-          workflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
-        }
-        const macroData = workflow.getMacroData();
-        macroData.macroPass = `${button.key}.${flagSelector}`;
-        macroData.tag = "optional";
-        macroData.roll = this[rollId];
-
-        result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll: this[rollId], bonus: (!specificMacro ? button.value : undefined) });
-        if (typeof result === "string")
-          button.value = result;
-        else {
-          if (result instanceof Roll) {
-            newRoll = result;
-            resultApplied = true;
-          }
-          if (specificMacro) {
-            newRoll = this[rollId];
-            resultApplied = true;
-          }
-        }
-        if (result === undefined && debugEnabled > 0) console.warn(`midi-qol | bonusDialog | macro ${button.value} return undefined`)
-      }
-
-      // do the roll modifications
-      if (!resultApplied) switch (button.value) {
-        case "reroll": reRoll = await this[rollId].reroll({ async: true });
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId, rollMode);
-          newRoll = reRoll; break;
-        case "reroll-query":
-          reRoll = reRoll = await this[rollId].reroll({ async: true });
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId, rollMode);
-          const newRollHTML = await midiRenderRoll(reRoll);
-          if (await Dialog.confirm({ title: "Confirm reroll", content: `Replace ${this[rollHTMLId]} with ${newRollHTML}`, defaultYes: true }))
-            newRoll = reRoll
-          else
-            newRoll = this[rollId];
-          break;
-        case "reroll-kh": reRoll = await this[rollId].reroll({ async: true });
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId === "attackRoll" ? "attackRollD20" : rollId, rollMode);
-          newRoll = reRoll;
-          if (reRoll.total <= this[rollId].total) newRoll = this[rollId];
-          break;
-        case "reroll-kl": reRoll = await this[rollId].reroll({ async: true });
-          newRoll = reRoll;
-          if (reRoll.total > this[rollId].total) newRoll = this[rollId];
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollId === "attackRoll" ? "attackRollD20" : rollId, rollMode);
-          break;
-        case "reroll-max": newRoll = await this[rollId].reroll({ async: true, maximize: true });
-          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId === "attackRoll" ? "attackRollD20" : rollId, rollMode);
-          break;
-        case "reroll-min": newRoll = await this[rollId].reroll({ async: true, minimize: true });
-          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId === "attackRoll" ? "attackRollD20" : rollId, rollMode);
-          break;
-        case "success": newRoll = await new Roll("99").evaluate({ async: true }); break;
-        case "fail": newRoll = await new Roll("-1").evaluate({ async: true }); break;
-        default:
-          if (typeof button.value === "string" && button.value.startsWith("replace ")) {
-            const rollParts = button.value.split(" ");
-            newRoll = new Roll(rollParts.slice(1).join(" "), (this.item ?? this.actor).getRollData());
-            newRoll = await newRoll.evaluate({ async: true });
-            if (showDiceSoNice) await displayDSNForRoll(newRoll, rollId, rollMode);
-          } else if (flagSelector.startsWith("damage.") && getProperty(this.actor ?? this, `${button.key}.criticalDamage`)) {
-            //@ts-expect-error .DamageRoll
-            const DamageRoll = CONFIG.Dice.DamageRoll
-            let rollOptions = duplicate(this[rollId].options);
-            rollOptions.configured = false;
-            // rollOptions = { critical: (this.isCritical || this.rollOptions.critical), configured: false };
-            //@ts-expect-error D20Roll
-            newRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
-            newRoll.terms.push(new OperatorTerm({ operator: "+" }));
-            let rollData: any = {}
-            if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
-            else rollData = this.actor?.getRollData() ?? {}; // 
-            const tempRoll = new DamageRoll(`${button.value}`, rollData, rollOptions);
-            await tempRoll.evaluate({ async: true });
-            if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
-            newRoll._total = this[rollId]._total + tempRoll.total;
-            newRoll._formula = `${this[rollId]._formula} + ${tempRoll.formula}`
-            newRoll.terms = newRoll.terms.concat(tempRoll.terms);
-          } else {
-            //@ts-expect-error
-            newRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
-            let rollData: any = {}
-            if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
-            else rollData = this.actor?.getRollData() ?? this;
-            const tempRoll = new Roll(button.value, rollData).roll({ async: false });
-            if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollId, rollMode);
-            newRoll = addRollTo(newRoll, tempRoll);
-          }
-          //newRoll = new CONFIG.Dice.D20Roll(`${this[rollId].result} + ${button.value}`, (this.item ?? this.actor).getRollData(), rollOptions);
-          break;
-      }
-
-      if (showRoll && this.category === "ac") { // TODO do a more general fix for displaying this stuff
-        // const oldRollHTML = await this[rollId].render() ?? this[rollId].result
-        const newRollHTML = await midiRenderRoll(newRoll);
-        const chatData: any = {
-          // content: `${this[rollId].result} -> ${newRoll.formula} = ${newRoll.total}`,
-          flavor: game.i18n.localize("DND5E.ArmorClass"),
-          content: `${newRollHTML}`,
-          whisper: [player?.id ?? ""]
-        };
-        ChatMessage.applyRollMode(chatData, rollMode);
-        chatMessage = await ChatMessage.create(chatData);
-      }
-
-      const oldRollHTML = await this[rollId].render() ?? this[rollId].result
-
-      this[rollId] = newRoll;
-      this[rollTotalId] = newRoll.total;
-      this[rollHTMLId] = await midiRenderRoll(newRoll);
-
-      //@ts-expect-error D20Roll
-      let originalRoll = CONFIG.Dice.D20Roll.fromRoll(this[rollId]);
-      dialog.data.rollHTML = this[rollHTMLId];
-      dialog.data.content = this[rollHTMLId];
-      await removeEffectGranting(this.actor, button.key);
-      bonusFlags = bonusFlags.filter(bf => bf !== button.key)
-      // this.actor.reset();
-      if (bonusFlags.length === 0) {
-        dialog.close();
-        newRoll.options.rollMode = rollMode;
-        resolve(newRoll);
-        if (showRoll) {
-          const newRollHTML = reRoll ? await midiRenderRoll(reRoll) : await midiRenderRoll(newRoll);
-          const chatData: any = {
-            // content: `${this[rollId].result} -> ${newRoll.formula} = ${newRoll.total}`,
-            flavor: `${title} ${button.value}`,
-            content: `${oldRollHTML}<br>${newRollHTML}`,
-            whisper: [player?.id ?? ""],
-            rolls: [originalRoll, newRoll],
-            type: CONST.CHAT_MESSAGE_TYPES.ROLL,
-          };
-          ChatMessage.applyRollMode(chatData, rollMode);
-          chatMessage = ChatMessage.create(chatData);
-        }
-      }
-      dialog.data.flags = bonusFlags;
-      dialog.render(true);
-      // dialog.close();
-      if (chatMessage) untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: undoId, chatCardUuids: [(await chatMessage).uuid] });
-    }
-    let content;
-    let rollMode: any = options?.rollMode ?? game.settings.get("core", "rollMode");
-    if (game.user?.isGM) content = this[rollHTMLId];
-    else {
-      if (["publicroll", "gmroll", "selfroll"].includes(rollMode)) content = this[rollHTMLId];
-      else content = "Hidden Roll";
-    }
-    const dialog = new RollModifyDialog(
-      {
-        actor: this.actor,
-        flags: bonusFlags,
-        flagSelector,
-        targetObject: this,
-        rollId,
-        rollTotalId,
-        rollHTMLId,
-        title,
-        content,
-        currentRoll: this[rollId],
-        rollHTML: this[rollHTMLId],
-        rollMode,
         callback,
         close: onClose.bind(this),
         timeout
@@ -4249,18 +4040,22 @@ export function getConcentrationLabel(): string {
  */
 export function getConcentrationEffect(actor): ActiveEffect | undefined {
   // concentration should not be a passive effect so don't need to do applied effects
-  return actor?.effects.find(ef => ef.statuses.has("concentrating"));
+  return actor?.effects.find(ef => ef.statuses.has(systemConcentrationId));
 }
 
 function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined) {
   let result;
   try {
-
-    const src = 'with (sandbox) { return ' + expression + '}';
-    const evl = new Function('sandbox', src);
-    sandbox = mergeObject(sandbox, Roll.MATH_PROXY);
+    const src = 'with (sandbox, mathproxy) { return ' + expression + '}';
+    const evl = new Function('sandbox, mathproxy', src);
     sandbox = mergeObject(sandbox, { findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated });
-    result = evl(sandbox);
+    const sandboxProxy = new Proxy(sandbox, {
+      has: () => true, // Include everything
+      get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
+      //@ts-expect-error
+      set: () => console.error("You may not set properties of the Roll.MATH_PROXY environment") // No-op
+    });
+    result = evl(sandboxProxy, Roll.MATH_PROXY);
   } catch (err) {
     const message = `midi-qol | mySafeEval | expression evaluation failed ${expression}`;
     console.warn(message, err)
@@ -4341,7 +4136,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     rollData.tokenUuid = data.workflow?.tokenUuid;
     rollData.tokenId = data.workflow?.tokenId;
     rollData.workflow = {};
-    rollData.effects = actor?.appliedEffects;
+    rollData.effects = actor?.appliedEffects; // not needed since this is set in getRollData
     if (data.workflow) {
       Object.assign(rollData.workflow, data.workflow);
       rollData.workflow.otherDamageItem = data.workflow.otherDamageItem?.getRollData().item;
@@ -4350,7 +4145,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.workflow.otherDamageFormula = data.workflow.otherDamageFormula;
       rollData.workflow.shouldRollDamage = data.workflow.shouldRollDamage;
       rollData.workflow.hasAttack = data.workflow.item.hasAttack;
-      data.workflow.hasDamage = data.workflow.item.hasDamage;
+      rollData.workflow.hasDamage = data.workflow.item.hasDamage;
 
       delete rollData.workflow.undoData;
       delete rollData.workflow.conditionData;
@@ -5548,7 +5343,7 @@ export function calcTokenCover(attacker: Token | TokenDocument, target: Token | 
   const targetToken = getToken(target);
 
   //@ts-expect-error .coverCalc
-  const coverCalc = attackerToken.tokencover?.coverCalc;
+  const coverCalc = attackerToken.coverCalculator;
   if (!attackerToken || !targetToken || !coverCalc) {
     let message = "midi-qol | calcTokenCover | failed";
     if (!coverCalc)
@@ -5562,8 +5357,9 @@ export function calcTokenCover(attacker: Token | TokenDocument, target: Token | 
     console.warn(message, err);
     return 0;
   }
-
-  return coverCalc.percentCover(targetToken) ?? 0;
+  let targetCover = coverCalc.targetCover(target);
+  let percentCover = coverCalc.percentCover(target);
+  return targetCover;
 }
 
 export function itemRequiresConcentration(item): boolean {
@@ -5717,26 +5513,26 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
       const effectData = this.toObject();
       effectData.origin = item.uuid;
       effectData.flags.dae.dontApply = false;
-      const applyItem = item.clone({effects: [effectData]}, {keepId: true})
+      const applyItem = item.clone({ effects: [effectData] }, { keepId: true })
       await globalThis.DAE.doEffects(
         applyItem, true, targets, {
-          damageTotal: 0,
-          critical: false,
-          fumble: false,
-          itemCardId: "",
-          itemCardUuid: "",
-          metaData: {},
-          selfEffects: "none",
-          spellLevel: (applyItem.level ?? 0),
-          toggleEffect: applyItem?.flags.midiProperties?.toggleEffect,
-          tokenId: token.id,
-          tokenUuid: token.document.uuid,
-          actorUuid: actor.uuid,
-          whisper: false,
-          workflowOptions: this.workflowOptions,
-          context: {
-          }
-        }) 
+        damageTotal: 0,
+        critical: false,
+        fumble: false,
+        itemCardId: "",
+        itemCardUuid: "",
+        metaData: {},
+        selfEffects: "none",
+        spellLevel: (applyItem.level ?? 0),
+        toggleEffect: applyItem?.flags.midiProperties?.toggleEffect,
+        tokenId: token.id,
+        tokenUuid: token.document.uuid,
+        actorUuid: actor.uuid,
+        whisper: false,
+        workflowOptions: this.workflowOptions,
+        context: {
+        }
+      })
       if (this.toObject()) {
         if (this.debugEnabled)
           warn(

@@ -1,3 +1,17 @@
+## 11.4.12
+* Fix for optional.name not allowing more than one bonus to be applied
+* Optional name dialog will now show each bonus as it is applied
+* Fix for before and after optional bonus dialog card not being shown if the dialog is closed.
+* Before/After card will replace the normal roll card if enabled.
+* Fix for optional.name effects targeting damage rolls.
+* Slight change to the styling of saves/hits to try and take up less chat log room
+* Display calclutated cover bonus on the hits chat card.
+* Reinstate support for Alternative Token cover module to calculate cover.
+* Ensure that actor.appliedEffects is used everywhere instead of actor.effects;
+* Fix for flags.midi-qol expression evaluation failing with MATH expressions.
+* Provide some additional paths to find a concentration effect as a stop gap until dnd5e 3.1 comes out. This means Convenient Effects and CLT can be used to supply concentration effects.
+* Added detection of potentially broken concentration effects to midi troubleshooter.
+
 ## 11.4.11.1
 * Fix for dsn bonus roll not matching what is in the chat card.
 

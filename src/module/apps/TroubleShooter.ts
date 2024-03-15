@@ -1,4 +1,5 @@
-import { geti18nOptions, i18n } from "../../midi-qol.js";
+import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
+import { geti18nOptions, i18n, systemConcentrationId } from "../../midi-qol.js";
 import { CheckedAuthorsList, checkedModuleList, checkMechanic, collectSettingData, configSettings, enableWorkflow, exportSettingsToJSON, fetchParams, importSettingsFromJSON, safeGetGameSetting } from "../settings.js";
 import { DAE_REQUIRED_VERSION, REQUIRED_MODULE_VERSIONS, getModuleVersion, installedModules } from "../setupModules.js";
 import { calculateDamage } from "../utils.js";
@@ -354,7 +355,7 @@ export class TroubleShooter extends FormApplication {
     if (game.modules.get("tokenmagic")?.active) {
       data.summary.moduleSettings["Token Magic FX Automatic Template Effects "] = safeGetGameSetting("tokenmagic", "autoTemplateEnabled");
       data.summary.moduleSettings["Token Magic FX Default Template Grid on Hover "] = safeGetGameSetting("tokenmagic", "defaultTemplateOnHover");
-      data.summary.moduleSettings["Token Magic FX Autoa Hide Template Elements "] = safeGetGameSetting("tokenmagic", "autohideTemplateElements");
+      data.summary.moduleSettings["Token Magic FX Auto Hide Template Elements "] = safeGetGameSetting("tokenmagic", "autohideTemplateElements");
     } else data.summary.moduleSettings["Token Magic FX"] = i18n("midi-qol.Inactive");
 
     data.summary.midiSettings = {};
@@ -461,6 +462,7 @@ export class TroubleShooter extends FormApplication {
           break;
         case "dfreds-convenient-effects":
           setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+
           break;
         case "dice-so-nice":
           break;
@@ -610,6 +612,38 @@ export class TroubleShooter extends FormApplication {
     return data;
   }
 
+  public static checkConcentrationStatusEffects(data: TroubleShooterData) {
+    if (!configSettings.concentrationAutomation) return;
+    let severity: "Error" | "Warn" = "Error";
+    let statusEffect = CONFIG.statusEffects.find(e => e.id === systemConcentrationId);
+
+    let statusesEfffect = CONFIG.statusEffects.find(e => {
+      //@ts-expect-error
+      const statuses = e.statuses;
+      switch (foundry.utils.getType(statuses)) {
+        case "Array": return statuses.includes(systemConcentrationId) || statuses.includes("Concentrating");
+        case "Set": return statuses.has(systemConcentrationId) || statuses.has("Concentrating");
+        default: return false;
+      }
+    });
+    //@ts-expect-error
+    let statusEffectName = CONFIG.statusEffects.find(e => e.name.toLowerCase() === i18n("EFFECT.DND5E.StatusConcentrating").toLowerCase());
+    let fixString = `Create a status effect with the id '${systemConcentrationId}' or enable the default CONFIG.statusEffects - check Convenient Effects or CLT`;
+    if (statusEffectName || statusesEfffect) {
+      fixString = "Midi found an alternate concentration effect that will function until dnd5e 3.1 comes out";
+      severity = "Warn";
+    }
+    if (!statusEffect) {
+      data.problems.push({
+        moduleId: "midi-qol",
+        severity,
+        problemSummary: `Concentration Automation is enabled but the status effect with id "${systemConcentrationId}" was not found.`,
+        problemDetail: undefined,
+        fixer: fixString
+      });
+    }
+  }
+
   public static checkMidiCoverSettings(data: TroubleShooterData) {
     switch (configSettings.optionalRules.wallsBlockRange) {
       case "none":
@@ -695,15 +729,15 @@ export class TroubleShooter extends FormApplication {
           });
         }
         break;
-        case "tokenvisibility":
-          data.problems.push({
-            moduleId: "tokenvisibility",
-            severity: "Error",
-            problemSummary: "Midi has swtiched to Alternate Token Cover from Alternate Token Visibility. You should install Alternative Token Cover",
-            problemDetail: undefined,
-            fixer: "Enable the 'tokencover' module and update 'Calculate Cover' to 'Token Cover' on the Mechanics tab"
-          });
-          break;
+      case "tokenvisibility":
+        data.problems.push({
+          moduleId: "tokenvisibility",
+          severity: "Error",
+          problemSummary: "Midi has swtiched to Alternate Token Cover from Alternate Token Visibility. You should install Alternative Token Cover",
+          problemDetail: undefined,
+          fixer: "Enable the 'tokencover' module and update 'Calculate Cover' to 'Token Cover' on the Mechanics tab"
+        });
+        break;
       case "tokencover":
         if (!(game.modules.get("tokencover")?.active)) {
           data.problems.push({
@@ -767,7 +801,7 @@ export class TroubleShooter extends FormApplication {
   }
   public static checkWalledTemplates(data: TroubleShooterData) {
     if (game.modules.get("walledtemplates")?.active) {
-      const walledTemplatesTargeting = safeGetGameSetting("walledtemplates", "autotarget-enabled"); 
+      const walledTemplatesTargeting = safeGetGameSetting("walledtemplates", "autotarget-enabled");
       const midiTargeting = configSettings.autoTarget !== "walledtemplates" && configSettings.autoTarget !== "none";
 
       if (walledTemplatesTargeting && midiTargeting) {
@@ -777,21 +811,21 @@ export class TroubleShooter extends FormApplication {
           problemSummary: "Both walled templates auto targeting and midi's auto targeting are enabled",
           problemDetail: undefined,
           fixer: "Only enable one of the auto targeting options",
-/*          fixerFunc: async function (app: TroubleShooter) {
-            if (!game.user?.isGM) {
-              ui.notifications?.error("midi-qol | You must be a GM to fix walled templates auto target");
-              return;
-            }
-            await game.settings.set("walledtemplates", "autotarget-enabled", true);
-            await game.settings.set("walledtemplates", "autotarget-menu", "yes");
-            configSettings.autoTarget = "walledtemplates";
-            await game.settings.set("midi-qol", "ConfigSettings", configSettings);
-            //@ts-expect-error reload configure
-            SettingsConfig.reloadConfirm({ world: true });
-            TroubleShooter.data = TroubleShooter.collectTroubleShooterData();
-            app.render(true)
-          },
-*/
+          /*          fixerFunc: async function (app: TroubleShooter) {
+                      if (!game.user?.isGM) {
+                        ui.notifications?.error("midi-qol | You must be a GM to fix walled templates auto target");
+                        return;
+                      }
+                      await game.settings.set("walledtemplates", "autotarget-enabled", true);
+                      await game.settings.set("walledtemplates", "autotarget-menu", "yes");
+                      configSettings.autoTarget = "walledtemplates";
+                      await game.settings.set("midi-qol", "ConfigSettings", configSettings);
+                      //@ts-expect-error reload configure
+                      SettingsConfig.reloadConfirm({ world: true });
+                      TroubleShooter.data = TroubleShooter.collectTroubleShooterData();
+                      app.render(true)
+                    },
+          */
           fixerid: -1
         });
       } else if (safeGetGameSetting("walledtemplates", "autotarget-enabled") && configSettings.autoTarget !== "walledtemplates") {
@@ -854,6 +888,7 @@ export class TroubleShooter extends FormApplication {
     this.checkMidiCoverSettings(data)
     this.checkMidiSaveSettings(data);
     this.checkNoActorTokens(data);
+    this.checkConcentrationStatusEffects(data);
   }
 
   public static checkAutoAnimations(data: TroubleShooterData) {

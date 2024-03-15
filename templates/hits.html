@@ -5,8 +5,9 @@
   <div class="dnd5e2 evaluation">
     {{#each hits as |hit iid|}}
     <div>
-      <div class="target {{hit.hitClass}}" style="align-content: center;">
-        <img src="{{hit.img}}" height="30" style="max-height: 95%; aspect-ratio: 1; width: unset;border-width: 2px; background-color: var(--dnd5e-background-10);" />
+      <div class="midi-qol target {{hit.hitClass}}" style="align-content: center;">
+        <img src="{{hit.img}}" style="background-color: var(--dnd5e-background-10);" />
+        
         <div class="name-stacked">
           <span class="midi-qol-target-name title midi-qol-gmTokenName" id="{{hit.target.id}}"
             data-uuid="{{hit.target.document.uuid}}">
@@ -30,6 +31,14 @@
             {{/if}}
           </span>
         </div>
+        {{else}} 
+        {{#if hit.bonusAC}}
+          <div class="{{hit.acClass}}">
+            <span>
+              <i class="fas fa-shield-halved"></i>
+              <span style="font-weight: bold;">+{{hit.bonusAC}}</span>
+            </span>
+            {{/if}}
         {{/if}}
       </div>
     </div>

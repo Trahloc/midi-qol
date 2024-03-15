@@ -432,3 +432,15 @@
   text-align: center;
   border: 1px solid var(--dnd5e-border-light);
 }
+
+:is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .midi-qol.target > img {
+  width: 22px !important;
+  height: 22px !important;
+  object-fit: cover;
+  object-position: top;
+  margin: 0px 0 !important;
+  border-radius: 100%;
+  border: 1px solid var(--dnd5e-color-gold) !important;
+  box-shadow: 0 0 2px var(--dnd5e-shadow-45) !important;
+  background: var(--dnd5e-color-light-gray);
+}

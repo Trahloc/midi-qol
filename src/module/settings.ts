@@ -123,6 +123,7 @@ class ConfigSettings {
   mergeCard: boolean = false;
   mergeCardCondensed: boolean = false;
   mergeCardMulti: boolean = false;
+  mergeCardMultiDamage: boolean = false;
   midiFieldsTab: boolean = true;
   confirmAttackDamage: string = "none";
   highlightSuccess: boolean = false;
@@ -447,7 +448,8 @@ export let fetchParams = () => {
     optionalCritRule: -1,
     removeHiddenInvis: true,
     wallsBlockRange: "center",
-    mergeCardMulti: false
+    mergeCardMulti: false,
+    mergeCardMultiDamage: false,
   }, configSettings.optionalRules ?? {}, { overwrite: true, insertKeys: true, insertValues: true });
   if (!configSettings.optionalRules.wallsBlockRange) configSettings.optionalRules.wallsBlockRange = "center";
   if (configSettings.optionalRules.checkFlanking === true) configSettings.optionalRules.checkFlanking = "ceadv";

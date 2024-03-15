@@ -1518,7 +1518,7 @@ export class Workflow {
           this.advantage = true;
         }
         if (advantage.attack && advantage.attack[actType] && evalCondition(advantage.attack[actType], conditionData)) {
-          this.attackAdvAttribution.add(`ADV.attack.${actType}`);
+          this.attackAdvAttribution.add(`ADV:attack.${actType}`);
           this.advantage = true;
         }
       }
@@ -1739,7 +1739,7 @@ export class Workflow {
     const needsFlanking = await markFlanking(token, target,);
     if (needsFlanking) {
       this.attackAdvAttribution.add(`ADV:flanking`);
-      this.advReminderAttackAdvAttribution.add("ADV:flanking");
+      // this.advReminderAttackAdvAttribution.add("ADV:flanking");
     }
     if (["advonly", "ceadv"].includes(checkRule("checkFlanking"))) this.flankingAdvantage = needsFlanking;
     return needsFlanking;
@@ -2515,7 +2515,7 @@ export class Workflow {
     var newFlags = chatMessage?.flags || {};
     if (doMerge && chatMessage) {
       if (this.damageRollHTML) {
-        const dmgHeader = configSettings.mergeCardCondensed ? this.damageFlavor : (this.flavor ?? this.damageFlavor);
+        const dmgHeader = this.flavor ?? this.damageFlavor;
         if (!this.useOther) {
           const searchRe = /<div class="midi-qol-damage-roll">[\s\S]*?<div class="end-midi-qol-damage-roll">/;
           const replaceString = `<div class="midi-qol-damage-roll"><div style="text-align:center">${dmgHeader}</div>${this.damageRollHTML || ""}<div class="end-midi-qol-damage-roll">`
@@ -3970,7 +3970,7 @@ export class Workflow {
         acClass: targetToken.document.actorLink ? "" : "midi-qol-npc-ac",
         hitSymbol,
         attackType,
-        showAC: true,
+        showAC: configSettings.displayHitResultNumeric,
         img,
         gmName: getIconFreeLink(targetToken),
         playerName: getTokenPlayerName(targetToken instanceof Token ? targetToken.document : targetToken),
@@ -4176,7 +4176,6 @@ export class Workflow {
     //@ts-expect-error
     const DamageRoll = CONFIG.Dice.DamageRoll;
     if (!(roll instanceof DamageRoll)) { // we got passed a normal roll which really should be a damage roll
-      console.warn("setDamageRoll: roll is not a damage roll", roll);
       let damageType = MQdefaultDamageType;
       if (roll.terms[0].options.flavor && getDamageType(roll.terms[0].options.flavor)) {
         damageType = getDamageType(roll.terms[0].options.flavor);
@@ -4199,8 +4198,11 @@ export class Workflow {
     this.damageRollHTML = "";
     for (let roll of this.damageRolls) {
       setProperty(roll, "options.midi-qol.rollType", "damage");
+      if (configSettings.mergeCard) setProperty(roll, "options.flavor", "");
+
       this.damageRollHTML += await midiRenderDamageRoll(roll);
     }
+    if (configSettings.mergeCard) this.flavor = `${this.item.name} - ${i18nSystem("Damage")}`;
     return;
   }
 
