@@ -9,47 +9,58 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
     if (debugEnabled > 1) log("Chat message midi constructor", ...args)
   }
 
-  collectRolls(rolls) {
-    let { formula, total, breakdown } = rolls.reduce((obj: any, r) => {
-      obj.formula.push(r.formula);
-      obj.total += r.total;
-      this._aggregateDamageRoll(r, obj.breakdown);
-      return obj;
-    }, { formula: [], total: 0, breakdown: {} });
-    formula = formula.join(" + ");
-    let formulaInToolTip = ["formula", "formulaadv"].includes(configSettings.rollAlternate);
-    let hideDetails = this.user.isGM && !game.user?.isGM && (configSettings.hideRollDetails ?? "none") !== "none";
-    let hideFormula = this.user.isGM && !game.user?.isGM && (configSettings.hideRollDetails ?? "none") !== "none";
-    if (this.user.isGM && !game.user?.isGM && (configSettings.hideRollDetails ?? "none") !== "none") {
-      switch (configSettings.hideRollDetails) {
-        case "none":
-          break;
-        case "detailsDSN":
-          break;
-        case "details":
-          break;
-        case "d20Only":
-          break;
-        case "hitDamage":
-          break;
-        case "hitCriticalDamage":
-          break;
-        case "d20AttackOnly":
-          total = "Damage Roll";
-          break;
-        case "all":
-          total = "Damage Roll";
-          break;
+  collectRolls(rollsToAccumulate: Roll[], multiRolls: boolean = false): any[] {
+    let returns: any [] = [];
+    let rolls: Roll[] = [];
+    for (let i = 0; i < rollsToAccumulate.length; i++) {
+      if (!multiRolls && i < rollsToAccumulate.length - 1) {
+        continue;
+      } else if (multiRolls) rolls = [rollsToAccumulate[i]];
+      else rolls = rollsToAccumulate;
+      let { formula, total, breakdown } = rolls.reduce((obj: any, r) => {
+        obj.formula.push(r.formula);
+        obj.total += r.total;
+        this._aggregateDamageRoll(r, obj.breakdown);
+        return obj;
+      }, { formula: [], total: 0, breakdown: {} });
+      formula = formula.join(" + ");
+      if (multiRolls) {
+        setProperty(rolls[0], "flags.midi-qol.breakdown", breakdown);
+        setProperty(rolls[0], "flags.midi-qol.total", total);
       }
-    }
+      let formulaInToolTip = ["formula", "formulaadv"].includes(configSettings.rollAlternate);
+      let hideDetails = this.user.isGM && !game.user?.isGM && (configSettings.hideRollDetails ?? "none") !== "none";
+      let hideFormula = this.user.isGM && !game.user?.isGM && (configSettings.hideRollDetails ?? "none") !== "none";
+      if (this.user.isGM && !game.user?.isGM && (configSettings.hideRollDetails ?? "none") !== "none") {
+        switch (configSettings.hideRollDetails) {
+          case "none":
+            break;
+          case "detailsDSN":
+            break;
+          case "details":
+            break;
+          case "d20Only":
+            break;
+          case "hitDamage":
+            break;
+          case "hitCriticalDamage":
+            break;
+          case "d20AttackOnly":
+            total = "Damage Roll";
+            break;
+          case "all":
+            total = "Damage Roll";
+            break;
+        }
+      }
 
-    const roll = document.createElement("div");
-    roll.classList.add("dice-roll");
-    let tooltipContents = ""
-    //@ts-expect-error
-    if (!hideDetails) tooltipContents = Object.entries(breakdown).reduce((str, [type, { total, constant, dice }]) => {
-      const config = GameSystemConfig.damageTypes[type] ?? GameSystemConfig.healingTypes[type];
-      return `${str}
+      const roll = document.createElement("div");
+      roll.classList.add("dice-roll");
+      let tooltipContents = ""
+      //@ts-expect-error
+      if (!hideDetails) tooltipContents = Object.entries(breakdown).reduce((str, [type, { total, constant, dice }]) => {
+        const config = GameSystemConfig.damageTypes[type] ?? GameSystemConfig.healingTypes[type];
+        return `${str}
               <section class="tooltip-part">
                 <div class="dice">
                   <ol class="dice-rolls">
@@ -68,11 +79,11 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
                 </div>
               </section>
             `;
-    }, "");
+      }, "");
 
-    let diceFormula = "";
-    if (!hideFormula) diceFormula = `<div class="dice-formula">${formula}</div>`;
-    roll.innerHTML = `
+      let diceFormula = "";
+      if (!hideFormula) diceFormula = `<div class="dice-formula">${formula}</div>`;
+      roll.innerHTML = `
       <div class="dice-result">
       ${formulaInToolTip ? "" : diceFormula}
         <div class="dice-tooltip">
@@ -82,7 +93,9 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
         <h4 class="dice-total">${total}</h4>
       </div>
     `;
-    return roll;
+    returns.push(roll);
+    }
+    return returns;
   }
 
   _enrichDamageTooltip(rolls, html) {
@@ -90,27 +103,24 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
       return super._enrichDamageTooltip(rolls, html);
     }
     if (getProperty(this, "flags.dnd5e.roll.type") !== "midi") return;
-    if (configSettings.mergeCardMultiDamage) {
-      // clean up the damage displays?
-      return;
-    }
     for (let rType of ["damage", "other-damage", "bonus-damage"]) {
       const rollsToCheck = this.rolls.filter(r => getProperty(r, "options.midi-qol.rollType") === rType);
       if (rollsToCheck?.length) {
-        let roll = this.collectRolls(rollsToCheck);
-        roll.classList.add(`midi-${rType}-roll`);
         html.querySelectorAll(`.midi-${rType}-roll`)?.forEach(el => el.remove());
-        if (rType === "bonus-damage") {
-          const flavor = document.createElement("div");
-          const flavors = rollsToCheck.map(r => r.options.flavor ?? r.options.type);
-          const bonusDamageFlavor = flavors.join(", ");
-          flavor.classList.add("midi-bonus-damage-flavor");
-          flavor.innerHTML = bonusDamageFlavor;
-          html.querySelector(`.midi-qol-${rType}-roll`)?.appendChild(flavor);
-        }
-        html.querySelector(`.midi-qol-${rType}-roll`)?.appendChild(roll);
-        if ((configSettings.hideRollDetails ?? "none") !== "none" && !game.user?.isGM && this.user.isGM) {
-          html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
+        for (let roll of this.collectRolls(rollsToCheck, configSettings.mergeCardMultiDamage)) {
+          roll.classList.add(`midi-${rType}-roll`);
+          if (rType === "bonus-damage") {
+            const flavor = document.createElement("div");
+            const flavors = rollsToCheck.map(r => r.options.flavor ?? r.options.type);
+            const bonusDamageFlavor = flavors.join(", ");
+            flavor.classList.add("midi-bonus-damage-flavor");
+            flavor.innerHTML = bonusDamageFlavor;
+            html.querySelector(`.midi-qol-${rType}-roll`)?.appendChild(flavor);
+          }
+          html.querySelector(`.midi-qol-${rType}-roll`)?.appendChild(roll);
+          if ((configSettings.hideRollDetails ?? "none") !== "none" && !game.user?.isGM && this.user.isGM) {
+            html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
+          }
         }
       }
     }
@@ -180,7 +190,7 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
     chatDamageButtons(this, html, {});
   }
 
-  noDiceClicks(event) { 
+  noDiceClicks(event) {
     event.stopImmediatePropagation();
     return;
   }

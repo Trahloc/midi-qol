@@ -8,8 +8,9 @@ import { Workflow } from "./workflow.js";
 
 const knownSheets = {
   BetterNPCActor5eSheet: ".item .rollable",
-  ActorSheet5eCharacter: ".item .item-image",
+  ActorSheet5eCharacter: ".item-list .item-name",
   BetterNPCActor5eSheetDark: ".item .rollable",
+  ActorSheet5eCharacter2: ".item .item-image",
   ActorSheet5eCharacterDark: ".item .item-image",
   DarkSheet: ".item .item-image",
   ActorNPC5EDark: ".item .item-image",
@@ -79,7 +80,7 @@ function addItemSheetButtons(app, html, data, triggeringElement = "", buttonCont
 }
 function addItemRowButtonForTarget(target, app, html, data, buttonContainer) {
   let li = $(target).parents(".item");
-  if (!li.hasClass("expanded")) return;
+  // if (!li.hasClass("expanded")) return;
   let item = app.object.items.get(target.parentNode.dataset.itemId);
   addItemRowButton(li, item, app, html, data, buttonContainer);
 }

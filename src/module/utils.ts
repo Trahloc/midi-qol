@@ -1,4 +1,4 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
@@ -1223,7 +1223,7 @@ export function midiCustomEffect(...args) {
   } else if (change.key === "flags.midi-qol.onUseMacroName") {
     const args = change.value.split(",")?.map(arg => arg.trim());
     const currentFlag = getProperty(actor, "flags.midi-qol.onUseMacroName") ?? "";
-    if (args[0] === "ItemMacro") { // rewrite the ItemMacro if possible
+    if (args[0] === "ItemMacro" || args[0] === MQItemMacroLabel) { // rewrite the ItemMacro if possible
       if (change.effect.transfer) args[0] = `ItemMacro.${change.effect.parent.uuid}`;
       else if (change.effect?.origin?.includes("Item.")) {
         args[0] = `ItemMacro.${change.effect.origin}`;
@@ -1233,7 +1233,7 @@ export function midiCustomEffect(...args) {
     const macroString = (currentFlag?.length > 0) ? [currentFlag, extraFlag].join(",") : extraFlag;
     setProperty(actor, "flags.midi-qol.onUseMacroName", macroString)
     return true;
-  } else if (change.key.startsWith("flags.midi-qol.optional.") && change.value.trim() === "ItemMacro") {
+  } else if (change.key.startsWith("flags.midi-qol.optional.") && (change.value.trim() === "ItemMacro" || change.value.trim() === MQItemMacroLabel)) {
     if (change.effect?.origin?.includes("Item.")) {
       const macroString = `ItemMacro.${change.effect.origin}`;
       setProperty(actor, change.key, macroString)
@@ -2824,7 +2824,7 @@ class RollModifyDialog extends Application {
         let labelDetail;
         if (typeof value === "string") {
           labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
-          if (value.startsWith("ItemMacro")) labelDetail = "ItemMacro"
+          if (value.startsWith("ItemMacro")) labelDetail = MQItemMacroLabel;
           else if (value.startsWith("function")) labelDetail = "Function";
         } else labelDetail = `${value}`
         obj[randomID()] = {
@@ -2844,7 +2844,7 @@ class RollModifyDialog extends Application {
 
         if (value !== undefined) {
           let labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
-          if (value.startsWith("ItemMacro")) labelDetail = "ItemMacro"
+          if (value.startsWith("ItemMacro")) labelDetail = MQItemMacroLabel;
           else if (value.startsWith("function")) labelDetail = "Function";
           obj[randomID()] = {
             icon: '<i class="fas fa-dice-d20"></i>',
@@ -3154,7 +3154,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         case "reroll-min": newRoll = await roll.reroll({ async: true, minimize: true });
           if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
           break;
-        case "success": newRoll = await new Roll("99").evaluate({ async: true }); break;
+        case "success": newRoll = await new Roll("999").evaluate({ async: true }); break;
         case "fail": newRoll = await new Roll("-1").evaluate({ async: true }); break;
         default:
           if (typeof button.value === "string" && button.value.startsWith("replace ")) {
@@ -4046,16 +4046,15 @@ export function getConcentrationEffect(actor): ActiveEffect | undefined {
 function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined) {
   let result;
   try {
-    const src = 'with (sandbox, mathproxy) { return ' + expression + '}';
-    const evl = new Function('sandbox, mathproxy', src);
+    const src = 'with (sandbox) { return ' + expression + '}';
+    const evl = new Function('sandbox', src);
     sandbox = mergeObject(sandbox, { findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
-      get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
+      get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
       //@ts-expect-error
-      set: () => console.error("You may not set properties of the Roll.MATH_PROXY environment") // No-op
+      set: () => console.error("You may not set properties of the sandbox environment") // No-op
     });
-    result = evl(sandboxProxy, Roll.MATH_PROXY);
   } catch (err) {
     const message = `midi-qol | mySafeEval | expression evaluation failed ${expression}`;
     console.warn(message, err)

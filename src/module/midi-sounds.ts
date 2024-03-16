@@ -36,7 +36,7 @@ export class MidiSounds {
     const systemId = game.system.id.toUpperCase();
     let damageEntries: any = {};
     Object.keys(GameSystemConfig.damageTypes).forEach(
-      key => damageEntries[key] = `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes[key]}`
+      key => damageEntries[key] = `${i18n(`${systemId}.Damage`)}: ${GameSystemConfig.damageTypes[key].label}`
     );
 
     let itemActionEntries: any = {};
@@ -108,12 +108,11 @@ export class MidiSounds {
     if (!item.type) return "";
     let subtype = "";
     switch (item.type) {
-      case "weapon": subtype = "weapon." + item.system.weaponType; break;
-      case "equipment": subtype = "equipment." + item.system.armor.type; break;
-      case "consumable": subtype = "consumable." + item.system.consumableType; break;
+      case "weapon": subtype = "weapon." + item.system.type.value; break;
+      case "equipment": subtype = "equipment." + item.system.type.value; break;
+      case "consumable": subtype = "consumable." + item.system.type.value; break;
       case "spell": subtype = "spell." + item.system.school; break;
-      case "tool": subtype = "tool." + item.system.toolType; break;
-      case "equipment": subtype = "equipment." + item.system.equipmentType; break
+      case "tool": subtype = "tool." + item.system.tool.value; break;
       default: subtype = item.type + "any";
     }
     return subtype;
@@ -189,7 +188,7 @@ export class MidiSounds {
 
   static processHook(workflow, selector) {
     const subtype = this.getSubtype(workflow.item);
-    const baseType = workflow.item?.system.baseItem ?? "";
+    const baseType = workflow.item?.system.type.baseItem ?? "";
     let spec = this.getSpecFor(workflow.item?.parent?.type ?? "all", workflow.item.type, subtype, baseType, selector);
     if (!spec) return false;
     return this.playSpec(spec);
@@ -213,7 +212,7 @@ export class MidiSounds {
     Hooks.on("midi-qol.AttackRollComplete", async (workflow: Workflow) => {
       if (!configSettings.useCustomSounds || !workflow.item) return true;
       if (!dice3dEnabled() 
-        && workflow.item.hatAttack && !await this.processHook(workflow, workflow.item.system.actionType)) {
+        && workflow.item.hasAttack && !await this.processHook(workflow, workflow.item.system.actionType)) {
           await this.processHook(workflow, "attack");
       }
       if (workflow.isCritical) {

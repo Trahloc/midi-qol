@@ -2276,11 +2276,11 @@ export class Workflow {
           type: "script",
           command: `return await ${name.replace("function.", "").trim()}({ speaker, actor, token, character, item, args, scope, workflow })`
         };
-      } else if (name.startsWith(MQItemMacroLabel)) {
+      } else if (name.startsWith(MQItemMacroLabel) || name.startsWith("ItemMacro")) {
         // ItemMacro
         // ItemMacro.ItemName
         // ItemMacro.uuid
-        if (name === MQItemMacroLabel) {
+        if (name === MQItemMacroLabel || name === "ItemMacro") {
           if (!item) return {};
           macroItem = item;
           itemMacroData = getProperty(item, "flags.dae.macro") ?? getProperty(macroItem, "flags.itemacro.macro");
@@ -3364,19 +3364,21 @@ export class Workflow {
           await doReactions(target, this.tokenUuid, this.attackRoll, "reactionsavefail", { workflow: this, item: this.saveItem })
       }
       if (isCritical) this.criticalSaves.add(target);
-      let rollResults;
-      if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) rollResults = await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], new Set([target]), {saved});
-      const newRoll = rollResults[target.document.uuid]?.[0];
-      if ( newRoll instanceof Roll) {
-        saveRoll = newRoll;
-        saveRollTotal = newRoll.total;
-        saved = saveRollTotal >= rollDC;
-        const dterm: DiceTerm = saveRoll.terms[0];
-        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
-        //@ts-ignore
-        isFumble = diceRoll <= (dterm.options?.fumble ?? 1)
-        //@ts-ignore
-        isCritical = diceRoll >= (dterm.options?.critical ?? 20);
+      let newRoll;
+      if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) {
+        const rollResults = await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], new Set([target]), { saved });
+        newRoll = rollResults[target.document.uuid]?.[0];
+        if (newRoll instanceof Roll) {
+          saveRoll = newRoll;
+          saveRollTotal = newRoll.total;
+          saved = saveRollTotal >= rollDC;
+          const dterm: DiceTerm = saveRoll.terms[0];
+          const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
+          //@ts-ignore
+          isFumble = diceRoll <= (dterm.options?.fumble ?? 1)
+          //@ts-ignore
+          isCritical = diceRoll >= (dterm.options?.critical ?? 20);
+        }
       }
       if (!saved) {
         //@ts-ignore
@@ -4265,7 +4267,7 @@ export class DamageOnlyWorkflow extends Workflow {
       //@ts-expect-error
       theItem = new CONFIG.Item.documentClass({ name: options.flavor ?? "Damage Only Workflow", type: "feat", _id: randomID(), system: { actionType: "other", save: { type: "" } } }, { parent: actor });
     }
-    super(actor, theItem, ChatMessage.getSpeaker({ token, actor }), new Set(theTargets), {event: shiftOnlyEvent, noOnUseMacro: true})
+    super(actor, theItem, ChatMessage.getSpeaker({ token, actor }), new Set(theTargets), { event: shiftOnlyEvent, noOnUseMacro: true })
     this.itemData = theItem?.toObject();
     // Do the supplied damageRoll
     this.flavor = options.flavor;

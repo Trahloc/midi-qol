@@ -40,8 +40,10 @@ export class SoundConfigPanel extends FormApplication {
     data.weaponSubtypes = mergeObject({any: "Any", none: "None"}, systemConfig.weaponTypes);
     data.weaponSubtypes = mergeObject(data.weaponSubtypes, MidiSounds.weaponBaseTypes);
     data.equipmentSubtypes = mergeObject({any: "Any"}, systemConfig.equipmentTypes);
-    data.consumableSubTypes = mergeObject({any: "Any"}, systemConfig.consumableTypes);
-    data.spellSubtypes = mergeObject({any: "Any"}, systemConfig.spellSchools);
+    const consumeableSubtypesData = Object.keys(systemConfig.consumableTypes).reduce((obj, key) => {obj[key] = systemConfig.consumableTypes[key].label; return obj}, {});
+    data.consumableSubTypes = mergeObject({any: "Any"}, consumeableSubtypesData);
+    const spellSchoolData = Object.keys(systemConfig.spellSchools).reduce((obj, key) => {obj[key] = systemConfig.spellSchools[key].label; return obj}, {});  
+    data.spellSubtypes = mergeObject({any: "Any"}, spellSchoolData);
     data.toolSubtypes = mergeObject({any: "Any"}, systemConfig.toolTypes);
     data.defaultSubtypes = {any: "Any"};
     data.characterTypes = {any: "Any", npc: "NPC", character: "Character", "none": "None"};

@@ -1,3 +1,9 @@
+## 11.4.13
+* Various fixes for midi custom sounds.
+* Fix for not being able to call itemMacros in Italian.
+* Fix for saving throws failing in some niche cases.
+* Fix for use of Math.X functions in condition evaluations - again.
+
 ## 11.4.12
 * Fix for optional.name not allowing more than one bonus to be applied
 * Optional name dialog will now show each bonus as it is applied
