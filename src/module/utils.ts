@@ -4055,6 +4055,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
       //@ts-expect-error
       set: () => console.error("You may not set properties of the sandbox environment") // No-op
     });
+    result = evl(sandboxProxy);
   } catch (err) {
     const message = `midi-qol | mySafeEval | expression evaluation failed ${expression}`;
     console.warn(message, err)
