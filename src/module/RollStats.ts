@@ -1,6 +1,6 @@
 import { error, gameStats, i18n } from "../midi-qol.js";
 import { RollStatsDisplay } from "./apps/RollStatsDisplay.js";
-import { socketlibSocket } from "./GMAction.js";
+import { timedExecuteAsGM } from "./GMAction.js";
 import { configSettings } from "./settings.js";
 
 function fetchStats() {
@@ -105,10 +105,10 @@ export class RollStats {
     if (!item) return duplicate(blankStat);
     let currentStats = this.getEntityStats(id, collection);
     if (!currentStats) return null;
-    if (!currentStats.itemStats[item.id]) {
-      currentStats.itemStats[item.id] = { name: item.name, session: duplicate(blankStat) }
+    if (!currentStats.itemStats[item.name]) {
+      currentStats.itemStats[item.name] = { name: item.name, session: duplicate(blankStat) }
     }
-    return currentStats.itemStats[item.id];
+    return currentStats.itemStats[item.name];
   }
 
   rollCount;
@@ -140,8 +140,8 @@ export class RollStats {
     await game.settings.set("midi-qol", "RollStats", {})
   }
   async clearActorStats(actorId: string) {
-    socketlibSocket.executeAsGM("removeStatsForActorId", {
-      actorId: actorId,
+    timedExecuteAsGM("removeStatsForActorId", {
+      actorId: actorId
     })
   }
 
@@ -232,9 +232,9 @@ export class RollStats {
   }
 
   public updateEntity({ id }) {
-    socketlibSocket.executeAsGM("updateEntityStats", {
+    timedExecuteAsGM("updateEntityStats", {
       id,
-      currentStats: gameStats.currentStats[id],
+      currentStats: gameStats.currentStats[id]
     })
   }
   public exportToJSON() {
@@ -245,7 +245,7 @@ export class RollStats {
 
   public headerLine: string = `"Actor", "Item Name", "#Attacks", "# Nat20", "#Fumbles", "#Critical", "Attack Roll Dice Total", "Attack Roll Total", "Damage Rolls", "Total Damage Applied", "Damage Total"`;
   dumpStatLine(actorName: string, itemName: string, stats: any): string {
-    return `${actorName},${itemName}, ${stats.numAttacks || 0}, ${stats.numAttack20 || 0}, ${stats.numAttackFumble || 0}, ${stats.numAttackCritical || 0}, ${stats.attackRollsDiceTotal || 0}, ${stats.attackRollTotal || 0}, ${stats.numDamageRolls || 0}, ${stats.damageApplied || 0}, ${stats.damageTotal || 0}`
+    return `"${actorName}","${itemName}", ${stats.numAttacks || 0}, ${stats.numAttack20 || 0}, ${stats.numAttackFumble || 0}, ${stats.numAttackCritical || 0}, ${stats.attackRollsDiceTotal || 0}, ${stats.attackRollTotal || 0}, ${stats.numDamageRolls || 0}, ${stats.damageApplied || 0}, ${stats.damageTotal || 0}`
   }
   public exportToCSV() {
     let csvText: string = duplicate(this.headerLine) + "\n";

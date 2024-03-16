@@ -2,20 +2,45 @@
   {{#unless oneCard}}
   <div>{{attackType}}</div>
   {{/unless}}
-  <div class="midi-qol-nobox">
+  <div class="dnd5e2 evaluation">
     {{#each hits as |hit iid|}}
-    <div class="midi-qol-flex-container">
-      {{#if ../showHits}}
-      <div>
-        {{hit.hitString}}
+    <div>
+      <div class="midi-qol target {{hit.hitClass}}" style="align-content: center;">
+        <img src="{{hit.img}}" style="background-color: var(--dnd5e-background-10);" />
+        
+        <div class="name-stacked">
+          <span class="midi-qol-target-name title midi-qol-gmTokenName" id="{{hit.target.id}}"
+            data-uuid="{{hit.target.document.uuid}}">
+            {{{hit.gmName}}}
+            <i class="fas {{hit.hitSymbol}}"></i>
+          </span>
+          <span class="midi-qol-target-name title midi-qol-playerTokenName" id="{{hit.target.id}}"
+            data-uuid="{{hit.target.document.uuid}}">
+            {{hit.playerName}}
+            <i class="fas {{hit.hitSymbol}}"></i>
+          </span>
+        </div>
+        {{#if showAC}}
+        <div class="{{hit.acClass}}">
+          <span>
+            <i class="fas fa-shield-halved"></i>
+            {{#if hit.bonusAC}}
+            <span style="font-weight: bold;">{{hit.ac}}+{{hit.bonusAC}}</span>
+            {{else}}
+            <span style="font-weight: bold;">{{hit.ac}}</span>
+            {{/if}}
+          </span>
+        </div>
+        {{else}} 
+        {{#if hit.bonusAC}}
+          <div class="{{hit.acClass}}">
+            <span>
+              <i class="fas fa-shield-halved"></i>
+              <span style="font-weight: bold;">+{{hit.bonusAC}}</span>
+            </span>
+            {{/if}}
+        {{/if}}
       </div>
-      {{/if}}
-      <div class="midi-qol-target-npc-GM midi-qol-target-name" id={{hit.target.id}}> {{hit.gmName}}</div>
-      <div class="midi-qol-target-npc-Player midi-qol-target-name" id={{hit.target.id}}> {{hit.playerName}}</div>
-      <div><img src="{{hit.img}}" width="30" height="30" style="border:0px" /></div>
-      {{#if hit.bonusAC}}
-      <div>+{{hit.bonusAC}} {{localize "midi-qol.BonusACCover"}}</div>
-      {{/if}}
     </div>
     {{/each}}
   </div>

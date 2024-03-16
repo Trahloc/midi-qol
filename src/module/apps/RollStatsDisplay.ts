@@ -18,7 +18,7 @@ export class RollStatsDisplay extends FormApplication {
     })
   }
 
-  async _updateObject() {};
+  async _updateObject() { };
 
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
@@ -38,9 +38,7 @@ export class RollStatsDisplay extends FormApplication {
   }
 
   async close(options = {}) {
-    //@ts-ignore
     Hooks.off("midi-qol.StatsUpdated", this.statsHookId);
-    //@ts-ignore
     return super.close(options)
   }
 
@@ -48,7 +46,8 @@ export class RollStatsDisplay extends FormApplication {
     let data: any = super.getData();
     data.stats = this.object.prepareStats();
     Object.keys(data.stats).forEach(aid => {
-      if (this.playersOnly && game.user && !game.actors?.get(aid)?.hasPerm(game.user, "OWNER", true))
+      //@ts-ignore DOCUMENT_PERMISSION_LEVELS
+      if (this.playersOnly && game.user && game.actors?.get(aid)?.permission !== CONST.DOCUMENT_PERMISSION_LEVELS.OWNER && game.user.id !== aid)
         delete data.stats[aid];
     })
     data.isGM = game.user?.isGM;
@@ -98,17 +97,12 @@ export class RollStatsDisplay extends FormApplication {
     });
   }
 
-  /*
-    async _updateObject(event, formData) {
-      return;
-    }
-    */
-   createStatsButton(htnl) {
-     const statsButton = $(
+  createStatsButton(html) {
+    const statsButton = $(
       `<button type="button" name="show-stats" id="show-stats">
       <i class="fas fa-dice-d20"></i> {{localize "midi-qol.ShowStats"}}
       </button>`
-     );
+    );
 
-   }
+  }
 }

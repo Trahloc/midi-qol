@@ -15,6 +15,7 @@
             <td style="line-height: 22px">
               <div class="midi-qol-tooltip">
                 <div style="text-align: left;">
+                  {{iconPrefix}}
                   <img src="{{damage.tokenImg}}" id="{{damage.tokenId}}" class="midi-qol-target-name" height="25"
                     style="border:0px">
                 </div>
@@ -22,6 +23,7 @@
                   <div>{{damage.di}}</div>
                   <div>{{damage.dr}}</div>
                   <div>{{damage.dv}}</div>
+                  <div>{{damage.DR}}</div>
                 </div>
                 </img>
               </div>
@@ -32,11 +34,11 @@
               <div class="midi-qol-tooltip">
                 <span>
                   <div style="vertical-align: middle;text-align: right;">
-                    {{#if damage.newTempHP}}
+                    {{#if damage.tempDamage}}
                     {{damage.oldHP}}[{{damage.oldTempHP}}]{{damage.dmgSign}}{{damage.absDamage}}[{{damage.tempDamage}}]={{damage.newHP}}[{{damage.newTempHP}}]
                   </div>
-                  <span
-                    class="midi-qol-tooltiptext midi-qol-tooltip-top">{{damage.oldHP}}[{{damage.oldTempHP}}]{{damage.dmgSign}}{{damage.hpDamage}}[{{damage.tempDamage}}]={{damage.newHP}}[{{damage.newTempHP}}]</span>
+                  <span class="midi-qol-tooltiptext midi-qol-tooltip-top">{{damage.oldHP}}[{{damage.oldTempHP}}]{{damage.dmgSign}}{{damage.hpDamage}}[{{damage.tempDamage}}]={{damage.newHP}}[{{damage.newTempHP}}]
+                  </span>
                   {{else}}
                   <div>{{damage.oldHP}}{{damage.dmgSign}}{{damage.abshpDamage}}({{damage.totalDamage}})={{damage.newHP}}
                     <span
@@ -46,8 +48,8 @@
               </div>
             </td>
 
-            <td style="text-align:center;">
-              <select id="dmg-multiplier-{{damage.displayUuid}}" title="Choose the multipler for the damage."">
+            <td style="text-align:center;" >
+              <select id="dmg-multiplier-{{damage.displayUuid}}" title="Choose the multiplier for the damage."">
                 <option value="calc" selected>{{localize "midi-qol.DamageCardCalc"}}</option>
                 <option value="x1">x1</option>
                 <option value="x0.5">x1/2</option>
@@ -63,8 +65,11 @@
           font-size: 10px;
           line-height: 1px;
         " aria-label="Click to update {{totalDamage}} x Multiplier accordingly to multiplier.">
-                <i aria-hidden="true" class="fas fa-check"
-                  title="Click to update {{totalDamage}} accordingly to multiplier."></i>
+              {{#if ../damageWasApplied}}
+                <i aria-hidden="true" class="fas fa-check midi-qol-disable-damage-button" title="Click to update {{totalDamage}} accordingly to multiplier."></i>
+              {{else}}
+                <i aria-hidden="true" class="fas fa-check midi-qol-enable-damage-button" title="Click to update {{totalDamage}} accordingly to multiplier."></i>
+              {{/if}}
               </button>
             </td>
             <td style="text-align:center">
@@ -74,7 +79,11 @@
           font-size: 10px;
           line-height: 1px;
         ">
-                <i aria-hidden="true" class="fas fa-undo" title="Click to undo damage"></i>
+              {{#if ../damageWasApplied}}
+                  <i aria-hidden="true" class="fas fa-undo midi-qol-enable-damage-button" title="Click to undo damage"></i>
+                {{else}}
+                  <i aria-hidden="true" class="fas fa-undo midi-qol-disable-damage-button" title="Click to undo damage"></i>
+                {{/if}}
               </button>
             </td>
           </tr>
