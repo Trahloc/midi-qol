@@ -3074,6 +3074,8 @@ export class Workflow {
           requests.push({
             token: target.id,
             advantage: saveDetails.advantage,
+            dc: saveDetails.rollDC,
+            showdc: configSettings.displaySaveDC,
             disadvantage: saveDetails.disadvantage,
             // altKey: advantage === true,
             // ctrlKey: disadvantage === true,
@@ -3096,6 +3098,8 @@ export class Workflow {
             token: target.id,
             advantage: saveDetails.advantage,
             disadvantage: saveDetails.disadvantage,
+            dc: saveDetails.rollDC,
+            showdc: configSettings.displaySaveDC,
             // altKey: advantage === true,
             // ctrlKey: disadvantage === true,
             fastForward: false,
@@ -3178,6 +3182,7 @@ export class Workflow {
         tokenData: monkRequests,
         request: `${rollType === "abil" ? "ability" : rollType}:${this.saveItem.system.save.ability}`,
         silent: true,
+        showdc: configSettings.displaySaveDC,
         rollMode: whisper ? "gmroll" : "roll" // should be "publicroll" but monks does not check it
       };
       // Display dc triggers the tick/cross on monks tb
@@ -3415,7 +3420,8 @@ export class Workflow {
         //@ts-ignore
         isCritical = diceRoll >= (dterm.options?.critical ?? 20);
       }
-      if (isFumble && !saved) this.fumbleSaves.add(target);
+      if (isFumble) this.fumbleSaves.add(target);
+      if (isCritical) this.criticalSaves.add(target);
       if (this.checkSuperSaver(target, this.saveItem.system.save.ability))
         this.superSavers.add(target);
       if (this.checkSemiSuperSaver(target, this.saveItem.system.save.ability))

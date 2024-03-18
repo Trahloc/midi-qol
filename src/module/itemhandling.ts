@@ -1624,17 +1624,13 @@ export function shouldRollOtherDamage(workflow: Workflow, conditionFlagNonSpell:
   if (this.type === "spell" && conditionFlagSpell === "always") return true;
   if (this.type !== "spell" && conditionFlagNonSpell === "always") return true;
   let rollOtherDamage = true;
-  let conditionToUse: string | undefined = undefined;
-  // if (["rwak", "mwak", "rsak", "msak", "rpak", "mpak"].includes(this.system.actionType) && workflow?.hitTargets.size === 0) return false;
-  if (getProperty(this, "flags.midi-qol.otherCondition")) {
-    conditionToUse = getProperty(this, "flags.midi-qol.otherCondition");
-  }
+  let conditionToUse: string = getProperty(this, "flags.midi-qol.otherCondition")?.trim() ?? "";
   if (this.type === "spell") {
     rollOtherDamage = conditionFlagSpell !== "ifSave" || this.hasSave;
   } else if (["rwak", "mwak"].includes(this.system.actionType)) {
     rollOtherDamage = (conditionFlagNonSpell !== "ifSave" || workflow.otherDamageItem.hasSave);
   } else if (conditionToUse === "") rollOtherDamage = false;
-  if (!rollOtherDamage) return false;
+  if (!rollOtherDamage && conditionToUse.length === 0) return false;
   //@ts-ignore
   for (let target of workflow.hitTargets) {
     rollOtherDamage = evalActivationCondition(workflow, conditionToUse, target);

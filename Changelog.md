@@ -1,4 +1,12 @@
-## 11.4.13
+## 11.4.14
+* Display save dc in monks token bar if requested.
+* Skills rolls will now roll with ghost dice if skill rolls are rolled blind.
+* The test to roll other damage has changed slightly for the If Save & Condition. If a condition is present (i.e not blank) and evaluates to true roll other damage even if no save is present. If a save is present on the item and the other condition is true (which includes blank conditions) roll other damage.
+* Updates to various items to fix activation conditions:
+  Arrow of Slaying, Divine Smite No Macro, Dragon Slayer Longsword, Legendary Resistance (now only rolls for failed saves), Longsword of Life Stealing, Power Word Stun.
+  * MUlti attack automation now deal with monsters from DDBI and whose attack is already plural (e.g. claws).
+
+## 11.4.13.1
 * Various fixes for midi custom sounds.
 * Fix for not being able to call itemMacros in Italian.
 * Fix for saving throws failing in some niche cases.
