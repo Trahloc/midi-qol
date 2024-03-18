@@ -175,10 +175,17 @@ async function doRollSkill(wrapped, ...args) {
     procOptions.chatMessage = false;
     if (!procOptions.parts || procOptions.parts.length === 0) delete procOptions.parts;
     delete procOptions.event;
+
     // result = await wrapped.call(this, skillId, procOptions);
     result = await wrapped(skillId, procOptions);
     if (!result) return result;
-
+    let rollMode: string = result.options?.rollMode ?? game.settings.get("core", "rollMode");
+    const saveRollMode = game.settings.get("core", "rollMode");
+    const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
+    if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
+      rollMode = "blindroll";
+      game.settings.set("core", "rollMode", "blindroll");
+    }
     const flavor = result.options?.flavor;
     const maxflags = getProperty(this.flags, "midi-qol.max") ?? {};
     const maxValue = (maxflags.skill && (maxflags.skill.all || maxflags.check[skillId])) ?? false;
@@ -194,14 +201,9 @@ async function doRollSkill(wrapped, ...args) {
       //@ts-ignore
       result = await new Roll(Roll.getFormula(result.terms)).evaluate({ async: true });
     }
-    await displayDSNForRoll(result, "skill", result.options.rollMode);
-    let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
-    const saveRollMode = game.settings.get("core", "rollMode");
-    const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
-    if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
-      rollMode = "blindroll";
-      game.settings.set("core", "rollMode", "blindroll");
-    }
+    if (rollMode !== "blindroll") rollMode = result.options.rollMode;
+    await displayDSNForRoll(result, "skill", rollMode);
+
     if (!options.simulate) {
       result = await bonusCheck(this, result, "skill", skillId);
       DSNMarkDiceDisplayed(result);
@@ -457,37 +459,9 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
           }
       }
     }
+    if (rollMode !== "blindroll") rollMode = result.options.rollMode;
     await displayDSNForRoll(result, rollType, rollMode);
 
-    /*
-        let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
-        const saveRollMode = game.settings.get("core", "rollMode");
-        const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
-        if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
-          rollMode = "blindroll";
-          game.settings.set("core", "rollMode", "blindroll");
-        }
-        if (!options.simulate) {
-          result = await bonusCheck(this, result, "skill", skillId);
-          DSNMarkDiceDisplayed(result);
-        }
-        if (chatMessage !== false && result) {
-          const args = { "speaker": getSpeaker(this), flavor };
-          setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
-          if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
-          await displayDSNForRoll(result, "skill", rollMode);
-          if (getProperty(result.flags, "midi-qol.chatMessageShown") !== true)
-            await result.toMessage(args, { rollMode });
-        }
-        game.settings.set("core", "rollMode", saveRollMode);
-        let success: boolean | undefined = undefined;
-        if (rollTarget !== undefined) {
-          success = result.total >= rollTarget;
-          result.options.success = success;
-        }
-        await expireRollEffect.bind(this)("Skill", skillId, success);
-    
-    */
     if (!options.simulate) {
       result = await bonusCheck(this, result, rollType, abilityId);
       DSNMarkDiceDisplayed(result);
@@ -1909,6 +1883,7 @@ function actorGetRollData(wrapped, ...args) {
   data.actorType = this.type;
   data.name = this.name;
   data.midiFlags = (this.flags && this.flags["midi-qol"]) ?? {};
+  data.items = this.items;
   if (game.system.id === "dnd5e") {
     data.cfg = {};
     data.cfg.armorClasses = GameSystemConfig.armorClasses;

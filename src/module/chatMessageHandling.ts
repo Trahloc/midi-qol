@@ -254,8 +254,7 @@ export let hideStuffHandler = (message, html, data) => {
 
 export let chatDamageButtons = (message, html, data) => {
   if (debugEnabled > 1) debug("Chat Damage Buttons ", addChatDamageButtons, message, message.flags?.dnd5e?.roll?.type, message.flags)
-  const shouldAddButtons = !addChatDamageButtons
-    || addChatDamageButtons === "both"
+  const shouldAddButtons = addChatDamageButtons === "both"
     || (addChatDamageButtons === "gm" && game.user?.isGM)
     || (addChatDamageButtons === "pc" && !game.user?.isGM);
 

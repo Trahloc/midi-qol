@@ -99,6 +99,7 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
         // this is a dice roll
         damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
         if (!evalTerm?.options.flavor) {
+          console.error("Setting flavor to ", damageType)
           setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
         }
         numberTermFound = true;
@@ -154,6 +155,7 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
   }
   const damageDetail = Object.entries(damageParts).map(([type, damage]) => { return { damage, type } });
   if (debugEnabled > 1) debug("CreateDamageDetail: Final damage detail is ", damageDetail);
+
   return damageDetail;
 }
 
@@ -5102,8 +5104,7 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
         if (rollMode !== "blindroll" && game.user) whisperIds.concat(game.user);
       }
       if (!hideRoll) {
-        //@ts-expect-error
-        let displayRoll = Roll.fromData(roll.toJSON()); // make a copy of the roll
+        let displayRoll = Roll.fromData(JSON.parse(JSON.stringify(roll))); // make a copy of the roll
         if (game.user?.isGM && configSettings.addFakeDice) {
           for (let term of displayRoll.terms) {
             if (term instanceof Die) {
@@ -5118,12 +5119,14 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
         }
         displayRoll.terms.forEach(term => {
           if (term.options?.flavor) term.options.flavor = term.options.flavor.toLocaleLowerCase();
+          //@ts-expect-error
+          else term.options.flavor = displayRoll.options.type;
         });
         if (ghostRoll) {
           const promises: Promise<any>[] = [];
           promises.push(dice3d?.showForRoll(displayRoll, game.user, true, ChatMessage.getWhisperRecipients("GM"), !game.user?.isGM));
           if (game.settings.get("dice-so-nice", "showGhostDice")) {
-            //@ts-expect-error .ghost
+            //@ts-expect-error
             displayRoll.ghost = true;
             promises.push(dice3d?.showForRoll(displayRoll, game.user, true, game.users?.players.map(u => u.id), game.user?.isGM));
           }
