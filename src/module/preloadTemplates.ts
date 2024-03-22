@@ -24,6 +24,7 @@ export async function preloadTemplates() {
     "modules/midi-qol/templates/tool-card.html",
     "modules/midi-qol/templates/troubleShooter.html",
     "modules/midi-qol/templates/undo-workflow.html",
+    "modules/midi-qol/templates/damage-roll-dialog.hbs"
   ];
 	return loadTemplates(templatePaths);
 }

@@ -142,7 +142,7 @@ export let readyHooks = async () => {
       try {
         if (isConcentration) {
           if (!options.noConcentrationCheck)
-            removeConcentrationEffects(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { noConcnetrationCheck: true }));
+            removeConcentrationEffects(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { noConcentrationCheck: true }));
         } else {
           let origin = await fromUuid(deletedEffect.origin);
           if (origin instanceof ActiveEffect) { // created by dnd5e
@@ -865,12 +865,7 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
 Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
   // Apply absorption
-  // Deal with healing damage (i.e. set to -ve)
-  for (let di of damages) {
-    if (Object.keys(GameSystemConfig.healingTypes).includes(di.type)) {
-      di.value = -di.value;
-    }
-  }
+
   setProperty(options, "midi.damages", damages);
   // Insert DR.ALL as a -ve damage value maxed at the total damage.
   if (getProperty(actor, "system.traits.dm.midi-qol.all")) {
@@ -901,13 +896,6 @@ Hooks.on("dnd5e.preApplyDamage", (actor, amount, updates, options) => {
   if (options.midi) {
     setProperty(options, "midi.amount", amount);
     setProperty(options, "midi.updates", updates);
-    return false;
   }
-  // TODO monitor core modifyTokenAttribute hook to see if we can pass options to it.
   return true;
 });
-
-Hooks.on("dnd5e.applyDamage", (actor, amount, options) => {
-  if (!configSettings.v3DamageApplication) return true;
-  return true
-})

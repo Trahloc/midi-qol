@@ -22,6 +22,7 @@ export const REQUIRED_MODULE_VERSIONS = {
   "lib-changelogs": "0.0.0",
   "lib-wrapper": "1.3.5",
   "lmrtfy": "0.0.0",
+  "magicitems": "4.0.0",
   "monks-tokenbar": "1.0.55",
   "multilevel-tokens": "1.6.0",
   "perceptive": "3.2.1",

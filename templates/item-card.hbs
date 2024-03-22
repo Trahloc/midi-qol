@@ -1,8 +1,7 @@
 <div class="dnd5e2 chat-card midi-chat-card item-card " data-actor-id="{{ actor.id }}" data-item-id="{{ item.id }}"
-  data-actor-uuid="{{ actor.uuid }}" date-item-uuid="{{ item.uuid }}" 
-  {{#if tokenId}}data-token-id="{{tokenId}}" data-token-uuid={{tokenUuid}}{{/if}} 
-  {{#if isSpell}}data-spell-level="{{ item.system.level }}" {{/if}}
-  {{#if isPower}}data-power-level="{{item.system.level}}" {{/if}}>
+  data-actor-uuid="{{ actor.uuid }}" date-item-uuid="{{ item.uuid }}" {{#if tokenId}}data-token-id="{{tokenId}}"
+  data-token-uuid={{tokenUuid}}{{/if}} {{#if isSpell}}data-spell-level="{{ item.system.level }}" {{/if}} {{#if
+  isPower}}data-power-level="{{item.system.level}}" {{/if}}>
 
   {{!-- Collapsible Item Details --}}
   <section class="card-header description collapsible">
@@ -24,7 +23,9 @@
     {{!-- Details --}}
     <section class="details collapsible-content card-content">
       {{#unless hideItemDetails}}
-      {{{data.description.chat}}}
+      <div class="wrapper">
+        {{{data.description.chat}}}
+      </div>
       {{/unless}}
     </section>
   </section>
@@ -237,26 +238,28 @@
   {{/if}}
 
   {{!-- Applicable Effects --}}
-  <div class="effects-tray collapsible">
+  <div class="effects-tray collapsible collapsed">
     <label class="roboto-upper">
       <i class="fas fa-bolt"></i>
       <span>{{ localize "DND5E.Effects" }}</span>
       <i class="fas fa-caret-down"></i>
     </label>
-    <ul class="effects collapsible-content unlist">
-      {{~#each effects~}}
-      <li class="effect" data-uuid="{{ uuid }}" data-transferred="{{ transfer }}">
-        <img class="gold-icon" alt="{{ name }}" src="{{ img }}">
-        <div class="name-stacked">
-          <span class="title">{{ name }}</span>
-          <span class="subtitle">{{ duration.label }}</span>
-        </div>
-        <button type="button" class="apply-effect" data-action="applyEffect" data-tooltip="DND5E.EffectsApplyTokens"
-          aria-label="{{ localize " DND5E.EffectsApplyTokens" }}">
-          <i class="fas fa-reply-all fa-flip-horizontal"></i>
-        </button>
-      </li>
-      {{~/each~}}
-    </ul>
+    <div class="collapsible-content">
+      <ul class="effects unlist wrapper">
+        {{~#each effects~}}
+        <li class="effect" data-uuid="{{ uuid }}" data-transferred="{{ transfer }}">
+          <img class="gold-icon" alt="{{ name }}" src="{{ img }}">
+          <div class="name-stacked">
+            <span class="title">{{ name }}</span>
+            <span class="subtitle">{{ duration.label }}</span>
+          </div>
+          <button type="button" class="apply-effect" data-action="applyEffect" data-tooltip="DND5E.EffectsApplyTokens"
+            aria-label="{{ localize " DND5E.EffectsApplyTokens" }}">
+            <i class="fas fa-reply-all fa-flip-horizontal"></i>
+          </button>
+        </li>
+        {{~/each~}}
+      </ul>
+    </div>
   </div>
 </div>

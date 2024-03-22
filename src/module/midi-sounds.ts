@@ -188,7 +188,7 @@ export class MidiSounds {
 
   static processHook(workflow, selector) {
     const subtype = this.getSubtype(workflow.item);
-    const baseType = workflow.item?.system.type.baseItem ?? "";
+    const baseType = workflow.item?.system.type?.baseItem ?? "";
     let spec = this.getSpecFor(workflow.item?.parent?.type ?? "all", workflow.item.type, subtype, baseType, selector);
     if (!spec) return false;
     return this.playSpec(spec);

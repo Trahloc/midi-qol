@@ -1206,7 +1206,7 @@ async function _preUpdateActor(wrapped, update, options, user) {
 }
 function itemSheetDefaultOptions(wrapped) {
   const options = wrapped();
-  const modulesToCheck = ["magic-items-2", "items-with-spells-5e", "ready-set-roll-5e"];
+  const modulesToCheck = ["magic-items-2", "magicitems", "items-with-spells-5e", "ready-set-roll-5e"];
   const installedModules = modulesToCheck.filter(mid => game.modules.get(mid)?.active).length + (configSettings.midiFieldsTab ? 1 : 0);
   const newWidth = 560 + Math.max(0, (installedModules - 2) * 100);
   if (options.width < newWidth) {
@@ -1263,8 +1263,8 @@ export let visionPatching = () => {
 
 export function configureDamageRollDialog() {
   try {
-    libWrapper.unregister("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", false);
-    if (configSettings.promptDamageRoll) libWrapper.register("midi-qol", "game.dnd5e.dice.DamageRoll.prototype.configureDialog", CustomizeDamageFormula.configureDialog, "MIXED");
+    libWrapper.unregister("midi-qol", "CONFIG.Dice.DamageRoll.configureDialog", false);
+    if (configSettings.promptDamageRoll) libWrapper.register("midi-qol", "CONFIG.Dice.DamageRoll.configureDialog", CustomizeDamageFormula.configureDialog, "MIXED");
   } catch (err) {
     const message = `midi-qol | error when registering configureDamageRollDialog`;
     TroubleShooter.recordError(err, message);
@@ -1507,13 +1507,47 @@ class CustomizeDamageFormula {
   static formula: string;
   static async configureDialog(wrapped, ...args) {
     // If the option is not enabled, return the original function - as an alternative register\unregister would be possible
-    const [{ title, defaultRollMode, defaultCritical, template, allowCritical }, options] = args;
+    const [rolls, { title, defaultRollMode, defaultCritical, template, allowCritical }, options] = args;
     // Render the Dialog inner HTML
+    const allRolls = rolls.map((roll, index) => ({
+      value: `${roll.formula}${index === 0 ? " + @bonus" : ""}`,
+      type: GameSystemConfig.damageTypes[roll.options.type]?.label ?? null,
+      active: true,
+      label: "Formula",
+      roll,
+      id: randomID()
+    }));
+    const item = rolls[0]?.data.item;
+    //@ts-expect-error
+    const DamageRoll = CONFIG.Dice.DamageRoll;
+    if (item) {
+      if (item.damage.versatile) {
+        allRolls.push({
+          value: item.damage.versatile,
+          type: GameSystemConfig.damageTypes[rolls[0].options.type]?.label ?? null,
+          active: false,
+          label: "Versatile",
+          roll: new DamageRoll(item.damage.versatile, rolls[0].data, rolls[0].options),
+          id: randomID()
+        })
+      }
+      if ((item.formula ?? "").length > 0) {
+        allRolls.push({
+          value: item.formula,
+          type: GameSystemConfig.damageTypes[rolls[0].options.type]?.label ?? null,
+          versatileDamage: item.damage.versatile,
+          active: false,
+          label: "Other",
+          roll: new DamageRoll(item.formula, rolls[0].data, rolls[0].options),
+          id: randomID()
+        })
+      }
+    }
     const content = await renderTemplate(
       //@ts-ignore
-      template ?? this.constructor.EVALUATION_TEMPLATE,
+      "modules/midi-qol/templates/damage-roll-dialog.hbs",
       {
-        formula: `${this.formula} + @bonus`,
+        formulas: allRolls,
         defaultRollMode,
         rollModes: CONFIG.Dice.rollModes,
       }
@@ -1524,6 +1558,7 @@ class CustomizeDamageFormula {
       new Dialog(
         {
           title,
+          rolls: allRolls,
           content,
           buttons: {
             critical: {
@@ -1531,21 +1566,33 @@ class CustomizeDamageFormula {
               condition: allowCritical,
               label: game.i18n.localize("DND5E.CriticalHit"),
               //@ts-ignore
-              callback: (html) => resolve(this._onDialogSubmit(html, true)),
+              callback: html => {
+                let returnRolls = allRolls.filter(r => r.active).map(r => r.roll);
+                returnRolls = returnRolls.map((r, i) => r._onDialogSubmit(html, true, i === 0));
+                rolls.length = 0;
+                rolls.push(...returnRolls);
+                resolve(returnRolls);
+              }
             },
             normal: {
               label: game.i18n.localize(
                 allowCritical ? "DND5E.Normal" : "DND5E.Roll"
               ),
               //@ts-ignore
-              callback: (html) => resolve(this._onDialogSubmit(html, false)),
+              callback: html => {
+                let returnRolls = allRolls.filter(r => r.active).map(r => r.roll);
+                returnRolls = returnRolls.map((r, i) => r._onDialogSubmit(html, false, i === 0));
+                rolls.length = 0;
+                rolls.push(...returnRolls);
+                resolve(returnRolls);
+              },
             },
           },
           default: defaultCritical ? "critical" : "normal",
           // Inject the formula customizer - this is the only line that differs from the original
           render: (html) => {
             try {
-              CustomizeDamageFormula.injectFormulaCustomizer(this, html)
+              CustomizeDamageFormula.activateListeners(html, allRolls);
             } catch (err) {
               const message = `injectFormulaCustomizer`
               error(message, err);
@@ -1559,100 +1606,15 @@ class CustomizeDamageFormula {
     });
   }
 
-  static injectFormulaCustomizer(damageRoll, html) {
-    const item = damageRoll.data.item; // TODO check this v10
-    const damageOptions = {
-      default: damageRoll.formula,
-      versatileDamage: item.damage.versatile,
-      otherDamage: item.formula,
-      parts: item.damage.parts,
-    }
-    const customizerSelect = CustomizeDamageFormula.buildSelect(damageOptions, damageRoll);
-    const fg = $(html).find(`input[name="formula"]`).closest(".form-group");
-    fg.after(customizerSelect);
-    CustomizeDamageFormula.activateListeners(html, damageRoll);
-  }
-
-  static updateFormula(damageRoll, data) {
-    //@ts-ignore
-    const newDiceRoll = new CONFIG.Dice.DamageRoll(data.formula, damageRoll.data, damageRoll.options);
-    CustomizeDamageFormula.updateFlavor(damageRoll, data);
-    damageRoll.terms = newDiceRoll.terms;
-  }
-
-  static updateFlavor(damageRoll, data) {
-    const itemName = damageRoll.options.flavor.split(" - ")[0];
-    const damageType = CustomizeDamageFormula.keyToText(data.damageType);
-    const special = CustomizeDamageFormula.keyToText(data.key) === damageType ? "" : CustomizeDamageFormula.keyToText(data.key);
-    const newFlavor = `${itemName} - ${special} ${CustomizeDamageFormula.keyToText("damageRoll")} ${damageType ? `(${damageType.replace(" - ", "")})` : ""}`;
-    Hooks.once("preCreateChatMessage", (message) => {
-      message.updateSource({ flavor: newFlavor }); // TODO check this v10
-    });
-  }
-
-  static buildSelect(damageOptions, damageRoll) {
-    const select = $(`<select id="customize-damage-formula"></select>`);
-    for (let [k, v] of Object.entries(damageOptions)) {
-      if (k === "parts") {
-        //@ts-ignore
-        for (let part of v) {
-          //@ts-ignore
-          const index = v.indexOf(part);
-          const adjustedFormula = CustomizeDamageFormula.adjustFormula(part, damageRoll);
-          select.append(CustomizeDamageFormula.createOption(part[1], part, index));
-        }
-      } else {
-        //@ts-ignore
-        if (v) select.append(CustomizeDamageFormula.createOption(k, v));
-      }
-    }
-    const fg = $(`<div class="form-group"><label>${CustomizeDamageFormula.keyToText("customizeFormula")}</label></div>`)
-    fg.append(select);
-    return fg;
-  }
-
-  static createOption(key, data, index) {
-    const title = CustomizeDamageFormula.keyToText(key)
-    if (typeof data === "string") {
-      return $(`<option data-damagetype="" data-key="${key}" data-index="" value="${data}">${title + data}</option>`);
-    } else {
-      return $(`<option data-damagetype="${data[1]}" data-key="${key}" data-index="${index}" value="${data[0]}">${title + data[0]}</option>`);
-    }
-  }
-
-  static adjustFormula(part, damageRoll) {
-    if (damageRoll.data.item.level) { // check this v10
-      //adjust for level scaling
-    }
-    return part;
-  }
-
-  static keyToText(key) {
-    //localize stuff
-    switch (key) {
-      case "damageRoll":
-        return "Damage Roll";
-      case "customizeFormula":
-        return "Customize Formula";
-      case "versatileDamage":
-        return "Versatile - ";
-      case "otherDamage":
-        return "Other - ";
-      case "default":
-        return "Default - ";
-    }
-    return key.charAt(0).toUpperCase() + key.slice(1) + " - ";
-  }
-
-  static activateListeners(html, damageRoll) {
-    $(html).find(`select[id="customize-damage-formula"]`).on("change", (e) => {
-      const selected = $(e.currentTarget).find(":selected");
-      $(html).find(`input[name="formula"]`).val(selected.val() + " + @bonus");
-      CustomizeDamageFormula.updateFormula(damageRoll, { formula: selected.val() + " + @bonus", key: selected.data("key"), damageType: selected.data("damagetype"), partsIndex: selected.data("index") });
+  static activateListeners(html, allRolls) {
+    html.find('input[name="formula.active"]').on("click", (e) => {
+      const id = e.currentTarget.dataset.id;
+       const theRoll = allRolls.find(r => r.id === id)
+       theRoll.active = e.currentTarget.checked;
     })
   }
-
 }
+
 export function processTraits(actor) {
   try {
     if (!actor.system.traits) return;
@@ -1883,6 +1845,7 @@ function actorGetRollData(wrapped, ...args) {
   data.actorType = this.type;
   data.name = this.name;
   data.midiFlags = (this.flags && this.flags["midi-qol"]) ?? {};
+  data.flags.midiqol = getProperty(data.flags, "midi-qol");
   data.items = this.items;
   if (game.system.id === "dnd5e") {
     data.cfg = {};

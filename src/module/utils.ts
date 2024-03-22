@@ -694,10 +694,26 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       return acc;
     }, {});
     dnd5eDamages = Object.keys(dnd5eDamages).map(key => ({ type: key, value: dnd5eDamages[key] }));
-    Hooks.call("dnd5e.calculateDamage", t.actor, dnd5eDamages, {});
+    const dnd5eOptions = {
+      midi: {
+        item,
+        superSavers: workflow.superSavers,
+        semiSuperSavers: workflow.semiSuperSavers,
+        target: t,
+        isCritical: workflow.isCritical,
+        isFumble: workflow.isFumble,
+        fumbleSave: workflow.fumbleSaves?.has(t),
+        criticalSave: workflow.criticalSaves?.has(t)
+      }
+    };
+    if (options.hitTargets.has(t)) {
+      Hooks.call("dnd5e.calculateDamage", t.actor, dnd5eDamages, dnd5eOptions);
+      Hooks.call("dnd5e.applyDamage", t.actor, appliedDamage, dnd5eOptions);
+    }
     // delete workflow.damageItem
     damageList.push(ditem);
-    targetNames.push(t.name)
+    targetNames.push(t.name);
+
 
     if (ditem.appliedDamage !== 0 && ditem.wasHit) {
       const healedDamaged = ditem.appliedDamage < 0 ? "isHealed" : "isDamaged";
@@ -855,23 +871,27 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   else if ((getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default") === "default"
     && itemOtherFormula(workflow.saveItem) === "") baseDamageSaves = workflow.saves ?? new Set()
 
+
   if (configSettings.v3DamageApplication) {
-    for (let [damageDetail, typeSaves, type] of [[workflow.damageDetail, baseDamageSaves, "defaultDamage"], [workflow.bonusDamageDetail, bonusDamageSaves, "bonusDamage"], [workflow.otherDamageDetail, workflow.saves, "otherDamage"]]) {
-      for (let token of theTargets) {
+    for (let token of theTargets) {
+      for (let [damageDetail, typeSaves, type] of [[workflow.damageDetail, baseDamageSaves, "defaultDamage"], [workflow.bonusDamageDetail, bonusDamageSaves, "bonusDamage"], [workflow.otherDamageDetail, workflow.saves, "otherDamage"]]) {
         if (token.actor) {
+          const allDamages = [];
           const options = {
+            invertHealing: true,
             midi: {
               type,
-              saves: typeSaves,
+              saved: typeSaves?.has(token),
               item,
-              superSavers: workflow.superSavers,
-              semiSuperSavers: workflow.semiSuperSavers,
+              superSavers: workflow.superSavers?.has(token),
+              semiSuperSavers: workflow.semiSuperSavers?.has(token),
               token
             }
           };
           const damages = damageDetail?.map(d => ({ value: d.damage, type: d.type }))
+          
           //@ts-expect-error
-          if (damages) await token.actor.applyDamage(damages, options);
+          if (damages) allDamages.push(await token.actor.calculateDamage(damages, options));
         }
       }
     }
@@ -2408,7 +2428,7 @@ export async function addConcentrationEffect(actor, concentrationData: Concentra
   }
   if (!statusEffect) {
     //@ts-expect-error
-    statusEffect = CONFIG.statusEffects.find(e => e.name.toLowerCase() ===  i18n("EFFECT.DND5E.StatusConcentrating").toLowerCase());
+    statusEffect = CONFIG.statusEffects.find(e => e.name.toLowerCase() === i18n("EFFECT.DND5E.StatusConcentrating").toLowerCase());
     if (statusEffect) {
       console.warn("midi-qol | addConcentrationEffect | matched concentration effect by name - this will fail in dnd5e 3.1")
       statusEffect = new ActiveEffect.implementation(duplicate(statusEffect), { keepId: true });
@@ -3409,7 +3429,7 @@ function maxCastLevel(actor) {
 
 async function getMagicItemReactions(actor: Actor, triggerType: string): Promise<ReactionItem[]> {
   //@ts-expect-error .api
-  const api = game.modules.get("magic-items-2")?.api;
+  const api = game.modules.get("magicitems")?.api ?? game.modules.get("magic-items-2")?.api;
   if (!api) return [];
   const items: ReactionItem[] = [];
   try {
@@ -3564,7 +3584,6 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     }
 
     if (reactionCount <= 0) return noResult;
-
 
     let chatMessage;
     const reactionFlavor = game.i18n.format(reactionPromptFor(triggerType), { itemName: (options.item?.name ?? "unknown"), actorName: target.name });
@@ -3816,7 +3835,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
             else resolve({ name: item?.name, uuid: item?.uuid })
           } else { // assume it is a magic item item
             //@ts-expect-error
-            const api = game.modules.get("magic-items-2")?.api;
+            const api = game.modules.get("magicitems")?.api ?? game.modules.get("magic-items-2")?.api;
             if (api) {
               const magicItemActor = await api?.actor(actor)
               if (magicItemActor) {
@@ -4050,7 +4069,8 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
   try {
     const src = 'with (sandbox) { return ' + expression + '}';
     const evl = new Function('sandbox', src);
-    sandbox = mergeObject(sandbox, { findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated });
+    //@ts-expect-error
+    sandbox = mergeObject(sandbox, { findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, fromUuidSync });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4140,6 +4160,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     rollData.workflow = {};
     rollData.effects = actor?.appliedEffects; // not needed since this is set in getRollData
     if (data.workflow) {
+      rollData.w = data.workflow;
       Object.assign(rollData.workflow, data.workflow);
       rollData.workflow.otherDamageItem = data.workflow.otherDamageItem?.getRollData().item;
       rollData.workflow.hasSave = data.workflow.hasSave;

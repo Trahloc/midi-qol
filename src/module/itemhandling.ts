@@ -296,10 +296,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       }
     }
 
-    const isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
-    const isAoETargeting = this.hasAreaTarget;
-    const requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
-
+    let isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
+    let isAoETargeting = this.hasAreaTarget;
+    let requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
     let speaker = getSpeaker(this.actor);
 
     // Call preTargeting hook/onUse macro. Create a dummy workflow if one does not already exist for the item
@@ -310,6 +309,11 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const results = await tempWorkflow.callMacros(this, tempWorkflow.onUseMacros?.getMacros("preTargeting"), "OnUse", "preTargeting");
       cancelWorkflow ||= results.some(i => i === false);
     }
+
+    isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
+    isAoETargeting = this.hasAreaTarget;
+    requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
+
     options = tempWorkflow.options;
     mergeObject(options.workflowOptions, tempWorkflow.workflowOptions, { inplace: true, insertKeys: true, insertValues: true, overwrite: true })
     const existingWorkflow = Workflow.getWorkflow(this.uuid);
@@ -1307,7 +1311,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     if (workflow.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", workflow.flagTags);
     // Temp items (id undefined) or consumables that were removed need itemData set.
     if (!this.id || (this.type === "consumable" && !this.actor.items.has(this.id))) {
-      chatData.flags[`${game.system.id}.itemData`] = this.toObject(); // TODO check this v10
+      setProperty(chatData, `flags.${game.system.id}.itemData`, this.toObject()); // TODO check this v10
     }
     setProperty(chatData, `flags.${game.system.id}.roll.type`, "midi");
 

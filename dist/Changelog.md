@@ -1,3 +1,10 @@
+## 11.4.15
+* Customize damage dialog has had an overhaul to work in dnd5e 3.0+. It now allows you to select which of the various damage parts, versatile and/or other formula to roll as part of the base damage for an item. This is a poor man's version of what roll groups let's you do.
+* Support for magicitems which is the mainstream version of magic-items-2
+* Support for new 3.1 chat cards.
+* NOT compatible with dnd5e concentration yet.
+* NOT compatible with dnd5e damage application yet.
+
 ## 11.4.14
 * Display save dc in monks token bar if requested.
 * Skills rolls will now roll with ghost dice if skill rolls are rolled blind.

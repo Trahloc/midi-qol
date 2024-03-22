@@ -17,7 +17,8 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
         continue;
       } else if (multiRolls) rolls = [rollsToAccumulate[i]];
       else rolls = rollsToAccumulate;
-      let { formula, total, breakdown } = rolls.reduce((obj: any, r) => {
+      //@ts-expect-error
+      let { formula, total, breakdown } = game.system.dice.aggregateDamageRolls(rolls).reduce((obj: any, r) => {
         obj.formula.push(r.formula);
         obj.total += r.total;
         this._aggregateDamageRoll(r, obj.breakdown);
@@ -86,9 +87,11 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
       roll.innerHTML = `
       <div class="dice-result">
       ${formulaInToolTip ? "" : diceFormula}
-        <div class="dice-tooltip">
-          ${formulaInToolTip ? diceFormula : ""}
-          ${tooltipContents}
+        <div class="dice-tooltip-collapser">
+          <div class="dice-tooltip">
+            ${formulaInToolTip ? diceFormula : ""}
+            ${tooltipContents}
+          </div>
         </div>
         <h4 class="dice-total">${total}</h4>
       </div>
@@ -124,8 +127,18 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
         }
       }
     }
+    if ( game.user?.isGM && configSettings.v3DamageApplication){
+      const damageApplication = document.createElement("damage-application");
+      damageApplication.classList.add("dnd5e2");
+      //@ts-expect-error
+      damageApplication.damages = game.system.dice.aggregateDamageRolls(rolls.filter(r=> r instanceof game.system.dice.DamageRoll), { respectProperties: true }).map(roll => ({
+        value: roll.total,
+        type: roll.options.type,
+        properties: new Set(roll.options.properties ?? [])
+      }));
+      html.querySelector(".message-content").appendChild(damageApplication);
+    }
   }
-
   enrichAttackRolls(html) {
     if (!this.user.isGM || game.user?.isGM) return;
     const hitFlag = getProperty(this.flags, "midi-qol.isHit");
