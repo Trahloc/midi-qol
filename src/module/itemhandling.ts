@@ -1623,8 +1623,8 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
 
 // TODO work out this in new setup
 export function shouldRollOtherDamage(workflow: Workflow, conditionFlagNonSpell: string, conditionFlagSpell: string) {
-  if (this.type === "spell" && conditionFlagSpell === "off") return false;
-  if (this.type !== "spell" && conditionFlagNonSpell === "off") return false;
+  if (this.type === "spell" && conditionFlagSpell === "none") return false;
+  if (this.type !== "spell" && conditionFlagNonSpell === "none") return false;
   if (this.type === "spell" && conditionFlagSpell === "always") return true;
   if (this.type !== "spell" && conditionFlagNonSpell === "always") return true;
   let rollOtherDamage = true;
