@@ -4115,7 +4115,7 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
   const systemData = actor?.system;
   if (!systemData) return "";
   if (systemData.details.race) return (systemData.details?.race?.name ?? systemData.details?.race)?.toLocaleLowerCase() ?? "";
-  return systemData.details.type?.value?.toLocaleLowerCase() ?? "";
+  return systemData.details.type?.value.toLocaleLowerCase() ?? "";
 }
 
 export function effectActivationConditionToUse(workflow: Workflow) {
