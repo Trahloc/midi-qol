@@ -1,14 +1,16 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getConvenientEffectsReaction, getConvenientEffectsBonusAction, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache, tokenForActor, getSaveMultiplierForItem, expireEffects } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache, tokenForActor, getSaveMultiplierForItem, expireEffects, evalCondition, createConditionData } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
-import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
+import { checkMechanic, checkRule, configSettings, dragDropTargeting, safeGetGameSetting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentrationEffects, zeroHPExpiry, canRemoveConcentration } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
 import { isEmptyObject } from "jquery";
+import { ActorOnUseMacrosConfig } from "./apps/ActorOnUseMacroConfig.js";
+import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -30,8 +32,8 @@ export let readyHooks = async () => {
         let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
         if (temphpDiff > 0) concHPDiff += temphpDiff
       }
+      setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff);
     }
-    setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff);
     return true;
   })
 
@@ -97,19 +99,21 @@ export let readyHooks = async () => {
       // if (globalThis.DAE?.actionQueue && !globalThis.DAE.actionQueue.remaining) await globalThis.DAE.actionQueue.add(hpUpdateFunc);
       // else await hpUpdateFunc();
       await hpUpdateFunc();
-      if (configSettings.concentrationAutomation && configSettings.doConcentrationCheck && hpDiff > 0 && !options.noConcentrationCheck) {
-        // expireRollEffect.bind(actor)("Damaged", ""); - not this simple - need to think about specific damage types
-        concentrationCheckItemDisplayName = i18n("midi-qol.concentrationCheckName");
-        const concentrationEffect: ActiveEffect | undefined = getConcentrationEffect(actor)
-        if (concentrationEffect) {
-          if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
+      if (!safeGetGameSetting("dnd5e", "disableConcentration") && !options.noConcentrationCheck && hpDiff > 0) {
+        if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
+          await actor.endConcentration();
+        }
+      } else if (configSettings.concentrationAutomation && hpDiff > 0 && !options.noConcentrationCheck) {
+        if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
+          const concentrationEffect = getConcentrationEffect(actor);
+          if (concentrationEffect) {
             if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(concentrationEffect.delete.bind(concentrationEffect));
             else await concentrationEffect.delete();
-          } else {
-            const saveDC = Math.max(10, Math.floor(hpDiff / 2));
-            if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(doConcentrationCheck, actor, saveDC);
-            else await doConcentrationCheck(actor, saveDC);
           }
+        } else if (configSettings.doConcentrationCheck) {
+          const saveDC = Math.max(10, Math.floor(hpDiff / 2));
+          if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(doConcentrationCheck, actor, saveDC);
+          else await doConcentrationCheck(actor, saveDC);
         }
       }
     }
@@ -131,36 +135,40 @@ export let readyHooks = async () => {
     let [deletedEffect, options, user] = args;
     if (options.undo) return; // TODO check that this is right
     const checkConcentration = configSettings.concentrationAutomation;
-    if (!checkConcentration || options.noConcentrationCheck) return;
     //@ts-expect-error activeGM
     if (!game.users?.activeGM?.isSelf) return;
     if (!(deletedEffect.parent instanceof CONFIG.Actor.documentClass)) return;
     if (debugEnabled > 0) warn("deleteActiveEffectHook", deletedEffect, deletedEffect.parent.name, options);
-    const concentrationLabel: any = getConcentrationLabel();
     const isConcentration = getProperty(deletedEffect, "flags.midi-qol.isConcentration") ?? false;
     async function changefunc() {
       try {
-        if (isConcentration) {
+        //@ts-expect-error
+        let origin = fromUuidSync(deletedEffect.origin);
+        if (origin instanceof ActiveEffect && !options.noConcentrationCheck && configSettings.removeConcentrationEffects !== "none" && !safeGetGameSetting("dnd5e", "disableConcentration")) {
+          //@ts-expect-error
+          if ((origin.getFlag("dnd5e", "dependents")) && origin.getDependents().length === 0) {
+            await origin.delete();
+          }
+        } else if (isConcentration && checkConcentration) {
           if (!options.noConcentrationCheck)
             removeConcentrationEffects(deletedEffect.parent, deletedEffect.uuid, mergeObject(options, { noConcentrationCheck: true }));
         } else {
-          let origin = await fromUuid(deletedEffect.origin);
           if (origin instanceof ActiveEffect) { // created by dnd5e
             origin = origin.parent;
           }
-          if (origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass && !options.noConcentrationCheck) {
+          if (checkConcentration && !options.noConcentrationCheck && origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
             const concentrationData = getProperty(origin.parent, "flags.midi-qol.concentration-data");
             if (concentrationData && deletedEffect.origin === concentrationData.uuid && canRemoveConcentration(concentrationData, deletedEffect.uuid)) {
               removeConcentrationEffects(origin.parent, deletedEffect.uuid, mergeObject(options, { noConcentrationCheck: true }));
             }
           }
         }
-        if (getConvenientEffectsReaction() && deletedEffect.name === getConvenientEffectsReaction()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
+        if (getReactionEffect() && deletedEffect.name === getReactionEffect()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
           // TODO see if this can massaged into a single transaction
           await deletedEffect.parent?.unsetFlag("midi-qol", "actions.reactionCombatRound");
           await deletedEffect.parent?.setFlag("midi-qol", "actions.reaction", false);
         }
-        if (getConvenientEffectsBonusAction() && deletedEffect.name === getConvenientEffectsBonusAction()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
+        if (getBonusActionEffect() && deletedEffect.name === getBonusActionEffect()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
           // TODO see if this can massaged into a single transaction
           await deletedEffect.parent.setFlag("midi-qol", "actions.bonus", false);
           await deletedEffect.parent.unsetFlag("midi-qol", "actions.bonusActionCombatRound");
@@ -186,6 +194,11 @@ export let readyHooks = async () => {
 
   Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
     if (rollConfig.fastForward && rollConfig.dialogOptions.babonus?.optionals?.length) rollConfig.fastForward = false;
+    if ((item.parent instanceof Actor && item.type === "spell")) {
+      const actor = item.parent;
+      const actorSpellBonus = getProperty(actor, "system.bonuses.spell.all.damage");
+      if (actorSpellBonus) rollConfig.rollConfigs[0].parts.push(actorSpellBonus);
+    }
     return preRollDamageHook(item, rollConfig)
   });
   // Hooks.on("dnd5e.rollDamage", rollDamageMacro);
@@ -501,6 +514,15 @@ export function initHooks() {
           !data.item.hasAreaTarget,
       })
     );
+    api.config.actorTraits.registerActorTrait({
+      title: i18n("midi-qol.ActorOnUseMacros"),
+      iconClass: "fas fa-cog",
+      enabled: () => configSettings.allowActorUseMacro,
+      openConfiguration: (params) => {
+        new ActorOnUseMacrosConfig(params.app.object, {}).render(true);
+      },
+      openConfigurationTooltip: i18n("midi-qol.ActorOnUseMacros"),
+    });
 
   });
 
@@ -849,37 +871,165 @@ export const itemJSONData = {
 
 Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
-  if (!options.midi) return true;
   const mo = options.midi;
-  if (mo.saveMultiplier !== undefined) options.multiplier = mo.saveMultiplier;
-  else if (mo.saves.has(mo.token)) {
-    options.multiplier = getSaveMultiplierForItem(mo.item, mo.type);
-  } else if (mo.superSavers.has(mo.token)) {
-    options.multiplier = getSaveMultiplierForItem(mo.item, mo.type) === 0.5 ? 0 : 0.5;
-  } else if (mo.semiSuperSavers.has(mo.token)) {
-    options.multiplier = getSaveMultiplierForItem(mo.item, mo.type) === 0.5 ? 0 : 1;
+  if (mo) {
+    if (configSettings.saveDROrder === "DRSavedr" && mo.saveMultiplier) {
+      options.multiplier = mo.saveMultiplier;
+    } else if (configSettings.saveDROrder === "SaveDRdr" && mo.saveMultiplier) {
+      options.multiplier = 1;
+      for (let damage of damages) {
+        damage.value = damage.value * mo.saveMultiplier;
+      }
+    }
+    for (let damage of damages) {
+      if (mo.saved) {
+        setProperty(damage, "active.saved", true);
+      }
+      if (mo.superSaver) {
+        setProperty(damage, "active.superSaver", true);
+      }
+      if (mo.semiSuperSaver) {
+        setProperty(damage, "active.semiSuperSaver", true);
+      }
+    }
   }
+  const totalDamage = damages.reduce((a, b) => a + b.value, 0);
+  setProperty(options, "midi.totalDamage", totalDamage);
   return true;
 });
 
 Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
-  // Apply absorption
 
-  setProperty(options, "midi.damages", damages);
-  // Insert DR.ALL as a -ve damage value maxed at the total damage.
-  if (getProperty(actor, "system.traits.dm.midi-qol.all")) {
-    const drAll = getProperty(actor, "system.traits.dm.midi-qol.all");
-    if (drAll) {
-      let dr = new Roll(drAll, actor.getRollData()).evaluate({ async: false })?.total;
-      if (dr) {
-        const totalDamage = damages.reduce((a, b) => a + b.value, 0);
-        if (Math.sign(totalDamage) !== Math.sign(dr + totalDamage)) {
-          dr = -totalDamage;
-        }
-        damages.push({ type: "none", value: dr });
+  const mo = options.midi;
+  if (mo) { // adjust multiplier for midi configuration
+    for (let damage of damages) {
+      // not sure how to do this. if (damage.active.immunity) damage.multiplier = configSettings.damageImmunityMultiplier;
+      if (damage.active.resistance) {
+        damage.value = damage.value * 2 * configSettings.damageResistanceMultiplier;
+        damage.active.multiplier = damage.active.multiplier * 2 * configSettings.damageResistanceMultiplier;
+      }
+      if (damage.active.vulnerability) {
+        damage.actice.multiplier = damage.active.multiplier / 2 * configSettings.damageVulnerabilityMultiplier;
+        damage.value = damage.value / 2 * configSettings.damageVulnerabilityMultiplier;
       }
     }
+  }
+  const ignore = (category, type, skipDowngrade) => {
+    return options.ignore === true
+      || options.ignore?.[category] === true
+      || options.ignore?.[category]?.has?.(type)
+  };
+
+  if (actor.system.traits.da) {
+    for (let damage of damages) {
+      if (ignore("absorption", damage.type, false)) continue;
+      if (actor.system.traits.da?.[damage.type] || actor.system.traits.da?.all) {
+        setProperty(damage, "active.absorption", true);
+        setProperty(damage, "multiplier", -1);
+        damage.value = damage.value * -1;
+      }
+    }
+  }
+
+  // Insert DR.ALL as a -ve damage value maxed at the total damage.
+  let drAll = 0;
+  if (options.ignore !== true && !options.ignore?.modification.has("none") && !options.ignore?.modification.has("all")) {
+    if (getProperty(actor, "system.traits.dm.midi.all")) {
+      let dr = new Roll(`${getProperty(actor, "system.traits.dm.midi.all")}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+      dr = Math.min(dr, options.midi.totalDamage);
+      if (checkRule("maxDRValue") && dr > drAll)
+        drAll = dr;
+      else if (!checkRule("maxDRValue"))
+        drAll += dr;
+    }
+
+    for (let actType of Object.keys(GameSystemConfig.itemActionTypes)) {
+      if (!options.ignore?.modification?.has(actType)) {
+        if (getProperty(actor, `system.traits.dm.midi.${actType}`) && damages && damages[0]?.properties?.has(actType)) {
+          let dr = new Roll(getProperty(actor, `system.traits.dm.midi.${actType}`), actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+          if (checkRule("maxDRValue") && dr > drAll)
+            drAll = dr;
+          else if (!checkRule("maxDRValue"))
+            drAll += dr;
+        }
+      }
+    }
+    const physicalDamage = damages.reduce((total, damage) => {
+      //@ts-expect-error
+      const isPhysical = game.system.config.damageTypes[damage.type]?.isPhysical;
+      total += isPhysical ? damage.value : 0;
+      return total;
+    }, 0);
+
+    for (let special of Object.keys(actor.system.traits.dm?.midi ?? {})) {
+      let dr;
+      let selectedDamage;
+      switch (special) {
+        case "non-magical":
+          dr = new Roll(`${actor.system.traits.dm.midi["non-magical"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+          selectedDamage = damages.reduce((total, damage) => {
+            //@ts-expect-error
+            const isNonMagical = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mag");
+            total += isNonMagical ? damage.value : 0;
+            return total;
+          }, 0);
+          dr = Math.min(dr, selectedDamage)
+          if (checkRule("maxDRValue") && dr > drAll)
+            drAll = dr;
+          else if (!checkRule("maxDRValue"))
+            drAll += dr;
+          break;
+        case "non-silver":
+          dr = new Roll(`${actor.system.traits.dm.midi["non-silver"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+          selectedDamage = damages.reduce((total, damage) => {
+            //@ts-expect-error
+            const isNonSilver = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("sil");
+            total += isNonSilver ? damage.value : 0;
+            return total;
+          }, 0);
+          dr = Math.min(dr, selectedDamage)
+          if (checkRule("maxDRValue") && dr > drAll)
+            drAll = dr;
+          else if (!checkRule("maxDRValue"))
+            drAll += dr;
+          break;
+        case "non-adamant":
+          dr = new Roll(`${actor.system.traits.dm.midi["non-adamant"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+          selectedDamage = damages.reduce((total, damage) => {
+            //@ts-expect-error
+            const isNonSilver = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("adm");
+            total += isNonSilver ? damage.value : 0;
+            return total;
+          }, 0);
+          dr = Math.min(dr, selectedDamage)
+          if (checkRule("maxDRValue") && dr > drAll)
+            drAll = dr;
+          else if (!checkRule("maxDRValue"))
+            drAll += dr;
+          break;
+        case "spell":
+          if (actor.system.traits.dm.midi["spell"]) {
+            let dr = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+            selectedDamage = damages.reduce((total, damage) => {
+              const isSpell = damage.properties.has("spell");
+              total += isSpell ? damage.value : 0;
+              return total;
+            }, 0);
+            dr = Math.min(dr, selectedDamage);
+            if (checkRule("maxDRValue") && dr > drAll)
+              drAll = dr;
+            else if (!checkRule("maxDRValue"))
+              drAll += dr;
+          }
+          break;
+      }
+    }
+    const totalDamage = damages.reduce((a, b) => a + b.value, 0);
+    if (Math.sign(totalDamage) !== Math.sign(drAll + totalDamage)) {
+      drAll = -totalDamage;
+    }
+    if (drAll) damages.push({ type: "none", value: drAll, active: { modification: true, multiplier: 1 }, properties: new Set() });
   }
   return true;
 });
@@ -898,4 +1048,27 @@ Hooks.on("dnd5e.preApplyDamage", (actor, amount, updates, options) => {
     setProperty(options, "midi.updates", updates);
   }
   return true;
+});
+
+Hooks.on("dnd5e.preRollConcentration", (actor, options) => {
+  // insert advantage and disadvantage
+  // insert midi bonuses.
+  const concAdvFlag = getProperty(actor, "flags.midi-qol.advantage.concentration");
+  const concDisadvFlag = getProperty(actor, "flags.midi-qol.disadvantage.concentration");
+  let concAdv = options.advantage;
+  let concDisadv = options.disadvantage;
+  if (concAdvFlag || concDisadvFlag) {
+    const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
+    if (concAdvFlag && evalCondition(concAdvFlag, conditionData)) concAdv = true;
+    if (concDisadvFlag && evalCondition(concDisadvFlag, conditionData)) concDisadv = true;
+  }
+  if (concAdv && !concDisadv) {
+    options.advantage = true;
+  } else if (!concAdv && concDisadv) {
+    options.disadvantage = true;
+  }
+})
+
+Hooks.on("dnd5e.rollConcentration", (actor, roll) => {
+  if (configSettings.removeConcentration && roll.options.success === false) actor.endConcentration();
 });

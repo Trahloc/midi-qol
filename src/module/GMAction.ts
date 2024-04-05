@@ -1,5 +1,5 @@
 import { checkRule, configSettings } from "./settings.js";
-import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug } from "../midi-qol.js";
+import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig } from "../midi-qol.js";
 import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
 import { Workflow } from "./workflow.js";
@@ -9,7 +9,7 @@ import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { installedModules } from "./setupModules.js";
 
 export var socketlibSocket: any = undefined;
-var traitList = { di: {}, dr: {}, dv: {} };
+var traitList = { di: {}, dr: {}, dv: {}, dm: {}, da: {} };
 
 export let setupSocket = () => {
   socketlibSocket = globalThis.socketlib.registerModule("midi-qol");
@@ -28,6 +28,7 @@ export let setupSocket = () => {
   socketlibSocket.register("createChatMessage", createChatMessage);
   socketlibSocket.register("createEffects", createEffects);
   socketlibSocket.register("createReverseDamageCard", createReverseDamageCard);
+  socketlibSocket.register("createV3ReverseDamageCard", createV3ReverseDamageCard);
   socketlibSocket.register("D20Roll", _D20Roll);
   socketlibSocket.register("ddbglPendingFired", ddbglPendingFired);
   socketlibSocket.register("deleteEffects", deleteEffects);
@@ -103,7 +104,7 @@ export class SaferSocket {
       case "removeEffects":
       case "updateActor":
       case "updateEffects":
-        case "_gmSetFlag":
+      case "_gmSetFlag":
       case "_gmUnsetFlag":
         if (game.user?.isTrusted) return true;
         ui.notifications?.warn(`midi-qol | user ${game.user?.name} must be a trusted player to call ${handler} and will be disabled in the future`);
@@ -479,7 +480,7 @@ export async function deleteEffectsByUuid(data: { effectsToDelete: string[], opt
     if (effect !== undefined && !isEffectExpired(effect)) {
       if (effect.transfer)
         await effect.update({ disabled: true });
-      else 
+      else
         await effect.delete();
     }
   }
@@ -583,6 +584,8 @@ export function initGMActionSetup() {
   traitList.di = i18n("DND5E.DamImm");
   traitList.dr = i18n("DND5E.DamRes");
   traitList.dv = i18n("DND5E.DamVuln");
+  traitList.da = "da";
+  traitList.dm = "dm";
   traitList.di = "di";
   traitList.dr = "dr";
   traitList.dv = "dv";
@@ -666,8 +669,266 @@ export function monksTokenBarSaves(data: { tokenData: any[]; request: any; silen
       isMagicSave: data.isMagicSave
     });
 }
+async function createV3ReverseDamageCard(data: {
+  allDamages: any[],
+  baseDamageRolls: Roll[],
+  autoApplyDamage: string,
+  flagTags: any,
+  sender: string,
+  charName: string,
+  actorUuid: string,
+  updateContext: any,
+  forceApply: boolean,
+  actorId: string
+}
+) {
+  let cardIds: string[] = [];
+  let cardId = await createV3PlayerDamageCard(data);
+  if (cardId) cardIds.push(cardId);
+  let id;
+  if (Object.values(data.allDamages).some(de => de.isHit)) {
+    id = await createV3GMReverseDamageCard(data, true);
+    if (id) cardIds.push(id);
+  }
+  if (Object.values(data.allDamages).some(de => !de.isHit) && ["yesCardMisses", "noCardMisses"].includes(data.autoApplyDamage)) {
+    id = await createV3GMReverseDamageCard(data, false);
+    if (id) cardIds.push(id);
+  }
+  return cardIds;
+}
 
-async function createReverseDamageCard(data: { damageList: any; autoApplyDamage: string; flagTags: any, sender: string, charName: string, actorId: string, updateContext: any, forceApply: boolean }): Promise<string[]> {
+async function createV3PlayerDamageCard(data: {
+  allDamages: any[],
+  autoApplyDamage: string,
+  flagTags: any,
+  sender: string,
+  charName: string,
+  actorUuid: string,
+  updateContext: any,
+  forceApply: boolean
+}, doHits: boolean = true): Promise<string | undefined> {
+  let chatCardUuid;
+  return "";
+}
+
+async function createV3GMReverseDamageCard(
+  data: {
+    baseDamageRolls: Roll[],
+    allDamages: any[],
+    autoApplyDamage: string,
+    flagTags: any,
+    sender: string,
+    charName: string,
+    actorUuid: string,
+    updateContext: any,
+    forceApply: boolean,
+    actorId: string
+  },
+  doHits: boolean = true): Promise<string | undefined> {
+  let chatCardUuid;
+  const damageWasApplied = (doHits && (["yes", "yesCard", "yesCardMisses"].includes(data.autoApplyDamage)) || data.forceApply);
+  const tokenIdList: any[] = [];
+  let templateData = {
+    damageWasApplied,
+    damageApplied: damageWasApplied ? i18n("midi-qol.HPUpdated") : data.autoApplyDamage === "yesCardNPC" ? i18n("midi-qol.HPNPCUpdated") : i18n("midi-qol.HPNotUpdated"),
+    damageList: [],
+    needsButtonAll: false,
+    tooltip: ""
+  };
+  //@ts-expect-error
+  const aggregator = game.system.dice.aggregateDamageRolls;
+  const baseDamageRolls = aggregator(data.baseDamageRolls, { respectProperties: false });
+  const baseDamage = baseDamageRolls.map(roll => ({
+    value: roll.total,
+    type: roll.options.type,
+    properties: new Set(roll.options.properties ?? [])
+  }));
+  for (let uuid of Object.keys(data.allDamages)) {
+    let damageItem = data.allDamages[uuid];
+    //@ts-expect-error
+    const tokenDocument = fromUuidSync(uuid);
+
+    const actor = tokenDocument.actor;
+    if (!tokenDocument || !actor) continue;
+    let appliedDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + dArray.reduce((acc, di) => acc + ((di.type === "temphp") ? 0 : di.value), 0), 0);
+    appliedDamage = appliedDamage < 0 ? Math.ceil(appliedDamage) : Math.floor(appliedDamage);
+    let appliedTempDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + dArray.reduce((acc, di) => acc + ((di.type !== "temphp") ? 0 : di.value), 0), 0);
+    appliedTempDamage = appliedTempDamage < 0 ? Math.ceil(appliedTempDamage) : Math.floor(appliedTempDamage);
+    if (actor.system.attributes.hp.temp > appliedTempDamage) {
+      const remainingTempHP = Math.max(0, actor.system.attributes.hp.temp - appliedTempDamage);
+      if (appliedDamage > remainingTempHP) {
+        appliedDamage -= remainingTempHP;
+        appliedTempDamage = actor.system.attributes.hp.temp;
+      } else {
+        appliedTempDamage += appliedDamage;
+        appliedDamage = 0;
+      }
+    }
+    if (doHits && !damageItem.isHit) continue;
+    if (!doHits && damageItem.isHit) continue;
+    // if (doHits && !damageItem.isHit) continue;
+    const oldHP = actor.system.attributes.hp.value;
+    let oldVitality = 0;
+    let newVitality = 0;
+    const vitalityResource = checkRule("vitalityResource");
+    if (appliedDamage > oldHP) { // Chec for vitality damage
+      if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+        oldVitality = getProperty(actor, vitalityResource.trim()) ?? 0;
+        newVitality = Math.max(0, oldVitality - (appliedDamage - oldHP));
+      }
+    }
+    const newHP = Math.min(actor.system.attributes.hp.effectiveMax, Math.max(0, oldHP - appliedDamage));
+    const oldTempHP = actor.system.attributes.hp.temp;
+    const newTempHP = Math.max(0, oldTempHP - appliedTempDamage);
+    appliedDamage = (oldHP - newHP);
+    let img = tokenDocument?.texture.src || actor.img;
+    if (configSettings.usePlayerPortrait && actor.type === "character")
+      img = actor?.img || tokenDocument?.texture.src;
+    if (VideoHelper.hasVideoExtension(img)) {
+      //@ts-ignore - createThumbnail not defined
+      img = await game.video.createThumbnail(img, { width: 100, height: 100 });
+    }
+    if (appliedDamage || appliedTempDamage || oldVitality !== newVitality) {
+      const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
+      if (oldVitality !== newVitality) update[vitalityResource] = newVitality;
+      const updateContext = mergeObject({ dhp: -appliedDamage, damageItem: damageItem.tokenDamages }, data.updateContext ?? {});
+      if (game.user?.isGM && doHits && damageWasApplied) {
+        await actor.update(update, data.updateContext);
+      }
+    }
+    const tooltipList = damageItem.tokenDamages.reduce((items, list) => items.concat(list)).map(di => {
+      const mods = Object.keys(di.active).reduce((acc: string[], k) => {
+        if (di.active[k] && k !== "multiplier") acc.push(k);
+        return acc;
+      }, []).join(" ");
+      return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${GameSystemConfig.damageTypes[di.type].label} ${mods}`
+    });
+    const toolTipHeader: string[] = [];
+    if (newHP !== oldHP) toolTipHeader.push(`HP: ${oldHP} -> ${newHP}`);
+    if ((newTempHP ?? 0) !== (oldTempHP ?? 0)) toolTipHeader.push(`TempHP: ${oldTempHP} -> ${newTempHP}`);
+    if ((newVitality ?? 0) !== (oldVitality ?? 0)) toolTipHeader.push(`Vitality: ${oldVitality} -> ${newVitality}`);
+    if (damageItem.saved) toolTipHeader.push("Saved");
+    if (damageItem.superSaver) toolTipHeader.push("Super Saver");
+    if (damageItem.semiSuperSaver) toolTipHeader.push("Semi Super Saver");
+    let tooltip = [...toolTipHeader, ...tooltipList].join("<br>");
+
+    let listItem = {
+      isCharacter: actor.hasPlayerOwner,
+      isNpc: !actor.hasPlayerOwner,
+      actorUuid: actor.uuid,
+      // tokenId: tokenId ?? "none",
+      displayUuid: actor.uuid.replaceAll(".", ""),
+      tokenUuid: uuid,
+      tokenImg: img,
+      hpDamage: appliedDamage,
+      abshpDamage: Math.abs(appliedDamage),
+      tempDamage: appliedTempDamage,
+      totalDamage: Math.abs(damageItem.totalDamage),
+      halfDamage: Math.abs(Math.floor(appliedDamage / 2)),
+      doubleDamage: Math.abs(appliedDamage * 2),
+      appliedDamage,
+      playerViewTotalDamage: appliedDamage + appliedTempDamage,
+      absDamage: Math.abs(appliedDamage),
+      tokenName: (tokenDocument?.name && configSettings.useTokenNames) ? tokenDocument.name : actor.name,
+      dmgSign: appliedDamage < 0 ? "+" : "-", // negative damage is added to hit points
+      newHP,
+      newTempHP,
+      oldTempHP,
+      oldHP,
+      oldVitality: 0,
+      newVitality: 0,
+      buttonId: uuid,
+      iconPrefix: (data.autoApplyDamage === "yesCardNPC" && actor.type === "character") ? "*" : "",
+      updateContext: data.updateContext,
+      tooltip
+    };
+
+    tokenIdList.push({
+      tokenId: tokenDocument.id,
+      tokenUuid: tokenDocument.uuid,
+      actorUuid: actor.uuid,
+      actorId: actor.id,
+      oldTempHP,
+      oldHP,
+      totalDamage: Math.abs(appliedDamage),
+      newHP,
+      newTempHP,
+      damageItem,
+      oldVitality: 0,
+      newVitality: 0,
+      updateContext: data.updateContext
+    });
+
+    ["di", "dv", "dr", "dm", "da"].forEach(trait => {
+      const traits = actor?.system.traits[trait];
+      if (!traits) return;
+      if (traits.value instanceof Array && (traits?.custom || traits?.value.length > 0)) {
+        listItem[trait] = (`${traitList[trait]}: ${traits.value.map(t => GameSystemConfig.damageResistanceTypes[t]).join(",").concat(" " + traits?.custom)}`);
+      } else if (trait === "dm") {
+        let tl: string[];
+
+        tl = Object.keys(traits.amount ?? {}).reduce((acc: any[], v) => {
+          if (baseDamage.some(d => d.type === v)) acc.push(`${v}:${traits.amount[v]}`);
+          return acc;
+        }, [])
+        if (traits.midi) for (let dt of Object.keys(traits.midi)) tl.push(`${dt === "none" ? "all" : dt}: ${traits.midi[dt]}`);
+        if (tl.length > 0)
+          listItem[trait] = (`${traitList[trait]} ${tl.join(",")}`);
+      } else if (trait === "da") {
+        let tl: string[];
+        if (traits.midi) tl = ["all"];
+        else {
+          tl = Object.keys(traits ?? {}).reduce((acc: any[], v) => {
+            if (baseDamage.some(d => d.type === v)) acc.push(v);
+            return acc
+          }, [])
+        }
+        if (tl.length > 0)
+          listItem[trait] = (`${traitList[trait]}: ${tl.join(",")}`);
+      } else if (traits.value instanceof Set && (traits?.custom || traits?.value.size > 0)) {
+        let tl = traits.value.reduce((acc, v) => {
+          if (baseDamage.some(d => d.type === v)) acc.push(v);
+          if (v === "none") acc.push("all");
+          return acc
+        }, []);
+        if (tl.includes("all")) tl = ["all"];
+        if (tl.length > 0)
+          listItem[trait] = (`${traitList[trait]}: ${tl.join(",").concat(" " + traits?.custom)}`);
+      }
+    });
+    //@ts-expect-error
+    templateData.damageList.push(listItem);
+
+  }
+
+  if (templateData.damageList.length > 1) templateData.needsButtonAll = true;
+  if (["yesCard", "noCard", "yesCardNPC", "yesCardMisses", "noCardMisses"].includes(data.autoApplyDamage)) {
+    const content = await renderTemplate("modules/midi-qol/templates/damage-results-v3.html", templateData);
+    const speaker: any = ChatMessage.getSpeaker();
+    speaker.alias = game.user?.name;
+    let chatData: any = {
+      user: game.user?.id,
+      speaker: { scene: getCanvas()?.scene?.id, alias: game.user?.name, user: game.user?.id },
+      content: content,
+      whisper: ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id),
+      type: CONST.CHAT_MESSAGE_TYPES.OTHER,
+      flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
+    };
+    if (data.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", data.flagTags);
+    chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
+  }
+  return chatCardUuid;
+}
+async function createReverseDamageCard(data: {
+  damageList: any;
+  autoApplyDamage: string;
+  flagTags: any,
+  sender: string,
+  charName: string,
+  actorId: string,
+  updateContext: any,
+  forceApply: boolean
+}): Promise<string[]> {
   let cardIds: string[] = [];
   let id = await createPlayerDamageCard(data);
   if (id) cardIds.push(id);
@@ -783,6 +1044,7 @@ async function prepareDamageListItems(data: {
     //@ts-ignore listItem
     templateData.damageList.push(listItem);
   }
+
   return promises;
 }
 // Fetch the token, then use the tokenData.actor.id
@@ -886,7 +1148,7 @@ async function createGMReverseDamageCard(
 async function doClick(event: { stopPropagation: () => void; }, actorUuid: any, totalDamage: any, mult: any, data: any) {
   let actor = MQfromActorUuid(actorUuid);
   log(`Applying ${totalDamage} mult ${mult} HP to ${actor.name}`);
-  await actor.applyDamage(totalDamage, mult, data.updateContext);
+  await actor.applyDamage(totalDamage, mergeObject({multiplier: mult, ignore: true}, data.updateContext));
   event.stopPropagation();
 }
 
@@ -909,7 +1171,6 @@ async function doMidiClick(ev: any, actorUuid: any, newTempHP: any, newHP: any, 
 export let processUndoDamageCard = (message, html, data) => {
   if (!message.flags?.midiqol?.undoDamage) return true;
   let button = html.find("#all-reverse");
-
   button.click((ev: { stopPropagation: () => void; }) => {
     (async () => {
       for (let { actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, oldVitality, newVitality, damageItem } of message.flags.midiqol.undoDamage) {
@@ -931,7 +1192,6 @@ export let processUndoDamageCard = (message, html, data) => {
           context["dvital"] = oldVitality - newVitality;
         }
         await actor?.update(update, context);
-
         ev.stopPropagation();
       }
     })();
@@ -1005,7 +1265,7 @@ export let processUndoDamageCard = (message, html, data) => {
         log(`Setting HP to ${newTempHP} and ${newHP}`, data.updateContext);
         if (mults[multiplierString]) {
           multiplier = mults[multiplierString]
-          await actor.applyDamage(totalDamage, multiplier);
+          await actor.applyDamage(totalDamage, {multiplier, ignore: true});
         } else {
           const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
           const context = mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
@@ -1019,14 +1279,11 @@ export let processUndoDamageCard = (message, html, data) => {
         ev.stopPropagation();
       })();
     });
-
+/* I don't think this is a good idea - damage application should be triggered by the tick
     let select = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`);
     select.change((ev: any) => {
-      return true;
       let multiplier = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`).val();
       button = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
-      button.off('click');
-
       const mults = { "-1": -1, "x1": 1, "x0.25": 0.25, "x0.5": 0.5, "x2": 2 };
       if (multiplier === "calc")
         // button.click(async (ev: any) => await doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data));
@@ -1035,7 +1292,9 @@ export let processUndoDamageCard = (message, html, data) => {
         // button.click(async (ev: any) => await doClick(ev, actorUuid, totalDamage, mults[multiplier], data));
         doClick(ev, actorUuid, totalDamage, mults[multiplier], data);
     });
+    */
   })
+  
   return true;
 }
 

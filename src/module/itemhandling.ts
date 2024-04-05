@@ -327,6 +327,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     let shouldAllowRoll = !requiresTargets // we don't care about targets
       || (targetsToUse.size > 0) // there are some target selected
+      || (this.system.target?.type ?? "") === "" // no target required
       || selfTarget
       || isAoETargeting // area effect spell and we will auto target
       || isRangeTargeting // range target and will autotarget
@@ -972,7 +973,19 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     if (!result) { // user backed out of damage roll or roll failed
       return;
     }
-
+    let magicalDamage = workflow.item?.system.properties?.has("mgc") || workflow.item?.flags?.midiProperties?.magicdam;
+    magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && workflow.item?.system.attackBonus > 0);
+    magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && workflow.item?.type !== "weapon");
+    magicalDamage = magicalDamage || (configSettings.requireMagical === "nonspell" && workflow.item?.type === "spell");
+    if (result?.length > 0) {
+      result.forEach(roll => {
+        const droll: any = roll;
+        if (!droll.options.properties) droll.options.properties = [];
+        if (workflow?.item.type === "spell") droll.options.properties.push("spell");
+        if (magicalDamage && !droll.options.properties.includes("mgc")) droll.options.properties.push("mgc");
+        droll.options.properties.push(workflow?.item.system.actionType)
+      })
+    }
     //@ts-expect-error .first
     const firstTarget = workflow.hitTargets.first() ?? workflow.targets?.first();
     const firstTargetActor = firstTarget?.actor;
@@ -1121,6 +1134,16 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
               term.options.flavor = getDamageType(term.options.flavor);
             }
           }
+          let otherMagicalDamage = workflow.otherDamageItem?.system.properties?.has("mgc") || workflow.otherDamageItem?.flags?.midiProperties?.magicdam;
+          otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "off" && workflow.otherDamageItem?.system.attackBonus > 0);
+          otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "off" && workflow.otherDamageItem?.type !== "weapon");
+          otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "nonspell" && workflow.otherDamageItem?.type === "spell");
+      
+          if (!getProperty(otherResult, "options.properties")) setProperty(otherResult, "options.properties", []);
+          const otherProperties: string[] = getProperty(otherResult, "options.properties");
+          if (workflow?.item.type === "spell") otherProperties.push("spell");
+          if (otherMagicalDamage && !otherProperties.includes("mgc")) otherProperties.push("mgc");
+          otherProperties.push(workflow?.otherDamageItem?.system.actionType)
           await workflow.setOtherDamageRoll(otherResult);
           workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: workflow.otherDamageItem.system.damage?.parts[0]?.[1] ?? workflow.defaultDamageType ?? MQdefaultDamageType });
           if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");

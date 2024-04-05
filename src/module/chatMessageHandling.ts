@@ -258,7 +258,7 @@ export let chatDamageButtons = (message, html, data) => {
     || (addChatDamageButtons === "gm" && game.user?.isGM)
     || (addChatDamageButtons === "pc" && !game.user?.isGM);
 
-  if (!shouldAddButtons) {
+  if (!shouldAddButtons || configSettings.v3DamageApplication) {
     return true;
   }
   let targetField = ".dice-formula";

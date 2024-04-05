@@ -1,4 +1,4 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
@@ -646,9 +646,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       if (debugEnabled > 0) warn("applyTokenDamageMany | Damage Details plus resistance/save multiplier for ", targetActor.name, duplicate(damageDetail))
     }
     if (DRAll < 0 && appliedDamage > -1) { // negative DR is extra damage
-      damageDetailResolved = damageDetailResolved.concat({ damage: -DRAll, type: "DR", DR: 0 });
+      damageDetailResolved = damageDetailResolved.concat({ damage: -DRAll, type: "DR", DR: DRAll });
       appliedDamage -= DRAll;
-      totalDamage -= DRAll;
+      // totalDamage -= DRAll; removing this allows the display to reflect the DRAll
     }
     if (false && !Object.keys(GameSystemConfig.healingTypes).includes(dmgType)) {
       totalDamage = Math.max(totalDamage, 0);
@@ -702,6 +702,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         target: t,
         isCritical: workflow.isCritical,
         isFumble: workflow.isFumble,
+        save: workflow.saves?.has(t),
         fumbleSave: workflow.fumbleSaves?.has(t),
         criticalSave: workflow.criticalSaves?.has(t)
       }
@@ -871,30 +872,81 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   else if ((getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default") === "default"
     && itemOtherFormula(workflow.saveItem) === "") baseDamageSaves = workflow.saves ?? new Set()
 
-
   if (configSettings.v3DamageApplication) {
+    const allDamages = {};
     for (let token of theTargets) {
-      for (let [damageDetail, typeSaves, type] of [[workflow.damageDetail, baseDamageSaves, "defaultDamage"], [workflow.bonusDamageDetail, bonusDamageSaves, "bonusDamage"], [workflow.otherDamageDetail, workflow.saves, "otherDamage"]]) {
-        if (token.actor) {
-          const allDamages = [];
-          const options = {
+      if (!token.actor) continue;
+      const tokenDocument = getTokenDocument(token);
+      if (!tokenDocument) continue;
+      allDamages[tokenDocument?.uuid] = {
+        uuid: getTokenDocument(token)?.uuid,
+        tokenDamages: [],
+        isHit: hitTargets.has(token),
+        saved: savesToUse.has(token),
+        superSaver: workflow.superSavers.has(token),
+        semiSuperSaver: workflow.semiSuperSavers.has(token),
+        totalDamage: 0,
+        tempDamage: 0
+      };
+      for (let [rolls, saves, type] of [[workflow.damageRolls, baseDamageSaves, "defaultDamage"], [[workflow.otherDamageRoll], workflow.saves, "otherDamage"], [workflow.bonusDamageRolls, bonusDamageSaves, "bonusDamage"]]) {
+        const tokenDamages = allDamages[tokenDocument.uuid].tokenDamages;
+        if (rolls?.length > 0 && rolls[0]) {
+          //@ts-expect-error
+          const damages = game.system.dice.aggregateDamageRolls(rolls, { respectProperties: true }).map(roll => ({
+            value: roll.total,
+            type: roll.options.type,
+            properties: new Set(roll.options.properties ?? [])
+          }));
+
+          let saveMultiplier = 1;
+          if (saves.has(token)) {
+            saveMultiplier = getSaveMultiplierForItem(item, type);
+          } else if (workflow.superSavers.has(token)) {
+            saveMultiplier = getSaveMultiplierForItem(item, type) === 0.5 ? 0 : 0.5;
+          } else if (workflow.semiSuperSavers.has(token)) {
+            saveMultiplier = getSaveMultiplierForItem(item, type) === 0.5 ? 0 : 1;
+          }
+          const options: any = {
             invertHealing: true,
             midi: {
-              type,
-              saved: typeSaves?.has(token),
-              item,
-              superSavers: workflow.superSavers?.has(token),
-              semiSuperSavers: workflow.semiSuperSavers?.has(token),
-              token
+              saved: saves?.has(token),
+              itemType: item.type,
+              saveMultiplier,
+              isHit: hitTargets.has(token),
+              superSaver: workflow.superSavers?.has(token),
+              semiSuperSaver: workflow.semiSuperSavers?.has(token),
+              token,
             }
           };
-          const damages = damageDetail?.map(d => ({ value: d.damage, type: d.type }))
-          
+
           //@ts-expect-error
-          if (damages) allDamages.push(await token.actor.calculateDamage(damages, options));
+          const returnDamages = token.actor.calculateDamage(damages, options);
+          allDamages[tokenDocument.uuid].totalDamage += (options.midi.totalDamage ?? 0);
+          tokenDamages.push(returnDamages);
         }
       }
     }
+    workflow.v3Damages = allDamages;
+    let baseDamageRolls: Roll[] = [];
+    for (let damageRolls of [workflow.damageRolls, workflow.otherDamageRoll, workflow.bonusDamageRolls]) {
+      if (damageRolls?.length > 0 && damageRolls[0]) {
+        baseDamageRolls = baseDamageRolls.concat(damageRolls);
+      }
+    }
+    const options = { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false }
+    const chatCardUuids = await timedAwaitExecuteAsGM("createV3ReverseDamageCard", {
+      autoApplyDamage: configSettings.autoApplyDamage,
+      sender: game.user?.name,
+      actorId: workflow.actor?.id,
+      charName: workflow.actor?.name ?? game?.user?.name,
+      allDamages,
+      baseDamageRolls,
+      chatCardId: workflow.itemCardId,
+      chatCardUuid: workflow.itemCardUuid,
+      flagTags: workflow.flagTags,
+      updateContext: options.updateContext,
+      forceApply: options.forceApply,
+    })
   } else {
     if (workflow.shouldRollOtherDamage) {
       if (workflow.otherDamageRoll && configSettings.singleConcentrationRoll) {
@@ -1224,7 +1276,7 @@ export function midiCustomEffect(...args) {
   let [actor, change, current, delta, changes] = args;
   if (!change.key) return true;
   if (typeof change?.key !== "string") return true;
-  if (!change.key?.startsWith("flags.midi-qol")) return true;
+  if (!change.key?.startsWith("flags.midi-qol") && !change.key?.startsWith("system.traits.da.")) return true;
   const deferredEvaluation = [
     "flags.midi-qol.OverTime",
     "flags.midi-qol.optional",
@@ -1858,6 +1910,12 @@ export function getDistanceSimpleOld(t1: Token, t2: Token, includeCover, wallBlo
 export function getDistanceSimple(t1: Token, t2: Token, wallBlocking = false) {
   return getDistance(t1, t2, wallBlocking);
 }
+
+export function checkDistance(t1: any, t2: any, distance: number, wallsBlocking?: boolean,): boolean {
+  const dist = getDistance(t1, t2, wallsBlocking);
+  return 0 <= dist && dist <= distance;
+}
+
 /** takes two tokens of any size and calculates the distance between them
 *** gets the shortest distance betwen two tokens taking into account both tokens size
 *** if wallblocking is set then wall are checked
@@ -2000,10 +2058,8 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
       if (rule === "5105") distance = distance + Math.floor(nd / 2 / dimension) * dimension;
 
     } else {
-
-
+      distance = Math.sqrt(heightDifference * heightDifference + distance * distance);
     }
-    distance = Math.sqrt(heightDifference * heightDifference + distance * distance);
   }
   return distance;
 };
@@ -2585,6 +2641,8 @@ export function checkNearby(disposition: number | null | string, tokenRef: Token
 export function hasCondition(tokenRef: Token | TokenDocument | string | undefined, condition: string): 0 | 1 {
   const td = getTokenDocument(tokenRef)
   if (!td) return 0;
+  //@ts-expect-error
+  if (td.actor.statuses.has(condition)) return 1;
   //@ts-expect-error specialStatusEffects
   const specials = CONFIG.specialStatusEffects;
   switch (condition?.toLocaleLowerCase()) {
@@ -4046,11 +4104,11 @@ export function reportMidiCriticalFlags() {
 
 export function getConcentrationLabel(): string {
   let concentrationLabel: string = i18n("midi-qol.Concentrating");
-  if (installedModules.get("dfreds-convenient-effects")) {
-    //@ts-expect-error .dfreds
-    const dfreds = game.dfreds;
-    concentrationLabel = dfreds.effects._concentrating.name;
-  }
+  //@ts-expect-error
+  const concentrationId = CONFIG.specialStatusEffects.CONCENTRATION;
+  const se = CONFIG.statusEffects.find(se => se.id === concentrationId);
+  //@ts-expect-error
+  if (se) concentrationLabel = se.name;
   // for condition-lab-trigger there is no module specific way to specify the concentration effect so just use the label
   return concentrationLabel
 }
@@ -4070,7 +4128,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     const src = 'with (sandbox) { return ' + expression + '}';
     const evl = new Function('sandbox', src);
     //@ts-expect-error
-    sandbox = mergeObject(sandbox, { findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, fromUuidSync });
+    sandbox = mergeObject(sandbox, { Roll, findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, fromUuidSync });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4104,7 +4162,7 @@ export function typeOrRace(entity: Token | Actor | TokenDocument | string): stri
   //@ts-expect-error .system
   const systemData = actor?.system;
   if (!systemData) return "";
-  if (systemData.details.type?.value) return systemData.details.type?.value.toLocaleLowerCase() ?? "";
+  if (systemData.details.type?.value) return systemData.details.type?.value?.toLocaleLowerCase() ?? "";
   // cater to dnd5e 2.4+ where race can be a string or an Item
   else return (systemData.details?.race?.name ?? systemData.details?.race)?.toLocaleLowerCase() ?? "";
 }
@@ -4115,7 +4173,7 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
   const systemData = actor?.system;
   if (!systemData) return "";
   if (systemData.details.race) return (systemData.details?.race?.name ?? systemData.details?.race)?.toLocaleLowerCase() ?? "";
-  return systemData.details.type?.value.toLocaleLowerCase() ?? "";
+  return systemData.details.type?.value?.toLocaleLowerCase() ?? "";
 }
 
 export function effectActivationConditionToUse(workflow: Workflow) {
@@ -4149,7 +4207,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.target.saved = data.workflow?.saves.has(data.target);
       rollData.target.failedSave = data.workflow?.failedSaves.has(data.target);
       rollData.target.superSaver = data.workflow?.superSavers.has(data.target);
-      rollData.semidSuperSaver = data.workflow?.semiSuperSavers.has(data.target);
+      rollData.semiSuperSaver = data.workflow?.semiSuperSavers.has(data.target);
       rollData.target.isHit = data.workflow?.hitTargets.has(data.target);
       rollData.target.isHitEC = data.workflow?.hitTargets.has(data.target);
     }
@@ -4239,28 +4297,6 @@ export function enableNotifications(enable: boolean) {
   _enableNotifications = enable;
 }
 
-export function getConvenientEffectsReaction(): ActiveEffect | undefined {
-  if (!installedModules.get("dfreds-convenient-effects")) return undefined;
-  //@ts-expect-error
-  const dfreds = game.dfreds;
-  const reactionName = dfreds?.effects?._reaction?.name;
-  if (reactionName) {
-    const effect = dfreds.effects.all.find(ef => ef.name === reactionName);
-    if (effect.flags?.statusId !== undefined) delete effect.flags.statusId;
-    return effect;
-  }
-  return undefined;
-}
-
-export function getConvenientEffectsBonusAction(): ActiveEffect | undefined {
-  if (!installedModules.get("dfreds-convenient-effects")) return undefined;
-  //@ts-expect-error
-  const dfreds = game.dfreds;
-  const bonusName = dfreds?.effects?._bonusAction.name;
-  let result;
-  if (bonusName) return dfreds.effects.all.find(ef => ef.name === bonusName);
-  return undefined;
-}
 export function getStatusName(statusId: string | undefined): string {
   if (!statusId) return "undefined";
   const se = CONFIG.statusEffects.find(efData => efData.id === statusId);
@@ -4318,7 +4354,7 @@ export async function setReactionUsed(actor: Actor) {
   let effect;
   await actor.setFlag("midi-qol", "actions.reactionCombatRound", game.combat?.round);
   await actor.setFlag("midi-qol", "actions.reaction", true);
-  const reactionEffect = getConvenientEffectsReaction();
+  const reactionEffect = getReactionEffect();
   if (reactionEffect) {
     //@ts-expect-error .dfreds
     const effectInterface = game.dfreds.effectInterface;
@@ -4333,9 +4369,9 @@ export async function setBonusActionUsed(actor: Actor) {
   if (debugEnabled > 0) warn("setBonusActionUsed | starting");
   if (!["all", "displayOnly"].includes(configSettings.enforceBonusActions) && configSettings.enforceBonusActions !== actor.type) return;
   let effect;
-  if (getConvenientEffectsBonusAction()) {
+  if (getBonusActionEffect()) {
     //@ts-expect-error
-    await game.dfreds?.effectInterface?.addEffect({ effectName: getConvenientEffectsBonusAction().name, uuid: actor.uuid });
+    await game.dfreds?.effectInterface?.addEffect({ effectName: getBonusActionEffect().name, uuid: actor.uuid });
   } else
     //@ts-expect-error
     if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name ?? se.label) === i18n("DND5E.BonusAction")))) {
@@ -4354,15 +4390,16 @@ export async function removeActionUsed(actor: Actor) {
 
 export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
   let effectRemoved = false;
-  if (removeCEEffect && getConvenientEffectsReaction() && !effectRemoved) {
+  const reactionEffect = getReactionEffect();
+  if (removeCEEffect && reactionEffect && !effectRemoved) {
     //@ts-expect-error
-    if (await game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsReaction().name, actor.uuid)) {
-      const effect = actor.effects.getName(getConvenientEffectsReaction()?.name ?? "Reaction");
+    if (await game.dfreds?.effectInterface?.hasEffectApplied(reactionEffect.name, actor.uuid)) {
+      const effect = actor.effects.getName(reactionEffect?.name ?? "Reaction");
       if (installedModules.get("times-up") && effect && getProperty(effect, "flags.dae.specialDuration")?.includes("turnStart")) {
         // times up will handle removing this
       }
       //@ts-expect-error
-      else await game.dfreds.effectInterface?.removeEffect({ effectName: getConvenientEffectsReaction().name, uuid: actor.uuid });
+      else await game.dfreds.effectInterface?.removeEffect({ effectName: reactionEffect.name, uuid: actor.uuid });
       effectRemoved = true;
     }
   }
@@ -4383,9 +4420,10 @@ export function hasUsedAction(actor: Actor) {
 }
 
 export function hasUsedReaction(actor: Actor) {
-  if (getConvenientEffectsReaction()) {
+  const reactionEffect = getReactionEffect();
+  if (reactionEffect) {
     //@ts-expect-error .dfreds
-    if (game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsReaction().name, actor.uuid)) {
+    if (game.dfreds?.effectInterface?.hasEffectApplied(reactionEffect.name, actor.uuid)) {
       return true;
     }
   }
@@ -4396,7 +4434,6 @@ export function hasUsedReaction(actor: Actor) {
   if (actor.getFlag("midi-qol", "actions.reaction")) return true;
   return false;
 }
-
 
 export async function expirePerTurnBonusActions(combat: Combat, data, options) {
   const optionalFlagRe = /flags.midi-qol.optional.[^.]+.(count|countAlt)$/;
@@ -4422,9 +4459,9 @@ export async function expirePerTurnBonusActions(combat: Combat, data, options) {
 }
 
 export function hasUsedBonusAction(actor: Actor) {
-  if (getConvenientEffectsBonusAction()) {
+  if (getBonusActionEffect()) {
     //@ts-expect-error
-    if (game.dfreds?.effectInterface?.hasEffectApplied(getConvenientEffectsBonusAction().name, actor.uuid)) {
+    if (game.dfreds?.effectInterface?.hasEffectApplied(getBonusActionEffect().name, actor.uuid)) {
       return true;
     }
   }
@@ -4438,11 +4475,11 @@ export function hasUsedBonusAction(actor: Actor) {
 }
 
 export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false) {
-  if (removeCEEffect && getConvenientEffectsBonusAction()) {
+  if (removeCEEffect && getBonusActionEffect()) {
     //@ts-expect-error
-    if (await game.dfreds?.effectInterface?.hasEffectApplied((getConvenientEffectsBonusAction().name), actor.uuid)) {
+    if (await game.dfreds?.effectInterface?.hasEffectApplied((getBonusActionEffect().name), actor.uuid)) {
       //@ts-expect-error
-      await game.dfreds.effectInterface?.removeEffect({ effectName: (getConvenientEffectsBonusAction().name), uuid: actor.uuid });
+      await game.dfreds.effectInterface?.removeEffect({ effectName: (getBonusActionEffect().name), uuid: actor.uuid });
     }
   }
   if (installedModules.get("condition-lab-triggler")) {
@@ -4652,8 +4689,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
     if (!token) break;
     if (!heightIntersects(target.document, token.document)) continue;
     if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
-      //@ts-expect-error
-      const CEFlanked = game.dfreds.effects._flanked;
+      const CEFlanked = getFlankedEffect();
       //@ts-expect-error
       const hasFlanked = token.actor && CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, token.actor.uuid);
       if (hasFlanked) continue;
@@ -4666,13 +4702,9 @@ export async function computeFlankedStatus(target): Promise<boolean> {
       const actor: any = ally.actor;
       if (actor?.system.attributes?.hp?.value <= 0) continue;
       if (!heightIntersects(target.document, ally.document)) continue;
-      if (installedModules.get("dfreds-convenient-effects")) {
-        //@ts-expect-error
-        if (actor?.appliedEffects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
-      }
+      if (hasCondition(ally, "incapacitated")) continue;
       if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
-        //@ts-expect-error
-        const CEFlanked = game.dfreds.effects._flanked;
+        const CEFlanked = getFlankedEffect();
         //@ts-expect-error
         const hasFlanked = CEFlanked && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, ally.actor.uuid);
         if (hasFlanked) continue;
@@ -4744,11 +4776,7 @@ export function computeFlankingStatus(token, target): boolean {
     if (!heightIntersects(ally.document, target.document)) continue;
     const actor: any = ally.actor;
     if (checkIncapacitated(ally, debugEnabled > 0)) continue;
-    if (installedModules.get("dfreds-convenient-effects")) {
-      //@ts-expect-error
-      if (actor?.appliedEffects.some(ef => ef.name === game.dfreds.effects._incapacitated.name)) continue;
-    }
-
+    if (hasCondition(ally, "incapacitated")) continue;
     const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
     const allyStartY = ally.document.height >= 1 ? 0.5 : ally.document.height / 2;
     var x, x1, y, y1, d, r;
@@ -4775,6 +4803,56 @@ export function computeFlankingStatus(token, target): boolean {
   return false;
 }
 
+export function getFlankingEffect(): ActiveEffect | undefined {
+  if (installedModules.get("dfreds-convenient-effects")) {
+    //@ts-expect-error
+    const dfreds = game.dfreds;
+    let CEFlanking = dfreds.effects._flanking;
+    if (!CEFlanking)
+      CEFlanking = dfreds.effectInterface.findEffectByName("Flanking");
+    return CEFlanking;
+  }
+  return undefined;
+}
+
+export function getFlankedEffect(): ActiveEffect | undefined {
+  if (installedModules.get("dfreds-convenient-effects")) {
+    //@ts-expect-error
+    const dfreds = game.dfreds;
+    let CEFlanked = dfreds.effects._flanked;
+    if (!CEFlanked)
+      CEFlanked = dfreds.effectInterface.findEffectByName("Flanked");
+    return CEFlanked;
+  }
+  return undefined;
+}
+
+export function getReactionEffect(): ActiveEffect | undefined {
+  //@ts-expect-error
+  const dfreds = game.dfreds;
+  if (!dfreds) return undefined;
+  let reactionEffect = dfreds.effectInterface.findEffectByName("Reaction");
+  if (!reactionEffect) reactionEffect = dfreds.effectInterface.findEffectByName(`${SystemString}.Reaction`)
+  return reactionEffect;
+
+}
+export function getBonusActionEffect(): ActiveEffect | undefined {
+  //@ts-expect-error
+  const dfreds = game.dfreds;
+  if (!dfreds) return undefined;
+  let bonusActionEffect = dfreds.effectInterface.findEffectByName("Bonus Action");
+  if (!bonusActionEffect) bonusActionEffect = dfreds.effectInterface.findEffectByName(`${SystemString}.BonusAction`);
+  return bonusActionEffect;
+}
+
+export function getIncapacitatedStatusEffect() {
+  let incapEffect = CONFIG.statusEffects.find(se => se.id === "incapacitated");
+  //@ts-expect-error
+  if (!incapEffect) incapEffect = CONFIG.statusEffects.find(se => se.statuses?.has("incapacitated"));
+  //@ts-expect-error
+  if (!incapEffect) incapEffect = CONFIG.statusEffects.find(se => se.name === i18n(`${SystemString}.ConIncapacitated`))
+  return incapEffect;
+}
 
 export async function markFlanking(token, target): Promise<boolean> {
   // checkFlankingStatus requires a flanking token (token) and a target
@@ -4783,11 +4861,13 @@ export async function markFlanking(token, target): Promise<boolean> {
   let needsFlanking = false;
   if (!target || !checkRule("checkFlanking") || checkRule["checkFlanking"] === "off") return false;
   if (["ceonly", "ceadv"].includes(checkRule("checkFlanking"))) {
+    //@ts-expect-error
+    const dfreds = game.dfreds;
     if (!token) return false;
     needsFlanking = computeFlankingStatus(token, target);
     if (installedModules.get("dfreds-convenient-effects")) {
-      //@ts-expect-error
-      const CEFlanking = game.dfreds.effects._flanking;
+
+      let CEFlanking = getFlankingEffect();
       if (!CEFlanking) return needsFlanking;
       //@ts-expect-error
       const hasFlanking = token.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanking.name, token.actor.uuid)
@@ -4805,8 +4885,7 @@ export async function markFlanking(token, target): Promise<boolean> {
   } else if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking"))) {
     if (!target.actor) return false;
     if (installedModules.get("dfreds-convenient-effects")) {
-      //@ts-expect-error
-      const CEFlanked = game.dfreds.effects._flanked;
+      let CEFlanked = getFlankedEffect();
       if (!CEFlanked) return false;
       const needsFlanked = await computeFlankedStatus(target);
       //@ts-expect-error
@@ -5300,7 +5379,7 @@ export async function contestedRoll(data: {
     else resultString = result > 0 ? i18n("midi-qol.save-success") : result < 0 ? i18n("midi-qol.save-failure") : result === 0 ? i18n("midi-qol.save-drawn") : "no result"
     const skippedString = i18n("midi-qol.Skipped");
     const content = `${flavor ?? i18n("miidi-qol:ContestedRoll")} ${resultString} ${results[0].total ?? skippedString} ${i18n("midi-qol.versus")} ${results[1].total ?? skippedString}`;
-    displayContestedResults(itemCardId, content, ChatMessage.getSpeaker({ token: sourceToken }), flavor);
+    displayContestedResults(itemCardUuid, content, ChatMessage.getSpeaker({ token: sourceToken }), flavor);
   }
 
   if (result === undefined) return { result, rolls: results };
@@ -5310,10 +5389,10 @@ export async function contestedRoll(data: {
   return { result, rolls: results };
 }
 
-function displayContestedResults(chatCardId: string | undefined, resultContent: string, speaker, flavor: string | undefined) {
-  let itemCard = game.messages?.get(chatCardId ?? "");
+function displayContestedResults(chatCardUuid: string | undefined, resultContent: string, speaker, flavor: string | undefined) {
+  //@ts-expect-error
+  let itemCard = getCachedDocument(chatCardUuid) ?? fromUuidSync(chatCardUuid);
   if (itemCard && configSettings.mergeCard) {
-    //@ts-expect-error content
     let content = duplicate(itemCard.content ?? "")
     const searchRE = /<div class="midi-qol-saves-display">[\s\S]*?<div class="end-midi-qol-saves-display">/;
     const replaceString = `<div class="midi-qol-saves-display">${resultContent}<div class="end-midi-qol-saves-display">`;

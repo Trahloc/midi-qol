@@ -1,3 +1,32 @@
+## 11.4.16
+* Support for actorOnUse macro config in tidy sheet 5e - thanks @kagar
+* Support for flags.midi-qol.bonuses.spell.all.damage which is a bonus added for any spell that rolls damage, not just msak/rsak.
+* Added checkDistance(t1: any, t2: any, distance: number,  wallsBlocking?: boolean, ): boolean
+* Negative DR.all will now mirror the damage display for +ve damage application.
+* Allow midi to work with core concentration or with midi's own concentration. All of the midi concentration settings still work. You just choose disable midi's concentration automation and enable dnd5e's concentration automation or vice versa.
+* Dnd5e will generate a concentration save card when required (rather than rolling a concentration item), midi will monitor the results of rolling that chat card and success/failure will leave/remove concentration appropriately.
+* If CE/CLT has removed the dnd5e concentration effect midi will add one back.
+* Midi concentration advantage/disadvantage and save bonus are applied to dnd5e concentration rolls.
+* Support for removing concentration when all dependent effects/templates are removed from targets.
+
+* First support for using dnd5e's damage calculations instead of midi's. Whilst not identical they are very similar. Eventually I will switch midi to use dnd5e damage application as the default and no further work will be done on midi's damage application.
+* Enable in workflow settings (use dnd5e damage calculation), **changing the setting requires a reload**. If not enabled no changes will be made and core damage calculations will **not** pick up midi flags.
+* There are certain to be bugs so don't enable just before game time.
+* The damage chat card tooltips have been enhanced to provide more information about the calculation, including the amount applied, the amount of each type applied, the amount of DR available for each type and any resistance etc applied.
+* If support for dnd5e v3 damage application is enabled - adding chat damage buttons will enable dnd5e damage application buttons rather than creating the midi damage buttons. The dnd5e damage application buttons are much more flexible than midi's.
+
+* **Differences**
+* flags.midi-qol.DR.fire 5 => system.traits.dm.amount.fire value -5.
+* flags.midi-qol.absorption.fire => system.traits.da.amount.value fire/etc
+* flags.midi-qol.dr/di/dv.fire => system.traits.dr/di/dv.value fire/etc
+* flags.midi-qol.DR.all/rwak/etc value 10  => system.traits.dm.midi.all/rwak/etc value -10 with type none. These are applied after resistance/immunity (will be fixed in a subsequent release).
+* All of the midi special DR values will be displayed in as type No Type
+* Midi allows enforcing of Save->Damage Reduction->Damage resistance (pretty much RAW), and support this in midi's application of damage. The core damage application buttons **do not** allow saves before reduction.
+* Currently only the base dm types are applied before resistances, the specials (rwak)
+* All flags.midi-qol.dr/di/dv will automatically convert to system.traits.di/dv/dr.
+* DND5e uses the opposite sign convention to midi. +ve system.trais.dm increases damage and -ve system.traits.dm.xxx decreases damage. All of the midi flags.midi-qol.DR will be automatically translated to actor.system.traits.dm.amount and the sign reversed if v3 damage application is enabled.
+* In the dnd5e damage application display DR.all/rwak/mwak.etc will be displayed as damage modification with a type of "none" and are applied against the applied damage after all type specific modifications/resistances have been applied.
+
 ## 11.4.15
 * Customize damage dialog has had an overhaul to work in dnd5e 3.0+. It now allows you to select which of the various damage parts, versatile and/or other formula to roll as part of the base damage for an item. This is a poor man's version of what roll groups let's you do.
 * Support for magicitems which is the mainstream version of magic-items-2

@@ -1,6 +1,6 @@
 import { GameSystemConfig, debugEnabled, i18n, log, warn } from "../midi-qol.js";
 import { chatDamageButtons } from "./chatMessageHandling.js";
-import { configSettings } from "./settings.js";
+import { addChatDamageButtons, configSettings } from "./settings.js";
 import { getDamageType } from "./utils.js";
 
 export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
@@ -9,8 +9,10 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
     if (debugEnabled > 1) log("Chat message midi constructor", ...args)
   }
 
+  _enrichAttackTargets(html) { return }
+
   collectRolls(rollsToAccumulate: Roll[], multiRolls: boolean = false): any[] {
-    let returns: any [] = [];
+    let returns: any[] = [];
     let rolls: Roll[] = [];
     for (let i = 0; i < rollsToAccumulate.length; i++) {
       if (!multiRolls && i < rollsToAccumulate.length - 1) {
@@ -24,7 +26,9 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
         this._aggregateDamageRoll(r, obj.breakdown);
         return obj;
       }, { formula: [], total: 0, breakdown: {} });
-      formula = formula.join(" + ");
+      formula = formula.join(" ");
+      formula = formula.replace(/^\s+\+\s+/, "");
+      formula = formula.replaceAll(/  /g, " ");
       if (multiRolls) {
         setProperty(rolls[0], "flags.midi-qol.breakdown", breakdown);
         setProperty(rolls[0], "flags.midi-qol.total", total);
@@ -96,7 +100,7 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
         <h4 class="dice-total">${total}</h4>
       </div>
     `;
-    returns.push(roll);
+      returns.push(roll);
     }
     return returns;
   }
@@ -127,16 +131,25 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
         }
       }
     }
-    if ( game.user?.isGM && configSettings.v3DamageApplication){
-      const damageApplication = document.createElement("damage-application");
-      damageApplication.classList.add("dnd5e2");
-      //@ts-expect-error
-      damageApplication.damages = game.system.dice.aggregateDamageRolls(rolls.filter(r=> r instanceof game.system.dice.DamageRoll), { respectProperties: true }).map(roll => ({
-        value: roll.total,
-        type: roll.options.type,
-        properties: new Set(roll.options.properties ?? [])
-      }));
-      html.querySelector(".message-content").appendChild(damageApplication);
+    if (game.user?.isGM && configSettings.v3DamageApplication) {
+      const shouldAddButtons = addChatDamageButtons === "both"
+      || (addChatDamageButtons === "gm" && game.user?.isGM)
+      || (addChatDamageButtons === "pc" && !game.user?.isGM);
+        if (shouldAddButtons) {
+        for (let rType of ["damage", "other-damage", "bonus-damage"]) {
+          rolls = this.rolls.filter(r => getProperty(r, "options.midi-qol.rollType") === rType);
+          if (!rolls.length) continue;
+          let damageApplication = document.createElement("damage-application");
+          damageApplication.classList.add("dnd5e2");
+          //@ts-expect-error
+          damageApplication.damages = game.system.dice.aggregateDamageRolls(rolls, { respectProperties: true }).map(roll => ({
+            value: roll.total,
+            type: roll.options.type,
+            properties: new Set(roll.options.properties ?? [])
+          }));
+          html.querySelector(".message-content").appendChild(damageApplication);
+        }
+      }
     }
   }
   enrichAttackRolls(html) {

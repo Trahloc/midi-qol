@@ -769,7 +769,7 @@
   "midi-qol.WallsBlockRange.Hint2": "centre = vérifier la ligne de centre à centre",
   "midi-qol.DRAllPerDamageDetail.Name": "(Règle maison) DRAll (DR.rwak/...) est déduit des DEUX dégâts d'attaque et des Autres dégâts.",
   "midi-qol.nevertarget": "Jamais de cible",
-  "miidi-qol.ContestedRoll": "Jet contesté",
+  "midi-qol.ContestedRoll": "Jet contesté",
   "midi-qol.versus": "contre",
   "midi-qol.Skipped": "Ignoré",
   "midi-qol.CommonModules": "Modules communs",

@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
-import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -107,11 +107,21 @@ Hooks.once("levelsReady", function () {
   //@ts-ignore
   levelsAPI = CONFIG.Levels.API;
 });
+export let systemString = "DND5E"
 
 Hooks.once('init', async function () {
-  console.log('midi-qol | Initializing midi-qol');
+  log('Initializing midi-qol');
+  //@ts-expect-error
+  const systemVersion = game.system.version;
   //@ts-expect-error
   GameSystemConfig = game.system.config;
+  if (isNewerVersion(systemVersion, "2.99")) {
+    GameSystemConfig.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
+    GameSystemConfig.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
+  } else {
+    GameSystemConfig.damageTypes["none"] = i18n(`${SystemString}.None`);
+    GameSystemConfig.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
+  }
   SystemString = game.system.id.toUpperCase();
   allAttackTypes = ["rwak", "mwak", "rsak", "msak"];
   if (game.system.id === "sw5e")
@@ -123,7 +133,7 @@ Hooks.once('init', async function () {
     CONFIG.specialStatusEffects.CONCENTRATING = "concentrating";
   }
   //@ts-expect-error
-  systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING
+  systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING;
 
   globalThis.MidiQOL = { checkIncapacitated };
   // Assign custom classes and constants here
@@ -155,28 +165,36 @@ Hooks.once('init', async function () {
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
   specials["flags.midi-qol.onUseMacroName"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
   specials["flags.midi-qol.optional.NAME.macroToCall"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
-  specials[`system.traits.dm.midi.all`] = ["", -1]
-  specials[`system.traits.dm.midi.non-magical`] = ["", -1]
-  specials[`system.traits.dm.midi.non-magical-physical`] = ["", -1]
-  specials[`system.traits.dm.midi.non-silver`] = ["", -1]
-  specials[`system.traits.dm.midi.non-adamant`] = ["", -1]
-  specials[`system.traits.dm.midi.non-physical`] = ["", -1]
-  specials[`system.traits.dm.midi.final`] = ["", -1]
+  if (configSettings.v3DamageApplication) {
+    specials[`system.traits.dm.midi.all`] = ["", -1]
+    specials[`system.traits.dm.midi.non-magical`] = ["", -1]
+    specials[`system.traits.dm.midi.non-magical-physical`] = ["", -1]
+    specials[`system.traits.dm.midi.non-silver`] = ["", -1]
+    specials[`system.traits.dm.midi.non-adamant`] = ["", -1]
+    specials[`system.traits.dm.midi.non-physical`] = ["", -1]
+    specials[`system.traits.dm.midi.final`] = ["", -1];
+  }
 });
 Hooks.on("dae.addFieldMappings", (fieldMappings) => {
+  registerSettings();
+  fetchParams();
   if (configSettings.v3DamageApplication) {
     //@ts-expect-error
     for (let key of Object.keys(game.system.config.damageTypes ?? {})) {
       fieldMappings[`flags.midi-qol.DR.${key}`] = `system.traits.dm.amount.${key}`;
+      fieldMappings[`flags.midi-qol.absorption.${key}`] = `system.traits.da.${key}`;
     }
     //@ts-expect-error
     for (let key of Object.keys(game.system.config.healingTypes ?? {})) {
       fieldMappings[`flags.midi-qol.DR.${key}`] = `system.traits.dm.amount.${key}`;
+      fieldMappings[`flags.midi-qol.absorption.${key}`] = `system.traits.da.${key}`;
     }
     fieldMappings["flags.midi-qol.DR.all"] = "system.traits.dm.midi.all";
+    fieldMappings["flags.midi-qol.absorption.all"] = "system.traits.da.all";
+
     //@ts-expect-error
     Object.keys(game.system.config.itemActionTypes).forEach(aType => {
-      fieldMappings[`flags.mii-qol.DR.${aType}`] = `system.traits.dm.midi.${aType}`;
+      fieldMappings[`flags.midi-qol.DR.${aType}`] = `system.traits.dm.midi.${aType}`;
     });
     fieldMappings[`flags.midi-qol.DR.all`] = `system.traits.dm.midi.all`;
     fieldMappings[`flags.midi-qol.DR.non-magical`] = `system.traits.dm.midi.non-magical`;
@@ -185,6 +203,7 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
     fieldMappings[`flags.midi-qol.DR.non-adamant`] = `system.traits.dm.midi.non-adamant`;
     fieldMappings[`flags.midi-qol.DR.non-physical`] = `system.traits.dm.midi.non-physical`;
     fieldMappings[`flags.midi-qol.DR.final`] = `system.traits.dm.midi.final`;
+    fieldMappings['flags.midi-qol.concentrationSaveBonus'] = "system.attributes.concentration.bonuses.save";
   }
 });
 /* ------------------------------------ */
@@ -244,12 +263,11 @@ function addConfigOptions() {
     config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
     config.midiProperties["otherSaveDamage"] = "Other Damage Save";
     if (isNewerVersion(systemVersion, "2.99")) {
-      config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg" };
-      config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "system/dnd5e/icons/svg/trait-damage-immunities.svg" };
+      config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function() {return this.label} };
+      config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function() {return this.label} };
     } else {
-      config.damageTypes["none"] = i18n("DND5E.None");
+      config.damageTypes["none"] = i18n(`${SystemString}.None`);
       config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
-
     }
 
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
@@ -296,9 +314,10 @@ function addConfigOptions() {
       //@ts-expect-error
       game.system.config.traits.dv.configKey = "damageResistanceTypes";
     }
-    config.abilityActivationTypes["reactionpreattack"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionPreAttack")}`;
-    config.abilityActivationTypes["reactiondamage"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionDamaged")}`;
-    config.abilityActivationTypes["reactionmanual"] = `${i18n("DND5E.Reaction")} ${i18n("midi-qol.reactionManual")}`;
+    const dnd5eReaction = `${SystemString}.Reaction`;
+    config.abilityActivationTypes["reactionpreattack"] = `${i18n(dnd5eReaction)} ${i18n("midi-qol.reactionPreAttack")}`;
+    config.abilityActivationTypes["reactiondamage"] = `${i18n(dnd5eReaction)} ${i18n("midi-qol.reactionDamaged")}`;
+    config.abilityActivationTypes["reactionmanual"] = `${i18n(dnd5eReaction)} ${i18n("midi-qol.reactionManual")}`;
   } else if (game.system.id === "sw5e") { // sw5e
     //@ts-expect-error
     config = CONFIG.SW5E;
@@ -343,13 +362,18 @@ Hooks.once('ready', function () {
   addConfigOptions();
   allDamageTypes = {};
   allDamageTypes.none = duplicate(config.damageTypes["midi-none"]);
-  allDamageTypes.none.label = i18n("DND5E.None");
+  allDamageTypes.none.label = i18n(`${SystemString}.None`);
   allDamageTypes[""] = allDamageTypes.none
   allDamageTypes = mergeObject(allDamageTypes, mergeObject(config.damageTypes, config.healingTypes, { inplace: false }));
   registerSettings();
   gameStats = new RollStats();
   actorAbilityRollPatching();
-
+  //@ts-expect-error
+  systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING;
+  if (!CONFIG.statusEffects.find(e => e.id === systemConcentrationId)) {
+    //@ts-expect-error name
+    CONFIG.statusEffects.push({ id: systemConcentrationId, name: i18n(`EFFECT.${SystemString}.StatusConcentrating`), icon: "systems/dnd5e/icons/svg/statuses/concentrating.svg", special: "CONCENTRATING" });
+  }
   MQOnUseOptions = {
     "preTargeting": "Called before targeting is resolved (*)",
     "preItemRoll": "Called before the item is rolled (*)",
@@ -483,12 +507,10 @@ Hooks.once('ready', function () {
     && isNewerVersion(game.system.version, "2.1.99")) {
     let abbr = {};
 
-    //@ts-expect-error
-    for (let key in CONFIG.DND5E.abilities) {
-      //@ts-expect-error
-      let abb = game.i18n.localize(CONFIG.DND5E.abilities[key].abbreviation);
+    for (let key in CONFIG[SystemString].abilities) {
+      let abb = game.i18n.localize(CONFIG[SystemString].abilities[key].abbreviation);
       let upperFirstLetter = abb.charAt(0).toUpperCase() + abb.slice(1);
-      abbr[`${abb}`] = `DND5E.Ability${upperFirstLetter}`;
+      abbr[`${abb}`] = `${SystemString}.Ability${upperFirstLetter}`;
     }
     //@ts-expect-error
     LMRTFY.saves = abbr;
@@ -524,6 +546,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     canSense: function canSense(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): boolean,
     canSense: function canSee(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string): boolean,
     cansSenseModes: function canSenseModes(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): Array<string>,
+    checkDistance: function checkDistnce(tokenEntity1: Token | TokenDocument | string, tokenEntity2: Token | TokenDocument | string, distance: number, wallsBlock?: boolean): boolean,
     checkIncapacitated: function checkIncapacitated(actor: Actor, logResult?: true): boolean,
     checkNearby: function checkNearby(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
     checkRange: function checkRange(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
@@ -630,6 +653,7 @@ function setupMidiQOLApi() {
     canSense,
     canSenseModes,
     checkIncapacitated,
+    checkDistance,
     checkNearby,
     checkRange,
     checkRule,
@@ -754,7 +778,7 @@ function doRoll(event = { shiftKey: false, ctrlKey: false, altKey: false, metaKe
   if (item) {
     return item.roll({ event: pEvent })
   } else {
-    ui.notifications?.warn(game.i18n.format("DND5E.ActionWarningNoItem", { item: itemName, name: actor.name }));
+    ui.notifications?.warn(game.i18n.format(`${SystemString}.ActionWarningNoItem`, { item: itemName, name: actor.name }));
   }
 }
 

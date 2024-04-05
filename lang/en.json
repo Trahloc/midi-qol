@@ -802,7 +802,7 @@
     "GMOnly": "Only the GM can undo workflows"
   },
   "midi-qol.cubNotSupported": "Combat Utility Belt will not be migrated to version 11. Midi will remove support for CUB in midi version 11.1.0",
-  "miidi-qol.ContestedRoll": "Contested Roll",
+  "midi-qol.ContestedRoll": "Contested Roll",
   "midi-qol.versus": "versus",
   "midi-qol.Skipped": "Skipped",
   "midi-qol.ExportTroubleShooting": "Export Trouble Shooting Data",
@@ -896,5 +896,6 @@
   "midi-qol.UndoChatColor.Name": "Undo Chat Cards Color",
   "midi-qol.UndoChatColor.Hint": "Delete means remove the chat card on undo. Otherwise the undone chats are recoloured",
   "midi-qol.v3DamageApplication.Name": "Use DND5E damage applicaiton",
-  "midi-qol.v3DamageApplication.Hint": "Do not enable - author testing only. If enabled midi qill use the dnd5e damage application workflow and hooks. Changing requires reload"
+  "midi-qol.v3DamageApplication.Hint": "Do not enable - author testing only. If enabled midi qill use the dnd5e damage application workflow and hooks. Changing requires reload",
+  "DND5E.DamageApplication.Change.Absorption": "{type} Absorption"
 }

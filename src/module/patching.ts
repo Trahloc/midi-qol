@@ -1,6 +1,6 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
-import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic } from "./settings.js";
+import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
@@ -156,10 +156,7 @@ async function doRollSkill(wrapped, ...args) {
     let procOptions = options;
     if (configSettings.skillAbilityCheckAdvantage) {
       procOptions = procAbilityAdvantage(this, "check", this.system.skills[skillId].ability, options)
-
-      // options = procAbilityAdvantage(actor, "check", actor.system.skills[skillId].ability, options)
     }
-    // let procOptions: Options = procAbilityAdvantage(this, "check", this.system.skills[skillId].ability, options)
     procOptions = procAdvantageSkill(this, skillId, procOptions);
     if (procOptions.advantage && procOptions.disadvantage) {
       procOptions.advantage = false;
@@ -177,6 +174,10 @@ async function doRollSkill(wrapped, ...args) {
     delete procOptions.event;
 
     // result = await wrapped.call(this, skillId, procOptions);
+    let messageData;
+    Hooks.once(`${game.system.id}.preRollSkill`, (actor, rollData, skillId) => {
+      messageData = rollData.messageData;
+    })
     result = await wrapped(skillId, procOptions);
     if (!result) return result;
     let rollMode: string = result.options?.rollMode ?? game.settings.get("core", "rollMode");
@@ -209,12 +210,9 @@ async function doRollSkill(wrapped, ...args) {
       DSNMarkDiceDisplayed(result);
     }
     if (chatMessage !== false && result) {
-      const args = { "speaker": getSpeaker(this), flavor };
-      setProperty(args, `flags.${game.system.id}.roll`, { type: "skill", skillId });
-      if (game.system.id === "sw5e") setProperty(args, "flags.sw5e.roll", { type: "skill", skillId })
       await displayDSNForRoll(result, "skill", rollMode);
       if (getProperty(result.flags, "midi-qol.chatMessageShown") !== true)
-        await result.toMessage(args, { rollMode });
+        await result.toMessage(messageData, { rollMode });
     }
     game.settings.set("core", "rollMode", saveRollMode);
     let success: boolean | undefined = undefined;
@@ -415,6 +413,11 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     if (!options.parts || procOptions.parts.length === 0) delete options.parts;
     procOptions.chatMessage = false;
     delete procOptions.event;
+    let messageData;
+    const type = rollType === "save" ? "preRollAbilitySave" : "preRollAbilityTest";
+    Hooks.once(`${game.system.id}.${type}`, (actor, rollData, skillId) => {
+      messageData = rollData.messageData;
+    })
     result = await wrapped(abilityId, procOptions);
     if (success === false) {
       result = new Roll("-1[auto fail]").evaluate({ async: false })
@@ -468,9 +471,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
 
     if (chatMessage !== false && result) {
-      const messageData: any = { "speaker": getSpeaker(this), flavor };
-      setProperty(messageData, "flags", options.flags ?? {})
-      setProperty(messageData, `flags.${game.system.id}.roll`, { type: rollType, abilityId });
+      mergeObject(messageData, {"flags": options.flags ?? {}});
       setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
       messageData.template = "modules/midi-qol/templates/roll-base.html";
       if (getProperty(result.flags, "midi-qol.chatMessageShown") !== true)
@@ -834,7 +835,7 @@ export function _prepareDerivedData(wrapped, ...args) {
     TroubleShooter.recordError(err, message);
   }
 }
-
+let currentDAcalculateDamage;
 export function initPatching() {
   libWrapper = globalThis.libWrapper;
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.prepareDerivedData", _prepareDerivedData, "WRAPPER");
@@ -845,6 +846,27 @@ export function initPatching() {
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getRollData", actorGetRollData, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.getRollData", itemGetRollData, "WRAPPER");
   libWrapper.register("midi-qol", "CONFIG.ActiveEffect.documentClass.prototype._preCreate", _preCreateActiveEffect, "WRAPPER");
+  currentDAcalculateDamage = window?.customElements?.get("damage-application")?.prototype.calculateDamage;
+  if (window?.customElements?.get("damage-application")?.prototype?.calculateDamage) {
+    //@ts-expect-error
+    window.customElements.get("damage-application").prototype.calculateDamage = DAcalculateDamage;
+  }
+}
+
+export function DAcalculateDamage(actor, options) {
+  const {total, active} = currentDAcalculateDamage.bind(this)(actor, options);
+  active.absorption = new Set();
+  active.saves = new Set();
+  const damages = actor.calculateDamage(this.damages, options);
+
+  for (const damage of damages) {
+    if (damage.active.absorption) active.absorption.add(damage.type);
+  }
+  const union = t => {
+    if ( foundry.utils.getType(options.ignore?.[t]) === "Set" ) active[t] = active[t].union(options.ignore[t]);
+  };
+  union("absorption");
+  return {total, active};
 }
 
 export function _onFocusIn(event) {
@@ -1223,6 +1245,7 @@ export function readyPatching() {
     libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Item.sheetClasses.base['dnd5e.ItemSheet5e'].cls.defaultOptions", itemSheetDefaultOptions, "WRAPPER");
+    libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype._onUpdate", onUpdateActor, "MIXED");
   } else { // TODO find out what itemsheet5e is called in sw5e TODO work out how this is set for sw5e v10
     libWrapper.register("midi-qol", "game.sw5e.canvas.AbilityTemplate.prototype.refresh", midiATRefresh, "WRAPPER");
     libWrapper.register("midi-qol", "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
@@ -1243,6 +1266,39 @@ export function readyPatching() {
   }
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollInitiativeDialog", rollInitiativeDialog, "MIXED");
+}
+
+export async function onUpdateActor(wrapped, data, options, userId) {
+  if (!options.noConcentrationCheck) return wrapped(data, options, userId);
+  Object.getPrototypeOf(CONFIG.Actor.documentClass).prototype._onUpdate.bind(this)(data, options, userId);
+  if (userId === game.userId) {
+    await this.updateEncumbrance(options);
+    this._onUpdateExhaustion(data, options);
+  }
+
+  const hp = options.dnd5e?.hp;
+  if (hp && !options.isRest && !options.isAdvancement) {
+    const curr = this.system.attributes.hp;
+    const changes = {
+      hp: curr.value - hp.value,
+      temp: curr.temp - hp.temp,
+      total: 0
+    };
+    changes.total = changes.hp + changes.temp;
+    // options.noConcentrationCheck true so don't display concentration effect chat card.
+
+    /**
+     * A hook event that fires when an actor is damaged or healed by any means. The actual name
+     * of the hook will depend on the change in hit points.
+     * @function dnd5e.damageActor
+     * @memberof hookEvents
+     * @param {Actor5e} actor                                       The actor that had their hit points reduced.
+     * @param {{hp: number, temp: number, total: number}} changes   The changes to hit points.
+     * @param {object} update                                       The original update delta.
+     * @param {string} userId                                       Id of the user that performed the update.
+     */
+    Hooks.callAll(`dnd5e.${changes.total > 0 ? "heal" : "damage"}Actor`, this, changes, data, userId);
+  }
 }
 
 export let visionPatching = () => {
@@ -1298,8 +1354,22 @@ export let itemPatching = () => {
 export async function checkDeleteTemplate(templateDocument, options, user) {
   if (user !== game.user?.id) return;
   if (options.undo) return;
+  //@ts-expect-error
+  let origin = fromUuidSync(templateDocument.getFlag("dnd5e", "origin"));
+  if (origin instanceof Item && origin.parent instanceof Actor) {
+    //@ts-expect-error
+    origin = origin.parent.effects?.find(ef => ef.getFlag("dnd5e", "dependents")?.some(dep => dep.uuid === templateDocument.uuid));
+  }
+  if (origin instanceof ActiveEffect && !options.noConcentrationCheck && configSettings.removeConcentrationEffects !== "none" && !safeGetGameSetting("dnd5e", "disableConcentration")) {
+    //@ts-expect-error
+    if ((origin.getFlag("dnd5e", "dependents")) && origin.getDependents().length === 0) {
+      await origin.delete();
+    }
+  }
+
+  if (!configSettings.concentrationAutomation) return;
   try {
-    const uuid = getProperty(templateDocument, "flags.midi-qol.originUuid");
+    const uuid = getProperty(templateDocument, "flags.midi-qol.itemUuid");
     const actor = MQfromUuid(uuid)?.actor;
     if (!(actor instanceof CONFIG.Actor.documentClass)) return;
     const concentrationData = getProperty(actor, "flags.midi-qol.concentration-data");
@@ -1609,8 +1679,8 @@ class CustomizeDamageFormula {
   static activateListeners(html, allRolls) {
     html.find('input[name="formula.active"]').on("click", (e) => {
       const id = e.currentTarget.dataset.id;
-       const theRoll = allRolls.find(r => r.id === id)
-       theRoll.active = e.currentTarget.checked;
+      const theRoll = allRolls.find(r => r.id === id)
+      theRoll.active = e.currentTarget.checked;
     })
   }
 }
