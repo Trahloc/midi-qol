@@ -2,20 +2,28 @@ export async function preloadTemplates() {
   const templatePaths = [
     // Add paths to "modules/midi-qol/templates"
     "modules/midi-qol/templates/actorOnUseMacrosConfig.html",
+    "modules/midi-qol/templates/attack-roll.html",
+    "modules/midi-qol/templates/bonus-damage-roll.html",
     "modules/midi-qol/templates/config.html",
-    "modules/midi-qol/templates/damage-roll.html",
     "modules/midi-qol/templates/damage-results.html",
     "modules/midi-qol/templates/damage-results-player.html",
+    "modules/midi-qol/templates/damage-results-v3.html",
+    "modules/midi-qol/templates/damage-roll.html",
+    "modules/midi-qol/templates/damage-roll-dialog.hbs",
     "modules/midi-qol/templates/dialog.html",
     "modules/midi-qol/templates/hits.html",
     "modules/midi-qol/templates/item-card-buttons.html",
     "modules/midi-qol/templates/item-card.hbs",
+    "modules/midi-qol/templates/itemProperties.html", 
     "modules/midi-qol/templates/itemTypeSelector.html",
     "modules/midi-qol/templates/midiPropertiesForm.hbs",
+    "modules/midi-qol/templates/other-damage-roll.html",
     "modules/midi-qol/templates/roll.html",
     "modules/midi-qol/templates/roll-base.html",
+    "modules/midi-qol/templates/roll-dialog.hbs",
     "modules/midi-qol/templates/rolloptions.html",
     "modules/midi-qol/templates/roll-stats.html",
+    "modules/midi-qol/templates/rolloptions.html",
     "modules/midi-qol/templates/saves.html",
     "modules/midi-qol/templates/sound-config.html",
     "modules/midi-qol/templates/targetConfirmationConfig.html",
@@ -23,8 +31,7 @@ export async function preloadTemplates() {
     "modules/midi-qol/templates/tooltip.html",
     "modules/midi-qol/templates/tool-card.html",
     "modules/midi-qol/templates/troubleShooter.html",
-    "modules/midi-qol/templates/undo-workflow.html",
-    "modules/midi-qol/templates/damage-roll-dialog.hbs"
+    "modules/midi-qol/templates/undo-workflow.html"
   ];
 	return loadTemplates(templatePaths);
 }

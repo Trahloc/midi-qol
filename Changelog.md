@@ -1,3 +1,6 @@
+## 11.4.16.2
+* Fix for rolling concentration saves whenever the player takes damage.
+
 ## 11.4.16.1
 * Fix for blank damage types failing when doing damage application.
 

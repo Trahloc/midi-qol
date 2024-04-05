@@ -110,7 +110,7 @@ export let readyHooks = async () => {
             if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(concentrationEffect.delete.bind(concentrationEffect));
             else await concentrationEffect.delete();
           }
-        } else if (configSettings.doConcentrationCheck) {
+        } else if (configSettings.doConcentrationCheck && getConcentrationEffect(actor)) {
           const saveDC = Math.max(10, Math.floor(hpDiff / 2));
           if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(doConcentrationCheck, actor, saveDC);
           else await doConcentrationCheck(actor, saveDC);
