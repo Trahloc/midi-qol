@@ -802,7 +802,7 @@
     "GMOnly": "Apenas MJ pode desfazer fluxos"
   },
   "midi-qol.cubNotSupported": "Combat Utility Belt não será migrado para a versão 11 do Foundry. Midi QOL irá remover o suporte ao CUB na versão 11.1.0 do Midi QOL",
-  "miidi-qol.ContestedRoll": "Rolagem Contestada",
+  "midi-qol.ContestedRoll": "Rolagem Contestada",
   "midi-qol.versus": "versus",
   "midi-qol.Skipped": "Pulado",
   "midi-qol.ExportTroubleShooting": "Exportar Informações de Trouble Shooting",
@@ -896,5 +896,6 @@
   "midi-qol.UndoChatColor.Name": "Desfazer a Cor dos Cartões de Chat",
   "midi-qol.UndoChatColor.Hint": "'Deletar' significa remover o cartão de chat ou desfazer. Do contrário, os cartões desfeitos são coloridos novamente.",
   "midi-qol.v3DamageApplication.Name": "Usar a Aplicação de Dano do D&D5e",
-  "midi-qol.v3DamageApplication.Hint": "NÃO HABILITE, apenas para testes do autor. Se habilitado, Midi QOL usará o Fluxo de aplicação de dano do D&D5e e hooks. Mudar requer que o mundo seja reiniciado."
+  "midi-qol.v3DamageApplication.Hint": "NÃO HABILITE, apenas para testes do autor. Se habilitado, Midi QOL usará o Fluxo de aplicação de dano do D&D5e e hooks. Mudar requer que o mundo seja reiniciado.",
+  "DND5E.DamageApplication.Change.Absorption": "Absorção a {type}"
 }
