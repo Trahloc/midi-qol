@@ -1,3 +1,6 @@
+## 11.4.16.1
+* Fix for blank damage types failing when doing damage application.
+
 ## 11.4.16
 * Support for actorOnUse macro config in tidy sheet 5e - thanks @kagar
 * Support for flags.midi-qol.bonuses.spell.all.damage which is a bonus added for any spell that rolls damage, not just msak/rsak.
