@@ -4128,7 +4128,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     const src = 'with (sandbox) { return ' + expression + '}';
     const evl = new Function('sandbox', src);
     //@ts-expect-error
-    sandbox = mergeObject(sandbox, { Roll, findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, fromUuidSync });
+    sandbox = mergeObject(sandbox, { Roll, findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -5378,7 +5378,7 @@ export async function contestedRoll(data: {
     if (result === undefined) resultString = "";
     else resultString = result > 0 ? i18n("midi-qol.save-success") : result < 0 ? i18n("midi-qol.save-failure") : result === 0 ? i18n("midi-qol.save-drawn") : "no result"
     const skippedString = i18n("midi-qol.Skipped");
-    const content = `${flavor ?? i18n("miidi-qol:ContestedRoll")} ${resultString} ${results[0].total ?? skippedString} ${i18n("midi-qol.versus")} ${results[1].total ?? skippedString}`;
+    const content = `${flavor ?? i18n("miidi-qol.ContestedRoll")} ${resultString} ${results[0].total ?? skippedString} ${i18n("midi-qol.versus")} ${results[1].total ?? skippedString}`;
     displayContestedResults(itemCardUuid, content, ChatMessage.getSpeaker({ token: sourceToken }), flavor);
   }
 
@@ -5913,4 +5913,30 @@ export function blankOrUndefinedDamageType(s: string | undefined): string {
   if (!s) return "none";
   if (s === "") return "none";
   return s;
+}
+export function processConcentrationSave(message, html, data) {
+  if (configSettings.concentrationAutomation || safeGetGameSetting("dnd5e", "disableConcentration") || !configSettings.doConcentrationCheck) return;
+  let button = html.find("[data-action=concentration]");
+  const hasRolled = getProperty(message, "flags.midi-qol.concentrationRolled");
+  //@ts-expect-error
+  if (hasRolled || game.user !== game.users?.activeGM) return;
+  if (button.length === 1 && !hasRolled) {
+    let {action, dc, type} = button[0].dataset;
+    let token, actor;
+    if (action === "concentration" && type === "concentration") {
+      dc = Number(dc);
+      let {actor, alias, scene, token} = message.speaker;
+      if (scene && token) token = game.scenes?.get(scene)?.tokens.get(token);
+      if (token) actor = token.actor;
+      else actor = game.actors?.get(actor);
+      if (actor) {
+        const user = playerForActor(actor);
+        if (user) {
+          const whisper = game.users.filter(user => actor.testUserPermission(user, "OWNER"))
+          socketlibSocket.executeAsUser("rollConcentration", user.id, {actorUuid: actor.uuid, targetValue: dc, whisper});
+        } else actor.rollConcentration({targetValue: dc});
+        message.setFlag("midi-qol", "concentrationRolled", true);
+      }
+    }
+  }
 }

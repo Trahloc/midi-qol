@@ -802,7 +802,7 @@
     "GMOnly": "Apenas MJ pode desfazer fluxos"
   },
   "midi-qol.cubNotSupported": "Combat Utility Belt não será migrado para a versão 11 do Foundry. Midi QOL irá remover o suporte ao CUB na versão 11.1.0 do Midi QOL",
-  "miidi-qol.ContestedRoll": "Rolagem Contestada",
+  "midi-qol.ContestedRoll": "Rolagem Contestada",
   "midi-qol.versus": "versus",
   "midi-qol.Skipped": "Pulado",
   "midi-qol.ExportTroubleShooting": "Exportar Informações de Trouble Shooting",

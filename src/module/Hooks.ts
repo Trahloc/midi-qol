@@ -1,7 +1,7 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache, tokenForActor, getSaveMultiplierForItem, expireEffects, evalCondition, createConditionData } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache, tokenForActor, getSaveMultiplierForItem, expireEffects, evalCondition, createConditionData, processConcentrationSave } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting, safeGetGameSetting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentrationEffects, zeroHPExpiry, canRemoveConcentration } from "./patching.js";
@@ -104,16 +104,16 @@ export let readyHooks = async () => {
           await actor.endConcentration();
         }
       } else if (configSettings.concentrationAutomation && hpDiff > 0 && !options.noConcentrationCheck) {
-        if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
-          const concentrationEffect = getConcentrationEffect(actor);
-          if (concentrationEffect) {
+        const concentrationEffect = getConcentrationEffect(actor);
+        if (concentrationEffect) {
+          if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
             if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(concentrationEffect.delete.bind(concentrationEffect));
             else await concentrationEffect.delete();
+          } else if (configSettings.doConcentrationCheck) {
+            const saveDC = Math.max(10, Math.floor(hpDiff / 2));
+            if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(doConcentrationCheck, actor, saveDC);
+            else await doConcentrationCheck(actor, saveDC);
           }
-        } else if (configSettings.doConcentrationCheck && getConcentrationEffect(actor)) {
-          const saveDC = Math.max(10, Math.floor(hpDiff / 2));
-          if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(doConcentrationCheck, actor, saveDC);
-          else await doConcentrationCheck(actor, saveDC);
         }
       }
     }
@@ -268,6 +268,7 @@ export function initHooks() {
     colorChatMessageHandler(message, html, data);
     hideRollRender(message, html, data);
     hideStuffHandler(message, html, data);
+    processConcentrationSave(message, html, data);
   });
 
   Hooks.on("deleteChatMessage", (message, options, user) => {

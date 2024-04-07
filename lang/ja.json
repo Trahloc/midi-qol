@@ -799,7 +799,7 @@
     "GMOnly": "ワークフローの取り消しはGMのみが可能です。"
   },
   "midi-qol.cubNotSupported": "「Combat Utility Belt」はVer.11への対応が行われないため，MidiによるCUBのサポートはVer.11.1.0で終了となります。",
-  "miidi-qol.ContestedRoll": "対抗ロール",
+  "midi-qol.ContestedRoll": "対抗ロール",
   "midi-qol.versus": "vs.",
   "midi-qol.Skipped": "Skipped",
   "midi-qol.ExportTroubleShooting": "トラブルシューディング用のデータを出力する",

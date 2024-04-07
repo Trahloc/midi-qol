@@ -49,6 +49,7 @@ export let setupSocket = () => {
   socketlibSocket.register("removeStatsForActorId", removeActorStats);
   socketlibSocket.register("removeWorkflow", _removeWorkflow);
   socketlibSocket.register("rollAbility", rollAbility);
+  socketlibSocket.register("rollConcentration", rollConcentration);
   socketlibSocket.register("startUndoWorkflow", startUndoWorkflow);
   socketlibSocket.register("undoMostRecentWorkflow", _undoMostRecentWorkflow);
   socketlibSocket.register("undoTillWorkflow", undoTillWorkflow);
@@ -91,6 +92,7 @@ export class SaferSocket {
       case "moveTokenAwayFromPoint":
       case "removeWorkflow":
       case "rollAbility":
+      case "rollConcentration":
       case "removeEffect":
       case "removeActionBonusReaction":
         return true;
@@ -626,6 +628,16 @@ export async function _D20Roll(data: { request: string, targetUuid: string, form
     resolve(result ?? {})
   });
 }
+export async function rollConcentration(data: {actorUuid, targetValue, whisper}) {
+  //@ts-expect-error
+  const actor = fromUuidSync(data.actorUuid);
+  if (!actor) {
+    error(`GMAction.rollConcentration | no actor for ${data.actorUuid}`)
+    return {};
+  }
+  return actor.rollConcentration({targetValue: data.targetValue, whisper: data.whisper});
+}
+
 export async function rollAbility(data: { request: string; targetUuid: string; ability: string; options: any; }) {
   if (data.request === "test") data.request = "abil";
   const actor = MQfromActorUuid(data.targetUuid);

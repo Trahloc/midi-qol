@@ -194,7 +194,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
     let tokenToUse;
     let targetConfirmationHasRun = false;
-    const selfTarget = this.system.target?.type === "self";
+    let selfTarget = this.system.target?.type === "self";
     let targetsToUse: Set<Token> = validTargetTokens(game.user?.targets);
 
     // remove selection of untargetable targets
@@ -309,7 +309,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const results = await tempWorkflow.callMacros(this, tempWorkflow.onUseMacros?.getMacros("preTargeting"), "OnUse", "preTargeting");
       cancelWorkflow ||= results.some(i => i === false);
     }
-
+    selfTarget = this.system.target?.type === "self";
     isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
     isAoETargeting = this.hasAreaTarget;
     requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
