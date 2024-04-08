@@ -1,3 +1,6 @@
+## 11.4.18.1
+* Incorrect package released in 11.4.18
+
 ## 11.4.18
 * I think dnd5e damage application is ready for testing by other users.
 * Fix for non-gm applicaiton of damage when using dnd5e damage application.

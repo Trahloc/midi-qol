@@ -1517,7 +1517,7 @@ export class Workflow {
     // delete Workflow._workflows[this.itemId];
 
     await asyncHooksCallAll("midi-qol.RollComplete", this);
-    if (this.item) await asyncHooksCallAll(`midi-qol.RollComplete.${this.item?.uuid} `, this);
+    if (this.item) await asyncHooksCallAll(`midi-qol.RollComplete.${this.item?.uuid}`, this);
     if (this.aborted) return this.WorkflowState_Abort;  // TODO This is wrong
     if (autoRemoveTargets !== "none") setTimeout(untargetDeadTokens, 500); // delay to let the updates finish
     if (debugCallTiming) log(`RollFinished elapased ${Date.now() - rollFinishedStartTime}`);
@@ -1756,14 +1756,14 @@ export class Workflow {
     if (!["mwak", "rwak"].includes(this.item?.system.actionType)) return;
     let ability = this.item?.abilityMod;
     if ("" === ability) ability = this.item?.system.properties?.has("fin") ? "dex" : "str";
-    if (getProperty(this.actor, `flags.midi-qol.advantage.attack.${ability} `)) {
-      if (evalCondition(getProperty(this.actor, `flags.midi-qol.advantage.attack.${ability} `), this.conditionData)) {
+    if (getProperty(this.actor, `flags.midi-qol.advantage.attack.${ability}`)) {
+      if (evalCondition(getProperty(this.actor, `flags.midi-qol.advantage.attack.${ability}`), this.conditionData)) {
         this.advantage = true;
         this.attackAdvAttribution.add(`ADV:attack.${ability}`); true;
       }
     }
-    if (getProperty(this.actor, `flags.midi-qol.disadvantage.attack.${ability} `)) {
-      if (evalCondition(getProperty(this.actor, `flags.midi-qol.disadvantage.attack.${ability} `), this.conditionData)) {
+    if (getProperty(this.actor, `flags.midi-qol.disadvantage.attack.${ability}`)) {
+      if (evalCondition(getProperty(this.actor, `flags.midi-qol.disadvantage.attack.${ability}`), this.conditionData)) {
         this.disadvantage = true;
         this.attackAdvAttribution.add(`DIS:attack.${ability}`);
       }
@@ -1826,24 +1826,24 @@ export class Workflow {
     }
     if (attackAdvantage.all && evalCondition(attackAdvantage.all, conditionData)) {
       grantsAdvantage = true;
-      this.attackAdvAttribution.add(`ADV: grants.attack.all`);
+      this.attackAdvAttribution.add(`ADV:grants.attack.all`);
     }
     if (attackAdvantage[actionType] && evalCondition(attackAdvantage[actionType], conditionData)) {
       grantsAdvantage = true;
-      this.attackAdvAttribution.add(`ADV: grants.attack.${actionType} `);
+      this.attackAdvAttribution.add(`ADV:grants.attack.${actionType}`);
     }
     if (grants.fail?.advantage?.attack?.all && evalCondition(grants.fail.advantage.attack.all, conditionData)) {
       grantsAdvantage = false;
       this.advantage = false;
       this.noAdvantage = true;
-      this.attackAdvAttribution.add(`ADV: grants.attack.noAdvantage`);
+      this.attackAdvAttribution.add(`ADV:grants.attack.noAdvantage`);
 
     }
     if (grants.fail?.advantage?.attack && grants.fail.advantage.attack[actionType] && evalCondition(grants.fail.advantage.attack[actionType], conditionData)) {
       grantsAdvantage = false;
       this.advantage = false;
       this.noAdvantage = true;
-      this.attackAdvAttribution.add(`ADV:grants.attack.noAdvantage${actionType} `);
+      this.attackAdvAttribution.add(`ADV:grants.attack.noAdvantage${actionType}`);
 
     }
 
@@ -1859,7 +1859,7 @@ export class Workflow {
     }
     if (attackDisadvantage[actionType] && evalCondition(attackDisadvantage[actionType], conditionData)) {
       grantsDisadvantage = true;
-      this.attackAdvAttribution.add(`DIS: grants.attack.${actionType} `);
+      this.attackAdvAttribution.add(`DIS:grants.attack.${actionType}`);
     }
     if (grants.fail?.disadvantage?.attack?.all && evalCondition(grants.fail.disadvantage.attack.all, conditionData)) {
       this.attackAdvAttribution.add(`DIS:None`);
@@ -2043,7 +2043,7 @@ export class Workflow {
         for (let dt of this.damageDetail) {
           if (expireList.includes(`isDamaged`) && (wasDamaged || dt.type === "healing") && specialDuration.includes(`isDamaged.${dt.type}`)) {
             wasExpired = true;
-            expriryReason.push(`isDamaged.${dt.type} `);
+            expriryReason.push(`isDamaged.${dt.type}`);
             break;
           }
         }
@@ -2063,11 +2063,11 @@ export class Workflow {
         const abl = this.item?.system.save?.ability;
         if (this.saveItem.hasSave && expireList.includes(`isSaveSuccess`) && specialDuration.includes(`isSaveSuccess.${abl}`) && this.saves.has(target)) {
           wasExpired = true;
-          expriryReason.push(`isSaveSuccess.${abl} `);
+          expriryReason.push(`isSaveSuccess.${abl}`);
         };
         if (this.saveItem.hasSave && expireList.includes(`isSaveFailure`) && specialDuration.includes(`isSaveFailure.${abl}`) && !this.saves.has(target)) {
           wasExpired = true;
-          expriryReason.push(`isSaveFailure.${abl} `);
+          expriryReason.push(`isSaveFailure.${abl}`);
         };
         if (this.saveItem.hasSave && expireList.includes(`isSave`) && specialDuration.includes(`isSave.${abl}`)) {
           wasExpired = true;
@@ -2079,7 +2079,7 @@ export class Workflow {
         await timedAwaitExecuteAsGM("removeEffects", {
           actorUuid: target.actor?.uuid,
           effects: expiredEffects,
-          options: { "expiry-reason": `midi-qol:${expriryReason} ` }
+          options: { "expiry-reason": `midi-qol:${expriryReason}` }
         });
       }
     }
@@ -2090,7 +2090,7 @@ export class Workflow {
     const itemMacros = this.onUseMacros?.getMacros("damageBonus")
     if (!itemMacros?.length) return actorMacros;
     if (!actorMacros?.length) return itemMacros;
-    return `${actorMacros},${itemMacros} `;
+    return `${actorMacros},${itemMacros}`;
   }
 
   async rollBonusDamage(damageBonusMacro) {
@@ -2361,7 +2361,7 @@ export class Workflow {
         }
       }
       if (!itemMacroData && !macro) {
-        const message = `Could not find item/macro ${name} `;
+        const message = `Could not find item/macro ${name}`;
         TroubleShooter.recordError(new Error(message), message);
         ui.notifications?.error(`midi-qol | Could not find macro ${name} does not exist`);
         return undefined;
@@ -2369,7 +2369,7 @@ export class Workflow {
       if (itemMacroData) {
         if (!itemMacroData.command) itemMacroData = itemMacroData.data;
         if (!itemMacroData?.command) {
-          if (debugEnabled > 0) warn(`callMacro | could not find item macro ${name} `);
+          if (debugEnabled > 0) warn(`callMacro | could not find item macro ${name}`);
           return {};
         }
       }

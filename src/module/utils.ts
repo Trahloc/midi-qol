@@ -5378,7 +5378,7 @@ export async function contestedRoll(data: {
     if (result === undefined) resultString = "";
     else resultString = result > 0 ? i18n("midi-qol.save-success") : result < 0 ? i18n("midi-qol.save-failure") : result === 0 ? i18n("midi-qol.save-drawn") : "no result"
     const skippedString = i18n("midi-qol.Skipped");
-    const content = `${flavor ?? i18n("miidi-qol.ContestedRoll")} ${resultString} ${results[0].total ?? skippedString} ${i18n("midi-qol.versus")} ${results[1].total ?? skippedString}`;
+    const content = `${flavor ?? i18n("midi-qol.ContestedRoll")} ${resultString} ${results[0].total ?? skippedString} ${i18n("midi-qol.versus")} ${results[1].total ?? skippedString}`;
     displayContestedResults(itemCardUuid, content, ChatMessage.getSpeaker({ token: sourceToken }), flavor);
   }
 
