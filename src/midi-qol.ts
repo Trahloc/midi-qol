@@ -169,9 +169,11 @@ Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
     specials[`system.traits.dm.midi.all`] = ["", -1]
     specials[`system.traits.dm.midi.non-magical`] = ["", -1]
     specials[`system.traits.dm.midi.non-magical-physical`] = ["", -1]
-    specials[`system.traits.dm.midi.non-silver`] = ["", -1]
-    specials[`system.traits.dm.midi.non-adamant`] = ["", -1]
+    specials[`system.traits.dm.midi.non-silver-physical`] = ["", -1]
+    specials[`system.traits.dm.midi.non-adamant-physical`] = ["", -1]
     specials[`system.traits.dm.midi.non-physical`] = ["", -1]
+    specials[`system.traits.dm.midi.spell`] = ["", -1]
+    specials[`system.traits.dm.midi.non-spell`] = ["", -1]
     specials[`system.traits.dm.midi.final`] = ["", -1];
   }
 });
@@ -199,9 +201,12 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
     fieldMappings[`flags.midi-qol.DR.all`] = `system.traits.dm.midi.all`;
     fieldMappings[`flags.midi-qol.DR.non-magical`] = `system.traits.dm.midi.non-magical`;
     fieldMappings[`flags.midi-qol.DR.non-magical-physical`] = `system.traits.dm.midi.non-magical-physical`;
-    fieldMappings[`flags.midi-qol.DR.non-silver`] = `system.traits.dm.midi.non-silver`;
-    fieldMappings[`flags.midi-qol.DR.non-adamant`] = `system.traits.dm.midi.non-adamant`;
+    fieldMappings[`flags.midi-qol.DR.non-silver`] = `system.traits.dm.midi.non-silver-physical`;
+    fieldMappings[`flags.midi-qol.DR.non-adamant`] = `system.traits.dm.midi.non-adamant-physical`;
     fieldMappings[`flags.midi-qol.DR.non-physical`] = `system.traits.dm.midi.non-physical`;
+    fieldMappings[`flags.midi-qol.DR.non-spell`] = `system.traits.dm.midi.non-spell`;
+    fieldMappings[`flags.midi-qol.DR.spell`] = `system.traits.dm.midi.spell`;
+
     fieldMappings[`flags.midi-qol.DR.final`] = `system.traits.dm.midi.final`;
     fieldMappings['flags.midi-qol.concentrationSaveBonus'] = "system.attributes.concentration.bonuses.save";
   }

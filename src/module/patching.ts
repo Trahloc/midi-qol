@@ -388,8 +388,13 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       success = false;
     }
 
-    if (options.event?.advantage || options.event?.altKey) options.advantage ||= true;
-    if (options.event?.disadvantage || options.event?.ctrlKey) options.disadvantage ||= true;
+    if (options.event.disadvantage === undefined && options.event.advantage == undefined) {
+      // if (options.event.ctrlKey) options.disadvantage = true;
+      // if (options.event.altKey) options.advantage = true;
+    } else {
+      options.advantage ||= options.event.advantage;
+      options.disadvantage ||= options.event.disadvantage;
+    }
     if (options.fromMars5eChatCard) options.fastForward ||= autoFastForwardAbilityRolls;
 
     const chatMessage = options.chatMessage;

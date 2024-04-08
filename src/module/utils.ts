@@ -940,7 +940,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       actorId: workflow.actor?.id,
       charName: workflow.actor?.name ?? game?.user?.name,
       allDamages,
-      baseDamageRolls,
+      baseDamageRolls: baseDamageRolls.map(r => JSON.stringify(r)),
       chatCardId: workflow.itemCardId,
       chatCardUuid: workflow.itemCardUuid,
       flagTags: workflow.flagTags,
@@ -1531,7 +1531,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
 
       }
       if (rollTypeString === "check" && !actionSave) {
-        itemData.systsem.actionType = "abil";
+        itemData.system.actionType = "abil";
         itemData.system.save.ability = saveAbility[0];
       }
       if (rollTypeString === "skill" && !actionSave) { // skill checks for this is a fiddle - set a midi flag so that the midi save roll will pick it up.

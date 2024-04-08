@@ -935,7 +935,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
 
   // Insert DR.ALL as a -ve damage value maxed at the total damage.
   let drAll = 0;
-  if (options.ignore !== true && !options.ignore?.modification.has("none") && !options.ignore?.modification.has("all")) {
+  if (options.ignore !== true && !options.ignore?.modification?.has("none") && !options.ignore?.modification?.has("all")) {
     if (getProperty(actor, "system.traits.dm.midi.all")) {
       let dr = new Roll(`${getProperty(actor, "system.traits.dm.midi.all")}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
       dr = Math.min(dr, options.midi.totalDamage);
@@ -970,45 +970,49 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         case "non-magical":
           dr = new Roll(`${actor.system.traits.dm.midi["non-magical"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
+            const isNonMagical = !damage.properties.has("mag");
+            total += isNonMagical ? damage.value : 0;
+            return total;
+          }, 0);
+          break;
+        case "non-magical-physical":
+          dr = new Roll(`${actor.system.traits.dm.midi["non-magical-physical"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+          selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
             const isNonMagical = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mag");
             total += isNonMagical ? damage.value : 0;
             return total;
           }, 0);
-          dr = Math.min(dr, selectedDamage)
-          if (checkRule("maxDRValue") && dr > drAll)
-            drAll = dr;
-          else if (!checkRule("maxDRValue"))
-            drAll += dr;
           break;
-        case "non-silver":
-          dr = new Roll(`${actor.system.traits.dm.midi["non-silver"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+
+        case "non-silver-physical":
+          dr = new Roll(`${actor.system.traits.dm.midi["non-silver-physical"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
             const isNonSilver = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("sil");
             total += isNonSilver ? damage.value : 0;
             return total;
           }, 0);
-          dr = Math.min(dr, selectedDamage)
-          if (checkRule("maxDRValue") && dr > drAll)
-            drAll = dr;
-          else if (!checkRule("maxDRValue"))
-            drAll += dr;
           break;
-        case "non-adamant":
-          dr = new Roll(`${actor.system.traits.dm.midi["non-adamant"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+        case "non-adamant-physical":
+          dr = new Roll(`${actor.system.traits.dm.midi["non-adamant-physical"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
             const isNonSilver = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("adm");
             total += isNonSilver ? damage.value : 0;
             return total;
           }, 0);
-          dr = Math.min(dr, selectedDamage)
-          if (checkRule("maxDRValue") && dr > drAll)
-            drAll = dr;
-          else if (!checkRule("maxDRValue"))
-            drAll += dr;
           break;
+        case "non-physical":
+          dr = new Roll(`${actor.system.traits.dm.midi["non-physical"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+          selectedDamage = damages.reduce((total, damage) => {
+            //@ts-expect-error
+            const isNonPhysical = !game.system.config.damageTypes[damage.type]?.isPhysical;
+            total += isNonPhysical ? damage.value : 0;
+            return total;
+          }, 0);
+          break;
+
         case "spell":
           if (actor.system.traits.dm.midi["spell"]) {
             let dr = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
@@ -1017,13 +1021,27 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
               total += isSpell ? damage.value : 0;
               return total;
             }, 0);
-            dr = Math.min(dr, selectedDamage);
-            if (checkRule("maxDRValue") && dr > drAll)
-              drAll = dr;
-            else if (!checkRule("maxDRValue"))
-              drAll += dr;
           }
           break;
+        case "non-spell":
+          if (actor.system.traits.dm.midi["non-spell"]) {
+            let dr = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+            selectedDamage = damages.reduce((total, damage) => {
+              const isSpell = damage.properties.has("spell");
+              total += isSpell ? 0 : damage.value;
+              return total;
+            }, 0);
+          }
+          break;
+      }
+      if (dr) {
+        if (Math.sign(selectedDamage + dr) !== Math.sign(selectedDamage)) {
+          dr = -selectedDamage
+        }
+        if (checkRule("maxDRValue") && dr < drAll)
+          drAll = dr;
+        else if (!checkRule("maxDRValue"))
+          drAll += dr;
       }
     }
     const totalDamage = damages.reduce((a, b) => a + b.value, 0);

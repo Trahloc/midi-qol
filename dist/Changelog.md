@@ -1,3 +1,10 @@
+## 11.4.18
+* I think dnd5e damage application is ready for testing by other users.
+* Fix for non-gm applicaiton of damage when using dnd5e damage application.
+* Implemented all of the flags.midi-qol.DR.specials in dnd5e damage calculation. These are currently applied after resistance/immunity which is not RAW.
+* Fix for overtime effects with type check failing. Thanks @hi25114
+* More QA fixes courtesy @Elwin.
+
 ## 11.4.17
 * When dnd5e concentration is enabled, and midi is configured to do a concentration check, midi will auto roll concentration (prompting the actor's owner) when a concentration chat card is displayed.
 * Fix for a raft of bugs introduced by a bad auto format of the code in 11.4.16 - many thanks to the eagle eyed @Elwin

@@ -749,7 +749,9 @@ async function createV3GMReverseDamageCard(
   };
   //@ts-expect-error
   const aggregator = game.system.dice.aggregateDamageRolls;
-  const baseDamageRolls = aggregator(data.baseDamageRolls, { respectProperties: false });
+  //@ts-expect-error
+  let baseDamageRolls = data.baseDamageRolls.map(r => CONFIG.Dice.DamageRoll.fromJSON(r))
+  baseDamageRolls = aggregator(baseDamageRolls, { respectProperties: false });
   const baseDamage = baseDamageRolls.map(roll => ({
     value: roll.total,
     type: roll.options.type,
