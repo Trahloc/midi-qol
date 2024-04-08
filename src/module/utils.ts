@@ -921,7 +921,33 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
           //@ts-expect-error
           const returnDamages = token.actor.calculateDamage(damages, options);
+          const appliedTotal = returnDamages.reduce((acc, value) => acc + value.value, 0);
           allDamages[tokenDocument.uuid].totalDamage += (options.midi.totalDamage ?? 0);
+          if (appliedTotal !== 0 && hitTargets.has(token)) {
+            const healedDamaged = appliedTotal < 0 ? "isHealed" : "isDamaged";
+            workflow.damages = duplicate(returnDamages);
+            await asyncHooksCallAll(`midi-qol.${healedDamaged}`, token, { item, workflow, damageItem: workflow.ditem, ditem: workflow.ditem });
+            const actorOnUseMacros = getProperty(token.actor ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
+            // It seems applyTokenDamageMany without a workflow gets through to here - so a silly guard in place TODO come back and fix this properly
+            if (workflow.callMacros) await workflow.callMacros(workflow.item,
+              actorOnUseMacros?.getMacros(healedDamaged),
+              "TargetOnUse",
+              healedDamaged,
+              { actor: token.actor, token });
+            //@ts-expect-error
+            const expiredEffects = token?.actor?.appliedEffects.filter(ef => {
+              const specialDuration = getProperty(ef, "flags.dae.specialDuration");
+              if (!specialDuration) return false;
+              return specialDuration.includes(healedDamaged);
+            }).map(ef => ef.id)
+            if (expiredEffects?.length ?? 0 > 0) {
+              await timedAwaitExecuteAsGM("removeEffects", {
+                actorUuid: token.actor?.uuid,
+                effects: expiredEffects,
+                options: { "expiry-reason": `midi-qol:${healedDamaged}` }
+              });
+            }
+          }
           tokenDamages.push(returnDamages);
         }
       }

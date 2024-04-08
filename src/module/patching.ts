@@ -145,8 +145,8 @@ async function doRollSkill(wrapped, ...args) {
     const rollTarget = options.targetValue;
     // options = foundry.utils.mergeObject(options, mapSpeedKeys(null, "ability"), { inplace: false, overwrite: true });
     const keyOptions = mapSpeedKeys(undefined, "ability");
-    options.advantage ||= options.event.advantage;
-    options.disadvantage ||= options.event.disadvantage;
+    options.advantage ||= options.event?.advantage;
+    options.disadvantage ||= options.event?.disadvantage;
     if (options.mapKeys !== false) {
       if (keyOptions?.advantage === true) options.advantage = true;
       if (keyOptions?.disadvantage === true) options.disadvantage = true;
@@ -390,8 +390,8 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       success = false;
     }
 
-    options.advantage ||= options.event.advantage;
-    options.disadvantage ||= options.event.disadvantage;
+    options.advantage ||= options.event?.advantage;
+    options.disadvantage ||= options.event?.disadvantage;
     if (options.fromMars5eChatCard) options.fastForward ||= autoFastForwardAbilityRolls;
     const chatMessage = options.chatMessage;
     const keyOptions = mapSpeedKeys(undefined, "ability");

@@ -1,3 +1,8 @@
+## 11.4.19
+* Enable calling isDamaged/isHealded macros/hooks when using dnd5e damage application.
+* Expire effects marked as special expiry isDamaged/isHealded when using dnd5e damage application.
+* Correct error with saving throws not being rolled
+
 ## 11.4.18.1
 * Incorrect package released in 11.4.18
 
