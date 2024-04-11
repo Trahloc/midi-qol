@@ -896,5 +896,6 @@
   "midi-qol.UndoChatColor.Name": "Desfazer a Cor dos Cartões de Chat",
   "midi-qol.UndoChatColor.Hint": "'Deletar' significa remover o cartão de chat ou desfazer. Do contrário, os cartões desfeitos são coloridos novamente.",
   "midi-qol.v3DamageApplication.Name": "Usar a Aplicação de Dano do D&D5e",
-  "midi-qol.v3DamageApplication.Hint": "NÃO HABILITE, apenas para testes do autor. Se habilitado, Midi QOL usará o Fluxo de aplicação de dano do D&D5e e hooks. Mudar requer que o mundo seja reiniciado."
+  "midi-qol.v3DamageApplication.Hint": "NÃO HABILITE, apenas para testes do autor. Se habilitado, Midi QOL usará o Fluxo de aplicação de dano do D&D5e e hooks. Mudar requer que o mundo seja reiniciado.",
+  "DND5E.DamageApplication.Change.Absorption": "Absorção a {type}"
 }
