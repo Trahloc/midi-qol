@@ -1,3 +1,28 @@
+## 11.4.20
+* Added flags.midi-qol.max/min.ability.save.concentration.
+* Fix for not setting template height correctly when using levelsVolumetricTemplates.
+* Fix for flags.midi-qol.critical/noCritical not being deferred evaluation.
+* Made DamageOnlyWorkflow a little more tolerant when passing unawaited/unevaluated damage rolls.
+* Do not display dnd5e effects application buttons if midi set to remove apply effects button.
+* Disable midi concentration automation if dnd5e concentration enabled.
+* Improve prompt for overtime action saves.
+* Fix for otherDamage condition being ignored when using dnd5e damage application.
+* As a reminder dnd5e damage application is still experimental. I've run one session with it and will do another tomorrow. I'm hoping that some brave souls will tinker with it.
+* For dnd5e damage application - damage absorption will disable dr/dv/di for the target damage type. 
+* For dnd5e damage application - absorption will not absorb healing types.
+* For dnd5e damage application only. Implemented system.traits.idi/ida/idr/idv.damage type|all to ignore targets damage immunity/absorption/resitance/vulnerabiltiy when applying damage of a particular type. Intended for some of the elemental adept features. Midi will apply damge ignoring the specified effect, but the dnd5e damage buttons will still have them enabled.
+* For dnd5e damage application - fix for midi tooltip failing when doing healing.
+* For dnd5e damage application only. Implemented custom system.traits.dr/dv/di/da:
+      Non Silver Physical - not required/implemented, core dnd5e does this perfectly.
+      Non Adamantine Physical - not required/implemented, core dnd5e does this perfectly.
+      Non Magical Physical - not required/implemented, core dnd5e does this perfectly.
+      Spell - rolled item must be of type spell.
+      Non Magical - rolled item must not have magical property or midi magicDamage property and must not be a spell.
+      Magical - rolled item must have mgc property, magic damage property or be a spell.
+  - Only one of da, dv, di, dr (chosen in that order) will be applied for each of the custom types.
+* With the addition of a magical bonus for weapons/equipment in dnd5e 3.1.x, which is enabled by the magical item property, it is now strongly advised that you change the midi setting "Require Magical Property" to "non spells do non-magical damage".
+* Also note that legacy +x weapons or equipment are not migrated to the new magical bonus by dnd5e, so you will have to do that yourself, but so long as they are marked magical the damage will be treated as magical.
+
 ## 11.4.19
 * Enable calling isDamaged/isHealded macros/hooks when using dnd5e damage application.
 * Expire effects marked as special expiry isDamaged/isHealded when using dnd5e damage application.

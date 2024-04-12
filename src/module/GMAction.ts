@@ -815,7 +815,7 @@ async function createV3GMReverseDamageCard(
         if (di.active[k] && k !== "multiplier") acc.push(k);
         return acc;
       }, []).join(" ");
-      return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${GameSystemConfig.damageTypes[di.type === "" ? "none" : di.type].label} ${mods}`
+      return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes}[di.type === "" ? "none" : di.type].label} ${mods}`
     });
     const toolTipHeader: string[] = [];
     if (newHP !== oldHP) toolTipHeader.push(`HP: ${oldHP} -> ${newHP}`);

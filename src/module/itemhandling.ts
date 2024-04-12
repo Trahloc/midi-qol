@@ -311,7 +311,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     selfTarget = this.system.target?.type === "self";
     isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
-    isAoETargeting = this.hasAreaTarget;
     requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
 
     options = tempWorkflow.options;
@@ -589,8 +588,11 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         if (token && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
           //@ts-expect-error .object
           await token.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
+          if (!getProperty(workflow?.item, "flags.walledtemplates.noAutotarget"))
+            selectTargets.bind(workflow)(td);
+
         }
-        selectTargets.bind(workflow)(td);
+        else if (getAutoTarget(workflow?.item) !== "none") selectTargets.bind(workflow)(td);
       }
     }
     if (needsConcentration && checkConcentration) {
@@ -1252,7 +1254,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     const isPlayerOwned = this.actor.hasPlayerOwner;
     const hideItemDetails = (["none", "cardOnly"].includes(configSettings.showItemDetails) || (configSettings.showItemDetails === "pc" && !isPlayerOwned))
       || !configSettings.itemTypeList.includes(this.type);
-    const hasEffects = !["applyNoButton"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "Workflow" && this.effects.find(ae => !ae.transfer && !getProperty(ae, "flags.dae.dontApply"));
+    const hasEffects = !["applyNoButton", "applyRemove"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "Workflow" && this.effects.find(ae => !ae.transfer && !getProperty(ae, "flags.dae.dontApply"));
     let dmgBtnText = (this.system?.actionType === "heal") ? i18n(`${SystemString}.Healing`) : i18n(`${SystemString}.Damage`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) dmgBtnText += ` ${i18n("midi-qol.fastForward")}`;
     let versaBtnText = i18n(`${SystemString}.Versatile`);
@@ -1485,11 +1487,12 @@ function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTarge
           }
           // installedModules.get("levels").lastTokenForTemplate.elevation no longer defined
           //@ts-expect-error .elevation CONFIG.Levels.UI v10
-          const p2z = _token?.document?.elevation ?? CONFIG.Levels.UI.nextTemplateHeight ?? 0;
+          // const p2z = _token?.document?.elevation ?? CONFIG.Levels.UI.nextTemplateHeight ?? 0;
+          const {elevation} = CONFIG.Levels.handlers.TemplateHandler.getTemplateData(false)
           let p2 = {
             x: tx, y: ty,
             //@ts-ignore
-            z: p2z
+            z: elevation
           }
           //@ts-expect-error .distance
           contains = getUnitDist(p2.x, p2.y, p2.z, token) <= template.distance;
@@ -1555,7 +1558,9 @@ export function templateTokens(templateDetails: MeasuredTemplate, selfTokenRef: 
   let targetIds: string[] = [];
   let targetTokens: Token[] = [];
   game.user?.updateTokenTargets([]);
-  if ((autoTarget) === "walledtemplates" && game.modules.get("walledtemplates")?.active) {
+  if (autoTarget === "walledtemplates" && game.modules.get("walledtemplates")?.active) {
+    //@ts-expect-error
+    if (getProperty(templateDetails?.item, "flags.walledtemplates.noAutotarget")) return targetTokens
     //@ts-expect-error
     targetTokens = (templateDetails.targetsWithinShape) ? templateDetails.targetsWithinShape() : [];
     targetTokens = targetTokens.filter(token => isAoETargetable(token, { selfToken, ignoreSelf, AoETargetType, autoTarget }))
@@ -1591,8 +1596,10 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   const AoETargetType = getProperty(workflow.item, "flags.midi-qol.AoETargetType") ?? "any";
   // think about special = allies, self = all but self and any means everyone.
 
+  let item = workflow.item;
+  let targeting = getAutoTarget(item);
   if ((game.user?.targets.size === 0 || user !== game.user?.id)
-    && templateDocument?.object && !installedModules.get("levelsvolumetrictemplates")) {
+    && templateDocument?.object && !installedModules.get("levelsvolumetrictemplates") && targeting !== "none") {
     //@ts-expect-error fromUuidSync
     let mTemplate: MeasuredTemplate = fromUuidSync(templateDocument.uuid)?.object;
     //@ts-ignore
@@ -1613,8 +1620,6 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
       templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(workflow.item));
     }
   }
-  let item = workflow.item;
-  let targeting = getAutoTarget(item);
   workflow.templateId = templateDocument?.id;
   workflow.templateUuid = templateDocument?.uuid;
   // if (user === game.user?.id && item) templateDocument.setFlag("midi-qol", "originUuid", item.uuid); // set a refernce back to the item that created the template.

@@ -1,4 +1,5 @@
 import { applySettings } from "../apps/ConfigPanel.js";
+import { configSettings } from "../settings.js";
 import { applyTokenDamage, completeItemUse, findNearby } from "../utils.js";
 import { TrapWorkflow } from "../workflow.js";
 
@@ -458,7 +459,7 @@ async function registerTests() {
         describe("Macro Roll Tests", async function () {
           it("runs macro execute", async function () {
             const target = getToken(target1Name);
-            const actor = getActor(actor2Name);
+            let actor = getActor(actor2Name);
             assert.ok(actor);
             assert.ok(target);
             try {
@@ -468,6 +469,8 @@ async function registerTests() {
               if (hasEffect?.length > 0) await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", hasEffect.map(e => e.id));
               game.user?.updateTokenTargets([target?.id ?? ""]);
               await completeItemUse(actor.items.getName("Macro Execute Test"), {}, { workflowOptions });
+              await busyWait(0.01);
+              console.log("Macro Execute Test checking flag", getProperty(actor, "flags.midi-qol.test"));
               //@ts-expect-error .flags
               let flags: any = actor.flags["midi-qol"];
               assert.equal(flags?.test, "metest")
@@ -718,18 +721,29 @@ async function registerTests() {
           it("sets DR.all", async function () {
             await resetActors();
             const actor = getActor(actor2Name);
-            const target = getToken(target2Name);
+            const target: any = getToken(target2Name);
             if (!target || !actor) {
               assert.ok(false, "no target or actor");
               return;
             }
+            let theEffects: any[] | undefined;
+            let changeKey = "flags.midi-qol.DR.all";
+            let changeValue = "10";
+            let changeMode: number = CONST.ACTIVE_EFFECT_MODES.CUSTOM;
+            if (configSettings.v3DamageApplication) {
+              changeKey = "system.traits.dm.midi.all";
+              changeValue = "-10";
+              changeMode = CONST.ACTIVE_EFFECT_MODES.OVERRIDE;
+            }
             const effectData = {
               label: "test effect",
-              changes: [{ key: "flags.midi-qol.DR.all", mode: 0, value: "10" }]
-            }
-            const theEffects: any[] | undefined = await target?.actor?.createEmbeddedDocuments("ActiveEffect", [effectData]);
-            assert.equal("string", typeof getProperty(target, "actor.flags.midi-qol.DR.all"))
-            assert.ok(Number.isNumeric(getProperty(target, "actor.flags.midi-qol.DR.all")));
+              changes: [{ key: changeKey, mode: changeMode, value: changeValue }]
+            };
+
+            theEffects = await target?.actor?.createEmbeddedDocuments("ActiveEffect", [effectData]);
+            assert.ok(["number", "string"].includes(typeof getProperty(target.actor, changeKey)))
+            assert.ok(Number.isNumeric(getProperty(target.actor, changeKey)));
+
             const oldHp = getProperty(target, "actor.system.attributes.hp.value");
             game.user?.updateTokenTargets([target?.id ?? ""]);
             await completeItemUse(actor.items.getName("AppliesDamage"), {}, { workflowOptions });
@@ -737,7 +751,7 @@ async function registerTests() {
             const newHp = getProperty(target, "actor.system.attributes.hp.value");
             assert.equal(newHp, oldHp - getProperty(actor, "system.abilities.str.mod"));
             await target.actor?.deleteEmbeddedDocuments("ActiveEffect", theEffects?.map(ef => ef.id) ?? [])
-            assert.ok(getProperty(actor, "flags.midi-qol.DR.all") === undefined)
+            assert.ok([undefined, ""].includes(getProperty(target.actor, changeKey)));
           });
 
           it("sets DR.rwak", async function () {
@@ -746,19 +760,28 @@ async function registerTests() {
             const target: any = getToken(target2Name);
             const oldHp = getProperty(target?.actor, "system.attributes.hp.value");
             game.user?.updateTokenTargets([target?.id ?? ""]);
+            let changeKey = "flags.midi-qol.DR.rwak";
+            let changeValue = "10";
+            let changeMode: number = CONST.ACTIVE_EFFECT_MODES.CUSTOM;
+            if (configSettings.v3DamageApplication) {
+              changeKey = "system.traits.dm.midi.rwak";
+              changeValue = "-10";
+              changeMode = CONST.ACTIVE_EFFECT_MODES.OVERRIDE;
+            }
             const effectData = {
               label: "test effect",
-              changes: [{ key: "flags.midi-qol.DR.rwak", mode: 0, value: "10" }]
+              changes: [{ key: changeKey, mode: changeMode, value: changeValue }]
             };
-            const theEffects: any[] = await target.actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
-            assert.ok(Number.isNumeric(getProperty(target.actor, "flags.midi-qol.DR.rwak")));
+            let theEffects = await target.actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
+            assert.equal("number", typeof getProperty(target.actor, changeKey))
+            assert.ok(Number.isNumeric(getProperty(target.actor, changeKey)));
             await completeItemUse(actor.items.getName("AppliesDamage"), {}, { workflowOptions });
             game.user?.updateTokenTargets([]);
             const newHp = target?.actor?.system.attributes.hp.value;
             //@ts-ignore
             assert.equal(newHp, oldHp - actor.system.abilities.str.mod);
             await target.actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
-            assert.ok(getProperty(target.actor, "flags.midi-qol.DR.rwak") === undefined)
+            assert.ok(getProperty(target.actor, changeKey) === undefined)
           });
           it("sets DR.piercing", async function () {
             await resetActors();
@@ -766,19 +789,27 @@ async function registerTests() {
             const target: any = getToken(target2Name);
             const oldHp = getProperty(target?.actor, "system.attributes.hp.value");
             game.user?.updateTokenTargets([target?.id ?? ""]);
+            let changeKey = "flags.midi-qol.DR.piercing";
+            let changeValue = "10";
+            let changeMode: number = CONST.ACTIVE_EFFECT_MODES.CUSTOM;
+            if (configSettings.v3DamageApplication) {
+              changeKey = "system.traits.dm.amount.piercing";
+              changeValue = "-10";
+              changeMode = CONST.ACTIVE_EFFECT_MODES.OVERRIDE;
+            }
             const effectData = {
               label: "test effect",
-              changes: [{ key: "flags.midi-qol.DR.piercing", mode: 0, value: "10" }]
+              changes: [{ key: changeKey, mode: changeMode, value: changeValue }]
             };
-            const theEffects: any[] = await target.actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
-            assert.ok(Number.isNumeric(getProperty(target.actor, "flags.midi-qol.DR.piercing")));
+            let theEffects = await target.actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
+            assert.ok(Number.isNumeric(getProperty(target.actor, changeKey)));
             await completeItemUse(actor.items.getName("AppliesDamage"), {}, { workflowOptions });
             game.user?.updateTokenTargets([]);
             const newHp = target?.actor?.system.attributes.hp.value;
             //@ts-ignore
             assert.equal(newHp, oldHp - actor.system.abilities.str.mod);
             await target.actor.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id))
-            assert.ok(getProperty(target.actor, "flags.midi-qol.DR.piercing") === undefined)
+            assert.ok(getProperty(target.actor, changeKey) === undefined)
           });
         });
       },

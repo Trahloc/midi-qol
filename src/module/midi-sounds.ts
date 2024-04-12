@@ -238,7 +238,14 @@ export class MidiSounds {
   }
 
   static async createDefaultPlayList() {
-    if (!game.user?.isGM) return;
+    if (!game.user?.isGM) {
+      ui.notifications?.warn("Only a GM can create the default playlist");
+      return;
+    }
+    if (game.playlists?.getName("Midi Item Tracks") !== undefined) {
+      ui.notifications?.error("Midi Item Tracks already exists - delete it before creating the default playlist");
+      return;
+    }
     const playlistData = {
       "name": "Midi Item Tracks",
       "description": "Midi Qol sample custom sounds",

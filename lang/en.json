@@ -169,6 +169,7 @@
   "midi-qol.saving-throw": "Saving Throw",
   "midi-qol.ability-check": "Ability Check",
   "midi-qol.ability-checks": "Ability Checks",
+  "midi-qol.skill-check": "Skill Check",
   "midi-qol.noAttackRoll": "You must roll the attack before rolling the damage",
   "midi-qol.config": "Midi QoL config",
   "midi-qol.Hint": "Configure the various workflow settings for midi-qol. Be warned there are lots of them",
@@ -897,5 +898,8 @@
   "midi-qol.UndoChatColor.Hint": "Delete means remove the chat card on undo. Otherwise the undone chats are recoloured",
   "midi-qol.v3DamageApplication.Name": "Use DND5E damage applicaiton",
   "midi-qol.v3DamageApplication.Hint": "Experimental. If enabled midi will use the dnd5e damage application workflow and hooks. Changing requires reload",
-  "DND5E.DamageApplication.Change.Absorption": "{type} Absorption"
+  "DND5E.DamageApplication.Change.Absorption": "{type} Absorption",
+  "DND5E.DamageApplication.Change.Spell": "Custom Spell {type}",
+  "DND5E.DamageApplication.Change.Magic": "Custom Magical {type}",
+  "DND5E.DamageApplication.Change.Nonmagic": "Custom Non Magical {type}"
 }

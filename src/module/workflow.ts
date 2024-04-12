@@ -36,7 +36,6 @@ export class Workflow {
   itemCardUuid: string | undefined | null;
   itemCardData: {};
   displayHookId: number | null;
-  templateElevation: number;
 
   event: { shiftKey: boolean, altKey: boolean, ctrlKey: boolean, metaKey: boolean, type: string };
   capsLock: boolean;
@@ -4280,6 +4279,11 @@ export class Workflow {
       this.damageRolls = undefined;
       return;
     };
+    for (let i = 0; i < rolls.length; i++) {
+      rolls[i] = await rolls[i]; // only here in case someone passes an unawaited roll
+      //@ts-expect-error
+      if (!rolls[i]._evaluated) rolls[i].evaluate({ async: false });
+    }
     this.damageRolls = rolls;
     this.damageTotal = sumRolls(this.damageRolls)
     this.damageRollHTML = "";
@@ -4298,6 +4302,11 @@ export class Workflow {
       this.bonusDamageRolls = undefined;
       return;
     };
+    for (let i = 0; i < rolls.length; i++) {
+      rolls[i] = await rolls[i]; // only here in case someone passes an unawaited roll
+      //@ts-expect-error
+      if (!rolls[i]._evaluated) rolls[i].evaluate({ async: false });
+    }
     this.bonusDamageRolls = rolls;
     this.bonusDamageTotal = sumRolls(this.bonusDamageRolls)
     this.bonusDamageRollHTML = "";
@@ -4313,7 +4322,9 @@ export class Workflow {
   }
 
   async setOtherDamageRoll(roll: Roll) {
-    this.otherDamageRoll = roll;
+    this.otherDamageRoll = await roll;
+    if (!this.otherDamageRoll._evaluated) 
+      this.otherDamageRoll = this.otherDamageRoll._evaluate({async: false});
     this.otherDamageTotal = roll.total ?? 0;
     setProperty(roll, "options.flavor", `${this.otherDamageItem.name} - ${i18nSystem("OtherFormula")}`);
     this.otherDamageHTML = await midiRenderOtherDamageRoll(roll);
@@ -4372,13 +4383,20 @@ export class DamageOnlyWorkflow extends Workflow {
       //@ts-expect-error
       damageRoll = new CONFIG.Dice.DamageRoll(`${damageTotal}`, {}, { type: damageType }).roll({ async: false });
     }
-    this.setDamageRolls([damageRoll]);
-    this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });
-    this.damageTotal = damageTotal;
-    this.isCritical = options.isCritical ?? false;
-    this.kickStart = false;
-    this.suspended = false;
-    this.performState(this.WorkflowState_Start);
+    this.setDamageRolls([damageRoll]).then(() => {
+      this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });
+      this.damageTotal = damageTotal;
+      this.isCritical = options.isCritical ?? false;
+      this.kickStart = false;
+      this.suspended = false;
+      this.performState(this.WorkflowState_Start);
+    });
+    // this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });
+    // this.damageTotal = damageTotal;
+    // this.isCritical = options.isCritical ?? false;
+    // this.kickStart = false;
+    // this.suspended = false;
+    // this.performState(this.WorkflowState_Start);
     return this;
   }
 

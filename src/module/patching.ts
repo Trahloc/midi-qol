@@ -472,7 +472,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
 
     if (chatMessage !== false && result) {
-      mergeObject(messageData, {"flags": options.flags ?? {}});
+      mergeObject(messageData, { "flags": options.flags ?? {} });
       setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
       messageData.template = "modules/midi-qol/templates/roll-base.html";
       if (getProperty(result.flags, "midi-qol.chatMessageShown") !== true)
@@ -739,12 +739,12 @@ function _midiATIRefresh(template) {
   if (autoTarget === "dftemplates" && installedModules.get("df-templates"))
     return; // df-templates will handle template targeting.
 
-
   if (installedModules.get("levelsvolumetrictemplates") && !["walledtemplates"].includes(autoTarget)) {
     //@ts-expect-error CONFIG.Levels
-    const levelsTemplateData = CONFIG.Levels.handlers.TemplateHandler.getTemplateData();
-    setProperty(template.document, "flags.levels.special", levelsTemplateData.special);
-    setProperty(template.document, "flags.levels.elevation", levelsTemplateData.elevation ?? 0);
+    const levelsTemplateData = CONFIG.Levels.handlers.TemplateHandler.getTemplateData(false);
+    if (!template.document.elevation !== levelsTemplateData.elevation) {
+      setProperty(template.document, "flags.levels.elevation", levelsTemplateData.elevation);
+    }
     // Filter which tokens to pass - not too far wall blocking is left to levels.
     let distance = template.distance;
     const dimensions = canvas?.dimensions || { size: 1, distance: 1 };
@@ -767,7 +767,7 @@ function _midiATIRefresh(template) {
     })
 
     if (tokensToCheck.length > 0) {
-      //@ts-ignore compute3Dtemplate(t, tokensToCheck = canvas.tokens.placeables)
+      //@ts-expect-error compute3Dtemplate(t, tokensToCheck = canvas.tokens.placeables)
       VolumetricTemplates.compute3Dtemplate(template, tokensToCheck);
     }
   } else {
@@ -855,19 +855,27 @@ export function initPatching() {
 }
 
 export function DAcalculateDamage(actor, options) {
-  const {total, active} = currentDAcalculateDamage.bind(this)(actor, options);
+  const { total, active } = currentDAcalculateDamage.bind(this)(actor, options);
   active.absorption = new Set();
   active.saves = new Set();
+  active.spell = new Set();
+  active.magic = new Set();
+  active.nonmagic = new Set();
   const damages = actor.calculateDamage(this.damages, options);
-
   for (const damage of damages) {
     if (damage.active.absorption) active.absorption.add(damage.type);
+    if (damage.active.spell) active.spell.add(damage.type);
+    if (damage.active.magic) active.magic.add(damage.type);
+    if (damage.active.nonmagic) active.nonmagic.add(damage.type);
   }
   const union = t => {
-    if ( foundry.utils.getType(options.ignore?.[t]) === "Set" ) active[t] = active[t].union(options.ignore[t]);
+    if (foundry.utils.getType(options.ignore?.[t]) === "Set") active[t] = active[t].union(options.ignore[t]);
   };
   union("absorption");
-  return {total, active};
+  union("spell")
+  union("magic");
+  union("nonmagic");
+  return { total, active };
 }
 
 export function _onFocusIn(event) {
@@ -1593,12 +1601,20 @@ class CustomizeDamageFormula {
     const DamageRoll = CONFIG.Dice.DamageRoll;
     if (item) {
       if (item.damage.versatile) {
+        let actorBonus;
+        if (rolls[0].data?.bonuses) {
+          const actorBonusData = foundry.utils.getProperty(rolls[0].data, `bonuses.${item.actionType}`) || {};
+          if (actorBonusData.damage && (parseInt(actorBonusData.damage) !== 0)) {
+            actorBonus = actorBonusData.damage;
+          }
+        }
+        const versatileFormula = item.damage.versatile + (actorBonus ? ` + ${actorBonus}` : "");
         allRolls.push({
-          value: item.damage.versatile,
+          value: versatileFormula,
           type: GameSystemConfig.damageTypes[rolls[0].options.type]?.label ?? null,
           active: false,
           label: "Versatile",
-          roll: new DamageRoll(item.damage.versatile, rolls[0].data, rolls[0].options),
+          roll: new DamageRoll(versatileFormula, rolls[0].data, rolls[0].options),
           id: randomID()
         })
       }

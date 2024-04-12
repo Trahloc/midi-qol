@@ -35,7 +35,7 @@ export let colorChatMessageHandler = (message, html, data) => {
 // TODO think about monks tb on preUpdateChatMessage?
 // Also should ideally be async.
 export function checkOverTimeSaves(message, data, options, user) {
-  if (!message.rolls?.length || !["skill", "save", "check"].includes(data.flags?.dnd5e?.roll?.type)) return true;
+  if (!message.rolls?.length || !["skill", "save", "ability"].includes(data.flags?.dnd5e?.roll?.type)) return true;
   let actor: Actor | undefined | null = game.actors?.get(message.speaker.actor);
   if (message.speaker.token) {
     actor = game.scenes?.get(message.speaker.scene)?.tokens?.get(message.speaker.token)?.actor;

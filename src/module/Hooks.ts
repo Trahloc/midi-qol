@@ -50,10 +50,12 @@ export let readyHooks = async () => {
 
   });
 
+  /*
   Hooks.on("template3dUpdatePreview", (at, t) => {
     //@ts-expect-error Volumetrictemplates
     VolumetricTemplates.compute3Dtemplate(t);
   });
+  */
 
   Hooks.on("targetToken", debounce(checkflanking, 150));
 
@@ -543,7 +545,7 @@ export function initHooks() {
           return;
         }
         tabs.append($('<a class="item" data-tab="midiqol">Midi-qol</a>'));
-        data = mergeObject(data, getItemSheetData(data, item));
+        data = mergeObject(data, getItemSheetData(data, item), { recursive: false });
         renderTemplate("modules/midi-qol/templates/midiPropertiesForm.hbs", data).then(templateHtml => {
           // tabs = html.find(`form nav.sheet-navigation.tabs`);
           $(html.find(`.sheet-body`)).append(
@@ -872,14 +874,48 @@ export const itemJSONData = {
 
 Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
+
   const mo = options.midi;
+  if (mo?.noCalc) return true;
   if (mo) {
     if (configSettings.saveDROrder === "DRSavedr" && mo.saveMultiplier) {
       options.multiplier = mo.saveMultiplier;
-    } else if (configSettings.saveDROrder === "SaveDRdr" && mo.saveMultiplier) {
+    } else if (configSettings.saveDROrder === "SaveDRdr" && mo.saveMultiplier !== undefined) {
       options.multiplier = 1;
       for (let damage of damages) {
         damage.value = damage.value * mo.saveMultiplier;
+        damage.active.multiplier = damage.active.multiplier * mo.saveMultiplier;
+      }
+    }
+    const ignore = (category, type, skipDowngrade) => {
+      return options.ignore === true
+        || options.ignore?.[category] === true
+        || options.ignore?.[category]?.has?.(type);
+    };
+    const categories = { "idi": "immunity", "idr": "resistance", "idv": "vulnerability", "ida": "absorption" };
+    if (mo?.sourceActor) {
+      for (let key of ["idi", "idr", "idv", "ida"]) {
+        if (getProperty(mo.sourceActor, `system.traits.${key}`) && mo.sourceActor.system.traits[key].value.size > 0) {
+          const trait = getProperty(mo.sourceActor, `system.traits.${key}`);
+          if (!options.ignore?.[categories[key]]) setProperty(options, `ignore.${categories[key]}`, new Set())
+          for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
+            if (trait.value.has(dt) || trait.all) options.ignore[categories[key]].add(dt);
+          }
+        }
+      }
+    }
+    // For damage absorption ignore other immunity/resistance/vulnerability
+    if (actor.system.traits.da) {
+      for (let damage of damages) {
+        if (ignore("absorption", damage.type, false)) continue;
+        if (actor.system.traits.da?.value?.has(damage.type) || actor.system.traits.da?.all) {
+          if (!options?.ignore?.immunity) setProperty(options, "ignore.immunity", new Set())
+          if (!options?.ignore?.resistance) setProperty(options, "ignore.resistance", new Set())
+          if (!options?.ignore?.vulnerability) setProperty(options, "ignore.vulnerability", new Set())
+          if (actor.system.traits.di.value.has(damage.type)) options.ignore.immunity.add(damage.type);
+          if (actor.system.traits.dr.value.has(damage.type)) options.ignore.resistance.add(damage.type);
+          if (actor.system.traits.dv.value.has(damage.type)) options.ignore.vulnerability.add(damage.type);
+        }
       }
     }
     for (let damage of damages) {
@@ -903,32 +939,79 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
 
   const mo = options.midi;
-  if (mo) { // adjust multiplier for midi configuration
-    for (let damage of damages) {
-      // not sure how to do this. if (damage.active.immunity) damage.multiplier = configSettings.damageImmunityMultiplier;
-      if (damage.active.resistance) {
-        damage.value = damage.value * 2 * configSettings.damageResistanceMultiplier;
-        damage.active.multiplier = damage.active.multiplier * 2 * configSettings.damageResistanceMultiplier;
-      }
-      if (damage.active.vulnerability) {
-        damage.actice.multiplier = damage.active.multiplier / 2 * configSettings.damageVulnerabilityMultiplier;
-        damage.value = damage.value / 2 * configSettings.damageVulnerabilityMultiplier;
-      }
+  if (mo?.noCalc) return true;
+  for (let damage of damages) {
+    // not sure how to do this. if (damage.active.immunity) damage.multiplier = configSettings.damageImmunityMultiplier;
+    if (damage.active.resistance) {
+      damage.value = damage.value * 2 * configSettings.damageResistanceMultiplier;
+      damage.active.multiplier = damage.active.multiplier * 2 * configSettings.damageResistanceMultiplier;
+    }
+    if (damage.active.vulnerability) {
+      damage.active.multiplier = damage.active.multiplier / 2 * configSettings.damageVulnerabilityMultiplier;
+      damage.value = damage.value / 2 * configSettings.damageVulnerabilityMultiplier;
     }
   }
+
+  const downgrade = type => options.downgrade === true || options.downgrade?.has?.(type);
   const ignore = (category, type, skipDowngrade) => {
     return options.ignore === true
       || options.ignore?.[category] === true
       || options.ignore?.[category]?.has?.(type)
+      || ((category === "immunity") && downgrade(type) && !skipDowngrade)
+      || ((category === "resistance") && downgrade(type))
   };
+  let customs: string[] = [];
+  const categories = { "di": "immunity", "dr": "resistance", "dv": "vulnerability", "da": "absorption" };
+  const traitMultipliers = { "dr": configSettings.damageResistanceMultiplier, "di": configSettings.damageImmunityMultiplier, "da": -1, "dv": configSettings.damageVulnerabilityMultiplier };
+  // Handle custom immunities
+  for (let trait of ["da", "dv", "di", "dr"]) {
+    if ((actor.system.traits[trait]?.custom?.length ?? 0) > 0) {
+      customs = actor.system.traits[trait].custom.split(";").map(s => s.trim());
+      for (let custom of customs) {
+        switch (custom) {
+          case "spell":
+            for (let damage of damages) {
+              if (ignore("spell", damage.type, false) || damage.active["spell"]) continue;
+              if (damage.properties.has("spell")) {
+                damage.active["spell"] = true;
+                damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
+                damage.value = damage.value * traitMultipliers[trait];
+              }
+            }
+          case "nonmagic":
+            for (let damage of damages) {
+              if (ignore("nonmagic", damage.type, false) || damage.active["nonmagic"]) continue;
+              if (!damage.properties.has("magic") && !damage.properties.has("spell")) {
+                damage.active["nonmagic"] = true;
+                damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
+                damage.value = damage.value * traitMultipliers[trait];
+              }
+            }
+          case "magic":
+            for (let damage of damages) {
+              if (ignore("magic", damage.type, false) || damage.active["magic"]) continue;
+              if (damage.properties.has("mgc") || damage.properties.has("spell")) {
+                damage.active["magic"] = true;
+                damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
+                damage.value = damage.value * traitMultipliers[trait];
+              }
+            }
+        }
+      }
+    }
+  }
+
 
   if (actor.system.traits.da) {
     for (let damage of damages) {
       if (ignore("absorption", damage.type, false)) continue;
-      if (actor.system.traits.da?.[damage.type] || actor.system.traits.da?.all) {
+      if (GameSystemConfig.healingTypes[damage.type]) continue;
+      if (actor.system.traits.da?.value?.has(damage.type) || actor.system.traits.da?.all) {
         setProperty(damage, "active.absorption", true);
-        setProperty(damage, "multiplier", -1);
-        damage.value = damage.value * -1;
+        if (damage.value > 0) {
+          setProperty(damage, "multiplier", -1);
+          damage.value = damage.value * -1;
+        }
       }
     }
   }
@@ -937,9 +1020,12 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
   let drAll = 0;
   if (options.ignore !== true && !options.ignore?.modification?.has("none") && !options.ignore?.modification?.has("all")) {
     if (getProperty(actor, "system.traits.dm.midi.all")) {
-      let dr = new Roll(`${getProperty(actor, "system.traits.dm.midi.all")}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
-      dr = Math.min(dr, options.midi.totalDamage);
-      if (checkRule("maxDRValue") && dr > drAll)
+      let dr = new Roll(`${actor.system.traits.dm.midi.all}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+      if (Math.sign(options.midi.totalDamage + dr) !== Math.sign(options.midi.totalDamage)) {
+        dr = -options.midi.totalDamage;
+      }
+      if (options.midi.totalDamage < 0 && dr < 0) dr = 0;
+      if (checkRule("maxDRValue") && (dr < drAll))
         drAll = dr;
       else if (!checkRule("maxDRValue"))
         drAll += dr;
@@ -948,8 +1034,13 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     for (let actType of Object.keys(GameSystemConfig.itemActionTypes)) {
       if (!options.ignore?.modification?.has(actType)) {
         if (getProperty(actor, `system.traits.dm.midi.${actType}`) && damages && damages[0]?.properties?.has(actType)) {
-          let dr = new Roll(getProperty(actor, `system.traits.dm.midi.${actType}`), actor.getRollData()).evaluate({ async: false })?.total ?? 0;
-          if (checkRule("maxDRValue") && dr > drAll)
+          const rollExpr = getProperty(actor, `system.traits.dm.midi.${actType}`);
+          let dr = new Roll(`${rollExpr}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+          if (Math.sign(options.midi.totalDamage + dr) !== Math.sign(options.midi.totalDamage)) {
+            dr = -options.midi.totalDamage;
+          }
+          if (options.midi.totalDamage < 0 && dr < 0) dr = 0;
+          if (checkRule("maxDRValue") && (dr < drAll))
             drAll = dr;
           else if (!checkRule("maxDRValue"))
             drAll += dr;
@@ -970,7 +1061,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         case "non-magical":
           dr = new Roll(`${actor.system.traits.dm.midi["non-magical"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
-            const isNonMagical = !damage.properties.has("mag");
+            const isNonMagical = !damage.properties.has("mgc");
             total += isNonMagical ? damage.value : 0;
             return total;
           }, 0);
@@ -979,7 +1070,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           dr = new Roll(`${actor.system.traits.dm.midi["non-magical-physical"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
-            const isNonMagical = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mag");
+            const isNonMagical = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mgc");
             total += isNonMagical ? damage.value : 0;
             return total;
           }, 0);
@@ -1015,7 +1106,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
 
         case "spell":
           if (actor.system.traits.dm.midi["spell"]) {
-            let dr = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+            dr = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
             selectedDamage = damages.reduce((total, damage) => {
               const isSpell = damage.properties.has("spell");
               total += isSpell ? damage.value : 0;
@@ -1025,7 +1116,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           break;
         case "non-spell":
           if (actor.system.traits.dm.midi["non-spell"]) {
-            let dr = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
+            dr = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData()).evaluate({ async: false })?.total ?? 0;
             selectedDamage = damages.reduce((total, damage) => {
               const isSpell = damage.properties.has("spell");
               total += isSpell ? 0 : damage.value;
@@ -1086,8 +1177,40 @@ Hooks.on("dnd5e.preRollConcentration", (actor, options) => {
   } else if (!concAdv && concDisadv) {
     options.disadvantage = true;
   }
+  if (options.chatMessage !== false) {
+    Hooks.once("dnd5e.preRollAbilitySave", (actor, rollData, abilityId) => {
+      setProperty(actor, "flags.midi-qol.concentrationRollData", rollData);
+    })
+    options.chatMessage = false;
+  }
+
+  return true;
 })
 
 Hooks.on("dnd5e.rollConcentration", (actor, roll) => {
+  //@ts-expect-error
+  const simplifyBonus = game.system.utils.simplifyBonus;
+  if (getProperty(actor, "flags.midi-qol.min.ability.save.concentration") && simplifyBonus) {
+    const minRoll = simplifyBonus(getProperty(actor, "flags.midi-qol.min.ability.save.concentration"), actor.getRollData());
+    const diceTerm = roll.terms[0];
+    if (diceTerm.total < minRoll) {
+      diceTerm.results.forEach(r => { if (r.result < minRoll) r.result = minRoll });
+      roll._total = roll._evaluateTotal();
+    }
+  }
+  if (getProperty(actor, "flags.midi-qol.max.ability.save.concentration") && simplifyBonus) {
+    const maxRoll = simplifyBonus(getProperty(actor, "flags.midi-qol.max.ability.save.concentration"), actor.getRollData());
+    const diceTerm = roll.terms[0];
+    if (diceTerm.total > maxRoll) {
+      diceTerm.results.forEach(r => { if (r.result > maxRoll) r.result = maxRoll });
+      roll._total = roll._evaluateTotal();
+    }
+  }
+  if (!Number.isNaN(roll.options.targetValue)) {
+    roll.options.success = roll.total >= Number(roll.options.targetValue);
+  }
+  const rollData = getProperty(actor, "flags.midi-qol.concentrationRollData");
+  setProperty(actor, "flags.midi-qol.concentrationRollData", undefined);
+  if (rollData) roll.toMessage(rollData.messageData);
   if (configSettings.removeConcentration && roll.options.success === false) actor.endConcentration();
 });

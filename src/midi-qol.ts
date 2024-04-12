@@ -184,12 +184,12 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
     //@ts-expect-error
     for (let key of Object.keys(game.system.config.damageTypes ?? {})) {
       fieldMappings[`flags.midi-qol.DR.${key}`] = `system.traits.dm.amount.${key}`;
-      fieldMappings[`flags.midi-qol.absorption.${key}`] = `system.traits.da.${key}`;
+      fieldMappings[`flags.midi-qol.absorption.${key}`] = `system.traits.da.value`;
     }
     //@ts-expect-error
     for (let key of Object.keys(game.system.config.healingTypes ?? {})) {
       fieldMappings[`flags.midi-qol.DR.${key}`] = `system.traits.dm.amount.${key}`;
-      fieldMappings[`flags.midi-qol.absorption.${key}`] = `system.traits.da.${key}`;
+      fieldMappings[`flags.midi-qol.absorption.${key}`] = `system.traits.da.value`;
     }
     fieldMappings["flags.midi-qol.DR.all"] = "system.traits.dm.midi.all";
     fieldMappings["flags.midi-qol.absorption.all"] = "system.traits.da.all";
@@ -268,39 +268,50 @@ function addConfigOptions() {
     config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
     config.midiProperties["otherSaveDamage"] = "Other Damage Save";
     if (isNewerVersion(systemVersion, "2.99")) {
-      config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function() {return this.label} };
-      config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function() {return this.label} };
+      config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
+      config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
     } else {
       config.damageTypes["none"] = i18n(`${SystemString}.None`);
       config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
     }
-
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
-    config.customDamageResistanceTypes = {
-      "silver": i18n("midi-qol.NonSilverPhysical"),
-      "adamant": i18n("midi-qol.NonAdamantinePhysical"),
-      "spell": i18n("midi-qol.spell-damage"),
-      "nonmagic": i18n("midi-qol.NonMagical"),
-      "magic": i18n("midi-qol.Magical"),
-      "physical": i18n("midi-qol.NonMagicalPhysical")
+    if (isNewerVersion(systemVersion, "2.99") && configSettings.v3DamageApplication) {
+      config.customDamageResistanceTypes = {
+        "spell": i18n("midi-qol.spell-damage"),
+        "nonmagic": i18n("midi-qol.NonMagical"),
+        "magic": i18n("midi-qol.Magical")
+      };
+    } else {
+      config.customDamageResistanceTypes = {
+        "silver": i18n("midi-qol.NonSilverPhysical"),
+        "adamant": i18n("midi-qol.NonAdamantinePhysical"),
+        "spell": i18n("midi-qol.spell-damage"),
+        "nonmagic": i18n("midi-qol.NonMagical"),
+        "magic": i18n("midi-qol.Magical"),
+        "physical": i18n("midi-qol.NonMagicalPhysical")
+      };
     }
-    if (!isNewerVersion(systemVersion, "2.99")) {
-      config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
-      config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
+
+    if (isNewerVersion(systemVersion, "2.99")) {
+      config.damageResistanceTypes = {};
+      if (!configSettings.v3DamageApplication) {
+        config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
+        config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
+        config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
+      }
       config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
       config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
       config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
-      config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
       config.damageResistanceTypes["healing"] = config.healingTypes.healing;
       config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
     } else {
       config.damageResistanceTypes = {};
       config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
       config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
+      config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
       config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
       config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
       config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
-      config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
       config.damageResistanceTypes["healing"] = config.healingTypes.healing;
       config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
     }
@@ -885,8 +896,10 @@ function setupMidiFlags() {
   midiFlags.push("flags.midi-qol.semiSuperSaver.all");
   midiFlags.push("flags.midi-qol.max.ability.save.all");
   midiFlags.push("flags.midi-qol.max.ability.check.all");
+  midiFlags.push("flags.midi-qol.max.ability.save.concentration")
   midiFlags.push("flags.midi-qol.min.ability.save.all");
   midiFlags.push("flags.midi-qol.min.ability.check.all");
+  midiFlags.push("flags.midi-qol.min.ability.save.concentration")
   midiFlags.push("flags.midi-qol.sharpShooter");
 
   Object.keys(config.abilities).forEach(abl => {
@@ -940,6 +953,7 @@ function setupMidiFlags() {
       midiFlags.push(`flags.midi-qol.fail.spell.${comp.toLowerCase()}`);
     });
     midiFlags.push(`flags.midi-qol.DR.all`);
+
     midiFlags.push(`flags.midi-qol.DR.non-magical`);
     midiFlags.push(`flags.midi-qol.DR.non-magical-physical`);
     midiFlags.push(`flags.midi-qol.DR.non-silver`);

@@ -561,6 +561,13 @@ export let fetchParams = () => {
 
   setDebugLevel(debugText);
 
+  if (safeGetGameSetting(game.system.id, "disableConcentration" ) === false) {
+    if (configSettings.concentrationAutomation) {
+      //@ts-expect-error
+      ui.notifications?.warn(`You must first disable concentration in ${game.system.title} to enable midi concentration automation`);
+    }
+    configSettings.concentrationAutomation = false;
+  }
   if (configSettings.concentrationAutomation) {
     // Force on use macro to true
     if (!configSettings.allowUseMacro) {
