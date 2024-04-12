@@ -169,6 +169,7 @@
   "midi-qol.saving-throw": "Salvaguarda",
   "midi-qol.ability-check": "Teste de Atributo",
   "midi-qol.ability-checks": "Testes de Atributo",
+  "midi-qol.skill-check": "Teste de Perícia",
   "midi-qol.noAttackRoll": "Você deve rolar o ataque antes de rolar o dano",
   "midi-qol.config": "Configurações Midi QOL",
   "midi-qol.Hint": "Configure as várias opções de fluxo para o Midi Qol. Fique avisado: existem muitas delas!",
@@ -897,5 +898,8 @@
   "midi-qol.UndoChatColor.Hint": "'Deletar' significa remover o cartão de chat ou desfazer. Do contrário, os cartões desfeitos são coloridos novamente.",
   "midi-qol.v3DamageApplication.Name": "Usar a Aplicação de Dano do D&D5e",
   "midi-qol.v3DamageApplication.Hint": "NÃO HABILITE, apenas para testes do autor. Se habilitado, Midi QOL usará o Fluxo de aplicação de dano do D&D5e e hooks. Mudar requer que o mundo seja reiniciado.",
-  "DND5E.DamageApplication.Change.Absorption": "Absorção a {type}"
+  "DND5E.DamageApplication.Change.Absorption": "Absorção a {type}",
+  "DND5E.DamageApplication.Change.Spell": "{type} de Magia Personalizada",
+  "DND5E.DamageApplication.Change.Magic": "{type} Mágico Personalizado",
+  "DND5E.DamageApplication.Change.Nonmagic": "{type} Não-Mágico Personalizado"
 }
