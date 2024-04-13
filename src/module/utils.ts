@@ -5983,7 +5983,7 @@ export function processConcentrationSave(message, html, data) {
       else actor = game.actors?.get(actor);
       if (actor) {
         const user = playerForActor(actor);
-        if (user) {
+        if (user?.active) {
           const whisper = game.users.filter(user => actor.testUserPermission(user, "OWNER"))
           socketlibSocket.executeAsUser("rollConcentration", user.id, { actorUuid: actor.uuid, targetValue: dc, whisper });
         } else actor.rollConcentration({ targetValue: dc });

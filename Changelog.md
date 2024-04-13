@@ -1,3 +1,7 @@
+## 11.4.21
+* Fix for dnd5e damage application failing when SaveDRdr is selected and the target saves
+* Fix for concentration saves failing the actor owner is not logged in
+
 ## 11.4.20
 * Added flags.midi-qol.max/min.ability.save.concentration.
 * Fix for not setting template height correctly when using levelsVolumetricTemplates.

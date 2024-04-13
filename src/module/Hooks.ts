@@ -884,7 +884,8 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
       options.multiplier = 1;
       for (let damage of damages) {
         damage.value = damage.value * mo.saveMultiplier;
-        damage.active.multiplier = damage.active.multiplier * mo.saveMultiplier;
+        // no point doing this yet since dnd5e damage application overwrites it.
+        setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * mo.saveMultiplier);
       }
     }
     const ignore = (category, type, skipDowngrade) => {
