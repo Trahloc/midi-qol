@@ -768,15 +768,16 @@ async function createV3GMReverseDamageCard(
     appliedDamage = appliedDamage < 0 ? Math.ceil(appliedDamage) : Math.floor(appliedDamage);
     let appliedTempDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + dArray.reduce((acc, di) => acc + ((di.type !== "temphp") ? 0 : di.value), 0), 0);
     appliedTempDamage = appliedTempDamage < 0 ? Math.ceil(appliedTempDamage) : Math.floor(appliedTempDamage);
-    if (actor.system.attributes.hp.temp > appliedTempDamage) {
-      const remainingTempHP = Math.max(0, actor.system.attributes.hp.temp - appliedTempDamage);
-      if (appliedDamage > remainingTempHP) {
-        appliedDamage -= remainingTempHP;
-        appliedTempDamage = actor.system.attributes.hp.temp;
-      } else {
-        appliedTempDamage += appliedDamage;
-        appliedDamage = 0;
-      }
+    let newTempHP = actor.system.attributes.hp.temp ?? 0;
+    if (appliedTempDamage > 0)  {
+      newTempHP = Math.max(0, newTempHP - appliedTempDamage);
+    } else newTempHP = Math.max(actor.system.attributes.hp.temp, -appliedTempDamage);
+    if (appliedDamage > newTempHP) {
+      appliedDamage -= newTempHP;
+      newTempHP = 0;
+    } else {
+      appliedDamage = 0;
+      newTempHP -= appliedDamage;
     }
     if (doHits && !damageItem.isHit) continue;
     if (!doHits && damageItem.isHit) continue;
@@ -793,7 +794,6 @@ async function createV3GMReverseDamageCard(
     }
     const newHP = Math.min(actor.system.attributes.hp.effectiveMax, Math.max(0, oldHP - appliedDamage));
     const oldTempHP = actor.system.attributes.hp.temp;
-    const newTempHP = Math.max(0, oldTempHP - appliedTempDamage);
     appliedDamage = (oldHP - newHP);
     let img = tokenDocument?.texture.src || actor.img;
     if (configSettings.usePlayerPortrait && actor.type === "character")
@@ -806,7 +806,10 @@ async function createV3GMReverseDamageCard(
       const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
       if (oldVitality !== newVitality) update[vitalityResource] = newVitality;
       const updateContext = mergeObject({ dhp: -appliedDamage, damageItem: damageItem.tokenDamages }, data.updateContext ?? {});
-      if (game.user?.isGM && doHits && damageWasApplied) {
+      if (game.user?.isGM && doHits && damageWasApplied && 
+        (newTempHP !== actor.system.attributes.hp.temp 
+          || newHP !== actor.system.attributes.hp.value
+          || newVitality !== oldVitality)) {
         await actor.update(update, data.updateContext);
       }
     }

@@ -887,7 +887,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         superSaver: workflow.superSavers.has(token),
         semiSuperSaver: workflow.semiSuperSavers.has(token),
         totalDamage: 0,
-        appliedDamge: 0,
+        appliedDamage: 0,
         tempDamage: 0
       };
       let options: any = {};
@@ -1379,6 +1379,7 @@ export function midiCustomEffect(...args) {
       }
       if (debugEnabled > 0) warn("midiCustomEffect | setting ", change.key, " to ", val, " from ", change.value, " on ", actor.name);
       setProperty(actor, change.key, val);
+      setProperty(actor, change.key.replace("flags.midi-qol", "flags.midi-qol.evaluated"), {value: val, effects: [change.effect.name]});
     } catch (err) {
       const message = `midi-qol | midiCustomEffect | custom flag eval error ${change.key} ${change.value}`;
       TroubleShooter.recordError(err, message);
@@ -2749,6 +2750,8 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
   if (installedModules.get("condition-lab-triggler") && condition === "invisible" && clt.hasCondition("Invisible", [td.object], { warn: false })) return 1;
   if (installedModules.get("condition-lab-triggler") && condition === "hidden" && clt.hasCondition("Hidden", [td.object], { warn: false })) return 1;
   if (installedModules.get("dfreds-convenient-effects")) {
+    // If we are looking for a status effect then we don't need to check dfreds since dfreds status effects include the system status effect id
+    if (Object.keys(GameSystemConfig.statusEffects).includes(condition.toLocaleLowerCase())) return 0;
     //@ts-expect-error .dfreds
     const CEInt = game.dfreds?.effectInterface;
     const localCondition = i18n(`midi-qol.${condition}`);
@@ -4299,6 +4302,37 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   return rollData;
 }
 
+export function evalAllConditions(actorRef: Token | TokenDocument | Actor | string, flag: string, conditionData, errorReturn: any = 0): any {
+  let actor: Actor | null = getActor(actorRef);
+  if (!actor) return errorReturn;
+  //@ts-expect-error .applyActiveEffects
+  const effects = actor.appliedEffects.filter(ef => ef.changes.some(change => change.key === flag));
+  let keyToUse = flag.replace("flags.midi-qol.", "flags.midi.evaluated.");
+  keyToUse = keyToUse.replace("flags.dnd5e.", "flags.midi.evaluated.dnd5e.");
+  let returnValue = errorReturn;
+  setProperty(actor, `${keyToUse}.value`, false);
+  setProperty(actor, `${keyToUse}.effects`, [])
+  for (let effect of effects) {
+    for (let change of effect.changes) {
+      if (change.key === flag) {
+        const condValue = evalCondition(change.value, conditionData, errorReturn);
+        if (condValue) {
+          returnValue = condValue;
+          setProperty(actor, `${keyToUse}.value`, condValue);
+          getProperty(actor, `${keyToUse}.effects`).push(effect.name);
+        }
+      }
+    }
+  }
+  if (effects.length === 0 && getProperty(actor, flag)) {
+    returnValue = evalCondition(getProperty(actor, flag), conditionData, errorReturn)
+    if (returnValue) {
+      setProperty(actor, `${keyToUse}.value`, returnValue);
+      getProperty(actor, `${keyToUse}.effects`).push("flag");
+    }
+  }
+  return returnValue;
+}
 export function evalCondition(condition: string, conditionData: any, errorReturn: any = true): any {
   if (condition === undefined || condition === "") return true;
   if (typeof condition !== "string") return condition;
@@ -5983,7 +6017,7 @@ export function processConcentrationSave(message, html, data) {
       else actor = game.actors?.get(actor);
       if (actor) {
         const user = playerForActor(actor);
-        if (user) {
+        if (user?.active) {
           const whisper = game.users.filter(user => actor.testUserPermission(user, "OWNER"))
           socketlibSocket.executeAsUser("rollConcentration", user.id, { actorUuid: actor.uuid, targetValue: dc, whisper });
         } else actor.rollConcentration({ targetValue: dc });

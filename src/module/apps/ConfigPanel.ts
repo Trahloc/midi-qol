@@ -155,6 +155,32 @@ export class ConfigPanel extends FormApplication {
     return data;
   }
 
+  _onSearch(term){
+    const fg = Array.from(this.element[0].querySelectorAll(".form-group"));
+    term = term.toLowerCase().trim();
+    fg.forEach((el) => {
+      //@ts-expect-error
+      if (!term || el.innerText.toLowerCase().includes(term)) {
+        //@ts-expect-error
+        el.style.display = null;
+      } else {
+        //@ts-expect-error
+        el.style.display = "none";
+      }
+    });
+    const notes = Array.from(this.element[0].querySelectorAll(".notes"));
+    term = term.toLowerCase().trim();
+    notes.forEach((el) => {
+      //@ts-expect-error
+      if (!term || el.innerText.toLowerCase().includes(term)) {
+        //@ts-expect-error
+        el.style.display = null;
+      } else {
+        //@ts-expect-error
+        el.style.display = "none";
+      }
+    });
+  }
   activateListeners(html) {
     html.find(".customSounds").change(() => {
       configSettings.useCustomSounds = !configSettings.useCustomSounds;
@@ -188,7 +214,10 @@ export class ConfigPanel extends FormApplication {
       if (await applySettings.bind(this)(key)) this.close({ force: true });
       // this.render();
     }.bind(this))
-  }
+
+    //activate listeners
+    //@ts-expect-error
+    this.element[0].querySelector('input[type="search"]')?.addEventListener("input", (e) => {this._onSearch(e.currentTarget?.value)})  }
 
   selectHover(event) {
     const target = event.currentTarget;

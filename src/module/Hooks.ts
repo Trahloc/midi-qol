@@ -1,7 +1,7 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString } from "../midi-qol.js";
-import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
+import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves, addChatDamageButtonsToHTML } from "./chatMessageHandling.js";
 import { processUndoDamageCard, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache, tokenForActor, getSaveMultiplierForItem, expireEffects, evalCondition, createConditionData, processConcentrationSave } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache, tokenForActor, getSaveMultiplierForItem, expireEffects, evalCondition, createConditionData, processConcentrationSave, evalAllConditions } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting, safeGetGameSetting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentrationEffects, zeroHPExpiry, canRemoveConcentration } from "./patching.js";
@@ -11,6 +11,8 @@ import { Workflow } from "./workflow.js";
 import { isEmptyObject } from "jquery";
 import { ActorOnUseMacrosConfig } from "./apps/ActorOnUseMacroConfig.js";
 import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
+import { busyWait } from "./tests/setupTest.js";
+import { installedModules } from "./setupModules.js";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -149,7 +151,11 @@ export let readyHooks = async () => {
         if (origin instanceof ActiveEffect && !options.noConcentrationCheck && configSettings.removeConcentrationEffects !== "none" && !safeGetGameSetting("dnd5e", "disableConcentration")) {
           //@ts-expect-error
           if ((origin.getFlag("dnd5e", "dependents")) && origin.getDependents().length === 0) {
-            await origin.delete();
+            origin = await fromUuid(deletedEffect.origin);
+            if (!installedModules.get("times-up") || origin.duration.remaining > 0) {
+              if (debugEnabled > 0) warn(`Removing origin ${origin.name} (${origin.duration.remaining}) for deleted effect ${deletedEffect.name}`)
+              await origin.delete();
+            }
           }
         } else if (isConcentration && checkConcentration) {
           if (!options.noConcentrationCheck)
@@ -884,7 +890,8 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
       options.multiplier = 1;
       for (let damage of damages) {
         damage.value = damage.value * mo.saveMultiplier;
-        damage.active.multiplier = damage.active.multiplier * mo.saveMultiplier;
+        // no point doing this yet since dnd5e damage application overwrites it.
+        setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * mo.saveMultiplier);
       }
     }
     const ignore = (category, type, skipDowngrade) => {
@@ -930,7 +937,14 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
       }
     }
   }
-  const totalDamage = damages.reduce((a, b) => a + b.value, 0);
+  const totalDamage = damages.reduce((a, b) => {
+    if (options.invertHealing !== false && b.type === "temphp")  {
+      b.multiplier = (b.multiplier ?? 1) * -1;
+      b.value = b.value * -1;
+    }
+    if (b.type === "midi-none") b.value = 0;
+    return a + (["temphp", "midi-none"].includes(b.type) ? 0 : b.value)}
+    , 0);
   setProperty(options, "midi.totalDamage", totalDamage);
   return true;
 });
@@ -971,6 +985,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         switch (custom) {
           case "spell":
             for (let damage of damages) {
+              if (damage.type === "temphp") continue;
               if (ignore("spell", damage.type, false) || damage.active["spell"]) continue;
               if (damage.properties.has("spell")) {
                 damage.active["spell"] = true;
@@ -980,6 +995,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             }
           case "nonmagic":
             for (let damage of damages) {
+              if (damage.type === "temphp") continue;
               if (ignore("nonmagic", damage.type, false) || damage.active["nonmagic"]) continue;
               if (!damage.properties.has("magic") && !damage.properties.has("spell")) {
                 damage.active["nonmagic"] = true;
@@ -989,6 +1005,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             }
           case "magic":
             for (let damage of damages) {
+              if (damage.type === "temphp") continue;
               if (ignore("magic", damage.type, false) || damage.active["magic"]) continue;
               if (damage.properties.has("mgc") || damage.properties.has("spell")) {
                 damage.active["magic"] = true;
@@ -1169,8 +1186,12 @@ Hooks.on("dnd5e.preRollConcentration", (actor, options) => {
   let concDisadv = options.disadvantage;
   if (concAdvFlag || concDisadvFlag) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
-    if (concAdvFlag && evalCondition(concAdvFlag, conditionData)) concAdv = true;
-    if (concDisadvFlag && evalCondition(concDisadvFlag, conditionData)) concDisadv = true;
+    if (evalAllConditions(actor, "flags.midi-qol.advantage.concentration", conditionData)) {
+      concAdv = true;
+    }
+    if (concDisadvFlag && evalAllConditions(actor, "flags.midi-qol.disadvantage.concentration", conditionData)) {
+      concDisadv = true;
+    }
   }
   if (concAdv && !concDisadv) {
     options.advantage = true;
@@ -1209,6 +1230,8 @@ Hooks.on("dnd5e.rollConcentration", (actor, roll) => {
   if (!Number.isNaN(roll.options.targetValue)) {
     roll.options.success = roll.total >= Number(roll.options.targetValue);
   }
+  // triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets, options: any = {}) {
+
   const rollData = getProperty(actor, "flags.midi-qol.concentrationRollData");
   setProperty(actor, "flags.midi-qol.concentrationRollData", undefined);
   if (rollData) roll.toMessage(rollData.messageData);

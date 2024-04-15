@@ -34,7 +34,7 @@
     "rollNPCSaves": "auto",
     "preRollChecks": false,
     "mergeCard": true,
-    "mergeCardCondensed": true,
+    "mergeCardCondensed": false,
     "hideNPCNames": "",
     "useTokenNames": true,
     "fullAuto": false,
@@ -42,7 +42,7 @@
     "rollOtherDamage": "condition",
     "removeButtons": "all",
     "gmRemoveButtons": "all",
-    "concentrationAutomation": true,
+    "concentrationAutomation": false,
     "singleConcentrationRoll": true,
     "optionalRules": {
       "actionSpecialDurationImmediate": false,
