@@ -901,5 +901,6 @@
   "DND5E.DamageApplication.Change.Absorption": "Absorção a {type}",
   "DND5E.DamageApplication.Change.Spell": "{type} de Magia Personalizada",
   "DND5E.DamageApplication.Change.Magic": "{type} Mágico Personalizado",
-  "DND5E.DamageApplication.Change.Nonmagic": "{type} Não-Mágico Personalizado"
+  "DND5E.DamageApplication.Change.Nonmagic": "{type} Não-Mágico Personalizado",
+  "midi-qol.SettingsSearch": "Configurações de Pesquisa"
 }
