@@ -1,13 +1,12 @@
 import { log, debug, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, evalCondition, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasCondition, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromActorUuid, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
-import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
+import { untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
-import { busyWait } from "./tests/setupTest.js";
 let libWrapper;
 
 var d20Roll;
@@ -524,15 +523,15 @@ export function preRollDeathSaveHook(actor, rollData: any): boolean {
   let withDisadvantage = false;
 
   rollData.fastForward = autoFastForwardAbilityRolls ? !rollData.event?.fastKey : rollData.event?.fastKey;
-  if (advFlags || disFlags) {
+  if (advFlags?.all || advFlags?.deathSave || disFlags?.all || disFlags?.deathSave) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
-    if ((advFlags?.all && evalCondition(advFlags.all, conditionData))
-      || (advFlags?.deathSave && evalCondition(advFlags.deathSave, conditionData))) {
+    if (evalAllConditions(actor, "flags.midi-qol.advantage.all", conditionData) ||
+      evalAllConditions(actor, "flags.midi-qol.advantage.deathSave", conditionData)) {
       withAdvantage = true;
     }
 
-    if ((disFlags?.all && evalCondition(disFlags.all, conditionData))
-      || (disFlags?.deathSave && evalCondition(disFlags.deathSave, conditionData))) {
+    if (evalAllConditions(actor, "flags.midi-qol.disadvantage.all", conditionData) ||
+      evalAllConditions(actor, "flags.midi-qol.disadvantage.deathSave", conditionData)) {
       withDisadvantage = true;
     }
   }
@@ -643,13 +642,14 @@ export function procAbilityAdvantage(actor, rollType, abilityId, options: Option
   if (rollType === "save" && options.isMagicSave) {
     if ((actor?.system.traits?.dr?.custom || "").includes(i18n("midi-qol.MagicResistant").trim()))
       withAdvantage = true;;
-
+    const conditionData = createConditionData({ workflow: options.workflow, target: tokenForActor(actor), actor, item: options.item ?? options.itemUuid ?? options.saveItem ?? options.saveItemUuid });
     const magicResistanceFlags = getProperty(actor, "flags.midi-qol.magicResistance");
-    if (magicResistanceFlags && (magicResistanceFlags?.all || getProperty(magicResistanceFlags, abilityId))) {
+    if (evalAllConditions(actor, "flags.midi-qol.magicResistance.all", conditionData, false) ||
+      evalAllConditions(actor, `flags.midi-qol.magicResistance.${abilityId}`, conditionData, false)) {
       withAdvantage = true;
     }
-    const magicVulnerabilityFlags = getProperty(actor, "flags.midi-qol.magicVulnerability");
-    if (magicVulnerabilityFlags && (magicVulnerabilityFlags?.all || getProperty(magicVulnerabilityFlags, abilityId))) {
+    if (evalAllConditions(actor, "flags.midi-qol.magicVulnerability.all", conditionData, false) ||
+      evalAllConditions(actor, `flags.midi-qol.magicVulnerability.${abilityId}`, conditionData, false)) {
       withDisadvantage = true;
     }
   }
@@ -658,36 +658,20 @@ export function procAbilityAdvantage(actor, rollType, abilityId, options: Option
   if (advantage || disadvantage) {
     const conditionData = createConditionData({ workflow: options.workflow, target: tokenForActor(actor), actor, item: options.item ?? options.itemUuid ?? options.saveItem ?? options.saveItemUuid });
     if (advantage) {
-      if (advantage.all && evalCondition(advantage.all, conditionData)) {
+      if (evalAllConditions(actor, "flags.midi-qol.advantage.all", conditionData)
+        || evalAllConditions(actor, `flags.midi-qol.advantage.ability.all`, conditionData)
+        || evalAllConditions(actor, `flags.midi-qol.advantage.ability.${rollType}.all`, conditionData)
+        || evalAllConditions(actor, `flags.midi-qol.advantage.ability.${rollType}.${abilityId}`, conditionData)) {
         withAdvantage = true;
-      }
-      if (advantage.ability) {
-        if (advantage.ability.all && evalCondition(advantage.ability.all, conditionData)) {
-          withAdvantage = true;
-        }
-        if (advantage.ability[rollType]) {
-          if ((advantage.ability[rollType].all && evalCondition(advantage.ability[rollType].all, conditionData))
-            || (advantage.ability[rollType][abilityId] && evalCondition(advantage.ability[rollType][abilityId], conditionData))) {
-            withAdvantage = true;
-          }
-        }
       }
     }
 
     if (disadvantage) {
-      if (disadvantage.all && evalCondition(disadvantage.all, conditionData)) {
+      if (evalAllConditions(actor, "flags.midi-qol.disadvantage.all", conditionData)
+        || evalAllConditions(actor, `flags.midi-qol.disadvantage.ability.all`, conditionData)
+        || evalAllConditions(actor, `flags.midi-qol.disadvantage.ability.${rollType}.all`, conditionData)
+        || evalAllConditions(actor, `flags.midi-qol.disadvantage.ability.${rollType}.${abilityId}`, conditionData)) {
         withDisadvantage = true;
-      }
-      if (disadvantage.ability) {
-        if (disadvantage.ability.all && evalCondition(disadvantage.ability.all, conditionData)) {
-          withDisadvantage = true;
-        }
-        if (disadvantage.ability[rollType]) {
-          if ((disadvantage.ability[rollType].all && evalCondition(disadvantage.ability[rollType].all, conditionData))
-            || (disadvantage.ability[rollType][abilityId] && evalCondition(disadvantage.ability[rollType][abilityId], conditionData))) {
-            withDisadvantage = true;
-          }
-        }
       }
     }
   }
@@ -705,23 +689,15 @@ export function procAdvantageSkill(actor, skillId, options: Options): Options {
   var withDisadvantage = options.disadvantage;
   if (advantage || disadvantage) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor, item: options.item ?? options.itemUuid ?? options.saveItem ?? options.saveItemUuid });
-    if (advantage?.all && evalCondition(advantage.all, conditionData)) {
+    if (evalAllConditions(actor, "flags.midi-qol.advantage.all", conditionData)
+      || evalAllConditions(actor, `flags.midi-qol.advantage.skill.all`, conditionData)
+      || evalAllConditions(actor, `flags.midi-qol.advantage.skill.${skillId}`, conditionData)) {
       withAdvantage = true;
     }
-    if (advantage?.skill) {
-      if ((advantage.skill.all && evalCondition(advantage.skill.all, conditionData))
-        || (advantage.skill[skillId] && evalCondition(advantage.skill[skillId], conditionData))) {
-        withAdvantage = true;
-      }
-    }
-    if (disadvantage?.all && evalCondition(disadvantage.all, conditionData)) {
+    if (evalAllConditions(actor, "flags.midi-qol.disadvantage.all", conditionData)
+      || evalAllConditions(actor, `flags.midi-qol.disadvantage.skill.all`, conditionData)
+      || evalAllConditions(actor, `flags.midi-qol.disadvantage.skill.${skillId}`, conditionData)) {
       withDisadvantage = true;
-    }
-    if (disadvantage?.skill) {
-      if ((disadvantage.skill.all && evalCondition(disadvantage.skill.all, conditionData))
-        || (disadvantage.skill[skillId] && evalCondition(disadvantage.skill[skillId], conditionData))) {
-        withDisadvantage = true;
-      }
     }
   }
   options.advantage = withAdvantage;
@@ -1016,25 +992,24 @@ export async function rollInitiativeDialog(wrapped, rollOptions: any = { fastFor
 export function getInitiativeRoll(wrapped, options: any = { advantageMode: 0, fastForward: autoFastForwardAbilityRolls }) {
   //@ts-expect-error
   const D20Roll = game.dnd5e.dice.D20Roll;
-  let disadv = this.getFlag(game.system.id, "initiativeDisadv") || options.advantageMode === D20Roll.ADV_MODE.DISADVANTAGE;
-  let adv = this.getFlag(game.system.id, "initiativeAdv") || options.advantageMode === D20Roll.ADV_MODE.ADVANTAGE;
-  const midiFlags = this.flags["midi-qol"] ?? {};
-  const advFlags = midiFlags.advantage;
-  const disadvFlags = midiFlags.disadvantage;
-  const init: any = this.system.attributes.init;
-  if (advFlags || disadvFlags) {
-    const conditionData = createConditionData({ workflow: undefined, target: undefined, actor: this });
-    if ((advFlags?.all && evalCondition(advFlags.all, conditionData))
-      || (advFlags?.ability?.check?.all && evalCondition(advFlags.ability.check.all, conditionData))
-      || (advFlags?.advantage?.ability?.check?.dex && evalCondition(advFlags.advantage.ability?.check?.dex, conditionData))) {
-      adv = true;
-    }
-    if ((disadvFlags?.all && evalCondition(disadvFlags.all, conditionData))
-      || (disadvFlags?.ability?.check?.all && evalCondition(disadvFlags.ability.check.all, conditionData))
-      || (disadvFlags?.disadvantage?.ability?.check?.dex && evalCondition(disadvFlags.disadvantage.ability?.check?.dex, conditionData))) {
-      disadv = true;
-    }
+  let disadv = options.advantageMode === D20Roll.ADV_MODE.DISADVANTAGE;
+  let adv = options.advantageMode === D20Roll.ADV_MODE.ADVANTAGE;
+  const init: any = this.system.attributes.init.value ?? "dex";
+  const conditionData = createConditionData({ workflow: undefined, target: undefined, actor: this });
+
+  if (evalAllConditions(this, "flags.midi-qol.advantage.all", conditionData)
+    || evalAllConditions(this, "flags.midi-qol.advantage.ability.check.all", conditionData)
+    || evalAllConditions(this, `flags.midi-qol.advantage.ability.check.${init}`, conditionData)
+    || evalAllConditions(this, `flags.${game.system.id}.initiativeAdv`, conditionData)) {
+    adv = true;
   }
+  if (evalAllConditions(this, "flags.midi-qol.disadvantage.all", conditionData)
+    || evalAllConditions(this, "flags.midi-qol.disadvantage.ability.check.all", conditionData)
+    || evalAllConditions(this, `flags.midi-qol.disadvantage.ability.check.${init}`, conditionData)
+    || evalAllConditions(this, `flags.${game.system.id}.initiativeDisadv`, conditionData)) {
+    disadv = true;
+  }
+
   if (adv && disadv) options.advantageMode = 0;
   else if (adv) options.advantageMode = D20Roll.ADV_MODE.ADVANTAGE;
   else if (disadv) options.advantageMode = D20Roll.ADV_MODE.DISADVANTAGE;
@@ -1255,6 +1230,7 @@ export function readyPatching() {
     libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Item.sheetClasses.base['dnd5e.ItemSheet5e'].cls.defaultOptions", itemSheetDefaultOptions, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype._onUpdate", onUpdateActor, "MIXED");
+    libWrapper.register("midi-qol", "CONFIG.ActiveEffect.documentClass.prototype.getDependents", getDependents, "OVERRIDE");
   } else { // TODO find out what itemsheet5e is called in sw5e TODO work out how this is set for sw5e v10
     libWrapper.register("midi-qol", "game.sw5e.canvas.AbilityTemplate.prototype.refresh", midiATRefresh, "WRAPPER");
     libWrapper.register("midi-qol", "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
@@ -1359,6 +1335,22 @@ export let itemPatching = () => {
   }
   configureDamageRollDialog();
 };
+
+
+  /**
+   * Retrieve a list of dependent effects.
+   * Don't return expired effects if times-up installed since it will delete them "soon"
+   * @returns {ActiveEffect5e[]}
+   */
+  export function getDependents() {
+    return (this.getFlag("dnd5e", "dependents") || []).reduce((arr, { uuid }) => {
+      //@ts-expect-error
+      const effect = fromUuidSync(uuid);
+      if ( effect && (!installedModules.get("times-up") || effect.duration.remaining > 0)) arr.push(effect);
+      return arr;
+    }, []);
+  }
+
 
 export async function checkDeleteTemplate(templateDocument, options, user) {
   if (user !== game.user?.id) return;

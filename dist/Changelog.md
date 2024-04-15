@@ -1,6 +1,13 @@
 ## 11.4.21
 * Fix for dnd5e damage application failing when SaveDRdr is selected and the target saves
-* Fix for concentration saves failing the actor owner is not logged in
+* Fix for concentration saves failing if the actor's owner is not logged in.
+* Fix for damage rolls failing when damage debug is enabled and adding chat damage buttons.
+* Fix for temphp healing in dnd5e damage application. midi will apply the healing correctly - there is some strangeness in dnd5e's treatment of temphp so dont trust the damage buttons.
+* Added a settings search field to the midi config app which will hide settings that don't reference the text, e.g. attack/save or whatever. Thanks @theRipper93
+* Fix for "cannot delete xxxx from embedded collection" when concentration effects expire and using dnd5e concentration checking.
+* When evaluating condition flags (e.g. advantage) midi was only evaluating the last applied flag. Midi will now check all effects that apply the flag and evaluate them. Midi will treat the result as a boolean and return true if any of the evaluated flags return true.
+* As well as evaluating the conditions, midi will track the results and set flags.midi-qol.evaluated.advantage.xxx (etc), to {value: result, effects: Array<string>} where effects are any effects that evaluated to true. If there are no effects, but the flag is set effects will be ["flag"].
+* Updated the advantage attribution to include the name of the effect granting advantage. Not as nice as the advantage reminder module, but better than it was.
 
 ## 11.4.20
 * Added flags.midi-qol.max/min.ability.save.concentration.

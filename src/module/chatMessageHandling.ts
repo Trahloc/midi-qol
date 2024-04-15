@@ -307,7 +307,7 @@ export let chatDamageButtons = (message, html, data) => {
 }
 
 export function addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, tag = "damage", toMatch = ".dice-total", style = "margin: 0px;") {
-  if (debugEnabled > 1) debug("addChatDamageButtons", totalDamage, damageList, html, actorId, itemUuid, toMatch, html.find(toMatch))
+  if (debugEnabled > 1) debug("addChatDamageButtons", totalDamage, damageList, html, actorId, itemUuid, toMatch, $(html).find(toMatch))
   const btnContainer = $('<span class="dmgBtn-container-mqol"></span>');
   let btnStylingLimeGreen = `background-color:var(--dnd5e-color-success); ${style}`;
   let btnStylingLightGreen = `background-color:var(--dnd5e-color-success-background); ${style}`;

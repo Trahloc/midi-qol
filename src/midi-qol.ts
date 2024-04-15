@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
-import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -580,10 +580,13 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
       rollOptions: any,
       success: (results) => {}, failure: (results) => {}, drawn: (results) => {}
     }): Promise<{ result: number | undefined, rolls: any[] }>,
+    createConditionData: function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined, item?: Item | string | undefined, extraData?: any }
     DamageOnlyWorkflow: class DamageOnlyWorkflow,
     debug: function debug(...args: any[]): void,
     displayDSNForRoll: async function displayDSNForRoll(roll: Roll | undefined, rollType: string | undefined, defaultRollMode: string | undefined = undefined),
     doMidiConcentrationCheck: async function doMidiConcentrationCheck(actor: Actor, saveDC),
+    evalAllConditions: function evalAllConditions(actor: Actor | Token | TokenDocument | string, flagRef: string, conditionData: any, errorReturn: any = true): any,
+    evalCondition: function evalCondition(condition: string, conditionData: any, errorReturn: any = true): any,
     findNearby(disposition: number | string | null | Array<string | number>, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined, relative: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false, relative: true }): Token[];
     getCachedChatMessage()
     getChanges: function getChanges(actorOrItem: Actor | Item, key: string): any[],
@@ -682,12 +685,15 @@ function setupMidiQOLApi() {
     get currentConfigSettings() { return configSettings },
     collectSettingData,
     contestedRoll,
+    createConditionData,
     DamageOnlyWorkflow,
     debouncedUpdate,
     debug,
     displayDSNForRoll,
     doConcentrationCheck,
     doOverTimeEffect,
+    evalAllConditions,
+    evalCondition,
     DummyWorkflow,
     chooseEffect,
     enableWorkflow,
@@ -854,7 +860,7 @@ function setupMidiFlags() {
   midiFlags.push("flags.midi-qol.range.all");
   midiFlags.push("flags.midi-qol.long.all");
   let attackTypes = allAttackTypes.concat(["heal", "other", "save", "util"])
-
+  evalCondition
   attackTypes.forEach(at => {
     midiFlags.push(`flags.midi-qol.range.${at}`);
     midiFlags.push(`flags.midi-qol.long.${at}`);
