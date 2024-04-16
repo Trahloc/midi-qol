@@ -2147,7 +2147,7 @@ export class Workflow {
     return data;
   }
 
-  getMacroData(): any {
+  getMacroData(options: any = {}): any {
     let targets: TokenDocument[] = [];
     let targetUuids: string[] = []
     let failedSaves: TokenDocument[] = [];
@@ -2275,7 +2275,7 @@ export class Workflow {
       uuid: this.uuid, // deprecated
       workflowOptions: this.workflowOptions,
       castData: this.castData,
-      workflow: this
+      workflow: options.noWorkflowReference? undefined : this
     }
   }
 
@@ -2985,7 +2985,7 @@ export class Workflow {
     // make sure saving throws are reenabled.
 
     if (this.chatUseFlags?.babonus?.saveDC) {
-      rollDC = this.babonus.saveDC;
+      rollDC = this.chatUseFlags.babonus.saveDC;
     }
     const playerMonksTB = !simulate && installedModules.get("monks-tokenbar") && configSettings.playerRollSaves === "mtb";
     const playerEpicRolls = !simulate && installedModules.get("epic-rolls-5e") && configSettings.playerRollSaves === "rer"
@@ -4251,11 +4251,12 @@ export class Workflow {
     this.setDamageRolls([this.convertRollToDamageRoll(roll)]);
   }
 
-  async setDamageRolls(rolls: Array<Roll> | undefined) {
+  async setDamageRolls(rolls: Array<Roll> | Roll | undefined | null) {
     if (!rolls) {
       this.damageRolls = undefined;
       return;
     };
+    if (rolls instanceof Roll) rolls = [rolls];
     for (let i = 0; i < rolls.length; i++) {
       rolls[i] = await rolls[i]; // only here in case someone passes an unawaited roll
       //@ts-expect-error
@@ -4274,11 +4275,12 @@ export class Workflow {
     return;
   }
 
-  async setBonusDamageRolls(rolls: Array<Roll> | undefined) {
+  async setBonusDamageRolls(rolls: Array<Roll> | Roll | undefined | null) {
     if (!rolls) {
       this.bonusDamageRolls = undefined;
       return;
     };
+    if (rolls instanceof Roll) rolls = [rolls];
     for (let i = 0; i < rolls.length; i++) {
       rolls[i] = await rolls[i]; // only here in case someone passes an unawaited roll
       //@ts-expect-error

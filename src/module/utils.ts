@@ -4316,6 +4316,7 @@ export function evalAllConditions(actorRef: Token | TokenDocument | Actor | stri
     for (let change of effect.changes) {
       if (change.key === flag) {
         const condValue = evalCondition(change.value, conditionData, errorReturn);
+        if (debugEnabled > 0) warn("evalAllConditions ", actor.name, flag, change.value, condValue, conditionData, errorReturn)
         if (condValue) {
           returnValue = condValue;
           setProperty(actor, `${keyToUse}.value`, condValue);
@@ -5971,7 +5972,7 @@ export function isEffectExpired(effect): boolean {
   }
   // TODO find out how to check some other module can delete expired effects
   // return effect.updateDuration().remaining ?? false;
-  return false;
+  return effect.duration.remaining <= 0;
 }
 
 export async function expireEffects(actor, effects: ActiveEffect[], options: any): Promise<any> {

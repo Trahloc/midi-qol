@@ -1,3 +1,9 @@
+### 11.4.22
+* Mark actors as dead/defeated if they fail their death saves.
+* Some more tidying of the config app.
+* Fix for not using babons saveDC correctly - thanks @thatlonelybugbear
+* Fix for error being thrown when using remote completeItemUse - thanks @Elwin
+
 ## 11.4.21
 * Fix for dnd5e damage application failing when SaveDRdr is selected and the target saves
 * Fix for concentration saves failing if the actor's owner is not logged in.

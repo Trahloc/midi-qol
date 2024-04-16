@@ -519,31 +519,45 @@ export function preRollDeathSaveHook(actor, rollData: any): boolean {
   mergeKeyboardOptions(rollData ?? {}, mapSpeedKeys(undefined, "ability"));
   const advFlags = getProperty(actor.flags, "midi-qol")?.advantage;
   const disFlags = getProperty(actor.flags, "midi-qol")?.disadvantage;
-  let withAdvantage = false;
-  let withDisadvantage = false;
+  let withAdvantage = rollData.advantage ?? false;
+  let withDisadvantage = rollData.disadvantage ?? false;
 
   rollData.fastForward = autoFastForwardAbilityRolls ? !rollData.event?.fastKey : rollData.event?.fastKey;
   if (advFlags?.all || advFlags?.deathSave || disFlags?.all || disFlags?.deathSave) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
     if (evalAllConditions(actor, "flags.midi-qol.advantage.all", conditionData) ||
       evalAllConditions(actor, "flags.midi-qol.advantage.deathSave", conditionData)) {
-      withAdvantage = true;
+      rollData.advantage = true;
     }
 
     if (evalAllConditions(actor, "flags.midi-qol.disadvantage.all", conditionData) ||
       evalAllConditions(actor, "flags.midi-qol.disadvantage.deathSave", conditionData)) {
-      withDisadvantage = true;
+      rollData.disadvantage = true;
     }
   }
-  rollData.advantage = withAdvantage && !withDisadvantage;
-  rollData.disadvantage = withDisadvantage && !withAdvantage;
-
   if (rollData.advantage && rollData.disadvantage) {
     rollData.advantage = rollData.disadvantage = false;
   }
   const blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes("death");
   if (blindSaveRoll) rollData.rollMode = "blindroll";
   return true;
+}
+
+export function deathSaveHook(actor, result, details) {
+  if (configSettings.addDead !== "none" && details.chatString === "DND5E.DeathSaveFailure") {
+    let effect: any = getDeadStatus();
+    const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect?.name ?? effect?.label ?? ""))) !== undefined;
+    if (!isBeaten) {
+      let combatant;
+      //@ts-expect-error
+      combatant = game.combat?.getCombatantByActor(actor.id);
+      if (combatant) combatant.update({ defeated: true });
+      const token = tokenForActor(actor);
+      if (token && effect) {
+        token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: true });
+      }
+    }
+  }
 }
 
 async function doPreRollAbilityHook(rollType: string, item, rollData: any, abilityId: string) {
@@ -1191,6 +1205,9 @@ export async function checkWounded(actor, update, options, user) {
           else combatant = game.combat?.getCombatantByActor(actor.id);
           if (combatant && useDefeated) await combatant.update({ defeated: needsBeaten });
           if (effect) await token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: needsBeaten });
+          const deadEffect: any = getDeadStatus();
+          if (!needsBeaten && deadEffect) 
+          await token.toggleEffect(deadEffect, { overlay: configSettings.addDead === "overlay", active: false });
         }
       }
     }
@@ -1230,7 +1247,6 @@ export function readyPatching() {
     libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Item.sheetClasses.base['dnd5e.ItemSheet5e'].cls.defaultOptions", itemSheetDefaultOptions, "WRAPPER");
     libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype._onUpdate", onUpdateActor, "MIXED");
-    libWrapper.register("midi-qol", "CONFIG.ActiveEffect.documentClass.prototype.getDependents", getDependents, "OVERRIDE");
   } else { // TODO find out what itemsheet5e is called in sw5e TODO work out how this is set for sw5e v10
     libWrapper.register("midi-qol", "game.sw5e.canvas.AbilityTemplate.prototype.refresh", midiATRefresh, "WRAPPER");
     libWrapper.register("midi-qol", "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
@@ -1335,22 +1351,6 @@ export let itemPatching = () => {
   }
   configureDamageRollDialog();
 };
-
-
-  /**
-   * Retrieve a list of dependent effects.
-   * Don't return expired effects if times-up installed since it will delete them "soon"
-   * @returns {ActiveEffect5e[]}
-   */
-  export function getDependents() {
-    return (this.getFlag("dnd5e", "dependents") || []).reduce((arr, { uuid }) => {
-      //@ts-expect-error
-      const effect = fromUuidSync(uuid);
-      if ( effect && (!installedModules.get("times-up") || effect.duration.remaining > 0)) arr.push(effect);
-      return arr;
-    }, []);
-  }
-
 
 export async function checkDeleteTemplate(templateDocument, options, user) {
   if (user !== game.user?.id) return;

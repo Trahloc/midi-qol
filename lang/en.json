@@ -334,13 +334,13 @@
   "midi-qol.HideRollDetails.Name": "GM Roll details hiding",
   "midi-qol.HideRollDetails.Hint": "Choose how much of GM rolls to hide/show to players",
   "midi-qol.HideRollDetails.HintLong": {
-    "none": "None: Hide nothing",
-    "detailsDSN": "Roll Formula but show DSN: Hide the roll formulas but still roll DSN dice",
-    "details": "Roll Formula: hide the roll formula and don't show DSN dice",
-    "d20Only": "Show Attack d20 + damage total: Show the attack d20 Roll and damage total only",
-    "hitDamage": "Show Hit/Miss + damage total: Show hit/miss plus the damage total",
-    "d20attackOnly": "Show attack D20 Only: Show the d20 attack dice only",
-    "all": "Entire Roll: hide all roll details from the players"
+    "none": "<strog>None</strong>: Hide nothing",
+    "detailsDSN": "<strong>Roll Formula but show DSN</strong>: Hide the roll formulas but still roll DSN dice",
+    "details": "<strong>Roll Formula</strong>: hide the roll formula and don't show DSN dice",
+    "d20Only": "<strong>Show Attack d20 + damage total</strong>: Show the attack d20 Roll and damage total only",
+    "hitDamage": "<strong>Show Hit/Miss + damage total</strong>: Show hit/miss plus the damage total",
+    "d20attackOnly": "<strong>Show attack D20 Only</strong>: Show the d20 attack dice only",
+    "all": "<strong>Entire Roll</strong>: hide all roll details from the players"
   },
   "midi-qol.DiceRolled": "<div>Rolled</div>",
   "midi-qol.ForceHideRoll.Name": "Really Hide private/blind/self rolls",

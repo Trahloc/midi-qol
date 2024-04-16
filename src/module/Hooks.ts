@@ -4,7 +4,7 @@ import { processUndoDamageCard, timedAwaitExecuteAsGM, timedExecuteAsGM } from "
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache, tokenForActor, getSaveMultiplierForItem, expireEffects, evalCondition, createConditionData, processConcentrationSave, evalAllConditions } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting, safeGetGameSetting } from "./settings.js";
-import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentrationEffects, zeroHPExpiry, canRemoveConcentration } from "./patching.js";
+import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentrationEffects, zeroHPExpiry, canRemoveConcentration, deathSaveHook } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
@@ -222,6 +222,7 @@ export let readyHooks = async () => {
   });
 
   Hooks.on("dnd5e.preRollDeathSave", preRollDeathSaveHook);
+  Hooks.on("dnd5e.rollDeathSave", deathSaveHook);
   // Concentration Check is rolled as an item roll so we need an item.
   itemJSONData.name = concentrationCheckItemName;
 }

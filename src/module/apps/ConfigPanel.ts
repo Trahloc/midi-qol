@@ -65,7 +65,7 @@ export class ConfigPanel extends FormApplication {
       switch (key) {
         case "letme":
         case "letmeQuery":
-          if (!installedModules.get("lmrtfy")) rollNPCSavesOptions[key] = `${rollNPCSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "LMRTFY" })}`;  
+          if (!installedModules.get("lmrtfy")) rollNPCSavesOptions[key] = `${rollNPCSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "LMRTFY" })}`;
           break;
         case "mtb":
           if (!installedModules.get("monks-tokenbar")) rollNPCSavesOptions[key] = `${rollNPCSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Monks Token Bar" })}`;
@@ -79,7 +79,7 @@ export class ConfigPanel extends FormApplication {
       switch (key) {
         case "letme":
         case "letmeQuery":
-          if (!installedModules.get("lmrtfy")) playerRollSavesOptions[key] = `${playerRollSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "LMRTFY" })}`;  
+          if (!installedModules.get("lmrtfy")) playerRollSavesOptions[key] = `${playerRollSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "LMRTFY" })}`;
           break;
         case "mtb":
           if (!installedModules.get("monks-tokenbar")) playerRollSavesOptions[key] = `${playerRollSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Monks Token Bar" })}`;
@@ -117,11 +117,11 @@ export class ConfigPanel extends FormApplication {
       EnforceReactionsOptions: geti18nOptions("EnforceReactionsOptions"),
       AutoEffectsOptions: geti18nOptions("AutoEffectsOptions"),
       RequireMagicalOptions: geti18nOptions("RequireMagicalOptions"),
-      itemTypeLabels: Object.keys(CONFIG.Item.typeLabels).filter(key => !["backpack","base"].includes(key)).reduce((acc, key) => {acc[key] = CONFIG.Item.typeLabels[key]; return acc}, {}),
+      itemTypeLabels: Object.keys(CONFIG.Item.typeLabels).filter(key => !["backpack", "base"].includes(key)).reduce((acc, key) => { acc[key] = CONFIG.Item.typeLabels[key]; return acc }, {}),
       hasConvenientEffects: installedModules.get("dfreds-convenient-effects"),
       hideRollDetailsOptions: geti18nOptions("hideRollDetailsOptions"),
       checkFlankingOptions: geti18nOptions("CheckFlankingOptions"),
-      hideRollDetailsHint: i18n("midi-qol.HideRollDetails.HintLong"),
+      hideRollDetailsHint: geti18nOptions("HideRollDetails")?.HintLong ?? {},
       nsaFlag,
       coloredBorders,
       playerRollSavesOptions: (autoFastForwardAbilityRolls && false) ? geti18nOptions("playerRollSavesOptionsReduced") : playerRollSavesOptions,
@@ -149,37 +149,27 @@ export class ConfigPanel extends FormApplication {
       //@ts-expect-error
       StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name = i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, { "none": "None" }),
       SaveDROrderOptions: geti18nOptions("SaveDROrderOptions"),
-      ColorOptions: colorList.reduce((acc, c) => { acc[c] = c; return acc }, {"Delete": "Delete"}),
+      ColorOptions: colorList.reduce((acc, c) => { acc[c] = c; return acc }, { "Delete": "Delete" }),
     };
     if (debugEnabled > 0) warn("Config Panel: getData ", data)
     return data;
   }
 
-  _onSearch(term){
-    const fg = Array.from(this.element[0].querySelectorAll(".form-group"));
-    term = term.toLowerCase().trim();
-    fg.forEach((el) => {
-      //@ts-expect-error
-      if (!term || el.innerText.toLowerCase().includes(term)) {
+  _onSearch(term) {
+    for (let tag of [".midi-qol-box", ".form-group"]) {
+      const elts = Array.from(this.element[0].querySelectorAll(tag));
+      term = term.toLowerCase().trim();
+      elts.forEach((el) => {
         //@ts-expect-error
-        el.style.display = null;
-      } else {
-        //@ts-expect-error
-        el.style.display = "none";
-      }
-    });
-    const notes = Array.from(this.element[0].querySelectorAll(".notes"));
-    term = term.toLowerCase().trim();
-    notes.forEach((el) => {
-      //@ts-expect-error
-      if (!term || el.innerText.toLowerCase().includes(term)) {
-        //@ts-expect-error
-        el.style.display = null;
-      } else {
-        //@ts-expect-error
-        el.style.display = "none";
-      }
-    });
+        if (!term || el.innerText.toLowerCase().includes(term)) {
+          //@ts-expect-error
+          el.style.display = null;
+        } else {
+          //@ts-expect-error
+          el.style.display = "none";
+        }
+      });
+    }
   }
   activateListeners(html) {
     html.find(".customSounds").change(() => {
@@ -217,7 +207,8 @@ export class ConfigPanel extends FormApplication {
 
     //activate listeners
     //@ts-expect-error
-    this.element[0].querySelector('input[type="search"]')?.addEventListener("input", (e) => {this._onSearch(e.currentTarget?.value)})  }
+    this.element[0].querySelector('input[type="search"]')?.addEventListener("input", (e) => { this._onSearch(e.currentTarget?.value) })
+  }
 
   selectHover(event) {
     const target = event.currentTarget;
@@ -295,7 +286,7 @@ export class ItemTypeSelector extends FormApplication {
 
     // Populate choices
     //@ts-ignore
-    const choices: {} = Object.keys(CONFIG.Item.typeLabels).filter(key => !["backpack","base"].includes(key)).reduce((acc, key) => {acc[key] = CONFIG.Item.typeLabels[key]; return acc}, {});
+    const choices: {} = Object.keys(CONFIG.Item.typeLabels).filter(key => !["backpack", "base"].includes(key)).reduce((acc, key) => { acc[key] = CONFIG.Item.typeLabels[key]; return acc }, {});
     for (let [k, v] of Object.entries(choices)) {
       choices[k] = {
         label: i18n(v),

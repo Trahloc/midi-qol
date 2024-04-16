@@ -452,7 +452,7 @@ async function _completeItemUse(data: {
   //@ts-ignore v10
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor, keepId: true });
   const workflow = await completeItemUse(ownedItem, config, options);
-  if (data.options?.workflowData) return workflow.getMacroData(); // can't return the workflow
+  if (data.options?.workflowData) return workflow.getMacroData({noWorkflowReference: true}); // can't return the workflow
   else return true;
 }
 
