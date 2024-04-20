@@ -28,11 +28,11 @@ export function requiresTargetConfirmation(item, options): boolean {
   // For old version of dnd5e-scriptlets
   if (options.workflowdialogOptions?.lateTargeting === "none") return false;
   if (item.system.target?.type === "self") return false;
-   if (options.workflowOptions?.attackPerTarget === true) return false;
+  if (options.workflowOptions?.attackPerTarget === true) return false;
   if (item?.flags?.midiProperties?.confirmTargets === "always") return true;
   if (item?.flags?.midiProperties?.confirmTargets === "never") return false;
   let numTargets = game.user?.targets?.size ?? 0;
-  if (numTargets === 0 && configSettings.enforceSingleWeaponTarget && item.type === "weapon") 
+  if (numTargets === 0 && configSettings.enforceSingleWeaponTarget && item.type === "weapon")
     numTargets = 1;
   const token = tokenForActor(item.actor);
   if (targetConfirmation.enabled) {
@@ -969,7 +969,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
 
       let tempRoll = new DamageRoll(workflow.otherDamageFormula, workflow.otherDamageItem?.getRollData(), { critical: workflow.rollOptions.critical || workflow.isCritical, returnMultiple: false });
       tempRoll = Roll.fromTerms(tempRoll.terms);
-      tempRoll.evaluate({ async: false })
+      tempRoll = await tempRoll.evaluate({ async: true })
       result = [tempRoll];
     }
     if (!result) { // user backed out of damage roll or roll failed
@@ -1031,12 +1031,22 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
       speaker,
     }, { "flags.dnd5e.roll": { type: "damage", itemId: this.id } });
     if (game.system.id === "sw5e") setProperty(messageData, "flags.sw5e.roll", { type: "damage", itemId: this.id })
-    if (needsMaxDamage)
-      result = result.map(r => new DamageRoll(r.formula).roll({ maximize: true, async: false }));
-    else if (needsMinDamage)
-      result = result.map(r => new DamageRoll(r.formula).roll({ minimize: true, async: false }));
-    else if (getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") || getProperty(this.parent, "flags.midi-qol.damage.reroll-kl")) {
-      result2 = result.map(r => r.reroll({ async: false }));
+    if (needsMaxDamage) {
+      for (let i = 0; i < result.length; i++) {
+        result[i] = await result[i].reroll({ maximize: true });
+      }
+      // result = result.map(r => new DamageRoll(r.formula).roll({ maximize: true, async: false }));
+    } else if (needsMinDamage) {
+      for (let i = 0; i < result.length; i++) {
+        result[i] = await result[i].reroll({ minimize: true });
+        // result = result.map(r => new DamageRoll(r.formula).roll({ minimize: true, async: false }));
+      }
+    } else if (getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") || getProperty(this.parent, "flags.midi-qol.damage.reroll-kl")) {
+      let result2: Roll[] = [];
+      for (let i = 0; i < result.length; i++) {
+        result2.push(await result[i].reroll({ async: true }));
+        // result2 = result.map(r => r.reroll({ async: false }));
+      }
       if ((getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") && (sumRolls(result2) > sumRolls(result)))
         || (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl") && (sumRolls(result2) < sumRolls(result)))) {
         [result, result2] = [result2, result];
@@ -1140,7 +1150,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
           otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "off" && workflow.otherDamageItem?.system.attackBonus > 0);
           otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "off" && workflow.otherDamageItem?.type !== "weapon");
           otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "nonspell" && workflow.otherDamageItem?.type === "spell");
-      
+
           if (!getProperty(otherResult, "options.properties")) setProperty(otherResult, "options.properties", []);
           const otherProperties: string[] = getProperty(otherResult, "options.properties");
           if (workflow?.item.type === "spell") otherProperties.push("spell");
@@ -1488,7 +1498,7 @@ function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTarge
           // installedModules.get("levels").lastTokenForTemplate.elevation no longer defined
           //@ts-expect-error .elevation CONFIG.Levels.UI v10
           // const p2z = _token?.document?.elevation ?? CONFIG.Levels.UI.nextTemplateHeight ?? 0;
-          const {elevation} = CONFIG.Levels.handlers.TemplateHandler.getTemplateData(false)
+          const { elevation } = CONFIG.Levels.handlers.TemplateHandler.getTemplateData(false)
           let p2 = {
             x: tx, y: ty,
             //@ts-ignore

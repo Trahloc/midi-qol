@@ -98,42 +98,41 @@ export function collectBonusFlags(actor, category, detail): any[] {
 }
 
 export async function bonusCheck(actor, result: Roll, category, detail): Promise<Roll> {
-  if (!installedModules.get("betterrolls5e")) {
-    let bonusFlags = collectBonusFlags(actor, category, detail);
+  let bonusFlags = collectBonusFlags(actor, category, detail);
 
-    if (bonusFlags.length > 0) {
-      const data = {
-        actor,
-        roll: result,
-        rollHTML: await midiRenderRoll(result),
-        rollTotal: result.total,
-        category,
-        detail: detail
-      }
-      let title;
-      let systemString = game.system.id.toUpperCase();
-      if (GameSystemConfig.abilities[detail]?.label || GameSystemConfig.skills[detail]?.label) {
-        if (detail.startsWith("fail")) title = "Failed Save Check";
-        else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: GameSystemConfig.abilities[detail].label ?? "" });
-        else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: GameSystemConfig.abilities[detail].label ?? "" });
-        else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: GameSystemConfig.skills[detail].label ?? "" });
-      } else {
-        if (detail.startsWith("fail")) title = "Failed Save Check";
-        else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: GameSystemConfig.abilities[detail] ?? "" });
-        else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: GameSystemConfig.abilities[detail] ?? "" });
-        else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: GameSystemConfig.skills[detail] ?? "" });
-      }
-      const newRoll = await bonusDialog.bind(data)(
-        bonusFlags,
-        detail ? `${category}.${detail}` : category,
-        checkMechanic("displayBonusRolls"),
-        `${actor.name} - ${title}`,
-        data.roll,
-        "roll"
-      );
-      result = newRoll;
+  if (bonusFlags.length > 0) {
+    const data = {
+      actor,
+      roll: result,
+      rollHTML: await midiRenderRoll(result),
+      rollTotal: result.total,
+      category,
+      detail: detail
     }
+    let title;
+    let systemString = game.system.id.toUpperCase();
+    if (GameSystemConfig.abilities[detail]?.label || GameSystemConfig.skills[detail]?.label) {
+      if (detail.startsWith("fail")) title = "Failed Save Check";
+      else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: GameSystemConfig.abilities[detail].label ?? "" });
+      else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: GameSystemConfig.abilities[detail].label ?? "" });
+      else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: GameSystemConfig.skills[detail].label ?? "" });
+    } else {
+      if (detail.startsWith("fail")) title = "Failed Save Check";
+      else if (category.startsWith("check")) title = i18nFormat(`${systemString}.AbilityPromptTitle`, { ability: GameSystemConfig.abilities[detail] ?? "" });
+      else if (category.startsWith("save")) title = i18nFormat(`${systemString}.SavePromptTitle`, { ability: GameSystemConfig.abilities[detail] ?? "" });
+      else if (category.startsWith("skill")) title = i18nFormat(`${systemString}.SkillPromptTitle`, { skill: GameSystemConfig.skills[detail] ?? "" });
+    }
+    const newRoll = await bonusDialog.bind(data)(
+      bonusFlags,
+      detail ? `${category}.${detail}` : category,
+      checkMechanic("displayBonusRolls"),
+      `${actor.name} - ${title}`,
+      data.roll,
+      "roll"
+    );
+    result = newRoll;
   }
+
   return result;
 }
 
@@ -380,7 +379,7 @@ function configureDamage(wrapped) {
 }
 
 async function doAbilityRoll(wrapped, rollType: string, ...args) {
-  let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false }] = args;
+  let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false, isConcentrationCheck: false }] = args;
   try {
     const rollTarget = options.targetValue;
     let success: boolean | undefined = undefined;
@@ -420,12 +419,19 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     })
     result = await wrapped(abilityId, procOptions);
     if (success === false) {
-      result = new Roll("-1[auto fail]").evaluate({ async: false })
+      result = new Roll("-1[auto fail]");
+      const evaluateSync = result.evaluateSync;
+      if (evaluateSync) result = evaluateSync.bind(result)();
+      else result = result.evaluate({ async: false })
     }
     if (!result) return result;
-    const maxFlags = getProperty(this.flags, "midi-qol.max.ability") ?? {};
+    let maxFlags = getProperty(this.flags, "midi-qol.max.ability") ?? {};
+
     const flavor = result.options?.flavor;
-    const maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId])) ?? false
+    let maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId])) ?? false;
+    if (options.isConcentrationCheck) 
+      maxValue = maxFlags.save?.concentration ?? maxValue;
+
     if (maxValue && Number.isNumeric(maxValue)) {
       result.terms[0].modifiers.unshift(`max${maxValue}`);
       //@ts-ignore
@@ -433,7 +439,9 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
 
     const minFlags = getProperty(this.flags, "midi-qol.min.ability") ?? {};
-    const minValue = (minFlags[rollType] && (minFlags[rollType].all || minFlags[rollType][abilityId])) ?? false;
+    let minValue = (minFlags[rollType] && (minFlags[rollType].all || minFlags[rollType][abilityId])) ?? false;
+    if (options.isConcentrationCheck)
+      minValue = minFlags.save?.concentration ?? minValue;
     if (minValue && Number.isNumeric(minValue)) {
       result.terms[0].modifiers.unshift(`min${minValue}`);
       //@ts-ignore
@@ -545,18 +553,8 @@ export function preRollDeathSaveHook(actor, rollData: any): boolean {
 
 export function deathSaveHook(actor, result, details) {
   if (configSettings.addDead !== "none" && details.chatString === "DND5E.DeathSaveFailure") {
-    let effect: any = getDeadStatus();
-    const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect?.name ?? effect?.label ?? ""))) !== undefined;
-    if (!isBeaten) {
-      let combatant;
-      //@ts-expect-error
-      combatant = game.combat?.getCombatantByActor(actor.id);
-      if (combatant) combatant.update({ defeated: true });
-      const token = tokenForActor(actor);
-      if (token && effect) {
-        token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: true });
-      }
-    }
+    setDeadStatus(actor, { effect: getDeadStatus(), useDefeated: true, makeDead: true });
+    setDeadStatus(actor, { effect: getUnconsciousStatus(), useDefeated: false, makeDead: false });
   }
 }
 
@@ -602,14 +600,16 @@ function doRollAbilityHook(rollType, item, roll: any /* D20Roll */, abilityId: s
   if (maxValue && Number.isNumeric(maxValue)) {
     result.terms[0].modifiers.unshift(`max${maxValue}`);
     //@ts-ignore
-    result = new Roll(Roll.getFormula(result.terms)).evaluate({ async: false });
+    result = new Roll(Roll.getFormula(result.terms)).evaluate({ async: false }); 
+    // V12 go through each term and set the result
   }
 
   const minFlags = getProperty(item.flags, "midi-qol.min.ability") ?? {};
   const minValue = (minFlags[rollType] && (minFlags[rollType].all || minFlags[rollType][abilityId])) ?? false;
   if (minValue && Number.isNumeric(minValue)) {
     result.terms[0].modifiers.unshift(`min${minValue}`);
-    result = new Roll(Roll.getFormula(result.terms)).evaluate({ async: false });
+    result = new Roll(Roll.getFormula(result.terms)).evaluate({ async: false }); // V12
+    // V12 go through each term and set the result
   }
 
   if (!roll.options.simulate) result = /* await  show stopper for this */ bonusCheck(this, result, rollType, abilityId)
@@ -842,6 +842,64 @@ export function initPatching() {
     //@ts-expect-error
     window.customElements.get("damage-application").prototype.calculateDamage = DAcalculateDamage;
   }
+  if (true) {
+    const actorClass: any = CONFIG.Actor.documentClass;
+    const itemClass: any = CONFIG.Item.documentClass;
+    const tokenClass: any = CONFIG.Token.documentClass;
+    const templateClass: any = CONFIG.MeasuredTemplate.documentClass;
+    const tileClass: any = CONFIG.Tile.documentClass;
+    const lightClass: any = CONFIG.AmbientLight.documentClass;
+    const soundClass: any = CONFIG.AmbientSound.documentClass;
+    const wallClass: any = CONFIG.Wall.documentClass;
+    const effectClass: any = CONFIG.ActiveEffect.documentClass;
+
+    //@ts-expect-error .version
+    if (game.system.id === "dnd5e" && isNewerVersion(game.system.version, "3.0.99")) {
+      const classStrings = [
+        "CONFIG.Actor.documentClass",
+        "CONFIG.Item.documentClass",
+        "CONFIG.Token.documentClass",
+        "CONFIG.MeasuredTemplate.documentClass",
+        "CONFIG.Tile.documentClass",
+        "CONFIG.AmbientLight.documentClass",
+        "CONFIG.AmbientSound.documentClass",
+        "CONFIG.Wall.documentClass"
+      ];
+      const addDependent = effectClass.prototype.addDependent;
+      const getDependents = effectClass.prototype.getDependents;
+      for (let classString of classStrings) {
+        const docClass = eval(classString)
+        if (!docClass) continue;
+        docClass.prototype.addDependent = addDependent
+        docClass.prototype.getDependents = getDependents;
+        docClass.prototype.removeDependent = removeDependent;
+        libWrapper.register("midi-qol", `${classString}.prototype._onDelete`, _onDelete, "WRAPPER");
+      }
+      /*
+      libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype._onDelete", _onDelete, "WRAPPER");
+      libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype._onDelete", _onDelete, "WRAPPER");
+      libWrapper.register("midi-qol", "CONFIG.Token.documentClass.prototype._onDelete", _onDelete, "WRAPPER");
+  
+      libWrapper.register("midi-qol", "CONFIG.MeasuredTemplate.documentClass.prototype._onDelete", _onDelete, "WRAPPER");
+      libWrapper.register("midi-qol", "TileDocument.prototype._onDelete", _onDelete, "WRAPPER");
+  
+      libWrapper.register("midi-qol", "CONFIG.AmbientLight.documentClass.prototype._onDelete", _onDelete, "WRAPPER");
+      libWrapper.register("midi-qol", "CONFIG.AmbientSound.documentClass.prototype._onDelete", _onDelete, "WRAPPER");
+      libWrapper.register("midi-qol", "CONFIG.Wall.documentClass.prototype._onDelete", _onDelete, "WRAPPER");
+  */
+      effectClass.prototype.removeDependent = removeDependent;
+    }
+  }
+}
+
+function removeDependent(dependent: any) {
+  return (this.getFlag("dnd5e", "dependents") || []).filter(dep => dep.uuid !== dependent.uuid);
+}
+
+async function _onDelete(wrapped, options, userId) {
+  wrapped(options, userId);
+  //@ts-expect-error
+  if (game.user === game.users?.activeGM) this.getDependents().forEach(d => d.delete());
 }
 
 export function DAcalculateDamage(actor, options) {
@@ -1172,43 +1230,62 @@ export async function checkWounded(actor, update, options, user) {
   }
   if (configSettings.addDead !== "none") {
     let effect: any = getDeadStatus();
+    let otherEffect: any = getUnconsciousStatus();
     let useDefeated = true;
 
     if ((actor.type === "character" || actor.hasPlayerOwner) && !vitalityResource) {
       effect = getUnconsciousStatus();
+      otherEffect = getDeadStatus();
       useDefeated = false;
     }
-    if (effect && installedModules.get("dfreds-convenient-effects") && effect.id.startsWith("Convenient Effect:")) {
-      const isBeaten = actor.effects.find(ef => ef.name === effect?.name) !== undefined;
-      if ((needsBeaten !== isBeaten)) {
+    if (!needsBeaten) {
+      setDeadStatus(actor, { effect: getDeadStatus(), useDefeated, makeDead: false });
+      setDeadStatus(actor, { effect: getUnconsciousStatus(), useDefeated, makeDead: false });
+    } else {
+      setDeadStatus(actor, { effect, useDefeated, makeDead: needsBeaten });
+      setDeadStatus(actor, { effect: otherEffect, useDefeated: false, makeDead: false });
+    }
+  }
+}
+
+async function setDeadStatus(actor, options: any) {
+  //@ts-expect-error
+  const dfreds = game.dfreds;
+  let { effect, useDefeated, makeDead } = options;
+  if (!effect) return;
+  if (effect && installedModules.get("dfreds-convenient-effects") && effect.id.startsWith("Convenient Effect:")) {
+    const isBeaten = actor.effects.find(ef => ef.name === effect?.name) !== undefined;
+    if ((makeDead !== isBeaten)) {
+      let combatant;
+      if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
+      //@ts-ignore
+      else combatant = game.combat?.getCombatantByActor(actor.id);
+      if (combatant && useDefeated) {
+        await combatant.update({ defeated: makeDead })
+      }
+      if (makeDead) {
+        await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
+      } else { // remove beaten condition
+        await dfreds.effectInterface?.removeEffect({ effectName: effect?.name, uuid: actor.uuid })
+      }
+    }
+  } else {
+    let entity = actor;
+    if (!actor.toggleActiveEffect) entity = tokenForActor(actor);
+
+    //TODO V12 support actor.toggleEffect - so get rid of token and replce with actor.toggleEffect
+    if (entity) {
+      const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect?.name ?? effect?.label ?? ""))) !== undefined;
+      if (isBeaten !== makeDead) {
         let combatant;
         if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
-        //@ts-ignore
+        //@ts-expect-error
         else combatant = game.combat?.getCombatantByActor(actor.id);
-        if (combatant && useDefeated) {
-          await combatant.update({ defeated: needsBeaten })
-        }
-        if (needsBeaten) {
-          await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
-        } else { // remove beaten condition
-          await dfreds.effectInterface?.removeEffect({ effectName: effect?.name, uuid: actor.uuid })
-        }
-      }
-    } else {
-      const token = tokenForActor(actor);
-      if (token) {
-        const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect?.name ?? effect?.label ?? ""))) !== undefined;
-        if (isBeaten !== needsBeaten) {
-          let combatant;
-          if (actor.token) combatant = game.combat?.getCombatantByToken(actor.token.id);
-          //@ts-expect-error
-          else combatant = game.combat?.getCombatantByActor(actor.id);
-          if (combatant && useDefeated) await combatant.update({ defeated: needsBeaten });
-          if (effect) await token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: needsBeaten });
-          const deadEffect: any = getDeadStatus();
-          if (!needsBeaten && deadEffect) 
-          await token.toggleEffect(deadEffect, { overlay: configSettings.addDead === "overlay", active: false });
-        }
+        if (combatant && useDefeated) await combatant.update({ defeated: makeDead });
+        if (effect) await entity.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: makeDead });
+        const deadEffect: any = getDeadStatus();
+        if (!makeDead && deadEffect)
+          await entity.toggleEffect(deadEffect, { overlay: configSettings.addDead === "overlay", active: false });
       }
     }
   }

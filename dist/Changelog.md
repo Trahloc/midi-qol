@@ -1,7 +1,24 @@
+### 11.4.23
+* Fix for auto setting dead when death saves fail and using CE.
+* Fix for midi incorrectly returning true for "empty" condition flags.
+* Fix for midi properties being overwritten by old version flags (often manifests as other damage saves not being settable).
+* Fix for flags.midi-qol.advantage.mwak/etc throwing and error and applying.
+* Incorporated some new styling courtesy @andrea
+* Some clean up of damage calculation problems in midi damage calculation for special flags.
+* Updated mulitattack automation item - thanks @christopher
+* Fix for flags.midi-qol.max.ability.save.concentration thanks @Michael
+* Fix for flags.midi-qol.advantage.concentration thanks @PaLaDiN-X
+* Updated midi sample item hunter's mark to work with dnd5e 3.1+ (now requires dnd5e concentration).
+* Added dependents to Actors, Items, TokenDocuments, TemplateDocuments, WallDocuments, TileDocuments, AmbientLightDocuments, AmbientSoundDocuments.
+  - use with document.addDependent(entity) - add entity as a dependent of document (provided entity.uuid exists).
+  - When document is deleted any dependents are also deleted.
+  - Added document.removeDependent(entity) - remove the entity from the documents dependents.
+  - Added example scalable weapon spell that creates a weapon in the casters inventory and links it to an effect which will delete the weapon when the effect is deleted/expires.
+
 ### 11.4.22
 * Mark actors as dead/defeated if they fail their death saves.
 * Some more tidying of the config app.
-* Fix for not using babons saveDC correctly - thanks @thatlonelybugbear
+* Fix for not using babonus saveDC correctly - thanks @thatlonelybugbear
 * Fix for error being thrown when using remote completeItemUse - thanks @Elwin
 
 ## 11.4.21

@@ -382,24 +382,24 @@ export function initHooks() {
       }
       if (!getProperty(data, "flags.midi-qol.rollAttackPerTarget")) setProperty(data, "flags.midi-qol.rollAttackPerTarget", "default");
       if (item.system.formula !== "" || (item.system.damage?.versatile && !item.system.properties?.has("ver"))) {
-        if (data.flags.midiProperties?.fulldam !== undefined) {
+        if (data.flags.midiProperties?.fulldam !== undefined && !data.flags.midiProperties["otherSaveDamage"]) {
           if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["otherSaveDamage"] = "fulldam";
         }
-        if (data.flags.midiProperties?.halfdam !== undefined) {
+        if (data.flags.midiProperties?.halfdam !== undefined && !data.flags.midiProperties["otherSaveDamage"]) {
           if (data.flags.midiProperties?.halfdam) data.flags.midiProperties["otherSaveDamage"] = "halfdam";
         }
-        if (data.flags.midiProperties?.nodam !== undefined) {
+        if (data.flags.midiProperties?.nodam !== undefined && !data.flags.midiProperties["otherSaveDamage"]) {
           if (data.flags.midiProperties?.nodam) data.flags.midiProperties["otherSaveDamage"] = "nodam";
         }
       } else {
         // Migrate existing saving throw damage multipliers to the new saveDamage
-        if (data.flags.midiProperties?.fulldam !== undefined) {
+        if (data.flags.midiProperties?.fulldam !== undefined && !data.flags.midiProperties["saveDamage"]) {
           if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["saveDamage"] = "fulldam";
         }
-        if (data.flags.midiProperties?.halfdam !== undefined) {
+        if (data.flags.midiProperties?.halfdam !== undefined && !data.flags.midiProperties["saveDamage"]) {
           if (data.flags.midiProperties?.halfdam) data.flags.midiProperties["saveDamage"] = "halfdam";
         }
-        if (data.flags.midiProperties?.nodam !== undefined) {
+        if (data.flags.midiProperties?.nodam !== undefined && !data.flags.midiProperties["saveDamage"]) {
           if (data.flags.midiProperties?.nodam) data.flags.midiProperties["saveDamage"] = "nodam";
         }
       }
@@ -411,14 +411,7 @@ export function initHooks() {
         data.flags.midiProperties["confirmTargets"] = "never";
       else if (data.flags.midiProperties["confirmTargets"] === undefined)
         data.flags.midiProperties["confirmTargets"] = "default";
-      delete data.flags.midiProperties.fulldam;
-      delete data.flags.midiProperties.halfdam;
-      delete data.flags.midiProperties.nodam;
-      delete data.flags.midiProperties.saveType
 
-      if (getProperty(item, "flags.midiProperties.rollOther") === true) {
-        setProperty(data, "flags.midi-qol.otherCondition", "isAttuned");
-      }
       delete data.flags.midiProperties.rollOther;
       return data;
     }
@@ -881,25 +874,31 @@ export const itemJSONData = {
 
 Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
-
+  const ignore = (category, type, skipDowngrade) => {
+    return options.ignore === true
+      || options.ignore?.[category] === true
+      || options.ignore?.[category]?.has?.(type);
+  };
   const mo = options.midi;
   if (mo?.noCalc) return true;
   if (mo) {
-    if (configSettings.saveDROrder === "DRSavedr" && mo.saveMultiplier) {
+    if (configSettings.saveDROrder === "DRSavedr" && mo.saveMultiplier && !options?.ignore?.saved) {
       options.multiplier = mo.saveMultiplier;
+      damages.forEach(damage => {
+        if (options?.ignore?.saved) return;
+        setProperty(damage, "active.saved", true);
+      });
     } else if (configSettings.saveDROrder === "SaveDRdr" && mo.saveMultiplier !== undefined) {
       options.multiplier = 1;
       for (let damage of damages) {
+        if (ignore("saved", damage.type, false)) return;
         damage.value = damage.value * mo.saveMultiplier;
         // no point doing this yet since dnd5e damage application overwrites it.
         setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * mo.saveMultiplier);
+        setProperty(damage, "active.saved", true);
       }
     }
-    const ignore = (category, type, skipDowngrade) => {
-      return options.ignore === true
-        || options.ignore?.[category] === true
-        || options.ignore?.[category]?.has?.(type);
-    };
+
     const categories = { "idi": "immunity", "idr": "resistance", "idv": "vulnerability", "ida": "absorption" };
     if (mo?.sourceActor) {
       for (let key of ["idi", "idr", "idv", "ida"]) {
@@ -939,12 +938,13 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
     }
   }
   const totalDamage = damages.reduce((a, b) => {
-    if (options.invertHealing !== false && b.type === "temphp")  {
+    if (options.invertHealing !== false && b.type === "temphp") {
       b.multiplier = (b.multiplier ?? 1) * -1;
       b.value = b.value * -1;
     }
     if (b.type === "midi-none") b.value = 0;
-    return a + (["temphp", "midi-none"].includes(b.type) ? 0 : b.value)}
+    return a + (["temphp", "midi-none"].includes(b.type) ? 0 : b.value)
+  }
     , 0);
   setProperty(options, "midi.totalDamage", totalDamage);
   return true;
