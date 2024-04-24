@@ -387,7 +387,7 @@ export function processItemCardCreation(message, user) {
     workflow.needItemCard = false;
     const shouldUnsuspend = ([workflow.WorkflowState_AwaitItemCard, workflow.WorkflowState_AwaitTemplate, workflow.WorkflowState_NoAction].includes(workflow.currentAction) && workflow.suspended && !workflow.needTemplate && !workflow.needItemCard && workflow.preItemUseComplete); if (debugEnabled > 0) warn(`chat card created: unsuspending ${workflow.workflowName} ${workflow.nameForState(workflow.currentAction)} unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}, itemUseomplete: ${workflow.preItemUseComplete}`);
     if (shouldUnsuspend) {
-      workflow.unSuspend({ itemCardId: message.id, itemCarduuid: message.uuid, itemUseComplete: true });
+      workflow.unsuspend({ itemCardId: message.id, itemCarduuid: message.uuid, itemUseComplete: true });
     }
   }
 }
@@ -626,21 +626,15 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
   if (["damage", "heal"].includes(flags.dnd5e.roll.type)) {
     workflow.needItemCard = false;
     workflow.attackRolled = true;
-    if (!workflow.damageRolled) {
-      workflow.setDamageRolls(message.roll ? [message.roll] : undefined);
-      workflow.damageTotal = message.roll?.total ?? 0;
-      //@ts-ignore content v10
-      workflow.damageRollHTML = message.content;
-    } else if (workflow.needsOtherDamage) {
-      workflow.otherDamageRoll = message.roll ?? undefined;
-      workflow.otherDamageTotal = message.roll?.total ?? 0;
-      //@ts-ignore content v10
-      workflow.damageRollHTML = message.content;
+    if (!workflow.damageRolled && message.roll) {
+      workflow.setDamageRolls(message.roll);
+    } else if (workflow.needsOtherDamage && message.roll) {
+      workflow.setOtherDamageRoll(message.roll);
       workflow.needsOtherDamage = false;
     }
     workflow.damageRolled = true;
     if (workflow.currentAction === workflow.WorkflowState_WaitForDamageRoll) {
-      if (workflow.suspended) workflow.unSuspend({ damageRoll: workflow.damageRoll })
+      if (workflow.suspended) workflow.unsuspend({ damageRoll: workflow.damageRoll })
       // TODO NW workflow.performState(workflow.WorkflowState_WaitForDamageRoll);
     }
   }

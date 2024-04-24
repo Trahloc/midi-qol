@@ -428,9 +428,10 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         DRAll = getProperty(t, "actor.system.attributes.equip.armor.dr") ?? 0;
       }
     } else if (getProperty(targetActor, "flags.midi-qol.DR.all") !== undefined)
-      DRAll = (new Roll((`${getProperty(targetActor, "flags.midi-qol.DR.all") || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+      DRAll = (await new Roll(`${getProperty(targetActor, "flags.midi-qol.DR.all") || "0"}`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0;
     if (item?.hasAttack && getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`)) {
-      DRAll += (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+      const flag = `flags.midi-qol.DR.${item?.system.actionType}`
+      DRAll += (await new Roll(`${getProperty(targetActor, flag) ?? "0"}`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0;
     }
     let DRAllRemaining = DRAll;
     // const magicalDamage = (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties.has("mgc"));
@@ -518,14 +519,15 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         if (type.toLowerCase() !== "temphp") dmgType = type.toLowerCase();
         // Pick the highest DR applicable to the damage type being inflicted.
         if (getProperty(targetActor, `flags.midi-qol.DR.${type}`)) {
-          DRType = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.${type}`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+          const flag = `flags.midi-qol.DR.${type}`;
+          DRType = (await new Roll(`${getProperty(targetActor, flag) || "0"}`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0;
           if (DRType < 0) {
             damageDetailItem.damage -= DRType;
             DRType = 0;
           }
         }
         if (!nonMagicalPysicalDRUsed && physicalDamage && !magicalDamage && getProperty(targetActor, `flags.midi-qol.DR.non-magical-physical`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-magical-physical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+          const DR = (await new Roll(`${getProperty(targetActor, "flags.midi-qol.DR.non-magical-physical") || "0"}`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -534,7 +536,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
           }
         }
         if (!nonMagicalDRUsed && !magicalDamage && getProperty(targetActor, `flags.midi-qol.DR.non-magical`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-magical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+          const DR = (await new Roll(`${getProperty(targetActor, "flags.midi-qol.DR.non-magical") || "0"}`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -543,7 +545,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
           }
         }
         if (!nonSilverDRUsed && physicalDamage && !silverDamage && getProperty(targetActor, `flags.midi-qol.DR.non-silver`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-silver`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+          const DR = (await new Roll(`${getProperty(targetActor, "flags.midi-qol.DR.non-silver") || "0"}`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -552,7 +554,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
           }
         }
         if (!nonAdamantineDRUsed && physicalDamage && !adamantineDamage && getProperty(targetActor, `flags.midi-qol.DR.non-adamant`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-adamant`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0
+          const DR = (await new Roll(`${getProperty(targetActor, "flags.midi-qol.DR.non-adamant") || "0"}`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -561,7 +563,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
           }
         }
         if (!physicalDRUsed && physicalDamage && getProperty(targetActor, `flags.midi-qol.DR.physical`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.physical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+          const DR = (await new Roll(`${getProperty(targetActor, "flags.midi-qol.DR.physical") || "0"}`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -570,7 +572,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
           }
         }
         if (!nonPhysicalDRUsed && !physicalDamage && getProperty(targetActor, `flags.midi-qol.DR.non-physical`)) {
-          const DR = (new Roll((`${getProperty(targetActor, `flags.midi-qol.DR.non-physical`) || "0"}`), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+          const DR = (await new Roll(`${getProperty(targetActor, "flags.midi-qol.DR.non-physical") || "0"}`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -663,7 +665,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     totalAppliedDamage += appliedDamage;
     if (!dmgType) dmgType = "temphp";
     if (!["healing", "temphp"].includes(dmgType) && getProperty(targetActor, `flags.midi-qol.DR.final`)) {
-      let DRType = (new Roll((getProperty(targetActor, `flags.midi-qol.DR.final`) || "0"), targetActor.getRollData())).evaluate({ async: false }).total ?? 0;
+      let DRType = (await new Roll(`getProperty(targetActor, "flags.midi-qol.DR.final") || "0"`, targetActor.getRollData()).evaluate({ async: true })).total ?? 0;
       appliedDamage = Math.max(0, appliedDamage - DRType)
     }
 
@@ -1183,7 +1185,7 @@ export let getSaveMultiplierForItem = (item: Item, itemDamageType) => {
   return configSettings.defaultSaveMult;
 };
 
-export function requestPCSave(ability, rollType, player, actor, { advantage, disadvantage, flavor, dc, requestId, GMprompt, isMagicSave, magicResistance, magicVulnerability, saveItemUuid }) {
+export function requestPCSave(ability, rollType, player, actor, { advantage, disadvantage, flavor, dc, requestId, GMprompt, isMagicSave, magicResistance, magicVulnerability, saveItemUuid, isConcentrationCheck }) {
   const useUuid = true; // for  LMRTFY
   const actorId = useUuid ? actor.uuid : actor.id;
   const playerLetme = !player?.isGM && ["letme", "letmeQuery"].includes(configSettings.playerRollSaves);
@@ -1229,7 +1231,8 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
         deathsave: false,
         initiative: false,
         isMagicSave,
-        saveItemUuid
+        saveItemUuid,
+        isConcentrationCheck
       }
       if (debugEnabled > 1) debug("process player save ", socketData)
       game.socket?.emit('module.lmrtfy', socketData);
@@ -1500,6 +1503,8 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
     const saveAbility = (saveAbilityString.includes("|") ? saveAbilityString.split("|") : [saveAbilityString]).map(s => s.trim().toLocaleLowerCase())
     const label = (details.name ?? details.label ?? "Damage Over Time").replace(/"/g, "");
     const chatFlavor = details.chatFlavor ?? "";
+    let actionType = "other";
+    if (Object.keys(GameSystemConfig.itemActionTypes).includes(details.actionType?.toLocaleLowerCase())) actionType = details.actionType.toLocaleLowerCase();
     const messageFlavor = {
       "save": `${GameSystemConfig.abilities[saveAbilityString]?.label ?? saveAbilityString} ${i18n("midi-qol.saving-throw")}`,
       "check": `${GameSystemConfig.abilities[saveAbilityString]?.label ?? saveAbilityString} ${i18n("midi-qol.ability-check")}`,
@@ -1559,7 +1564,9 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         return effect.id;
       }
 
-      let itemData: any = duplicate(overTimeJSONData);
+      let itemData: any = {}; //duplicate(overTimeJSONData);
+      itemData.img= "icons/svg/aura.svg";
+
       if (typeof itemName === "string") {
         if (itemName.startsWith("Actor.")) { // TODO check this
           const localName = itemName.replace("Actor.", "")
@@ -1572,24 +1579,26 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       }
 
       itemData.img = effect.icon;
-      itemData.system.save.dc = saveDC;
-      itemData.system.save.scaling = "flat";
+      setProperty(itemData,"system.save.dc", saveDC);
+      setProperty(itemData, "system.save.scaling", "flat");
+      itemData.type = "equipment";
+      setProperty(itemData, "system.type.value", "trinket");
       setProperty(itemData, "flags.midi-qol.noProvokeReaction", true);
       if (saveMagic) {
         itemData.type = "spell";
-        itemData.system.preparation = { mode: "atwill" }
+        setProperty(itemData, "sytem.preparation", {mode: "atwill"});
       }
       if (rollTypeString === "save" && !actionSave) {
-        itemData.system.actionType = "save";
-        itemData.system.save.ability = saveAbility[0];
-
+        actionType = "save";
+        setProperty(itemData, "system.save.ability", saveAbility[0]);
       }
       if (rollTypeString === "check" && !actionSave) {
-        itemData.system.actionType = "abil";
-        itemData.system.save.ability = saveAbility[0];
+        actionType = "abil";
+        setProperty(itemData, "system.save.ability", saveAbility[0]);
       }
       if (rollTypeString === "skill" && !actionSave) { // skill checks for this is a fiddle - set a midi flag so that the midi save roll will pick it up.
-        itemData.system.actionType = "save";
+        setProperty(itemData, "system.actionType", "save")
+        // itemData.system.actionType = "save";
         let skill = saveAbility[0];
         if (!GameSystemConfig.skills[skill]) { // not a skill id see if the name matches an entry
           //@ts-expect-error
@@ -1607,22 +1616,23 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         setProperty(itemData, "flags.midi-qol.overTimeSkillRoll", skill)
       }
       if (actionSave) {
-        itemData.system.actionType = "other";
-        itemData.system.save.dc = undefined;
-        itemData.system.save.ability = undefined;
-        itemData.system.save.scaling = undefined;
+        actionType = "other";
+        delete itemData.system.save?.dc;
+        delete itemData.system.save?.ability;
+        delete itemData.system.save?.scaling;
       }
 
       if (damageBeforeSave || saveDamage === "fulldamage") {
-        setProperty(itemData.flags, "midiProperties.fulldam", true);
+        setProperty(itemData.flags, "midiProperties.saveDamage", "fulldamage");
       } else if (saveDamage === "halfdamage" || !damageRoll) {
-        setProperty(itemData.flags, "midiProperties.halfdam", true);
+        setProperty(itemData.flags, "midiProperties.saveDamage", "halfdam");
       } else {
-        setProperty(itemData.flags, "midiProperties.nodam", true);
+        setProperty(itemData.flags, "midiProperties.saveDamage", "nodam");
       }
       itemData.name = label;
-      itemData.system.chatFlavor = chatFlavor;
-      itemData.system.description.chat = effect.description.chat ?? itemData.description;
+      setProperty(itemData, "system.chatFlavor", chatFlavor);
+      setProperty(itemData, "system.description.chat", effect.description ?? "");
+      setProperty(itemData, "system.actionType", actionType);
 
       itemData._id = randomID();
       // roll the damage and save....
@@ -1640,7 +1650,8 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         }
         for (let i = 1; i < stackCount; i++)
           damageRollString = `${damageRollString} + ${damageRoll}`;
-        itemData.system.damage.parts = [[damageRollString, damageType]];
+        setProperty(itemData, "system.damage.parts", [[damageRollString, damageType]])
+        // itemData.system.damage.parts = [[damageRollString, damageType]];
       }
       setProperty(itemData.flags, "midi-qol.forceCEOff", true);
       if (killAnim) setProperty(itemData.flags, "autoanimations.killAnim", true)
@@ -2167,7 +2178,6 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       rangeBonus = rangeBonus + " + " + (getProperty(item.parent, `flags.midi-qol.range.all`) ?? "0");
       if (rangeBonus !== "0 + 0") {
         conditionData = createConditionData({ item, actor: item.parent, target: token })
-        // const bonusValue = new Roll(`${rangeBonus}`, item.getRollData()).roll({ async: false }).total
         const bonusValue = evalCondition(rangeBonus, conditionData, 0);
         range = Math.max(0, range + bonusValue);
       };
@@ -2176,7 +2186,6 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       if (longRangeBonus !== "0 + 0") {
         if (!conditionData)
           conditionData = createConditionData({ item, actor: item.parent, target: token })
-        // const bonusValue = new Roll(`${longRangeBonus}`, item.getRollData()).roll({ async: false }).total
         const bonusValue = evalCondition(longRangeBonus, conditionData, 0);
         longRange = Math.max(0, longRange + bonusValue);
       };
@@ -3320,7 +3329,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
             let rollData: any = {}
             if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
             else rollData = this.actor?.getRollData() ?? this;
-            const tempRoll = new Roll(button.value, rollData).roll({ async: false });
+            const tempRoll = await (new Roll(button.value, rollData)).roll({ async: true });
             if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
             newRoll = addRollTo(newRoll, tempRoll);
           }
@@ -3936,7 +3945,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
             targetUuids: [triggerTokenUuid],
             isReaction: true,
             workflowOptions: { targetConfirmation: "none" }
-          }, { recursive: false });
+          });
           let useTimeoutId = setTimeout(() => {
             clearTimeout(useTimeoutId);
             resolve({})
@@ -4302,7 +4311,8 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   return rollData;
 }
 
-export function evalAllConditions(actorRef: Token | TokenDocument | Actor | string, flag: string, conditionData, errorReturn: any = 0): any {
+export function evalAllConditions(actorRef: Token | TokenDocument | Actor | string, flag: string, conditionData, errorReturn: any = false): any {
+  if (!flag) return errorReturn;
   let actor: Actor | null = getActor(actorRef);
   if (!actor) return errorReturn;
   //@ts-expect-error .applyActiveEffects
@@ -4316,6 +4326,7 @@ export function evalAllConditions(actorRef: Token | TokenDocument | Actor | stri
     for (let change of effect.changes) {
       if (change.key === flag) {
         const condValue = evalCondition(change.value, conditionData, errorReturn);
+        if (debugEnabled > 0) warn("evalAllConditions ", actor.name, flag, change.value, condValue, conditionData, errorReturn);
         if (condValue) {
           returnValue = condValue;
           setProperty(actor, `${keyToUse}.value`, condValue);
@@ -4334,8 +4345,8 @@ export function evalAllConditions(actorRef: Token | TokenDocument | Actor | stri
   return returnValue;
 }
 export function evalCondition(condition: string, conditionData: any, errorReturn: any = true): any {
-  if (condition === undefined || condition === "") return true;
-  if (typeof condition !== "string") return condition;
+  if (typeof condition === "number" || typeof condition === "boolean") return condition;
+  if (condition === undefined || condition === "" || typeof condition !== "string") return errorReturn;
   let returnValue;
   try {
     if (condition.includes("@")) {
@@ -5665,9 +5676,9 @@ export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
   if (!bonusRoll) return roll;
   if (!roll) return bonusRoll;
   //@ts-expect-error _evaluated
-  if (!roll._evaluated) roll = roll.clone().evaluate({ async: false });
+  if (!roll._evaluated) roll = roll.clone().evaluate({ async: false }); // V12
   //@ts-expect-error _evaluate
-  if (!bonusRoll._evaluated) bonusRoll = bonusRoll.clone().evaluate({ async: false })
+  if (!bonusRoll._evaluated) bonusRoll = bonusRoll.clone().evaluate({ async: false }) // V12
   let terms;
   if (bonusRoll.terms[0] instanceof OperatorTerm) {
     terms = roll.terms.concat(bonusRoll.terms);
@@ -5971,7 +5982,7 @@ export function isEffectExpired(effect): boolean {
   }
   // TODO find out how to check some other module can delete expired effects
   // return effect.updateDuration().remaining ?? false;
-  return false;
+  return effect.duration.remaining <= 0;
 }
 
 export async function expireEffects(actor, effects: ActiveEffect[], options: any): Promise<any> {

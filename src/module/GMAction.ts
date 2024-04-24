@@ -452,7 +452,7 @@ async function _completeItemUse(data: {
   //@ts-ignore v10
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor, keepId: true });
   const workflow = await completeItemUse(ownedItem, config, options);
-  if (data.options?.workflowData) return workflow.getMacroData(); // can't return the workflow
+  if (data.options?.workflowData) return workflow.getMacroData({noWorkflowReference: true}); // can't return the workflow
   else return true;
 }
 
@@ -814,10 +814,11 @@ async function createV3GMReverseDamageCard(
       }
     }
     const tooltipList = damageItem.tokenDamages.reduce((items, list) => items.concat(list)).map(di => {
-      const mods = Object.keys(di.active).reduce((acc: string[], k) => {
+      let allMods: string[] = Object.keys(di.active).reduce((acc: string[], k) => {
         if (di.active[k] && k !== "multiplier") acc.push(k);
         return acc;
-      }, []).join(" ");
+      }, []);
+      let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
       return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes}[di.type === "" ? "none" : di.type].label} ${mods}`
     });
     const toolTipHeader: string[] = [];
@@ -933,6 +934,9 @@ async function createV3GMReverseDamageCard(
     };
     if (data.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", data.flagTags);
     chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
+    //@ts-expect-error - the main chat card ends up with a later timestamp than this so just push it out a bit
+    // a hack but not sure how to do it properly
+    if (chatCardUuid) fromUuidSync(chatCardUuid).update({timestamp: Date.now() + 50});
   }
   return chatCardUuid;
 }
