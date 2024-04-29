@@ -24,10 +24,10 @@ export class TargetConfirmationDialog extends Application {
 
     // Handle alt/ctrl etc keypresses when completing the dialog
     this.callback = function (value) {
-      setProperty(options, "workflowOptions.advantage", options.worfkflowOptions?.advantage || options.pressedKeys?.advantage);
-      setProperty(options, "workflowOptions.disadvantage", options.worfkflowOptions?.disadvantage || options.pressedKeys?.disadvantage);
-      setProperty(options, "workflowOptions.versatile", options.worfkflowOptions?.versatile || options.pressedKeys?.versatile);
-      setProperty(options, "workflowOptions.fastForward", options.worfkflowOptions?.fastForward || options.pressedKeys?.fastForward);
+      foundry.utils.setProperty(options, "workflowOptions.advantage", options.worfkflowOptions?.advantage || options.pressedKeys?.advantage);
+      foundry.utils.setProperty(options, "workflowOptions.disadvantage", options.worfkflowOptions?.disadvantage || options.pressedKeys?.disadvantage);
+      foundry.utils.setProperty(options, "workflowOptions.versatile", options.worfkflowOptions?.versatile || options.pressedKeys?.versatile);
+      foundry.utils.setProperty(options, "workflowOptions.fastForward", options.worfkflowOptions?.fastForward || options.pressedKeys?.fastForward);
       return options.callback ? options.callback(value) : value;
     }
     if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking")) && game.user?.targets) {
@@ -82,7 +82,7 @@ export class TargetConfirmationDialog extends Application {
   }
 
   async getData(options = {}) {
-    let data: any = mergeObject(this.data, await super.getData(options));
+    let data: any = foundry.utils.mergeObject(this.data, await super.getData(options));
     const targets = Array.from(game.user?.targets ?? []);
     data.targets = [];
     for (let target of targets) {

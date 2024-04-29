@@ -54,8 +54,8 @@ export class MidiSounds {
       miss: `${i18n(`${systemId}.Attack`)}: ${i18n("midi-qol.Misses")}`,
       none: i18n("None")
     };
-    actionTypes = mergeObject(actionTypes, itemActionEntries);
-    actionTypes = mergeObject(actionTypes, damageEntries);
+    actionTypes = foundry.utils.mergeObject(actionTypes, itemActionEntries);
+    actionTypes = foundry.utils.mergeObject(actionTypes, damageEntries);
     return actionTypes;
 
     return {
@@ -133,7 +133,7 @@ export class MidiSounds {
       const sheetClass = config.Item.sheetClasses.weapon[`${game.system.id}.ItemSheet5e`].cls;
       for (let wt of weaponTypes) {
         const baseTypes = await MidiSounds.getItemBaseTypes("weapon", wt);
-        MidiSounds.weaponBaseTypes = mergeObject(MidiSounds.weaponBaseTypes, baseTypes)
+        MidiSounds.weaponBaseTypes = foundry.utils.mergeObject(MidiSounds.weaponBaseTypes, baseTypes)
       }
     }
     debug("Weapon base types are ", MidiSounds.weaponBaseTypes);
@@ -158,7 +158,7 @@ export class MidiSounds {
       } else {
         globalThis.dnd5e.applications.ProficiencySelector.getBaseItem(id);
       }
-      if (baseType !== foundry.utils.getProperty(baseItem?.system, typeProperty)) continue;
+      if (baseType !== baseItem && foundry.utils.getProperty(baseItem.system, typeProperty)) continue;
       items[name] = baseItem?.name;
     }
     //@ts-ignore lhs[1]
@@ -169,11 +169,11 @@ export class MidiSounds {
   static getSpecFor(actorType, type, subtype, weaponSubType, selector) {
     let spec;
     for (let atype of [actorType, "any"]) {
-      let specs = getProperty(midiSoundSettings, atype) ?? {};
-      if (!spec) spec = getProperty(getProperty(specs, `weapon.${weaponSubType}`) ?? {}, selector);
-      if (!spec) spec = getProperty(getProperty(specs, subtype) ?? {}, selector);
-      if (!spec) spec = getProperty(getProperty(specs, `${type}.any`) ?? {}, selector);
-      if (!spec) spec = getProperty(getProperty(specs, "all.any") ?? {}, selector);
+      let specs = foundry.utils.getProperty(midiSoundSettings, atype) ?? {};
+      if (!spec) spec = foundry.utils.getProperty(foundry.utils.getProperty(specs, `weapon.${weaponSubType}`) ?? {}, selector);
+      if (!spec) spec = foundry.utils.getProperty(foundry.utils.getProperty(specs, subtype) ?? {}, selector);
+      if (!spec) spec = foundry.utils.getProperty(foundry.utils.getProperty(specs, `${type}.any`) ?? {}, selector);
+      if (!spec) spec = foundry.utils.getProperty(foundry.utils.getProperty(specs, "all.any") ?? {}, selector);
       if (spec) return spec;
     }
     return undefined;

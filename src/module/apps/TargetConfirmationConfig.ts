@@ -20,7 +20,7 @@ export class TargetConfirmationConfig extends FormApplication {
     }
   }
   static get defaultOptions(): any {
-    return mergeObject(super.defaultOptions, {
+    return foundry.utils.mergeObject(super.defaultOptions, {
       title: game.i18n.localize("midi-qol.ConfigTitle"),
       template: "modules/midi-qol/templates/targetConfirmationConfig.html",
       id: "midi-qol-target-confirmation-config",
@@ -32,11 +32,11 @@ export class TargetConfirmationConfig extends FormApplication {
     })
   }
   async _updateObject(event, formData) {
-    formData = expandObject(formData);
-    let newSettings = mergeObject(targetConfirmation, formData, { overwrite: true, inplace: false })
-    // const newSettings = mergeObject(configSettings, expand, {overwrite: true})
+    formData = foundry.utils.expandObject(formData);
+    let newSettings = foundry.utils.mergeObject(targetConfirmation, formData, { overwrite: true, inplace: false })
+    // const newSettings = foundry.utils.mergeObject(configSettings, expand, {overwrite: true})
     if (!newSettings.enabled) {
-      newSettings = duplicate(defaultTargetConfirmationSettings);
+      newSettings = foundry.utils.duplicate(defaultTargetConfirmationSettings);
       newSettings.gridPosition = formData.gridPosition;
     }
     game.settings.set("midi-qol", "TargetConfirmation", newSettings);
@@ -75,7 +75,7 @@ export class TargetConfirmationConfig extends FormApplication {
 
   getData(options?: Application.RenderOptions | undefined): FormApplication.Data<{}, FormApplication.Options> | Promise<FormApplication.Data<{}, FormApplication.Options>> {
     const data: any = super.getData(options);
-    if (!this.selectedPostion) this.selectedPostion = targetConfirmation.gridPosition ?? duplicate(defaultTargetConfirmationSettings.gridPosition);
+    if (!this.selectedPostion) this.selectedPostion = targetConfirmation.gridPosition ?? foundry.utils.duplicate(defaultTargetConfirmationSettings.gridPosition);
     data.targetConfirmation = targetConfirmation;
     return data;
   }

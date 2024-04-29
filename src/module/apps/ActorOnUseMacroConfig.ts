@@ -25,10 +25,10 @@ export class ActorOnUseMacrosConfig extends FormApplication {
 
   async getData(options) {
     let data: any = await super.getData(options);
-    data.onUseMacroName = getProperty(this.object._source, "flags.midi-qol.onUseMacroName");
+    data.onUseMacroName = foundry.utils.getProperty(this.object._source, "flags.midi-qol.onUseMacroName");
     if (data.onUseMacroName !== undefined) data.onUseMacroParts = new OnUseMacros(data.onUseMacroName);
     else data.onUseMacroParts = new OnUseMacros(null);
-    data.MacroPassOptions = mergeObject(geti18nOptions("onUseMacroOptions"), Workflow.stateHooks);
+    data.MacroPassOptions = foundry.utils.mergeObject(geti18nOptions("onUseMacroOptions"), Workflow.stateHooks);
     return data;
   }
 
@@ -43,7 +43,7 @@ export class ActorOnUseMacrosConfig extends FormApplication {
     //@ts-ignore
     const fd = new FormDataExtended(this.form, {editors: this.editors});
     //@ts-ignore .object v10
-    let data = foundry.utils.expandObject(fd.object);
+    let data = foundry.utils.foundry.utils.expandObject(fd.object);
     if ( updateData ) foundry.utils.mergeObject(data, updateData);
     return data;
   }

@@ -321,6 +321,7 @@
     "d20Only": "Show attack D20 + Damage total",
     "hitDamage": "Show Hit/Miss + damage total",
     "hitCriticalDamage": "Show Hit/Miss/Critical/Fumble + damage total",
+    "attackTotalOnly": "Show the attack roll total only",
     "d20AttackOnly": "Show attack D20 Only",
     "all": "Entire Roll"
   },

@@ -21,7 +21,7 @@ export class RollStatsDisplay extends FormApplication {
   async _updateObject() { };
 
   static get defaultOptions() {
-    return mergeObject(super.defaultOptions, {
+    return foundry.utils.mergeObject(super.defaultOptions, {
       title: game.i18n.localize("midi-qol.StatsTitle"),
       template: "modules/midi-qol/templates/roll-stats.html",
       id: "midi-qol-statistics",
@@ -46,9 +46,11 @@ export class RollStatsDisplay extends FormApplication {
     let data: any = super.getData();
     data.stats = this.object.prepareStats();
     Object.keys(data.stats).forEach(aid => {
-      //@ts-ignore DOCUMENT_PERMISSION_LEVELS
-      if (this.playersOnly && game.user && game.actors?.get(aid)?.permission !== CONST.DOCUMENT_PERMISSION_LEVELS.OWNER && game.user.id !== aid)
+      //@ts-expect-error DOCUMENT_PERMISSION_LEVELS
+      const OWNER = foundry.utils.isNewerVersion(game.data.version, "12.0") ? CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER : CONST.DOCUMENT_PERMISSION_LEVELS.OWNER;  
+      if (this.playersOnly && game.user && game.actors?.get(aid)?.permission !== OWNER && game.user.id !== aid)
         delete data.stats[aid];
+        
     })
     data.isGM = game.user?.isGM;
     return data;

@@ -329,7 +329,7 @@ export async function importSettingsFromJSON(json) {
 export let fetchSoundSettings = () => {
   midiSoundSettings = game.settings.get("midi-qol", "MidiSoundSettings") ?? {};
   if (midiSoundSettings.version === undefined) {
-    midiSoundSettingsBackup = duplicate(midiSoundSettings);
+    midiSoundSettingsBackup = foundry.utils.duplicate(midiSoundSettings);
     midiSoundSettings = { "any": midiSoundSettings };
     midiSoundSettings.version = "0.9.48";
   }
@@ -425,7 +425,7 @@ export let fetchParams = () => {
   if (configSettings.showDSN === undefined) configSettings.showDSN = true;
   if (configSettings.showFastForward === undefined) configSettings.showFastForward = true;
   if (configSettings.highlightSuccess === undefined) configSettings.highlightSuccess = false;
-  configSettings.optionalRules = mergeObject({ // eventually split this into mechanics and rules
+  configSettings.optionalRules = foundry.utils.mergeObject({ // eventually split this into mechanics and rules
     actionSpecialDurationImmediate: false,
     activeDefence: false,
     activeDefenceShowGM: false,
@@ -535,7 +535,7 @@ export let fetchParams = () => {
   forceHideRoll = Boolean(game.settings.get("midi-qol", "ForceHideRoll"));
   dragDropTargeting = Boolean(game.settings.get("midi-qol", "DragDropTarget"));
   DebounceInterval = Number(game.settings.get("midi-qol", "DebounceInterval"));
-  _debouncedUpdateAction = debounce(_updateAction, DebounceInterval);
+  _debouncedUpdateAction = foundry.utils.debounce(_updateAction, DebounceInterval);
   targetConfirmation = game.settings.get("midi-qol", "TargetConfirmation");
   if (configSettings.griddedGridless === undefined) configSettings.griddedGridless = false;
   if (configSettings.gridlessFudge === undefined) configSettings.gridlessFudge = 0;

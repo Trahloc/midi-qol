@@ -122,9 +122,10 @@ function _onTargetShow(event) {
 export let hideRollRender = (msg, html, data) => {
   if (forceHideRoll && (msg.whisper.length > 0 || msg?.blind)) {
     if (!game.user?.isGM && !msg.isAuthor && msg.whisper.indexOf(game.user?.id) === -1) {
-      if (debugEnabled > 0) warn("hideRollRender | hiding message", msg.whisper)
-      // html.hide();
-      html.remove();
+      if (debugEnabled > 0) warn("hideRollRender | hiding message", msg.whisper);
+      html.hide();
+      // It seems that html.remove() can get called before the messagge is rendered to the dom?
+      setTimeout(() => {html.remove()}, 10);
     }
   }
   return true;
@@ -149,8 +150,8 @@ export let hideRollUpdate = (message, data, diff, id) => {
 
 export let hideStuffHandler = (message, html, data) => {
   if (debugEnabled > 1) debug("hideStuffHandler message: ", message.id, message)
-  // if (getProperty(message, "flags.monks-tokenbar")) return;
-  const midiqolFlags = getProperty(message, "flags.midi-qol");
+  // if (foundry.utils.getProperty(message, "flags.monks-tokenbar")) return;
+  const midiqolFlags = foundry.utils.getProperty(message, "flags.midi-qol");
   // Hide rolls which are blind and not the GM if force hide is true
   if (forceHideRoll && message.blind && !game.user?.isGM) {
     html.hide();
@@ -285,7 +286,7 @@ export let chatDamageButtons = (message, html, data) => {
     // find the item => workflow => damageList, totalDamage
     let defaultDamageType;
     //@ts-expect-error .version
-    if (isNewerVersion(game.system.version, "2.4.99")) {
+    if (foundry.utils.isNewerVersion(game.system.version, "2.4.99")) {
       defaultDamageType = (item?.system.damage?.parts[0]?.damageType) ?? "bludgeoning";
     } else {
       defaultDamageType = (item?.system.damage?.parts[0] && item?.system.damage.parts[0][1]) ?? "bludgeoning";
@@ -294,8 +295,8 @@ export let chatDamageButtons = (message, html, data) => {
     const damageList = createDamageDetail({ roll: theRolls, item, ammo: null, versatile: false, defaultType: defaultDamageType });
     const totalDamage = theRolls.reduce((acc, r) => r.total + acc, 0);
     addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, "damage", targetField, "position:relative; top:0px; color:black");
-  } else if (getProperty(message, "flags.midi-qol.damageDetail") || getProperty(message, "flags.midi-qol.otherDamageDetail")) {
-    let midiFlags = getProperty(message, "flags.midi-qol");
+  } else if (foundry.utils.getProperty(message, "flags.midi-qol.damageDetail") || foundry.utils.getProperty(message, "flags.midi-qol.otherDamageDetail")) {
+    let midiFlags = foundry.utils.getProperty(message, "flags.midi-qol");
     let targetField = ".dice-formula";
     if (["formula", "formulaadv"].includes(configSettings.rollAlternate))
       targetField = ".dice-formula";
@@ -340,7 +341,7 @@ export function addChatDamageButtonsToHTML(totalDamage, damageList, html, actorI
       ev.stopPropagation();
       // const item = game.actors.get(actorId).items.get(itemId);
       const item = MQfromUuid(itemUuid);
-      const modDamageList = duplicate(damageList).map(di => {
+      const modDamageList = foundry.utils.duplicate(damageList).map(di => {
         if (mult === -1) di.type = "healing";
         else if (mult === -2) di.type = "temphp";
         else di.damage = Math.floor(di.damage * mult);
@@ -387,7 +388,7 @@ export function processItemCardCreation(message, user) {
     workflow.needItemCard = false;
     const shouldUnsuspend = ([workflow.WorkflowState_AwaitItemCard, workflow.WorkflowState_AwaitTemplate, workflow.WorkflowState_NoAction].includes(workflow.currentAction) && workflow.suspended && !workflow.needTemplate && !workflow.needItemCard && workflow.preItemUseComplete); if (debugEnabled > 0) warn(`chat card created: unsuspending ${workflow.workflowName} ${workflow.nameForState(workflow.currentAction)} unsuspending: ${shouldUnsuspend}, workflow suspended: ${workflow.suspended} needs template: ${workflow.needTemplate}, needs Item card ${workflow.needItemCard}, itemUseomplete: ${workflow.preItemUseComplete}`);
     if (shouldUnsuspend) {
-      workflow.unsuspend({ itemCardId: message.id, itemCarduuid: message.uuid, itemUseComplete: true });
+      workflow.unSuspend({ itemCardId: message.id, itemCarduuid: message.uuid, itemUseComplete: true });
     }
   }
 }
@@ -422,7 +423,7 @@ export async function onChatCardAction(event) {
   item = storedData ? new CONFIG.Item.documentClass(storedData, { parent: actor }) : actor.items.get(card.dataset.itemId);
 
   const spellLevel = parseInt(card.dataset.spellLevel) || null;
-  const workflowId = getProperty(message, "flags.midi-qol.workflowId");
+  const workflowId = foundry.utils.getProperty(message, "flags.midi-qol.workflowId");
 
   switch (action) {
     case "applyEffects":
@@ -618,7 +619,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     workflow.attackRollHTML = message.content;
     workflow.attackRolled = true;
     if (workflow.currentAction === workflow.WorkflowState_WaitForAttackRoll) {
-      if (workflow.suspended) workflow.unsuspend({ attackRoll: workflow.attackRoll })
+      if (workflow.suspended) workflow.unSuspend({ attackRoll: workflow.attackRoll })
       // TODO NW workflow.performState(workflow.WorkflowState_WaitForAttackRoll,{attackRoll: workflow.attackRoll});
     }
   }
@@ -634,7 +635,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     }
     workflow.damageRolled = true;
     if (workflow.currentAction === workflow.WorkflowState_WaitForDamageRoll) {
-      if (workflow.suspended) workflow.unsuspend({ damageRoll: workflow.damageRoll })
+      if (workflow.suspended) workflow.unSuspend({ damageRoll: workflow.damageRoll })
       // TODO NW workflow.performState(workflow.WorkflowState_WaitForDamageRoll);
     }
   }

@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
-import { addConcentration, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -60,7 +60,7 @@ export function geti18nOptions(key) {
 }
 export function geti18nTranslations() {
   // @ts-expect-error _fallback
-  return mergeObject(game.i18n._fallback["midi-qol"] ?? {}, game.i18n.translations["midi-qol"] ?? {});
+  return foundry.utils.mergeObject(game.i18n._fallback["midi-qol"] ?? {}, game.i18n.translations["midi-qol"] ?? {});
 }
 
 export let setDebugLevel = (debugText: string) => {
@@ -115,7 +115,7 @@ Hooks.once('init', async function () {
   const systemVersion = game.system.version;
   //@ts-expect-error
   GameSystemConfig = game.system.config;
-  if (isNewerVersion(systemVersion, "2.99")) {
+  if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
     GameSystemConfig.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
     GameSystemConfig.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
   } else {
@@ -128,7 +128,7 @@ Hooks.once('init', async function () {
     allAttackTypes = ["rwak", "mwak", "rpak", "mpak"];
   initHooks();
   //@ts-expect-error
-  if (isNewerVersion("3.1.0", game.system.version)) {
+  if (foundry.utils.isNewerVersion("3.1.0", game.system.version)) {
     //@ts-expect-error remove this when dnd5e 3.1 comes out
     CONFIG.specialStatusEffects.CONCENTRATING = "concentrating";
   }
@@ -267,7 +267,7 @@ function addConfigOptions() {
     config.midiProperties["saveDamage"] = "Save Damage";
     config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
     config.midiProperties["otherSaveDamage"] = "Other Damage Save";
-    if (isNewerVersion(systemVersion, "2.99")) {
+    if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
       config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
       config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
     } else {
@@ -275,7 +275,7 @@ function addConfigOptions() {
       config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
     }
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
-    if (isNewerVersion(systemVersion, "2.99") && configSettings.v3DamageApplication) {
+    if (foundry.utils.isNewerVersion(systemVersion, "2.99") && configSettings.v3DamageApplication) {
       config.customDamageResistanceTypes = {
         "spell": i18n("midi-qol.spell-damage"),
         "nonmagic": i18n("midi-qol.NonMagical"),
@@ -292,7 +292,7 @@ function addConfigOptions() {
       };
     }
 
-    if (isNewerVersion(systemVersion, "2.99")) {
+    if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
       config.damageResistanceTypes = {};
       if (!configSettings.v3DamageApplication) {
         config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
@@ -315,14 +315,14 @@ function addConfigOptions() {
       config.damageResistanceTypes["healing"] = config.healingTypes.healing;
       config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
     }
-    if (isNewerVersion(systemVersion, "2.99")) {
+    if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
       //@ts-expect-error
       game.system.config.traits.di.configKey = "damageTypes";
       //@ts-expect-error
       game.system.config.traits.dr.configKey = "damageTypes";
       //@ts-expect-error
       game.system.config.traits.dv.configKey = "damageTypes";
-    } else if (isNewerVersion(systemVersion, "2.0.3")) {
+    } else if (foundry.utils.isNewerVersion(systemVersion, "2.0.3")) {
       //@ts-expect-error
       game.system.config.traits.di.configKey = "damageResistanceTypes";
       //@ts-expect-error
@@ -377,10 +377,10 @@ Hooks.once('ready', function () {
   const config = game.system.config;
   addConfigOptions();
   allDamageTypes = {};
-  allDamageTypes.none = duplicate(config.damageTypes["midi-none"]);
+  allDamageTypes.none = foundry.utils.duplicate(config.damageTypes["midi-none"]);
   allDamageTypes.none.label = i18n(`${SystemString}.None`);
   allDamageTypes[""] = allDamageTypes.none
-  allDamageTypes = mergeObject(allDamageTypes, mergeObject(config.damageTypes, config.healingTypes, { inplace: false }));
+  allDamageTypes = foundry.utils.mergeObject(allDamageTypes, foundry.utils.mergeObject(config.damageTypes, config.healingTypes, { inplace: false }));
   registerSettings();
   gameStats = new RollStats();
   actorAbilityRollPatching();
@@ -446,13 +446,13 @@ Hooks.once('ready', function () {
       const instanceId = game.settings.get("midi-qol", "instanceId");
       //@ts-expect-error instanceId
       if ([undefined, ""].includes(instanceId)) {
-        game.settings.set("midi-qol", "instanceId", randomID());
+        game.settings.set("midi-qol", "instanceId", foundry.utils.randomID());
       }
       const oldVersion = game.settings.get("midi-qol", "last-run-version");
       //@ts-expect-error version
       const newVersion = game.modules.get("midi-qol")?.version;
       //@ts-expect-error
-      if (isNewerVersion(newVersion, oldVersion)) {
+      if (foundry.utils.isNewerVersion(newVersion, oldVersion)) {
         console.warn(`midi-qol | instance ${game.settings.get("midi-qol", "instanceId")} version change from ${oldVersion} to ${newVersion}`);
         game.settings.set("midi-qol", "last-run-version", newVersion);
         // look at sending a new version has been installed.
@@ -471,7 +471,7 @@ Hooks.once('ready', function () {
     }
   }
   //@ts-ignore game.version
-  if (isNewerVersion(game.version ? game.version : game.version, "0.8.9")) {
+  if (foundry.utils.isNewerVersion(game.version ? game.version : game.version, "0.8.9")) {
     const noDamageSavesText: string = i18n("midi-qol.noDamageonSaveSpellsv9");
     noDamageSaves = noDamageSavesText.split(",")?.map(s => s.trim()).map(s => cleanSpellName(s));
   } else {
@@ -518,9 +518,9 @@ Hooks.once('ready', function () {
   if (
     installedModules.get("lmrtfy")
     //@ts-expect-error
-    && isNewerVersion("3.1.8", game.modules.get("lmrtfy").version)
+    && foundry.utils.isNewerVersion("3.1.8", game.modules.get("lmrtfy").version)
     //@ts-expect-error
-    && isNewerVersion(game.system.version, "2.1.99")) {
+    && foundry.utils.isNewerVersion(game.system.version, "2.1.99")) {
     let abbr = {};
 
     for (let key in CONFIG[SystemString].abilities) {
@@ -558,6 +558,8 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
   const MidiQOL = {
     addRollTo: function addRollTo(roll: Roll, bonusRoll: Roll): Roll,
     addConcentration: async function addConcentration(actorRef: Actor | string, concentrationData: ConcentrationData): Promise<void>,
+    return socketlibSocket.executeAsGM("addDependent", {concentrationEffectUuid: concentrationEffect.uuid, dependentUuid: dependent.uuid});
+    addConcentrationDependent: async function addConcentrationDependent(actor: ActorRef, dependent, item?: Item),
     applyTokenDamage: async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
     canSense: function canSense(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): boolean,
     canSense: function canSee(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string): boolean,
@@ -586,7 +588,8 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     displayDSNForRoll: async function displayDSNForRoll(roll: Roll | undefined, rollType: string | undefined, defaultRollMode: string | undefined = undefined),
     doMidiConcentrationCheck: async function doMidiConcentrationCheck(actor: Actor, saveDC),
     evalAllConditions: function evalAllConditions(actor: Actor | Token | TokenDocument | string, flagRef: string, conditionData: any, errorReturn: any = true): any,
-    evalCondition: function evalCondition(condition: string, conditionData: any, errorReturn: any = true): any,
+    evalAllConditionsAsync: async unction evalAllConditions(actor: Actor | Token | TokenDocument | string, flagRef: string, conditionData: any, errorReturn: any = true): Promise<any>,
+    evalCondition: function evalCondition(condition: string, conditionData: any, {errorReturn: any = true, async = false): any,
     findNearby(disposition: number | string | null | Array<string | number>, token: any /*Token | uuuidString */, distance: number, options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined, relative: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false, relative: true }): Token[];
     getCachedChatMessage()
     getChanges: function getChanges(actorOrItem: Actor | Item, key: string): any[],
@@ -663,8 +666,9 @@ function setupMidiQOLApi() {
 
   let humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "drow", "dwarf", "dwarven", "halfling", "gnome", "tiefling", "orc", "dragonborn", "half-orc"];
   //@ts-ignore
-  globalThis.MidiQOL = mergeObject(globalThis.MidiQOL ?? {}, {
+  globalThis.MidiQOL = foundry.utils.mergeObject(globalThis.MidiQOL ?? {}, {
     addConcentration,
+    addConcentrationDependent,
     addRollTo,
     addUndoChatMessage,
     applyTokenDamage,
@@ -766,11 +770,11 @@ function setupMidiQOLApi() {
         return untimedExecuteAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate })
     }
   });
-  globalThis.MidiQOL.actionQueue = new Semaphore();
+  globalThis.MidiQOL.actionQueue = new foundry.utils.Semaphore();
 }
 
 export function testfunc(args) {
-  console.error(args);
+  console.warn("MidiQOL testfunc called ", this, args)
 }
 
 // Minor-qol compatibility patching
@@ -969,7 +973,7 @@ function setupMidiFlags() {
     midiFlags.push(`flags.midi-qol.damage.reroll-kh`);
     midiFlags.push(`flags.midi-qol.damage.reroll-kl`);
 
-    if (isNewerVersion(systemVersion, "2.99")) {
+    if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
       Object.keys(config.damageTypes).forEach(key => {
         midiFlags.push(`flags.midi-qol.DR.${key}`);
 
@@ -1079,7 +1083,7 @@ export async function createMidiMacros() {
           for (let macro of existingMacros) {
             if (macroSpec.checkVersion
               //@ts-expect-error .flags
-              && !isNewerVersion(macroSpec.version, (macro.flags["midi-version"] ?? "0.0.0")))
+              && !foundry.utils.isNewerVersion(macroSpec.version, (macro.flags["midi-version"] ?? "0.0.0")))
               continue; // already up to date
             await macro.update({
               command: macroSpec.commandText,

@@ -123,8 +123,9 @@
 .midi-qol-flex-container > div {
   margin: 2px;
 }
+
 .midi-qol-target-name:hover {
-  text-shadow: 0 0 4px red;
+  /*text-shadow: 0 0 4px red; */
 }
 .midi-qol-gmonly {
   display: none;
@@ -163,8 +164,7 @@
 .midi-qol-tooltip .midi-qol-tooltiptext {
   visibility: hidden;
   width: max-content;
-  background-color: black;
-  color: #fff;
+  background-color: var(--dnd5e-color-card);
   text-align: center;
   border-radius: 6px;
   padding: 3px ;
@@ -496,8 +496,11 @@
 
 /* Midi Attack and Damage results (tested on midi condensed card) */
 .midi-qol-attack-roll, .midi-qol-damage-roll {
-    white-space: nowrap; /* Fixes wrapping issue in Midi condensed card with DnD 3 */
-    overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+    /* white-space: nowrap; /* Fixes wrapping issue in Midi condensed card with DnD 3 */
+    /* overflow: hidden; */
 }
 .midi-results .flexrow {
     gap: 0.15rem; 

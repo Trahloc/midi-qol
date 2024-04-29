@@ -51,7 +51,7 @@ export function _queueUndoDataDirect(undoDataDef) {
   //@ts-expect-error fromUuidSync
   const actor = fromUuidSync(undoDataDef.actorUuid);
   if (!actor) return;
-  undoData.id = undoDataDef.id ?? randomID();
+  undoData.id = undoDataDef.id ?? foundry.utils.randomID();
   undoData.actorEntry = { actorUuid: undoDataDef.actorUuid, tokenUuid: undoDataDef.tokendocUuid, actorData: actor?.toObject(true), tokenData: tokenDoc?.toObject(true) };
   undoData.chatCardUuids = undoDataDef.chatCardUuids ?? [];
   undoData.itemCardId = undoDataDef.itemCardId;
@@ -69,7 +69,7 @@ export function _queueUndoDataDirect(undoDataDef) {
       let { actorUuid, tokenUuid } = undoEntry;
       const targetData = createTargetData(tokenUuid)
       if (targetData) {
-        mergeObject(undoEntry, targetData, { inplace: true });
+        foundry.utils.mergeObject(undoEntry, targetData, { inplace: true });
       }
     }
   }
@@ -125,7 +125,7 @@ export function startUndoWorkflow(undoData: any): boolean {
   const tokenData = actor?.isToken ? actor.token.toObject(true) : fromUuidSync(undoData.tokendocUuid ?? "")?.toObject(true);
   undoData.actorEntry = { actorUuid: undoData.actorUuid, tokenUuid: undoData.tokendocUuid, actorData, tokenData };
   undoData.allTargets = new Collection; // every token referenced by the workflow
-  const concentrationData = getProperty(actor, "flags.midi-qol.concentration-data");
+  const concentrationData = foundry.utils.getProperty(actor, "flags.midi-qol.concentration-data");
   // if (concentrationData && concentrationData.uuid == undoData.itemUuid) { // only add concentration targets if this item caused the concentration
   if (concentrationData) {
     concentrationData.targets?.forEach(({ actorUuid, tokenUuid }) => {
@@ -215,21 +215,21 @@ export function queueUndoData(data: any): boolean {
     error("Could not find started undo entry for ", data.userId, data.uuid);
     return false;
   };
-  inProgress = mergeObject(inProgress, data, { overwrite: false });
+  inProgress = foundry.utils.mergeObject(inProgress, data, { overwrite: false });
   startedUndoDataQueue = startedUndoDataQueue.filter(undoData => undoData.userId !== data.userId || undoData.itemUuid !== data.itemUuid);
 
   data.targets.forEach(undoEntry => {
     if (!inProgress.allTargets.get(undoEntry.actorUuid)) {
       const targetData = createTargetData(undoEntry.tokenUuid)
       if (targetData) {
-        mergeObject(undoEntry, targetData, { inplace: true });
+        foundry.utils.mergeObject(undoEntry, targetData, { inplace: true });
         inProgress.allTargets.set(undoEntry.actorUuid, undoEntry);
       }
     }
     //@ts-expect-error
     let actor = fromUuidSync(undoEntry.actorUuid);
     if (actor instanceof TokenDocument) actor = actor.actor;
-    const concentrationTargets = getProperty(actor ?? {}, "flags.midi-qol.concentration-data")?.targets;;
+    const concentrationTargets = actor && foundry.utils.getProperty(actor, "flags.midi-qol.concentration-data")?.targets;;
     concentrationTargets?.forEach(({ actorUuid, tokenUuid }) => {
       const targetData = createTargetData(tokenUuid)
       if (targetData && !inProgress.allTargets.get(actorUuid)) {
@@ -364,7 +364,7 @@ function getChanges(newData, savedData): any {
       toDelete[newKey] = null
     }
   }
-  return mergeObject(changes, toDelete);
+  return foundry.utils.mergeObject(changes, toDelete);
 }
 async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData }) {
   //@ts-expect-error

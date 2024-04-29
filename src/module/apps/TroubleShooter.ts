@@ -94,7 +94,7 @@ export class TroubleShooter extends FormApplication {
               if (!form.data.files.length) return ui.notifications?.error("You did not upload a data file!");
               readTextFromFile(form.data.files[0]).then(json => {
                 const jsonData = JSON.parse(json);
-                if (isNewerVersion(minimumMidiVersion, jsonData.midiVersion ?? "0.0.0")) {
+                if (foundry.utils.isNewerVersion(minimumMidiVersion, jsonData.midiVersion ?? "0.0.0")) {
                   ui.notifications?.error("Trouble Shooter Data is too old to use");
                   resolve(false);
                   return;
@@ -237,7 +237,7 @@ export class TroubleShooter extends FormApplication {
   }
 
   getData(options: any): any {
-    let data: any = deepClone(TroubleShooter.data);
+    let data: any = foundry.utils.deepClone(TroubleShooter.data);
     data.hasIncompatible = data.summary.incompatible.length > 0;
     data.hasOutOfDate = data.summary.outOfDate.length > 0;
     data.hasPossibleOutOfData = data.summary.possibleOutOfDate.length > 0;
@@ -306,9 +306,11 @@ export class TroubleShooter extends FormApplication {
       "moduleSettings": {}
     }
     if (canvas?.scene) {
+      //@ts-expect-error
+      const globalIllumination = (game.release.generation > 11) ? canvas.scene?.environment?.globalLight?.enabled : canvas.scene.globalLight
       data.summary["coreSettings"]["Scene Details"] =
         //@ts-expect-error
-        `${canvas.scene.dimensions.height} x ${canvas.scene.dimensions.width} | Size: ${canvas.scene.grid.size} | Type: ${Object.keys(CONST.GRID_TYPES)[canvas.scene.grid.type]} | Distance: ${canvas.scene.grid.distance}`;
+        `${canvas.scene.dimensions.height} x ${canvas.scene.dimensions.width} | Size: ${canvas.scene.grid.size} | Type: ${Object.keys(CONST.GRID_TYPES)[canvas.scene.grid.type]} | Distance: ${canvas.scene.grid.distance} | Global Illumination ${globalIllumination}`;
 
       const sceneObjects = ["tokens", "sounds", "tiles", "walls", "lights", "templates", "notes"];
       const report: string[] = []
@@ -381,10 +383,10 @@ export class TroubleShooter extends FormApplication {
       const modules = game.modules.filter(m => m.id.match(matcher));
       if (modules.length > 0) {
         modules.forEach(module => {
-          setProperty(tempModules, module.id, { title: module.title, active: module.active, ibstalled: true, moduleVersion: module.version, foundryVersion: module.compatibility?.verified });
+          foundry.utils.setProperty(tempModules, module.id, { title: module.title, active: module.active, ibstalled: true, moduleVersion: module.version, foundryVersion: module.compatibility?.verified });
         })
       } else {
-        setProperty(tempModules, matcher.toString(), { title: "Not installed", active: false, installed: false, moduleVersion: ``, foundryVersion: `` });
+        foundry.utils.setProperty(tempModules, matcher.toString(), { title: "Not installed", active: false, installed: false, moduleVersion: ``, foundryVersion: `` });
       }
     });
     //@ts-expect-error .version
@@ -395,7 +397,7 @@ export class TroubleShooter extends FormApplication {
       const modules = game.modules.filter(m => m.authors.find(au => au.name.toLocaleLowerCase().match(matcher)));
       if (modules.length > 0) {
         modules.forEach(module => {
-          setProperty(tempModules, module.id, { title: module.title, active: module.active, ibstalled: true, moduleVersion: module.version, foundryVersion: module.compatibility?.verified });
+          foundry.utils.setProperty(tempModules, module.id, { title: module.title, active: module.active, ibstalled: true, moduleVersion: module.version, foundryVersion: module.compatibility?.verified });
         })
       }
     });
@@ -407,9 +409,9 @@ export class TroubleShooter extends FormApplication {
       const moduleData = game.modules.get(moduleId);
       if (moduleData)
         //@ts-expect-error .version
-        setProperty(data.summary.knownModules, moduleId, { title: moduleData.title, active: moduleData?.active, ibstalled: true, moduleVersion: moduleData?.version, foundryVersion: moduleData.compatibility?.verified });
+        foundry.utils.setProperty(data.summary.knownModules, moduleId, { title: moduleData.title, active: moduleData?.active, ibstalled: true, moduleVersion: moduleData?.version, foundryVersion: moduleData.compatibility?.verified });
       else
-        setProperty(data.summary.knownModules, moduleId, { title: "Not installed", active: false, installed: false, moduleVersion: ``, foundryVersion: `` });
+        foundry.utils.setProperty(data.summary.knownModules, moduleId, { title: "Not installed", active: false, installed: false, moduleVersion: ``, foundryVersion: `` });
     });
     */
 
@@ -433,70 +435,70 @@ export class TroubleShooter extends FormApplication {
       }
       switch (module.id) {
         case "ATL":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "ActiveAuras":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "about-time":
           break;
         case "anonymous":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "autoanimations":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           if (game.modules.get("autoanimations")?.active) this.checkAutoAnimations(data);
           break;
         case "combat-utility-belt":
           break;
         case "condition-lab-triggler":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "dae":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "ddb-game-log":
           break;
         case "df-templates":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "dfreds-convenient-effects":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
 
           break;
         case "dice-so-nice":
           break;
         case "effect-macro":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "foundryvtt=simple-calendar":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "itemacro":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           this.checkItemMacro(data);
           break;
         case "levels":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "levelsautocover":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "levelsvolumetrictemplates":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "lib-wrapper":
           break;
         case "lmrtfy":
           break;
         case "midi-qol":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "monks-little-details":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "monks-tokenbar":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "multilevel-tokens":
           break;
@@ -514,13 +516,13 @@ export class TroubleShooter extends FormApplication {
               problemDetail: undefined
             });
           };
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "walledtemplates":
           this.checkWalledTemplates(data);
           break;
         case "warpgate":
-          setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
+          foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           if (game.modules.get("warpgate")?.active) TroubleShooter.checkWarpgateUserPermissions(data);
           break;
         case "wjmaia":
@@ -553,7 +555,7 @@ export class TroubleShooter extends FormApplication {
       .map(key => ({ key, title: data.modules[key].title }));
 
     //@ts-expect-error .issues
-    data.summary.foundryModuleIssues = duplicate(game.issues.packageCompatibilityIssues);
+    data.summary.foundryModuleIssues = foundry.utils.duplicate(game.issues.packageCompatibilityIssues);
     for (let key in data.summary.foundryModuleIssues) {
       const issue: any = data.summary.foundryModuleIssues[key];
       //@ts-expect-error .title
@@ -562,7 +564,7 @@ export class TroubleShooter extends FormApplication {
     }
 
     data.summary.outOfDate = Object.keys(data.modules)
-      .filter(key => isNewerVersion(baseVersion, data.modules[key].compatibility ?? 0))
+      .filter(key => foundry.utils.isNewerVersion(baseVersion, data.modules[key].compatibility ?? 0))
       .map(key => {
         const versionString = `${data.modules[key].active ? i18n("midi-qol.Active") : i18n("midi-qol.Inactive")} ${data.modules[key].version}`
         return {
@@ -577,8 +579,8 @@ export class TroubleShooter extends FormApplication {
       let moduleVersion = data.modules[key].compatibility ?? "0.0.0";
       if (moduleVersion === baseVersion) moduleVersion = maxVersion
       // if (!data.modules[key].active) return false;
-      if (isNewerVersion(baseVersion, moduleVersion)) return false;
-      return isNewerVersion(gameVersion, moduleVersion)
+      if (foundry.utils.isNewerVersion(baseVersion, moduleVersion)) return false;
+      return foundry.utils.isNewerVersion(gameVersion, moduleVersion)
     }).map(key =>
     ({
       key,
@@ -591,7 +593,7 @@ export class TroubleShooter extends FormApplication {
       if (game.modules.get(key)?.active) {
         const installedVersion = getModuleVersion(key);
         const requiredVersion = REQUIRED_MODULE_VERSIONS[key];
-        if (isNewerVersion(requiredVersion, installedVersion)) {
+        if (foundry.utils.isNewerVersion(requiredVersion, installedVersion)) {
           data.problems.push({
             moduleId: key,
             severity: "Error",
@@ -604,11 +606,11 @@ export class TroubleShooter extends FormApplication {
     }
 
     data.summary.foundryReportedErrors
-    let midiSettings: any = duplicate(collectSettingData());
+    let midiSettings: any = foundry.utils.duplicate(collectSettingData());
     delete midiSettings.flags;
     data.midiSettings = midiSettings;
     TroubleShooter.checkCommonProblems(data);
-    data.errors = duplicate(TroubleShooter.errors).reverse();
+    data.errors = foundry.utils.duplicate(TroubleShooter.errors).reverse();
     return data;
   }
 

@@ -170,7 +170,7 @@ function addTidy5eItemSheetButtons(app, html, data) {
 
     let buttonContainer;
     //@ts-ignore version v10
-    if (isNewerVersion(game.modules.get("tidy5e-sheet")?.version ?? "", "0.4.17"))
+    if (foundry.utils.isNewerVersion(game.modules.get("tidy5e-sheet")?.version ?? "", "0.4.17"))
       buttonContainer = $(this).find(".mod-roll-buttons");
     else
       buttonContainer = $(this).find(".item-controls");

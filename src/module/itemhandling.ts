@@ -191,7 +191,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       }
     }
 
-    const pressedKeys = duplicate(globalThis.MidiKeyManager.pressedKeys);
+    const pressedKeys = foundry.utils.duplicate(globalThis.MidiKeyManager.pressedKeys);
     let tokenToUse;
     let targetConfirmationHasRun = false;
     let selfTarget = this.system.target?.type === "self";
@@ -203,11 +203,11 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       game.user?.updateTokenTargets(tokensIdsToUse)
     }
     if (selfTarget) {
-      setProperty(options, "workflowOptions.targetConfirmation", "none");
+      foundry.utils.setProperty(options, "workflowOptions.targetConfirmation", "none");
       targetsToUse = new Set();
     }
 
-    let attackPerTarget = getProperty(this, "flags?.midi-qol.rollAttackPerTarget") !== "never" && options.workflowOptions?.attackPerTarget !== false && (getProperty(this, "flags.midi-qol.rollAttackPerTarget") === "always" || configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true);
+    let attackPerTarget = foundry.utils.getProperty(this, "flags?.midi-qol.rollAttackPerTarget") !== "never" && options.workflowOptions?.attackPerTarget !== false && (foundry.utils.getProperty(this, "flags.midi-qol.rollAttackPerTarget") === "always" || configSettings.attackPerTarget === true || options.workflowOptions?.attackPerTarget === true);
     // Special check for scriptlets ammoSelector - if scriptlets is going to fail and rerun the item use don't start attacks per target
     const ammoSelectorEnabled = safeGetGameSetting("dnd5e-scriplets", "ammoSelector") !== "none" && safeGetGameSetting("dnd5e-scriptlets", "ammoSelector") !== undefined;
     const ammoSelectorFirstPass = ammoSelectorEnabled
@@ -228,8 +228,8 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     attackPerTarget &&= (game.user?.targets.size ?? 0) > 0
     if (attackPerTarget) {
       let targets = new Set(game.user?.targets);
-      const optionsToUse = duplicate(options);
-      const configToUse = duplicate(config);
+      const optionsToUse = foundry.utils.duplicate(options);
+      const configToUse = foundry.utils.duplicate(config);
       let ammoUpdateHookId;
       try {
         let allowAmmoUpdates = true;
@@ -242,7 +242,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         for (let target of targets) {
           count += 1;
           const nameToUse = `${this.name} attack ${count} - target (${target.name})`;
-          const newOptions = mergeObject(optionsToUse, {
+          const newOptions = foundry.utils.mergeObject(optionsToUse, {
             targetUuids: [target.document.uuid],
             ammoSelector: { hasRun: true },
             workflowOptions: { targetConfirmation: "none", attackPerTarget: false, workflowName: nameToUse }
@@ -253,7 +253,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           allowAmmoUpdates = false;
           if (debugEnabled > 0) warn(`doItemUse | for ${nameToUse} result is`, result);
           // After the first do not consume resources
-          config = mergeObject(configToUse, { consumeResource: false, consumeUsage: false, consumeSpellSlot: false });
+          config = foundry.utils.mergeObject(configToUse, { consumeResource: false, consumeUsage: false, consumeSpellSlot: false });
         }
       } finally {
         Hooks.off("dnd5e.rollAttack", ammoUpdateHookId);
@@ -273,7 +273,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       });
       game.user?.updateTokenTargets(targetids);
     }
-    options = mergeObject({
+    options = foundry.utils.mergeObject({
       systemCard: false,
       createWorkflow: true,
       versatile: false,
@@ -314,7 +314,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
 
     options = tempWorkflow.options;
-    mergeObject(options.workflowOptions, tempWorkflow.workflowOptions, { inplace: true, insertKeys: true, insertValues: true, overwrite: true })
+    foundry.utils.mergeObject(options.workflowOptions, tempWorkflow.workflowOptions, { inplace: true, insertKeys: true, insertValues: true, overwrite: true })
     const existingWorkflow = Workflow.getWorkflow(this.uuid);
     if (existingWorkflow) await Workflow.removeWorkflow(this.uuid);
     if (cancelWorkflow) return null;
@@ -527,7 +527,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     const token = getToken(workflow.tokenUuid);
 
     const autoCreatetemplate = token && hasAutoPlaceTemplate(this);
-    let result = await wrapped(workflow.config, mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
+    let result = await wrapped(workflow.config, foundry.utils.mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
     if (!result) {
       await workflow.performState(workflow.WorkflowState_Abort)
       return null;
@@ -565,17 +565,17 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         templateOptions.y = token.center?.y ?? 0;
       }
 
-      if (workflow?.actor) setProperty(templateOptions, "flags.midi-qol.actorUuid", workflow.actor.uuid);
-      if (workflow?.tokenId) setProperty(templateOptions, "flags.midi-qol.tokenId", workflow.tokenId);
-      if (workflow) setProperty(templateOptions, "flags.midi-qol.workflowId", workflow.id);
-      setProperty(templateOptions, "flags.midi-qol.itemUuid", this.uuid);
+      if (workflow?.actor) foundry.utils.setProperty(templateOptions, "flags.midi-qol.actorUuid", workflow.actor.uuid);
+      if (workflow?.tokenId) foundry.utils.setProperty(templateOptions, "flags.midi-qol.tokenId", workflow.tokenId);
+      if (workflow) foundry.utils.setProperty(templateOptions, "flags.midi-qol.workflowId", workflow.id);
+      foundry.utils.setProperty(templateOptions, "flags.midi-qol.itemUuid", this.uuid);
 
       //@ts-expect-error .canvas
       let template = game.system.canvas.AbilityTemplate.fromItem(item, templateOptions);
       const templateData = template.document.toObject();
-      if (this.item) setProperty(templateData, "flags.midi-qol.itemUuid", this.item.uuid);
-      if (this.actor) setProperty(templateData, "flags.midi-qol.actorUuid", this.actor.uuid);
-      if (!getProperty(templateData, "flags.dnd5e.origin")) setProperty(templateData, "flags.dnd5e.origin", this.item?.uuid);
+      if (this.item) foundry.utils.setProperty(templateData, "flags.midi-qol.itemUuid", this.item.uuid);
+      if (this.actor) foundry.utils.setProperty(templateData, "flags.midi-qol.actorUuid", this.actor.uuid);
+      if (!foundry.utils.getProperty(templateData, "flags.dnd5e.origin")) foundry.utils.setProperty(templateData, "flags.dnd5e.origin", this.item?.uuid);
       //@ts-expect-error
       const templateDocuments: MeasuredTemplateDocument[] | undefined = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
 
@@ -588,7 +588,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         if (token && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
           //@ts-expect-error .object
           await token.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
-          if (!getProperty(workflow?.item, "flags.walledtemplates.noAutotarget"))
+          if (workflow && !foundry.utils.getProperty(workflow, "item.flags.walledtemplates.noAutotarget"))
             selectTargets.bind(workflow)(td);
 
         }
@@ -641,7 +641,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       }
     }
     if (workflow && !workflow.reactionQueried) {
-      workflow.rollOptions = mergeObject(workflow.rollOptions, mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow.rollOptions?.rollToggle), { overwrite: true, insertValues: true, insertKeys: true });
+      workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow.rollOptions?.rollToggle), { overwrite: true, insertValues: true, insertKeys: true });
     }
     //@ts-ignore
     if (CONFIG.debug.keybindings && workflow) {
@@ -670,7 +670,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
           await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
         }
         if (workflow.damageRollCount > 0) { // re-rolling damage counts as new damage
-          const itemCard = await this.displayCard(mergeObject(options, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
+          const itemCard = await this.displayCard(foundry.utils.mergeObject(options, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
           workflow.itemCardId = itemCard.id;
           workflow.itemCardUuid = itemCard.uuid;
           workflow.needItemCard = false;
@@ -682,16 +682,16 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     if (options.resetAdvantage) {
       workflow.advantage = false;
       workflow.disadvantage = false;
-      workflow.rollOptions = deepClone(defaultRollOptions);
+      workflow.rollOptions = foundry.utils.deepClone(defaultRollOptions);
     }
     if (workflow.workflowType === "TrapWorkflow") workflow.rollOptions.fastForward = true;
 
     const promises: Promise<any>[] = [];
-    if (!getProperty(this, "flags.midi-qol.noProvokeReaction")) {
+    if (!foundry.utils.getProperty(this, "flags.midi-qol.noProvokeReaction")) {
       for (let targetToken of workflow.targets) {
         promises.push(new Promise(async resolve => {
           //@ts-expect-error targetToken Type
-          const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: mergeObject(workflow.workflowOptions, { sourceActorUuid: this.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
+          const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: foundry.utils.mergeObject(workflow.workflowOptions, { sourceActorUuid: this.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
           if (result?.name) {
             //@ts-expect-error _initialize()
             targetToken.actor?._initialize();
@@ -713,7 +713,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     // Active defence resolves by triggering saving throws and returns early
     if (game.user?.isGM && workflow.useActiveDefence) {
       delete options.event; // for dnd 3.0
-      let result: Roll = await wrapped(mergeObject(options, {
+      let result: Roll = await wrapped(foundry.utils.mergeObject(options, {
         advantage: false,
         disadvantage: workflow.rollOptions.disadvantage,
         chatMessage: false,
@@ -768,7 +768,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
     // create an options object to pass to the roll.
     // advantage/disadvantage are already set (in options)
-    const wrappedOptions = mergeObject(options, {
+    const wrappedOptions = foundry.utils.mergeObject(options, {
       chatMessage: (["TrapWorkflow", "Workflow"].includes(workflow.workflowType)) ? false : options.chatMessage,
       fastForward: workflow.workflowOptions?.fastForwardAttack ?? workflow.rollOptions.fastForwardAttack ?? options.fastForward,
       messageData: {
@@ -782,9 +782,9 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
 
     // Setup labels for advantage reminder
     const advantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("ADV:")).map(s => s.replace("ADV:", ""));;
-    if (advantageLabels.length > 0) setProperty(wrappedOptions, "dialogOptions.adv-reminder.advantageLabels", advantageLabels);
+    if (advantageLabels.length > 0) foundry.utils.setProperty(wrappedOptions, "dialogOptions.adv-reminder.advantageLabels", advantageLabels);
     const disadvantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("DIS:")).map(s => s.replace("DIS:", ""));
-    if (disadvantageLabels.length > 0) setProperty(wrappedOptions, "dialogOptions.adv-reminder.disadvantageLabels", disadvantageLabels);
+    if (disadvantageLabels.length > 0) foundry.utils.setProperty(wrappedOptions, "dialogOptions.adv-reminder.disadvantageLabels", disadvantageLabels);
 
     // It seems that sometimes the option is true/false but when passed to the roll the critical threshold needs to be a number
     if (wrappedOptions.critical === true || wrappedOptions.critical === false)
@@ -804,10 +804,10 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     if (!result) return result;
     result = Roll.fromJSON(JSON.stringify(result.toJSON()))
 
-    const maxflags = getProperty(workflow.actor.flags, "midi-qol.max") ?? {};
+    const maxflags = foundry.utils.getProperty(workflow, "actor.flags.midi-qol.max") ?? {};
     if ((maxflags.attack && (maxflags.attack.all || maxflags.attack[this.system.actionType])) ?? false)
       result = await result.reroll({ maximize: true });
-    const minflags = getProperty(this.flags, "midi-qol.min") ?? {};
+    const minflags = foundry.utils.getProperty(this, "flags.midi-qol.min") ?? {};
     if ((minflags.attack && (minflags.attack.all || minflags.attack[this.system.actionType])) ?? false)
       result = await result.reroll({ minimize: true })
     if (["formulaadv", "adv"].includes(configSettings.rollAlternate))
@@ -817,7 +817,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     // workflow.ammo = this._ammo; Work out why this was here - seems to just break stuff
 
     if (workflow.workflowOptions?.attackRollDSN !== false) await displayDSNForRoll(result, "attackRollD20");
-    workflow.processAttackRoll();
+    await workflow.processAttackRoll();
     result = await processAttackRollBonusFlags.bind(workflow)();
 
     if (configSettings.keepRollStats) {
@@ -863,7 +863,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
 
     if (workflow && systemCard) workflow.systemCard = true;
     if (workflow && !workflow.shouldRollDamage) // if we did not auto roll then process any keys
-      workflow.rollOptions = mergeObject(workflow.rollOptions, mapSpeedKeys(pressedKeys, "damage", workflow.rollOptions?.rollToggle), { insertKeys: true, insertValues: true, overwrite: true });
+      workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys(pressedKeys, "damage", workflow.rollOptions?.rollToggle), { insertKeys: true, insertValues: true, overwrite: true });
 
     //@ts-expect-error
     if (CONFIG.debug.keybindings) {
@@ -942,7 +942,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     let result: Array<Roll>;
     let result2: Array<Roll>;
     if (!workflow.rollOptions.other) {
-      const damageRollOptions = mergeObject(options, {
+      const damageRollOptions = foundry.utils.mergeObject(options, {
         fastForward: workflow.workflowOptions?.fastForwardDamage ?? workflow.rollOptions.fastForwardDamage,
         chatMessage: false,
         returnMultiple: true,
@@ -961,7 +961,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
 
       result = await wrapped(damageRollData);
 
-      if (getProperty(this.parent, "flags.midi-qol.damage.advantage")) result2 = await wrapped(damageRollData)
+      if (foundry.utils.getProperty(this, "parent.flags.midi-qol.damage.advantage")) result2 = await wrapped(damageRollData)
 
       if (debugCallTiming) log(`wrapped item.rollDamage():  elapsed ${Date.now() - wrappedRollStart}ms`);
     } else { // roll other damage instead of main damage.
@@ -991,15 +991,15 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     //@ts-expect-error .first
     const firstTarget = workflow.hitTargets.first() ?? workflow.targets?.first();
     const firstTargetActor = firstTarget?.actor;
-    const targetMaxFlags = getProperty(firstTargetActor, "flags.midi-qol.grants.max.damage") ?? {};
-    const maxFlags = getProperty(workflow.actor.flags, "midi-qol.max") ?? {};
+    const targetMaxFlags = foundry.utils.getProperty(firstTargetActor, "flags.midi-qol.grants.max.damage") ?? {};
+    const maxFlags = foundry.utils.getProperty(workflow, "actor.flags.midi-qol.max") ?? {};
     let needsMaxDamage = (maxFlags.damage?.all && evalActivationCondition(workflow, maxFlags.damage.all, firstTarget))
       || (maxFlags.damage && maxFlags.damage[this.system.actionType] && evalActivationCondition(workflow, maxFlags.damage[this.system.actionType], firstTarget));
     needsMaxDamage = needsMaxDamage || (
       (targetMaxFlags.all && evalActivationCondition(workflow, targetMaxFlags.all, firstTarget))
       || (targetMaxFlags[this.system.actionType] && evalActivationCondition(workflow, targetMaxFlags[this.system.actionType], firstTarget)));
-    const targetMinFlags = getProperty(firstTargetActor, "flags.midi-qol.grants.min.damage") ?? {};
-    const minFlags = getProperty(workflow.actor.flags, "midi-qol.min") ?? {};
+    const targetMinFlags = foundry.utils.getProperty(firstTargetActor, "flags.midi-qol.grants.min.damage") ?? {};
+    const minFlags = foundry.utils.getProperty(workflow, "actor.flags.midi-qol.min") ?? {};
     let needsMinDamage = (minFlags.damage?.all && evalActivationCondition(workflow, minFlags.damage.all, firstTarget))
       || (minFlags?.damage && minFlags.damage[this.system.actionType] && evalActivationCondition(workflow, minFlags.damage[this.system.actionType], firstTarget));
     needsMinDamage = needsMinDamage || (
@@ -1025,12 +1025,12 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
 
     const title = `${this.name} - ${actionFlavor}`;
     const speaker = getSpeaker(this.actor);
-    let messageData = mergeObject({
+    let messageData = foundry.utils.mergeObject({
       title,
       flavor: this.labels.damageTypes.length ? `${title} (${this.labels.damageTypes})` : title,
       speaker,
     }, { "flags.dnd5e.roll": { type: "damage", itemId: this.id } });
-    if (game.system.id === "sw5e") setProperty(messageData, "flags.sw5e.roll", { type: "damage", itemId: this.id })
+    if (game.system.id === "sw5e") foundry.utils.setProperty(messageData, "flags.sw5e.roll", { type: "damage", itemId: this.id })
     if (needsMaxDamage) {
       for (let i = 0; i < result.length; i++) {
         result[i] = await result[i].reroll({ maximize: true });
@@ -1041,14 +1041,14 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
         result[i] = await result[i].reroll({ minimize: true });
         // result = result.map(r => new DamageRoll(r.formula).roll({ minimize: true, async: false }));
       }
-    } else if (getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") || getProperty(this.parent, "flags.midi-qol.damage.reroll-kl")) {
+    } else if (foundry.utils.getProperty(this, "parent.flags.midi-qol.damage.reroll-kh") || foundry.utils.getProperty(this, "parent.flags.midi-qol.damage.reroll-kl")) {
       let result2: Roll[] = [];
       for (let i = 0; i < result.length; i++) {
         result2.push(await result[i].reroll({ async: true }));
         // result2 = result.map(r => r.reroll({ async: false }));
       }
-      if ((getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") && (sumRolls(result2) > sumRolls(result)))
-        || (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl") && (sumRolls(result2) < sumRolls(result)))) {
+      if ((foundry.utils.getProperty(this, "parent.flags.midi-qol.damage.reroll-kh") && (sumRolls(result2) > sumRolls(result)))
+        || (foundry.utils.getProperty(this, "parent.flags.midi-qol.damage.reroll-kl") && (sumRolls(result2) < sumRolls(result)))) {
         [result, result2] = [result2, result];
       }
       // display roll not being used.
@@ -1124,14 +1124,14 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
             itemId: this.id
           };
           if (configSettings.mergeCard)
-            setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
+            foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
           if (
-            (getProperty(this.parent, "flags.midi-qol.damage.reroll-kh")) ||
-            (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl"))) {
+            (foundry.utils.getProperty(this, "parent.flags.midi-qol.damage.reroll-kh")) ||
+            (foundry.utils.getProperty(this, "parent.flags.midi-qol.damage.reroll-kl"))) {
             otherResult2 = await otherResult.reroll({ async: true });
             if (otherResult2?.total !== undefined && otherResult?.total !== undefined) {
-              if ((getProperty(this.parent, "flags.midi-qol.damage.reroll-kh") && (otherResult2?.total > otherResult?.total)) ||
-                (getProperty(this.parent, "flags.midi-qol.damage.reroll-kl") && (otherResult2?.total < otherResult?.total))) {
+              if ((foundry.utils.getProperty(this, "parent.flags.midi-qol.damage.reroll-kh") && (otherResult2?.total > otherResult?.total)) ||
+                (foundry.utils.getProperty(this, "parent.flags.midi-qol.damage.reroll-kl") && (otherResult2?.total < otherResult?.total))) {
                 [otherResult, otherResult2] = [otherResult2, otherResult];
               }
               // display roll not being used
@@ -1151,8 +1151,8 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
           otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "off" && workflow.otherDamageItem?.type !== "weapon");
           otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "nonspell" && workflow.otherDamageItem?.type === "spell");
 
-          if (!getProperty(otherResult, "options.properties")) setProperty(otherResult, "options.properties", []);
-          const otherProperties: string[] = getProperty(otherResult, "options.properties");
+          if (!foundry.utils.getProperty(otherResult, "options.properties")) foundry.utils.setProperty(otherResult, "options.properties", []);
+          const otherProperties: string[] = foundry.utils.getProperty(otherResult, "options.properties");
           if (workflow?.item.type === "spell") otherProperties.push("spell");
           if (otherMagicalDamage && !otherProperties.includes("mgc")) otherProperties.push("mgc");
           otherProperties.push(workflow?.otherDamageItem?.system.actionType)
@@ -1160,8 +1160,8 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
           workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: workflow.otherDamageItem.system.damage?.parts[0]?.[1] ?? workflow.defaultDamageType ?? MQdefaultDamageType });
           if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
           if (!configSettings.mergeCard) {
-            setProperty(messageData, `flags.${game.system.id}.roll.type`, "other");
-            setProperty(messageData, `flags.${game.system.id}.roll.itemId`, this.id);
+            foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "other");
+            foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.itemId`, this.id);
             await otherResult?.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") })
           }
         }
@@ -1264,7 +1264,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     const isPlayerOwned = this.actor.hasPlayerOwner;
     const hideItemDetails = (["none", "cardOnly"].includes(configSettings.showItemDetails) || (configSettings.showItemDetails === "pc" && !isPlayerOwned))
       || !configSettings.itemTypeList.includes(this.type);
-    const hasEffects = !["applyNoButton", "applyRemove"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "Workflow" && this.effects.find(ae => !ae.transfer && !getProperty(ae, "flags.dae.dontApply"));
+    const hasEffects = !["applyNoButton", "applyRemove"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "Workflow" && this.effects.find(ae => !ae.transfer && !foundry.utils.getProperty(ae, "flags.dae.dontApply"));
     let dmgBtnText = (this.system?.actionType === "heal") ? i18n(`${SystemString}.Healing`) : i18n(`${SystemString}.Damage`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) dmgBtnText += ` ${i18n("midi-qol.fastForward")}`;
     let versaBtnText = i18n(`${SystemString}.Versatile`);
@@ -1324,9 +1324,8 @@ export async function wrappedDisplayCard(wrapped, options) {
       if (["rsak", "rpak"].includes(this.system.actionType)) theSound = configSettings.spellUseSoundRanged;
     }
     else if (this.type === "consumable" && this.name.toLowerCase().includes(i18n("midi-qol.potion").toLowerCase())) theSound = configSettings.potionUseSound;
-    const chatData = {
+    const chatData: any = {
       user: game.user?.id,
-      type: CONST.CHAT_MESSAGE_TYPES.OTHER,
       content: html,
       flavor: this.system.chatFlavor,
       //@ts-expect-error token vs tokenDocument
@@ -1342,17 +1341,24 @@ export async function wrappedDisplayCard(wrapped, options) {
         },
         "core": { "canPopout": true }
       }
-    };
-    if (workflow.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", workflow.flagTags);
+    }
+    //@ts-expect-error
+    if (game.release.generation < 12) {
+        chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+    } else {
+      //@ts-expect-error
+      chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+    }
+    if (workflow.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", workflow.flagTags);
     // Temp items (id undefined) or consumables that were removed need itemData set.
     if (!this.id || (this.type === "consumable" && !this.actor.items.has(this.id))) {
-      setProperty(chatData, `flags.${game.system.id}.itemData`, this.toObject()); // TODO check this v10
+      foundry.utils.setProperty(chatData, `flags.${game.system.id}.itemData`, this.toObject()); // TODO check this v10
     }
-    setProperty(chatData, `flags.${game.system.id}.roll.type`, "midi");
+    foundry.utils.setProperty(chatData, `flags.${game.system.id}.roll.type`, "midi");
 
-    chatData.flags = mergeObject(chatData.flags, options.flags);
+    chatData.flags = foundry.utils.mergeObject(chatData.flags, options.flags);
     Hooks.callAll("dnd5e.preDisplayCard", this, chatData, options);
-    workflow.chatUseFlags = getProperty(chatData, "flags") ?? {};
+    workflow.chatUseFlags = foundry.utils.getProperty(chatData, "flags") ?? {};
 
     ChatMessage.applyRollMode(chatData, options.rollMode ?? game.settings.get("core", "rollMode"));
     let card;
@@ -1385,7 +1391,7 @@ export async function resolveTargetConfirmation(item, options: any, pressedKeys:
   let targets = new Promise((resolve, reject) => {
     // no timeout since there is a dialog to close
     // create target dialog which updates the target display
-    options = mergeObject(options, { callback: resolve, pressedKeys });
+    options = foundry.utils.mergeObject(options, { callback: resolve, pressedKeys });
     let targetConfirmation = new TargetConfirmationDialog(item.actor, item, game.user, options).render(true);
   });
   let shouldContinue = await targets;
@@ -1430,9 +1436,8 @@ export async function showItemInfo() {
   const template = `modules/midi-qol/templates/${templateType}-card.hbs`;
   const html = await renderTemplate(template, templateData);
 
-  const chatData = {
+  const chatData: any = {
     user: game.user?.id,
-    type: CONST.CHAT_MESSAGE_TYPES.OTHER,
     content: html,
     flavor: this.system.chatFlavor || this.name,
     speaker: getSpeaker(this.actor),
@@ -1440,6 +1445,13 @@ export async function showItemInfo() {
       "core": { "canPopout": true }
     }
   };
+  //@ts-expect-error
+  if (game.release.generation < 12) {
+    chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+  } else {
+    //@ts-expect-error
+    chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+  }
 
   // Toggle default roll mode
   let rollMode = game.settings.get("core", "rollMode");
@@ -1570,7 +1582,7 @@ export function templateTokens(templateDetails: MeasuredTemplate, selfTokenRef: 
   game.user?.updateTokenTargets([]);
   if (autoTarget === "walledtemplates" && game.modules.get("walledtemplates")?.active) {
     //@ts-expect-error
-    if (getProperty(templateDetails?.item, "flags.walledtemplates.noAutotarget")) return targetTokens
+    if (foundry.utils.getProperty(templateDetails?.item, "flags.walledtemplates.noAutotarget")) return targetTokens
     //@ts-expect-error
     targetTokens = (templateDetails.targetsWithinShape) ? templateDetails.targetsWithinShape() : [];
     targetTokens = targetTokens.filter(token => isAoETargetable(token, { selfToken, ignoreSelf, AoETargetType, autoTarget }))
@@ -1601,9 +1613,9 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   const selfToken = getToken(workflow.tokenUuid);
   let ignoreSelf: boolean = false;
   if (workflow?.item && workflow.item.hasAreaTarget
-    && (workflow.item.system.range.type === "self") || getProperty(workflow.item, "flags.midi-qol.AoETargetTypeIncludeSelf") === false)
+    && (workflow.item.system.range.type === "self") || foundry.utils.getProperty(workflow, "item.flags.midi-qol.AoETargetTypeIncludeSelf") === false)
     ignoreSelf = true;
-  const AoETargetType = getProperty(workflow.item, "flags.midi-qol.AoETargetType") ?? "any";
+  const AoETargetType = foundry.utils.getProperty(workflow, "item.flags.midi-qol.AoETargetType") ?? "any";
   // think about special = allies, self = all but self and any means everyone.
 
   let item = workflow.item;
@@ -1666,7 +1678,7 @@ export function shouldRollOtherDamage(workflow: Workflow, conditionFlagNonSpell:
   if (this.type === "spell" && conditionFlagSpell === "always") return true;
   if (this.type !== "spell" && conditionFlagNonSpell === "always") return true;
   let rollOtherDamage = true;
-  let conditionToUse: string = getProperty(this, "flags.midi-qol.otherCondition")?.trim() ?? "";
+  let conditionToUse: string = foundry.utils.getProperty(this, "flags.midi-qol.otherCondition")?.trim() ?? "";
   if (this.type === "spell") {
     rollOtherDamage = conditionFlagSpell !== "ifSave" || this.hasSave;
   } else if (["rwak", "mwak"].includes(this.system.actionType)) {

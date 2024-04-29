@@ -40,7 +40,7 @@ export class UndoWorkflow extends FormApplication {
   }
 
   static get defaultOptions() {
-    return mergeObject(super.defaultOptions, {
+    return foundry.utils.mergeObject(super.defaultOptions, {
       title: game.i18n.localize("midi-qol.UndoWorkflow.title"),
       template: "modules/midi-qol/templates/undo-workflow.html",
       id: "midi-qol-undo-workflow",

@@ -269,7 +269,7 @@ export class MidiKeyManager {
 }
 
 export function mapSpeedKeys(keys: Options | undefined, type: string, forceToggle = false): Options | undefined {
-  const pressedKeys = deepClone(keys ?? globalThis.MidiKeyManager.pressedKeys);
+  const pressedKeys = foundry.utils.deepClone(keys ?? globalThis.MidiKeyManager.pressedKeys);
   let hasToggle = pressedKeys.rollToggle || forceToggle;
   if (pressedKeys.rollToggle && forceToggle) hasToggle = false;
   switch (type) {

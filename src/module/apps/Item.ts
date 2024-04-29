@@ -144,12 +144,12 @@ async function _onMacroControl(event) {
 }
 
 export function getCurrentMacros(object): OnUseMacros {
-  const macroField = getProperty(object, "flags.midi-qol.onUseMacroParts");
+  const macroField = foundry.utils.getProperty(object, "flags.midi-qol.onUseMacroParts");
   return macroField;
 }
 
 export function getCurrentSourceMacros(object): OnUseMacros {
-  const macroField = new OnUseMacros(getProperty(object, "_source.flags.midi-qol.onUseMacroName") ?? null)
-  // const macroField = getProperty(object, "_source.flags.midi-qol.onUseMacroParts");
+  const macroField = new OnUseMacros(foundry.utils.getProperty(object, "_source.flags.midi-qol.onUseMacroName") ?? null)
+  // const macroField = foundry.utils.getProperty(object, "_source.flags.midi-qol.onUseMacroParts");
   return macroField;
 }

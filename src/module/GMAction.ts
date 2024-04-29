@@ -16,6 +16,7 @@ export let setupSocket = () => {
   socketlibSocket.register("_gmSetFlag", _gmSetFlag);
   socketlibSocket.register("_gmUnsetFlag", _gmUnsetFlag);
   socketlibSocket.register("addConvenientEffect", addConvenientEffect);
+  socketlibSocket.register("addDependent", _addDependent);
   socketlibSocket.register("applyEffects", _applyEffects);
   socketlibSocket.register("bonusCheck", _bonusCheck);
   socketlibSocket.register("chooseReactions", localDoReactions);
@@ -75,6 +76,7 @@ export class SaferSocket {
   canCall(handler) {
     if (game.user?.isGM) return true;
     switch (handler) {
+      case "addDependent":
       case "applyEffects":
       case "bonusCheck":
       case "chooseReactions":
@@ -285,6 +287,7 @@ async function confirmDamageRollCompleteMiss(data: { workflowId: string, itemCar
 function paranoidCheck(action: string, actor: any, data: any): boolean {
   return true;
 }
+
 export async function removeEffects(data: { actorUuid: string; effects: string[]; options: {} }) {
   debug("removeEffects started");
   let removeFunc = async () => {
@@ -404,7 +407,7 @@ export async function _canSense(data: { tokenUuid, targetUuid }) {
       blinded: token.document.hasStatusEffect(CONFIG.specialStatusEffects.BLIND)
     });
   }
-  return canSense(token, target);
+  return await canSense(token, target);
 }
 
 export async function _gmOverTimeEffect(data: { actorUuid, effectUuid, startTurn, options }) {
@@ -421,6 +424,7 @@ export async function _bonusCheck(data: { actorUuid, result, rollType, selector 
   if (actor) return await bonusCheck(actor, roll, data.rollType, data.selector);
   else return null;
 }
+
 export async function _applyEffects(data: { workflowId: string, targets: string[] }) {
   let result;
   try {
@@ -452,7 +456,7 @@ async function _completeItemUse(data: {
   //@ts-ignore v10
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor, keepId: true });
   const workflow = await completeItemUse(ownedItem, config, options);
-  if (data.options?.workflowData) return workflow.getMacroData({noWorkflowReference: true}); // can't return the workflow
+  if (data.options?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
   else return true;
 }
 
@@ -505,6 +509,7 @@ export async function deleteEffects(data: { actorUuid: string, effectsToDelete: 
     return [];
   }
 }
+
 export async function deleteItemEffects(data: { targets, origin: string, ignore: string[], ignoreTransfer: boolean, options: any }) {
   debug("deleteItemEffects: started", globalThis.DAE?.actionQueue)
   let deleteFunc = async () => {
@@ -537,7 +542,7 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
         if (effectsToDelete?.length > 0) {
           try {
             // for (let ef of effectsToDelete) ef.delete();
-            options = mergeObject(options ?? {}, { parent: actor, concentrationDeleted: true });
+            options = foundry.utils.mergeObject(options ?? {}, { parent: actor, concentrationDeleted: true });
             if (debugEnabled > 0) warn("deleteItemEffects ", actor.name, effectsToDelete, options);
             await expireEffects(actor, effectsToDelete, options);
           } catch (err) {
@@ -573,6 +578,22 @@ async function addConvenientEffect(options) {
   await game.dfreds.effectInterface?.addEffect({ effectName, uuid: actorUuid, origin });
 }
 
+async function _addDependent(data: {concentrationEffectUuid: string, dependentUuid: string}) {
+  //@ts-expect-error
+  const concentrationEffect = fromUuidSync(data.concentrationEffectUuid);
+  if (!concentrationEffect) {
+    console.error("GMAction.addDependent | concentration effect not found", data.concentrationEffectUuid);
+    return undefined;
+  }
+  //@ts-expect-error
+  const dependent = fromUuidSync(data.dependentUuid);
+  if (!dependent) {
+    console.error("GMAction.addDependent | dependent not found", data.dependentUuid);
+    return undefined;
+  }
+  return concentrationEffect.addDependent(dependent);
+}
+
 async function localDoReactions(data: { tokenUuid: string; reactionItemList: ReactionItemReference[], triggerTokenUuid: string, reactionFlavor: string; triggerType: string; options: any }) {
   if (data.options.itemUuid) {
     data.options.item = MQfromUuid(data.options.itemUuid);
@@ -594,7 +615,7 @@ export function initGMActionSetup() {
 }
 
 export async function createChatMessage(data: { chatData: any; }) {
-  const messageData = getProperty(data, "chatData.messageData") ?? {};
+  const messageData = foundry.utils.getProperty(data, "chatData.messageData") ?? {};
   messageData.user = game.user?.id;
   return await ChatMessage.create(data.chatData);
 }
@@ -613,7 +634,7 @@ export async function _D20Roll(data: { request: string, targetUuid: string, form
       data.options.fastForward = true; // assume player is asleep force roll without dialog
       //@ts-expect-error D20Roll
       result = await new CONFIG.Dice.D20Roll(data.formula, {}, data.options).roll();
-      setProperty(roll, "flags.midi-qol.rollType", data.options?.midiType)
+      foundry.utils.setProperty(roll, "flags.midi-qol.rollType", data.options?.midiType)
       resolve(result ?? {});
     }, configSettings.playerSaveTimeout * 1000);
     if (!data.options) data.options = {};
@@ -624,18 +645,18 @@ export async function _D20Roll(data: { request: string, targetUuid: string, form
     result = await roll.roll();
     roll.toMessage();
     if (timeoutId) clearTimeout(timeoutId);
-    setProperty(result, "flags.midi-qol.rollType", data.options?.midiType)
+    foundry.utils.setProperty(result, "flags.midi-qol.rollType", data.options?.midiType)
     resolve(result ?? {})
   });
 }
-export async function rollConcentration(data: {actorUuid, targetValue, whisper}) {
+export async function rollConcentration(data: { actorUuid, targetValue, whisper }) {
   //@ts-expect-error
   const actor = fromUuidSync(data.actorUuid);
   if (!actor) {
     error(`GMAction.rollConcentration | no actor for ${data.actorUuid}`)
     return {};
   }
-  return actor.rollConcentration({targetValue: data.targetValue, whisper: data.whisper});
+  return actor.rollConcentration({ targetValue: data.targetValue, whisper: data.whisper });
 }
 
 export async function rollAbility(data: { request: string; targetUuid: string; ability: string; options: any; }) {
@@ -709,7 +730,9 @@ async function createV3ReverseDamageCard(data: {
   return cardIds;
 }
 
+// Fetch the token, then use the tokenData.actor.id
 async function createV3PlayerDamageCard(data: {
+  baseDamageRolls: Roll[],
   allDamages: any[],
   autoApplyDamage: string,
   flagTags: any,
@@ -717,10 +740,69 @@ async function createV3PlayerDamageCard(data: {
   charName: string,
   actorUuid: string,
   updateContext: any,
-  forceApply: boolean
-}, doHits: boolean = true): Promise<string | undefined> {
-  let chatCardUuid;
-  return "";
+  forceApply: boolean,
+  actorId: string
+}): Promise<string | undefined> {
+  /*
+let shouldShow = true;
+let chatCardUuid;
+if (configSettings.playerCardDamageDifferent) {
+  shouldShow = false;
+  for (let damageItem of data.damageList) {
+    if (damageItem.totalDamage !== damageItem.appliedDamage) shouldShow = true;
+  }
+}
+if (!shouldShow) return;
+if (configSettings.playerDamageCard === "none") return;
+let showNPC = ["npcplayerresults", "npcplayerbuttons"].includes(configSettings.playerDamageCard);
+let playerButtons = ["playerbuttons", "npcplayerbuttons"].includes(configSettings.playerDamageCard);
+const damageList = data.damageList;
+//@ts-ignore
+let actor: CONFIG.Actor.documentClass; // { update: (arg0: { "system.attributes.hp.temp": any; "system.attributes.hp.value": number; "flags.dae.damageApplied": any; damageItem: any[] }) => Promise<any>; img: any; type: string; name: any; data: { data: { traits: { [x: string]: any; }; }; }; };
+const startTime = Date.now();
+let tokenIdList: any[] = [];
+let templateData = {
+  damageApplied: ["yes", "yesCard", "yesCardMisses"].includes(data.autoApplyDamage) ? i18n("midi-qol.HPUpdated") : i18n("midi-qol.HPNotUpdated"),
+  damageList: [],
+  needsButtonAll: false,
+  showNPC,
+  playerButtons
+};
+
+prepareDamageListItems(data, templateData, tokenIdList, false, showNPC, true)
+if (templateData.damageList.length === 0) {
+  log("No damage data to show to player");
+  return;
+}
+
+templateData.needsButtonAll = damageList.length > 1;
+//@ts-ignore
+templateData.playerButtons = templateData.playerButtons && templateData.damageList.some(listItem => listItem.isCharacter)
+if (["yesCard", "noCard", "yesCardNPC", "yesCardMisses", "noCardMisses"].includes(data.autoApplyDamage)) {
+  const content = await renderTemplate("modules/midi-qol/templates/damage-results-player.html", templateData);
+  const speaker: any = ChatMessage.getSpeaker();
+  speaker.alias = data.sender;
+  let chatData: any = {
+    user: game.user?.id,
+    speaker: { scene: getCanvas()?.scene?.id, alias: data.charName, user: game.user?.id, actor: data.actorId },
+    content: content,
+    // whisper: ChatMessage.getWhisperRecipients("players").filter(u => u.active).map(u => u.id),
+    flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
+  };
+          //@ts-expect-error
+        if (game.release.generation < 12) {
+          chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+        } else {
+          //@ts-expect-error
+          chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+        }
+  if (data.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", data.flagTags);
+  chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
+}
+log(`createPlayerReverseDamageCard elapsed: ${Date.now() - startTime}ms`)
+return chatCardUuid;
+*/
+  return undefined;
 }
 
 async function createV3GMReverseDamageCard(
@@ -769,7 +851,7 @@ async function createV3GMReverseDamageCard(
     let appliedTempDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + dArray.reduce((acc, di) => acc + ((di.type !== "temphp") ? 0 : di.value), 0), 0);
     appliedTempDamage = appliedTempDamage < 0 ? Math.ceil(appliedTempDamage) : Math.floor(appliedTempDamage);
     let newTempHP = actor.system.attributes.hp.temp ?? 0;
-    if (appliedTempDamage > 0)  {
+    if (appliedTempDamage > 0) {
       newTempHP = Math.max(0, newTempHP - appliedTempDamage);
     } else newTempHP = Math.max(actor.system.attributes.hp.temp, -appliedTempDamage);
     if (appliedDamage > newTempHP) {
@@ -787,8 +869,8 @@ async function createV3GMReverseDamageCard(
     let newVitality = 0;
     const vitalityResource = checkRule("vitalityResource");
     if (appliedDamage > oldHP) { // Chec for vitality damage
-      if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
-        oldVitality = getProperty(actor, vitalityResource.trim()) ?? 0;
+      if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
+        oldVitality = foundry.utils.getProperty(actor, vitalityResource.trim()) ?? 0;
         newVitality = Math.max(0, oldVitality - (appliedDamage - oldHP));
       }
     }
@@ -805,9 +887,9 @@ async function createV3GMReverseDamageCard(
     if (appliedDamage || appliedTempDamage || oldVitality !== newVitality) {
       const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
       if (oldVitality !== newVitality) update[vitalityResource] = newVitality;
-      const updateContext = mergeObject({ dhp: -appliedDamage, damageItem: damageItem.tokenDamages }, data.updateContext ?? {});
-      if (game.user?.isGM && doHits && damageWasApplied && 
-        (newTempHP !== actor.system.attributes.hp.temp 
+      const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem: damageItem.tokenDamages }, data.updateContext ?? {});
+      if (game.user?.isGM && doHits && damageWasApplied &&
+        (newTempHP !== actor.system.attributes.hp.temp
           || newHP !== actor.system.attributes.hp.value
           || newVitality !== oldVitality)) {
         await actor.update(update, data.updateContext);
@@ -819,7 +901,7 @@ async function createV3GMReverseDamageCard(
         return acc;
       }, []);
       let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
-      return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes}[di.type === "" ? "none" : di.type].label} ${mods}`
+      return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{ ...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes }[di.type === "" ? "none" : di.type].label} ${mods}`
     });
     const toolTipHeader: string[] = [];
     if (newHP !== oldHP) toolTipHeader.push(`HP: ${oldHP} -> ${newHP}`);
@@ -929,14 +1011,20 @@ async function createV3GMReverseDamageCard(
       speaker: { scene: getCanvas()?.scene?.id, alias: game.user?.name, user: game.user?.id },
       content: content,
       whisper: ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id),
-      type: CONST.CHAT_MESSAGE_TYPES.OTHER,
       flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
     };
-    if (data.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", data.flagTags);
+    //@ts-expect-error
+    if (game.release.generation < 12) {
+      chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+    } else {
+      //@ts-expect-error
+      chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+    }
+    if (data.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", data.flagTags);
     chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
     //@ts-expect-error - the main chat card ends up with a later timestamp than this so just push it out a bit
     // a hack but not sure how to do it properly
-    if (chatCardUuid) fromUuidSync(chatCardUuid).update({timestamp: Date.now() + 50});
+    if (chatCardUuid) fromUuidSync(chatCardUuid).update({ timestamp: Date.now() + 50 });
   }
   return chatCardUuid;
 }
@@ -992,7 +1080,7 @@ async function prepareDamageListItems(data: {
     let newHP = Math.max(0, oldHP - hpDamage);
     if (createPromises && doHits && (["yes", "yesCard", "yesCardNPC", "yesCardMisses"].includes(data.autoApplyDamage) || data.forceApply)) {
       if ((newHP !== oldHP || newTempHP !== oldTempHP) && (data.autoApplyDamage !== "yesCardNPC" || actor.type !== "character")) {
-        const updateContext = mergeObject({ dhp: -appliedDamage, damageItem }, data.updateContext ?? {});
+        const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem }, data.updateContext ?? {});
         if (actor.isOwner) {
           //@ts-ignore
           promises.push(actor.update({ "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP, "flags.dae.damageApplied": appliedDamage }, updateContext));
@@ -1068,6 +1156,7 @@ async function prepareDamageListItems(data: {
 
   return promises;
 }
+
 // Fetch the token, then use the tokenData.actor.id
 async function createPlayerDamageCard(data: { damageList: any; autoApplyDamage: string; flagTags: any, sender: string, charName: string, actorId: string, updateContext: any, forceApply: boolean }): Promise<string | undefined> {
   let shouldShow = true;
@@ -1113,10 +1202,16 @@ async function createPlayerDamageCard(data: { damageList: any; autoApplyDamage: 
       speaker: { scene: getCanvas()?.scene?.id, alias: data.charName, user: game.user?.id, actor: data.actorId },
       content: content,
       // whisper: ChatMessage.getWhisperRecipients("players").filter(u => u.active).map(u => u.id),
-      type: CONST.CHAT_MESSAGE_TYPES.OTHER,
       flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
     };
-    if (data.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", data.flagTags);
+    //@ts-expect-error
+    if (game.release.generation < 12) {
+      chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+    } else {
+      //@ts-expect-error
+      chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+    }
+    if (data.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", data.flagTags);
     chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
   }
   log(`createPlayerReverseDamageCard elapsed: ${Date.now() - startTime}ms`)
@@ -1156,10 +1251,16 @@ async function createGMReverseDamageCard(
       speaker: { scene: getCanvas()?.scene?.id, alias: game.user?.name, user: game.user?.id },
       content: content,
       whisper: ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id),
-      type: CONST.CHAT_MESSAGE_TYPES.OTHER,
       flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
     };
-    if (data.flagTags) chatData.flags = mergeObject(chatData.flags ?? "", data.flagTags);
+    //@ts-expect-error
+    if (game.release.generation < 12) {
+      chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+    } else {
+      //@ts-expect-error
+      chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+    }
+    if (data.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", data.flagTags);
     chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
   }
   log(`createGMReverseDamageCard elapsed: ${Date.now() - startTime}ms`);
@@ -1169,20 +1270,20 @@ async function createGMReverseDamageCard(
 async function doClick(event: { stopPropagation: () => void; }, actorUuid: any, totalDamage: any, mult: any, data: any) {
   let actor = MQfromActorUuid(actorUuid);
   log(`Applying ${totalDamage} mult ${mult} HP to ${actor.name}`);
-  await actor.applyDamage(totalDamage, mergeObject({multiplier: mult, ignore: true}, data.updateContext));
+  await actor.applyDamage(totalDamage, foundry.utils.mergeObject({ multiplier: mult, ignore: true }, data.updateContext));
   event.stopPropagation();
 }
 
 async function doMidiClick(ev: any, actorUuid: any, newTempHP: any, newHP: any, newVitality: number, mult: number, data: any) {
   let actor = MQfromActorUuid(actorUuid);
   log(`Setting HP to ${newTempHP} and ${newHP}`);
-  let updateContext = mergeObject({ dhp: (newHP - actor.system.attributes.hp.value) }, data.updateContext);
+  let updateContext = foundry.utils.mergeObject({ dhp: (newHP - actor.system.attributes.hp.value) }, data.updateContext);
   if (actor.isOwner) {
     const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
     const vitalityResource = checkRule("vitalityResource");
-    if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+    if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
       update[vitalityResource.trim()] = newVitality;
-      const vitality = getProperty(actor, vitalityResource.trim()) ?? 0;
+      const vitality = foundry.utils.getProperty(actor, vitalityResource.trim()) ?? 0;
       updateContext["dvital"] = newVitality - vitality;
     }
     await actor?.update(update, updateContext);
@@ -1206,9 +1307,9 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, actor);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
         const vitalityResource = checkRule("vitalityResource");
-        if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+        if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
           context["dvital"] = oldVitality - newVitality;
         }
@@ -1232,9 +1333,9 @@ export let processUndoDamageCard = (message, html, data) => {
         reverseButton.children()[0].classList.add("midi-qol-enable-damage-button");
         log(`Setting HP to ${newTempHP} and ${newHP}`);
         const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-        const context = mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
         const vitalityResource = checkRule("vitalityResource");
-        if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+        if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = newVitality;
           context["dvital"] = oldVitality - newVitality;
         }
@@ -1259,9 +1360,9 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, data.updateContext);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
         const vitalityResource = checkRule("vitalityResource");
-        if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+        if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
           context["dvital"] = newVitality - oldVitality;
         }
@@ -1286,12 +1387,12 @@ export let processUndoDamageCard = (message, html, data) => {
         log(`Setting HP to ${newTempHP} and ${newHP}`, data.updateContext);
         if (mults[multiplierString]) {
           multiplier = mults[multiplierString]
-          await actor.applyDamage(totalDamage, {multiplier, ignore: true});
+          await actor.applyDamage(totalDamage, { multiplier, ignore: true });
         } else {
           const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-          const context = mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
+          const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
           const vitalityResource = checkRule("vitalityResource");
-          if (typeof vitalityResource === "string" && getProperty(actor, vitalityResource.trim()) !== undefined) {
+          if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
             update[vitalityResource.trim()] = newVitality;
             context["dvital"] = oldVitality - newVitality;
           }
@@ -1300,22 +1401,22 @@ export let processUndoDamageCard = (message, html, data) => {
         ev.stopPropagation();
       })();
     });
-/* I don't think this is a good idea - damage application should be triggered by the tick
-    let select = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`);
-    select.change((ev: any) => {
-      let multiplier = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`).val();
-      button = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
-      const mults = { "-1": -1, "x1": 1, "x0.25": 0.25, "x0.5": 0.5, "x2": 2 };
-      if (multiplier === "calc")
-        // button.click(async (ev: any) => await doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data));
-        doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data);
-      else if (mults[multiplier])
-        // button.click(async (ev: any) => await doClick(ev, actorUuid, totalDamage, mults[multiplier], data));
-        doClick(ev, actorUuid, totalDamage, mults[multiplier], data);
-    });
-    */
+    /* I don't think this is a good idea - damage application should be triggered by the tick
+        let select = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`);
+        select.change((ev: any) => {
+          let multiplier = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`).val();
+          button = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
+          const mults = { "-1": -1, "x1": 1, "x0.25": 0.25, "x0.5": 0.5, "x2": 2 };
+          if (multiplier === "calc")
+            // button.click(async (ev: any) => await doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data));
+            doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data);
+          else if (mults[multiplier])
+            // button.click(async (ev: any) => await doClick(ev, actorUuid, totalDamage, mults[multiplier], data));
+            doClick(ev, actorUuid, totalDamage, mults[multiplier], data);
+        });
+        */
   })
-  
+
   return true;
 }
 

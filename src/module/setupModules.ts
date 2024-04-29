@@ -47,13 +47,13 @@ export function getModuleVersion(moduleName): string {
 }
 export let setupModules = () => {
   //@ts-expect-error .version
-  if (isNewerVersion(game.system.version, "2.4.99")) {
+  if (foundry.utils.isNewerVersion(game.system.version, "2.4.99")) {
     ui.notifications?.error("Midi qol has not been tested with dnd 2.5.0 and there are known breaking changes");
   }
   for (let name of Object.keys(REQUIRED_MODULE_VERSIONS)) { 
     const modVer = getModuleVersion(name);
     const neededVer = REQUIRED_MODULE_VERSIONS[name];
-    const isValidVersion = isNewerVersion(modVer, neededVer) || !isNewerVersion(neededVer, modVer);
+    const isValidVersion = foundry.utils.isNewerVersion(modVer, neededVer) || !foundry.utils.isNewerVersion(neededVer, modVer);
     if (!installedModules.get(name)) installedModules.set(name, game.modules.get(name)?.active && isValidVersion) 
     if (!installedModules.get(name)) {
       if (game.modules.get(name)?.active) {

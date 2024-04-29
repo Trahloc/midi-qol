@@ -1,3 +1,24 @@
+### 11.4.24
+* Ensure fulldam/halfdam/nodam midiproperties are cleared when editing an item
+* Tiny/small creatures using a heavy weapon will do so at disadvantage. Added flags.midi-qol.fail.disadvantage.heavy which disables it.
+* First pass of reporting deprecation warnings for {async: false} dice rolls.
+* Fix for monk's token bar not picking up midi advantage/disadvantage settings. A side effect of the fix is that when using alt/ctrl on the monk's card alt=advantage,ctrl=disadvantage no matter what the midi settings are.
+* Added MidiQOL.addConcentrationDependent(actor, dependent, item?) which will add dependent (which must support dependent.uuid) to the entities to be deleted when concentration is removed from the actor. If using midi concentration midi will find the existing concentration, if it exists. If using dnd5e concentration and an item is passed midi will add the dependent to the concentration effect corresponnding to the item, if it exists. If item is not passed midi will pick the first concentration item it finds, if any. If midi can't find a concentration effect/concentration data on the actor nothing will be done.
+* Fix for midi sometimes removing attack/damage buttons when an attick misses.
+* added doSyncRoll - which will test synchronous rolls for v12 compatibility - it will provoke a warning for invalid rolls in v11 and ignore dice terms in v12. So look for warnings about rolls that will fail in v12.
+* First pass at v12 compatibility - so far all are backwards compatible to v11
+  - remove lots of deprecation warnings in midi/dae/
+  - changes to gridless to work with the new grid scheme.
+  - changes to canSee/vision processing to work in v12
+  - discovered bug in dnd5e check distance in v12 - will need to wait for a fix in dnd5e for that.
+  - Added some warnings for dice expressions not supported in v12. These still work in v11 but will fail in v12 and so are warned in v11 midi/dae
+  * Most flags.midi.xxxx.xxxx do support dice expressions in v12. This has meant that a few internal functions have changed from sync to async
+  * There is now evalAllConditions and evalAllCondistionAsync, the async version will allow dice expressions and returns a promise so must be awaited.
+  * evalCondition now takes an additional option async, when true evalCondition will allow dice expressions and returns a promise, so needs to be awaited.
+  * In v12 new Roll("1d4").evaluate({async: false}) will not work as expected, you need to do (await new Roll("1d4").evaluate()). evalCondition with async true will support such expressions.
+  * In v11 any of the reported issues are meant to just be warnings - so if something breaks let me know.
+  * some changes to deal with foundry v12 getProperty not working with an undefined object.
+  
 ### 11.4.23
 * Fix for auto setting dead when death saves fail and using CE.
 * Fix for midi incorrectly returning true for "empty" condition flags.

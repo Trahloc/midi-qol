@@ -8,7 +8,7 @@ const PATH = "./modules/midi-qol/sample-config/";
 export class ConfigPanel extends FormApplication {
   configHookId: number | undefined;
   static get defaultOptions(): any {
-    return mergeObject(super.defaultOptions, {
+    return foundry.utils.mergeObject(super.defaultOptions, {
       title: game.i18n.localize("midi-qol.ConfigTitle"),
       template: "modules/midi-qol/templates/config.html",
       id: "midi-qol-settings",
@@ -35,8 +35,8 @@ export class ConfigPanel extends FormApplication {
     if (!enableWorkflow) {
       ui.notifications?.error("Worklow automation is not enabled")
     }
-    let wallsBlockRangeOptions = duplicate(geti18nOptions("WallsBlockRangeOptionsNew"));
-    let CoverCalculationOptions = duplicate(geti18nOptions("CoverCalculationOptions"));
+    let wallsBlockRangeOptions = foundry.utils.duplicate(geti18nOptions("WallsBlockRangeOptionsNew"));
+    let CoverCalculationOptions = foundry.utils.duplicate(geti18nOptions("CoverCalculationOptions"));
     [{ id: "levelsautocover", name: "'Levels Auto Cover'" }, { id: "simbuls-cover-calculator", name: "'Simbuls Cover Calculator'" }, { id: "tokencover", name: "Alternative Token Cover" }].forEach(module => {
       if (!installedModules.get(module.id)) {
         wallsBlockRangeOptions[module.id] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: module.name })}`;
@@ -46,7 +46,7 @@ export class ConfigPanel extends FormApplication {
     if (!installedModules.get("levels")) {
       wallsBlockRangeOptions["centerLevels"] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Levels" })}`;
     }
-    let HiddenAdvantageOptions = duplicate(geti18nOptions("HiddenAdvantageOptions"));
+    let HiddenAdvantageOptions = foundry.utils.duplicate(geti18nOptions("HiddenAdvantageOptions"));
     [{ id: "perceptive", name: "Perceptive" }].forEach(module => {
       if (!installedModules.get(module.id)) {
         HiddenAdvantageOptions[module.id] += ` - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: module.name })}`;
@@ -58,9 +58,9 @@ export class ConfigPanel extends FormApplication {
     }
     if (configSettings.addWounded > 0 && ["none", undefined].includes(configSettings.addWoundedStyle))
       configSettings.addWoundedStyle = "normal";
-    const AddWoundedOptions = duplicate(geti18nOptions("AddDeadOptions"));
+    const AddWoundedOptions = foundry.utils.duplicate(geti18nOptions("AddDeadOptions"));
     delete AddWoundedOptions["none"];
-    let rollNPCSavesOptions = duplicate(geti18nOptions("rollNPCSavesOptions"));
+    let rollNPCSavesOptions = foundry.utils.duplicate(geti18nOptions("rollNPCSavesOptions"));
     for (let key of Object.keys(rollNPCSavesOptions)) {
       switch (key) {
         case "letme":
@@ -74,7 +74,7 @@ export class ConfigPanel extends FormApplication {
           if (!installedModules.get("epic-rolls-5e")) rollNPCSavesOptions[key] = `${rollNPCSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Epic Rolls" })}`;
       }
     }
-    let playerRollSavesOptions = duplicate(geti18nOptions("playerRollSavesOptions"));
+    let playerRollSavesOptions = foundry.utils.duplicate(geti18nOptions("playerRollSavesOptions"));
     for (let key of Object.keys(playerRollSavesOptions)) {
       switch (key) {
         case "letme":
@@ -143,9 +143,9 @@ export class ConfigPanel extends FormApplication {
       HiddenAdvantageOptions,
       ConfirmAttackDamageOptions: geti18nOptions("ConfirmAttackDamageOptions"),
       ChallengeModeArmorOptions: geti18nOptions("ChallengeModeArmorOptions"),
-      RollSkillsBlindOptions: mergeObject({ "none": "None", "all": "All" }, Object.keys(GameSystemConfig.skills).reduce((acc, s) => { acc[s] = GameSystemConfig.skills[s].label; return acc }, {})),
-      RollSavesBlindOptions: mergeObject({ "none": "None", "all": "All", "death": i18n("DND5E.DeathSave") }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
-      RollChecksBlindOptions: mergeObject({ "none": "None", "all": "All" }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
+      RollSkillsBlindOptions: foundry.utils.mergeObject({ "none": "None", "all": "All" }, Object.keys(GameSystemConfig.skills).reduce((acc, s) => { acc[s] = GameSystemConfig.skills[s].label; return acc }, {})),
+      RollSavesBlindOptions: foundry.utils.mergeObject({ "none": "None", "all": "All", "death": i18n("DND5E.DeathSave") }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
+      RollChecksBlindOptions: foundry.utils.mergeObject({ "none": "None", "all": "All" }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
       //@ts-expect-error
       StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name = i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, { "none": "None" }),
       SaveDROrderOptions: geti18nOptions("SaveDROrderOptions"),
@@ -237,10 +237,10 @@ export class ConfigPanel extends FormApplication {
   }
 
   async _updateObject(event, formData) {
-    formData = expandObject(formData);
+    formData = foundry.utils.expandObject(formData);
     formData.itemTypeList = configSettings.itemTypeList;
-    let newSettings = mergeObject(configSettings, formData, { overwrite: true, inplace: false })
-    // const newSettings = mergeObject(configSettings, expand, {overwrite: true})
+    let newSettings = foundry.utils.mergeObject(configSettings, formData, { overwrite: true, inplace: false })
+    // const newSettings = foundry.utils.mergeObject(configSettings, expand, {overwrite: true})
     if (game.user?.can("SETTINGS_MODIFY")) game.settings.set("midi-qol", "ConfigSettings", newSettings);
   }
 }
@@ -249,7 +249,7 @@ export class ItemTypeSelector extends FormApplication {
 
   /** @override */
   static get defaultOptions() {
-    return mergeObject(super.defaultOptions, {
+    return foundry.utils.mergeObject(super.defaultOptions, {
       id: "midi-qol-item-selector",
       classes: ["dnd5e"],
       title: "Show Item Details",
@@ -360,7 +360,7 @@ async function fetchConfigFile(filename: string | undefined): Promise<string> {
 }
 
 function showDiffs(current: any, changed: any, flavor: string = "", title: string = "") {
-  const diffs = diffObject(changed, current, { inner: true });
+  const diffs = foundry.utils.diffObject(changed, current, { inner: true });
   const changes: string[] = [];
   for (let key of Object.keys(diffs)) {
     let name: string;
@@ -631,10 +631,10 @@ export async function applySettings(key: string) {
   let settingsToApply = {};
   const config = quickSettingsDetails[key];
   if (config.configSettings) {
-    settingsToApply = duplicate(config.configSettings);
+    settingsToApply = foundry.utils.duplicate(config.configSettings);
     if (config.codeChecks) config.codeChecks(configSettings, settingsToApply)
     if (await showDiffs(configSettings, settingsToApply, "", config.shortDescription)) {
-      settingsToApply = mergeObject(configSettings, settingsToApply, { overwrite: true, inplace: true });
+      settingsToApply = foundry.utils.mergeObject(configSettings, settingsToApply, { overwrite: true, inplace: true });
       if (game.user?.can("SETTINGS_MODIFY")) game.settings.set("midi-qol", "ConfigSettings", settingsToApply);
       return true;
     }
