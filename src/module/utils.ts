@@ -5750,7 +5750,7 @@ export function midiMeasureDistances(segments, options: any = {}) {
   if (game.release.generation > 11) {
     isGridless = canvas?.grid?.constructor.name === "GridlessGrid";
   } else {
-    isGridless = canvas?.grid?.grid?.constructor.name !== "BaseGrid";
+    isGridless = canvas?.grid?.grid?.constructor.name === "BaseGrid";
   }
   if (!isGridless || !options.gridSpaces || !configSettings.griddedGridless) {
     const distances = canvas?.grid?.measureDistances(segments, options);
