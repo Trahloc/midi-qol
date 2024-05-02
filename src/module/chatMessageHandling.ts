@@ -1,6 +1,6 @@
 import { debug, warn, i18n, error, debugEnabled, MQdefaultDamageType, i18nFormat, GameSystemConfig } from "../midi-qol.js";
 import { DDBGameLogWorkflow, Workflow } from "./workflow.js";
-import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll } from "./settings.js";
+import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll, safeGetGameSetting } from "./settings.js";
 import { createDamageDetail, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat } from "./utils.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
@@ -125,7 +125,7 @@ export let hideRollRender = (msg, html, data) => {
       if (debugEnabled > 0) warn("hideRollRender | hiding message", msg.whisper);
       html.hide();
       // It seems that html.remove() can get called before the messagge is rendered to the dom?
-      setTimeout(() => {html.remove()}, 10);
+      setTimeout(() => { html.remove() }, 10);
     }
   }
   return true;
@@ -204,10 +204,7 @@ export let hideStuffHandler = (message, html, data) => {
       html.find(".midi-qol-save-total").remove();
       html.find(".midi-qol-save-full-display").hide();
     }
-    // Hide the save dc if required
-    if (!configSettings.displaySaveDC) {
-      html.find(".midi-qol-saveDC").hide();
-    }
+
     if (message.blind) {
       html.find(".midi-attack-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
       // html.find(".midi-damage-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
@@ -230,7 +227,28 @@ export let hideStuffHandler = (message, html, data) => {
         html.hide();
       }
     }
-    if (!configSettings.displayHitResultNumeric) {
+
+        // message.shouldDisplayChallenge returns true for message owners, which is not quite what we want.
+        let shouldDisplayChallenge = true;
+        if (game.user?.isGM) shouldDisplayChallenge = true;
+        else switch (safeGetGameSetting("dnd5e", "challengeVisibility")) {
+          case "all": shouldDisplayChallenge = true; break;
+          case "player": shouldDisplayChallenge = !game.user?.isGM; break;
+          default: shouldDisplayChallenge = false; break;
+        }
+    // Hide the save dc if required
+    if (!configSettings.displaySaveDC || !shouldDisplayChallenge) {
+      html.find(".midi-qol-saveDC").hide();
+    }
+    if (!shouldDisplayChallenge) {
+      html.find(".midi-qol-hits-display .midi-qol-hit-symbol").remove();
+      html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("hit");
+      html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("miss");
+      html.find(".midi-qol-saves-display .midi-qol-save-symbol").remove();
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("hit");
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("miss");
+    }
+    if (!configSettings.displayHitResultNumeric || !shouldDisplayChallenge) {
       html.find(".midi-qol-npc-ac").remove();
     }
 

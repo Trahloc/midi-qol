@@ -9,7 +9,7 @@
 <div class="dnd5e2 evaluation">
   {{#each saves as |save iid|}}
   <div>
-    <div class="midi-qol target {{save.saveClass}}" style="align-content: center;">
+    <div class="midi-qol target midi-qol-save-class {{save.saveClass}}" style="align-content: center;">
       <img src="{{save.img}}" style="background-color: var(--dnd5e-background-10);" />
       <div class="name-stacked">
         <span class="midi-qol-target-name title midi-qol-tooltip " id="{{save.target.id}}"
@@ -20,7 +20,7 @@
           <div class="midi-qol-playerTokenName">
             {{save.playerName}}
           </div>
-          <i class="fas {{save.saveSymbol}}"></i>
+          <i class="midi-qol-save-symbol fas {{save.saveSymbol}}"></i>
           <div class="midi-qol-tooltiptext midi-qol-save-tooltip" style="text-align: left;">
             {{{save.rollHTML}}}
 <!--           <div>{{save.rollDetail.formula}}</div>

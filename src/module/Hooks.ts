@@ -70,6 +70,7 @@ export let readyHooks = async () => {
       if (!getCachedDocument(message.uuid)) return true;
       const cachedUpdates = getUpdatesCache(message.uuid);
       clearUpdatesCache(message.uuid);
+      // hideStuffHandler(message, $(message.content), user);
       //@ts-expect-error
       if (!foundry.utils.isEmpty(cachedUpdates)) {
         if (debugEnabled > 0) warn("preUpdateChatMessage inserting updates", message.uuid, update, cachedUpdates);

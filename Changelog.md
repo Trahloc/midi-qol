@@ -1,3 +1,12 @@
+### 11.4.25
+* Fix for gridless grid not triggering correctly - thanks @Michael
+* Fix for end of turn over time effects not firing when skipping forward a whole round.
+* Fix for players forcing a gm rolled save throwing an error.
+* For item/actor onUse macros, which are either world macros or functions, macroItem will **always** be the same as rolledItem.
+* For macros tirggered via flags.midi-qol.onUseMacro, macroItem will refer to the item source of the macro (for ItemMacro change.values) or origin of the effect that applied the flag (scope.macroItem for function..../Macro./ItemMacro macro calls).
+* If dnd5e hide challenge visibility is set, midi will hide the results of hits/saves in the hits/saves display, both the DC/AC and result of the roll.
+* **Breaking** As of this release references to item in onUse macros will **always** refer to the rolledItem. You must use **macroItem** to refer to the item that is the source of the macro. This has had a deprecation warning since v11.2 of midi.
+
 ### 11.4.24
 * Ensure fulldam/halfdam/nodam midiproperties are cleared when editing an item
 * Tiny/small creatures using a heavy weapon will do so at disadvantage. Added flags.midi-qol.fail.disadvantage.heavy which disables it.

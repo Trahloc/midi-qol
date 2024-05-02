@@ -558,7 +558,6 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
   const MidiQOL = {
     addRollTo: function addRollTo(roll: Roll, bonusRoll: Roll): Roll,
     addConcentration: async function addConcentration(actorRef: Actor | string, concentrationData: ConcentrationData): Promise<void>,
-    return socketlibSocket.executeAsGM("addDependent", {concentrationEffectUuid: concentrationEffect.uuid, dependentUuid: dependent.uuid});
     addConcentrationDependent: async function addConcentrationDependent(actor: ActorRef, dependent, item?: Item),
     applyTokenDamage: async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
     canSense: function canSense(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): boolean,
@@ -773,39 +772,13 @@ function setupMidiQOLApi() {
   globalThis.MidiQOL.actionQueue = new foundry.utils.Semaphore();
 }
 
-export function testfunc(args) {
-  console.warn("MidiQOL testfunc called ", this, args)
+export function testfunc(scope) {
+  console.warn("MidiQOL testfunc called ", scope)
 }
 
 // Minor-qol compatibility patching
 function doRoll(event = { shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, type: "none" }, itemName, options = { type: "", versatile: false }) {
-  error("doRoll is deprecated and will be removed");
-  const speaker = ChatMessage.getSpeaker();
-  var actor;
-  if (speaker.token) {
-    const token = canvas?.tokens?.get(speaker.token)
-    actor = token?.actor;
-  } else {
-    actor = game.actors?.get(speaker.actor ?? "");
-  }
-  if (!actor) {
-    if (debugEnabled > 0) warn("No actor found for ", speaker);
-    return;
-  }
-  let pEvent = {
-    shiftKey: event.shiftKey,
-    ctrlKey: event.ctrlKey,
-    altKey: event.altKey,
-    metaKey: event.metaKey,
-    type: (event?.type === "contextmenu") || options.versatile ? "contextmenu" : ""
-  }
-  let item = actor?.items?.get(itemName) // see if we got an itemId
-  if (!item) item = actor?.items?.find(i => i.name === itemName && (!options.type || i.type === options.type));
-  if (item) {
-    return item.roll({ event: pEvent })
-  } else {
-    ui.notifications?.warn(game.i18n.format(`${SystemString}.ActionWarningNoItem`, { item: itemName, name: actor.name }));
-  }
+  error("doRoll is deprecated. Please use item.use() instead");
 }
 
 function setupMidiFlags() {

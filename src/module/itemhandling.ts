@@ -451,7 +451,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
 
     workflow.reactionQueried = false;
-    const blockReaction = itemUsesReaction && hasReaction && workflow.inCombat && needsReactionCheck(this.actor);
+    const blockReaction = itemUsesReaction && hasReaction && workflow.inCombat && needsReactionCheck(this.actor) && !options?.ammoSelector?.hasRun;
     if (blockReaction) {
       let shouldRoll = false;
       let d = await Dialog.confirm({
@@ -467,7 +467,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     const hasBonusAction = hasUsedBonusAction(this.actor);
     const itemUsesBonusAction = ["bonus"].includes(this.system.activation?.type);
-    const blockBonus = workflow.inCombat && itemUsesBonusAction && hasBonusAction && needsBonusActionCheck(this.actor);
+    const blockBonus = workflow.inCombat && itemUsesBonusAction && hasBonusAction && needsBonusActionCheck(this.actor) && !options?.ammoSelector?.hasRun;
     if (blockBonus) {
       let shouldRoll = false;
       let d = await Dialog.confirm({

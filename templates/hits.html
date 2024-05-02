@@ -5,23 +5,23 @@
   <div class="dnd5e2 evaluation">
     {{#each hits as |hit iid|}}
     <div>
-      <div class="midi-qol target {{hit.hitClass}}" style="align-content: center;">
+      <div class="midi-qol midi-qol-hit-class target {{hit.hitClass}}" style="align-content: center;">
         <img src="{{hit.img}}" style="background-color: var(--dnd5e-background-10);" />
         
         <div class="name-stacked">
           <span class="midi-qol-target-name title midi-qol-gmTokenName" id="{{hit.target.id}}"
             data-uuid="{{hit.target.document.uuid}}">
             {{{hit.gmName}}}
-            <i class="fas {{hit.hitSymbol}}"></i>
+            <i class="midi-qol-hit-symbol fas {{hit.hitSymbol}}"></i>
           </span>
           <span class="midi-qol-target-name title midi-qol-playerTokenName" id="{{hit.target.id}}"
             data-uuid="{{hit.target.document.uuid}}">
             {{hit.playerName}}
-            <i class="fas {{hit.hitSymbol}}"></i>
+            <i class="midi-qol-hit-symbol fas {{hit.hitSymbol}}"></i>
           </span>
         </div>
         {{#if showAC}}
-        <div class="{{hit.acClass}}">
+        <div class="midi-qol-hit-class {{hit.acClass}}">
           <span>
             <i class="fas fa-shield-halved"></i>
             {{#if hit.bonusAC}}
@@ -33,7 +33,7 @@
         </div>
         {{else}} 
         {{#if hit.bonusAC}}
-          <div class="{{hit.acClass}}">
+          <div class="midi-qol-hit-class {{hit.acClass}}">
             <span>
               <i class="fas fa-shield-halved"></i>
               <span style="font-weight: bold;">+{{hit.bonusAC}}</span>

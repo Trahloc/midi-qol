@@ -2323,7 +2323,6 @@ export class Workflow {
     macroData.options = options;
     macroData.tag = tag;
     macroData.macroPass = macroPass;
-
     if (debugEnabled > 1) {
       log("callMacros | calling", macros, "for", macroPass, "with", macroData);
     }
@@ -2345,8 +2344,15 @@ export class Workflow {
   }
 
   async callMacro(item, macroName: string, macroData: any, options: any): Promise<damageBonusMacroResult | any> {
-    let name = macroName?.trim();
+    let [name, uuid] = macroName?.trim().split("|");
     let macroItem;
+    if (uuid?.length > 0) {
+      //@ts-expect-error
+      macroItem = fromUuidSync(uuid);
+      if (macroItem instanceof ActiveEffect && macroItem.parent instanceof Item) {
+        macroItem = macroItem.parent;
+      }
+    }
     const rolledItem = item;
     if (!name) return undefined;
     let itemMacroData;
@@ -2354,10 +2360,11 @@ export class Workflow {
     const actorToUse = options.actor ?? this.actor;
     try {
       if (name.startsWith("function.")) {
+        let [func, uuid] = name.split("|");
         itemMacroData = {
           name: "function call",
           type: "script",
-          command: `return await ${name.replace("function.", "").trim()}({ speaker, actor, token, character, item, args, scope, workflow })`
+          command: `return await ${func.replace("function.", "").trim()}({ speaker, actor, token, character, item, rolledItem, macroItem, args, scope, workflow })`
         };
       } else if (name.startsWith(MQItemMacroLabel) || name.startsWith("ItemMacro")) {
         // ItemMacro
@@ -2429,27 +2436,9 @@ export class Workflow {
 
       const scope: any = {};
       scope.workflow = this;
-      if (macroItem && macroItem !== rolledItem) {
-        scope.item = new Proxy(macroItem, {
-          get(obj, prop, reciever) {
-            //@ts-expect-error
-            foundry.utils.logCompatibilityWarning("midi-qol | callMacro: references to item inside an ItemMacro is changing use macroItem instead", {
-              since: "11.2.2", until: "11.4"
-            });
-            return Reflect.get(obj, prop, reciever)
-          },
-          set(obj, prop, receiver) {
-            //@ts-expect-error
-            foundry.utils.logCompatibilityWarning("midi-qol | callMacro: references to item inside an ItemMacro is changing use macroItem instead", {
-              since: "11.2.2", until: "11.4"
-            });
-            return Reflect.set(obj, prop, receiver);
-          }
-        })
-      } else
       scope.item = rolledItem;
       scope.rolledItem = rolledItem;
-      scope.macroItem = macroItem;
+      scope.macroItem = macroItem ?? rolledItem;
       scope.args = args;
       scope.options = options;
       scope.actor = actor;
@@ -3293,7 +3282,7 @@ export class Workflow {
             // showRoll: whisper && !simulate,
             options: {
               simulate,
-              target: saveDetails.rollDC,
+              targetValue: saveDetails.rollDC,
               messageData: { user: owner?.id },
               chatMessage: showRoll,
               rollMode: whisper ? "gmroll" : "public",
@@ -3424,6 +3413,8 @@ export class Workflow {
         error(message, target);
         TroubleShooter.recordError(new Error(message), message);
         results[i] = await new Roll("1").roll({ async: true });
+      } else if (!(results[i] instanceof Roll)) {
+        results[i] = Roll.fromJSON(JSON.stringify(results[i]));
       }
       let result = results[i];
       let saveRollTotal = results[i]?.total || 0;
@@ -3521,14 +3512,14 @@ export class Workflow {
           saved = saveRollTotal >= rollDC;
           const dterm: DiceTerm = saveRoll.terms[0];
           const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
-          //@ts-ignore
+          //@ts-expect-error
           isFumble = diceRoll <= (dterm.options?.fumble ?? 1)
-          //@ts-ignore
+          //@ts-expect-error
           isCritical = diceRoll >= (dterm.options?.critical ?? 20);
         }
       }
       if (!saved) {
-        //@ts-ignore
+        //@ts-expect-error
         if (!(result instanceof CONFIG.Dice.D20Roll)) result = CONFIG.Dice.D20Roll.fromJSON(JSON.stringify(result));
         // const newRoll = await bonusCheck(target.actor, result, rollType, "fail")
         const failFlagsLength = collectBonusFlags(target.actor, rollType, "fail.all").length;

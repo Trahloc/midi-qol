@@ -819,7 +819,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   let totalDamage = 0;
 
   if (workflow.saveItem?.hasSave &&
-    (foundry.utils.getProperty(workflow.saveItem, "saveItem.flags.midiProperties.saveDamage") ?? "default") !==
+    (foundry.utils.getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") !==
     (foundry.utils.getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default")) {
     // need to keep bonus damage and base damage separate
     let merged = (workflow.bonusDamageDetail ?? []).reduce((acc, item) => {
@@ -935,7 +935,14 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
           };
 
           //@ts-expect-error
-          const returnDamages = token.actor.calculateDamage(damages, options);
+          let returnDamages = token.actor.calculateDamage(damages, options);
+          workflow.damages = returnDamages;
+          //@ts-expect-error isEmpty
+          if (!foundry.utils.isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
+            await workflow.callMacros(workflow.item, workflow.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
+            if (workflow.ammo) await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
+          }
+          returnDamages = workflow.damages;
           const appliedTotal = returnDamages.reduce((acc, value) => acc + value.value, 0);
           allDamages[tokenDocument.uuid].totalDamage += (options.midi.totalDamage ?? 0);
           allDamages[tokenDocument.uuid].appliedDamage += (options.midi.appliedDamage ?? 0);
@@ -1357,6 +1364,9 @@ export function midiCustomEffect(...args) {
       else if (change.effect?.origin?.includes("Item.")) {
         args[0] = `ItemMacro.${change.effect.origin}`;
       }
+    }
+    if (change.effect?.origin?.includes("Item.")) {
+      args[0] = `${args[0]}|${change.effect.origin}`;
     }
     const extraFlag = `[${args[1]}]${args[0]}`;
     const macroString = (currentFlag?.length > 0) ? [currentFlag, extraFlag].join(",") : extraFlag;
@@ -4409,7 +4419,7 @@ export async function evalAllConditionsAsync(actorRef: Token | TokenDocument | A
   for (let effect of effects) {
     for (let change of effect.changes) {
       if (change.key === flag) {
-        const condValue = await evalCondition(change.value, conditionData, {errorReturn, async: true});
+        const condValue = await evalCondition(change.value, conditionData, { errorReturn, async: true });
         if (debugEnabled > 0) warn("evalAllConditions Async", actor.name, flag, change.value, condValue, conditionData, errorReturn);
         if (condValue) {
           returnValue = condValue;
@@ -4420,7 +4430,7 @@ export async function evalAllConditionsAsync(actorRef: Token | TokenDocument | A
     }
   }
   if (effects.length === 0 && foundry.utils.getProperty(actor, flag)) {
-    returnValue = await evalCondition(foundry.utils.getProperty(actor, flag), conditionData, {errorReturn, async: true});
+    returnValue = await evalCondition(foundry.utils.getProperty(actor, flag), conditionData, { errorReturn, async: true });
     if (returnValue) {
       foundry.utils.setProperty(actor, `${keyToUse}.value`, returnValue);
       foundry.utils.getProperty(actor, `${keyToUse}.effects`).push("flag");
@@ -4443,7 +4453,7 @@ export function evalAllConditions(actorRef: Token | TokenDocument | Actor | stri
   for (let effect of effects) {
     for (let change of effect.changes) {
       if (change.key === flag) {
-        const condValue = evalCondition(change.value, conditionData, {errorReturn, async: false});
+        const condValue = evalCondition(change.value, conditionData, { errorReturn, async: false });
         if (debugEnabled > 0) warn("evalAllConditions ", actor.name, flag, change.value, condValue, conditionData, errorReturn);
         if (condValue) {
           returnValue = condValue;
@@ -4454,7 +4464,7 @@ export function evalAllConditions(actorRef: Token | TokenDocument | Actor | stri
     }
   }
   if (effects.length === 0 && foundry.utils.getProperty(actor, flag)) {
-    returnValue = evalCondition(foundry.utils.getProperty(actor, flag), conditionData, {errorReturn, async: false})
+    returnValue = evalCondition(foundry.utils.getProperty(actor, flag), conditionData, { errorReturn, async: false })
     if (returnValue) {
       foundry.utils.setProperty(actor, `${keyToUse}.value`, returnValue);
       foundry.utils.getProperty(actor, `${keyToUse}.effects`).push("flag");
@@ -5173,11 +5183,15 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   //@ts-expect-error .hidden
   if (target.document?.hidden || token.document?.hidden) return [];
   if (!token.hasSight && !configSettings.optionalRules.invisVision) return ["senseAll"];
+  if (!token.hasSight && !configSettings.optionalRules.invisVision) return ["senseAll"];
   for (let tk of [token]) {
     //@ts-expect-error
     if (!tk.document.sight.enabled || !token.vision?.active) {
       //@ts-expect-error
       console.warn("initialising vision for ", tk.name, tk.document.sight.enabled, token.vision?.active);
+      //@ts-expect-error
+      const sightEnabled = tk.document.sight.enabled;
+
       //@ts-expect-error
       tk.document.sight.enabled = true;
       //@ts-expect-error
@@ -5197,7 +5211,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
         //@ts-expect-error
         radius: Math.clamped(tk.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
         //@ts-expect-error
-        externalRadius: Math.max(tk.mesh.width, tk.mesh.height) / 2,
+        externalRadius: tk.externalRadius, // Math.max(tk.mesh.width, tk.mesh.height) / 2,
         //@ts-expect-error
         angle: tk.document.sight.angle,
         //@ts-expect-error
@@ -5234,7 +5248,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
       //@ts-expect-error
       canvas?.effects?.visionSources.set(sourceId, tk.vision);
       //@ts-expect-error
-      tk.document.sight.enabled = false;
+      tk.document.sight.enabled = sightEnabled;
     }
   }
 
@@ -6238,9 +6252,9 @@ export async function addConcentrationDependent(actorRef: Token | TokenDocument 
     removeUuids.push(dependent.uuid);
     concentrationData.removeUuids = removeUuids;
     if (game.user?.isGM || actor.isOwner) {
-    return actor.setFlag("midi-qol", "concentration-data", concentrationData);
+      return actor.setFlag("midi-qol", "concentration-data", concentrationData);
     } else {
-      return socketlibSocket.executeAsGM("_gmsetFlag", { base: "midi-qol", key: "concentration-data", value: concentrationData, actorUuid: actor.uuid});
+      return socketlibSocket.executeAsGM("_gmsetFlag", { base: "midi-qol", key: "concentration-data", value: concentrationData, actorUuid: actor.uuid });
     }
   }
   if (!item) {
@@ -6259,5 +6273,5 @@ export async function addConcentrationDependent(actorRef: Token | TokenDocument 
     //@ts-expect-error
     return concentrationEffect.addDependent(dependent);
   }
-  return socketlibSocket.executeAsGM("addDependent", {concentrationEffectUuid: concentrationEffect.uuid, dependentUuid: dependent.uuid});
+  return socketlibSocket.executeAsGM("addDependent", { concentrationEffectUuid: concentrationEffect.uuid, dependentUuid: dependent.uuid });
 }
