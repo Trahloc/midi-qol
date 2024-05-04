@@ -5703,7 +5703,6 @@ export function calcTokenCover(attacker: Token | TokenDocument, target: Token | 
     return 0;
   }
   let targetCover = coverCalc.targetCover(target);
-  let percentCover = coverCalc.percentCover(target);
   return targetCover;
 }
 
