@@ -321,6 +321,7 @@
     "d20Only": "Exibir Ataque d20 + Dano Total",
     "hitDamage": "Exibir Acerto/Erro + Dano Total",
     "hitCriticalDamage": "Exibir Acerto/Erro/Acerto Crítico/Falha Crítica + Dano Total",
+    "attackTotalOnly": "Exibir Apenas Total da Rolagem",
     "d20AttackOnly": "Exibir Apenas Ataques D20",
     "all": "Toda a Rolagem"
   },
