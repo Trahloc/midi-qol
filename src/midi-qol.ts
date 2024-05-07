@@ -5,7 +5,7 @@ import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, re
 import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Hooks.js';
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
-import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow } from './module/workflow.js';
+import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, DDBGameLogWorkflow } from './module/workflow.js';
 import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
@@ -175,6 +175,11 @@ Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
     specials[`system.traits.dm.midi.spell`] = ["", -1]
     specials[`system.traits.dm.midi.non-spell`] = ["", -1]
     specials[`system.traits.dm.midi.final`] = ["", -1];
+    specials[`system.traits.idi.value`] = ["", -1];
+    specials[`system.traits.idr.value`] = ["", -1];
+    specials[`system.traits.idv.value`] = ["", -1];
+    specials[`system.traits.ida.value`] = ["", -1];
+    specials[`system.traits.idm.value`] = ["", -1];
   }
 });
 Hooks.on("dae.addFieldMappings", (fieldMappings) => {
@@ -406,6 +411,8 @@ Hooks.once('ready', function () {
     "preDamageApplication": "Before Damage Application",
     "preActiveEffects": "Before Active Effects",
     "postActiveEffects": "After Active Effects ",
+    "isTargeted": "Target is targeted but before item is rolled",
+    "isPreAttacked": "Target is about to be attacked, before reactions are checked",
     "isAttacked": "Target is attacked",
     "isHit": "Target is hit",
     "preTargetSave": "Target is about to roll a saving throw",
@@ -664,6 +671,7 @@ function setupMidiQOLApi() {
   ];
 
   let humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "drow", "dwarf", "dwarven", "halfling", "gnome", "tiefling", "orc", "dragonborn", "half-orc"];
+  const Workflows = { "Workflow": Workflow, "DamageOnlyWorkflow": DamageOnlyWorkflow, "TrapWorkflow": TrapWorkflow, "DummyWorkflow": DummyWorkflow, "DDBGameLogWorkflow": DDBGameLogWorkflow };
   //@ts-ignore
   globalThis.MidiQOL = foundry.utils.mergeObject(globalThis.MidiQOL ?? {}, {
     addConcentration,
@@ -759,6 +767,7 @@ function setupMidiQOLApi() {
     WallsBlockConditions,
     warn,
     Workflow,
+    Workflows,
     moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }, animate: boolean = true) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
       if (tokenUuid) return untimedExecuteAsGM("moveToken", { tokenUuid, newCenter, animate });
@@ -992,6 +1001,7 @@ function setupMidiFlags() {
   for (let key of damageTypes) {
     midiFlags.push(`flags.midi-qol.absorption.${key}`);
   }
+  midiFlags.push("flags.midi-qol.fail.disadvantage.heavy");
 
   /*
   midiFlags.push(`flags.midi-qol.grants.advantage.attack.all`);

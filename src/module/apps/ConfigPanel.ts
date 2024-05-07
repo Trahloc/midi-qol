@@ -443,6 +443,16 @@ let quickSettingsDetails: any = {
       gmTargetConfirmation: "none"
     },
   },
+  ShowItemInfo: {
+    description: "Show Item Info in chat card",
+    shortDescription: "Show Item Info",
+    configSettings: {
+      showItemDetails: "all",
+    },
+    codeChecks: (current, settings) => {
+      settings.itemTypeList = Object.keys(CONFIG.Item.typeLabels).filter(key => !["backpack", "base"].includes(key));
+    }
+  },
   PlayerAuto: {
     description: "Player Attack/Damage Roll: Automatic",
     shortDescription: "Player Attack/Damage Roll: Automatic",

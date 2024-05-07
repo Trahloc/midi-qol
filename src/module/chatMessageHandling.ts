@@ -41,6 +41,15 @@ export function checkOverTimeSaves(message, data, options, user) {
     actor = game.scenes?.get(message.speaker.scene)?.tokens?.get(message.speaker.token)?.actor;
   }
   if (!actor) return true;
+  const overtimeActorUuid = foundry.utils.getProperty(message, "flags.midi-qol.overtimeActorUuid");
+  if (actor.uuid !== overtimeActorUuid) {
+    if (overtimeActorUuid) {
+      //@ts-expect-error
+      const overTimeActor = fromUuidSync(overtimeActorUuid);
+      ui.notifications?.warn(`Over time actor mismatch ${actor.name} should be ${overTimeActor.name}`);
+    }
+    return true;
+  }
   // Check that it is the actor's turn
   let activeCombatants = game.combats?.combats.map(combat => combat.combatant?.token?.id)
   const isTurn = activeCombatants?.includes(ChatMessage.getSpeaker({ actor })?.token);
@@ -56,7 +65,7 @@ export function checkOverTimeSaves(message, data, options, user) {
         await doOverTimeEffect(actor, effect, true, { saveToUse: roll, rollFlags: data.flags?.dnd5e?.roll, isActionSave: true })
       }
     };
-    func(actor, data.flags.dnd5e.roll, message.rolls[0]);
+    func(actor, data.flags.dnd5e.roll, message.rolls[message.rolls.length -1]);
   } catch (err) {
     const message = `checkOverTimeSaves error for ${actor?.name} ${actor.uuid}`;
     console.warn(message, err);

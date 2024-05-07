@@ -439,7 +439,7 @@ export function initHooks() {
     });
     api.registerItemTab(myTab);
 
-    api.itemSummary.registerCommands([
+    api.config.itemSummary.registerCommands([
       {
         label: i18n("midi-qol.buttons.roll"),
         enabled: (params) => ["weapon", "spell", "power", "feat", "tool", "consumable"].includes(params.item.type),
@@ -990,7 +990,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         switch (custom) {
           case "spell":
             for (let damage of damages) {
-              if (damage.type === "temphp") continue;
+              if (GameSystemConfig.healingTypes[damage.type]) continue;
               if (ignore("spell", damage.type, false) || damage.active["spell"]) continue;
               if (damage.properties.has("spell")) {
                 damage.active["spell"] = true;
@@ -1000,7 +1000,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             }
           case "nonmagic":
             for (let damage of damages) {
-              if (damage.type === "temphp") continue;
+              if (GameSystemConfig.healingTypes[damage.type]) continue;
               if (ignore("nonmagic", damage.type, false) || damage.active["nonmagic"]) continue;
               if (!damage.properties.has("magic") && !damage.properties.has("spell")) {
                 damage.active["nonmagic"] = true;
@@ -1010,7 +1010,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             }
           case "magic":
             for (let damage of damages) {
-              if (damage.type === "temphp") continue;
+              if (GameSystemConfig.healingTypes[damage.type]) continue;
               if (ignore("magic", damage.type, false) || damage.active["magic"]) continue;
               if (damage.properties.has("mgc") || damage.properties.has("spell")) {
                 damage.active["magic"] = true;
@@ -1086,7 +1086,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           drRoll = new Roll(`${actor.system.traits.dm.midi["non-magical"]}`, actor.getRollData())
           dr = doSyncRoll(drRoll, "traits.dm.midi.non-magical")?.total ?? 0;;
           selectedDamage = damages.reduce((total, damage) => {
-            const isNonMagical = !damage.properties.has("mgc");
+            const isNonMagical = !GameSystemConfig.healingTypes[damage.type] && !damage.properties.has("mgc");
             total += isNonMagical ? damage.value : 0;
             return total;
           }, 0);
@@ -1097,7 +1097,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
             const isNonMagical = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mgc");
-            total += isNonMagical ? damage.value : 0;
+            total += !GameSystemConfig.healingTypes[damage.type] && isNonMagical ? damage.value : 0;
             return total;
           }, 0);
           break;
@@ -1107,7 +1107,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi-non-silver-physical`)?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
-            const isNonSilver = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("sil");
+            const isNonSilver = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("sil");
             total += isNonSilver ? damage.value : 0;
             return total;
           }, 0);
@@ -1117,7 +1117,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.non-adamant-physical`)?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
-            const isNonSilver = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("adm");
+            const isNonSilver = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("adm");
             total += isNonSilver ? damage.value : 0;
             return total;
           }, 0);
@@ -1127,7 +1127,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.non-physical`)?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
-            const isNonPhysical = !game.system.config.damageTypes[damage.type]?.isPhysical;
+            const isNonPhysical = !GameSystemConfig.healingTypes[damage.type] && !game.system.config.damageTypes[damage.type]?.isPhysical;
             total += isNonPhysical ? damage.value : 0;
             return total;
           }, 0);
@@ -1138,7 +1138,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             drRoll = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData());
             dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.spell`)?.total ?? 0;
             selectedDamage = damages.reduce((total, damage) => {
-              const isSpell = damage.properties.has("spell");
+              const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
               total += isSpell ? damage.value : 0;
               return total;
             }, 0);
@@ -1149,7 +1149,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             drRoll = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData());
             dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.non-spell`)?.total ?? 0;
             selectedDamage = damages.reduce((total, damage) => {
-              const isSpell = damage.properties.has("spell");
+              const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
               total += isSpell ? 0 : damage.value;
               return total;
             }, 0);
@@ -1244,6 +1244,7 @@ Hooks.on("dnd5e.rollConcentration", (actor, roll) => {
   if (!Number.isNaN(roll.options.targetValue)) {
     roll.options.success = roll.total >= Number(roll.options.targetValue);
   }
+  if (checkRule("criticalSaves") && roll.isCritical) roll.options.success = true;
   // triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets, options: any = {}) {
 
   const rollData = foundry.utils.getProperty(actor, "flags.midi-qol.concentrationRollData");

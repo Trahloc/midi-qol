@@ -97,7 +97,7 @@ export function collectBonusFlags(actor, category, detail): any[] {
   return [];
 }
 
-export async function bonusCheck(actor, result: Roll, category, detail): Promise<Roll> {
+export async function bonusCheck(actor, result: Roll, category, detail, messageData: any = {}): Promise<Roll> {
   let bonusFlags = collectBonusFlags(actor, category, detail);
 
   if (bonusFlags.length > 0) {
@@ -107,7 +107,8 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       rollHTML: await midiRenderRoll(result),
       rollTotal: result.total,
       category,
-      detail: detail
+      detail: detail,
+      messageData
     }
     let title;
     let systemString = game.system.id.toUpperCase();
@@ -128,7 +129,8 @@ export async function bonusCheck(actor, result: Roll, category, detail): Promise
       checkMechanic("displayBonusRolls"),
       `${actor.name} - ${title}`,
       data.roll,
-      "roll"
+      "roll",
+      { messageData }
     );
     result = newRoll;
   }
@@ -141,7 +143,16 @@ async function doRollSkill(wrapped, ...args) {
     let [skillId, options = { event: {}, parts: [], advantage: false, disadvantage: false, simulate: false, targetValue: undefined }] = args;
     const chatMessage = options.chatMessage;
     const rollTarget = options.targetValue;
-    // options = foundry.utils.foundry.utils.mergeObject(options, mapSpeedKeys(null, "ability"), { inplace: false, overwrite: true });
+    let overtimeActorUuid;
+    if (options.event) {
+      const target = options.event?.target.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
+      if (target?.dataset?.midiOvertimeActorUuid) overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
+      if (overtimeActorUuid && this.uuid !== overtimeActorUuid) {
+        //@ts-expect-error
+        const actualActor = fromUuidSync(overtimeActorUuid);
+        if (actualActor) return actualActor.rollSkill(...args);
+      }
+    }
     const keyOptions = mapSpeedKeys(undefined, "ability");
     options.advantage ||= options.event?.advantage;
     options.disadvantage ||= options.event?.disadvantage;
@@ -177,6 +188,8 @@ async function doRollSkill(wrapped, ...args) {
     let messageData;
     Hooks.once(`${game.system.id}.preRollSkill`, (actor, rollData, skillId) => {
       messageData = rollData.messageData;
+      if (overtimeActorUuid)
+        messageData["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
     })
     result = await wrapped(skillId, procOptions);
     if (!result) return result;
@@ -204,8 +217,13 @@ async function doRollSkill(wrapped, ...args) {
     await displayDSNForRoll(result, "skill", rollMode);
 
     if (!options.simulate) {
-      result = await bonusCheck(this, result, "skill", skillId);
+      result = await bonusCheck(this, result, "skill", skillId, messageData);
       DSNMarkDiceDisplayed(result);
+    }
+    let success: boolean | undefined = undefined;
+    if (rollTarget !== undefined) {
+      success = result.total >= rollTarget;
+      result.options.success = success;
     }
     if (chatMessage !== false && result) {
       await displayDSNForRoll(result, "skill", rollMode);
@@ -213,11 +231,7 @@ async function doRollSkill(wrapped, ...args) {
         await result.toMessage(messageData, { rollMode });
     }
     game.settings.set("core", "rollMode", saveRollMode);
-    let success: boolean | undefined = undefined;
-    if (rollTarget !== undefined) {
-      success = result.total >= rollTarget;
-      result.options.success = success;
-    }
+
     await expireRollEffect.bind(this)("Skill", skillId, success);
     return result;
   } catch (err) {
@@ -378,8 +392,28 @@ function configureDamage(wrapped) {
 
 async function doAbilityRoll(wrapped, rollType: string, ...args) {
   let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false, isConcentrationCheck: false }] = args;
+  let overtimeActorUuid;
+  if (options.event) {
+    const target = options.event?.target.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
+    if (target?.dataset?.midiOvertimeActorUuid) {
+      overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
+      options.rollMode = target.dataset.midiRollMode ?? options.rollMode;
+    }
+    if (overtimeActorUuid && this.uuid !== overtimeActorUuid) {
+      //@ts-expect-error
+      const actualActor = fromUuidSync(overtimeActorUuid);
+      if (actualActor && rollType === "save")
+        return actualActor.rollAbilitySave(...args);
+      else return actualActor.rollAbilityTest(...args);
+    }
+  }
   try {
     const rollTarget = options.targetValue;
+    if (rollTarget !== undefined && !checkRule("criticalSaves")) { // We have a target value, which means we are checking for success and not criticals
+      options.critical = 21;
+      options.fumble = 0;
+    }
+
     let success: boolean | undefined = undefined;
     if (procAutoFail(this, rollType, abilityId)) {
       options.parts = ["-100"];
@@ -387,7 +421,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
 
     if (options.fromMars5eChatCard) { // It seems mtb ignores the advantage/disadvantage flags sent in the request
-      options.advantage = options.event?.altKey;  
+      options.advantage = options.event?.altKey;
       options.disadvantage = options.event?.ctrlKey;
       if (!autoFastForwardAbilityRolls) options.fastForward = options.event?.shiftKey;
     }
@@ -419,6 +453,8 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     const type = rollType === "save" ? "preRollAbilitySave" : "preRollAbilityTest";
     Hooks.once(`${game.system.id}.${type}`, (actor, rollData, skillId) => {
       messageData = rollData.messageData;
+      if (overtimeActorUuid)
+        messageData["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
     })
     result = await wrapped(abilityId, procOptions);
     if (success === false) {
@@ -447,7 +483,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       result = setRollMinDiceTerm(result, Number(minValue));
     }
 
-    let rollMode: string = result.options.rollMode ?? game.settings.get("core", "rollMode");
+    let rollMode: string = options.rollMode ?? result.options.rollMode ?? game.settings.get("core", "rollMode");
     let blindCheckRoll;
     let blindSaveRoll;
     const saveRollMode = game.settings.get("core", "rollMode");
@@ -472,25 +508,26 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
     if (rollMode !== "blindroll") rollMode = result.options.rollMode;
     await displayDSNForRoll(result, rollType, rollMode);
-
+    foundry.utils.mergeObject(messageData, { "flags": options.flags ?? {} });
+    foundry.utils.setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
     if (!options.simulate) {
-      result = await bonusCheck(this, result, rollType, abilityId);
+      result = await bonusCheck(this, result, rollType, abilityId, messageData);
       DSNMarkDiceDisplayed(result);
     }
 
+    if (rollTarget !== undefined && success === undefined) {
+      success = result.total >= rollTarget;
+      result.options.success = success;
+    }
+
     if (chatMessage !== false && result) {
-      foundry.utils.mergeObject(messageData, { "flags": options.flags ?? {} });
-      foundry.utils.setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
       messageData.template = "modules/midi-qol/templates/roll-base.html";
       if (foundry.utils.getProperty(result, "flags.midi-qol.chatMessageShown") !== true)
         await result.toMessage(messageData, { rollMode });
     }
     game.settings.set("core", "rollMode", saveRollMode);
 
-    if (rollTarget !== undefined && success === undefined) {
-      success = result.total >= rollTarget;
-      result.options.success = success;
-    }
+
     await expireRollEffect.bind(this)(rollType, abilityId, success);
     return result;
   } catch (err) {
@@ -508,7 +545,6 @@ async function rollAbilityTest(wrapped, ...args) {
 }
 
 async function rollDeathSave(wrapped, options) {
-  console.error ("rollDeathSave", options, this.system.attributes.death);
   mergeKeyboardOptions(options ?? {}, mapSpeedKeys(undefined, "ability"));
   const advFlags = foundry.utils.getProperty(this, "flags.midi-qol")?.advantage;
   const disFlags = foundry.utils.getProperty(this, "flags.midi-qol")?.disadvantage;
@@ -824,19 +860,19 @@ export function initPatching() {
       }
       if (!effectClass.prototype.removeDependent)
         effectClass.prototype.removeDependent = removeDependent;
-      if (!effectClass.prototype.clearDependents) 
+      if (!effectClass.prototype.clearDependents)
         effectClass.prototype.clearDependents = clearDependents;
     }
   }
 }
 
 function removeDependent(dependent: any) {
-  const dependents =  (this.getFlag("dnd5e", "dependents") || []).filter(dep => dep.uuid !== dependent.uuid);
+  const dependents = (this.getFlag("dnd5e", "dependents") || []).filter(dep => dep.uuid !== dependent.uuid);
   if (dependents.length === 0) return this.unsetFlag("dnd5e", "dependents");
   return this.setFlag("dndn5e", "dependents", dependents);
 }
 
-function  clearDependents() {
+function clearDependents() {
   return this.unsetFlag("dnd5e", "dependents");
 }
 
@@ -1147,7 +1183,7 @@ export async function checkWounded(actor, update, options, user) {
     const needsWounded = attributes.hp.pct < configSettings.addWounded && !needsBeaten;
     const woundedStatus = getWoundedStatus();
     if (!woundedStatus) {
-      const message = "wounded status condition not set - please update your midi-qol dead condition on the mechanics tab";
+      const message = "wounded status condition not set - please update your midi-qol wounded condition on the mechanics tab";
       TroubleShooter.recordError(new Error(message), "In check wounded");
       ui.notifications?.warn(`midi-qol | ${message}`);
     } else if (installedModules.get("dfreds-convenient-effects") && woundedStatus.id.startsWith("Convenient Effect:")) {
@@ -1446,10 +1482,10 @@ export async function checkDeleteTemplate(templateDocument, options, user) {
 export let actorAbilityRollPatching = () => {
 
   log("Patching roll abilities Save/Test/Skill/Tool")
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilitySave", rollAbilitySave, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilityTest", rollAbilityTest, "WRAPPER");
+  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilitySave", rollAbilitySave, "MIXED");
+  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilityTest", rollAbilityTest, "MIXED");
   libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollDeathSave", rollDeathSave, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollSkill", doRollSkill, "WRAPPER");
+  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollSkill", doRollSkill, "MIXED");
   libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollToolCheck", rollToolCheck, "WRAPPER");
 
   // 10.0.19 rollDeath save now implemented via the preRollDeathSave Hook

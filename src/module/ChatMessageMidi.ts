@@ -1,5 +1,6 @@
 import { GameSystemConfig, debugEnabled, i18n, log, warn } from "../midi-qol.js";
 import { chatDamageButtons } from "./chatMessageHandling.js";
+import { setDamageRollMinTerms } from "./itemhandling.js";
 import { addChatDamageButtons, configSettings } from "./settings.js";
 import { getDamageType } from "./utils.js";
 
@@ -17,6 +18,7 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
   collectRolls(rollsToAccumulate: Roll[], multiRolls: boolean = false): any[] {
     let returns: any[] = [];
     let rolls: Roll[] = [];
+    setDamageRollMinTerms(rollsToAccumulate);
     for (let i = 0; i < rollsToAccumulate.length; i++) {
       if (!multiRolls && i < rollsToAccumulate.length - 1) {
         continue;

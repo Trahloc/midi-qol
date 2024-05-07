@@ -685,6 +685,11 @@ export class Workflow {
     return this.WorkflowState_ValidateRoll;
   }
   async WorkflowState_ValidateRoll(context: any = {}): Promise<WorkflowState> {
+    if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) {
+      await this.triggerTargetMacros(["isTargeted"]);
+      if (this.aborted) return this.WorkflowState_Abort;
+    }
+      
     // do pre roll checks
     if (checkMechanic("checkRange") !== "none" && (!this.AoO || ["rwak", "rsak", "rpak"].includes(this.item.system.actionType)) && this.tokenId) {
       const { result, attackingToken, range, longRange } = checkRange(this.item, canvas?.tokens?.get(this.tokenId) ?? "invalid", this.targets);
@@ -888,13 +893,15 @@ export class Workflow {
         // Do special expiries
         await this.expireTargetEffects(["isAttacked"]);
         if (configSettings.confirmAttackDamage !== "none") return this.WorkflowState_ConfirmRoll;
+        // Normally a miss does not finish a workflow, but if we are doing attacks per target we have to be able to advance to the next roll
+        if (configSettings.attackPerTarget && configSettings.autoRollDamage !== "always") return this.WorkflowState_RollFinished;
         else return this.WorkflowState_WaitForDamageRoll;
-        // else return this.WorkflowState_RollFinished;
       }
     }
     if (debugCallTiming) log(`AttackRollComplete elapsed ${Date.now() - attackRollCompleteStartTime}ms`)
     return this.WorkflowState_WaitForDamageRoll;
   }
+
   async WorkflowState_WaitForDamageRoll(context: any = {}): Promise<WorkflowState> {
     if (context.damageRoll) {
       // record the data - currently done in item handling
@@ -1095,7 +1102,7 @@ export class Workflow {
       for (let token of this.targets) {
         const otherCondition = foundry.utils.getProperty(this.otherDamageItem, "flags.midi-qol.otherCondition") ?? "";
         if (otherCondition !== "") {
-          if (evalActivationCondition(this, otherCondition, token))
+          if (await evalActivationCondition(this, otherCondition, token, {async: true, errorReturn: false}))
             this.otherDamageMatches.add(token);
         }
         else {
@@ -1121,9 +1128,9 @@ export class Workflow {
     if (this.ammo) items.push(this.ammo);
     for (let theItem of items) {
       for (let token of this.targets) {
-        const activationCondition = effectActivationConditionToUse.bind(theItem)(this)
+        const activationCondition = effectActivationConditionToUse.bind(theItem)(this);
         if (activationCondition) {
-          if (evalActivationCondition(this, activationCondition, token)) {
+          if (await evalActivationCondition(this, activationCondition, token, {async: true, errorReturn: true})) {
             this.activationMatches.add(token);
           } else
             this.activationFails.add(token);
@@ -1157,7 +1164,6 @@ export class Workflow {
       this.applicationTargets = this.targets;
     let anyActivationTrue = this.applicationTargets.size > 0;
 
-    await this.expireTargetEffects(specialExpiries);
     if (configSettings.autoItemEffects === "off" && !this.forceApplyEffects) return this.WorkflowState_RollFinished; // TODO see if there is a better way to do this.
 
     for (let theItem of items) {
@@ -1930,6 +1936,27 @@ export class Workflow {
         && (this.hitTargets.has(target) || this.hitTargetsEC.has(target))
         && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
 
+      if (this.targets.has(target) && triggerList.includes("isTargeted")) {
+        if (wasAttacked && triggerList.includes("isTargeted")) {
+          //@ts-ignore
+          result.push(...await this.callMacros(this.item,
+            actorOnUseMacros?.getMacros("isTargeted"),
+            "TargetOnUse",
+            "isTargeted",
+            { actor: target.actor, token: target })
+          );
+        }
+      }
+      if (wasAttacked && triggerList.includes("isPreAttacked")) {
+        //@ts-ignore
+        result.push(...await this.callMacros(this.item,
+          actorOnUseMacros?.getMacros("isAttacked"),
+          "TargetOnUse",
+          "isPreAttacked",
+          { actor: target.actor, token: target })
+        );
+      }
+
       if (wasAttacked && triggerList.includes("isAttacked")) {
         //@ts-ignore
         result.push(...await this.callMacros(this.item,
@@ -2663,9 +2690,8 @@ export class Workflow {
     } else {
       const damageButtonRe = /<button data-action="damage" style="flex:3 1 0">(\[\d*\] )*([^<]+)<\/button>/;
       content = content.replace(damageButtonRe, `<button data-action="damage" style="flex:3 1 0">$2</button>`);
-
     }
-    await debouncedUpdate(chatMessage, { "content": content, flags: newFlags, rolls: this.chatRolls }, false);
+    await debouncedUpdate(chatMessage, { "content": content, flags: newFlags, rolls: doMerge ? this.chatRolls : [] }, false);
     // await chatMessage?.update({ "content": content, flags: newFlags, rolls: (messageRolls) });
   }
 
@@ -2687,13 +2713,12 @@ export class Workflow {
         isPC: targetToken.actor?.hasPlayerOwner,
         target: targetToken,
         hitClass: "none",
-        //@ts-expect-error
-        acClass: targetToken.document.actorLink ? "" : "midi-qol-npc-ac",
+        acClass: !targetToken.actor?.hasPlayerOwner ? "" : "midi-qol-npc-ac",
         img,
         gmName: getTokenName(targetToken),
         playerName: getTokenPlayerName(targetToken),
         uuid: targetToken.uuid,
-        showAC: false,
+        showAC: true,
         isHit: this.hitTargets.has(targetToken)
       };
     }
@@ -3493,6 +3518,13 @@ export class Workflow {
       if (foundry.utils.getProperty(this.actor, "flags.midi-qol.carefulSpells") && (this.rangeTargeting || this.temptargetConfirmation) && this.preSelectedTargets.has(target)) {
         saved = true;
       }
+      if (saved) {
+        this.saves.add(target);
+        this.failedSaves.delete(target);
+      } else {
+        this.saves.delete(target);
+        this.failedSaves.add(target);
+      }
       if (!foundry.utils.getProperty(this.saveItem, "flags.midi-qol.noProvokeReaction")) {
         if (saved)
           //@ts-expect-error
@@ -3502,6 +3534,7 @@ export class Workflow {
           await doReactions(target, this.tokenUuid, this.attackRoll, "reactionsavefail", { workflow: this, item: this.saveItem })
       }
       if (isCritical) this.criticalSaves.add(target);
+      
       let newRoll;
       if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) {
         const rollResults = await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], new Set([target]), { saved });
@@ -3579,6 +3612,9 @@ export class Workflow {
       if (saved) {
         this.saves.add(target);
         this.failedSaves.delete(target);
+      } else {
+        this.saves.delete(target);
+        this.failedSaves.add(target);
       }
 
       if (game.user?.isGM) log(`Ability save/check: ${target.name} rolled ${saveRollTotal} vs ${rollAbility} DC ${rollDC}`);
@@ -4074,11 +4110,10 @@ export class Workflow {
         hitStyle,
         ac: targetAC,
         hitClass: ["hit", "critical", "isHitEC"].includes(isHitResult) ? "hit" : "miss",
-        //@ts-expect-error
-        acClass: targetToken.document.actorLink ? "" : "midi-qol-npc-ac",
+        acClass: !targetToken.actor?.hasPlayerOwner ? "" : "midi-qol-npc-ac",
         hitSymbol,
         attackType,
-        showAC: configSettings.displayHitResultNumeric,
+        showAC: true,
         img,
         gmName: getIconFreeLink(targetToken),
         playerName: getTokenPlayerName(targetToken instanceof Token ? targetToken.document : targetToken),
@@ -4703,7 +4738,11 @@ export class DDBGameLogWorkflow extends Workflow {
     this.damageRolled = false;
     this.attackRolled = !item.hasAttack;
     // for dnd beyond only roll if other damage is defined.
-    this.needsOtherDamage = this.item.system.formula && shouldRollOtherDamage.bind(this.otherDamageItem)(this, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
+    if (this.item.system.formula) {
+      shouldRollOtherDamage.bind(this.otherDamageItem)(this, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage)
+      .then(result => this.needsOtherDamage = result);
+    }
+    // this.needsOtherDamage = this.item.system.formula && shouldRollOtherDamage.bind(this.otherDamageItem)(this, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
     this.kickStart = true;
     this.flagTags = { "ddb-game-log": { "midi-generated": true } }
   }

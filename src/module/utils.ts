@@ -10,9 +10,6 @@ import { OnUseMacros } from "./apps/Item.js";
 import { Options } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
-import { DEFAULT_MACRO_ICON } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/constants.mjs.js";
-import { isVoidExpression } from "typescript";
-import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 
 const defaultTimeout = 30;
 export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | String;
@@ -1394,7 +1391,7 @@ export function midiCustomEffect(...args) {
         case "number":
           val = Number.isNumeric(change.value) ? JSON.parse(change.value) : 0; break;
         default: // boolean by default
-          val = evalCondition(change.value, actor.getRollData())
+          val = evalCondition(change.value, actor.getRollData(), {async: false})
       }
       if (debugEnabled > 0) warn("midiCustomEffect | setting ", change.key, " to ", val, " from ", change.value, " on ", actor.name);
       foundry.utils.setProperty(actor, change.key, val);
@@ -1501,7 +1498,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       let value = replaceAtFields(applyCondition, rollData, { blankValue: 0, maxIterations: 3 });
       let result;
       try {
-        result = evalCondition(value, rollData);
+        result = await evalCondition(value, rollData, {async: true});
         // result = Roll.safeEval(value);
       } catch (err) {
         const message = `midi-qol | gmOverTimeEffect | error when evaluating overtime apply condition ${value} - assuming true`;
@@ -1514,11 +1511,24 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
 
     const changeTurnStart = details.turn === "start" ?? false;
     const changeTurnEnd = details.turn === "end" ?? false;
-    const actionSave = JSON.parse(details.actionSave ?? "false");
+    let actionSave = details.actionSave;
+    if (![undefined, "dialog", "roll"].includes(actionSave)) {
+      console.warn(`midi-qol | gmOverTimeEffect | invalid actionSave: ${actionSave} for ${actor.name} ${effect.name}`);
+      console.warn(`midi-qol | gmOverTimeEffect | valid values are "undefined", "dialog" or "roll"`);
+      if (["0", "false"].includes(actionSave)) actionSave = undefined;
+      else actionSave = "roll";
+      console.warn(`midi-qol | gmOverTimeEffect | setting actionSave to ${actionSave}`);
+    }
+
     const saveAbilityString = (details.saveAbility ?? "");
     const saveAbility = (saveAbilityString.includes("|") ? saveAbilityString.split("|") : [saveAbilityString]).map(s => s.trim().toLocaleLowerCase())
-    const label = (details.name ?? details.label ?? "Damage Over Time").replace(/"/g, "");
+    const label = (details.name ?? details.label ?? effect.name).replace(/"/g, "");
     const chatFlavor = details.chatFlavor ?? "";
+    const rollTypeString = details.rollType ?? "save";
+    const rollType = (rollTypeString.includes("|") ? rollTypeString.split("|") : [rollTypeString]).map(s => s.trim().toLocaleLowerCase())
+    const saveMagic = JSON.parse(details.saveMagic ?? "false"); //parse the saving throw true/false
+    const rollMode = details.rollMode;
+
     let actionType = "other";
     if (Object.keys(GameSystemConfig.itemActionTypes).includes(details.actionType?.toLocaleLowerCase())) actionType = details.actionType.toLocaleLowerCase();
     const messageFlavor = {
@@ -1526,37 +1536,162 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       "check": `${GameSystemConfig.abilities[saveAbilityString]?.label ?? saveAbilityString} ${i18n("midi-qol.ability-check")}`,
       "skill": `${GameSystemConfig.skills[saveAbilityString]?.label ?? saveAbilityString} ${i18n("midi-qol.skill-check")}`
     };
-    if (actionSave && startTurn && changeTurnEnd && !options.isActionSave) {
-      const chatData = {
-        speaker: ChatMessage.getSpeaker({ actor }),
-        content: `${effect.name} ${i18n(messageFlavor[details.rollType])} as your action to overcome ${label}`
-      };
-      ChatMessage.create(chatData);
+    let saveDC;
+    let value;
+    let saveResultDisplayed = false;
+    try {
+      value = replaceAtFields(details.saveDC, rollData, { blankValue: 0, maxIterations: 3 });
+      saveDC = !!value && Roll.safeEval(value);
+    } catch (err) {
+      TroubleShooter.recordError(err, `overTime effect | error evaluating saveDC ${value}`);
+    } finally {
+      if (!value) saveDC = -1
     }
 
-    if (!!!actionSave && !!options.isActionSave) continue;
-
-    if ((endTurn && changeTurnEnd) || (startTurn && changeTurnStart) || (actionSave && options.saveToUse)) {
-      let saveDC;
-      let value;
-      try {
-        value = replaceAtFields(details.saveDC, rollData, { blankValue: 0, maxIterations: 3 });
-        saveDC = !!value && Roll.safeEval(value);
-      } catch (err) {
-        TroubleShooter.recordError(err, `overTime effect | error evaluating saveDC ${value}`);
-      } finally {
-        if (!value) saveDC = -1
+    if (endTurn) {
+      const chatcardUuids = effect.getFlag("midi-qol", "overtimeChatcardUuids");
+      if (chatcardUuids) for (let chatcardUuid of chatcardUuids) {
+        //@ts-expect-error
+        const chatCard = fromUuidSync(chatcardUuid);
+        chatCard?.delete();
       }
+    }
+
+    if (options.isActionSave && actionSave === "dialog") {
+      // generated by a save roll so we can ignore
+      continue;
+    }
+      //@ts-expect-error
+      let owner = playerForActor(actor) ?? game.users?.activeGM;
+    //@ts-expect-error
+    if (!owner?.active) owner = game.users?.activeGM;
+    if (actionSave && startTurn && actionSave === "dialog") {
+      if (!owner?.active) {
+        error(`No active owmer to request overtime save for ${actor.name} ${effect.name}`);
+        return effect.id;
+      }
+      let saveResult: any = await new Promise(async (resolve, reject) => {
+        const timeoutId = setTimeout(reject, configSettings.playerSaveTimeout * 1000)
+        const content = `${actor.name} use your action to overcome ${label}`;
+        const result = await socketlibSocket.executeAsUser("rollActionSave", owner?.id, {
+          title: `${actor.name} Action: ${label}`,
+          content,
+          actorUuid: actor.uuid,
+          request: rollTypeString,
+          abilities: saveAbility,
+          saveDC,
+          actionSave,
+          options: {
+            simulate: false,
+            targetValue: saveDC,
+            messageData: { user: owner?.id, flavor: `${label} ${i18n(messageFlavor[details.rollType])}` },
+            chatMessage: true,
+            rollMode,
+            mapKeys: false,
+            // advantage: saveDetails.advantage,
+            // disadvantage: saveDetails.disadvantage,
+            fastForward: false,
+            isMagicSave: saveMagic,
+            isConcentrationCheck: false
+          }
+        });
+        clearTimeout(timeoutId);
+        resolve(result);
+      });
+      if (saveResult?.class) saveResult = JSON.parse(JSON.stringify(saveResult));
+      const success = saveResult?.options?.success || saveResult?.total >= saveDC;
+      if (saveResult?.options) saveResultDisplayed = true;
+      setProperty(effect, "flags.midi-qol.actionSaveSuccess", success === true);
+    } else if (actionSave && actionSave === "roll" && options.isActionSave && options.saveToUse) {
+      // player has made a save record the save/flags on the effect
+      // if a match and saved then record the save success
+      if (!options.rollFlags) return effect.id;
+      if (options.rollFlags.type === "ability") options.rollFlags.type = "check";
+      if (!rollType.includes(options.rollFlags.type) || !saveAbility.includes(options.rollFlags.abilityId ?? options.rollFlags.skillId)) continue;
+      const success = options.saveToUse?.options?.success || options.saveToUse?.total >= saveDC || (checkRule("criticalSaves") && options.saveToUse.isCritical);
+      if (success !== undefined) {
+        const chatcardUuids = effect.getFlag("midi-qol", "overtimeChatcardUuids");
+        for (let chatcardUuid of chatcardUuids) {
+          //@ts-expect-error
+          const chatCard = fromUuidSync(chatcardUuid);
+          await chatCard?.delete();
+        }
+      }
+      if (success) {
+        expireEffects(actor, [effect], { "expiry-reason": "midi-qol:overTime:actionSave" });
+        return effect.id;
+      } else {
+        await effect.setFlag("midi-qol", "actionSaveSuccess", success === true);
+      }
+
+      /*
+      if (success !== undefined && !saveResultDisplayed) {
+        let content;
+        if (success) {
+          content = `${effect.name} ${messageFlavor[details.rollType]} ${i18n("midi-qol.save-success")}`;
+        } else {
+          content = `${effect.name} ${messageFlavor[details.rollType]} ${i18n("midi-qol.save-failure")}`;
+        }
+      }
+      */
+      return effect.id;
+    } else if (actionSave === "roll" && startTurn) {
+      const MessageClass = getDocumentClass("ChatMessage");
+      let dataset;
+      const chatCardUuids: string[] = [];
+      for (let ability of saveAbility) {
+        dataset = dataset = { type: rollTypeString, dc: saveDC, item: effect.name, action: "rollRequest", midiOvertimeActorUuid: actor.uuid, rollMode };
+        if (["check", "save"].includes(rollTypeString)) dataset.ability = ability;
+        // dataset = { type: rollTypeString, ability, dc: saveDC, item: effect.name, action: "rollRequest", midiOvertimeActorUuid: actor.uuid };
+        else if (rollTypeString === "skill") dataset.skill = ability;
+        // dataset = { type: rollTypeString, dc: saveDC, skill: ability, item: effect.name, action: "rollRequest", midiOvertimeActorUuid: actor.uuid };
+        let whisper: User[] = ChatMessage.getWhisperRecipients(owner.name);
+        if (owner.isGM) {
+          whisper = ChatMessage.getWhisperRecipients("GM");
+        }
+
+        // const content = `${effect.name} ${i18n(messageFlavor[details.rollType])} as your action to overcome ${label}`;
+        const chatData = {
+          user: game.user?.id,
+          whisper: whisper.map(u => u.id ?? ""),
+          rollMode: rollMode ?? "public",
+          content: await renderTemplate("systems/dnd5e/templates/chat/request-card.hbs", {
+            //@ts-expect-error
+            buttonLabel: game.system.enrichers.createRollLabel({ ...dataset, format: "short", icon: true, hideDC: !owner.isGM && !configSettings.displaySaveDC }),
+            //@ts-expect-error
+            hiddenLabel: game.system.enrichers.createRollLabel({ ...dataset, format: "short", icon: true, hideDC: true }),
+            dataset
+          }),
+          flavor: `Action: ${label ?? effect.name} ${i18n(messageFlavor[details.rollType])}`,
+          speaker: MessageClass.getSpeaker({ actor })
+        };
+        //@ts-expect-error TODO: Remove when v11 support is dropped.
+        if (game.release.generation < 12) chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+        const chatCard = await ChatMessage.create(chatData);
+        if (chatCard) {
+          chatCardUuids.push(chatCard.uuid);
+          chatCard?.setFlag("midi-qol", "actorUuid", actor.uuid)
+        }
+      }
+      foundry.utils.setProperty(effect, "flags.midi-qol.actionSaveSuccess", undefined);
+      effect.setFlag("midi-qol", "overtimeChatcardUuids", chatCardUuids)
+        .then(() => effect.setFlag("midi-qol", "actionSaveSuccess", undefined));
+
+      if (changeTurnEnd) return effect.id;
+    }
+
+    let actionSaveSuccess = foundry.utils.getProperty(effect, "flags.midi-qol.actionSaveSuccess");
+    if (actionSaveSuccess === true && changeTurnEnd) {
+      await expireEffects(actor, [effect], { "expiry-reason": "midi-qol:overTime:actionSave" });
+      return effect.id;
+    }
+    if ((endTurn && changeTurnEnd) || (startTurn && changeTurnStart)) {
       const saveDamage = details.saveDamage ?? "nodamage";
-      const saveMagic = JSON.parse(details.saveMagic ?? "false"); //parse the saving throw true/false
       const damageRoll = details.damageRoll;
       const damageType = details.damageType ?? "piercing";
       const itemName = details.itemName;
       const damageBeforeSave = JSON.parse(details.damageBeforeSave ?? "false");
       const macroToCall = details.macro;
-      const rollTypeString = details.rollType ?? "save";
-      const rollType = (rollTypeString.includes("|") ? rollTypeString.split("|") : [rollTypeString]).map(s => s.trim().toLocaleLowerCase())
-      const rollMode = details.rollMode;
       const allowIncapacitated = JSON.parse(details.allowIncapacitated ?? "true");
       const fastForwardDamage = details.fastForwardDamage && JSON.parse(details.fastForwardDamage);
 
@@ -1565,24 +1700,9 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
 
       if (debugEnabled > 0) warn(`gmOverTimeEffect | Overtime provided data is `, details);
       if (debugEnabled > 0) warn(`gmOverTimeEffect | OverTime label=${label} startTurn=${startTurn} endTurn=${endTurn} damageBeforeSave=${damageBeforeSave} saveDC=${saveDC} saveAbility=${saveAbility} damageRoll=${damageRoll} damageType=${damageType}`);
-      if (actionSave && options.saveToUse) {
-        if (!options.rollFlags) return effect.id;
-        if (options.rollFlags.type === "ability") options.rollFlags.type = "check";
-        if (!rollType.includes(options.rollFlags.type) || !saveAbility.includes(options.rollFlags.abilityId ?? options.rollFlags.skillId)) return effect.id;
-        let content;
-
-        if (options.saveToUse.total >= saveDC) {
-          await expireEffects(actor, [effect], { "expiry-reason": "midi-qol:overTime:actionSave" });
-          content = `${effect.name} ${messageFlavor[details.rollType]} ${i18n("midi-qol.save-success")}`;
-        } else
-          content = `${effect.name} ${messageFlavor[details.rollType]} ${i18n("midi-qol.save-failure")}`;
-        ChatMessage.create({ content, speaker: ChatMessage.getSpeaker({ actor }) });
-        return effect.id;
-      }
 
       let itemData: any = {}; //foundry.utils.duplicate(overTimeJSONData);
       itemData.img = "icons/svg/aura.svg";
-
       if (typeof itemName === "string") {
         if (itemName.startsWith("Actor.")) { // TODO check this
           const localName = itemName.replace("Actor.", "")
@@ -1602,7 +1722,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       foundry.utils.setProperty(itemData, "flags.midi-qol.noProvokeReaction", true);
       if (saveMagic) {
         itemData.type = "spell";
-        foundry.utils.setProperty(itemData, "sytem.preparation", { mode: "atwill" });
+        foundry.utils.setProperty(itemData, "system.preparation", { mode: "atwill" });
       }
       if (rollTypeString === "save" && !actionSave) {
         actionType = "save";
@@ -1620,23 +1740,14 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           //@ts-expect-error
           const skillEntry = Object.entries(GameSystemConfig.skills).find(([id, entry]) => entry.label.toLocaleLowerCase() === skill)
           if (skillEntry) skill = skillEntry[0];
-          /*
-          //@ts-expect-error
-          const hasEntry = Object.values(systemConfig.skills).map(entry => entry.label.toLowerCase()).includes(saveAbility)
 
-          if (hasEntry) {
-            skill = Object.keys(systemConfig.skills).find(id => systemConfig.skills[id].label.toLocaleLowerCase() === saveAbility[0])
-          }
-          */
         }
         foundry.utils.setProperty(itemData, "flags.midi-qol.overTimeSkillRoll", skill)
       }
-      if (actionSave) {
-        actionType = "other";
-        delete itemData.system.save?.dc;
-        delete itemData.system.save?.ability;
-        delete itemData.system.save?.scaling;
-      }
+      actionType = "other";
+      delete itemData.system.save?.dc;
+      delete itemData.system.save?.ability;
+      delete itemData.system.save?.scaling;
 
       if (damageBeforeSave || saveDamage === "fulldamage") {
         foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "fulldamage");
@@ -1689,7 +1800,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         let value = replaceAtFields(details.removeCondition, rollData, { blankValue: 0, maxIterations: 3 });
         let remove;
         try {
-          remove = evalCondition(value, rollData, true);
+          remove = await evalCondition(value, rollData, {errorReturn: true, async: true});
           // remove = Roll.safeEval(value);
         } catch (err) {
           const message = `midi-qol | gmOverTimeEffect | error when evaluating overtime remove condition ${value} - assuming true`;
@@ -1718,6 +1829,21 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           }
         };
         await completeItemUse(ownedItem, {}, options); // worried about multiple effects in flight so do one at a time
+        if (actionSaveSuccess) {
+          await expireEffects(actor, [effect], { "expiry-reason": "midi-qol:overTime:actionSave" });
+        }
+        /*
+        if (actionSaveSuccess !== undefined && !saveResultDisplayed) {
+          let content;
+          if (actionSaveSuccess) {
+            content = `${effect.name} ${messageFlavor[details.rollType]} ${i18n("midi-qol.save-success")}`;
+          } else {
+            content = `${effect.name} ${messageFlavor[details.rollType]} ${i18n("midi-qol.save-failure")}`;
+          }
+          ChatMessage.create({ content, speaker: ChatMessage.getSpeaker({ actor }) });
+        }
+        */
+        return effect.id;
       } catch (err) {
         const message = "midi-qol | completeItemUse | error";
         TroubleShooter.recordError(err, message);
@@ -2222,7 +2348,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       rangeBonus = rangeBonus + " + " + (foundry.utils.getProperty(item.parent, `flags.midi-qol.range.all`) ?? "0");
       if (rangeBonus !== "0 + 0") {
         conditionData = createConditionData({ item, actor: item.parent, target: token })
-        const bonusValue = evalCondition(rangeBonus, conditionData, 0);
+        const bonusValue = evalCondition(rangeBonus, conditionData, {errorReturn: 0, async: false});
         range = Math.max(0, range + bonusValue);
       };
       let longRangeBonus = foundry.utils.getProperty(item.parent, `flags.midi-qol.long.${attackType}`) ?? "0"
@@ -2230,7 +2356,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       if (longRangeBonus !== "0 + 0") {
         if (!conditionData)
           conditionData = createConditionData({ item, actor: item.parent, target: token })
-        const bonusValue = evalCondition(longRangeBonus, conditionData, 0);
+        const bonusValue = evalCondition(longRangeBonus, conditionData, {errorReturn: 0, async: false});
         longRange = Math.max(0, longRange + bonusValue);
       };
     }
@@ -2378,8 +2504,9 @@ export const THREE_QUARTERS_COVER = 5;
 export const HALF_COVER = 2;
 
 export function computeCoverBonus(attacker: Token | TokenDocument, target: Token | TokenDocument, item: any = undefined) {
+  let existingCoverBonus = foundry.utils.getProperty(target, "actor.flags.midi-qol.acBonus") ?? 0;
+  if (!attacker) return existingCoverBonus;
   let coverBonus = 0;
-  if (!attacker) return coverBonus;
   //@ts-expect-error .Levels
   let levelsAPI = CONFIG.Levels?.API;
   switch (configSettings.optionalRules.coverCalculation) {
@@ -2433,8 +2560,9 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
     coverBonus = 0;
   if (["rsak"/*, rpak*/].includes(item?.system.actionType) && attacker.actor && foundry.utils.getProperty(attacker.actor, "flags.dnd5e.spellSniper") && coverBonus !== FULL_COVER)
     coverBonus = 0;
-  if (target.actor)
+  if (target.actor && coverBonus > existingCoverBonus)
     foundry.utils.setProperty(target.actor, "flags.midi-qol.acBonus", coverBonus);
+  else coverBonus = existingCoverBonus;
   return coverBonus;
 
 }
@@ -3230,14 +3358,16 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         //TODO match the renderRoll to the roll type
         const newRollHTML = await midiRenderRoll(newRoll);
         const originalRollHTML = await midiRenderRoll(originalRoll)
-        const chatData: any = {
+        const chatData: any = mergeObject({
           flavor: `${title}`,
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
           content: `${originalRollHTML}<br>${newRollHTML}`,
           whisper: [player?.id ?? ""],
           rolls: [originalRoll, newRoll],
-          sound: CONFIG.sounds.dice
-        };
+          sound: CONFIG.sounds.dice,
+          flags: bonusFlags
+        },
+          options.messageData);
         //@ts-expect-error
         if (game.release.generation < 12) {
           chatData.type = CONST.CHAT_MESSAGE_TYPES.ROLL;
@@ -3325,6 +3455,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         if (result === undefined && debugEnabled > 0) console.warn(`midi-qol | bonusDialog | macro ${button.value} return undefined`)
       }
 
+      //@ts-expect-error
+      const D20Roll = CONFIG.Dice.D20Roll;
       // do the roll modifications
       if (!resultApplied) switch (button.value) {
         case "reroll": reRoll = await roll.reroll();
@@ -3355,8 +3487,23 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         case "reroll-min": newRoll = await roll.reroll({ minimize: true });
           if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
           break;
-        case "success": newRoll = await new Roll("999").evaluate(); break;
-        case "fail": newRoll = await new Roll("-1").evaluate(); break;
+        case "success":
+          newRoll = newRoll = await roll.clone().evaluate();
+          //@ts-expect-error
+          newRoll.terms[0].results.forEach(res => res.result = 99);
+          //@ts-expect-error
+          newRoll._total = 99;
+          setProperty(newRoll, "options", duplicate(roll.options))
+          setProperty(newRoll, "options.success", true);
+          break;
+        case "fail":
+          newRoll = newRoll = await roll.clone().evaluate();
+          setProperty(newRoll, "options", duplicate(roll.options))
+          setProperty(newRoll, "options.success", false);
+          //@ts-expect-error
+          newRoll.terms[0].results.forEach(res => res.result = -1);
+          //@ts-expect-error
+          newRoll._total = -1;
         default:
           if (typeof button.value === "string" && button.value.startsWith("replace ")) {
             const rollParts = button.value.split(" ");
@@ -4243,7 +4390,7 @@ export function getConcentrationEffect(actor): ActiveEffect | undefined {
   return actor?.effects.find(ef => ef.statuses.has(systemConcentrationId));
 }
 
-async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined) {
+async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined): Promise<any> {
   let result;
   try {
     const src = 'with (sandbox) { return ' + expression + '}';
@@ -4270,7 +4417,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
   if (Number.isNumeric(result)) return Number(result)
   return result;
 };
-function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined) {
+function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined): any {
   let result;
   try {
     const src = 'with (sandbox) { return ' + expression + '}';
@@ -4309,10 +4456,12 @@ export function evalReactionActivationCondition(workflow: Workflow, condition: s
   if (options.errorReturn === undefined) options.errorReturn = false
   return evalActivationCondition(workflow, condition, target, options);
 }
-export function evalActivationCondition(workflow: Workflow, condition: string | undefined, target: Token | TokenDocument, options: any = {}): boolean {
-  if (condition === undefined || condition === "") return true;
+export function evalActivationCondition(workflow: Workflow, condition: string | undefined | boolean, target: Token | TokenDocument, options: any = {}): boolean {
+  if (condition === undefined || condition === "" || condition === true) return true;
+  if (condition === false) return false;
   createConditionData({ workflow, target, actor: workflow.actor, extraData: options?.extraData, item: options.item });
-  const returnValue = evalCondition(condition, workflow.conditionData, options.errorReturn ?? true);
+  options.errorReturn ??= true;
+  const returnValue = evalCondition(condition, workflow.conditionData, options);
   return returnValue;
 }
 
@@ -4472,7 +4621,7 @@ export function evalAllConditions(actorRef: Token | TokenDocument | Actor | stri
   }
   return returnValue;
 }
-export function evalCondition(condition: string, conditionData: any, options: any = { errorReturn: false, async: false }): any {
+export function evalCondition(condition: string, conditionData: any, options: any = { errorReturn: false, async: false }): any | Promise<any> {
   if (typeof condition === "number" || typeof condition === "boolean") return condition;
   if (condition === undefined || condition === "" || typeof condition !== "string") return options.errorReturn ?? false;
   let returnValue;
@@ -4482,11 +4631,11 @@ export function evalCondition(condition: string, conditionData: any, options: an
     }
     if (options.async) returnValue = asyncMySafeEval(condition, conditionData, options.errorReturn);
     else returnValue = mySafeEval(condition, conditionData, options.errorReturn ?? false);
-    if (debugEnabled > 0) warn("evalActivationCondition ", returnValue, condition, conditionData);
+    if (debugEnabled > 0) warn("evalCondition ", returnValue, condition, conditionData);
 
   } catch (err) {
     returnValue = options.errorReturn ?? false;
-    const message = `midi-qol | evalActivationCondition | activation condition (${condition}) error `;
+    const message = `midi-qol | evalCondition | activation condition (${condition}) error `;
     TroubleShooter.recordError(err, message);
     console.warn(message, err, conditionData);
   }
@@ -6140,6 +6289,8 @@ export async function expireEffects(actor, effects: ActiveEffect[], options: any
   const effectsToDisable: ActiveEffect[] = [];
   for (let effect of effects) {
     if (!effect.id) continue;
+    //@ts-expect-error
+    if (!fromUuidSync(effect.uuid)) continue;
     //@ts-expect-error
     if (effect.transfer)
       effectsToDisable.push(effect);

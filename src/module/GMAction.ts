@@ -1,4 +1,4 @@
-import { checkRule, configSettings } from "./settings.js";
+import { checkRule, configSettings, safeGetGameSetting } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig } from "../midi-qol.js";
 import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
@@ -60,6 +60,7 @@ export let setupSocket = () => {
   socketlibSocket.register("updateUndoChatCardUuids", updateUndoChatCardUuids);
   socketlibSocket.register("updateUndoChatCardUuidsById", updateUndoChatCardUuidsById);
   socketlibSocket.register("removeActionBonusReaction", removeActionBonusReaction);
+  socketlibSocket.register("rollActionSave", rollActionSave);
 
   // socketlibSocket.register("canSense", _canSense);
 }
@@ -578,7 +579,7 @@ async function addConvenientEffect(options) {
   await game.dfreds.effectInterface?.addEffect({ effectName, uuid: actorUuid, origin });
 }
 
-async function _addDependent(data: {concentrationEffectUuid: string, dependentUuid: string}) {
+async function _addDependent(data: { concentrationEffectUuid: string, dependentUuid: string }) {
   //@ts-expect-error
   const concentrationEffect = fromUuidSync(data.concentrationEffectUuid);
   if (!concentrationEffect) {
@@ -661,6 +662,7 @@ export async function rollConcentration(data: { actorUuid, targetValue, whisper 
 
 export async function rollAbility(data: { request: string; targetUuid: string; ability: string; options: any; }) {
   if (data.request === "test") data.request = "abil";
+  if (data.request === "check") data.request = "abil";
   const actor = MQfromActorUuid(data.targetUuid);
   if (!actor) {
     error(`GMAction.rollAbility | no actor for ${data.targetUuid}`)
@@ -854,10 +856,10 @@ async function createV3GMReverseDamageCard(
     if (appliedTempDamage > 0) {
       newTempHP = Math.max(0, newTempHP - appliedTempDamage);
     } else newTempHP = Math.max(actor.system.attributes.hp.temp, -appliedTempDamage);
-    if (appliedDamage > newTempHP) {
+    if (appliedDamage > 0 && appliedDamage> newTempHP) {
       appliedDamage -= newTempHP;
       newTempHP = 0;
-    } else {
+    } else if (appliedDamage > 0 && appliedDamage < newTempHP) {
       appliedDamage = 0;
       newTempHP -= appliedDamage;
     }
@@ -1437,3 +1439,60 @@ async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: n
   //@ts-expect-error
   return targetTokenDocument.update({ x: newCenter?.x ?? 0, y: newCenter?.y ?? 0 }, { animate: data.animate ?? true });
 }
+
+export async function rollActionSave(data: any) {
+  let {request, actorUuid, abilities, options, content, title, saveDC} = data;
+  let saveResult: any = new Promise(async (resolve, reject) => {
+    const buttons: any = {};
+    for (let ability of abilities) {
+      let config: any = {type: request,  dc: saveDC, action: "rollRequest", hideDC: !game.user?.isGM && !configSettings.displaySaveDC, format: "short", icon: true};
+      if (["check", "save"].includes(request)) config.ability =  ability;
+      else if (request === "skill") config.skill = ability;
+      const button = {
+      //@ts-expect-error
+      label: game.system?.enrichers?.createRollLabel(config) ?? `${saveDC} ${ability} ${request}`,
+        callback: async (html: any) => {
+          saveResult = await rollAbility({
+            targetUuid: actorUuid,
+            request,
+            ability,
+            options
+          })
+          resolve(saveResult)
+        }
+      };
+      buttons[ability] = button;
+    }
+    //@ts-expect-error
+    if (!foundry.utils.isEmpty(buttons)) {
+      buttons.No = {
+        label: `<i class="fas fa-times"></i> ${i18n("No")}`,
+        callback: async () => {
+          resolve(undefined);
+        }
+      }
+      const id = `overtime-dialog-${foundry.utils.randomID()}`;
+      //@ts-expect-error
+      await Dialog.wait({
+        title,
+        content: `<style>  #${id} .dialog-buttons { flex-direction: column;} </style> ${content}`,
+        buttons,
+        rejectClose: false, 
+        close: () => {return (null)}
+      }, {"id": id});
+    }
+    resolve(undefined);
+  })
+  return await saveResult;
+}
+
+/*
+else 
+
+// const content = `${effect.name} ${i18n(messageFlavor[details.rollType])} as your action to overcome ${label}`;
+const chatData = {
+  user: game.user?.id,
+  content: await renderTemplate("systems/dnd5e/templates/chat/request-card.hbs", {
+    //@t s-expect-error
+    buttonLabel: game.system.enrichers.createRollLabel({ ...dataset, format: "short", icon: true }),
+*/

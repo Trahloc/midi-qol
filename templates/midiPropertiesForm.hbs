@@ -90,14 +90,14 @@
 
   {{#if (and item.hasSave item.hasDamage)}}
   <div class="form-group">
-    <label>{{ localize "midi-qol.Saves"}} Base</label>
+    <label>{{ localize "midi-qol.SavesBase"}}</label>
     <select name="flags.midiProperties.saveDamage" data-dtype="String">
       {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.saveDamage}} </select>
   </div>
   {{/if}}
   {{#if (and item.hasSave item.hasDamage)}}
   <div class="form-group">
-    <label>{{ localize "midi-qol.Saves"}} Bonus</label>
+    <label>{{ localize "midi-qol.SavesBonus"}}</label>
     <select name="flags.midiProperties.bonusSaveDamage" data-dtype="String">
       {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.bonusSaveDamage}} </select>
   </div>
@@ -105,7 +105,7 @@
 
   {{#if (and item.hasSave hasOtherDamage)}}
   <div class="form-group">
-    <label>{{ localize "midi-qol.Saves"}} Other</label>
+    <label>{{ localize "midi-qol.SavesOther"}}</label>
     <select name="flags.midiProperties.otherSaveDamage" data-dtype="String">
       {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.otherSaveDamage}} </select>
   </div>

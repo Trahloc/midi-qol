@@ -488,13 +488,13 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     if (configSettings.allowUseMacro) {
       const results = await workflow.callMacros(this, workflow.onUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
-      if (results.some(i => i === false)) {
+      if (workflow.aborted || results.some(i => i === false)) {
         console.warn("midi-qol | item roll blocked by preItemRoll macro");
         workflow.aborted = true;
         return workflow.performState(workflow.WorkflowState_Abort)
       }
       const ammoResults = await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
-      if (ammoResults.some(i => i === false)) {
+      if (workflow.aborted || ammoResults.some(i => i === false)) {
         console.warn(`midi-qol | item ${workflow.ammo.name ?? ""} roll blocked by preItemRoll macro`);
         workflow.aborted = true;
         return workflow.performState(workflow.WorkflowState_Abort)
@@ -684,7 +684,15 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.disadvantage = false;
       workflow.rollOptions = foundry.utils.deepClone(defaultRollOptions);
     }
-    if (workflow.workflowType === "TrapWorkflow") workflow.rollOptions.fastForward = true;
+    if (workflow instanceof TrapWorkflow) workflow.rollOptions.fastForward = true;
+
+    if (configSettings.allowUseMacro && workflow.options.noTargetOnusemacro !== true) {
+      await workflow.triggerTargetMacros(["isPreAttacked"]);
+      if (workflow.aborted) {
+        console.warn(`midi-qol | item ${workflow.ammo.name ?? ""} roll blocked by isPreAttacked macro`);
+        return workflow.performState(workflow.WorkflowState_Abort);
+      }
+    }
 
     const promises: Promise<any>[] = [];
     if (!foundry.utils.getProperty(this, "flags.midi-qol.noProvokeReaction")) {
@@ -854,7 +862,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
   }
 }
 
-export async function doDamageRoll(wrapped, { event = undefined, systemCard = false, spellLevel = null, powerLevel = null, versatile = null, options = {} } = {}) {
+export async function doDamageRoll(wrapped, { event = undefined, critical = false, systemCard = false, spellLevel = null, powerLevel = null, versatile = null, options = {} } = {}) {
   //@ts-expect-error
   const DamageRoll = CONFIG.Dice.DamageRoll;
   try {
@@ -876,7 +884,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     const damageRollStart = Date.now();
     if (!enableWorkflow || !workflow) {
       if (!workflow && debugEnabled > 0) warn("Roll Damage: No workflow for item ", this.name);
-      return await wrapped({ event, versatile, spellLevel, powerLevel, options })
+      return wrapped({ critical, event, versatile, spellLevel, powerLevel, options })
     }
 
     const midiFlags = workflow.actor.flags["midi-qol"]
@@ -950,7 +958,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
         { overwrite: true, insertKeys: true, insertValues: true });
 
       const damageRollData = {
-        critical: workflow.workflowOptions?.critical || (workflow.rollOptions.critical || workflow.isCritical),
+        critical: workflow.workflowOptions?.critical || (workflow.rollOptions.critical || workflow.isCritical || critical),
         spellLevel: workflow.rollOptions.spellLevel,
         powerLevel: workflow.rollOptions.spellLevel,
         versatile: workflow.rollOptions.versatile,
@@ -993,18 +1001,18 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     const firstTargetActor = firstTarget?.actor;
     const targetMaxFlags = foundry.utils.getProperty(firstTargetActor, "flags.midi-qol.grants.max.damage") ?? {};
     const maxFlags = foundry.utils.getProperty(workflow, "actor.flags.midi-qol.max") ?? {};
-    let needsMaxDamage = (maxFlags.damage?.all && evalActivationCondition(workflow, maxFlags.damage.all, firstTarget))
-      || (maxFlags.damage && maxFlags.damage[this.system.actionType] && evalActivationCondition(workflow, maxFlags.damage[this.system.actionType], firstTarget));
+    let needsMaxDamage = (maxFlags.damage?.all && await evalActivationCondition(workflow, maxFlags.damage.all, firstTarget, {async: true, errorReturn: false}))
+      || (maxFlags.damage && maxFlags.damage[this.system.actionType] && await evalActivationCondition(workflow, maxFlags.damage[this.system.actionType], firstTarget, {async: true, errorReturn: false}));
     needsMaxDamage = needsMaxDamage || (
-      (targetMaxFlags.all && evalActivationCondition(workflow, targetMaxFlags.all, firstTarget))
-      || (targetMaxFlags[this.system.actionType] && evalActivationCondition(workflow, targetMaxFlags[this.system.actionType], firstTarget)));
+      (targetMaxFlags.all && await evalActivationCondition(workflow, targetMaxFlags.all, firstTarget, {async: true, errorReturn: false}))
+      || (targetMaxFlags[this.system.actionType] && await evalActivationCondition(workflow, targetMaxFlags[this.system.actionType], firstTarget, {async: true, errorReturn: false})));
     const targetMinFlags = foundry.utils.getProperty(firstTargetActor, "flags.midi-qol.grants.min.damage") ?? {};
     const minFlags = foundry.utils.getProperty(workflow, "actor.flags.midi-qol.min") ?? {};
-    let needsMinDamage = (minFlags.damage?.all && evalActivationCondition(workflow, minFlags.damage.all, firstTarget))
+    let needsMinDamage = (minFlags.damage?.all && await evalActivationCondition(workflow, minFlags.damage.all, firstTarget, {async: true, errorReturn: false}))
       || (minFlags?.damage && minFlags.damage[this.system.actionType] && evalActivationCondition(workflow, minFlags.damage[this.system.actionType], firstTarget));
     needsMinDamage = needsMinDamage || (
-      (targetMinFlags.damage && evalActivationCondition(workflow, targetMinFlags.all, firstTarget))
-      || (targetMinFlags[this.system.actionType] && evalActivationCondition(workflow, targetMinFlags[this.system.actionType], firstTarget)));
+      (targetMinFlags.damage && await evalActivationCondition(workflow, targetMinFlags.all, firstTarget, {async: true, errorReturn: false}))
+      || (targetMinFlags[this.system.actionType] && await evalActivationCondition(workflow, targetMinFlags[this.system.actionType], firstTarget, {async: true, errorReturn: false})));
     if (needsMaxDamage && needsMinDamage) {
       needsMaxDamage = false;
       needsMinDamage = false;
@@ -1088,7 +1096,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
     let otherResult: Roll | undefined = undefined;
     let otherResult2: Roll | undefined = undefined;
 
-    workflow.shouldRollOtherDamage = shouldRollOtherDamage.bind(workflow.otherDamageItem)(workflow, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
+    workflow.shouldRollOtherDamage = await shouldRollOtherDamage.bind(workflow.otherDamageItem)(workflow, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
     if (workflow.shouldRollOtherDamage) {
       const otherRollOptions: any = {};
       if (game.settings.get("midi-qol", "CriticalDamage") === "default") {
@@ -1182,7 +1190,7 @@ export async function doDamageRoll(wrapped, { event = undefined, systemCard = fa
   }
 }
 
-function setDamageRollMinTerms(rolls: Array<Roll> | undefined) {
+export function setDamageRollMinTerms(rolls: Array<Roll> | undefined) {
   if (rolls && sumRolls(rolls)) {
     for (let roll of rolls) {
       for (let term of roll.terms) {
@@ -1263,7 +1271,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     // not used const sceneId = token?.scene && token.scene.id || canvas?.scene?.id;
     const isPlayerOwned = this.actor.hasPlayerOwner;
     const hideItemDetails = (["none", "cardOnly"].includes(configSettings.showItemDetails) || (configSettings.showItemDetails === "pc" && !isPlayerOwned))
-      || !configSettings.itemTypeList.includes(this.type);
+      || !configSettings.itemTypeList?.includes(this.type);
     const hasEffects = !["applyNoButton", "applyRemove"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "Workflow" && this.effects.find(ae => !ae.transfer && !foundry.utils.getProperty(ae, "flags.dae.dontApply"));
     let dmgBtnText = (this.system?.actionType === "heal") ? i18n(`${SystemString}.Healing`) : i18n(`${SystemString}.Damage`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) dmgBtnText += ` ${i18n("midi-qol.fastForward")}`;
@@ -1327,7 +1335,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     const chatData: any = {
       user: game.user?.id,
       content: html,
-      flavor: this.system.chatFlavor,
+      // flavor: this.system.chatFlavor, with dnd5e 3.1 the chat flavor is in the description.
       //@ts-expect-error token vs tokenDocument
       speaker: ChatMessage.getSpeaker({ actor: this.actor, token: (token?.document ?? token) }),
       flags: {
@@ -1344,7 +1352,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     }
     //@ts-expect-error
     if (game.release.generation < 12) {
-        chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+      chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
     } else {
       //@ts-expect-error
       chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
@@ -1672,7 +1680,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
 };
 
 // TODO work out this in new setup
-export function shouldRollOtherDamage(workflow: Workflow, conditionFlagNonSpell: string, conditionFlagSpell: string) {
+export async function shouldRollOtherDamage(workflow: Workflow, conditionFlagNonSpell: string, conditionFlagSpell: string) {
   if (this.type === "spell" && conditionFlagSpell === "none") return false;
   if (this.type !== "spell" && conditionFlagNonSpell === "none") return false;
   if (this.type === "spell" && conditionFlagSpell === "always") return true;
@@ -1687,7 +1695,7 @@ export function shouldRollOtherDamage(workflow: Workflow, conditionFlagNonSpell:
   if (!rollOtherDamage && conditionToUse.length === 0) return false;
   //@ts-ignore
   for (let target of workflow.hitTargets) {
-    rollOtherDamage = evalActivationCondition(workflow, conditionToUse, target);
+    rollOtherDamage = await evalActivationCondition(workflow, conditionToUse, target, {async: true, errorReturn: false});
     if (rollOtherDamage) return true;
   }
   return rollOtherDamage;

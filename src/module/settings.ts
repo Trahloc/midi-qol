@@ -116,7 +116,7 @@ class ConfigSettings {
   hideRollDetails: string = "none";
   ignoreSpellReactionRestriction: boolean = false;
   itemRollStartWorkflow: boolean = false;
-  itemTypeList: string[] = [];
+  itemTypeList: string[] | undefined = undefined;
   itemUseSound: string = "";
   keepRollStats: boolean = false;
   keyMapping = defaultKeyMapping;
@@ -154,7 +154,7 @@ class ConfigSettings {
   saveStatsEvery: number = 20;
   showDSN: boolean = true;
   showFastForward: boolean = false;
-  showItemDetails: string = "";
+  showItemDetails: string = "all";
   showReactionAttackRoll: string = "all";
   showReactionChatMessage: boolean = false;
   singleConcentrationRoll: boolean = true;
@@ -478,6 +478,7 @@ export let fetchParams = () => {
     configSettings.itemTypeList = itemList;
     configSettings.itemTypeList.filter((type) => !["base", "backpack"].includes(type));
   }
+  if (configSettings.itemTypeList === undefined) configSettings.itemTypeList = Object.keys(CONFIG.Item.typeLabels);
   if (configSettings.defaultSaveMult === undefined) configSettings.defaultSaveMult = 0.5;
   if (configSettings.ignoreSpellReactionRestriction === undefined) configSettings.ignoreSpellReactionRestriction = false;
   if (configSettings.damageImmunityMultiplier === undefined) configSettings.damageImmunityMultiplier = 0.0;
