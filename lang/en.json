@@ -140,7 +140,7 @@
   "midi-qol.UseTokenNames.Name": "Chat cards use token name",
   "midi-qol.UseTokenNames.Hint": "Chat card titles and target names use the token name rather than the actor name",
   "midi-qol.CriticalDamage.Name": "Choose critical damage for Players",
-  "midi-qol.CriticalDamage.Hint": "DND5e Settings Only - standard dnd5e critical roll, Max Normal Damage - base weapon dice only (no critical dice) but all maximised, Max Critical Dice - critical dice maximised, Max All Dice - item + critical dice maximised, double dice value - result of dice x2, Explode Critical Dice - roll normal critical exploding any critical dice, Only Weapon Extra Critical - the only bonus damage for critical is from the item extra critical field",
+  "midi-qol.CriticalDamage.Hint": "DND5e Settings Only - standard dnd5e critical roll, Max Normal Damage - base weapon dice only (no critical dice) but all maximised, Max Critical Dice - critical dice maximised, Max All Dice - item + critical dice maximised, double dice value - result of dice x2, Explode Critical Dice - roll normal critical exploding any critical dice, Only Weapon Extra Critical - the only bonus damage for critical is from the item extra critical field, Max Base Roll Crit - use maximum base damage then roll critical dice as usual",
   "midi-qol.CriticalDamageGM.Name": "Choose critical damage for GM",
   "midi-qol.CriticalDamageGM.Hint": "",
   "midi-qol.CriticalDamageChoices": {
@@ -154,7 +154,8 @@
     "maxDamageExplode": "Max base damage and explode critical dice",
     "explodeCharacter": "Explode Character critical dice",
     "explodeNPC": "Explode NPC crtical dice",
-    "baseDamage": "Only Weapon Extra Critical"
+    "baseDamage": "Only Weapon Extra Critical",
+    "maxBaseRollCrit": "Max Base Roll Crit"
   },
   "midi-qol.MergeCard.Name": "Merge Rolls to one card",
   "midi-qol.MergeCard.Hint": "Merge Attack, Hits, Damage, Saves to a single chat card",
