@@ -1750,7 +1750,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       delete itemData.system.save?.scaling;
 
       if (damageBeforeSave || saveDamage === "fulldamage") {
-        foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "fulldamage");
+        foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "fulldam");
       } else if (saveDamage === "halfdamage" || !damageRoll) {
         foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "halfdam");
       } else {
