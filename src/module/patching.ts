@@ -297,7 +297,8 @@ function configureDamage(wrapped) {
     "explode": "Explode all critical dice",
     "explodePlayer": "Explode Player critical dice",
     "explodeGM": "Explode GM crtical dice",
-    "baseDamage": "Only Weapon Extra Critical"
+    "baseDamage": "Only Weapon Extra Critical",
+    "maxBaseRollCrit": "Max base damage and roll critical dice"
   },
  */
   // if (criticalDamage === "doubleDice") this.options.multiplyNumeric = true;
@@ -363,6 +364,17 @@ function configureDamage(wrapped) {
           //@ts-ignore
           const newTerm = new Die({ number: term.number + cb, faces: term.faces })
           newTerm.modifiers.push(`x${term.faces}`);
+          newTerm.options = term.options;
+          // foundry.utils.setProperty(newTerm.options, "sourceTerm", term);
+          bonusTerms.push(newTerm);
+        }
+        break;
+      case "maxBaseRollCrit":
+        if (term instanceof DiceTerm) term.modifiers.push(`min${term.faces}`);
+        if (term instanceof DiceTerm) {
+          bonusTerms.push(new OperatorTerm({ operator: "+" }));
+          //@ts-ignore
+          const newTerm = new Die({ number: term.number, faces: term.faces })
           newTerm.options = term.options;
           // foundry.utils.setProperty(newTerm.options, "sourceTerm", term);
           bonusTerms.push(newTerm);
