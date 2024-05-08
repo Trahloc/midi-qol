@@ -874,6 +874,14 @@
           <input type="checkbox" name="midiFieldsTab" data-dtype="Boolean" {{checked configSettings.midiFieldsTab}} />
         </div>
 
+        <div class="form-group midiPropoertiesTab">
+          <label>{{localize "midi-qol.MidiPropertiesTab.Name"}}</label>
+          <select name="midiPropertiesTabRole" data-dtype="String">
+             {{selectOptions midiPropertiesTabOptions selected=configSettings.midiPropertiesTabRole}}
+          </select>
+          <div class="notes midi-qol-faint">{{{localize "midi-qol.MidiPropertiesTab.Hint"}}}</div>
+        </div>
+        
         <div class="form-group allowActorUseMacro">
           <label>{{localize "midi-qol.AllowActorUseMacro.Name"}}</label>
           <input id="allowActorUseMacro" type="checkbox" name="allowActorUseMacro" data-dtype="Boolean" {{checked

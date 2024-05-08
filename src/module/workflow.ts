@@ -689,7 +689,7 @@ export class Workflow {
       await this.triggerTargetMacros(["isTargeted"]);
       if (this.aborted) return this.WorkflowState_Abort;
     }
-      
+
     // do pre roll checks
     if (checkMechanic("checkRange") !== "none" && (!this.AoO || ["rwak", "rsak", "rpak"].includes(this.item.system.actionType)) && this.tokenId) {
       const { result, attackingToken, range, longRange } = checkRange(this.item, canvas?.tokens?.get(this.tokenId) ?? "invalid", this.targets);
@@ -1102,7 +1102,7 @@ export class Workflow {
       for (let token of this.targets) {
         const otherCondition = foundry.utils.getProperty(this.otherDamageItem, "flags.midi-qol.otherCondition") ?? "";
         if (otherCondition !== "") {
-          if (await evalActivationCondition(this, otherCondition, token, {async: true, errorReturn: false}))
+          if (await evalActivationCondition(this, otherCondition, token, { async: true, errorReturn: false }))
             this.otherDamageMatches.add(token);
         }
         else {
@@ -1130,7 +1130,7 @@ export class Workflow {
       for (let token of this.targets) {
         const activationCondition = effectActivationConditionToUse.bind(theItem)(this);
         if (activationCondition) {
-          if (await evalActivationCondition(this, activationCondition, token, {async: true, errorReturn: true})) {
+          if (await evalActivationCondition(this, activationCondition, token, { async: true, errorReturn: true })) {
             this.activationMatches.add(token);
           } else
             this.activationFails.add(token);
@@ -1138,17 +1138,7 @@ export class Workflow {
       }
     }
     expireMyEffects.bind(this)(["1Action", "1Spell"]);
-    // Do special expiries
-    const specialExpiries = [
-      "isAttacked",
-      "isDamaged",
-      "isHealed",
-      // XXX "1Reaction",
-      "isSaveSuccess",
-      "isSaveFailure",
-      "isSave",
-      "isHit"
-    ];
+
     this.applicationTargets = new Set();
     if (this.forceApplyEffects)
       this.applicationTargets = this.targets;
@@ -1163,6 +1153,17 @@ export class Workflow {
     } else
       this.applicationTargets = this.targets;
     let anyActivationTrue = this.applicationTargets.size > 0;
+    // Do special expiries
+    const specialExpiries = [
+      "isAttacked",
+      "isDamaged",
+      "isHealed",
+      "isSaveSuccess",
+      "isSaveFailure",
+      "isSave",
+      "isHit"
+    ];
+    await this.expireTargetEffects(specialExpiries);
 
     if (configSettings.autoItemEffects === "off" && !this.forceApplyEffects) return this.WorkflowState_RollFinished; // TODO see if there is a better way to do this.
 
@@ -1950,7 +1951,7 @@ export class Workflow {
       if (wasAttacked && triggerList.includes("isPreAttacked")) {
         //@ts-ignore
         result.push(...await this.callMacros(this.item,
-          actorOnUseMacros?.getMacros("isAttacked"),
+          actorOnUseMacros?.getMacros("isPreAttacked"),
           "TargetOnUse",
           "isPreAttacked",
           { actor: target.actor, token: target })
@@ -2713,7 +2714,7 @@ export class Workflow {
         isPC: targetToken.actor?.hasPlayerOwner,
         target: targetToken,
         hitClass: "none",
-        acClass: !targetToken.actor?.hasPlayerOwner ? "" : "midi-qol-npc-ac",
+        acClass: targetToken.actor?.hasPlayerOwner ? "" : "midi-qol-npc-ac",
         img,
         gmName: getTokenName(targetToken),
         playerName: getTokenPlayerName(targetToken),
@@ -3534,7 +3535,7 @@ export class Workflow {
           await doReactions(target, this.tokenUuid, this.attackRoll, "reactionsavefail", { workflow: this, item: this.saveItem })
       }
       if (isCritical) this.criticalSaves.add(target);
-      
+
       let newRoll;
       if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) {
         const rollResults = await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], new Set([target]), { saved });
@@ -3657,6 +3658,7 @@ export class Workflow {
         target,
         saveString,
         saveSymbol: saved ? "fa-check" : "fa-times",
+        saveTotalClass: target.actor.hasPlayerOwner ? "" : "midi-qol-npc-save-total",
         rollTotal: saveRollTotal,
         rollDetail: saveRoll,
         rollHTML,
@@ -4110,7 +4112,7 @@ export class Workflow {
         hitStyle,
         ac: targetAC,
         hitClass: ["hit", "critical", "isHitEC"].includes(isHitResult) ? "hit" : "miss",
-        acClass: !targetToken.actor?.hasPlayerOwner ? "" : "midi-qol-npc-ac",
+        acClass: targetToken.actor?.hasPlayerOwner ? "" : "midi-qol-npc-ac",
         hitSymbol,
         attackType,
         showAC: true,
@@ -4740,7 +4742,7 @@ export class DDBGameLogWorkflow extends Workflow {
     // for dnd beyond only roll if other damage is defined.
     if (this.item.system.formula) {
       shouldRollOtherDamage.bind(this.otherDamageItem)(this, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage)
-      .then(result => this.needsOtherDamage = result);
+        .then(result => this.needsOtherDamage = result);
     }
     // this.needsOtherDamage = this.item.system.formula && shouldRollOtherDamage.bind(this.otherDamageItem)(this, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
     this.kickStart = true;

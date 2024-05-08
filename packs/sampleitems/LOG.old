@@ -1,20 +1,4 @@
-2024/05/07-21:47:15.770175 7ffb1d7bd640 Recovering log #541
-2024/05/07-21:47:15.770235 7ffb1d7bd640 Recovering log #594
-2024/05/07-21:47:15.778585 7ffb1d7bd640 Delete type=0 #594
-2024/05/07-21:47:15.778616 7ffb1d7bd640 Delete type=0 #538
-2024/05/07-21:47:15.778632 7ffb1d7bd640 Delete type=3 #539
-2024/05/07-21:47:15.778656 7ffb1d7bd640 Delete type=3 #537
-2024/05/07-21:47:15.778681 7ffb1d7bd640 Delete type=2 #536
-2024/05/07-21:47:15.778745 7ffb1d7bd640 Delete type=0 #541
-2024/05/07-21:47:15.778762 7ffb1d7bd640 Delete type=2 #596
-2024/05/07-21:48:55.932000 7ff87d7ff640 Level-0 table #597: started
-2024/05/07-21:48:55.935308 7ff87d7ff640 Level-0 table #597: 79089 bytes OK
-2024/05/07-21:48:55.938604 7ff87d7ff640 Delete type=0 #595
-2024/05/07-21:48:55.942057 7ff87d7ff640 Manual compaction at level-0 from '!folders!03xh8o98NV0wViRp' @ 72057594037927935 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at '!items.effects!bsREVmg8zGSJ8Pfs.LBpB0JVv3bMLRt6L' @ 344 : 1
-2024/05/07-21:48:55.942064 7ff87d7ff640 Compacting 1@0 + 1@1 files
-2024/05/07-21:48:55.948407 7ff87d7ff640 Generated table #598@0: 195 keys, 292994 bytes
-2024/05/07-21:48:55.948420 7ff87d7ff640 Compacted 1@0 + 1@1 files => 292994 bytes
-2024/05/07-21:48:55.951644 7ff87d7ff640 compacted to: files[ 0 1 0 0 0 0 0 ]
-2024/05/07-21:48:55.951738 7ff87d7ff640 Delete type=2 #597
-2024/05/07-21:48:55.951809 7ff87d7ff640 Delete type=2 #543
-2024/05/07-21:48:55.955444 7ff87d7ff640 Manual compaction at level-0 from '!items.effects!bsREVmg8zGSJ8Pfs.LBpB0JVv3bMLRt6L' @ 344 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at (end)
+2024/05/08-19:32:38.481667 7fc464bf9640 Log #608: 0 ops saved to Table #611 OK
+2024/05/08-19:32:38.481834 7fc464bf9640 Archiving /home/timp/foundry-data/foundryv11dnd3/Data/modules/midi-qol/packs/sampleitems/000608.log: OK
+2024/05/08-19:32:38.483265 7fc464bf9640 Table #610: 195 entries OK
+2024/05/08-19:32:38.486718 7fc464bf9640 **** Repaired leveldb /home/timp/foundry-data/foundryv11dnd3/Data/modules/midi-qol/packs/sampleitems; recovered 1 files; 292776 bytes. Some data may have been lost. ****

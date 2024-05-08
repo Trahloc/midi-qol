@@ -1,14 +1,24 @@
+### 11.4.27
+* Added setting for lowest user role that can access midi's item properties tab. (Requires midi properties tab to be enabled and a change requires a reload on all clients if using tidy-sheet).
+* Correct the display AC settings not working.
+* Reinstate special expiries not firing for (at least) "isHit".
+* Enforce single target per attack for weapon attacks will take precedence over none target setting in the item when checking if targets are selected/required.
+* Fix for error thrown when removing unconscious from npc tokens.
+* Fix for overtime actionSave dialog not completing when player save timeout is 0/undefined.
+* Bonus dialogs now display only the label for macro bonus actions. If debug is enabled they will display the macro that will be called when the bonus is used.
+* A little clean up of the reaction dialog too.
+
 ### 11.4.26
 ** Make sure to upgrade dae/times-up as well**
 * Fix for non merge cards displaying damage rolls twice (once in the item chat card and once in the damage card).
 * Fix for preItemRoll macros setting workflow.aborted not aborting workflow.
 * Fix for overtime effects with magicSave set consuming a spell slot thanks @thatlonelybugbear
 * Added flags.midi-qol.fail.disadvantage.heavy to the list of auto complete items
-* Added isTargeted token macro trigger. Called before the roll is validated, but after targeting. Allows changing of workflow targets for example.
-* Added isPreAttacked macro trigger. Called before reactions are checked.
+* Added isTargeted token macro trigger. Called before the roll is validated, but after targeting. Allows changing of workflow targets for example. @Elwin
+* Added isPreAttacked macro trigger. Called before reactions are checked. @Elwin
 * Fix for displaying hits in the merge card. AC was not being shown to the GM (it is now always shown to the GM). AC is also shown to the players if the target is owned by a player. If the show AC setting is enabled in workflow settings AC for non-player owned targets will be displayed, otherwise hidden from players. The dnd5e setting  challenge visibility is checked to disable showing AC to the players.
 * Overtime rollMode. The specified roll mode will be applied to all chat cards display when processing the overtime effect. The exception is actionSaves from the actionSave chatcard (see below) as there seems to be no way to get dnd5e to roll the save other than default roll mode.
-* Chat card item info display has been tweaked. The default behaviour is to display item info for both GM/PC for all items (previous default was to display none). There is also a quicks setting to enable displaying all item info in chat cards.
+* Chat card item info display has been tweaked. The default behaviour is to display item info for both GM/PC for all items (previous default was to display none). There is also a quicksetting to enable displaying all item info in chat cards.
 * Added sample divine strike item which integrates with dnd5e life domain advancement to roll 1d8/2d8 bonus damage on weapon attacks. It's interesting because it has a passive effect to provide the damage bonus which expires on a hit and an each turn macro to renable the effect, which being passive is simply disabled on expiry. Makes for a pretty simple item.
 * Updated regeneration effect to whisper the results of the effect to the owner - players now don't see that the troll regenerated and know they have to do something.
 * Changes to overTime action saves.
@@ -17,14 +27,14 @@
     - The roll can be clicked any time until the turn is ended. If the player clicks on the button the appropriate save will be rolled and the result adjudicated. 
     - If you set dnd5e display challenge visibility that will be respected when displaying the chat card.
     - At the end of the players turn, or after they do a roll the chat card(s) will be removed.
-  - New option for overTime effects. optionSave=dialog, will (at the start of the charcters turn) present a dialog to the user indicating that the character can roll an action save with buttons for each of the possible saves,and if confirmed roll a saving throw and if successful remove the effect. Turn start effects will still be processed.
+  - New option for overTime effects. actionSave=dialog, will (at the start of the charcters turn) present a dialog to the user indicating that the character can roll an action save with buttons for each of the possible saves,and if confirmed roll a saving throw and if successful remove the effect. Turn start effects will still be processed.
 
 * **For dnd5e damage application only**. I've changed the behaviour of the midi specific effects for healing.
   - Any of the midi system.traits.dm.midi.non-magical etc will not apply to healing damage
   - Similarly the system.traits.dr/di/dv.custom fields won't apply to healing damage.
   - healing damage is any damage type listed in game.system.config.healingTypes.
   - Fix for healing not applying in some cases.
-
+git 
 ### 11.4.25
 * Fix for gridless grid not triggering correctly - thanks @Michael
 * Fix for end of turn over time effects not firing when skipping forward a whole round.

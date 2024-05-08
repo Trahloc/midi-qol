@@ -247,7 +247,10 @@ export let hideStuffHandler = (message, html, data) => {
         }
     // Hide the save dc if required
     if (!configSettings.displaySaveDC || !shouldDisplayChallenge) {
-      html.find(".midi-qol-saveDC").hide();
+      html.find(".midi-qol-saveDC").remove();
+      if (configSettings.autoCheckSaves !== "allShow") {
+        html.find(".midi-qol-npc-save-total").remove();
+      }
     }
     if (!shouldDisplayChallenge) {
       html.find(".midi-qol-hits-display .midi-qol-hit-symbol").remove();

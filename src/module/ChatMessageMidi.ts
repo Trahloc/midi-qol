@@ -233,12 +233,10 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
 }
 
 Hooks.once("init", () => {
-  log("Registering ChatMessageMidi");
   //@ts-expect-error
   CONFIG.ChatMessage.documentClass = ChatMessageMidi;
 });
 Hooks.once("setup", () => {
-  log("Registering ChatMessageMidi");
   //@ts-expect-error
   CONFIG.ChatMessage.documentClass = ChatMessageMidi;
 });

@@ -125,6 +125,7 @@ class ConfigSettings {
   mergeCardMulti: boolean = false;
   mergeCardMultiDamage: boolean = false;
   midiFieldsTab: boolean = true;
+  midiPropertiesTabRole: number = CONST.USER_ROLES.PLAYER;
   confirmAttackDamage: string = "none";
   highlightSuccess: boolean = false;
   optionalRulesEnabled: boolean = false;

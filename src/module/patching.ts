@@ -1247,11 +1247,12 @@ export async function checkWounded(actor, update, options, user) {
       useDefeated = false;
     }
     if (!needsBeaten) {
-      setDeadStatus(actor, { effect: getDeadStatus(), useDefeated, makeDead: false });
-      setDeadStatus(actor, { effect: getUnconsciousStatus(), useDefeated, makeDead: false });
+      await setDeadStatus(actor, { effect: getDeadStatus(), useDefeated, makeDead: false });
+      await setDeadStatus(actor, { effect: getUnconsciousStatus(), useDefeated, makeDead: false });
     } else {
-      setDeadStatus(actor, { effect, useDefeated, makeDead: needsBeaten });
-      setDeadStatus(actor, { effect: otherEffect, useDefeated: false, makeDead: false });
+      await setDeadStatus(actor, { effect, useDefeated, makeDead: needsBeaten });
+      if (effect !== otherEffect)
+        await setDeadStatus(actor, { effect: otherEffect, useDefeated: false, makeDead: false });
     }
   }
 }

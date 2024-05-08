@@ -909,5 +909,7 @@
   "DND5E.DamageApplication.Change.Spell": "Custom Spell {type}",
   "DND5E.DamageApplication.Change.Magic": "Custom Magical {type}",
   "DND5E.DamageApplication.Change.Nonmagic": "Custom Non Magical {type}",
-  "midi-qol.SettingsSearch": "Search Settings"
+  "midi-qol.SettingsSearch": "Search Settings",
+  "midi-qol.MidiPropertiesTab.Name": "Lowest User role for Item's properties",
+  "midi-qol.MidiPropertiesTab.Hint": "Lowest user role than can access an Item's midi-qol properties tab. <strong>Requires reload on change</strong>"
 }

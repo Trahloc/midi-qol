@@ -146,6 +146,7 @@ export class ConfigPanel extends FormApplication {
       RollSkillsBlindOptions: foundry.utils.mergeObject({ "none": "None", "all": "All" }, Object.keys(GameSystemConfig.skills).reduce((acc, s) => { acc[s] = GameSystemConfig.skills[s].label; return acc }, {})),
       RollSavesBlindOptions: foundry.utils.mergeObject({ "none": "None", "all": "All", "death": i18n("DND5E.DeathSave") }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
       RollChecksBlindOptions: foundry.utils.mergeObject({ "none": "None", "all": "All" }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
+      midiPropertiesTabOptions: CONST.USER_ROLE_NAMES,
       //@ts-expect-error
       StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name = i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, { "none": "None" }),
       SaveDROrderOptions: geti18nOptions("SaveDROrderOptions"),

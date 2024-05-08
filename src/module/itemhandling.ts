@@ -298,6 +298,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     let isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
     let isAoETargeting = this.hasAreaTarget;
+    const inCombat = isInCombat(this.actor);
     let requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
     let speaker = getSpeaker(this.actor);
 
@@ -311,19 +312,20 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
     selfTarget = this.system.target?.type === "self";
     isRangeTargeting = ["ft", "m"].includes(this.system.target?.units) && ["creature", "ally", "enemy"].includes(this.system.target?.type);
-    requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && (game.combat ?? null) !== null);
-
     options = tempWorkflow.options;
     foundry.utils.mergeObject(options.workflowOptions, tempWorkflow.workflowOptions, { inplace: true, insertKeys: true, insertValues: true, overwrite: true })
+
     const existingWorkflow = Workflow.getWorkflow(this.uuid);
     if (existingWorkflow) await Workflow.removeWorkflow(this.uuid);
     if (cancelWorkflow) return null;
+
     if ((!targetConfirmationHasRun && ((this.system.target?.type ?? "") !== "") || configSettings.enforceSingleWeaponTarget)) {
       if (!(await preTemplateTargets(this, options, pressedKeys)))
         return null;
       //@ts-expect-error
       if (game.user?.targets) targetsToUse = game.user?.targets;
     }
+
     let shouldAllowRoll = !requiresTargets // we don't care about targets
       || (targetsToUse.size > 0) // there are some target selected
       || (this.system.target?.type ?? "") === "" // no target required
@@ -332,20 +334,23 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       || isRangeTargeting // range target and will autotarget
       || (!this.hasAttack && !itemHasDamage(this) && !this.hasSave); // does not do anything - need to chck dynamic effects
 
+    // only allow attacks against at most the specified number of targets
+    let allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
+    if (requiresTargets && configSettings.enforceSingleWeaponTarget && allAttackTypes.includes(this.system.actionType)) {
+      allowedTargets = 1;
+      if (requiresTargets && targetsToUse.size !== 1) {
+        ui.notifications?.warn(i18nFormat("midi-qol.wrongNumberTargets", { allowedTargets }));
+        if (debugEnabled > 0) warn(`${game.user?.name} ${i18nFormat("midi-qol.midi-qol.wrongNumberTargets", { allowedTargets })}`)
+        return null;
+      }
+    }
+
     if (requiresTargets && !isRangeTargeting && !isAoETargeting && this.system.target?.type === "creature" && targetsToUse.size === 0) {
       ui.notifications?.warn(i18n("midi-qol.noTargets"));
       if (debugEnabled > 0) warn(`${game.user?.name} attempted to roll with no targets selected`)
       return false;
     }
-    // only allow weapon attacks against at most the specified number of targets
-    let allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
-    if (configSettings.enforceSingleWeaponTarget
-      && (this.system.target?.type ?? "") === ""
-      && allAttackTypes.includes(this.system.actionType)) {
-      // we have a weapon with no creature limit set.
-      allowedTargets = 1;
-    }
-    const inCombat = isInCombat(this.actor);
+
     let AoO = false;
     let activeCombatants = game.combats?.combats.map(combat => combat.combatant?.token?.id)
     const isTurn = activeCombatants?.includes(speaker.token);

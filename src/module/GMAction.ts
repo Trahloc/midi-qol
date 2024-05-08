@@ -1442,7 +1442,7 @@ async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: n
 
 export async function rollActionSave(data: any) {
   let {request, actorUuid, abilities, options, content, title, saveDC} = data;
-  let saveResult: any = new Promise(async (resolve, reject) => {
+  let saveResult: any = await new Promise(async (resolve, reject) => {
     const buttons: any = {};
     for (let ability of abilities) {
       let config: any = {type: request,  dc: saveDC, action: "rollRequest", hideDC: !game.user?.isGM && !configSettings.displaySaveDC, format: "short", icon: true};
@@ -1452,13 +1452,13 @@ export async function rollActionSave(data: any) {
       //@ts-expect-error
       label: game.system?.enrichers?.createRollLabel(config) ?? `${saveDC} ${ability} ${request}`,
         callback: async (html: any) => {
-          saveResult = await rollAbility({
+          let roll = await rollAbility({
             targetUuid: actorUuid,
             request,
             ability,
             options
           })
-          resolve(saveResult)
+          resolve(roll)
         }
       };
       buttons[ability] = button;
@@ -1481,18 +1481,7 @@ export async function rollActionSave(data: any) {
         close: () => {return (null)}
       }, {"id": id});
     }
-    resolve(undefined);
+    resolve("invalid");
   })
-  return await saveResult;
+ return saveResult
 }
-
-/*
-else 
-
-// const content = `${effect.name} ${i18n(messageFlavor[details.rollType])} as your action to overcome ${label}`;
-const chatData = {
-  user: game.user?.id,
-  content: await renderTemplate("systems/dnd5e/templates/chat/request-card.hbs", {
-    //@t s-expect-error
-    buttonLabel: game.system.enrichers.createRollLabel({ ...dataset, format: "short", icon: true }),
-*/

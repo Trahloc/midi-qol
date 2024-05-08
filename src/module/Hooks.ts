@@ -423,6 +423,7 @@ export function initHooks() {
   }
 
   Hooks.once('tidy5e-sheet.ready', (api) => {
+    if ((game.user?.role ?? CONST.USER_ROLES.PLAYER) < (configSettings.midiPropertiesTabRole ?? CONST.USER_ROLES.PLAYER)) return;
     const myTab = new api.models.HandlebarsTab({
       title: 'Midi Qol',
       tabId: "midi-qol-properties-tab",
@@ -537,6 +538,7 @@ export function initHooks() {
   Hooks.on("renderItemSheet", (app, html, data) => {
     const item = app.object;
     if (!item) return;
+    if ((configSettings.midiPropertiesTabRole ?? CONST.USER_ROLES.PLAYER) > (game.user?.role ?? CONST.USER_ROLES.NONE)) return;
     if (app.constructor.name !== "Tidy5eKgarItemSheet") {
       if (!item || !["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver", "tool"].includes(data.item.type))
         return;

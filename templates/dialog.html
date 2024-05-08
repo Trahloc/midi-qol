@@ -1,7 +1,7 @@
 <div class="dialog-content">
     {{{content}}}
 </div>
-<div class="dialog-buttons">
+<div class="dialog-buttons" style="flex-direction: column;">
     {{#each buttons as |button id|}}
     <button class="dialog-button {{cssClass}}" data-button="{{id}}">
         {{{button.icon}}}
