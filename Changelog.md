@@ -1,3 +1,8 @@
+### 11.4.27.1
+* Fix for overtime effects not rolling the saving throw for non actionSave effects.
+* Fix for damageOnlyWorkflow not setting the roll correctly when specifying a damage amount.
+* Change so that player save roll total are always displayed in the save results chat card. Only non-player owned save results are hidden.
+
 ### 11.4.27
 * Added setting for lowest user role that can access midi's item properties tab. (Requires midi properties tab to be enabled and a change requires a reload on all clients if using tidy-sheet).
 * Correct the display AC settings not working.
