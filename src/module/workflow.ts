@@ -4459,9 +4459,9 @@ export class DamageOnlyWorkflow extends Workflow {
       //@ts-expect-error
       if (game.system.release > 11)
       //@ts-expect-error
-        roll = damageRoll.evaluateSync({strict: false});
+        damageRoll = damageRoll.evaluateSync({strict: false});
       else 
-        roll = damageRoll.roll({ async: false });
+        damageRoll = damageRoll.roll({ async: false });
     }
     this.setDamageRolls([damageRoll]).then(() => {
       this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });
@@ -4471,12 +4471,6 @@ export class DamageOnlyWorkflow extends Workflow {
       this.suspended = false;
       this.performState(this.WorkflowState_Start);
     });
-    // this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });
-    // this.damageTotal = damageTotal;
-    // this.isCritical = options.isCritical ?? false;
-    // this.kickStart = false;
-    // this.suspended = false;
-    // this.performState(this.WorkflowState_Start);
     return this;
   }
 
