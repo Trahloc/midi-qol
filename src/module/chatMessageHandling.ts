@@ -208,11 +208,6 @@ export let hideStuffHandler = (message, html, data) => {
   } else {
     // hide tool tips from non-gm
     html.find(".midi-qol-save-tooltip").hide();
-    // if not showing saving throw total hide from players
-    if (configSettings.autoCheckSaves === "allNoRoll") {
-      html.find(".midi-qol-save-total").remove();
-      html.find(".midi-qol-save-full-display").hide();
-    }
 
     if (message.blind) {
       html.find(".midi-attack-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
@@ -248,7 +243,7 @@ export let hideStuffHandler = (message, html, data) => {
     // Hide the save dc if required
     if (!configSettings.displaySaveDC || !shouldDisplayChallenge) {
       html.find(".midi-qol-saveDC").remove();
-      if (configSettings.autoCheckSaves !== "allShow") {
+      if (!["allShow", "all"].includes(configSettings.autoCheckSaves)) {
         html.find(".midi-qol-npc-save-total").remove();
       }
     }

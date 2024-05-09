@@ -3397,9 +3397,11 @@ export class Workflow {
         if (rerResult.cancelled) {
           let roll = new Roll("-1");
           //@ts-expect-error
-          let evaluateSync = roll.evaluateSync
-          if (evaluateSync) roll = evaluateSync.bind(roll)()
-          else roll = roll.evaluate({ async: false }); // for v12
+          if (game.release.generation > 11)
+            //@ts-expect-error
+            roll = roll.evaluateSync({strict: false})
+          else 
+            roll = roll.evaluate({ async: false });
           for (let uuid of rerRequest.actors) {
             const fn = this.saveRequests[uuid];
             delete this.saveRequests[uuid];
@@ -4455,9 +4457,11 @@ export class DamageOnlyWorkflow extends Workflow {
       //@ts-expect-error
       damageRoll = new CONFIG.Dice.DamageRoll(`${damageTotal}`, {}, { type: damageType });
       //@ts-expect-error
-      const evaluateSync = roll.evaluateSync;
-      if (evaluateSync) damageRoll = evaluateSync.bind(roll)(); // V12
-      else roll = roll.roll({ async: false });
+      if (game.system.release > 11)
+      //@ts-expect-error
+        roll = damageRoll.evaluateSync({strict: false});
+      else 
+        roll = damageRoll.roll({ async: false });
     }
     this.setDamageRolls([damageRoll]).then(() => {
       this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });

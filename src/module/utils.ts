@@ -1734,8 +1734,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         foundry.utils.setProperty(itemData, "system.save.ability", saveAbility[0]);
       }
       if (rollTypeString === "skill" && !actionSave) { // skill checks for this is a fiddle - set a midi flag so that the midi save roll will pick it up.
-        foundry.utils.setProperty(itemData, "system.actionType", "save")
-        // itemData.system.actionType = "save";
+        actionType = "save";
         let skill = saveAbility[0];
         if (!GameSystemConfig.skills[skill]) { // not a skill id see if the name matches an entry
           //@ts-expect-error
@@ -1745,10 +1744,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         }
         foundry.utils.setProperty(itemData, "flags.midi-qol.overTimeSkillRoll", skill)
       }
-      actionType = "other";
-      delete itemData.system.save?.dc;
-      delete itemData.system.save?.ability;
-      delete itemData.system.save?.scaling;
+  
 
       if (damageBeforeSave || saveDamage === "fulldamage") {
         foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "fulldam");
