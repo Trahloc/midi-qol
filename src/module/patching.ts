@@ -145,7 +145,7 @@ async function doRollSkill(wrapped, ...args) {
     const rollTarget = options.targetValue;
     let overtimeActorUuid;
     if (options.event) {
-      const target = options.event?.target.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
+      const target = options.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
       if (target?.dataset?.midiOvertimeActorUuid) overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
       if (overtimeActorUuid && this.uuid !== overtimeActorUuid) {
         //@ts-expect-error
@@ -406,7 +406,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
   let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false, isConcentrationCheck: false }] = args;
   let overtimeActorUuid;
   if (options.event) {
-    const target = options.event?.target.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
+    const target = options.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
     if (target?.dataset?.midiOvertimeActorUuid) {
       overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
       options.rollMode = target.dataset.midiRollMode ?? options.rollMode;
