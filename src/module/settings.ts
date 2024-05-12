@@ -6,6 +6,7 @@ import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configureDamageRollDialog } from "./patching.js";
 import { TargetConfirmationConfig } from "./apps/TargetConfirmationConfig.js";
 import { _updateAction } from "./utils.js";
+import { error } from "jquery";
 
 export var itemRollButtons: boolean;
 export var criticalDamage: string;
@@ -76,7 +77,7 @@ class ConfigSettings {
   autoCompleteWorkflow = false;
   saveDROrder = "SaveDRdr";
   autoTarget: string = "none";
-  averageNPCDamage: boolean = false;
+  averageDamage: string = "none";
   checkSaveText: boolean = false;
   concentrationAutomation: boolean = false;
   consumeResource: string = "none";
@@ -495,7 +496,12 @@ export let fetchParams = () => {
   if (configSettings.enforceSingleWeaponTarget == undefined) configSettings.enforceSingleWeaponTarget = false;
   configSettings.hidePlayerDamageCard = true;
   configSettings.quickSettings = true;
-  if (configSettings.averageNPCDamage === undefined) configSettings.averageNPCDamage = false;
+  //@ts-expect-error have removed the definition
+  if (configSettings.averageNPCDamage !== undefined) {
+    //@ts-expect-error delete the obsolete setting;
+    delete configSettings.averageNPCDamage;
+  }
+  if (configSettings.averageDamage === undefined) configSettings.averageDamage = "none";
   enableWorkflow = Boolean(game.settings.get("midi-qol", "EnableWorkflow"));
   if (configSettings.optionalRules.challengeModeArmor === true) { // old settings
     if (configSettings.optionalRules.challengeModeArmorScale)

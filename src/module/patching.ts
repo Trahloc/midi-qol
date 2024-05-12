@@ -282,7 +282,7 @@ function configureDamage(wrapped) {
     while (this.terms.length > 0 && this.terms[this.terms.length - 1] instanceof OperatorTerm)
       this.terms.pop();
     wrapped();
-    if (this.data.actorType === "npc" && configSettings.averageNPCDamage) averageDice(this);
+    if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
     return;
   }
   // if (this.options.configured) return; seems this is not required.
@@ -399,7 +399,7 @@ function configureDamage(wrapped) {
     this.terms.pop();
   this._formula = this.constructor.getFormula(this.terms);
   this.options.configured = true;
-  if (this.data.actorType === "npc" && configSettings.averageNPCDamage) averageDice(this);
+  if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
 }
 
 async function doAbilityRoll(wrapped, rollType: string, ...args) {

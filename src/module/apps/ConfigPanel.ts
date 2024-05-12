@@ -136,6 +136,7 @@ export class ConfigPanel extends FormApplication {
       ConsumeResourceOptions: geti18nOptions("ConsumeResourceOptions"),
       AddDeadOptions: geti18nOptions("AddDeadOptions"),
       AddWoundedOptions,
+      AverageDamageOptions: geti18nOptions("AverageDamageOptions"),
       TargetConfirmationOptions: geti18nOptions("TargetConfirmationOptions"),
       RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions"),
       CheckRangeOptions: geti18nOptions("CheckRangeOptions"),
