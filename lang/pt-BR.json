@@ -840,7 +840,13 @@
   "midi-qol.ConfirmRoll": "Confirmar",
   "midi-qol.ConfirmMiss": "Confirmar Erro",
   "midi-qol.ConfirmHit": "Confirmar Acerto",
-  "midi-qol.AverageNPCDamage.Name": "Todas as rolagens de dado de dano/crítico de PnJ são resultados 'médios'",
+  "midi-qol.AverageDamage.Name": "Todas as rolagens de dado de dano/crítico são resultados 'médios'",
+  "midi-qol.AverageDamageOptions" : {
+    "none": "Nenhum",
+    "npc": "Apenas rolagens de dano de PnJs",
+    "character": "Apenas rolagens de dano de PJs",
+    "all": "Todas as rolagens de dano"
+  },
   "midi-qol.GriddedGridless.Name": "Grade sem Grade",
   "midi-qol.GridlessFudge.Name": "Fator de Fraude",
   "midi-qol.GridlessFudge.Hint": "Subtrai o fator de fraude da medida de distância ao verificar alcance. Especificado em unidades de escala de grade (pés/metros, por exemplo).",
