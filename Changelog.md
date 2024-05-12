@@ -1,4 +1,12 @@
-### 11.4.27.1
+### 11.4.28
+* Overtime effects
+  - Fix for not displaying targets sometimes.
+  - Support for an item Uuid in the itemName field.
+  - Fix for overtime effects throwing an error when an invalid damageType is passed.
+* Support for charcter's damage rolls to be averaged (in addition to npc rolls). It's a world setting so applies to all characters. Options are none/npcs/characters/all actors
+* Previoulsy items that dealt damage (or healing) or applied active effects would only display the list of affected targets if there was an attack roll or a save. Midi will now display the list of affeted targets for such items. (Cure wounds is a good example).
+
+### 11.4.27.3
 * Fix for overtime effects not rolling the saving throw for non actionSave effects.
 * Fix for damageOnlyWorkflow not setting the roll correctly when specifying a damage amount.
 * Change so that player save roll total are always displayed in the save results chat card. Only non-player owned save results are hidden.

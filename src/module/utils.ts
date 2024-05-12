@@ -1702,17 +1702,28 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       if (debugEnabled > 0) warn(`gmOverTimeEffect | Overtime provided data is `, details);
       if (debugEnabled > 0) warn(`gmOverTimeEffect | OverTime label=${label} startTurn=${startTurn} endTurn=${endTurn} damageBeforeSave=${damageBeforeSave} saveDC=${saveDC} saveAbility=${saveAbility} damageRoll=${damageRoll} damageType=${damageType}`);
 
-      let itemData: any = {}; //foundry.utils.duplicate(overTimeJSONData);
+      let itemData: any = {
+        "system": {
+          "target": {
+            "value": null,
+            "width": null,
+            "units": "",
+            "type": "creature"
+          }
+        }
+      };
+      //foundry.utils.duplicate(overTimeJSONData);
       itemData.img = "icons/svg/aura.svg";
       if (typeof itemName === "string") {
-        if (itemName.startsWith("Actor.")) { // TODO check this
+        let theItem = await fromUuid(itemName);
+        if (!theItem && itemName.startsWith("Actor.")) {
           const localName = itemName.replace("Actor.", "")
-          const theItem = actor.items.getName(localName);
-          if (theItem) itemData = theItem.toObject();
-        } else {
-          const theItem = game.items?.getName(itemName);
-          if (theItem) itemData = theItem.toObject();
+          theItem = actor.items.getName(localName);
         }
+        if (!theItem) {
+          const theItem = game.items?.getName(itemName);
+        }
+        if (theItem) itemData = theItem.toObject();
       }
 
       itemData.img = effect.img ?? effect.icon; // v12 icon -> img
@@ -1744,7 +1755,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         }
         foundry.utils.setProperty(itemData, "flags.midi-qol.overTimeSkillRoll", skill)
       }
-  
+
 
       if (damageBeforeSave || saveDamage === "fulldamage") {
         foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "fulldam");
@@ -2581,7 +2592,7 @@ export function isAutoConsumeResource(workflow: Workflow | undefined = undefined
 }
 
 export function getAutoRollDamage(workflow: Workflow | undefined = undefined): string {
-  if (configSettings.averageNPCDamage && workflow?.actor.type === "npc") return "onHit";
+  if (workflow?.actor.type === configSettings.averageDamage || configSettings.averageDamage === "all") return "onHit";
   if (workflow?.workflowOptions?.autoRollDamage) {
     const damageOptions = Object.keys(geti18nOptions("autoRollDamageOptions"));
     if (damageOptions.includes(workflow.workflowOptions.autoRollDamage))

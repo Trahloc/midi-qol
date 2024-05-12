@@ -589,6 +589,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         await td.object?.refresh();
         await busyWait(0.01);
         workflow.templateUuid = td.uuid;
+        workflow.template = td;
         workflow.templateId = td?.object?.id;
         if (token && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
           //@ts-expect-error .object

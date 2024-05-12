@@ -145,7 +145,7 @@ async function doRollSkill(wrapped, ...args) {
     const rollTarget = options.targetValue;
     let overtimeActorUuid;
     if (options.event) {
-      const target = options.event?.target.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
+      const target = options.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
       if (target?.dataset?.midiOvertimeActorUuid) overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
       if (overtimeActorUuid && this.uuid !== overtimeActorUuid) {
         //@ts-expect-error
@@ -282,7 +282,7 @@ function configureDamage(wrapped) {
     while (this.terms.length > 0 && this.terms[this.terms.length - 1] instanceof OperatorTerm)
       this.terms.pop();
     wrapped();
-    if (this.data.actorType === "npc" && configSettings.averageNPCDamage) averageDice(this);
+    if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
     return;
   }
   // if (this.options.configured) return; seems this is not required.
@@ -399,14 +399,14 @@ function configureDamage(wrapped) {
     this.terms.pop();
   this._formula = this.constructor.getFormula(this.terms);
   this.options.configured = true;
-  if (this.data.actorType === "npc" && configSettings.averageNPCDamage) averageDice(this);
+  if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
 }
 
 async function doAbilityRoll(wrapped, rollType: string, ...args) {
   let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false, isConcentrationCheck: false }] = args;
   let overtimeActorUuid;
   if (options.event) {
-    const target = options.event?.target.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
+    const target = options.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
     if (target?.dataset?.midiOvertimeActorUuid) {
       overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
       options.rollMode = target.dataset.midiRollMode ?? options.rollMode;

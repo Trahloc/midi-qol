@@ -174,7 +174,7 @@ export class Workflow {
   get shouldRollDamage(): boolean {
     // if ((this.itemRollToggle && getAutoRollDamage(this)) || !getAutoRollDamage(this))  return false;
     if (this.systemCard) return false;
-    if (this.actor.type === "npc" && configSettings.averageNPCDamage) return true;
+    if (this.actor.type === configSettings.averageDamage || configSettings.averageDamage === "all") return true;
     const normalRoll = getAutoRollDamage(this) === "always"
       || (getAutoRollDamage(this) === "saveOnly" && this.item.hasSave && !this.item.hasAttack)
       || (getAutoRollDamage(this) !== "none" && !this.item.hasAttack)
@@ -258,6 +258,7 @@ export class Workflow {
     this.isVersatile = false;
     this.templateId = null;
     this.templateUuid = null;
+    this.template = undefined;
 
     this.saveRequests = {};
     this.defenceRequests = {};
@@ -1437,6 +1438,36 @@ export class Workflow {
     await this.expireTargetEffects(specialExpiries)
     const rollFinishedStartTime = Date.now();
     const chatMessage = this.chatCard;
+    if (!this.targetsDisplayed && this.targets.size > 0 && chatMessage && (this.item.hasDamage ||this.applicationTargets.size > 0)) {
+      this.hitDisplayData = {};
+      const theTargets = this.applicationTargets.size > 0 ? this.applicationTargets : this.targets;
+      for (let targetToken of theTargets) {
+        const targettokenUuid = targetToken.actor?.uuid;
+        if (!targettokenUuid) continue;
+        //@ts-ignore .document v10
+        let img = targetToken.document?.texture.src ?? targetToken.actor?.img;
+        if (configSettings.usePlayerPortrait && targetToken.actor?.type === "character") {
+          //@ts-ignore .document v10
+          img = targetToken.actor?.img ?? targetToken.document?.texture.src;
+        }
+        if (VideoHelper.hasVideoExtension(img ?? "")) {
+          img = await game.video.createThumbnail(img ?? "", { width: 100, height: 100 });
+        }
+        this.hitDisplayData[targettokenUuid] = {
+          isPC: targetToken.actor?.hasPlayerOwner,
+          target: targetToken,
+          hitClass: "hit",
+          acClass: "",
+          img,
+          gmName: getTokenName(targetToken),
+          playerName: getTokenPlayerName(targetToken),
+          uuid: targetToken.uuid,
+          showAC: false,
+          isHit: true
+        };
+        await this.displayHits(chatMessage.whisper.length > 0, configSettings.mergeCard, true);
+      }
+    }
     let content = chatMessage?.content && foundry.utils.duplicate(chatMessage?.content);
     if (content && getRemoveAttackButtons(this.item) && chatMessage && configSettings.confirmAttackDamage === "none") {
       let searchRe = /<button data-action="attack">[^<]*<\/button>/;
@@ -2699,6 +2730,7 @@ export class Workflow {
   async displayTargets(whisper = false) {
     if (!configSettings.mergeCard) return;
     this.hitDisplayData = {};
+    this.targetsDisplayed = true;
     for (let targetToken of this.targets) {
       //@ts-ignore .document v10
       let img = targetToken.document?.texture.src ?? targetToken.actor?.img;
@@ -2727,6 +2759,7 @@ export class Workflow {
   }
 
   async displayHits(whisper = false, doMerge, showHits = true) {
+    this.targetsDisplayed = true;
     const templateData = {
       attackType: this.item?.name ?? "",
       attackTotal: this.attackTotal,
@@ -2846,6 +2879,7 @@ export class Workflow {
     let noDamageText = "";
     let halfDamageText = "";
     // TODO display bonus damage if required
+    this.targetsDisplayed = true;
     if (this.item.hasDamage) {
       switch (getSaveMultiplierForItem(this.saveItem, "defaultDamage")) {
         case 0:
@@ -3399,8 +3433,8 @@ export class Workflow {
           //@ts-expect-error
           if (game.release.generation > 11)
             //@ts-expect-error
-            roll = roll.evaluateSync({strict: false})
-          else 
+            roll = roll.evaluateSync({ strict: false })
+          else
             roll = roll.evaluate({ async: false });
           for (let uuid of rerRequest.actors) {
             const fn = this.saveRequests[uuid];
@@ -4458,9 +4492,9 @@ export class DamageOnlyWorkflow extends Workflow {
       damageRoll = new CONFIG.Dice.DamageRoll(`${damageTotal}`, {}, { type: damageType });
       //@ts-expect-error
       if (game.system.release > 11)
-      //@ts-expect-error
-        damageRoll = damageRoll.evaluateSync({strict: false});
-      else 
+        //@ts-expect-error
+        damageRoll = damageRoll.evaluateSync({ strict: false });
+      else
         damageRoll = damageRoll.roll({ async: false });
     }
     this.setDamageRolls([damageRoll]).then(() => {

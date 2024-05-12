@@ -840,7 +840,13 @@
   "midi-qol.ConfirmRoll": "Confirm",
   "midi-qol.ConfirmMiss": "Confirm Miss",
   "midi-qol.ConfirmHit": "Confirm Hit",
-  "midi-qol.AverageNPCDamage.Name": "All damage/critical dice rolled for npc hits are 'average' results",
+  "midi-qol.AverageDamage.Name": "All damage/critical rolls are 'average' results",
+  "midi-qol.AverageDamageOptions" : {
+    "none": "None",
+    "npc": "NPC only damage rolls",
+    "character": "Character ony damage rolls",
+    "all": "All damage rolls"
+  },
   "midi-qol.GriddedGridless.Name": "Gridless Grid",
   "midi-qol.GridlessFudge.Name": "Fudge factor",
   "midi-qol.GridlessFudge.Hint": "Subtract the fudge factor from the measured distance when checking range. Specified in grid scale units, i.e. ft/m",
