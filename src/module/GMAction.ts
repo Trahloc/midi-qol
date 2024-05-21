@@ -1,5 +1,5 @@
 import { checkRule, configSettings, safeGetGameSetting } from "./settings.js";
-import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig } from "../midi-qol.js";
+import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
 import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
 import { Workflow } from "./workflow.js";
@@ -12,7 +12,7 @@ export var socketlibSocket: any = undefined;
 var traitList = { di: {}, dr: {}, dv: {}, dm: {}, da: {} };
 
 export let setupSocket = () => {
-  socketlibSocket = globalThis.socketlib.registerModule("midi-qol");
+  socketlibSocket = globalThis.socketlib.registerModule(MODULE_ID);
   socketlibSocket.register("_gmSetFlag", _gmSetFlag);
   socketlibSocket.register("_gmUnsetFlag", _gmUnsetFlag);
   socketlibSocket.register("addConvenientEffect", addConvenientEffect);
@@ -856,12 +856,12 @@ async function createV3GMReverseDamageCard(
     if (appliedTempDamage > 0) {
       newTempHP = Math.max(0, newTempHP - appliedTempDamage);
     } else newTempHP = Math.max(actor.system.attributes.hp.temp, -appliedTempDamage);
-    if (appliedDamage > 0 && appliedDamage> newTempHP) {
+    if (appliedDamage > 0 && appliedDamage > newTempHP) {
       appliedDamage -= newTempHP;
       newTempHP = 0;
-    } else if (appliedDamage > 0 && appliedDamage < newTempHP) {
-      appliedDamage = 0;
+    } else if (appliedDamage > 0 && appliedDamage <= newTempHP) {
       newTempHP -= appliedDamage;
+      appliedDamage = 0;
     }
     if (doHits && !damageItem.isHit) continue;
     if (!doHits && damageItem.isHit) continue;
@@ -879,6 +879,7 @@ async function createV3GMReverseDamageCard(
     const newHP = Math.min(actor.system.attributes.hp.effectiveMax, Math.max(0, oldHP - appliedDamage));
     const oldTempHP = actor.system.attributes.hp.temp;
     appliedDamage = (oldHP - newHP);
+    appliedTempDamage = (oldTempHP - newTempHP);
     let img = tokenDocument?.texture.src || actor.img;
     if (configSettings.usePlayerPortrait && actor.type === "character")
       img = actor?.img || tokenDocument?.texture.src;
@@ -1145,7 +1146,7 @@ async function prepareDamageListItems(data: {
     });
     //@ts-ignore
     const actorFlags: any = actor.flags;
-    const DRFlags = actorFlags["midi-qol"] ? actorFlags["midi-qol"].DR : undefined;
+    const DRFlags = actorFlags[MODULE_ID] ? actorFlags[MODULE_ID].DR : undefined;
     if (DRFlags) {
       listItem["DR"] = "DR: ";
       for (let key of Object.keys(DRFlags)) {

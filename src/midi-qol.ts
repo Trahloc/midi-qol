@@ -28,6 +28,7 @@ export let error = (...args) => console.error("midi-qol | ", ...args);
 export let timelog = (...args) => warn("midi-qol | ", Date.now(), ...args);
 export var levelsAPI;
 export var allDamageTypes;
+export const MODULE_ID = "midi-qol";
 
 declare global {
   interface LenientGlobalVariableTypes {
@@ -53,21 +54,21 @@ export let i18nFormat = (key, data = {}) => {
   return game.i18n.format(key, data);
 }
 export function geti18nOptions(key) {
-  const translations = game.i18n.translations["midi-qol"] ?? {};
+  const translations = game.i18n.translations[MODULE_ID] ?? {};
   //@ts-ignore _fallback not accessible
-  const fallback = game.i18n._fallback["midi-qol"] ?? {};
+  const fallback = game.i18n._fallback[MODULE_ID] ?? {};
   return translations[key] ?? fallback[key] ?? {};
 }
 export function geti18nTranslations() {
   // @ts-expect-error _fallback
-  return foundry.utils.mergeObject(game.i18n._fallback["midi-qol"] ?? {}, game.i18n.translations["midi-qol"] ?? {});
+  return foundry.utils.mergeObject(game.i18n._fallback[MODULE_ID] ?? {}, game.i18n.translations[MODULE_ID] ?? {});
 }
 
 export let setDebugLevel = (debugText: string) => {
   debugEnabled = { "none": 0, "warn": 1, "debug": 2, "all": 3 }[debugText] || 0;
   // 0 = none, warnings = 1, debug = 2, all = 3
   if (debugEnabled >= 3) CONFIG.debug.hooks = true;
-  debugCallTiming = game.settings.get("midi-qol", "debugCallTiming") ?? false;
+  debugCallTiming = game.settings.get(MODULE_ID, "debugCallTiming") ?? false;
 }
 
 export let noDamageSaves: string[] = [];
@@ -163,8 +164,8 @@ Hooks.once('init', async function () {
   });
 });
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
-  specials["flags.midi-qol.onUseMacroName"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
-  specials["flags.midi-qol.optional.NAME.macroToCall"] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
+  specials[`flags.${MODULE_ID}.onUseMacroName`] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
+  specials[`flags.${MODULE_ID}.optional.NAME.macroToCall`] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
   if (configSettings.v3DamageApplication) {
     specials[`system.traits.dm.midi.all`] = ["", -1]
     specials[`system.traits.dm.midi.non-magical`] = ["", -1]
@@ -188,32 +189,32 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
   if (configSettings.v3DamageApplication) {
     //@ts-expect-error
     for (let key of Object.keys(game.system.config.damageTypes ?? {})) {
-      fieldMappings[`flags.midi-qol.DR.${key}`] = `system.traits.dm.amount.${key}`;
-      fieldMappings[`flags.midi-qol.absorption.${key}`] = `system.traits.da.value`;
+      fieldMappings[`flags.${MODULE_ID}.DR.${key}`] = `system.traits.dm.amount.${key}`;
+      fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.value`;
     }
     //@ts-expect-error
     for (let key of Object.keys(game.system.config.healingTypes ?? {})) {
-      fieldMappings[`flags.midi-qol.DR.${key}`] = `system.traits.dm.amount.${key}`;
-      fieldMappings[`flags.midi-qol.absorption.${key}`] = `system.traits.da.value`;
+      fieldMappings[`flags.${MODULE_ID}.DR.${key}`] = `system.traits.dm.amount.${key}`;
+      fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.value`;
     }
-    fieldMappings["flags.midi-qol.DR.all"] = "system.traits.dm.midi.all";
-    fieldMappings["flags.midi-qol.absorption.all"] = "system.traits.da.all";
+    fieldMappings[`flags.${MODULE_ID}.DR.all`] = "system.traits.dm.midi.all";
+    fieldMappings[`flags.${MODULE_ID}.absorption.all`] = "system.traits.da.all";
 
     //@ts-expect-error
     Object.keys(game.system.config.itemActionTypes).forEach(aType => {
-      fieldMappings[`flags.midi-qol.DR.${aType}`] = `system.traits.dm.midi.${aType}`;
+      fieldMappings[`flags.${MODULE_ID}.DR.${aType}`] = `system.traits.dm.midi.${aType}`;
     });
-    fieldMappings[`flags.midi-qol.DR.all`] = `system.traits.dm.midi.all`;
-    fieldMappings[`flags.midi-qol.DR.non-magical`] = `system.traits.dm.midi.non-magical`;
-    fieldMappings[`flags.midi-qol.DR.non-magical-physical`] = `system.traits.dm.midi.non-magical-physical`;
-    fieldMappings[`flags.midi-qol.DR.non-silver`] = `system.traits.dm.midi.non-silver-physical`;
-    fieldMappings[`flags.midi-qol.DR.non-adamant`] = `system.traits.dm.midi.non-adamant-physical`;
-    fieldMappings[`flags.midi-qol.DR.non-physical`] = `system.traits.dm.midi.non-physical`;
-    fieldMappings[`flags.midi-qol.DR.non-spell`] = `system.traits.dm.midi.non-spell`;
-    fieldMappings[`flags.midi-qol.DR.spell`] = `system.traits.dm.midi.spell`;
+    fieldMappings[`flags.${MODULE_ID}.DR.all`] = `system.traits.dm.midi.all`;
+    fieldMappings[`flags.${MODULE_ID}.DR.non-magical`] = `system.traits.dm.midi.non-magical`;
+    fieldMappings[`flags.${MODULE_ID}.DR.non-magical-physical`] = `system.traits.dm.midi.non-magical-physical`;
+    fieldMappings[`flags.${MODULE_ID}.DR.non-silver`] = `system.traits.dm.midi.non-silver-physical`;
+    fieldMappings[`flags.${MODULE_ID}.DR.non-adamant`] = `system.traits.dm.midi.non-adamant-physical`;
+    fieldMappings[`flags.${MODULE_ID}.DR.non-physical`] = `system.traits.dm.midi.non-physical`;
+    fieldMappings[`flags.${MODULE_ID}.DR.non-spell`] = `system.traits.dm.midi.non-spell`;
+    fieldMappings[`flags.${MODULE_ID}.DR.spell`] = `system.traits.dm.midi.spell`;
 
-    fieldMappings[`flags.midi-qol.DR.final`] = `system.traits.dm.midi.final`;
-    fieldMappings['flags.midi-qol.concentrationSaveBonus'] = "system.attributes.concentration.bonuses.save";
+    fieldMappings[`flags.${MODULE_ID}.DR.final`] = `system.traits.dm.midi.final`;
+    fieldMappings[`flags.${MODULE_ID}.concentrationSaveBonus`] = "system.attributes.concentration.bonuses.save";
   }
 });
 /* ------------------------------------ */
@@ -255,9 +256,9 @@ function addConfigOptions() {
     config.midiProperties = {};
     // Add additonal vision types? How to modify token properties doing this.
     config.midiProperties["confirmTargets"] = i18n("midi-qol.confirmTargetsProp");
-    config.midiProperties["nodam"] = i18n("midi-qol.noDamageSaveProp");
-    config.midiProperties["fulldam"] = i18n("midi-qol.fullDamageSaveProp");
-    config.midiProperties["halfdam"] = i18n("midi-qol.halfDamageSaveProp");
+    // config.midiProperties["nodam"] = i18n("midi-qol.noDamageSaveProp");
+    // config.midiProperties["fulldam"] = i18n("midi-qol.fullDamageSaveProp");
+    // config.midiProperties["halfdam"] = i18n("midi-qol.halfDamageSaveProp");
     config.midiProperties["autoFailFriendly"] = i18n("midi-qol.FailFriendly");
     config.midiProperties["autoSaveFriendly"] = i18n("midi-qol.SaveFriendly");
     config.midiProperties["rollOther"] = i18n("midi-qol.rollOtherProp");
@@ -265,7 +266,7 @@ function addConfigOptions() {
     config.midiProperties["offHandWeapon"] = i18n("midi-qol.OffHandWeapon");
     config.midiProperties["magicdam"] = i18n("midi-qol.magicalDamageProp");
     config.midiProperties["magiceffect"] = i18n("midi-qol.magicalEffectProp");
-    config.midiProperties["concentration"] = i18n("midi-qol.concentrationEffectProp");
+    // removed for 11.4.29 config.midiProperties["concentration"] = i18n("midi-qol.concentrationEffectProp");
     config.midiProperties["noConcentrationCheck"] = i18n("midi-qol.noConcentrationEffectProp");
     config.midiProperties["toggleEffect"] = i18n("midi-qol.toggleEffectProp");
     config.midiProperties["ignoreTotalCover"] = i18n("midi-qol.ignoreTotalCover");
@@ -450,18 +451,18 @@ Hooks.once('ready', function () {
     game.system.config.areaTargetTypes["squareRadius"] = { label: i18n("midi-qol.squareRadius"), template: "rect" };
 
     if (game.user?.isGM) {
-      const instanceId = game.settings.get("midi-qol", "instanceId");
+      const instanceId = game.settings.get(MODULE_ID, "instanceId");
       //@ts-expect-error instanceId
       if ([undefined, ""].includes(instanceId)) {
-        game.settings.set("midi-qol", "instanceId", foundry.utils.randomID());
+        game.settings.set(MODULE_ID, "instanceId", foundry.utils.randomID());
       }
-      const oldVersion = game.settings.get("midi-qol", "last-run-version");
+      const oldVersion = game.settings.get(MODULE_ID, "last-run-version");
       //@ts-expect-error version
-      const newVersion = game.modules.get("midi-qol")?.version;
+      const newVersion = game.modules.get(MODULE_ID)?.version;
       //@ts-expect-error
       if (foundry.utils.isNewerVersion(newVersion, oldVersion)) {
-        console.warn(`midi-qol | instance ${game.settings.get("midi-qol", "instanceId")} version change from ${oldVersion} to ${newVersion}`);
-        game.settings.set("midi-qol", "last-run-version", newVersion);
+        console.warn(`midi-qol | instance ${game.settings.get(MODULE_ID, "instanceId")} version change from ${oldVersion} to ${newVersion}`);
+        game.settings.set(MODULE_ID, "last-run-version", newVersion);
         // look at sending a new version has been installed.
       }
       readySettingsSetup();
@@ -490,17 +491,17 @@ Hooks.once('ready', function () {
     ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", { permanent: true });
     new TargetConfirmationConfig({}, {}).render(true);
     configSettings.gmLateTargeting = "none";
-    game.settings.set("midi-qol", "ConfigSettings", configSettings)
+    game.settings.set(MODULE_ID, "ConfigSettings", configSettings)
   }
-  if (!game.user?.isGM && game.settings.get("midi-qol", "LateTargeting") !== "none") {
+  if (!game.user?.isGM && game.settings.get(MODULE_ID, "LateTargeting") !== "none") {
     ui.notifications?.notify("Late Targeting has been replaced with Target Confirmation. Please update your settings", "info", { permanent: true });
     new TargetConfirmationConfig({}, {}).render(true);
-    game.settings.set("midi-qol", "LateTargeting", "none");
+    game.settings.set(MODULE_ID, "LateTargeting", "none");
   }
   readyHooks();
   readyPatching();
 
-  if (midiSoundSettingsBackup) game.settings.set("midi-qol", "MidiSoundSettings-backup", midiSoundSettingsBackup)
+  if (midiSoundSettingsBackup) game.settings.set(MODULE_ID, "MidiSoundSettings-backup", midiSoundSettingsBackup)
 
   // Make midi-qol targets hoverable
   $(document).on("mouseover", ".midi-qol-target-name", (e) => {
@@ -778,6 +779,36 @@ function setupMidiQOLApi() {
         return untimedExecuteAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate })
     }
   });
+  globalThis.MidiDAEEval = {
+    testfunc,
+    canSee,
+    canSense,
+    canSenseModes,
+    checkIncapacitated,
+    checkDistance,
+    checkNearby,
+    checkRange,
+    checkRule,
+    computeCoverBonus,
+    computeDistance: getDistanceSimple,
+    contestedRoll,
+    displayDSNForRoll,
+    doConcentrationCheck,
+    chooseEffect,
+    findNearby,
+    getDistance: getDistanceSimpleOld,
+    getTraitMult: getTraitMult,
+    hasCondition,
+    hasUsedBonusAction,
+    hasUsedReaction,
+    humanoid,
+    isTargetable,
+    raceOrType,
+    typeOrRace,
+    safeGetGameSetting,
+    setBonusActionUsed,
+    setReactionUsed,
+  }
   globalThis.MidiQOL.actionQueue = new foundry.utils.Semaphore();
 }
 
@@ -795,217 +826,217 @@ function setupMidiFlags() {
   let config = game.system.config;
   //@ts-expect-error
   const systemVersion = game.system.version;
-  midiFlags.push("flags.midi-qol.advantage.all")
-  midiFlags.push("flags.midi-qol.disadvantage.all")
-  midiFlags.push("flags.midi-qol.advantage.attack.all")
-  midiFlags.push("flags.midi-qol.disadvantage.attack.all")
-  midiFlags.push("flags.midi-qol.critical.all")
-  midiFlags.push(`flags.midi-qol.max.damage.all`);
-  midiFlags.push(`flags.midi-qol.min.damage.all`);
-  midiFlags.push(`flags.midi-qol.grants.max.damage.all`);
-  midiFlags.push(`flags.midi-qol.grants.min.damage.all`);
-  midiFlags.push("flags.midi-qol.noCritical.all");
-  midiFlags.push("flags.midi-qol.fail.all");
-  midiFlags.push("flags.midi-qol.fail.attack.all");
-  midiFlags.push("flags.midi-qol.success.attack.all");
-  midiFlags.push(`flags.midi-qol.grants.advantage.attack.all`);
-  midiFlags.push("flags.midi-qol.grants.advantage.save.all")
-  midiFlags.push("flags.midi-qol.grants.advantage.check.all")
-  midiFlags.push("flags.midi-qol.grants.advantage.skill.all")
-  midiFlags.push(`flags.midi-qol.grants.disadvantage.attack.all`);
-  midiFlags.push("flags.midi-qol.grants.disadvantage.save.all")
-  midiFlags.push("flags.midi-qol.grants.disadvantage.check.all")
-  midiFlags.push("flags.midi-qol.grants.disadvantage.skill.all")
+  midiFlags.push(`flags.${MODULE_ID}.advantage.all`)
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.all`)
+  midiFlags.push(`flags.${MODULE_ID}.advantage.attack.all`)
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.attack.all`)
+  midiFlags.push(`flags.${MODULE_ID}.critical.all`)
+  midiFlags.push(`flags.${MODULE_ID}.max.damage.all`);
+  midiFlags.push(`flags.${MODULE_ID}.min.damage.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.max.damage.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.min.damage.all`);
+  midiFlags.push(`flags.${MODULE_ID}.noCritical.all`);
+  midiFlags.push(`flags.${MODULE_ID}.fail.all`);
+  midiFlags.push(`flags.${MODULE_ID}.fail.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.success.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.save.all`)
+  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.check.all`)
+  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.skill.all`)
+  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.save.all`)
+  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.check.all`)
+  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.skill.all`)
 
-  midiFlags.push(`flags.midi-qol.grants.fail.advantage.attack.all`);
-  midiFlags.push(`flags.midi-qol.grants.fail.disadvantage.attack.all`);
-  midiFlags.push(`flags.midi-qol.neverTarget`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.fail.advantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.fail.disadvantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.neverTarget`);
 
   // TODO work out how to do grants damage.max
-  midiFlags.push(`flags.midi-qol.grants.attack.success.all`);
-  midiFlags.push(`flags.midi-qol.grants.attack.fail.all`);
-  midiFlags.push(`flags.midi-qol.grants.attack.bonus.all`);
-  midiFlags.push(`flags.midi-qol.grants.critical.all`);
-  midiFlags.push(`flags.midi-qol.grants.critical.range`);
-  midiFlags.push('flags.midi-qol.grants.criticalThreshold');
-  midiFlags.push(`flags.midi-qol.fail.critical.all`);
-  midiFlags.push(`flags.midi-qol.advantage.concentration`)
-  midiFlags.push(`flags.midi-qol.disadvantage.concentration`)
-  midiFlags.push("flags.midi-qol.ignoreNearbyFoes");
-  midiFlags.push("flags.midi-qol.")
-  midiFlags.push(`flags.midi-qol.concentrationSaveBonus`);
-  midiFlags.push(`flags.midi-qol.potentCantrip`);
-  midiFlags.push(`flags.midi-qol.sculptSpells`);
-  midiFlags.push(`flags.midi-qol.carefulSpells`);
-  midiFlags.push("flags.midi-qol.magicResistance.all");
-  midiFlags.push("flags.midi-qol.magicResistance.save.all");
-  midiFlags.push("flags.midi-qol.magicResistance.check.all");
-  midiFlags.push("flags.midi-qol.magicResistance.skill.all");
-  midiFlags.push("flags.midi-qol.magicVulnerability.all")
-  midiFlags.push("flags.midi-qol.rangeOverride.attack.all")
-  midiFlags.push("flags.midi-qol.range.all");
-  midiFlags.push("flags.midi-qol.long.all");
+  midiFlags.push(`flags.${MODULE_ID}.grants.attack.success.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.attack.fail.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.attack.bonus.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.critical.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.critical.range`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.criticalThreshold`);
+  midiFlags.push(`flags.${MODULE_ID}.fail.critical.all`);
+  midiFlags.push(`flags.${MODULE_ID}.advantage.concentration`)
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.concentration`)
+  midiFlags.push(`flags.${MODULE_ID}.ignoreNearbyFoes`);
+  midiFlags.push(`flags.${MODULE_ID}.`)
+  midiFlags.push(`flags.${MODULE_ID}.concentrationSaveBonus`);
+  midiFlags.push(`flags.${MODULE_ID}.potentCantrip`);
+  midiFlags.push(`flags.${MODULE_ID}.sculptSpells`);
+  midiFlags.push(`flags.${MODULE_ID}.carefulSpells`);
+  midiFlags.push(`flags.${MODULE_ID}.magicResistance.all`);
+  midiFlags.push(`flags.${MODULE_ID}.magicResistance.save.all`);
+  midiFlags.push(`flags.${MODULE_ID}.magicResistance.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.magicResistance.skill.all`);
+  midiFlags.push(`flags.${MODULE_ID}.magicVulnerability.all`);
+  midiFlags.push(`flags.${MODULE_ID}.rangeOverride.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.range.all`);
+  midiFlags.push(`flags.${MODULE_ID}.long.all`);
   let attackTypes = allAttackTypes.concat(["heal", "other", "save", "util"])
   evalCondition
   attackTypes.forEach(at => {
-    midiFlags.push(`flags.midi-qol.range.${at}`);
-    midiFlags.push(`flags.midi-qol.long.${at}`);
-    midiFlags.push(`flags.midi-qol.advantage.attack.${at}`);
-    midiFlags.push(`flags.midi-qol.disadvantage.attack.${at}`);
-    midiFlags.push(`flags.midi-qol.fail.attack.${at}`);
-    midiFlags.push(`flags.midi-qol.success.attack.${at}`);
-    midiFlags.push(`flags.midi-qol.critical.${at}`);
-    midiFlags.push(`flags.midi-qol.noCritical.${at}`);
-    midiFlags.push(`flags.midi-qol.grants.advantage.attack.${at}`);
-    midiFlags.push(`flags.midi-qol.grants.fail.advantage.attack.${at}`);
-    midiFlags.push(`flags.midi-qol.grants.disadvantage.attack.${at}`);
-    midiFlags.push(`flags.midi-qol.grants.fail.disadvantage.attack.${at}`);
-    midiFlags.push(`flags.midi-qol.grants.critical.${at}`);
-    midiFlags.push(`flags.midi-qol.fail.critical.${at}`);
-    midiFlags.push(`flags.midi-qol.grants.attack.bonus.${at}`);
-    midiFlags.push(`flags.midi-qol.grants.attack.success.${at}`);
-    if (at !== "heal") midiFlags.push(`flags.midi-qol.DR.${at}`);
-    midiFlags.push(`flags.midi-qol.max.damage.${at}`);
-    midiFlags.push(`flags.midi-qol.min.damage.${at}`);
-    midiFlags.push(`flags.midi-qol.grants.max.damage.${at}`);
-    midiFlags.push(`flags.midi-qol.grants.min.damage.${at}`);
-    midiFlags.push(`flags.midi-qol.optional.NAME.attack.${at}`);
-    midiFlags.push(`flags.midi-qol.optional.NAME.attack.fail.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.range.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.long.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.advantage.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.disadvantage.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.fail.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.success.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.critical.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.noCritical.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.advantage.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.fail.advantage.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.fail.disadvantage.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.critical.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.fail.critical.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.attack.bonus.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.attack.success.${at}`);
+    if (at !== "heal") midiFlags.push(`flags.${MODULE_ID}.DR.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.max.damage.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.min.damage.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.max.damage.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.min.damage.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.optional.NAME.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.optional.NAME.attack.fail.${at}`);
 
-    midiFlags.push(`flags.midi-qol.optional.NAME.damage.${at}`);
-    midiFlags.push(`flags.midi-qol.rangeOverride.attack.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.optional.NAME.damage.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.rangeOverride.attack.${at}`);
   });
-  midiFlags.push("flags.midi-qol.advantage.ability.all");
-  midiFlags.push("flags.midi-qol.advantage.ability.check.all");
-  midiFlags.push("flags.midi-qol.advantage.ability.save.all");
-  midiFlags.push("flags.midi-qol.disadvantage.ability.all");
-  midiFlags.push("flags.midi-qol.disadvantage.ability.check.all");
-  midiFlags.push("flags.midi-qol.disadvantage.ability.save.all");
-  midiFlags.push("flags.midi-qol.fail.ability.all");
-  midiFlags.push("flags.midi-qol.fail.ability.check.all");
-  midiFlags.push("flags.midi-qol.fail.ability.save.all");
-  midiFlags.push("flags.midi-qol.superSaver.all");
-  midiFlags.push("flags.midi-qol.semiSuperSaver.all");
-  midiFlags.push("flags.midi-qol.max.ability.save.all");
-  midiFlags.push("flags.midi-qol.max.ability.check.all");
-  midiFlags.push("flags.midi-qol.max.ability.save.concentration")
-  midiFlags.push("flags.midi-qol.min.ability.save.all");
-  midiFlags.push("flags.midi-qol.min.ability.check.all");
-  midiFlags.push("flags.midi-qol.min.ability.save.concentration")
-  midiFlags.push("flags.midi-qol.sharpShooter");
+  midiFlags.push(`flags.${MODULE_ID}.advantage.ability.all`);
+  midiFlags.push(`flags.${MODULE_ID}.advantage.ability.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.advantage.ability.save.all`);
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.all`);
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.save.all`);
+  midiFlags.push(`flags.${MODULE_ID}.fail.ability.all`);
+  midiFlags.push(`flags.${MODULE_ID}.fail.ability.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.fail.ability.save.all`);
+  midiFlags.push(`flags.${MODULE_ID}.superSaver.all`);
+  midiFlags.push(`flags.${MODULE_ID}.semiSuperSaver.all`);
+  midiFlags.push(`flags.${MODULE_ID}.max.ability.save.all`);
+  midiFlags.push(`flags.${MODULE_ID}.max.ability.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.max.ability.save.concentration`);
+  midiFlags.push(`flags.${MODULE_ID}.min.ability.save.all`);
+  midiFlags.push(`flags.${MODULE_ID}.min.ability.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.min.ability.save.concentration`);
+  midiFlags.push(`flags.${MODULE_ID}.sharpShooter`);
 
   Object.keys(config.abilities).forEach(abl => {
-    midiFlags.push(`flags.midi-qol.advantage.ability.check.${abl}`);
-    midiFlags.push(`flags.midi-qol.disadvantage.ability.check.${abl}`);
-    midiFlags.push(`flags.midi-qol.advantage.ability.save.${abl}`);
-    midiFlags.push(`flags.midi-qol.disadvantage.ability.save.${abl}`);
-    midiFlags.push(`flags.midi-qol.advantage.attack.${abl}`);
-    midiFlags.push(`flags.midi-qol.disadvantage.attack.${abl}`);
-    midiFlags.push(`flags.midi-qol.fail.ability.check.${abl}`);
-    midiFlags.push(`flags.midi-qol.fail.ability.save.${abl}`);
-    midiFlags.push(`flags.midi-qol.superSaver.${abl}`);
-    midiFlags.push(`flags.midi-qol.semiSuperSaver.${abl}`);
-    midiFlags.push(`flags.midi-qol.max.ability.save.${abl}`);
-    midiFlags.push(`flags.midi-qol.min.ability.save.${abl}`);
-    midiFlags.push(`flags.midi-qol.max.ability.check.${abl}`);
-    midiFlags.push(`flags.midi-qol.min.ability.check.${abl}`);
-    midiFlags.push(`flags.midi-qol.optional.NAME.save.${abl}`);
-    midiFlags.push(`flags.midi-qol.optional.NAME.save.fail.${abl}`);
-    midiFlags.push(`flags.midi-qol.optional.NAME.check.${abl}`);
-    midiFlags.push(`flags.midi-qol.optional.NAME.check.fail.${abl}`);
-    midiFlags.push(`flags.midi-qol.magicResistance.${abl}`);
-    midiFlags.push(`flags.midi-qol.magicVulnerability.all.${abl}`);
-    midiFlags.push(`flags.midi-qol.grants.advantage.save.${abl}`);
-    midiFlags.push(`flags.midi-qol.grants.advantage.check.${abl}`);
-    midiFlags.push(`flags.midi-qol.grants.advantage.skill.${abl}`);
-    midiFlags.push(`flags.midi-qol.grants.disadvantage.save.${abl}`);
-    midiFlags.push(`flags.midi-qol.grants.disadvantage.check.${abl}`);
-    midiFlags.push(`flags.midi-qol.grants.disadvantage.skill.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.advantage.ability.check.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.check.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.advantage.ability.save.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.save.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.advantage.attack.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.disadvantage.attack.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.fail.ability.check.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.fail.ability.save.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.superSaver.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.semiSuperSaver.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.max.ability.save.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.min.ability.save.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.max.ability.check.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.min.ability.check.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.optional.NAME.save.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.optional.NAME.save.fail.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.optional.NAME.check.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.optional.NAME.check.fail.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.magicResistance.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.magicVulnerability.all.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.advantage.save.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.advantage.check.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.advantage.skill.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.save.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.check.${abl}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.skill.${abl}`);
   })
 
-  midiFlags.push(`flags.midi-qol.advantage.skill.all`);
-  midiFlags.push(`flags.midi-qol.disadvantage.skill.all`);
-  midiFlags.push(`flags.midi-qol.fail.skill.all`);
-  midiFlags.push("flags.midi-qol.max.skill.all");
-  midiFlags.push("flags.midi-qol.min.skill.all");
+  midiFlags.push(`flags.${MODULE_ID}.advantage.skill.all`);
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.skill.all`);
+  midiFlags.push(`flags.${MODULE_ID}.fail.skill.all`);
+  midiFlags.push(`flags.${MODULE_ID}.max.skill.all`);
+  midiFlags.push(`flags.${MODULE_ID}.min.skill.all`);
   Object.keys(config.skills).forEach(skill => {
-    midiFlags.push(`flags.midi-qol.advantage.skill.${skill}`);
-    midiFlags.push(`flags.midi-qol.disadvantage.skill.${skill}`);
-    midiFlags.push(`flags.midi-qol.fail.skill.${skill}`);
-    midiFlags.push(`flags.midi-qol.max.skill.${skill}`);
-    midiFlags.push(`flags.midi-qol.min.skill.${skill}`);
-    midiFlags.push(`flags.midi-qol.optional.NAME.skill.${skill}`);
+    midiFlags.push(`flags.${MODULE_ID}.advantage.skill.${skill}`);
+    midiFlags.push(`flags.${MODULE_ID}.disadvantage.skill.${skill}`);
+    midiFlags.push(`flags.${MODULE_ID}.fail.skill.${skill}`);
+    midiFlags.push(`flags.${MODULE_ID}.max.skill.${skill}`);
+    midiFlags.push(`flags.${MODULE_ID}.min.skill.${skill}`);
+    midiFlags.push(`flags.${MODULE_ID}.optional.NAME.skill.${skill}`);
   })
-  midiFlags.push(`flags.midi-qol.advantage.deathSave`);
-  midiFlags.push(`flags.midi-qol.disadvantage.deathSave`);
+  midiFlags.push(`flags.${MODULE_ID}.advantage.deathSave`);
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.deathSave`);
 
   if (game.system.id === "dnd5e") {
     // fix for translations
     ["vocal", "somatic", "material"].forEach(comp => {
-      midiFlags.push(`flags.midi-qol.fail.spell.${comp.toLowerCase()}`);
+      midiFlags.push(`flags.${MODULE_ID}.fail.spell.${comp.toLowerCase()}`);
     });
-    midiFlags.push(`flags.midi-qol.DR.all`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.all`);
 
-    midiFlags.push(`flags.midi-qol.DR.non-magical`);
-    midiFlags.push(`flags.midi-qol.DR.non-magical-physical`);
-    midiFlags.push(`flags.midi-qol.DR.non-silver`);
-    midiFlags.push(`flags.midi-qol.DR.non-adamant`);
-    midiFlags.push(`flags.midi-qol.DR.non-physical`);
-    midiFlags.push(`flags.midi-qol.DR.final`);
-    midiFlags.push(`flags.midi-qol.damage.reroll-kh`);
-    midiFlags.push(`flags.midi-qol.damage.reroll-kl`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.non-magical`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.non-magical-physical`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.non-silver`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.non-adamant`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.non-physical`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.final`);
+    midiFlags.push(`flags.${MODULE_ID}.damage.reroll-kh`);
+    midiFlags.push(`flags.${MODULE_ID}.damage.reroll-kl`);
 
     if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
       Object.keys(config.damageTypes).forEach(key => {
-        midiFlags.push(`flags.midi-qol.DR.${key}`);
+        midiFlags.push(`flags.${MODULE_ID}.DR.${key}`);
 
-        // TODO dbd3 - see how to present label but check key  midiFlags.push(`flags.midi-qol.DR.${config.damageTypes[key].label}`);
+        // TODO dbd3 - see how to present label but check key  midiFlags.push(`flags.${MODULE_ID}.DR.${config.damageTypes[key].label}`);
       });
     } else {
       Object.keys(config.damageTypes).forEach(dt => {
-        midiFlags.push(`flags.midi-qol.DR.${dt}`);
+        midiFlags.push(`flags.${MODULE_ID}.DR.${dt}`);
       })
     }
-    midiFlags.push(`flags.midi-qol.DR.healing`);
-    midiFlags.push(`flags.midi-qol.DR.temphp`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.healing`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.temphp`);
   } else if (game.system.id === "sw5e") {
-    midiFlags.push(`flags.midi-qol.DR.all`);
-    midiFlags.push(`flags.midi-qol.DR.final`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.all`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.final`);
     Object.keys(config.damageResistanceTypes).forEach(dt => {
-      midiFlags.push(`flags.midi-qol.DR.${dt}`);
+      midiFlags.push(`flags.${MODULE_ID}.DR.${dt}`);
     })
-    midiFlags.push(`flags.midi-qol.DR.healing`);
-    midiFlags.push(`flags.midi-qol.DR.temphp`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.healing`);
+    midiFlags.push(`flags.${MODULE_ID}.DR.temphp`);
   }
 
-  midiFlags.push(`flags.midi-qol.optional.NAME.attack.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.attack.fail.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.damage.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.check.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.save.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.check.fail.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.save.fail.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.label`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.skill.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.skill.fail.all`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.count`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.countAlt`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.ac`);
-  midiFlags.push(`flags.midi-qol.optional.NAME.criticalDamage`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.attack.fail.all`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.damage.all`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.save.all`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.check.fail.all`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.save.fail.all`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.label`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.skill.all`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.skill.fail.all`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.count`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.countAlt`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.ac`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.criticalDamage`);
 
-  midiFlags.push(`flags.midi-qol.uncanny-dodge`);
-  midiFlags.push(`flags.midi-qol.OverTime`);
-  midiFlags.push("flags.midi-qol.inMotion");
+  midiFlags.push(`flags.${MODULE_ID}.uncanny-dodge`);
+  midiFlags.push(`flags.${MODULE_ID}.OverTime`);
+  midiFlags.push(`flags.${MODULE_ID}.inMotion`);
   //@ts-ignore
   const damageTypes = Object.keys(config.damageTypes);
   for (let key of damageTypes) {
-    midiFlags.push(`flags.midi-qol.absorption.${key}`);
+    midiFlags.push(`flags.${MODULE_ID}.absorption.${key}`);
   }
-  midiFlags.push("flags.midi-qol.fail.disadvantage.heavy");
+  midiFlags.push(`dlags.${MODULE_ID}.fail.disadvantage.heavy`);
 
   /*
-  midiFlags.push(`flags.midi-qol.grants.advantage.attack.all`);
-  midiFlags.push(`flags.midi-qol.grants.disadvantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.attack.all`);
   midiFlags.push(``);
 
   midiFlags.push(``);
