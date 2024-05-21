@@ -1,4 +1,4 @@
-import { debug, warn, i18n, error, debugEnabled, MQdefaultDamageType, i18nFormat, GameSystemConfig } from "../midi-qol.js";
+import { debug, warn, i18n, error, debugEnabled, MQdefaultDamageType, i18nFormat, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
 import { DDBGameLogWorkflow, Workflow } from "./workflow.js";
 import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll, safeGetGameSetting } from "./settings.js";
 import { createDamageDetail, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat } from "./utils.js";
@@ -403,7 +403,7 @@ export function addChatDamageButtonsToHTML(totalDamage, damageList, html, actorI
 }
 
 export function processItemCardCreation(message, user) {
-  const midiFlags = message.flags["midi-qol"];
+  const midiFlags = message.flags[MODULE_ID];
   if (user === game.user?.id && midiFlags?.workflowId) { // check to see if it is a workflow
     const workflow = Workflow.getWorkflow(midiFlags.workflowId);
     if (!workflow) return;

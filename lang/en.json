@@ -551,6 +551,14 @@
     "allitems": "All Items do non-magical damage"
   },
   "midi-qol.DoConcentrationCheck.Name": "Force a concentration save when damage taken",
+  "midi-qol.DoConcentrationCheckOptions": {
+    "none": "Never",
+    "chatOnly": "Chat Message Only",
+    "chat": "Chat Message + Auto Roll",
+    "item": "Roll Concentration Item"
+  },
+  "midi-qol.DoConcentrationCheck.Hint": "<strong>Chat Message Only</strong> display a chat message message with a button (dnd5e default behaviour and required dnd5e concentration)<br><strong>Chat message + Auto Roll</strong> display a chat message and auto roll the save (requires dnd5e concentration)<br><strong>Roll Concentration Item</strong> roll a concentration item check (midi standard behaviour)",
+
   "midi-qol.RemoveConcentration.Name": "Remove concentration on failed concentration save",
   "midi-qol.UsePlayerPortrait.Name": "Use Actor portrait in chat cards",
   "midi-qol.UsePlayerPortrait.Hint": "For Actors of type character use the actor portrait instead of the token image in midi-qol chat cards",

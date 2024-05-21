@@ -93,7 +93,7 @@ class ConfigSettings {
   displayHitResultNumeric: boolean = true;
   displaySaveAdvantage: boolean = true;
   displaySaveDC: boolean = true;
-  doConcentrationCheck: boolean = true;
+  doConcentrationCheck: string = "chat";
   griddedGridless: boolean = false;
   gridlessFudge: number = 0;
   doReactions: string = "all";
@@ -490,7 +490,7 @@ export let fetchParams = () => {
   if (configSettings.attackPerTarget === undefined) configSettings.attackPerTarget = false;
   if (configSettings.autoRemoveTemplate === undefined) configSettings.autoRemoveTemplate = true;
   if (configSettings.removeConcentrationEffects === undefined) configSettings.removeConcentrationEffects = "effects";
-  if (configSettings.doConcentrationCheck === undefined) configSettings.doConcentrationCheck = configSettings.removeConcentration;;
+  if (configSettings.doConcentrationCheck === undefined) configSettings.doConcentrationCheck = configSettings.removeConcentration ? "chat" : "none";
   if (configSettings.undoWorkflow === undefined) configSettings.undoWorkflow = false;
   if (configSettings.undoChatColor === undefined) configSettings.undoChatColor = "Delete";
   if (configSettings.enforceSingleWeaponTarget == undefined) configSettings.enforceSingleWeaponTarget = false;

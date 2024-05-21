@@ -2,6 +2,7 @@ import { criticalDamage, nsaFlag, coloredBorders, autoFastForwardAbilityRolls, i
 import { configSettings } from "../settings.js"
 import { warn, i18n, error, debug, gameStats, debugEnabled, geti18nOptions, log, GameSystemConfig } from "../../midi-qol.js";
 import { installedModules } from "../setupModules.js";
+import { get } from "jquery";
 
 const PATH = "./modules/midi-qol/sample-config/";
 
@@ -152,6 +153,7 @@ export class ConfigPanel extends FormApplication {
       StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name = i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, { "none": "None" }),
       SaveDROrderOptions: geti18nOptions("SaveDROrderOptions"),
       ColorOptions: colorList.reduce((acc, c) => { acc[c] = c; return acc }, { "Delete": "Delete" }),
+      DoConcentrationCheckOptions: geti18nOptions("DoConcentrationCheckOptions")
     };
     if (debugEnabled > 0) warn("Config Panel: getData ", data)
     return data;

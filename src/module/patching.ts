@@ -1,11 +1,10 @@
-import { log, debug, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig } from "../midi-qol.js";
+import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getConcentrationEffect, getConcentrationEffectsRemaining, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, MQfromUuid, notificationNotify, processOverTime, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, doConcentrationCheck } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
-import { untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 let libWrapper;
 
@@ -76,19 +75,19 @@ export const defaultRollOptions: Options = {
 export function collectBonusFlags(actor, category, detail): any[] {
   if (!installedModules.get("betterrolls5e")) {
     let useDetail = false;
-    const bonusFlags = Object.keys(actor.flags["midi-qol"]?.optional ?? [])
+    const bonusFlags = Object.keys(actor.flags[MODULE_ID]?.optional ?? [])
       .filter(flag => {
-        const checkFlag = actor.flags["midi-qol"].optional[flag][category];
+        const checkFlag = actor.flags[MODULE_ID].optional[flag][category];
         if (checkFlag === undefined) return false;
         if (detail.startsWith("fail")) {
           const [_, type] = detail.split(".");
           return checkFlag.fail && checkFlag.fail[type] ? getOptionalCountRemainingShortFlag(actor, flag) > 0 : false;
         } else if (!(typeof checkFlag === "string" || checkFlag[detail] || checkFlag["all"] !== undefined)) return false;
-        if (actor.flags["midi-qol"].optional[flag].count === undefined) return true;
+        if (actor.flags[MODULE_ID].optional[flag].count === undefined) return true;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
       })
       .map(flag => {
-        const checkFlag = actor.flags["midi-qol"].optional[flag][category];
+        const checkFlag = actor.flags[MODULE_ID].optional[flag][category];
         if (typeof checkFlag === "string") return `flags.midi-qol.optional.${flag}`;
         else return `flags.midi-qol.optional.${flag}`;
       });
@@ -618,7 +617,7 @@ export function deathSaveHook(actor, result, details) {
 }
 
 export function procAutoFail(actor, rollType: string, abilityId: string): boolean {
-  const midiFlags = actor.flags["midi-qol"] ?? {};
+  const midiFlags = actor.flags[MODULE_ID] ?? {};
   const fail = midiFlags.fail ?? {};
   if (fail.ability || fail.all) {
     const rollFlags = (fail.ability && fail.ability[rollType]) ?? {};
@@ -629,7 +628,7 @@ export function procAutoFail(actor, rollType: string, abilityId: string): boolea
 }
 
 export function procAutoFailSkill(actor, skillId): boolean {
-  const midiFlags = actor.flags["midi-qol"] ?? {};
+  const midiFlags = actor.flags[MODULE_ID] ?? {};
   const fail = midiFlags.fail ?? {};
   if (fail.skill || fail.all) {
     const rollFlags = (fail.skill && fail.skill[skillId]) || false;
@@ -640,7 +639,7 @@ export function procAutoFailSkill(actor, skillId): boolean {
 }
 
 export async function procAbilityAdvantage(actor, rollType, abilityId, options: Options | any): Promise<Options> {
-  const midiFlags = actor.flags["midi-qol"] ?? {};
+  const midiFlags = actor.flags[MODULE_ID] ?? {};
   const advantage = midiFlags.advantage;
   const disadvantage = midiFlags.disadvantage;
   var withAdvantage = options.advantage;
@@ -690,7 +689,7 @@ export async function procAbilityAdvantage(actor, rollType, abilityId, options: 
 }
 
 export async function procAdvantageSkill(actor, skillId, options: Options): Promise<Options> {
-  const midiFlags = actor.flags["midi-qol"];
+  const midiFlags = actor.flags[MODULE_ID];
   const advantage = midiFlags?.advantage;
   const disadvantage = midiFlags?.disadvantage;
   var withAdvantage = options.advantage;
@@ -821,77 +820,22 @@ export function _prepareDerivedData(wrapped, ...args) {
   }
 }
 let currentDAcalculateDamage;
+
 export function initPatching() {
   libWrapper = globalThis.libWrapper;
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.prepareDerivedData", _prepareDerivedData, "WRAPPER");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.prepareDerivedData", _prepareDerivedData, "WRAPPER");
   // For new onuse macros stuff.
-  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.prepareData", itemPrepareData, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.prepareData", actorPrepareData, "WRAPPER");
-  libWrapper.register("midi-qol", "KeyboardManager.prototype._onFocusIn", _onFocusIn, "OVERRIDE");
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getRollData", actorGetRollData, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.getRollData", itemGetRollData, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.ActiveEffect.documentClass.prototype._preCreate", _preCreateActiveEffect, "WRAPPER");
+  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.prepareData", itemPrepareData, "WRAPPER");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.prepareData", actorPrepareData, "WRAPPER");
+  libWrapper.register(MODULE_ID, "KeyboardManager.prototype._onFocusIn", _onFocusIn, "OVERRIDE");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.getRollData", actorGetRollData, "WRAPPER");
+  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.getRollData", itemGetRollData, "WRAPPER");
+  libWrapper.register(MODULE_ID, "CONFIG.ActiveEffect.documentClass.prototype._preCreate", _preCreateActiveEffect, "WRAPPER");
   currentDAcalculateDamage = window?.customElements?.get("damage-application")?.prototype.calculateDamage;
   if (window?.customElements?.get("damage-application")?.prototype?.calculateDamage) {
     //@ts-expect-error
     window.customElements.get("damage-application").prototype.calculateDamage = DAcalculateDamage;
   }
-  if (true) {
-    const actorClass: any = CONFIG.Actor.documentClass;
-    const itemClass: any = CONFIG.Item.documentClass;
-    const tokenClass: any = CONFIG.Token.documentClass;
-    const templateClass: any = CONFIG.MeasuredTemplate.documentClass;
-    const tileClass: any = CONFIG.Tile.documentClass;
-    const lightClass: any = CONFIG.AmbientLight.documentClass;
-    const soundClass: any = CONFIG.AmbientSound.documentClass;
-    const wallClass: any = CONFIG.Wall.documentClass;
-    const effectClass: any = CONFIG.ActiveEffect.documentClass;
-
-    //@ts-expect-error .version
-    if (game.system.id === "dnd5e" && foundry.utils.isNewerVersion(game.system.version, "3.0.99")) {
-      const classStrings = [
-        "CONFIG.Actor.documentClass",
-        "CONFIG.Item.documentClass",
-        "CONFIG.Token.documentClass",
-        "CONFIG.MeasuredTemplate.documentClass",
-        "CONFIG.Tile.documentClass",
-        "CONFIG.AmbientLight.documentClass",
-        "CONFIG.AmbientSound.documentClass",
-        "CONFIG.Wall.documentClass"
-      ];
-      const addDependent = effectClass.prototype.addDependent;
-      const getDependents = effectClass.prototype.getDependents;
-      for (let classString of classStrings) {
-        const docClass = eval(classString)
-        if (!docClass) continue;
-        if (!docClass.prototype.addDependent) docClass.prototype.addDependent = addDependent
-        if (!docClass.prototype.getDependents) docClass.prototype.getDependents = getDependents;
-        if (docClass.prototype.removeDependent) docClass.prototype.removeDependent = removeDependent;
-        if (!docClass.prototype.clearDependents) docClass.prototype.clearDependents = clearDependents;
-        libWrapper.register("midi-qol", `${classString}.prototype._onDelete`, _onDelete, "WRAPPER");
-      }
-      if (!effectClass.prototype.removeDependent)
-        effectClass.prototype.removeDependent = removeDependent;
-      if (!effectClass.prototype.clearDependents)
-        effectClass.prototype.clearDependents = clearDependents;
-    }
-  }
-}
-
-function removeDependent(dependent: any) {
-  const dependents = (this.getFlag("dnd5e", "dependents") || []).filter(dep => dep.uuid !== dependent.uuid);
-  if (dependents.length === 0) return this.unsetFlag("dnd5e", "dependents");
-  return this.setFlag("dndn5e", "dependents", dependents);
-}
-
-function clearDependents() {
-  return this.unsetFlag("dnd5e", "dependents");
-}
-
-async function _onDelete(wrapped, options, userId) {
-  wrapped(options, userId);
-  //@ts-expect-error
-  if (game.user === game.users?.activeGM) this.getDependents().forEach(d => d.delete());
 }
 
 export function DAcalculateDamage(actor, options) {
@@ -1014,11 +958,11 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
       }
     }
     let macroString = OnUseMacros.parseParts(macroParts).items.map(oum => oum.toString()).join(",");
-    changes.flags["midi-qol"].onUseMacroName = macroString;
-    delete changes.flags["midi-qol"].onUseMacroParts;
+    changes.flags[MODULE_ID].onUseMacroName = macroString;
+    delete changes.flags[MODULE_ID].onUseMacroParts;
     itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
   } catch (err) {
-    delete changes.flags["midi-qol"].onUseMacroParts;
+    delete changes.flags[MODULE_ID].onUseMacroParts;
     itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
     const message = `midi-qol | failed in preUpdateItemActor onUse Macro for ${itemOrActor?.name} ${itemOrActor?.uuid}`
     console.warn(message, err);
@@ -1107,67 +1051,6 @@ export function getItemEffectsToDelete(args: { actor: Actor, origin: string, ign
     console.warn(message, err);
     TroubleShooter.recordError(err, message);
     return [];
-  }
-}
-
-export function canRemoveConcentration(concentrationData, deletedUuid: string): boolean {
-  if (concentrationData?.templates.filter(templateUuid => templateUuid !== deletedUuid).length > 0) return false;
-  const remainingEffects = getConcentrationEffectsRemaining(concentrationData, deletedUuid);
-  return remainingEffects.length <= 1;
-}
-
-export async function removeConcentrationEffects(actor: Actor, deletedEffectUuid: string | undefined, options: any) {
-  let result;
-  try {
-    if (debugEnabled > 0) warn("removeConcentrationEffects | ", actor?.name, deletedEffectUuid, options)
-    const concentrationData: any = foundry.utils.duplicate(actor.getFlag("midi-qol", "concentration-data") ?? {});
-    //@ts-expect-error
-    if (foundry.utils.isEmpty(concentrationData)) {
-      await getConcentrationEffect(actor)?.delete();
-    } else {
-      // if (!concentrationData) return;
-      const promises: any = [];
-      await actor.unsetFlag("midi-qol", "concentration-data");
-      if (concentrationData?.templates) {
-        for (let templateUuid of concentrationData.templates) {
-          if (templateUuid === deletedEffectUuid) continue;
-          //@ts-expect-error fromUuidSync
-          const template = fromUuidSync(templateUuid);
-          if (debugEnabled > 0) warn("removeConcentration | removing template", actor?.name, templateUuid, options);
-          if (template) promises.push(template.delete());
-        }
-      }
-
-      if (concentrationData?.removeUuids?.length > 0) {
-        for (let removeUuid of concentrationData.removeUuids) {
-          //@ts-expect-error fromUuidSync
-          const entity = fromUuidSync(removeUuid);
-          if (debugEnabled > 0) warn("removeConcentration | removing entity", actor?.name, removeUuid, options);
-          if (entity) promises.push(entity.delete())
-        };
-      }
-      if (concentrationData?.targets && !options.concentrationEffectsDeleted) {
-        debug("About to remove concentration effects", actor?.name);
-        options.noConcentrationCheck = true;
-        const effectsToDelete = getConcentrationEffectsRemaining(concentrationData, deletedEffectUuid);
-        if (effectsToDelete.length > 0) {
-          const deleteOptions = foundry.utils.mergeObject(options, { "expiry-reason": "midi-qol:concentration" });
-          promises.push(untimedExecuteAsGM("deleteEffectsByUuid", {
-            effectsToDelete: effectsToDelete.map(ef => ef.uuid),
-            options: foundry.utils.mergeObject(deleteOptions, { noConcentrationCheck: true })
-          }));
-        }
-      }
-      result = await Promise.allSettled(promises);
-    }
-    if (debugEnabled > 0) warn("removeConcentration | finished", actor?.name);
-  } catch (err) {
-    const message = `error when attempting to remove concentration for ${actor?.name}`;
-    console.warn(message, err);
-    TroubleShooter.recordError(err, message);
-  } finally {
-    return result;
-    // return await concentrationEffect?.delete();
   }
 }
 
@@ -1343,22 +1226,27 @@ function itemSheetDefaultOptions(wrapped) {
 
 export function readyPatching() {
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
-    libWrapper.register("midi-qol", `game.${game.system.id}.canvas.AbilityTemplate.prototype.refresh`, midiATRefresh, "WRAPPER");
-    libWrapper.register("midi-qol", "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
-    libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
-    libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
-    libWrapper.register("midi-qol", "CONFIG.Item.sheetClasses.base['dnd5e.ItemSheet5e'].cls.defaultOptions", itemSheetDefaultOptions, "WRAPPER");
-    libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype._onUpdate", onUpdateActor, "MIXED");
+    libWrapper.register(MODULE_ID, `game.${game.system.id}.canvas.AbilityTemplate.prototype.refresh`, midiATRefresh, "WRAPPER");
+    libWrapper.register(MODULE_ID, "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.Item.sheetClasses.base['dnd5e.ItemSheet5e'].cls.defaultOptions", itemSheetDefaultOptions, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.ActiveEffect.documentClass.createConcentrationEffectData", createConcentrationEffectData, "WRAPPER");
+    // This controls whether to display the chat message or not
+    // dnd5e.damageActor handles picking up concentration item rolls
+    // processConcentrationSave handles doing the auto roll for concentration chat messages
+    libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.challengeConcentration", challengeConcentration, "MIXED")
   } else { // TODO find out what itemsheet5e is called in sw5e TODO work out how this is set for sw5e v10
-    libWrapper.register("midi-qol", "game.sw5e.canvas.AbilityTemplate.prototype.refresh", midiATRefresh, "WRAPPER");
-    libWrapper.register("midi-qol", "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
-    libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.character['sw5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
-    libWrapper.register("midi-qol", "CONFIG.Actor.sheetClasses.npc['sw5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+    libWrapper.register(MODULE_ID, "game.sw5e.canvas.AbilityTemplate.prototype.refresh", midiATRefresh, "WRAPPER");
+    libWrapper.register(MODULE_ID, "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.character['sw5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.npc['sw5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
   }
-  libWrapper.register("midi-qol", "CONFIG.Combat.documentClass.prototype._preUpdate", processOverTime, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.Combat.documentClass.prototype._preDelete", _preDeleteCombat, "WRAPPER");
+  // Moved overtime processing to the updateCombat hook instead.
+  // libWrapper.register(MODULE_ID, "CONFIG.Combat.documentClass.prototype._preUpdate", processOverTime, "WRAPPER");
+  libWrapper.register(MODULE_ID, "CONFIG.Combat.documentClass.prototype._preDelete", _preDeleteCombat, "WRAPPER");
 
-  libWrapper.register("midi-qol", "Notifications.prototype.notify", notificationNotify, "MIXED");
+  libWrapper.register(MODULE_ID, "Notifications.prototype.notify", notificationNotify, "MIXED");
   //@ts-expect-error
   const gameVersion = game.system.version;
   if ((game.system.id === "dnd5e" && foundry.utils.isNewerVersion("2.1.0", gameVersion))) {
@@ -1367,63 +1255,137 @@ export function readyPatching() {
     else
       error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`);
   }
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollInitiativeDialog", rollInitiativeDialog, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollInitiativeDialog", rollInitiativeDialog, "MIXED");
+  if (true) {
+    const effectClass: any = CONFIG.ActiveEffect.documentClass;
+    //@ts-expect-error .version
+    if (foundry.utils.isNewerVersion(game.system.version, "3.0.99")) {
+      const classStrings = [
+        "CONFIG.Actor.documentClass",
+        "CONFIG.Item.documentClass",
+        "CONFIG.Token.documentClass",
+        "CONFIG.MeasuredTemplate.documentClass",
+        "CONFIG.Tile.documentClass",
+        "CONFIG.AmbientLight.documentClass",
+        "CONFIG.AmbientSound.documentClass",
+        "CONFIG.Wall.documentClass",
+        "CONFIG.ActiveEffect.documentClass",
+      ];
+      const addDependent = effectClass.prototype.addDependent ?? _addDependent;
+      const getDependents = effectClass.prototype.getDependents ?? _getDependents;
+      for (let classString of classStrings) {
+        const docClass = eval(classString)
+        if (!docClass) continue;
+        if (!docClass.prototype.addDependent) libWrapper.register(MODULE_ID, `${classString}.prototype._onDelete`, _onDelete, "WRAPPER");
+        if (!docClass.prototype.addDependent) docClass.prototype.addDependent = addDependent;
+        if (!docClass.prototype.addDependents) docClass.prototype.addDependents = addDependents;
+        if (!docClass.prototype.getDependents) docClass.prototype.getDependents = getDependents;
+        if (!docClass.prototype.setDependents) docClass.prototype.setDependents = setDependents;
+        if (!docClass.prototype.removeDependent) docClass.prototype.removeDependent = removeDependent;
+        if (!docClass.prototype.clearDependents) docClass.prototype.clearDependents = clearDependents;
+        if (!docClass.prototype.deleteAllDependents) docClass.prototype.deleteAllDependents = deleteAllDependents;
+      }
+    }
+  }
 }
 
-export async function onUpdateActor(wrapped, data, options, userId) {
-  if (!options.noConcentrationCheck) return wrapped(data, options, userId);
-  Object.getPrototypeOf(CONFIG.Actor.documentClass).prototype._onUpdate.bind(this)(data, options, userId);
-  if (userId === game.userId) {
-    await this.updateEncumbrance(options);
-    this._onUpdateExhaustion(data, options);
-  }
+function addDependents(dependents: any[]) {
+  const id = game.system.id ?? MODULE_ID;
+  const current = this.getFlag(id, "dependents") || [];
+  dependents = dependents.filter(d => d?.uuid).map(d => ({ uuid: d.uuid }))
+  return this.setFlag(id, "dependents", current.concat(dependents));
+}
 
-  const hp = options.dnd5e?.hp;
-  if (hp && !options.isRest && !options.isAdvancement) {
-    const curr = this.system.attributes.hp;
-    const changes = {
-      hp: curr.value - hp.value,
-      temp: curr.temp - hp.temp,
-      total: 0
-    };
-    changes.total = changes.hp + changes.temp;
-    // options.noConcentrationCheck true so don't display concentration effect chat card.
+function removeDependent(dependent: any) {
+  const id = game.system.id ?? MODULE_ID;
+  const dependents = (this.getFlag(id, "dependents") || []).filter(dep => dep.uuid !== dependent.uuid);
+  if (dependents.length === 0) return this.unsetFlag(id, "dependents");
+  return this.setFlag(id, "dependents", dependents);
+}
+function setDependents(dependents) {
+  const id = game.system.id ?? MODULE_ID;
+  return this.setFlag(id, "dependents", dependents);
+}
+function clearDependents() {
+  const id = game.system.id ?? MODULE_ID;
+  return this.unsetFlag(id, "dependents");
+}
 
-    /**
-     * A hook event that fires when an actor is damaged or healed by any means. The actual name
-     * of the hook will depend on the change in hit points.
-     * @function dnd5e.damageActor
-     * @memberof hookEvents
-     * @param {Actor5e} actor                                       The actor that had their hit points reduced.
-     * @param {{hp: number, temp: number, total: number}} changes   The changes to hit points.
-     * @param {object} update                                       The original update delta.
-     * @param {string} userId                                       Id of the user that performed the update.
-     */
-    Hooks.callAll(`dnd5e.${changes.total > 0 ? "heal" : "damage"}Actor`, this, changes, data, userId);
+async function deleteAllDependents() {
+  if (!game.user?.isGM) return;
+  for (let dep of this.getDependents()) {
+    await dep.delete();
   }
+  return this.clearDependents();
+}
+/**
+ * Record another effect as a dependent of this one.
+ * @param {ActiveEffect5e} dependent  The dependent effect.
+ * @returns {Promise<Document>}
+ */
+async function _addDependent(dependent) {
+  const id = game.system.id ?? MODULE_ID;
+  const dependents = this.getFlag(id, "dependents") ?? [];
+  dependents.push({ uuid: dependent.uuid });
+  return this.setFlag(id, "dependents", dependents);
+}
+
+/**
+ * Retrieve a list of dependent effects.
+ * @returns {Document[]}
+ */
+function _getDependents() {
+  const id = game.system.id ?? MODULE_ID;
+  return (this.getFlag(id, "dependents") || []).reduce((arr, { uuid }) => {
+    //@ts-expect-error
+    const effect = fromUuidSync(uuid);
+    if (effect) arr.push(effect);
+    return arr;
+  }, []);
+}
+
+async function _onDelete(wrapped, options, userId) {
+  wrapped(options, userId);
+  //@ts-expect-error
+  if (game.user === game.users?.activeGM) this.getDependents().forEach(d => d.delete());
+}
+
+function createConcentrationEffectData(wrapped, item, data: any = {}) {
+  const effectData = wrapped(item, data);
+  if (!foundry.utils.getProperty(effectData, `flags.${game.system.id}.itemUuid`)) {
+    foundry.utils.setProperty(effectData, `flags.${game.system.id}.itemUuid`, item.uuid);
+  }
+  return effectData;
+}
+
+export async function challengeConcentration(wrapped, { dc = 10, ability = null } = {}) {
+  if (["chat", "chatOnly"].includes(configSettings.doConcentrationCheck))
+    return wrapped({ dc, ability });
+  // item rolls are picked up when the damage is updated in dnd5e.damageActor
+  return;
 }
 
 export let visionPatching = () => {
   //@ts-ignore game.version
-  const patchVision = foundry.utils.isNewerVersion(game.version ?? game?.version, "0.7.0") && game.settings.get("midi-qol", "playerControlsInvisibleTokens")
+  const patchVision = foundry.utils.isNewerVersion(game.version ?? game?.version, "0.7.0") && game.settings.get(MODULE_ID, "playerControlsInvisibleTokens")
   if (patchVision) {
     ui.notifications?.warn("Player control vision is deprecated, use it at your own risk")
     console.warn("midi-qol | Player control vision is deprecated, use it at your own risk")
 
     log("Patching Token._isVisionSource")
-    libWrapper.register("midi-qol", "Token.prototype._isVisionSource", _isVisionSource, "WRAPPER");
+    libWrapper.register(MODULE_ID, "Token.prototype._isVisionSource", _isVisionSource, "WRAPPER");
 
     log("Patching Token.isVisible")
-    libWrapper.register("midi-qol", "Token.prototype.isVisible", isVisible, "WRAPPER");
+    libWrapper.register(MODULE_ID, "Token.prototype.isVisible", isVisible, "WRAPPER");
   }
   log("Vision patching - ", patchVision ? "enabled" : "disabled")
 }
 
 export function configureDamageRollDialog() {
   try {
-    libWrapper.unregister("midi-qol", "CONFIG.Dice.DamageRoll.configureDialog", false);
-    if (configSettings.promptDamageRoll) libWrapper.register("midi-qol", "CONFIG.Dice.DamageRoll.configureDialog", CustomizeDamageFormula.configureDialog, "MIXED");
+    libWrapper.unregister(MODULE_ID, "CONFIG.Dice.DamageRoll.configureDialog", false);
+    if (configSettings.promptDamageRoll) libWrapper.register(MODULE_ID, "CONFIG.Dice.DamageRoll.configureDialog", CustomizeDamageFormula.configureDialog, "MIXED");
   } catch (err) {
     const message = `midi-qol | error when registering configureDamageRollDialog`;
     TroubleShooter.recordError(err, message);
@@ -1441,15 +1403,15 @@ function _getUsageConfig(wrapped): any {
 }
 
 export let itemPatching = () => {
-  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.use", doItemUse, "MIXED");
-  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
-  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
-  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.use", doItemUse, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     //@ts-expect-error .version
     if (foundry.utils.isNewerVersion(game.system.version, "2.3.99"))
-      libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
-    libWrapper.register("midi-qol", "CONFIG.Dice.DamageRoll.prototype.configureDamage", configureDamage, "MIXED");
+      libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.Dice.DamageRoll.prototype.configureDamage", configureDamage, "MIXED");
   }
   configureDamageRollDialog();
 };
@@ -1463,43 +1425,22 @@ export async function checkDeleteTemplate(templateDocument, options, user) {
     //@ts-expect-error
     origin = origin.parent.effects?.find(ef => ef.getFlag("dnd5e", "dependents")?.some(dep => dep.uuid === templateDocument.uuid));
   }
-  if (origin instanceof ActiveEffect && !options.noConcentrationCheck && configSettings.removeConcentrationEffects !== "none" && !safeGetGameSetting("dnd5e", "disableConcentration")) {
+  if (origin instanceof ActiveEffect && !options.noConcentrationCheck && configSettings.removeConcentrationEffects !== "none") {
     //@ts-expect-error
-    if ((origin.getFlag("dnd5e", "dependents")) && origin.getDependents().length === 0) {
+    if (origin?.getDependents()?.length === 0) {
       await origin.delete();
     }
-  }
-
-  if (!configSettings.concentrationAutomation) return;
-  try {
-    const uuid = foundry.utils.getProperty(templateDocument, "flags.midi-qol.itemUuid");
-    const actor = MQfromUuid(uuid)?.actor;
-    if (!(actor instanceof CONFIG.Actor.documentClass)) return;
-    const concentrationData = foundry.utils.getProperty(actor, "flags.midi-qol.concentration-data");
-    if (!concentrationData || concentrationData.templates.length === 0) return;
-    if (canRemoveConcentration(concentrationData, templateDocument.uuid)) {
-      await removeConcentrationEffects(actor, templateDocument.uuid, options);
-    } else if (concentrationData.templates.length >= 1) {
-      // update the concentration templates
-      concentrationData.templates = concentrationData.templates.filter(uuid => uuid !== templateDocument.uuid);
-      await actor.setFlag("midi-qol", "concentration-data", concentrationData);
-    }
-  } catch (err) {
-    const message = `checkDeleteTemplate failed for ${templateDocument?.uuid}`;
-    TroubleShooter.recordError(err, message);
-  } finally {
-    return true;
   }
 };
 
 export let actorAbilityRollPatching = () => {
 
   log("Patching roll abilities Save/Test/Skill/Tool")
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilitySave", rollAbilitySave, "MIXED");
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollAbilityTest", rollAbilityTest, "MIXED");
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollDeathSave", rollDeathSave, "WRAPPER");
-  libWrapper.register("midi-qol", "CONFIG.Actor.documentClass.prototype.rollSkill", doRollSkill, "MIXED");
-  libWrapper.register("midi-qol", "CONFIG.Item.documentClass.prototype.rollToolCheck", rollToolCheck, "WRAPPER");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollAbilitySave", rollAbilitySave, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollAbilityTest", rollAbilityTest, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollDeathSave", rollDeathSave, "WRAPPER");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollSkill", doRollSkill, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollToolCheck", rollToolCheck, "WRAPPER");
 
   // 10.0.19 rollDeath save now implemented via the preRollDeathSave Hook
   // v12 (and v11 for compat) deathSave is now a patch to allow for async evaluation of adv/dis flags
@@ -1525,8 +1466,8 @@ export async function rollToolCheck(wrapped, options: any = {}) {
 export function patchLMRTFY() {
   if (installedModules.get("lmrtfy")) {
     log("Patching lmrtfy")
-    libWrapper.register("midi-qol", "LMRTFYRoller.prototype._makeRoll", LMRTFYMakeRoll, "OVERRIDE");
-    libWrapper.register("midi-qol", "LMRTFY.onMessage", LMRTFYOnMessage, "OVERRIDE");
+    libWrapper.register(MODULE_ID, "LMRTFYRoller.prototype._makeRoll", LMRTFYMakeRoll, "OVERRIDE");
+    libWrapper.register(MODULE_ID, "LMRTFY.onMessage", LMRTFYOnMessage, "OVERRIDE");
   }
 }
 
@@ -1587,12 +1528,13 @@ async function _preCreateActiveEffect(wrapped, data, options, user): Promise<voi
   try {
     if (!configSettings.concentrationIncapacitatedConditionCheck) return;
     const parent: any = this.parent;
-    const checkConcentration = configSettings.concentrationAutomation;
+    const checkConcentration = configSettings.concentrationAutomation || !safeGetGameSetting("dnd5e", "disableConcentration");
     if (!checkConcentration || options.noConcentrationCheck) return;
     if (!(parent instanceof CONFIG.Actor.documentClass)) return;
     if (globalThis.MidiQOL.incapacitatedConditions.some(condition => this.statuses.has(condition))) {
       if (debugEnabled > 0) warn(`on createActiveEffect ${this.name} ${this.id} removing concentration for ${parent.name}`)
-      await removeConcentrationEffects(parent, undefined, { noConcentrationCheck: false });
+      //@ts-expect-error
+      parent.endConcentration();
     }
   } catch (err) {
     const message = "midi-qol | error in preCreateActiveEffect";
@@ -2027,7 +1969,7 @@ function actorGetRollData(wrapped, ...args) {
   const data = wrapped(...args);
   data.actorType = this.type;
   data.name = this.name;
-  data.midiFlags = (this.flags && this.flags["midi-qol"]) ?? {};
+  data.midiFlags = (this.flags && this.flags[MODULE_ID]) ?? {};
   data.flags.midiqol = foundry.utils.getProperty(data, "flags.midi-qol");
   data.items = this.items;
   if (game.system.id === "dnd5e") {

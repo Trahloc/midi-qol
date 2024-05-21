@@ -22,89 +22,73 @@
               targetConfirmation.noneTargeted}} />
           </div>
           <div>
-            <div class="midi-qol-box">
-              <div class="form-group">
-                <label>{{localize "midi-qol.TargetConfirmation.hasAttack"}}</label>
-                <input type="checkbox" name="hasAttack" data-dtype="Boolean" {{checked targetConfirmation.hasAttack}} />
-              </div>
-            </div>
-            <div class="midi-qol-box">
             <div class="form-group">
-              <label>{{localize "midi-qol.TargetConfirmationCreatureTarget"}}</label>
-              <input type="checkbox" name="hasCreatureTarget" data-dtype="Boolean" {{checked
-                targetConfirmation.hasCreatureTarget}} />
-            </div>
-            </div>
-            <div class="midi-qol-box">
-            <div class="form-group">
-              <label>{{localize "midi-qol.TargetConfirmationSelfTarget"}}</label>
-              <input type="checkbox" name="targetSelf" data-dtype="Boolean" {{checked targetConfirmation.targetSelf}} />
-            </div>
-            </div>
-            <div class="midi-qol-box">
-            <div class="form-group">
-              <label>{{localize "midi-qol.TargetConfirmationAoETarget"}}</label>
-              <input type="checkbox" name="hasAoE" data-dtype="Boolean" {{checked targetConfirmation.hasAoE}} />
-            </div>
-            </div>
-            <div class="midi-qol-box">
-            <div class="form-group">
-              <label>{{localize "midi-qol.TargetConfirmationRangedAoE"}}</label>
-              <input type="checkbox" name="hasRangedAoE" data-dtype="Boolean" {{checked
-                targetConfirmation.hasRangedAoE}} />
-            </div>
-            </div>
-            <div class="midi-qol-box">
-            <div class="form-group">
-              <label>{{localize "midi-qol.TargetConfirmationLongRangeTarget"}}</label>
-              <input type="checkbox" name="longRange" data-dtype="Boolean" {{checked targetConfirmation.longRange}} />
-            </div>
-            </div>
-            <div class="midi-qol-box">
-            <div class="form-group">
-              <label>{{localize "midi-qol.TargetConfirmationCoveredTarget"}}</label>
-              <input type="checkbox" name="inCover" data-dtype="Boolean" {{checked targetConfirmation.inCover}} />
-            </div>
-            </div>
-            <div class="midi-qol-box">
-            <div class="form-group">
-              <label>{{localize "midi-qol.TargetConfirmationAllies"}}</label>
-              <input type="checkbox" name="allies" data-dtype="Boolean" {{checked targetConfirmation.allies}} />
-            </div>
-            </div>
-            <div class="midi-qol-box">
-            <div class="form-group">
-              <label>{{localize "midi-qol.TargetConfirmationMixedDisposition"}}</label>
-              <input type="checkbox" name="mixedDispositiion" data-dtype="Boolean" {{checked
-                targetConfirmation.mixedDispositiion}} />
-            </div>
-            </div>
-            {{/unless}}
-          </div>
-          <h4>
-            <div style="text-align: center">{{localize "midi-qol.targetConfirmationPosition"}}</div>
-          </h4>
-          <div class="midi-qol grid" id="midi-grid">
-            <!-- Create the 3x3 grid with selectable elements -->
-            <div class="flexrow">
-              <div class="midi-qol grid-item" id="midi-qol-grid1"></div>
-              <div class="midi-qol grid-item" id="midi-qol-grid2"></div>
-              <div class="midi-qol grid-item" id="midi-qol-grid3"></div>
-            </div>
-            <div class="flexrow">
-              <div class="midi-qol grid-item" id="midi-qol-grid4"></div>
-              <div class="midi-qol grid-item" id="midi-qol-grid5"></div>
-              <div class="midi-qol grid-item" id="midi-qol-grid6"></div>
-            </div>
-            <div class="flexrow">
-              <div class="midi-qol grid-item" id="midi-qol-grid7"></div>
-              <div class="midi-qol grid-item" id="midi-qol-grid8"></div>
-              <div class="midi-qol grid-item" id="midi-qol-grid9"></div>
+              <label>{{localize "midi-qol.TargetConfirmation.hasAttack"}}</label>
+              <input type="checkbox" name="hasAttack" data-dtype="Boolean" {{checked targetConfirmation.hasAttack}} />
             </div>
           </div>
-        </div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.TargetConfirmationCreatureTarget"}}</label>
+            <input type="checkbox" name="hasCreatureTarget" data-dtype="Boolean" {{checked
+              targetConfirmation.hasCreatureTarget}} />
+          </div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.TargetConfirmationSelfTarget"}}</label>
+            <input type="checkbox" name="targetSelf" data-dtype="Boolean" {{checked targetConfirmation.targetSelf}} />
+          </div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.TargetConfirmationAoETarget"}}</label>
+            <input type="checkbox" name="hasAoE" data-dtype="Boolean" {{checked targetConfirmation.hasAoE}} />
+          </div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.TargetConfirmationRangedAoE"}}</label>
+            <input type="checkbox" name="hasRangedAoE" data-dtype="Boolean" {{checked
+              targetConfirmation.hasRangedAoE}} />
+          </div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.TargetConfirmationLongRangeTarget"}}</label>
+            <input type="checkbox" name="longRange" data-dtype="Boolean" {{checked targetConfirmation.longRange}} />
+          </div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.TargetConfirmationCoveredTarget"}}</label>
+            <input type="checkbox" name="inCover" data-dtype="Boolean" {{checked targetConfirmation.inCover}} />
+          </div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.TargetConfirmationAllies"}}</label>
+            <input type="checkbox" name="allies" data-dtype="Boolean" {{checked targetConfirmation.allies}} />
+          </div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.TargetConfirmationMixedDisposition"}}</label>
+            <input type="checkbox" name="mixedDispositiion" data-dtype="Boolean" {{checked
+              targetConfirmation.mixedDispositiion}} />
+          </div>
+        {{/unless}}
+      </div>
+    </div>
+    <h4>
+      <div style="text-align: center">{{localize "midi-qol.targetConfirmationPosition"}}</div>
+    </h4>
+    <div class="midi-qol grid" id="midi-grid">
+      <!-- Create the 3x3 grid with selectable elements -->
+      <div class="flexrow">
+        <div class="midi-qol grid-item" id="midi-qol-grid1"></div>
+        <div class="midi-qol grid-item" id="midi-qol-grid2"></div>
+        <div class="midi-qol grid-item" id="midi-qol-grid3"></div>
+      </div>
+      <div class="flexrow">
+        <div class="midi-qol grid-item" id="midi-qol-grid4"></div>
+        <div class="midi-qol grid-item" id="midi-qol-grid5"></div>
+        <div class="midi-qol grid-item" id="midi-qol-grid6"></div>
+      </div>
+      <div class="flexrow">
+        <div class="midi-qol grid-item" id="midi-qol-grid7"></div>
+        <div class="midi-qol grid-item" id="midi-qol-grid8"></div>
+        <div class="midi-qol grid-item" id="midi-qol-grid9"></div>
+      </div>
+    </div>
 
-        {{/if}}
+    {{/if}}
+    </div>
   </section>
   <footer class="sheet-footer flexrow">
     <button type="submit" name="submit">

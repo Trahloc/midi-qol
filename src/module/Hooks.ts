@@ -1,17 +1,14 @@
-import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString } from "../midi-qol.js";
-import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, chatDamageButtons, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves, addChatDamageButtonsToHTML } from "./chatMessageHandling.js";
-import { processUndoDamageCard, timedAwaitExecuteAsGM, timedExecuteAsGM } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, getConcentrationEffect, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, doConcentrationCheck, MQfromActorUuid, removeActionUsed, getConcentrationLabel, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getConcentrationEffectsRemaining, getCachedDocument, getUpdatesCache, clearUpdatesCache, tokenForActor, getSaveMultiplierForItem, expireEffects, evalCondition, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll } from "./utils.js";
+import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID } from "../midi-qol.js";
+import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
+import { processUndoDamageCard } from "./GMAction.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating } from "./utils.js";
 import { activateMacroListeners } from "./apps/Item.js"
-import { checkMechanic, checkRule, configSettings, dragDropTargeting, safeGetGameSetting } from "./settings.js";
-import { checkWounded, checkDeleteTemplate, preRollDeathSaveHook, preUpdateItemActorOnUseMacro, removeConcentrationEffects, zeroHPExpiry, canRemoveConcentration, deathSaveHook } from "./patching.js";
+import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
+import { checkWounded, checkDeleteTemplate, preUpdateItemActorOnUseMacro, zeroHPExpiry, deathSaveHook } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./workflow.js";
-import { isEmptyObject } from "jquery";
 import { ActorOnUseMacrosConfig } from "./apps/ActorOnUseMacroConfig.js";
-import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
-import { busyWait } from "./tests/setupTest.js";
 import { installedModules } from "./setupModules.js";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
@@ -19,26 +16,6 @@ export var concentrationCheckItemDisplayName = "Concentration Check";
 export var midiFlagTypes: {} = {};
 
 export let readyHooks = async () => {
-  // need to record the damage done since it is not available in the update actor hook
-  Hooks.on("preUpdateActor", (actor, update: any, options: any, user: string) => {
-    const hpUpdate = foundry.utils.getProperty(update, "system.attributes.hp.value");
-    const temphpUpdate = foundry.utils.getProperty(update, "system.attributes.hp.temp");
-    let concHPDiff = 0;
-    if (!options.noConcentrationCheck && configSettings.concentrationAutomation) {
-      if (hpUpdate !== undefined) {
-        let hpChange = actor.system.attributes.hp.value - hpUpdate;
-        // if (hpUpdate >= (actor.system.attributes.hp.tempmax ?? 0) + actor.system.attributes.hp.max) hpChange = 0;
-        if (hpChange > 0) concHPDiff += hpChange;
-      }
-      if (configSettings.tempHPDamageConcentrationCheck && temphpUpdate !== undefined) {
-        let temphpDiff = actor.system.attributes.hp.temp - temphpUpdate;
-        if (temphpDiff > 0) concHPDiff += temphpDiff
-      }
-      foundry.utils.setProperty(update, "flags.midi-qol.concentration-damage", concHPDiff);
-    }
-    return true;
-  })
-
   // Handle removing effects when the token is moved.
   Hooks.on("updateToken", (tokenDocument, update, diff, userId) => {
     if (game.user?.id !== userId) return;
@@ -52,12 +29,10 @@ export let readyHooks = async () => {
 
   });
 
-  /*
   Hooks.on("template3dUpdatePreview", (at, t) => {
     //@ts-expect-error Volumetrictemplates
     VolumetricTemplates.compute3Dtemplate(t);
   });
-  */
 
   Hooks.on("targetToken", foundry.utils.debounce(checkflanking, 150));
 
@@ -95,8 +70,6 @@ export let readyHooks = async () => {
     const vitalityResource = checkRule("vitalityResource");
     const vitalityUpdate = typeof vitalityResource === "string" ? foundry.utils.getProperty(update, vitalityResource) : undefined;
     if (hpUpdate !== undefined || temphpUpdate !== undefined || vitalityUpdate !== undefined) {
-      let hpDiff = foundry.utils.getProperty(actor, "flags.midi-qol.concentration-damage") ?? 0;
-
       const hpUpdateFunc = async () => {
         await checkWounded(actor, update, options, user);
         await zeroHPExpiry(actor, update, options, user);
@@ -104,25 +77,18 @@ export let readyHooks = async () => {
       // if (globalThis.DAE?.actionQueue && !globalThis.DAE.actionQueue.remaining) await globalThis.DAE.actionQueue.add(hpUpdateFunc);
       // else await hpUpdateFunc();
       await hpUpdateFunc();
-      if (!safeGetGameSetting("dnd5e", "disableConcentration") && !options.noConcentrationCheck && hpDiff > 0) {
-        if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
-          await actor.endConcentration();
-        }
-      } else if (configSettings.concentrationAutomation && hpDiff > 0 && !options.noConcentrationCheck) {
-        const concentrationEffect = getConcentrationEffect(actor);
-        if (concentrationEffect) {
-          if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
-            if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(concentrationEffect.delete.bind(concentrationEffect));
-            else await concentrationEffect.delete();
-          } else if (configSettings.doConcentrationCheck) {
-            const saveDC = Math.max(10, Math.floor(hpDiff / 2));
-            if (globalThis.DAE?.actionQueue) globalThis.DAE.actionQueue.add(doConcentrationCheck, actor, saveDC);
-            else await doConcentrationCheck(actor, saveDC);
-          }
-        }
+      if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
+        await actor.endConcentration();
       }
+      return;
     }
-    return true;
+  });
+
+  Hooks.on("dnd5e.damageActor", (actor, changes, data, userId) => {
+    if (configSettings.doConcentrationCheck === "item" && userId === game.userId && isConcentrating(actor) && changes.total < 0) {
+      if (changes.hp < 0 || (configSettings.tempHPDamageConcentrationCheck && changes.temp < 0))
+        doConcentrationCheck(actor,  actor.getConcentrationDC(-changes.total))
+    }
   });
 
   Hooks.on("renderActorArmorConfig", (app, html, data) => {
@@ -144,43 +110,27 @@ export let readyHooks = async () => {
     if (!game.users?.activeGM?.isSelf) return;
     if (!(deletedEffect.parent instanceof CONFIG.Actor.documentClass)) return;
     if (debugEnabled > 0) warn("deleteActiveEffectHook", deletedEffect, deletedEffect.parent.name, options);
-    const isConcentration = foundry.utils.getProperty(deletedEffect, "flags.midi-qol.isConcentration") ?? false;
     async function changefunc() {
       try {
         //@ts-expect-error
         let origin = fromUuidSync(deletedEffect.origin);
-        if (origin instanceof ActiveEffect && !options.noConcentrationCheck && configSettings.removeConcentrationEffects !== "none" && !safeGetGameSetting("dnd5e", "disableConcentration")) {
+        if (origin instanceof ActiveEffect && !options.noConcentrationCheck && configSettings.removeConcentrationEffects !== "none") {
           //@ts-expect-error
-          if ((origin.getFlag("dnd5e", "dependents")) && origin.getDependents().length === 0) {
-            origin = await fromUuid(deletedEffect.origin);
-            if (!installedModules.get("times-up") || origin.duration.remaining > 0) {
-              if (debugEnabled > 0) warn(`Removing origin ${origin.name} (${origin.duration.remaining}) for deleted effect ${deletedEffect.name}`)
+          if (origin.statuses?.has(CONFIG.specialStatusEffects.CONCENTRATING) && origin.getDependents()?.length === 0) {
+            if (!installedModules.get("times-up") || (origin?.duration?.remaining ?? 1) > 0) {
               await origin.delete();
-            }
-          }
-        } else if (isConcentration && checkConcentration) {
-          if (!options.noConcentrationCheck)
-            removeConcentrationEffects(deletedEffect.parent, deletedEffect.uuid, foundry.utils.mergeObject(options, { noConcentrationCheck: true }));
-        } else {
-          if (origin instanceof ActiveEffect) { // created by dnd5e
-            origin = origin.parent;
-          }
-          if (checkConcentration && !options.noConcentrationCheck && origin instanceof CONFIG.Item.documentClass && origin.parent instanceof CONFIG.Actor.documentClass) {
-            const concentrationData = foundry.utils.getProperty(origin, "parent.flags.midi-qol.concentration-data");
-            if (concentrationData && deletedEffect.origin === concentrationData.uuid && canRemoveConcentration(concentrationData, deletedEffect.uuid)) {
-              removeConcentrationEffects(origin.parent, deletedEffect.uuid, foundry.utils.mergeObject(options, { noConcentrationCheck: true }));
             }
           }
         }
         if (getReactionEffect() && deletedEffect.name === getReactionEffect()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
           // TODO see if this can massaged into a single transaction
-          await deletedEffect.parent?.unsetFlag("midi-qol", "actions.reactionCombatRound");
-          await deletedEffect.parent?.setFlag("midi-qol", "actions.reaction", false);
+          await deletedEffect.parent?.unsetFlag(MODULE_ID, "actions.reactionCombatRound");
+          await deletedEffect.parent?.setFlag(MODULE_ID, "actions.reaction", false);
         }
         if (getBonusActionEffect() && deletedEffect.name === getBonusActionEffect()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
           // TODO see if this can massaged into a single transaction
-          await deletedEffect.parent.setFlag("midi-qol", "actions.bonus", false);
-          await deletedEffect.parent.unsetFlag("midi-qol", "actions.bonusActionCombatRound");
+          await deletedEffect.parent.setFlag(MODULE_ID, "actions.bonus", false);
+          await deletedEffect.parent.unsetFlag(MODULE_ID, "actions.bonusActionCombatRound");
         }
         return true;
       } catch (err) {
@@ -213,7 +163,8 @@ export let readyHooks = async () => {
   // Hooks.on("dnd5e.rollDamage", rollDamageMacro);
 
   Hooks.on("updateCombat", (combat: Combat, update, options, userId) => {
-    if (userId !== game.user?.id) return;
+    //@ts-expect-error
+    if (userId != game.users?.activeGM?.id) return;
     if (!update.hasOwnProperty("round")) return;
     if (!checkMechanic("autoRerollInitiative")) return;
     let combatantIds: any = combat.combatants.map(c => c.id);
@@ -268,6 +219,9 @@ export function initHooks() {
     if (data.round === undefined && data.turn === undefined) return;
     untargetAllTokens(combat, data.options, user);
     untargetDeadTokens();
+    //@ts-expect-error
+    if (game.users?.activeGM.isSelf) 
+      _processOverTime(combat, data, options, user);
     // updateReactionRounds(combat, data, options, user); This is handled in processOverTime
   });
 
@@ -417,9 +371,9 @@ export function initHooks() {
       delete data.flags.midiProperties.fulldam;
       delete data.flags.midiProperties.halfdam
       delete data.flags.midiProperties.nodam;
-
-      return data;
+      delete data.flags.midiProperties.concentration;
     }
+    return data;
   }
 
   Hooks.once('tidy5e-sheet.ready', (api) => {
@@ -864,8 +818,7 @@ export const itemJSONData = {
                 let target = await fromUuid(targetUuid);
                 if (MidiQOL.configSettings().removeConcentration 
                   && (target.actor.system.attributes.hp.value === 0 || args[0].failedSaveUuids.find(uuid => uuid === targetUuid))) {
-                const concentrationEffect = MidiQOL.getConcentrationEffect(target.actor);
-                if (concentrationEffect) await concentrationEffect.delete();
+                await target.actor.endConcentration();
                 }
               }`,
         "folder": null,
@@ -897,7 +850,7 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
       });
     } else if (configSettings.saveDROrder === "SaveDRdr" && mo.saveMultiplier !== undefined) {
       for (let damage of damages) {
-        if (ignore("saved", damage.type, false)) return;
+        if (ignore("saved", damage.type, false)) continue;
         damage.value = damage.value * mo.saveMultiplier;
         // no point doing this yet since dnd5e damage application overwrites it.
         foundry.utils.setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * mo.saveMultiplier);

@@ -1,3 +1,28 @@
+### 11.4.29
+* **Breaking** Midi no longer supports concentration on weapons. DnD5e now has an expanded list of items that support concentration and midi aligns with that. The midi concentration property has been removed and you will need to edit feats/tools that support concentration.
+* Moved midi to now **always** use dnd5e concentration dependents for effect removal. 
+  - The existing midi settings are still supported
+  - If midi concentration automation is enabled:
+    - There will only ever be one concentration effect on an actor.
+    - actor.flags.midi-qol.concentrationData will still be set.
+    - Automatic concentration checks will roll a concentration item rather than putting a message in chat (just like it always did).
+  * Concentration saves now has multiple options, none - don't do any concentration save processing, Chat Message Only - display a chat message with the save roll button (only valid if using dnd5e concentation), chat Message + Roll - display a chat message and automatically roll the save (only valid if using dnd5e concentration), item - use the existing midi concentration item roll, which will display the item card and the results of the save.
+* Fix to application of temphp damage in dnd5ev3 damage calculation.
+* Enable target preview when using 3d volumetric templates in a 3d world.
+* Yet another adjustment to including height in range attacks. thanks @spoob
+* For Macro writers
+  - Overtime effects moved from _preUpdate to updateActor hook. Overtime effects will now be handled after the combat tracker has updated, rather than before. There may be some other interactions because of this.
+  - Added attackTotal to hitsDisplayData
+  - Change to behaviour when all attacks miss. This will not complete the workflow unless workflowOptions.forceCompletion is true (which it is for completeItemUse workflows and single attack per target workflows). The preferred way to ensure that the workflow does not complete unexpectedly is to use the confirm workflow setting.
+  - Fix for complete item use not returning in some cases.
+  - Fix for MidiQOL.applyTokenDamage ignoring any saves passed through.
+  - Additional option for completeItemUse, asUser: userId which will route the item use to the specified user's client if active, else to the GM.
+  - Added ``asyncHooksCallAll("midi-qol.hitsChecked", workflow)`` which is called after hit's checking is completed but before hits are displayed. Should allow altering the hits results. Only called if auto checking of hits is enabled.
+  - Updating actor concentrationData via setConcentrationData(actor, data) will also update the dependents the concentration effect associated with the data.item or the first concentration effect midi finds otherwise.
+  - getConcentrationEffect has changed to getConcentrationEffect(actor, itemRef?), (itemRef is a string itemUuid, an item name, or an Item) if no itemRef is passed midi will just return the first concentration effect it finds, otherwise it will search for concentration associated with the itemRef and return that if it exists.
+  - Added effect.addDependents to add an array of dependent documents.
+  - Added support for workflowOptions.onlyOnUseItemMacros, which if true means only call Item onuse macros (not actor onUse macros) when processing the workflow.
+
 ### 11.4.28
 * Overtime effects
   - Fix for not displaying targets sometimes.
