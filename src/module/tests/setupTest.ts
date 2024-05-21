@@ -40,12 +40,14 @@ export function getToken(tokenName): Token | undefined {
 export function getActor(tokenName): Actor {
   const token = getToken(tokenName);
   if (token?.actor) {
-    token.actor.prepareData();
+    //@ts-expect-error
+    token.actor._initialize();
     return token.actor;
   };
   const actor = game.actors?.getName(tokenName);
   if (!actor) throw new Error(`No such actor ${tokenName}`)
-  actor?.prepareData();
+  //@ts-expect-error
+  actor?._initialize();
   return actor;
 }
 
@@ -148,33 +150,33 @@ async function registerTests() {
         describe("skill roll tests", function () {
           it("roll perception - 1 dice", function () {
             return actor.rollSkill("prc", { chatMessage: false, fastForward: true })
-              // .then(skillRoll => { actor.prepareData(); assert.equal(skillRoll.terms[0].number, 1) });
-              .then(skillRoll => { actor.prepareData(); expect(skillRoll.terms[0].number).to.equal(1) });
+              // .then(skillRoll => { actor._initialize(); assert.equal(skillRoll.terms[0].number, 1) });
+              .then(skillRoll => { actor._initialize(); expect(skillRoll.terms[0].number).to.equal(1) });
           });
 
           it("roll perception - adv.all", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.all", true);
             const result = await actor.rollSkill("prc", { chatMessage: false, fastForward: true })
-              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.all; actor.prepareData(); assert.equal(skillRoll.terms[0].number, 2) });
+              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.all; actor._initialize(); assert.equal(skillRoll.terms[0].number, 2) });
             return result
           });
           it("roll perception - adv.skill.all", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.skill.all", true);
             const result = await actor.rollSkill("prc", { chatMessage: false, fastForward: true })
-              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.all; actor.prepareData(); assert.equal(skillRoll.terms[0].number, 2) });
+              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.all; actor._initialize(); assert.equal(skillRoll.terms[0].number, 2) });
             return result;
 
           });
           it("roll perception - adv.skill.prc", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.skill.prc", true);
             const result = await actor.rollSkill("prc", { chatMessage: false, fastForward: true })
-              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.prc; actor.prepareData(); assert.equal(skillRoll.terms[0].number, 2) });
+              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.prc; actor._initialize(); assert.equal(skillRoll.terms[0].number, 2) });
             return result;
           });
           it("roll perception - adv.skill.ath", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.skill.ath", true);
             return actor.rollSkill("prc", { chatMessage: false, fastForward: true })
-              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.ath; actor.prepareData(); assert.equal(skillRoll.terms[0].number, 1) });
+              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.ath; actor._initialize(); assert.equal(skillRoll.terms[0].number, 1) });
           });
           it("roll acr skill min = 10", async function () {
             for (let i = 0; i < 20; i++) {
@@ -258,27 +260,27 @@ async function registerTests() {
         describe("save roll tests", function () {
           it("roll dex save - 1 dice", async function () {
             return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { actor.prepareData(); assert.equal(abilitySave.terms[0].number, 1) });
+              .then(abilitySave => { actor._initialize(); assert.equal(abilitySave.terms[0].number, 1) });
           });
           it("roll dex save - adv.all", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.all", true);
             return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.all; actor.prepareData(); assert.equal(abilitySave.terms[0].number, 2) });
+              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.all; actor._initialize(); assert.equal(abilitySave.terms[0].number, 2) });
           });
           it("roll dex save - adv.ability.save.all", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.ability.save.all", true);
             return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.all; actor.prepareData(); assert.equal(abilitySave.terms[0].number, 2) });
+              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.all; actor._initialize(); assert.equal(abilitySave.terms[0].number, 2) });
           });
           it("roll dex save - adv.ability.save.dex", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.ability.save.dex", true);
             return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.dex; actor.prepareData(); assert.equal(abilitySave.terms[0].number, 2) });
+              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.dex; actor._initialize(); assert.equal(abilitySave.terms[0].number, 2) });
           });
           it("roll dex save - adv.ability.save.str", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.ability.save.str", true);
             return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.dex; actor.prepareData(); assert.equal(abilitySave.terms[0].number, 1) });
+              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.dex; actor._initialize(); assert.equal(abilitySave.terms[0].number, 1) });
           });
           it("roll str save min = 10", async function () {
             for (let i = 0; i < 20; i++) {

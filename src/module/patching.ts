@@ -1934,7 +1934,13 @@ function removeTraitValue(traitValue: string[] | Set<string>, toRemove): string[
 }
 
 function addPhysicalDamages(traitValue) {
-  const phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
+  let phsyicalDamageTypes;
+  //@ts-expect-error
+  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
+    phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
+  } else {
+    phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
+  }
 
   for (let dt of phsyicalDamageTypes) {
     if (traitValue instanceof Set) traitValue.add(dt);

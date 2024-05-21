@@ -343,7 +343,11 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       || (!this.hasAttack && !itemHasDamage(this) && !this.hasSave); // does not do anything - need to chck dynamic effects
 
     // only allow attacks against at most the specified number of targets
-    let allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
+    let allowedTargets;
+    if (this.system.target?.type === "creature" && this.system.target?.value === "") //dnd5e 3.2
+      allowedTargets = 9999;
+      else
+      allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
     if (requiresTargets && configSettings.enforceSingleWeaponTarget && allAttackTypes.includes(this.system.actionType)) {
       allowedTargets = 1;
       if (requiresTargets && targetsToUse.size !== 1) {

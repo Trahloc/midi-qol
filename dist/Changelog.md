@@ -1,3 +1,6 @@
+### 11.4.30
+* First cut of changes for dnd5e 3.2
+
 ### 11.4.29
 * **Breaking** Midi no longer supports concentration on weapons. DnD5e now has an expanded list of items that support concentration and midi aligns with that. The midi concentration property has been removed and you will need to edit feats/tools that support concentration.
 * Moved midi to now **always** use dnd5e concentration dependents for effect removal. 
