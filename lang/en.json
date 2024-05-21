@@ -585,6 +585,7 @@
   "midi-qol.ActiveDefence.Name": "Active Defence",
   "midi-qol.ActiveDefence.Hint": "Instead of GM rolling 'To Hit' rolls players make a defence roll. Will use LMRTFY if installed",
   "midi-qol.ActiveDefenceShowGM.Name": "GM Sees active defence rolls",
+  "midi-qol.ActiveDefenceShow.Name": "Default display for active defence rolls",
   "midi-qol.PromptDamageRoll.Name": "Enhanced Damage Roll Dialog",
   "midi-qol.PromptDamageRoll.Hint": "When using Damage Roll Dialog display an enhanced dialog that supports choosing item damage.",
   "midi-qol.GMHide3dDice.Name": "Hide GM attack/damage/saving throw 3d dice rolls - overrides other settings (merge card only)",

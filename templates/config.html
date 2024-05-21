@@ -814,15 +814,13 @@
               <div class="notes midi-qol-faint">{{{localize "midi-qol.ActiveDefence.Hint"}}}</div>
             </div>
 
-            <div class="form-group">
-              <span>
-                <label>{{localize "midi-qol.ActiveDefenceShowGM.Name"}}</label>
-                <input type="checkbox" style="width:40px;" name="optionalRules.activeDefenceShowGM" data-dtype="Boolean"
-                  {{checked configSettings.optionalRules.activeDefenceShowGM}}
-                  value="{{configSettings.optionalRules.activeDefenceShowGM}}" data-dtype="Boolean" />
-              </span>
-            </div>
+          <div class="form-group">
+            <label>{{localize "midi-qol.ActiveDefenceShow.Name"}}</label>
+            <select name="optionalRules.activeDefenceShow" data-dtype="String">
+              {{selectOptions rollModes selected=configSettings.optionalRules.activeDefenceShow localize=true}}
+            </select>
           </div>
+        </div>
 
           <div class="midi-qol-box">
             <div class="form-group">

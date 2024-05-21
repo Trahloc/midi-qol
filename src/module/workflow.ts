@@ -2536,8 +2536,14 @@ export class Workflow {
     let newFlags = {};
     if (doMerge) {
       if (game.user?.isGM && this.useActiveDefence) {
-        const searchRe = /<div class="midi-qol-attack-roll">[\s\S]*?<div class="end-midi-qol-attack-roll">/
-        const attackString = `${i18n("midi-qol.ActiveDefenceString")}${configSettings.displaySaveDC ? " " + this.activeDefenceDC : ""}`;
+        const searchRe = /<div class="midi-qol-attack-roll">[\s\S]*?<div class="end-midi-qol-attack-roll">/;
+				let DCString = "DC";
+				if (game.system.id === "dnd5e") {
+					DCString = i18n(`${this.systemString}.AbbreviationDC`);
+        } else if (i18n("SW5E.AbbreviationDC") !== "SW5E.AbbreviationDC") {
+					DCString = i18n("SW5E.AbbreviationDC");
+				}
+				const attackString = `<label class="midi-qol-saveDC">${DCString} ${this.activeDefenceDC}</label> ${i18n("midi-qol.ActiveDefenceString")}`;
         const replaceString = `<div class="midi-qol-attack-roll"> <div style="text-align:center"> ${attackString} </div><div class="end-midi-qol-attack-roll">`
         content = content.replace(searchRe, replaceString);
         const targetUuids = Array.from(this.targets).map(t => getTokenDocument(t)?.uuid);
@@ -3759,7 +3765,7 @@ export class Workflow {
     delete this.defenceTimeouts[requestId];
     handler(message.rolls[0])
 
-    if (game.user?.isGM && message.flags?.lmrtfy?.data?.mode === "selfroll" && !checkRule("activeDefenceShowGM")) {
+    if (game.user?.isGM && checkRule("activeDefenceShow") === "selfroll") {
       html.hide();
     }
     /*
@@ -4254,7 +4260,7 @@ export class Workflow {
     if (this.targets.size <= 0) {
       return;
     }
-    this.activeDefenceDC = 11 + attackBonus;
+    this.activeDefenceDC = 12 + attackBonus;
 
     let promises: Promise<any>[] = [];
 

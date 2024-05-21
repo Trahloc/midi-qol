@@ -195,7 +195,7 @@ class ConfigSettings {
     distanceIncludesHeight: false,
     criticalSaves: false,
     activeDefence: false,
-    activeDefenceShowGM: false,
+		activeDefenceShow: "selfroll",
     challengModeArmor: "none",
     checkFlanking: "off",
     optionalCritRule: -1,
@@ -430,7 +430,7 @@ export let fetchParams = () => {
   configSettings.optionalRules = foundry.utils.mergeObject({ // eventually split this into mechanics and rules
     actionSpecialDurationImmediate: false,
     activeDefence: false,
-    activeDefenceShowGM: false,
+		activeDefenceShow: "selfroll",
     challengeModeArmor: "none",
     challengeModeArmorScale: false,
     checkFlanking: "off",
@@ -464,6 +464,11 @@ export let fetchParams = () => {
   if (!configSettings.optionalRules.invisAdvantage) configSettings.optionalRules.invisAdvantage = "none";
   if (configSettings.optionalRules.invisAdvantage === true) configSettings.optionalRules.invisAdvantage = "RAW";
   if (!configSettings.optionalRules.hiddenAdvantage) configSettings.optionalRules.hiddenAdvantage = "none";
+  if (configSettings.optionalRules.activeDefenceShowGM === true) {
+    // old setting replaced with new
+    configSettings.optionalRules.activeDefenceShow = "gmroll";
+    delete configSettings.optionalRules.activeDefenceShowGM;
+  }
   if (typeof configSettings.confirmAttackDamage !== "string") configSettings.confirmAttackDamage = "none";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical !== true) configSettings.requireMagical = "off";
   if (typeof configSettings.requireMagical !== "string" && configSettings.requireMagical === true) configSettings.requireMagical = "nonspell";

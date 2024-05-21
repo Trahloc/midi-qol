@@ -1289,13 +1289,7 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
     advantage = (advantage === true ? 1 : advantage === false ? -1 : 0);
   }
   //@ts-expect-error
-  let mode = foundry.utils.isNewerVersion(game.version ?? game.version, "0.9.236") ? "publicroll" : "roll";
-
-  if (checkRule("activeDefenceShowGM"))
-    mode = "gmroll"
-  else
-    mode = "selfroll";
-
+  let mode = checkRule("activeDefenceShow") ?? "selfroll";
   let message = `${saveItemName} ${configSettings.hideRollDetails === "none" ? "DC " + rollDC : ""} ${i18n("midi-qol.ActiveDefenceString")}`;
   if (installedModules.get("lmrtfy")) {
     // Send a message for LMRTFY to do a save.
