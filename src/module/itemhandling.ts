@@ -213,7 +213,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       foundry.utils.getProperty(this, "flags?${MODULE_ID}.rollAttackPerTarget") !== "never" 
       && options.workflowOptions?.attackPerTarget !== false 
       && options.workflowOptions?.isAttackPerTarget !== true
-      && (foundry.utils.getProperty(this, "flags${MODULE_ID}.rollAttackPerTarget") === "always" 
+      && (foundry.utils.getProperty(this, "flags.${MODULE_ID}.rollAttackPerTarget") === "always" 
         || configSettings.attackPerTarget === true 
         || options.workflowOptions?.attackPerTarget === true);
     // Special check for scriptlets ammoSelector - if scriptlets is going to fail and rerun the item use don't start attacks per target
@@ -987,7 +987,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
 
       result = await wrapped(damageRollData);
 
-      if (foundry.utils.getProperty(this, `parent.flags${MODULE_ID}.damage.advantage`)) result2 = await wrapped(damageRollData)
+      if (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.advantage`)) result2 = await wrapped(damageRollData)
 
       if (debugCallTiming) log(`wrapped item.rollDamage():  elapsed ${Date.now() - wrappedRollStart}ms`);
     } else { // roll other damage instead of main damage.
@@ -1017,15 +1017,15 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     //@ts-expect-error .first
     const firstTarget = workflow.hitTargets.first() ?? workflow.targets?.first();
     const firstTargetActor = firstTarget?.actor;
-    const targetMaxFlags = foundry.utils.getProperty(firstTargetActor, "flags${MODULE_ID}.grants.max.damage") ?? {};
-    const maxFlags = foundry.utils.getProperty(workflow, "actor.flags${MODULE_ID}.max") ?? {};
+    const targetMaxFlags = foundry.utils.getProperty(firstTargetActor, "flags.${MODULE_ID}.grants.max.damage") ?? {};
+    const maxFlags = foundry.utils.getProperty(workflow, "actor.flags.${MODULE_ID}.max") ?? {};
     let needsMaxDamage = (maxFlags.damage?.all && await evalActivationCondition(workflow, maxFlags.damage.all, firstTarget, {async: true, errorReturn: false}))
       || (maxFlags.damage && maxFlags.damage[this.system.actionType] && await evalActivationCondition(workflow, maxFlags.damage[this.system.actionType], firstTarget, {async: true, errorReturn: false}));
     needsMaxDamage = needsMaxDamage || (
       (targetMaxFlags.all && await evalActivationCondition(workflow, targetMaxFlags.all, firstTarget, {async: true, errorReturn: false}))
       || (targetMaxFlags[this.system.actionType] && await evalActivationCondition(workflow, targetMaxFlags[this.system.actionType], firstTarget, {async: true, errorReturn: false})));
-    const targetMinFlags = foundry.utils.getProperty(firstTargetActor, "flags${MODULE_ID}.grants.min.damage") ?? {};
-    const minFlags = foundry.utils.getProperty(workflow, "actor.flags${MODULE_ID}.min") ?? {};
+    const targetMinFlags = foundry.utils.getProperty(firstTargetActor, "flags.${MODULE_ID}.grants.min.damage") ?? {};
+    const minFlags = foundry.utils.getProperty(workflow, "actor.flags.${MODULE_ID}.min") ?? {};
     let needsMinDamage = (minFlags.damage?.all && await evalActivationCondition(workflow, minFlags.damage.all, firstTarget, {async: true, errorReturn: false}))
       || (minFlags?.damage && minFlags.damage[this.system.actionType] && evalActivationCondition(workflow, minFlags.damage[this.system.actionType], firstTarget));
     needsMinDamage = needsMinDamage || (
@@ -1067,14 +1067,14 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
         result[i] = await result[i].reroll({ minimize: true });
         // result = result.map(r => new DamageRoll(r.formula).roll({ minimize: true, async: false }));
       }
-    } else if (foundry.utils.getProperty(this, "parent.flags${MODULE_ID}.damage.reroll-kh") || foundry.utils.getProperty(this, "parent.flags${MODULE_ID}.damage.reroll-kl")) {
+    } else if (foundry.utils.getProperty(this, "parent.flags.${MODULE_ID}.damage.reroll-kh") || foundry.utils.getProperty(this, "parent.flags.${MODULE_ID}.damage.reroll-kl")) {
       let result2: Roll[] = [];
       for (let i = 0; i < result.length; i++) {
         result2.push(await result[i].reroll({ async: true }));
         // result2 = result.map(r => r.reroll({ async: false }));
       }
-      if ((foundry.utils.getProperty(this, "parent.flags${MODULE_ID}.damage.reroll-kh") && (sumRolls(result2) > sumRolls(result)))
-        || (foundry.utils.getProperty(this, "parent.flags${MODULE_ID}.damage.reroll-kl") && (sumRolls(result2) < sumRolls(result)))) {
+      if ((foundry.utils.getProperty(this, "parent.flags.${MODULE_ID}.damage.reroll-kh") && (sumRolls(result2) > sumRolls(result)))
+        || (foundry.utils.getProperty(this, "parent.flags.${MODULE_ID}.damage.reroll-kl") && (sumRolls(result2) < sumRolls(result)))) {
         [result, result2] = [result2, result];
       }
       // display roll not being used.
@@ -1152,12 +1152,12 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
           if (configSettings.mergeCard)
             foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
           if (
-            (foundry.utils.getProperty(this, "parent.flags${MODULE_ID}.damage.reroll-kh")) ||
-            (foundry.utils.getProperty(this, "parent.flags${MODULE_ID}.damage.reroll-kl"))) {
+            (foundry.utils.getProperty(this, "parent.flags.${MODULE_ID}.damage.reroll-kh")) ||
+            (foundry.utils.getProperty(this, "parent.flags.${MODULE_ID}.damage.reroll-kl"))) {
             otherResult2 = await otherResult.reroll({ async: true });
             if (otherResult2?.total !== undefined && otherResult?.total !== undefined) {
-              if ((foundry.utils.getProperty(this, "parent.flags${MODULE_ID}.damage.reroll-kh") && (otherResult2?.total > otherResult?.total)) ||
-                (foundry.utils.getProperty(this, "parent.flags${MODULE_ID}.damage.reroll-kl") && (otherResult2?.total < otherResult?.total))) {
+              if ((foundry.utils.getProperty(this, "parent.flags.${MODULE_ID}.damage.reroll-kh") && (otherResult2?.total > otherResult?.total)) ||
+                (foundry.utils.getProperty(this, "parent.flags.${MODULE_ID}.damage.reroll-kl") && (otherResult2?.total < otherResult?.total))) {
                 [otherResult, otherResult2] = [otherResult2, otherResult];
               }
               // display roll not being used
@@ -1639,9 +1639,9 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   const selfToken = getToken(workflow.tokenUuid);
   let ignoreSelf: boolean = false;
   if (workflow?.item && workflow.item.hasAreaTarget
-    && (workflow.item.system.range.type === "self") || foundry.utils.getProperty(workflow, "item.flags${MODULE_ID}.AoETargetTypeIncludeSelf") === false)
+    && (workflow.item.system.range.type === "self") || foundry.utils.getProperty(workflow, "item.flags.${MODULE_ID}.AoETargetTypeIncludeSelf") === false)
     ignoreSelf = true;
-  const AoETargetType = foundry.utils.getProperty(workflow, "item.flags${MODULE_ID}.AoETargetType") ?? "any";
+  const AoETargetType = foundry.utils.getProperty(workflow, "item.flags.${MODULE_ID}.AoETargetType") ?? "any";
   // think about special = allies, self = all but self and any means everyone.
 
   let item = workflow.item;
@@ -1704,7 +1704,7 @@ export async function shouldRollOtherDamage(workflow: Workflow, conditionFlagNon
   if (this.type === "spell" && conditionFlagSpell === "always") return true;
   if (this.type !== "spell" && conditionFlagNonSpell === "always") return true;
   let rollOtherDamage = true;
-  let conditionToUse: string = foundry.utils.getProperty(this, "flags${MODULE_ID}.otherCondition")?.trim() ?? "";
+  let conditionToUse: string = foundry.utils.getProperty(this, "flags.${MODULE_ID}.otherCondition")?.trim() ?? "";
   if (this.type === "spell") {
     rollOtherDamage = conditionFlagSpell !== "ifSave" || this.hasSave;
   } else if (["rwak", "mwak"].includes(this.system.actionType)) {

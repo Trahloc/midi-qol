@@ -1,3 +1,6 @@
+### 11.4.31
+* More v3.2 changes thanks @Elwin
+
 ### 11.4.30
 * First cut of changes for dnd5e 3.2
 
