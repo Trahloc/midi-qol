@@ -2629,7 +2629,7 @@ export class Workflow {
         )
       }
       // for active defence, this.attackRoll is undefined, thus create the array like this to prevent errors further on
-      const rolls = [...(this.attackRoll ?? []), ...(this.extraRolls ?? [])];
+      const rolls = [...(this.attackRoll ? [this.attackRoll] : []), ...(this.extraRolls ?? [])];
       await debouncedUpdate(chatMessage, { content, flags: newFlags, rolls: rolls }, false && true);
       // await chatMessage?.update({ content, flags: newFlags, rolls: [this.attackRoll] });
     }
