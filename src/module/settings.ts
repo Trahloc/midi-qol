@@ -195,7 +195,7 @@ class ConfigSettings {
     distanceIncludesHeight: false,
     criticalSaves: false,
     activeDefence: false,
-		activeDefenceShow: "selfroll",
+    activeDefenceShow: "selfroll",
     challengModeArmor: "none",
     checkFlanking: "off",
     optionalCritRule: -1,
@@ -430,7 +430,7 @@ export let fetchParams = () => {
   configSettings.optionalRules = foundry.utils.mergeObject({ // eventually split this into mechanics and rules
     actionSpecialDurationImmediate: false,
     activeDefence: false,
-		activeDefenceShow: "selfroll",
+    activeDefenceShow: "selfroll",
     challengeModeArmor: "none",
     challengeModeArmorScale: false,
     checkFlanking: "off",

@@ -644,7 +644,7 @@ export async function _D20Roll(data: { request: string, targetUuid: string, form
     const roll = new CONFIG.Dice.D20Roll(data.formula, {}, data.options);
     await roll.configureDialog({ title: data.request, defaultRollMode: data.rollMode, defaultAction: data.options?.advantage });
     result = await roll.roll();
-    roll.toMessage();
+    roll.toMessage(data.messageData);
     if (timeoutId) clearTimeout(timeoutId);
     foundry.utils.setProperty(result, "flags.midi-qol.rollType", data.options?.midiType)
     resolve(result ?? {})

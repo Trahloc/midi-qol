@@ -2537,14 +2537,14 @@ export class Workflow {
     if (doMerge) {
       if (game.user?.isGM && this.useActiveDefence) {
         const searchRe = /<div class="midi-qol-attack-roll">[\s\S]*?<div class="end-midi-qol-attack-roll">/;
-				let DCString = "DC";
-				if (game.system.id === "dnd5e") {
-					DCString = i18n(`${this.systemString}.AbbreviationDC`);
+        let DCString = "DC";
+        if (game.system.id === "dnd5e") {
+          DCString = i18n(`${this.systemString}.AbbreviationDC`);
         } else if (i18n("SW5E.AbbreviationDC") !== "SW5E.AbbreviationDC") {
-					DCString = i18n("SW5E.AbbreviationDC");
-				}
-				const attackString = `<label class="midi-qol-saveDC">${DCString} ${this.activeDefenceDC}</label> ${i18n("midi-qol.ActiveDefenceString")}`;
-        const replaceString = `<div class="midi-qol-attack-roll"> <div style="text-align:center"> ${attackString} </div><div class="end-midi-qol-attack-roll">`
+          DCString = i18n("SW5E.AbbreviationDC");
+        }
+        const attackString = `<label class="midi-qol-saveDC">${DCString} ${this.activeDefenceDC}</label> ${i18n("midi-qol.ActiveDefenceString")}`;
+        const replaceString = `<div class="midi-qol-attack-roll"> <div style="text-align:center"> ${attackString} </div><div class="end-midi-qol-attack-roll">`;
         content = content.replace(searchRe, replaceString);
         const targetUuids = Array.from(this.targets).map(t => getTokenDocument(t)?.uuid);
         newFlags = foundry.utils.mergeObject(flags, {
@@ -2626,8 +2626,9 @@ export class Workflow {
         }, { overwrite: true, inplace: false }
         )
       }
-      const rolls = [this.attackRoll, ...(this.extraRolls ?? [])];
-      await debouncedUpdate(chatMessage, { content, flags: newFlags, rolls: [this.attackRoll] }, false && true);
+      // for active defence, this.attackRoll is undefined, thus create the array like this to prevent errors further on
+      const rolls = [...(this.attackRoll ?? []), ...(this.extraRolls ?? [])];
+      await debouncedUpdate(chatMessage, { content, flags: newFlags, rolls: rolls }, false && true);
       // await chatMessage?.update({ content, flags: newFlags, rolls: [this.attackRoll] });
     }
   }
@@ -3765,7 +3766,7 @@ export class Workflow {
     delete this.defenceTimeouts[requestId];
     handler(message.rolls[0])
 
-    if (game.user?.isGM && checkRule("activeDefenceShow") === "selfroll") {
+    if (game.user?.isGM && message.flags?.lmrtfy?.data?.mode === "selfroll" && checkRule("activeDefenceShow") === "selfroll") {
       html.hide();
     }
     /*
@@ -4230,7 +4231,7 @@ export class Workflow {
   }
 
   async activeDefence(item, roll) {
-    // For each target do a LMRTFY custom roll DC 11 + attackers bonus - for gm tokens always auto roll
+    // For each target do a LMRTFY custom roll DC 12 + attackers bonus, for gm tokens always auto roll
     // Roll is d20 + AC - 10
     let hookId = Hooks.on("renderChatMessage", this.processDefenceRoll.bind(this));
     try {

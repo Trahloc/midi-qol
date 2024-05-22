@@ -1317,7 +1317,7 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
   } else if (options?.workflow) { //prompt for a normal roll.
     const rollOptions: any = { advantage, midiType: "defenceRoll", flavor: message };
     if (configSettings.autoCheckHit === "all") rollOptions.targetValue = rollDC;
-    socketlibSocket.executeAsUser("D20Roll", player.id, { targetUuid: actor.uuid, formula, request: message, rollMode: mode, options: rollOptions }).then(result => {
+    socketlibSocket.executeAsUser("D20Roll", player.id, { targetUuid: actor.uuid, formula, request: message, rollMode: mode, options: rollOptions, messageData: { speaker: getSpeaker(actor) } }).then(result => {
       if (debugEnabled > 1) debug("D20Roll result ", result);
       log("midi-qol | D20Roll result ", result);
       const handler = options.workflow.defenceRequests[requestId];
