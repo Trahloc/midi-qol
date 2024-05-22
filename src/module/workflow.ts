@@ -4342,8 +4342,8 @@ export class Workflow {
       }
       const result = results[i];
       let rollTotal = results[i]?.total || 0;
-      if (this.isCritical === undefined) this.isCritical = result.dice[0].total <= criticalTarget
-      if (this.isFumble === undefined) this.isFumble = result.dice[0].total >= fumbleTarget;
+      this.isCritical = result.dice[0].total <= criticalTarget
+      this.isFumble = result.dice[0].total >= fumbleTarget;
       this.activeDefenceRolls[getTokenDocument(target)?.uuid ?? ""] = results[i];
       let hit = this.isCritical || rollTotal < this.activeDefenceDC;
       if (hit) {
