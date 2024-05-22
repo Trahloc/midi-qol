@@ -2388,6 +2388,8 @@ export class Workflow {
     macroData.options = options;
     macroData.tag = tag;
     macroData.macroPass = macroPass;
+    this.macroPass = macroPass;
+    this.tag = tag;
     if (debugEnabled > 1) {
       log("callMacros | calling", macros, "for", macroPass, "with", macroData);
     }

@@ -415,7 +415,7 @@ export class TroubleShooter extends FormApplication {
     });
     */
 
-
+console.error("Doing modules checks")
     for (let moduleData of game.modules) {
       let module: any = moduleData;
       if (!module.active && !checkedModuleList.includes(module.id)) continue;
@@ -488,6 +488,16 @@ export class TroubleShooter extends FormApplication {
           foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "lib-wrapper":
+          if (!(game.modules.get("lib-wrapper")?.active)) {
+            data.problems.push({
+              moduleId: "lib-wrapper",
+              severity: "Error",
+              critical: true,
+              problemSummary: "Midi won't function without lib-wrapper",
+              fixer: "Install and activate lib-wrapper",
+              problemDetail: undefined
+            });
+          };
           break;
         case "lmrtfy":
           break;
@@ -505,6 +515,17 @@ export class TroubleShooter extends FormApplication {
         case "simbuls-cover-calculator":
           break;
         case "socketlib":
+          console.error("Checking socket lib")
+          if (!(game.modules.get("socketlib")?.active)) {
+            data.problems.push({
+              moduleId: "socketlib",
+              severity: "Error",
+              critical: true,
+              problemSummary: "Midi won't function without socketlib",
+              fixer: "Install and activate socketlib",
+              problemDetail: undefined
+            });
+          };
           break;
         case "times-up":
           if (!(game.modules.get("times-up")?.active)) {
@@ -974,6 +995,7 @@ interface ProblemSpec {
   moduleId: string | undefined,
   severity: "Error" | "Warn" | "Inform",
   problemSummary: string,
+  critical?: boolean,
   problemDetail: any | undefined,
   fixer?: string,
   fixerFunc?: any,
