@@ -1,3 +1,11 @@
+### 11.4.32
+* Fix for ItemMacro onuseMacro effects when the effect is subject to coentration not working.
+* Added socketlib/libwrapper not installed to Trouble shooter.
+* Added macroPass and tag to workflow when calling macros.
+* Added findNearbyCount which returns the number of nearby tokens, rather than a list of nearby tokens that findNearby does.
+* implemented hp.dt (damage threshold) for dnd5e damage application, already works for midi-qol damage application.
+* More fixes for changes thanks @Elwin
+
 ### 11.4.31
 * More v3.2 changes thanks @Elwin
 

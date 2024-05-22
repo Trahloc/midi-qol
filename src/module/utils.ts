@@ -782,7 +782,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
 };
 
 export async function legacyApplyTokenDamageMany(damageDetailArr, totalDamageArr, theTargets, item, savesArr,
-  options: { label: string,  hitTargets: Set<Token | TokenDocument>, existingDamage: any[][], superSavers: Set<any>[], semiSuperSavers: Set<any>[], workflow: Workflow | undefined, updateContext: any, forceApply: any, noConcentrationCheck: boolean }
+  options: { label: string, hitTargets: Set<Token | TokenDocument>, existingDamage: any[][], superSavers: Set<any>[], semiSuperSavers: Set<any>[], workflow: Workflow | undefined, updateContext: any, forceApply: any, noConcentrationCheck: boolean }
     = { label: "defaultDamage", hitTargets: new Set(), existingDamage: [], superSavers: [], semiSuperSavers: [], workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
   const mappedDamageDetailArray: applyDamageDetails[] = damageDetailArr.map((dd, i) => {
     return {
@@ -1359,10 +1359,16 @@ export function midiCustomEffect(...args) {
   } else if (change.key === "flags.midi-qol.onUseMacroName") {
     const args = change.value.split(",")?.map(arg => arg.trim());
     const currentFlag = foundry.utils.getProperty(actor, "flags.midi-qol.onUseMacroName") ?? "";
+    const sourceId = getProperty(change.effect, "flags.core.sourceId")
     if (args[0] === "ItemMacro" || args[0] === MQItemMacroLabel) { // rewrite the ItemMacro if possible
       if (change.effect.transfer) args[0] = `ItemMacro.${change.effect.parent.uuid}`;
-      else if (change.effect?.origin?.includes("Item.")) {
-        args[0] = `ItemMacro.${change.effect.origin}`;
+      // else if (sourceId) args[0] = `ItemMacro.${sourceId}`;
+      else {
+        //@ts-expect-error
+        const origin = fromUuidSync(change.effect.origin);
+        if (origin instanceof Item) args[0] = `ItemMacro.${origin.uuid}`;
+        //@ts-expect-error
+        else if (origin instanceof ActiveEffect) args[0] = `ItemMacro.${origin.origin}`;
       }
     }
     if (change.effect?.origin?.includes("Item.")) {
@@ -2767,7 +2773,7 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
     let selfTarget = actor.token ? actor.token.object : getTokenForActor(actor);
     targets.push({ tokenUuid: selfTarget.uuid, actorUuid: actor.uuid });
   }
-  let templates:string [] = concentrationData.templates ?? [];
+  let templates: string[] = concentrationData.templates ?? [];
   if (concentrationData.templateUuid) templates.push(concentrationData.templateUuid)
   await actor.setFlag(MODULE_ID, "concentration-data", {
     uuid: concentrationData.item,
@@ -2805,6 +2811,11 @@ function mapTokenString(disposition: string | number): number | null {
   else if (disposition.toLocaleLowerCase().trim() === i18n("all").toLocaleLowerCase()) return null;
   const validStrings = ["TOKEN.DISPOSITION.FRIENDLY", "TOKEN.DISPOSITION.HOSTILE", "TOKEN.DISPOSITION.NEUTRAL", "TOKEN.DISPOSITION.SECRET", "all"].map(s => i18n(s))
   throw new Error(`Midi-qol | findNearby ${disposition} is invalid. Disposition must be one of "${validStrings}"`)
+}
+
+export function findNearbyCount(disposition: number | string | null | Array<string | number>, token: any /*Token | uuuidString */, distance: number,
+  options: { maxSize: number | undefined, includeIncapacitated: boolean | undefined, canSee: boolean | undefined, isSeen: boolean | undefined, includeToken: boolean | undefined, relative: boolean | undefined } = { maxSize: undefined, includeIncapacitated: false, canSee: false, isSeen: false, includeToken: false, relative: true }): number {
+  return findNearby(disposition, token, distance, options)?.length ?? 0;
 }
 
 /**
@@ -4447,7 +4458,7 @@ export function getConcentrationEffect(actor, itemRef?: Item | string): ActiveEf
   if (!item?.id)
     return actor?.effects.find(ef => ef.statuses.has(systemConcentrationId));
   else {
-    return actor?.effects.find(ef => ef.statuses.has(systemConcentrationId) 
+    return actor?.effects.find(ef => ef.statuses.has(systemConcentrationId)
       && (ef.flags?.dnd5e?.itemData === item.id || ef.flags.dnd5e?.itemData?._id === item.id)
     );
   }
