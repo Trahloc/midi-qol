@@ -152,7 +152,11 @@
               </tr>
               {{#each problems as |problem moudleId|}}
               <tr>
+                {{#if problem.critical}}
+                <td style="color: red"><strong>Critical {{problem.severity}}</strong></td>
+                {{else}}
                 <td>{{problem.severity}}</td>
+                {{/if}}
                 <td>{{moduleId}}</td>
                 <td>{{problem.problemSummary}}</td>
                 <td>{{problem.fixer}}</td>
