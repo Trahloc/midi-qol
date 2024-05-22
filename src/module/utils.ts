@@ -758,7 +758,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       autoApplyDamage: configSettings.autoApplyDamage,
       sender: game.user?.name,
       actorId: workflow.actor?.id,
-      charName: workflow.actor?.name ?? game?.user?.name,
+      charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
       damageList: damageList,
       targetNames,
       chatCardId: workflow.itemCardId,
