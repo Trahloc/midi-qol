@@ -234,7 +234,13 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
   if (dmgTypeString.includes("healing") || dmgTypeString.includes("temphp")) totalMult = -1;
   if (dmgTypeString.includes("midi-none")) return 0;
   if (configSettings.damageImmunities === "none") return totalMult;
-  const phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
+  let phsyicalDamageTypes;
+  //@ts-expect-error
+  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) { // physicalDamageTypes have gone away
+    phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPphysical);
+  } else {
+    phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
+  }
 
   if (dmgTypeString !== "") {
     // if not checking all damage counts as magical

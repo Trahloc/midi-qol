@@ -1290,13 +1290,6 @@ export function readyPatching() {
   }
 }
 
-function addDependents(dependents: any[]) {
-  const id = game.system.id ?? MODULE_ID;
-  const current = this.getFlag(id, "dependents") || [];
-  dependents = dependents.filter(d => d?.uuid).map(d => ({ uuid: d.uuid }))
-  return this.setFlag(id, "dependents", current.concat(dependents));
-}
-
 function removeDependent(dependent: any) {
   const id = game.system.id ?? MODULE_ID;
   const dependents = (this.getFlag(id, "dependents") || []).filter(dep => dep.uuid !== dependent.uuid);
@@ -1319,15 +1312,25 @@ async function deleteAllDependents() {
   }
   return this.clearDependents();
 }
+
+async function addDependents(...dependents) {
+  //@ts-expect-error
+  if (isNewerVersion(game.system.version, "3.1.99")) {
+    return this.addDependent(...dependents);
+  } else {
+    return _addDependent.bind(this)(...dependents);
+  }
+}
+
 /**
  * Record another effect as a dependent of this one.
- * @param {ActiveEffect5e} dependent  The dependent effect.
- * @returns {Promise<Document>}
+ * @param {...ActiveEffect5e} dependent  One or more dependent effects.
+ * @returns {Promise<ActiveEffect5e>}
  */
-async function _addDependent(dependent) {
+async function _addDependent(...dependent) {
   const id = game.system.id ?? MODULE_ID;
   const dependents = this.getFlag(id, "dependents") ?? [];
-  dependents.push({ uuid: dependent.uuid });
+  dependents.push(...dependent.map(d => ({ uuid: d.uuid })));
   return this.setFlag(id, "dependents", dependents);
 }
 
@@ -1934,7 +1937,13 @@ function removeTraitValue(traitValue: string[] | Set<string>, toRemove): string[
 }
 
 function addPhysicalDamages(traitValue) {
-  const phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
+  let phsyicalDamageTypes;
+  //@ts-expect-error
+  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
+    phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
+  } else {
+    phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
+  }
 
   for (let dt of phsyicalDamageTypes) {
     if (traitValue instanceof Set) traitValue.add(dt);
