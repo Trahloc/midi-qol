@@ -1289,13 +1289,7 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
     advantage = (advantage === true ? 1 : advantage === false ? -1 : 0);
   }
   //@ts-expect-error
-  let mode = foundry.utils.isNewerVersion(game.version ?? game.version, "0.9.236") ? "publicroll" : "roll";
-
-  if (checkRule("activeDefenceShowGM"))
-    mode = "gmroll"
-  else
-    mode = "selfroll";
-
+  let mode = checkRule("activeDefenceShow") ?? "selfroll";
   let message = `${saveItemName} ${configSettings.hideRollDetails === "none" ? "DC " + rollDC : ""} ${i18n("midi-qol.ActiveDefenceString")}`;
   if (installedModules.get("lmrtfy")) {
     // Send a message for LMRTFY to do a save.
@@ -1323,7 +1317,7 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
   } else if (options?.workflow) { //prompt for a normal roll.
     const rollOptions: any = { advantage, midiType: "defenceRoll", flavor: message };
     if (configSettings.autoCheckHit === "all") rollOptions.targetValue = rollDC;
-    socketlibSocket.executeAsUser("D20Roll", player.id, { targetUuid: actor.uuid, formula, request: message, rollMode: mode, options: rollOptions }).then(result => {
+    socketlibSocket.executeAsUser("D20Roll", player.id, { targetUuid: actor.uuid, formula, request: message, rollMode: mode, options: rollOptions, messageData: { speaker: getSpeaker(actor) } }).then(result => {
       if (debugEnabled > 1) debug("D20Roll result ", result);
       log("midi-qol | D20Roll result ", result);
       const handler = options.workflow.defenceRequests[requestId];

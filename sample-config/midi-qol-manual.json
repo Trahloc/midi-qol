@@ -49,7 +49,7 @@
     "optionalRules": {
       "actionSpecialDurationImmediate": false,
       "activeDefence": false,
-      "activeDefenceShowGM": false,
+      "activeDefenceShow": "selfroll",
       "challengeModeArmor": "none",
       "challengeModeArmorScale": false,
       "checkFlanking": "off",

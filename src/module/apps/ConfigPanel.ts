@@ -34,7 +34,7 @@ export class ConfigPanel extends FormApplication {
 
   async getData(options: any): Promise<any> {
     if (!enableWorkflow) {
-      ui.notifications?.error("Worklow automation is not enabled")
+      ui.notifications?.error("Workflow automation is not enabled")
     }
     let wallsBlockRangeOptions = foundry.utils.duplicate(geti18nOptions("WallsBlockRangeOptionsNew"));
     let CoverCalculationOptions = foundry.utils.duplicate(geti18nOptions("CoverCalculationOptions"));
@@ -153,7 +153,8 @@ export class ConfigPanel extends FormApplication {
       StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name = i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, { "none": "None" }),
       SaveDROrderOptions: geti18nOptions("SaveDROrderOptions"),
       ColorOptions: colorList.reduce((acc, c) => { acc[c] = c; return acc }, { "Delete": "Delete" }),
-      DoConcentrationCheckOptions: geti18nOptions("DoConcentrationCheckOptions")
+      DoConcentrationCheckOptions: geti18nOptions("DoConcentrationCheckOptions"),
+      rollModes : CONFIG.Dice.rollModes
     };
     if (debugEnabled > 0) warn("Config Panel: getData ", data)
     return data;
