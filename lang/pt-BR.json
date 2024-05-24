@@ -154,7 +154,8 @@
     "maxDamageExplode": "Dano Normal Máximo e Explodir Dado Crítico",
     "explodeCharacter": "Explodir Dado Crítico de PJ",
     "explodeNPC": "Explodir Dado Crítico de PnJ",
-    "baseDamage": "Dano Extra de Acerto Crítico"
+    "baseDamage": "Dano Extra de Acerto Crítico",
+    "maxBaseRollCrit": "Crítico Base Máximo"
   },
   "midi-qol.MergeCard.Name": "Cartão Mesclado",
   "midi-qol.MergeCard.Hint": "Mescla Ataques, Acertos, Dano e Salvaguardas em um único cartão de chat.",
@@ -385,6 +386,8 @@
     "preDamageApplication": "Antes de Aplicar Dano",
     "preActiveEffects": "Antes de Efeitos Ativos",
     "postActiveEffects": "Depois de Efeitos Ativos ",
+    "isTargeted": "Alvo é Marcado Antes da Rolagem do Item",
+    "isPreAttacked": "Alvo Será Atacado (Antes da Checagem de Reações)",
     "isAttacked": "Alvo é Atacado",
     "isHit": "Alvo é Atingido",
     "preTargetSave": "Alvo Irá Rolar Salvaguarda",
@@ -439,6 +442,9 @@
   "midi-qol.Hits": "Acertos",
   "midi-qol.Misses": "Erros",
   "midi-qol.Saves": "Salvaguardas",
+  "midi-qol.SavesBase": "Se o alvo rolar salvaguarda, itens de dano fazem",
+  "midi-qol.SavesBonus": "Se o alvo rolar salvaguarda, macros de bônus de dano fazem",
+  "midi-qol.SavesOther": "Se o alvo rolar salvaguarda, outro dano faz",
   "midi-qol.Damage": "Dano",
   "midi-qol.Concentrating": "Concentração",
   "midi-qol.concentrationCheckName": "Concentração",
@@ -545,6 +551,13 @@
     "allitems": "Todos"
   },
   "midi-qol.DoConcentrationCheck.Name": "Forçar Salvaguarda de Concentração ao Sofrer Dano",
+  "midi-qol.DoConcentrationCheckOptions": {
+    "none": "Nunca",
+    "chatOnly": "Apenas Mensagem no Chat",
+    "chat": "Mensagem no Chat + Rolagem Automática",
+    "item": "Rolar Item de Concentração"
+  },
+  "midi-qol.DoConcentrationCheck.Hint": "<strong>Apenas Mensagem no Chat</strong>: Exibe uma mensagem no chat com um botão (comportamento padrão do D&D5e e requer a Concentração do D&D5e).<br><strong>Mensagem no Chat + Rolagem Automática</strong>: exibe uma mensagem no chat e rola a salvaguarda automaticamente (requer a Concentração do D&D5e).<br><strong>Rolar Item de Concentração</strong>: rola um item de teste de Concentração (comportamento padrão do Midi QOL).",
   "midi-qol.RemoveConcentration.Name": "Remover Concentração ao Falhar na Salvaguarda de Concentração",
   "midi-qol.UsePlayerPortrait.Name": "Usar Imagem do Ator no Cartão de Chat",
   "midi-qol.UsePlayerPortrait.Hint": "Para atores de Jogadores, usar a imagem ao invés do token nos cartões de chat do Midi QOL.",
@@ -640,9 +653,7 @@
   "midi-qol.TargetConfirmation.Name": "Confirmação de Alvo",
   "midi-qol.TargetConfirmation.Blurb": "Selecione até {targetCount} alvos. Shift-Click para selecionar múltiplos alvos.",
   "midi-qol.TargetConfirmation.BlurbAny": "Selecione os alvos. Shift-Click para selecionar múltiplos alvos.",
-
   "midi-qol.AddDead.Name": "Adiciona efeito quando PV = 0",
-  
   "midi-qol.AddDead.Hint1": "Jogador Controlado",
   "midi-qol.AddDead.Hint2": "MJ Controlado",
   "midi-qol.AddDeadOptions": {
@@ -834,7 +845,13 @@
   "midi-qol.ConfirmRoll": "Confirmar",
   "midi-qol.ConfirmMiss": "Confirmar Erro",
   "midi-qol.ConfirmHit": "Confirmar Acerto",
-  "midi-qol.AverageNPCDamage.Name": "Todas as rolagens de dado de dano/crítico de PnJ são resultados 'médios'",
+  "midi-qol.AverageDamage.Name": "Todas as rolagens de dado de dano/crítico são resultados 'médios'",
+  "midi-qol.AverageDamageOptions" : {
+    "none": "Nenhum",
+    "npc": "Apenas rolagens de dano de PnJs",
+    "character": "Apenas rolagens de dano de PJs",
+    "all": "Todas as rolagens de dano"
+  },
   "midi-qol.GriddedGridless.Name": "Grade sem Grade",
   "midi-qol.GridlessFudge.Name": "Fator de Fraude",
   "midi-qol.GridlessFudge.Hint": "Subtrai o fator de fraude da medida de distância ao verificar alcance. Especificado em unidades de escala de grade (pés/metros, por exemplo).",
@@ -866,9 +883,9 @@
     "never": "Nunca"
   },
   "midi-qol.SaveDamageOptions": {
-    "default": "Configurações do Midi QOL", 
-    "fulldam": "Dano Total", 
-    "halfdam": "Metade do Dano", 
+    "default": "Configurações do Midi QOL",
+    "fulldam": "Dano Total",
+    "halfdam": "Metade do Dano",
     "nodam": "Sem Dano"
   },
   "midi-qol.MidiSettings": "Configurações do Midi QOL",
@@ -903,5 +920,7 @@
   "DND5E.DamageApplication.Change.Spell": "{type} de Magia Personalizada",
   "DND5E.DamageApplication.Change.Magic": "{type} Mágico Personalizado",
   "DND5E.DamageApplication.Change.Nonmagic": "{type} Não-Mágico Personalizado",
-  "midi-qol.SettingsSearch": "Configurações de Pesquisa"
+  "midi-qol.SettingsSearch": "Configurações de Pesquisa",
+  "midi-qol.MidiPropertiesTab.Name": "Permissão Mínima para Propriedades de Itens",
+  "midi-qol.MidiPropertiesTab.Hint": "Permissão mínima que um usuário deve ter para acessar a aba de propriedades de itens do Midi QOL. <strong>Necessário reiniciar o mundo para aplicar</strong>."
 }
