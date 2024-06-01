@@ -1,4 +1,4 @@
-import { GameSystemConfig, debugEnabled, i18n, log, warn } from "../midi-qol.js";
+import { GameSystemConfig, MQDamagetypes, debugEnabled, i18n, log, warn } from "../midi-qol.js";
 import { chatDamageButtons } from "./chatMessageHandling.js";
 import { setDamageRollMinTerms } from "./itemhandling.js";
 import { addChatDamageButtons, configSettings } from "./settings.js";
@@ -116,8 +116,11 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
       return super._enrichDamageTooltip(rolls, html);
     }
     if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") return;
-    for (let rType of ["damage", "other-damage", "bonus-damage"]) {
-      const rollsToCheck = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === rType);
+    for (let dType of MQDamagetypes) {
+      const rollsToCheck = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === dType);
+      let rType = "damage";
+      if (dType === "otherDamage") rType = "other-damage";
+      else if (dType === "bonusDamage") rType = "bonus-damage";
       if (rollsToCheck?.length) {
         html.querySelectorAll(`.midi-${rType}-roll`)?.forEach(el => el.remove());
         for (let roll of this.collectRolls(rollsToCheck, configSettings.mergeCardMultiDamage)) {
@@ -142,8 +145,8 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
       || (addChatDamageButtons === "gm" && game.user?.isGM)
       || (addChatDamageButtons === "pc" && !game.user?.isGM);
         if (shouldAddButtons) {
-        for (let rType of ["damage", "other-damage", "bonus-damage"]) {
-          rolls = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === rType);
+        for (let dType of MQDamagetypes) {
+          rolls = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === dType);
           if (!rolls.length) continue;
           let damageApplication = document.createElement("damage-application");
           damageApplication.classList.add("dnd5e2");
@@ -153,6 +156,8 @@ export class ChatMessageMidi extends globalThis.dnd5e.documents.ChatMessage5e {
             type: roll.options.type,
             properties: new Set(roll.options.properties ?? [])
           }));
+          //@ts-expect-error
+          foundry.utils.setProperty(damageApplication.damages, "flags.midi-qol.damageType", dType);
           html.querySelector(".message-content").appendChild(damageApplication);
         }
       }

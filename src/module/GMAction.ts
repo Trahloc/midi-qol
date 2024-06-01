@@ -621,7 +621,7 @@ export async function createChatMessage(data: { chatData: any; }) {
   return await ChatMessage.create(data.chatData);
 }
 
-export async function _D20Roll(data: { request: string, targetUuid: string, formula: string, rollMode: string, options: any, targetDC: number }) {
+export async function _D20Roll(data: { request: string, targetUuid: string, formula: string, rollMode: string, options: any, targetDC: number, messageData: any }) {
   const actor = MQfromActorUuid(data.targetUuid);
   if (!actor) {
     error(`GMAction.D20Roll | no actor for ${data.targetUuid}`)

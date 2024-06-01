@@ -31,6 +31,7 @@ export function setupSheetQol() {
   // Hooks.on("renderedTidy5eSheet", enableSheetQOL);
 }
 let enableSheetQOL = (app, html, data) => {
+  console.error("enable sheet qol ", app, html, data)
   // find out how to reinstate the original handler later.
   const defaultTag = ".item .item-image";
   let rollTag = knownSheets[app.constructor.name] ? knownSheets[app.constructor.name] : defaultTag;
@@ -42,15 +43,17 @@ let enableSheetQOL = (app, html, data) => {
   }
   if (configSettings.allowActorUseMacro) {
     // Add actor macros
-    html.find('.config-button[data-action="senses').parent().parent().parent().append(`<div>
+    if (html.find(".midiqol-onuse-macros").length === 0) {
+      html.find('.config-button[data-action="senses').parent().parent().parent().append(`<div>
       <label>${i18n("midi-qol.ActorOnUseMacros")}</label>
       <a class="config-button midiqol-onuse-macros" data-action="midi-onuse-macros" title="midi onuse macros">
         <i class="fas fa-cog"></i>
       </a>
       </div>`);
-    html.find(".midiqol-onuse-macros").click(ev => {
-      new ActorOnUseMacrosConfig(app.object, {}).render(true);
-    });
+      html.find(".midiqol-onuse-macros").click(ev => {
+        new ActorOnUseMacrosConfig(app.object, {}).render(true);
+      });
+    }
   }
   return true;
 };

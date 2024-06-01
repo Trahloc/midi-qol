@@ -109,11 +109,13 @@ Hooks.once("levelsReady", function () {
   levelsAPI = CONFIG.Levels.API;
 });
 export let systemString = "DND5E"
-
+export let MQDamagetypes = ["defaultDamage", "otherDamage", "bonusDamage"];
 Hooks.once('init', async function () {
   log('Initializing midi-qol');
   //@ts-expect-error
   const systemVersion = game.system.version;
+  
+
   //@ts-expect-error
   GameSystemConfig = game.system.config;
   if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {

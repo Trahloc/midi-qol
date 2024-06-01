@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MQdefaultDamageType, MODULE_ID } from "../midi-qol.js";
 import { DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -167,7 +167,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
             default: "cancel",
             content: "Choose what to do with the previous roll",
             rejectClose: false,
-            close: () => {return null},
+            close: () => { return null },
             buttons: {
               complete: { icon: `<i class="fas fa-check"></i>`, label: "Complete previous", callback: () => { return "complete" } },
               discard: { icon: `<i class="fas fa-trash"></i>`, label: "Discard previous", callback: () => { return "discard" } },
@@ -209,12 +209,12 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       targetsToUse = new Set();
     }
 
-    let attackPerTarget = 
-      foundry.utils.getProperty(this, `lags.${MODULE_ID}.rollAttackPerTarget`) !== "never" 
-      && options.workflowOptions?.attackPerTarget !== false 
+    let attackPerTarget =
+      foundry.utils.getProperty(this, `flags.${MODULE_ID}.rollAttackPerTarget`) !== "never"
+      && options.workflowOptions?.attackPerTarget !== false
       && options.workflowOptions?.isAttackPerTarget !== true
-      && (foundry.utils.getProperty(this, `flags.${MODULE_ID}.rollAttackPerTarget`) === "always" 
-        || configSettings.attackPerTarget === true 
+      && (foundry.utils.getProperty(this, `flags.${MODULE_ID}.rollAttackPerTarget`) === "always"
+        || configSettings.attackPerTarget === true
         || options.workflowOptions?.attackPerTarget === true);
     // Special check for scriptlets ammoSelector - if scriptlets is going to fail and rerun the item use don't start attacks per target
     const ammoSelectorEnabled = safeGetGameSetting("dnd5e-scriplets", "ammoSelector") !== "none" && safeGetGameSetting("dnd5e-scriptlets", "ammoSelector") !== undefined;
@@ -346,7 +346,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     let allowedTargets;
     if (this.system.target?.type === "creature" && this.system.target?.value === "") //dnd5e 3.2
       allowedTargets = 9999;
-      else
+    else
       allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
     if (requiresTargets && configSettings.enforceSingleWeaponTarget && allAttackTypes.includes(this.system.actionType)) {
       allowedTargets = 1;
@@ -537,6 +537,22 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         }
       } else options.configureDialog = !(["both", "item"].includes(isAutoConsumeResource(workflow)));
     }
+
+    if (configSettings.optionalRules.invisAdvantage !== "none" && game.modules.get("levels-3d-preview")?.active) {
+      let needPause = false;
+      for (let tokenRef of targetsToUse) {
+        const token = getToken(tokenRef);
+        if (token) {
+          //@ts-expect-error
+          if (!token.document.sight.enabled || !token.vision?.active) {
+            initializeVision(token);
+            needPause = true;
+          }
+        }
+      }
+      if (needPause) await busyWait(0.1);
+    }
+    
     workflow.processAttackEventOptions();
     await workflow.checkAttackAdvantage();
     workflow.showCard = true;
@@ -592,7 +608,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const templateData = template.document.toObject();
       if (this.item) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.itemUuid`, this.item.uuid);
       if (this.actor) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.actorUuid`, this.actor.uuid);
-      if (!foundry.utils.getProperty(templateData, "flags.dnd5e.origin")) foundry.utils.setProperty(templateData, "flags.dnd5e.origin", this.item?.uuid);
+      if (!foundry.utils.getProperty(templateData, `flags.${game.system.id}.origin`)) foundry.utils.setProperty(templateData, `flags.${game.system.id}.origin`, this.item?.uuid);
       //@ts-expect-error
       const templateDocuments: MeasuredTemplateDocument[] | undefined = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
 
@@ -1019,18 +1035,18 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     const firstTargetActor = firstTarget?.actor;
     const targetMaxFlags = foundry.utils.getProperty(firstTargetActor, `flags.${MODULE_ID}.grants.max.damage`) ?? {};
     const maxFlags = foundry.utils.getProperty(workflow, `actor.flags.${MODULE_ID}.max`) ?? {};
-    let needsMaxDamage = (maxFlags.damage?.all && await evalActivationCondition(workflow, maxFlags.damage.all, firstTarget, {async: true, errorReturn: false}))
-      || (maxFlags.damage && maxFlags.damage[this.system.actionType] && await evalActivationCondition(workflow, maxFlags.damage[this.system.actionType], firstTarget, {async: true, errorReturn: false}));
+    let needsMaxDamage = (maxFlags.damage?.all && await evalActivationCondition(workflow, maxFlags.damage.all, firstTarget, { async: true, errorReturn: false }))
+      || (maxFlags.damage && maxFlags.damage[this.system.actionType] && await evalActivationCondition(workflow, maxFlags.damage[this.system.actionType], firstTarget, { async: true, errorReturn: false }));
     needsMaxDamage = needsMaxDamage || (
-      (targetMaxFlags.all && await evalActivationCondition(workflow, targetMaxFlags.all, firstTarget, {async: true, errorReturn: false}))
-      || (targetMaxFlags[this.system.actionType] && await evalActivationCondition(workflow, targetMaxFlags[this.system.actionType], firstTarget, {async: true, errorReturn: false})));
+      (targetMaxFlags.all && await evalActivationCondition(workflow, targetMaxFlags.all, firstTarget, { async: true, errorReturn: false }))
+      || (targetMaxFlags[this.system.actionType] && await evalActivationCondition(workflow, targetMaxFlags[this.system.actionType], firstTarget, { async: true, errorReturn: false })));
     const targetMinFlags = foundry.utils.getProperty(firstTargetActor, `flags.${MODULE_ID}.grants.min.damage`) ?? {};
     const minFlags = foundry.utils.getProperty(workflow, `actor.flags.${MODULE_ID}.min`) ?? {};
-    let needsMinDamage = (minFlags.damage?.all && await evalActivationCondition(workflow, minFlags.damage.all, firstTarget, {async: true, errorReturn: false}))
+    let needsMinDamage = (minFlags.damage?.all && await evalActivationCondition(workflow, minFlags.damage.all, firstTarget, { async: true, errorReturn: false }))
       || (minFlags?.damage && minFlags.damage[this.system.actionType] && evalActivationCondition(workflow, minFlags.damage[this.system.actionType], firstTarget));
     needsMinDamage = needsMinDamage || (
-      (targetMinFlags.damage && await evalActivationCondition(workflow, targetMinFlags.all, firstTarget, {async: true, errorReturn: false}))
-      || (targetMinFlags[this.system.actionType] && await evalActivationCondition(workflow, targetMinFlags[this.system.actionType], firstTarget, {async: true, errorReturn: false})));
+      (targetMinFlags.damage && await evalActivationCondition(workflow, targetMinFlags.all, firstTarget, { async: true, errorReturn: false }))
+      || (targetMinFlags[this.system.actionType] && await evalActivationCondition(workflow, targetMinFlags[this.system.actionType], firstTarget, { async: true, errorReturn: false })));
     if (needsMaxDamage && needsMinDamage) {
       needsMaxDamage = false;
       needsMinDamage = false;
@@ -1713,7 +1729,7 @@ export async function shouldRollOtherDamage(workflow: Workflow, conditionFlagNon
   if (!rollOtherDamage && conditionToUse.length === 0) return false;
   //@ts-ignore
   for (let target of workflow.hitTargets) {
-    rollOtherDamage = await evalActivationCondition(workflow, conditionToUse, target, {async: true, errorReturn: false});
+    rollOtherDamage = await evalActivationCondition(workflow, conditionToUse, target, { async: true, errorReturn: false });
     if (rollOtherDamage) return true;
   }
   return rollOtherDamage;

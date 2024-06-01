@@ -402,12 +402,12 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     appliedTempHP = 0;
     let DRAll = 0;
     // damage absorption:
-    const absorptions = foundry.utils.getProperty(targetActor, "flags.midi-qol.absorption") ?? {};
+    const absorptions = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.absorption`) ?? {};
 
     const firstDamageHealing = applyDamageDetails[0].damageDetail && ["healing", "temphp"].includes(applyDamageDetails[0].damageDetail[0]?.type);
     const isHealing = ("heal" === workflow.item?.system.actionType) || firstDamageHealing;
     const noDamageReactions = (item?.hasSave && item.flags?.midiProperties?.nodam && workflow?.saves?.has(t));
-    const noProvokeReaction = foundry.utils.getProperty(workflow, "item.flags.midi-qol.noProvokeReaction");
+    const noProvokeReaction = foundry.utils.getProperty(workflow, `item.flags.${MODULE_ID}.noProvokeReaction`);
 
     if (totalDamage > 0
       //@ts-expect-error isEmpty
@@ -422,7 +422,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       if (!Workflow.getWorkflow(workflow.id)) // workflow has been removed - bail out
         return [];
     }
-    let uncannyDodge = foundry.utils.getProperty(targetActor, "flags.midi-qol.uncanny-dodge") && item?.hasAttack;
+    let uncannyDodge = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack;
     if (uncannyDodge && workflow) uncannyDodge = canSense(targetToken, workflow?.tokenUuid);
     if (game.system.id === "sw5e" && targetActor?.type === "starship") {
       // Starship damage r esistance applies only to attacks
@@ -430,10 +430,10 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         // This should be a roll?
         DRAll = foundry.utils.getProperty(t, "actor.system.attributes.equip.armor.dr") ?? 0;
       }
-    } else if (foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.all") !== undefined)
-      DRAll = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.all") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-    if (item?.hasAttack && foundry.utils.getProperty(targetActor, `flags.midi-qol.DR.${item?.system.actionType}`)) {
-      const flag = `flags.midi-qol.DR.${item?.system.actionType}`
+    } else if (foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.all`) !== undefined)
+      DRAll = (await new Roll(`${foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.all`) || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
+    if (item?.hasAttack && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.${item?.system.actionType}`)) {
+      const flag = `flags.${MODULE_ID}.DR.${item?.system.actionType}`
       DRAll += (await new Roll(`${foundry.utils.getProperty(targetActor, flag) ?? "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
     }
     let DRAllRemaining = DRAll;
@@ -480,7 +480,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && attackRoll && workflow.hitTargetsEC?.has(t)) {
           //scale the damage detail for a glancing blow - only for the first damage list? or all?
           const scale = workflow.challengeModeScale[targetActor?.uuid ?? "dummy"] ?? 1;
-          // const scale = foundry.utils.getProperty(targetActor, "flags.midi-qol.challengeModeScale") ?? 1;
+          // const scale = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.challengeModeScale`) ?? 1;
           damageDetailItem.damage *= scale;
         }
       }
@@ -520,16 +520,16 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         let DRType = 0;
         if (type.toLowerCase() !== "temphp") dmgType = type.toLowerCase();
         // Pick the highest DR applicable to the damage type being inflicted.
-        if (foundry.utils.getProperty(targetActor, `flags.midi-qol.DR.${type}`)) {
-          const flag = `flags.midi-qol.DR.${type}`;
+        if (foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.${type}`)) {
+          const flag = `flags.${MODULE_ID}.DR.${type}`;
           DRType = (await new Roll(`${foundry.utils.getProperty(targetActor, flag) || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DRType < 0) {
             damageDetailItem.damage -= DRType;
             DRType = 0;
           }
         }
-        if (!nonMagicalPysicalDRUsed && physicalDamage && !magicalDamage && foundry.utils.getProperty(targetActor, `flags.midi-qol.DR.non-magical-physical`)) {
-          const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.non-magical-physical") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
+        if (!nonMagicalPysicalDRUsed && physicalDamage && !magicalDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical-physical`)) {
+          const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical-physical`) || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -537,7 +537,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonMagicalDRUsed && !magicalDamage && foundry.utils.getProperty(targetActor, `flags.midi-qol.DR.non-magical`)) {
+        if (!nonMagicalDRUsed && !magicalDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical`)) {
           const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.non-magical") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
@@ -546,7 +546,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonSilverDRUsed && physicalDamage && !silverDamage && foundry.utils.getProperty(targetActor, `flags.midi-qol.DR.non-silver`)) {
+        if (!nonSilverDRUsed && physicalDamage && !silverDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-silver`)) {
           const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.non-silver") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
@@ -555,7 +555,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonAdamantineDRUsed && physicalDamage && !adamantineDamage && foundry.utils.getProperty(targetActor, `flags.midi-qol.DR.non-adamant`)) {
+        if (!nonAdamantineDRUsed && physicalDamage && !adamantineDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-adamant`)) {
           const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.non-adamant") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0
           if (DR < 0) {
             damageDetailItem.damage -= DR;
@@ -564,7 +564,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!physicalDRUsed && physicalDamage && foundry.utils.getProperty(targetActor, `flags.midi-qol.DR.physical`)) {
+        if (!physicalDRUsed && physicalDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.physical`)) {
           const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.physical") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
@@ -573,7 +573,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonPhysicalDRUsed && !physicalDamage && foundry.utils.getProperty(targetActor, `flags.midi-qol.DR.non-physical`)) {
+        if (!nonPhysicalDRUsed && !physicalDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-physical`)) {
           const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.non-physical") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
@@ -666,7 +666,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
 
     totalAppliedDamage += appliedDamage;
     if (!dmgType) dmgType = "temphp";
-    if (!["healing", "temphp"].includes(dmgType) && foundry.utils.getProperty(targetActor, `flags.midi-qol.DR.final`)) {
+    if (!["healing", "temphp"].includes(dmgType) && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.final`)) {
       let DRType = (await new Roll(`foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.final") || "0"`, targetActor.getRollData()).evaluate()).total ?? 0;
       appliedDamage = Math.max(0, appliedDamage - DRType)
     }
@@ -724,7 +724,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       const healedDamaged = ditem.appliedDamage < 0 ? "isHealed" : "isDamaged";
       workflow.ditem = foundry.utils.duplicate(ditem);
       await asyncHooksCallAll(`midi-qol.${healedDamaged}`, t, { item, workflow, damageItem: workflow.ditem, ditem: workflow.ditem });
-      const actorOnUseMacros = foundry.utils.getProperty(t.actor ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
+      const actorOnUseMacros = foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.onUseMacroParts`) ?? new OnUseMacros();
       // It seems applyTokenDamageMany without a workflow gets through to here - so a silly guard in place TODO come back and fix this properly
       if (workflow.callMacros) await workflow.callMacros(workflow.item,
         actorOnUseMacros?.getMacros(healedDamaged),
@@ -954,7 +954,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
             const healedDamaged = appliedTotal < 0 ? "isHealed" : "isDamaged";
             workflow.damages = foundry.utils.duplicate(returnDamages);
             await asyncHooksCallAll(`midi-qol.${healedDamaged}`, token, { item, workflow, damageItem: workflow.ditem, ditem: workflow.ditem });
-            const actorOnUseMacros = foundry.utils.getProperty(token.actor ?? {}, "flags.midi-qol.onUseMacroParts") ?? new OnUseMacros();
+            const actorOnUseMacros = foundry.utils.getProperty(token.actor ?? {}, `flags.${MODULE_ID}.onUseMacroParts`) ?? new OnUseMacros();
             // It seems applyTokenDamageMany without a workflow gets through to here - so a silly guard in place TODO come back and fix this properly
             if (workflow.callMacros) await workflow.callMacros(workflow.item,
               actorOnUseMacros?.getMacros(healedDamaged),
@@ -1146,7 +1146,7 @@ export let getSaveMultiplierForItem = (item: Item, itemDamageType) => {
 
   //@ts-expect-error
   if (item.actor && item.type === "spell" && item.system.level === 0) { // cantrip
-    const midiFlags = foundry.utils.getProperty(item.actor ?? {}, "flags.midi-qol");
+    const midiFlags = foundry.utils.getProperty(item.actor ?? {}, `flags.${MODULE_ID}`);
     if (midiFlags?.potentCantrip) return 0.5;
   }
   let itemDamageSave = "fulldam";
@@ -1288,7 +1288,6 @@ export function requestPCActiveDefence(player, actor, advantage, saveItemName, r
   } else {
     advantage = (advantage === true ? 1 : advantage === false ? -1 : 0);
   }
-  //@ts-expect-error
   let mode = checkRule("activeDefenceShow") ?? "selfroll";
   let message = `${saveItemName} ${configSettings.hideRollDetails === "none" ? "DC " + rollDC : ""} ${i18n("midi-qol.ActiveDefenceString")}`;
   if (installedModules.get("lmrtfy")) {
@@ -1337,38 +1336,41 @@ export function midiCustomEffect(...args) {
   let [actor, change, current, delta, changes] = args;
   if (!change.key) return true;
   if (typeof change?.key !== "string") return true;
-  if (!change.key?.startsWith("flags.midi-qol") && !change.key?.startsWith("system.traits.da.")) return true;
+  if (!change.key?.startsWith(`flags.${MODULE_ID}`) && !change.key?.startsWith("system.traits.da.")) return true;
   const deferredEvaluation = [
-    "flags.midi-qol.OverTime",
-    "flags.midi-qol.optional",
-    "flags.midi-qol.advantage",
-    "flags.midi-qol.disadvantage",
-    "flags.midi-qol.superSaver",
-    "flags.midi-qol.semiSuperSaver",
-    "flags.midi-qol.grants",
-    "flags.midi-qol.fail",
-    "flags.midi-qol.max.damage",
-    "flags.midi-qol.min.damage",
-    "flags.midi-qol.critical",
-    "flags.midi-qol.noCritical",
-    "flags.midi-qol.ignoreCover",
-    "flags.midi-qol.ignoreWalls"
+    `flags.${MODULE_ID}.OverTime`,
+    `flags.${MODULE_ID}.optional`,
+    `flags.${MODULE_ID}.advantage`,
+    `flags.${MODULE_ID}.disadvantage`,
+    `flags.${MODULE_ID}.superSaver`,
+    `flags.${MODULE_ID}.semiSuperSaver`,
+    `flags.${MODULE_ID}.grants`,
+    `flags.${MODULE_ID}.fail`,
+    `flags.${MODULE_ID}.max.damage`,
+    `flags.${MODULE_ID}.min.damage`,
+    `flags.${MODULE_ID}.critical`,
+    `flags.${MODULE_ID}.noCritical`,
+    `flags.${MODULE_ID}.ignoreCover`,
+    `flags.${MODULE_ID}.ignoreWalls`
   ]; // These have trailing data in the change key change.key values and should always just be a string
   if (change.key === `flags.${game.system.id}.DamageBonusMacro`) {
     // DAEdnd5e - daeCustom processes these
-  } else if (change.key === "flags.midi-qol.onUseMacroName") {
+  } else if (change.key === `flags.${MODULE_ID}.onUseMacroName`) {
     const args = change.value.split(",")?.map(arg => arg.trim());
-    const currentFlag = foundry.utils.getProperty(actor, "flags.midi-qol.onUseMacroName") ?? "";
-    const sourceId = getProperty(change.effect, "flags.core.sourceId")
+    const currentFlag = foundry.utils.getProperty(actor, `flags.${MODULE_ID}.onUseMacroName`) ?? "";
     if (args[0] === "ItemMacro" || args[0] === MQItemMacroLabel) { // rewrite the ItemMacro if possible
       if (change.effect.transfer) args[0] = `ItemMacro.${change.effect.parent.uuid}`;
       // else if (sourceId) args[0] = `ItemMacro.${sourceId}`;
       else {
-        //@ts-expect-error
-        const origin = fromUuidSync(change.effect.origin);
-        if (origin instanceof Item) args[0] = `ItemMacro.${origin.uuid}`;
-        //@ts-expect-error
-        else if (origin instanceof ActiveEffect) args[0] = `ItemMacro.${origin.origin}`;
+        if (change.effect.origin.includes("Item.")) {
+          args[0] = `ItemMacro.${change.effect.origin}`;
+        } else {
+          //@ts-expect-error
+          const origin = fromUuidSync(change.effect.origin);
+          if (origin instanceof Item) args[0] = `ItemMacro.${origin.uuid}`;
+          //@ts-expect-error
+          else if (origin instanceof ActiveEffect) args[0] = `ItemMacro.${origin.origin}`;
+        }
       }
     }
     if (change.effect?.origin?.includes("Item.")) {
@@ -1376,9 +1378,9 @@ export function midiCustomEffect(...args) {
     }
     const extraFlag = `[${args[1]}]${args[0]}`;
     const macroString = (currentFlag?.length > 0) ? [currentFlag, extraFlag].join(",") : extraFlag;
-    foundry.utils.setProperty(actor, "flags.midi-qol.onUseMacroName", macroString)
+    foundry.utils.setProperty(actor, `flags.${MODULE_ID}.onUseMacroName`, macroString)
     return true;
-  } else if (change.key.startsWith("flags.midi-qol.optional.") && (change.value.trim() === "ItemMacro" || change.value.trim() === MQItemMacroLabel)) {
+  } else if (change.key.startsWith(`flags.${MODULE_ID}.optional.`) && (change.value.trim() === "ItemMacro" || change.value.trim() === MQItemMacroLabel)) {
     if (change.effect?.origin?.includes("Item.")) {
       const macroString = `ItemMacro.${change.effect.origin}`;
       foundry.utils.setProperty(actor, change.key, macroString)
@@ -1404,7 +1406,7 @@ export function midiCustomEffect(...args) {
       }
       if (debugEnabled > 0) warn("midiCustomEffect | setting ", change.key, " to ", val, " from ", change.value, " on ", actor.name);
       foundry.utils.setProperty(actor, change.key, val);
-      foundry.utils.setProperty(actor, change.key.replace("flags.midi-qol", "flags.midi-qol.evaluated"), { value: val, effects: [change.effect.name] });
+      foundry.utils.setProperty(actor, change.key.replace(`flags.${MODULE_ID}`, `flags.${MODULE_ID}.evaluated`), { value: val, effects: [change.effect.name] });
     } catch (err) {
       const message = `midi-qol | midiCustomEffect | custom flag eval error ${change.key} ${change.value}`;
       TroubleShooter.recordError(err, message);
@@ -2208,7 +2210,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
       //@ts-expect-error
       if (game.release.generation > 11) {
         //@ts-expect-error
-        const point = canvas.grid.getCenterPoint(Math.round(t1.document.x + (canvas.dimensions.size * x)), Math.round(t1.document.y + (canvas.dimensions.size * y)));
+        const point = canvas.grid.getCenterPoint({ x: Math.round(t1.document.x + (canvas.dimensions.size * x)), y: Math.round(t1.document.y + (canvas.dimensions.size * y)) });
         origin = new PIXI.Point(point.x, point.y);
       } else
         origin = new PIXI.Point(...canvas.grid.getCenter(Math.round(t1.document.x + (canvas.dimensions.size * x)), Math.round(t1.document.y + (canvas.dimensions.size * y))));
@@ -2218,7 +2220,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
           //@ts-expect-error
           if (game.release.generation > 11) {
             //@ts-expect-error
-            const point = canvas.grid.getCenterPoint(Math.round(t2.document.x + (canvas.dimensions.size * x1)), Math.round(t2.document.y + (canvas.dimensions.size * y1)));
+            const point = canvas.grid.getCenterPoint({ x: Math.round(t2.document.x + (canvas.dimensions.size * x1)), y: Math.round(t2.document.y + (canvas.dimensions.size * y1)) });
             dest = new PIXI.Point(point.x, point.y);
           } else
             dest = new PIXI.Point(...canvas.grid.getCenter(Math.round(t2.document.x + (canvas.dimensions.size * x1)), Math.round(t2.document.y + (canvas.dimensions.size * y1))));
@@ -3194,7 +3196,7 @@ class RollModifyDialog extends Application {
         obj[foundry.utils.randomID()] = {
           icon: `<i class="${icon}"></i>`,
           //          label: (flagData.label ?? "Bonus") + `  (${foundry.utils.getProperty(flagData, this.data.flagSelector) ?? "0"})`,
-          label: (flagData?.label ?? "Bonus") + `  (${labelDetail})`,
+          label: (flagData?.label ?? "Bonus") + ` (${labelDetail})`,
           value: `${value}`,
           key: flag,
           callback: this.data.callback
@@ -3871,7 +3873,12 @@ function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
     if (item.system.preparation?.prepared !== true && item.system.preparation?.mode === "prepared") return false;
     if (item.system.preparation.mode !== "innate") return item.system.level <= maxLevel;
   }
-  if (item.system.attunement === GameSystemConfig.attunementTypes.REQUIRED) return false;
+  //@ts-expect-error
+  if (foundry.utils.isNewerVersion(game.system.version,"3.1.99")) {
+    if (!item.system.attuned && item.system.attunement === "required") return false;
+  } else {
+    if (item.system.attunement === GameSystemConfig.attunementTypes.REQUIRED) return false;
+  }
   if (!item._getUsageUpdates({ consumeUsage: item.hasLimitedUses, consumeResource: item.hasResource, slotLevel: false }))
     return false;
 
@@ -4574,7 +4581,13 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   if (!item) item = data.workflow?.item;
   let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
-  rollData.isAttuned = rollData.item?.attunement !== GameSystemConfig.attunementTypes.REQUIRED;
+  //@ts-expect-error
+  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
+    rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
+  
+  } else {
+    rollData.isAttuned = rollData.item?.attunement !== GameSystemConfig.attunementTypes.REQUIRED;
+  }
 
   try {
     if (data.target) {
@@ -5392,7 +5405,74 @@ export function canSenseModes(tokenEntity: Token | TokenDocument | string, targe
   if (!token || !target) return [];
   return _canSenseModes(token, target, validModes);
 }
+export function initializeVision(tk: Token) {
+  //@ts-expect-error
+  if (!tk.document.sight.enabled || !tk.vision?.active) {
+    //@ts-expect-error
+    console.warn("initialising vision for ", tk.name, tk.document.sight.enabled, tk.vision?.active);
+    //@ts-expect-error
+    const sightEnabled = tk.document.sight.enabled;
 
+    //@ts-expect-error
+    tk.document.sight.enabled = true;
+    //@ts-expect-error
+    tk.document._prepareDetectionModes();
+    const sourceId = tk.sourceId;
+    //@ts-expect-error
+    if (game.release.generation >= 12) {
+      //@ts-expect-error
+      tk.vision = new CONFIG.Canvas.visionSourceClass({ sourceId, object: tk });
+    }
+
+    tk.vision.initialize({
+      x: tk.center.x,
+      y: tk.center.y,
+      //@ts-expect-error
+      elevation: tk.document.elevation,
+      //@ts-expect-error
+      radius: Math.clamped(tk.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
+      //@ts-expect-error
+      externalRadius: tk.externalRadius, // Math.max(tk.mesh.width, tk.mesh.height) / 2,
+      //@ts-expect-error
+      angle: tk.document.sight.angle,
+      //@ts-expect-error
+      contrast: tk.document.sight.contrast,
+      //@ts-expect-error
+      saturation: tk.document.sight.saturation,
+      //@ts-expect-error
+      brightness: tk.document.sight.brightness,
+      //@ts-expect-error
+      attenuation: tk.document.sight.attenuation,
+      //@ts-expect-error
+      rotation: tk.document.rotation,
+      //@ts-expect-error
+      visionMode: tk.document.sight.visionMode,
+      //@ts-expect-error
+      color: globalThis.Color.from(tk.document.sight.color),
+      //@ts-expect-error
+      isPreview: !!tk._original,
+      //@ts-expect-error specialStatusEffects
+      blinded: tk.document.hasStatusEffect(CONFIG.specialStatusEffects.BLIND)
+    });
+
+    if (!tk.vision.los && game.modules.get("perfect-vision")?.active) {
+      error(`canSense los not calcluated. Can't check if ${tk.name} can see`, tk.vision);
+      return false;
+    } else if (!tk.vision.los) {
+      //@ts-expect-error
+      tk.vision.shape = tk.vision._createRestrictedPolygon();
+      //@ts-expect-error
+      tk.vision.los = tk.vision.shape;
+    }
+    //@ts-expect-error
+    tk.vision.anmimated = false;
+    //@ts-expect-error
+    canvas?.effects?.visionSources.set(sourceId, tk.vision);
+    //@ts-expect-error
+    tk.document.sight.enabled = sightEnabled;
+  }
+  return true;
+}
 export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument, validModesParam: Array<string> = ["all"]): Array<string> {
   //@ts-expect-error
   let target: Token = targetEntity instanceof TokenDocument ? targetEntity.object : targetEntity;
@@ -5407,74 +5487,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   if (target.document?.hidden || token.document?.hidden) return [];
   if (!token.hasSight && !configSettings.optionalRules.invisVision) return ["senseAll"];
   if (!token.hasSight && !configSettings.optionalRules.invisVision) return ["senseAll"];
-  for (let tk of [token]) {
-    //@ts-expect-error
-    if (!tk.document.sight.enabled || !token.vision?.active) {
-      //@ts-expect-error
-      console.warn("initialising vision for ", tk.name, tk.document.sight.enabled, token.vision?.active);
-      //@ts-expect-error
-      const sightEnabled = tk.document.sight.enabled;
-
-      //@ts-expect-error
-      tk.document.sight.enabled = true;
-      //@ts-expect-error
-      tk.document._prepareDetectionModes();
-      const sourceId = tk.sourceId;
-      //@ts-expect-error
-      if (game.release.generation >= 12) {
-        //@ts-expect-error
-        token.vision = new CONFIG.Canvas.visionSourceClass({ sourceId, object: tk });
-      }
-
-      tk.vision.initialize({
-        x: tk.center.x,
-        y: tk.center.y,
-        //@ts-expect-error
-        elevation: tk.document.elevation,
-        //@ts-expect-error
-        radius: Math.clamped(tk.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
-        //@ts-expect-error
-        externalRadius: tk.externalRadius, // Math.max(tk.mesh.width, tk.mesh.height) / 2,
-        //@ts-expect-error
-        angle: tk.document.sight.angle,
-        //@ts-expect-error
-        contrast: tk.document.sight.contrast,
-        //@ts-expect-error
-        saturation: tk.document.sight.saturation,
-        //@ts-expect-error
-        brightness: tk.document.sight.brightness,
-        //@ts-expect-error
-        attenuation: tk.document.sight.attenuation,
-        //@ts-expect-error
-        rotation: tk.document.rotation,
-        //@ts-expect-error
-        visionMode: tk.document.sight.visionMode,
-        //@ts-expect-error
-        color: globalThis.Color.from(tk.document.sight.color),
-        //@ts-expect-error
-        isPreview: !!tk._original,
-        //@ts-expect-error specialStatusEffects
-        blinded: tk.document.hasStatusEffect(CONFIG.specialStatusEffects.BLIND)
-      });
-
-      if (!tk.vision.los && game.modules.get("perfect-vision")?.active) {
-        error(`canSense los not calcluated. Can't check if ${token.name} can see ${target.name}`, token.vision);
-        return ["noSight"];
-      } else if (!tk.vision.los) {
-        //@ts-expect-error
-        tk.vision.shape = token.vision._createRestrictedPolygon();
-        //@ts-expect-error
-        tk.vision.los = token.vision.shape;
-      }
-      //@ts-expect-error
-      tk.vision.anmimated = false;
-      //@ts-expect-error
-      canvas?.effects?.visionSources.set(sourceId, tk.vision);
-      //@ts-expect-error
-      tk.document.sight.enabled = sightEnabled;
-    }
-  }
-
+  if (!initializeVision(token)) return ["noSight"];
   const matchedModes: Set<string> = new Set();
   // Determine the array of offset points to test
   const t = Math.min(target.w, target.h) / 4;
@@ -5497,7 +5510,6 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   for (const lightSource of (lightSources ?? [])) {
     if (/*!lightSource.data.vision ||*/ !lightSource.active || lightSource.disabled) continue;
     if (!validModes.has(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID) && !validModes.has("all")) continue;
-    if (!lightSource.data.visibility) continue;
     const result = lightSource.testVisibility(config);
     if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
   }
@@ -5553,7 +5565,7 @@ export async function doConcentrationCheck(actor, saveDC) {
   foundry.utils.setProperty(itemData, "system.save.scaling", "flat");
   foundry.utils.setProperty(itemData, "name", concentrationCheckItemDisplayName);
   foundry.utils.setProperty(itemData, "system.target.type", "self");
-  foundry.utils.setProperty(itemData, "flags.midi-qol.noProvokeReaction", true);
+  foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.noProvokeReaction`, true);
   return await _doConcentrationCheck(actor, itemData)
 }
 
@@ -5719,7 +5731,7 @@ export function getCriticalDamage() {
 
 export function isTargetable(target: any /*Token*/): boolean {
   if (!target.actor) return false;
-  if (foundry.utils.getProperty(target.actor, "flags.midi-qol.neverTarget")) return false;
+  if (foundry.utils.getProperty(target.actor, `flags.${MODULE_ID}.neverTarget`)) return false;
 
   const targetDocument = getTokenDocument(target);
   //@ts-expect-error hiddien
@@ -6031,7 +6043,7 @@ export function midiMeasureDistances(segments, options: any = {}) {
 
 export function getAutoTarget(item: Item): string {
   if (!item) return configSettings.autoTarget;
-  const midiFlags = foundry.utils.getProperty(item, "flags.midi-qol");
+  const midiFlags = foundry.utils.getProperty(item, `flags.${MODULE_ID}`);
   const autoTarget = midiFlags.autoTarget;
   if (!autoTarget || autoTarget === "default") return configSettings.autoTarget;
   return autoTarget;
@@ -6314,7 +6326,7 @@ export function blankOrUndefinedDamageType(s: string | undefined): string {
 export function processConcentrationSave(message, html, data) {
   if (configSettings.doConcentrationCheck !== "chat") return;
   let button = html.find("[data-action=concentration]");
-  const hasRolled = foundry.utils.getProperty(message, "flags.midi-qol.concentrationRolled");
+  const hasRolled = foundry.utils.getProperty(message, `flags.${MODULE_ID}.concentrationRolled`);
   //@ts-expect-error
   if (hasRolled || !game.users?.activeGM.isSelf) return;
   if (button.length === 1 && !hasRolled) {

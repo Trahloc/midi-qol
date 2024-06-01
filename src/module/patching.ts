@@ -820,9 +820,11 @@ export function _prepareDerivedData(wrapped, ...args) {
   }
 }
 let currentDAcalculateDamage;
+let currentDAGetTargetOptions;
 
 export function initPatching() {
   libWrapper = globalThis.libWrapper;
+
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.prepareDerivedData", _prepareDerivedData, "WRAPPER");
   // For new onuse macros stuff.
   libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.prepareData", itemPrepareData, "WRAPPER");
@@ -833,15 +835,38 @@ export function initPatching() {
   libWrapper.register(MODULE_ID, "CONFIG.ActiveEffect.documentClass.prototype._preCreate", _preCreateActiveEffect, "WRAPPER");
   currentDAcalculateDamage = window?.customElements?.get("damage-application")?.prototype.calculateDamage;
   if (window?.customElements?.get("damage-application")?.prototype?.calculateDamage) {
+    currentDAcalculateDamage = window?.customElements?.get("damage-application")?.prototype?.calculateDamage;
     //@ts-expect-error
-    window.customElements.get("damage-application").prototype.calculateDamage = DAcalculateDamage;
+    window.customElements.get("damage-application").prototype.calculateDamage = _DAcalculateDamage;
+  }
+  if (window?.customElements?.get("damage-application")?.prototype?.getTargetOptions) {
+    currentDAGetTargetOptions = window.customElements.get("damage-application")?.prototype?.getTargetOptions
+    //@ts-expect-error
+    window.customElements.get("damage-application").prototype.getTargetOptions = _DAgetTargetOptions;
   }
 }
 
-export function DAcalculateDamage(actor, options) {
-  const { total, active } = currentDAcalculateDamage.bind(this)(actor, options);
+function _DAgetTargetOptions(...args) {
+  let [uuid] = args;
+  const options = currentDAGetTargetOptions.bind(this)(...args);
+  const damageType = (this.damages?.flags?.[MODULE_ID]) ? this.damages.flags[MODULE_ID].damageType : undefined;
+  if (damageType) {
+    const targets = this?.chatMessage?.flags?.dnd5e?.targets ?? [];
+    const targetDetails = targets.find(target => target.uuid === uuid);
+    if (!targetDetails) return options;
+    if (targetDetails.saved) {
+      const saveMult = targetDetails.saveMults?.[damageType];
+      if (saveMult !== undefined)
+        foundry.utils.setProperty(options, "midi.saveMultiplier", saveMult);
+    }
+  }
+  return options;
+}
+
+function _DAcalculateDamage(actor, options) {
+  const { temp, total, active } = currentDAcalculateDamage.bind(this)(actor, options);
   active.absorption = new Set();
-  active.saves = new Set();
+  active.saved = new Set();
   active.spell = new Set();
   active.magic = new Set();
   active.nonmagic = new Set();
@@ -851,6 +876,7 @@ export function DAcalculateDamage(actor, options) {
     if (damage.active.spell) active.spell.add(damage.type);
     if (damage.active.magic) active.magic.add(damage.type);
     if (damage.active.nonmagic) active.nonmagic.add(damage.type);
+    if (damage.active.saved) active.saved.add(damage.type);
   }
   const union = t => {
     if (foundry.utils.getType(options.ignore?.[t]) === "Set") active[t] = active[t].union(options.ignore[t]);
@@ -859,7 +885,8 @@ export function DAcalculateDamage(actor, options) {
   union("spell")
   union("magic");
   union("nonmagic");
-  return { total, active };
+  union("saved");
+  return { temp, total, active };
 }
 
 export function _onFocusIn(event) {

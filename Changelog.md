@@ -1,3 +1,10 @@
+### 11.4.33
+* Fix for some deprecation watnings thrown in v12
+* Fix for undo workflow throwing errors.
+* Fix for checking distance not working in v12 latest.
+* Fix for displaying 2 actor on use macro buttons on the dnd5e 3.2 character sheet.
+* Include saving throws in dnd5e damaage application as well as midi damage application. Midi will remember the saves status for a target and will display (and apply it) in the 5e damage application buttons.
+
 ### 11.4.32
 * Fix for ItemMacro onuseMacro effects when the effect is subject to coentration not working.
 * Added socketlib/libwrapper not installed to Trouble shooter.

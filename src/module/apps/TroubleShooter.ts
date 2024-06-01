@@ -244,7 +244,7 @@ export class TroubleShooter extends FormApplication {
     data.hasProblems = data.problems.length > 0;
     data.hasErrors = data.errors.length > 0;
     //@ts-expect-error isEmpty
-    data.hasFoundryModuleProblems = !isEmpty(data.summary.foundryModuleIssues);
+    data.hasFoundryModuleProblems = !foundry.utils.isEmpty(data.summary.foundryModuleIssues);
     this._fixerId = 0;
     this._fixerFuncs = [];
     const excludeFoundryWarnings = true;
@@ -415,7 +415,6 @@ export class TroubleShooter extends FormApplication {
     });
     */
 
-console.error("Doing modules checks")
     for (let moduleData of game.modules) {
       let module: any = moduleData;
       if (!module.active && !checkedModuleList.includes(module.id)) continue;
@@ -515,7 +514,6 @@ console.error("Doing modules checks")
         case "simbuls-cover-calculator":
           break;
         case "socketlib":
-          console.error("Checking socket lib")
           if (!(game.modules.get("socketlib")?.active)) {
             data.problems.push({
               moduleId: "socketlib",

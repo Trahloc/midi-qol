@@ -1,9 +1,9 @@
-import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID } from "../midi-qol.js";
+import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID, MQDamagetypes } from "../midi-qol.js";
 import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templateTokens } from "./itemhandling.js";
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync } from "./utils.js"
+import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -865,9 +865,9 @@ export class Workflow {
       this.whisperAttackCard = configSettings.autoCheckHit === "whisper" || rollMode === "blindroll" || rollMode === "gmroll";
       await asyncHooksCallAll("midi-qol.hitsChecked", this);
       if (this.item)
-          await asyncHooksCallAll(`midi-qol.hitsChecked.${this.item?.uuid}`, this);
+        await asyncHooksCallAll(`midi-qol.hitsChecked.${this.item?.uuid}`, this);
       if (this.aborted)
-          return this.WorkflowState_Abort;
+        return this.WorkflowState_Abort;
       await this.displayHits(this.whisperAttackCard, configSettings.mergeCard);
     } else {
       await this.displayAttackRoll(configSettings.mergeCard);
@@ -910,7 +910,7 @@ export class Workflow {
       // else return this.WorkflowState_WaitForDamageRoll;
     }
     if (debugCallTiming) log(`AttackRollComplete elapsed ${Date.now() - attackRollCompleteStartTime}ms`)
-    
+
     return this.WorkflowState_WaitForDamageRoll;
   }
 
@@ -921,7 +921,7 @@ export class Workflow {
     }
     if (context.attackRoll) return this.WorkflowState_AttackRollComplete;
     if (debugEnabled > 1) debug(`wait for damage roll has damage ${itemHasDamage(this.item)} isfumble ${this.isFumble} no auto damage ${this.noAutoDamage}`);
-    
+
     if (checkMechanic("actionSpecialDurationImmediate"))
       expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"]);
     if (checkMechanic("actionSpecialDurationImmediate") && this.hitTargets.size)
@@ -1128,7 +1128,8 @@ export class Workflow {
 
     if (this.damageDetail?.length || this.otherDamageDetail?.length) await processDamageRoll(this, this.damageDetail[0]?.type ?? this.defaultDamageType)
     // If a damage card is going to be created don't call the isDamaged macro - wait for the damage card calculations to do a better job
-    if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true && !configSettings.autoApplyDamage.includes("Card")) await this.triggerTargetMacros(["isDamaged"], this.hitTargets);
+    if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true && !configSettings.autoApplyDamage.includes("Card"))
+      await this.triggerTargetMacros(["isDamaged"], this.hitTargets);
     if (debugEnabled > 1) debug("all rolls complete ", this.damageDetail)
     return this.WorkflowState_ApplyDynamicEffects;
   }
@@ -1572,13 +1573,14 @@ export class Workflow {
       }
     }
 
+    await asyncHooksCallAll("midi-qol.postActiveEffects", this);
+    if (this.item) await asyncHooksCallAll(`midi-qol.postActiveEffects.${this.item?.uuid}`, this);
     // Call onUseMacro if not already called
     if (configSettings.allowUseMacro && this.options.noOnUseMacro !== true) {
       await this.callMacros(this.item, this.onUseMacros?.getMacros("postActiveEffects"), "OnUse", "postActiveEffects");
       if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("postActiveEffects"), "OnUse", "postActiveEffects");
     }
-    // if (this.item)
-    // delete Workflow._workflows[this.itemId];
+    if (this.aborted) return this.WorkflowState_Abort;  // TODO This is wrong
 
     await asyncHooksCallAll("midi-qol.RollComplete", this);
     if (this.item) await asyncHooksCallAll(`midi-qol.RollComplete.${this.item?.uuid}`, this);
@@ -2900,7 +2902,7 @@ export class Workflow {
           halfDamage.push(`Base &frac12;`)
       }
     }
-    if (this.bonusDamageDetail?.length > 0 && getSaveMultiplierForItem(this.saveItem, "defaultDamage") !== getSaveMultiplierForItem(this.saveItem, "bonusDamage")) {
+    if (this.bonusDamageDetail?.length > 0 && getSaveMultiplierForItem(this.saveItem, "bonusDamage") !== getSaveMultiplierForItem(this.saveItem, "bonusDamage")) {
       switch (getSaveMultiplierForItem(this.saveItem, "bonusDamage")) {
         case 0:
           noDamage.push(`Bonus &#48;`)
@@ -2957,7 +2959,18 @@ export class Workflow {
         const semiSuperSavers = this.semiSuperSavers?.map(t => getTokenDocument(t)?.uuid);
         //@ts-expect-error
         const superSavers = this.superSavers?.map(t => getTokenDocument(t)?.uuid);
+
         dnd5eTargetDetails = dnd5eTargets.map(t => {
+          let saveMults: any = {};
+          for (let type of MQDamagetypes) {
+            if (superSavers.has(t.uuid)) {
+              saveMults[type] = getSaveMultiplierForItem(this.saveItem, type) === 0.5 ? 0 : 0.5;
+            } else if (semiSuperSavers.has(t.uuid)) {
+              saveMults[type] = getSaveMultiplierForItem(this.saveItem, type) === 0.5 ? 0 : 1;
+            } else if (saves.has(t.uuid)) {
+              saveMults[type] = getSaveMultiplierForItem(this.saveItem, type);
+            }
+          }
           return {
             name: t?.actor?.name,
             img: t?.actor?.img,
@@ -2966,7 +2979,8 @@ export class Workflow {
             ac: t?.actor?.system.attributes.ac.value,
             saved: saves?.has(t.uuid),
             semiSuperSaver: semiSuperSavers?.has(t.uuid),
-            superSaver: superSavers?.has(t.uuid)
+            superSaver: superSavers?.has(t.uuid),
+            saveMults
           }
         })
       }
@@ -3067,7 +3081,7 @@ export class Workflow {
     if (this.saveItem.getSaveDC) {
       rollDC = this.saveItem.getSaveDC();
     }
-
+    this.saveDC = rollDC;
     let promises: Promise<any>[] = [];
     //@ts-expect-error actor.rollAbilitySave
     var rollAction = CONFIG.Actor.documentClass.prototype.rollAbilitySave;
@@ -4397,7 +4411,7 @@ export class Workflow {
     this.damageTotal = sumRolls(this.damageRolls)
     this.damageRollHTML = "";
     for (let roll of this.damageRolls) {
-      foundry.utils.setProperty(roll, "options.midi-qol.rollType", "damage");
+      foundry.utils.setProperty(roll, "options.midi-qol.rollType", "defaultDamage");
       if (configSettings.mergeCard) foundry.utils.setProperty(roll, "options.flavor", "");
 
       this.damageRollHTML += await midiRenderDamageRoll(roll);
@@ -4425,7 +4439,7 @@ export class Workflow {
     this.bonusDamageTotal = sumRolls(this.bonusDamageRolls)
     this.bonusDamageRollHTML = "";
     for (let roll of this.bonusDamageRolls) {
-      foundry.utils.setProperty(roll, "options.midi-qol.rollType", "bonus-damage");
+      foundry.utils.setProperty(roll, "options.midi-qol.rollType", "bonusDamage");
       this.bonusDamageRollHTML += await midiRenderBonusDamageRoll(roll);
     }
     return;
@@ -4443,7 +4457,7 @@ export class Workflow {
     foundry.utils.setProperty(roll, "options.flavor", `${i18nSystem("OtherFormula")}`);
     this.otherFlavor = `${i18nSystem("OtherFormula")}`;
     this.otherDamageHTML = await midiRenderOtherDamageRoll(roll);
-    foundry.utils.setProperty(roll, "options.midi-qol.rollType", "other-damage")
+    foundry.utils.setProperty(roll, "options.midi-qol.rollType", "otherDamage")
   }
 }
 

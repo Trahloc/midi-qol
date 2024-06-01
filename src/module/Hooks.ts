@@ -87,7 +87,7 @@ export let readyHooks = async () => {
   Hooks.on("dnd5e.damageActor", (actor, changes, data, userId) => {
     if (configSettings.doConcentrationCheck === "item" && userId === game.userId && isConcentrating(actor) && changes.total < 0) {
       if (changes.hp < 0 || (configSettings.tempHPDamageConcentrationCheck && changes.temp < 0))
-        doConcentrationCheck(actor,  actor.getConcentrationDC(-changes.total))
+        doConcentrationCheck(actor, actor.getConcentrationDC(-changes.total))
     }
   });
 
@@ -220,7 +220,7 @@ export function initHooks() {
     untargetAllTokens(combat, data.options, user);
     untargetDeadTokens();
     //@ts-expect-error
-    if (game.users?.activeGM.isSelf) 
+    if (game.users?.activeGM.isSelf)
       _processOverTime(combat, data, options, user);
     // updateReactionRounds(combat, data, options, user); This is handled in processOverTime
   });
@@ -842,13 +842,8 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
   const mo = options.midi;
   if (mo?.noCalc) return true;
   if (mo) {
-    if (configSettings.saveDROrder === "DRSavedr" && mo.saveMultiplier && !options?.ignore?.saved) {
-      options.multiplier = (options.multiplier ?? 1) * mo.saveMultiplier;
-      damages.forEach(damage => {
-        if (options?.ignore?.saved) return;
-        foundry.utils.setProperty(damage, "active.saved", true);
-      });
-    } else if (configSettings.saveDROrder === "SaveDRdr" && mo.saveMultiplier !== undefined) {
+    if (configSettings.saveDROrder === "DRSavedr" && (mo.saveMultiplier ?? 1) !== 1 && options?.ignore !== true) {
+    } else if (configSettings.saveDROrder === "SaveDRdr" && (mo.saveMultiplier ?? 1) !== 1) {
       for (let damage of damages) {
         if (ignore("saved", damage.type, false)) continue;
         damage.value = damage.value * mo.saveMultiplier;
@@ -884,15 +879,17 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
         }
       }
     }
-    for (let damage of damages) {
-      if (mo.saved) {
-        foundry.utils.setProperty(damage, "active.saved", true);
-      }
-      if (mo.superSaver) {
-        foundry.utils.setProperty(damage, "active.superSaver", true);
-      }
-      if (mo.semiSuperSaver) {
-        foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
+    if ((mo.saveMultiplier ?? 1) !== 1) {
+      for (let damage of damages) {
+        if (mo.saved) {
+          foundry.utils.setProperty(damage, "active.saved", true);
+        }
+        if (mo.superSaver) {
+          foundry.utils.setProperty(damage, "active.superSaver", true);
+        }
+        if (mo.semiSuperSaver) {
+          foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
+        }
       }
     }
   }
@@ -990,6 +987,15 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         }
       }
     }
+  }
+
+  if (configSettings.saveDROrder === "DRSavedr" && (mo.saveMultiplier ?? 1) !== 1 && options?.ignore !== true) {
+    damages.forEach(damage => {
+      if (options?.ignore?.saved === true || options?.ignore?.saved?.has(damage.type)) return;
+      foundry.utils.setProperty(damage, "active.saved", true);
+      foundry.utils.setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * (options.midi?.saveMultiplier ?? 1));
+      damage.value = damage.value * options.midi?.saveMultiplier;
+    });
   }
 
   // Insert DR.ALL as a -ve damage value maxed at the total damage.

@@ -445,146 +445,276 @@
   background: var(--dnd5e-color-light-gray);
 }
 
-* CHAT - DND5E 3 AND MIDI */
+/* CHAT - DND5E 3 AND MIDI */
 
-/* Uncomment for Card style messages */
-/*
-.chat-message {
-	border-radius: 0 !important;
+:root {
+
+  --dnd5e-color-failure-background: rgb(245,221,221);
+  --dnd5e-color-success-background: rgb(204,215,197);
+    
+  }
+  
+  /* Chat message borders */
+  
+  :is(.chat-popout, #chat-log) .message {
+    border-width: 0;	
+    border-left: 0.2rem solid;
+    border-color: var(--user-color);
+  }
+  
+  /* Fix chat message corners */
+  
+  :is(.chat-popout, #chat-log) .message.whisper::before {
+      border-radius: 6px !important;
+  }
+  
+  /* Condensed Item description */
+  
+  .dnd5e2.chat-card .description {
+      padding: 0.4rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .dnd5e2.chat-card .description:not(:has(p),.collapsed) .details { 
+    margin-top: 0.4rem; //fix for badly imported details
+  }
+  
+  /* Chat card spacing */
+  
+  .dnd5e2.chat-card.midi-chat-card {
+      gap: 0;
+  }
+  
+  /* Condensed hits, misses and saves evaluation */
+  
+  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation {
+      gap: 0.15rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .target {
+    padding: 0.2rem 0.3rem;
+  }
+  
+  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .target .name-stacked {
+    min-height: auto;
+  }
+  
+  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .target .name-stacked .title {
+    font-size: var(--font-size-14);
+    margin-bottom: 0.1rem;
+  }
+  
+  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .target.miss {
+      border-color: rgba(110,0,0,0.4);
+    background-color: var(--dnd5e-color-failure-background);
+  }
+  
+  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .target.hit {
+      border-color: rgba(0,108,0,0.4);
+    background-color: var(--dnd5e-color-success-background);
+  }
+  
+  .midi-qol-tooltiptext.midi-qol-save-tooltip {
+    width: 65%;
+  }
+  
+  .midi-qol-saves-display {
+    padding-top: 0.2rem;
+    font-size: 12px;
+  }
+  
+  /* Condensed footer pills */
+  .card-footer.pills.unlist li.pill.pill-sm {
+      font-size: 9px;
+    padding: 0.2rem 0.3rem;
+  }
+  .card-footer.pills.unlist {
+      gap: 0.2rem;
+    margin-top: 0.1rem;
+  }
+  
+  /* Midi Attack and Damage buttons */
+  
+  .dnd5e2.chat-card .card-buttons.midi-buttons:has(button) {
+      gap: 0.2rem;
+    padding-bottom: 0.4rem;
+  }
+  
+  .midi-qol-attack-buttons button, 
+  .midi-qol-damage-buttons button,
+  .dnd5e2 .midi-buttons button {
+      height: 1.75rem;
     margin: 0;
-	box-shadow: 0px 12px 16px 12px rgba(0,0,0,0.75);
-    padding: 0.5rem !important;
-}
-*/
-
-/* Condensed Item description */
-.card-header {
-    padding: 0.2rem !important;
-	margin: 0 !important;
-}
-
-/* Condensed hits, misses and saves evaluation */
-.dnd5e2.evaluation {
-	font-size: 14px;
-	gap: 0 !important;
-	border: 1px solid #686868;
-	margin: 0.25rem 0 !important;
-}
-.midi-qol.target.hit, .midi-qol.target.miss{
-	border-radius: 0 !important;
-	border: none !important;
-	height: 2rem;
-}
-
-/* Condensed footer pills */
-.card-footer.pills.unlist li.pill.pill-sm {
-    font-size: 9px;
-}
-.card-footer.pills.unlist {
-    gap: 0.15rem;
-}
-
-/* Midi Attack and Damage buttons */
-.dnd5e2.chat-card .card-buttons.midi-buttons {
-    gap: 0.2rem;
-}
-.midi-qol-attack-buttons button, 
-.midi-qol-damage-buttons button {
-    height: 1.75rem;
-	margin: 0;
-}
-
-/* Midi Attack and Damage results (tested on midi condensed card) */
-.midi-qol-attack-roll, .midi-qol-damage-roll {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-    /* white-space: nowrap; /* Fixes wrapping issue in Midi condensed card with DnD 3 */
-    /* overflow: hidden; */
-}
-.midi-results .flexrow {
-    gap: 0.15rem; 
-}
-
-
-
-/* Midi Damage application card (tested with DnD5E damage application OFF)  */
-
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) {
-    padding: 0 !important;
-	padding-bottom: 0.2rem !important;
-	/* this will merge the damage card with the above message
-  margin-top: -0.4rem !important; /* Merges the card with the above message  
-	border-top-left-radius: 0px !important; /* Merges the card with the above message  
-	border-top-right-radius: 0px !important; /* Merges the card with the above message  
-  */
-	border-color: black !important; /* If you have DF Chat Enhancements, remove this to make the border DM-colored instead */
-    background-color: #d9c6c6 !important;
-	box-shadow: none;
-}
-
-/* Removes background images */
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container)::before,
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container)::after {
-    background-image: none !important;
-}
-
-/* Hides the header  */
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) .message-header {
-    display: none; 
-}
-
-/* Table Adjustments */
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) table {
-    margin: 0;
-	border: none;
-}
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) th {
-	padding: 0.4rem 0;
-	line-height: normal;
-}
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) td {
-	font-size: 14px;
-	padding: 0.25rem;
-	line-height: normal;
-}
-
-/* Select and buttons */
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) select,
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) button {
-    border-radius: 0;
-    border: 1px solid black;
-	background-color: rgba(255, 255, 255, 0.5);
-}
-
-/* row colors */
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) table tbody tr:nth-child(even) {
-    background-color: rgba(255, 255, 255, 0.4);
-}
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) table tbody tr:nth-child(odd) {
-    background-color: rgba(255, 255, 255, 0.2);
-}
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) table tbody tr:hover {
-    background-color: rgba(150, 150, 200, 0.2);
-}
-
-/* Attempt to fix alignment in the damage display. Might break with DnD5e damage application as Midi outputs text differently with it on */
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) td:first-child {
-    display: flex;
-    align-items: center;
-}
-/* Attempt to fix the image too */
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) .midi-qol-target-name {
-    width: 30px;
-    height: 30px;
-    margin-right: 0.25rem;
-    vertical-align: middle;
-}
-
-/* Hacky way to improve "All" positioning */
-.chat-message.message.flexcol.whisper:has(.xmidi-qol-flex-container) tfoot td:first-child {
-    position: relative;
-	top: 0.25rem;
-	left: 0.25rem;
-}
-
+  }
+  
+  /* Midi Attack and Damage results */
+  .midi-qol-attack-roll, .midi-qol-damage-roll {
+      white-space: nowrap;
+  }
+  
+  .midi-results .flexrow {
+      gap: 0.15rem; 
+  }
+  
+  .dice-result .dice-tooltip .tooltip-part {
+      padding: 0;
+  }
+  
+  .dice-result .dice-tooltip .tooltip-part .dice {
+    margin: 0.2rem 0;
+  }
+  
+  .dice-result .dice-total {
+    margin-top: 0;
+  }
+  
+  .dice-result .dice-tooltip-collapser {
+    margin-top: 0.1rem;
+  }
+  
+  .midi-qol-attack-roll > div:nth-child(1), .midi-qol-damage-roll > div:nth-child(1) {
+    text-transform: uppercase;
+    font-size: 10px;
+    font-weight: bold;
+  }
+  
+  .dice-roll .dice-result {
+      margin-bottom: 0.2rem;
+  }
+  
+  /* Midi Damage application card (tested with DnD5E damage application OFF)  */
+  
+  :is(.chat-popout, #chat-log) .message:has(.xmidi-qol-flex-container) {
+      padding: 0 ;
+    border: none;
+    border-left: 0.2rem solid var(--user-color);
+  }
+  
+  /* Hides the header  */
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) .message-header {
+      display: none; 
+  }
+  
+  /* Table Adjustments */
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) table {
+      margin: 0;
+    border: none;
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) th {
+    line-height: normal;
+    padding: 7px 3px 5px 3px;
+    text-align: left !important;
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) thead > tr > th:nth-child(1)::before {
+      font-family: "Font Awesome 6 Pro";
+    content: "\f7a9";
+    margin-right: 3px;
+    color: var(--color-text-light-7);
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) td {
+    font-size: 13px;
+    line-height: normal;
+    padding: 0.15rem;
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) th:last-child, 
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) td:last-child {
+    padding-right: 0.5rem;
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) th:first-child,
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) td:first-child {
+    padding-left: 8px;
+    width: 100%;
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) thead {
+    background: rgba(0, 0, 0, 0.05);
+    font-size: 10px;
+    color: var(--color-text-dark-secondary);
+    text-shadow: none;
+    text-transform: uppercase;
+    border: none;
+    text-wrap: nowrap;
+    
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) tfoot td {
+    padding-top: 5px;
+    padding-bottom: 7px;
+  }
+  
+  :is(.chat-popout, #chat-log) .message.whisper::before {
+      border-radius: 0px;
+  }
+  
+  .midi-qol-tooltiptext {
+      width: max-content;
+    font-size: 14px;
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) table > tbody > tr > td:nth-child(1) > div:nth-child(1) > div:nth-child(1) {
+    min-width: 32px;
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container):has(button) table > tbody > tr > td:nth-child(1) > div:nth-child(2) > span > div {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    max-width: 95px;
+  }
+  
+  /* Select and buttons */
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) select,
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) button {
+    border-radius: 3px;
+    border: 1px solid var(--color-border-light-2);
+    background: rgba(255, 255, 255, 0.4);
+    width: auto !important;
+    height: 26px !important;
+    padding: 0 4px 0 2px;
+    font-size: 12px;
+  }
+  
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) button {
+    padding: 0 5px 0 9px;
+  }
+  
+  /* row colors */
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) table tbody tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.1);
+  }
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) table tbody tr:nth-child(odd) {
+      background-color: rgba(255, 255, 255, 0.1);
+  }
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) table tbody tr:hover {
+      background-color: rgba(150, 150, 200, 0.2);
+  }
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) table tbody tr {
+      border-bottom: 1px solid rgba(150, 150, 200, 0.2);
+  }
+  
+  /* Attempt to fix alignment in the damage display. Might break with DnD5e damage application as Midi outputs text differently with it on */
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) td:first-child {
+      display: flex;
+      align-items: center;
+  }
+  /* Attempt to fix the image too */
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) .midi-qol-target-name {
+      width: 30px;
+      height: 30px;
+      margin-right: 0.25rem;
+      vertical-align: middle;
+  }
+  
+  /* Hacky way to improve "All" positioning */
+  .chat-message.message.flexcol:has(.xmidi-qol-flex-container) tfoot td:first-child {
+      position: relative;
+    top: 0.25rem;
+    left: 0.25rem;
+  }
