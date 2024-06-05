@@ -442,9 +442,9 @@
   "midi-qol.Hits": "Acertos",
   "midi-qol.Misses": "Erros",
   "midi-qol.Saves": "Salvaguardas",
-  "midi-qol.SavesBase": "Se o alvo rolar salvaguarda, itens de dano fazem",
-  "midi-qol.SavesBonus": "Se o alvo rolar salvaguarda, macros de bônus de dano fazem",
-  "midi-qol.SavesOther": "Se o alvo rolar salvaguarda, outro dano faz",
+  "midi-qol.SavesBase": "Se Sucesso em Salvaguarda, Itens Causam",
+  "midi-qol.SavesBonus": "Se Sucesso em Salvaguarda, Macros Causam",
+  "midi-qol.SavesOther": "Se Sucesso em Salvaguarda, 'Outro' Causa",
   "midi-qol.Damage": "Dano",
   "midi-qol.Concentrating": "Concentração",
   "midi-qol.concentrationCheckName": "Concentração",
@@ -558,6 +558,7 @@
     "item": "Rolar Item de Concentração"
   },
   "midi-qol.DoConcentrationCheck.Hint": "<strong>Apenas Mensagem no Chat</strong>: Exibe uma mensagem no chat com um botão (comportamento padrão do D&D5e e requer a Concentração do D&D5e).<br><strong>Mensagem no Chat + Rolagem Automática</strong>: exibe uma mensagem no chat e rola a salvaguarda automaticamente (requer a Concentração do D&D5e).<br><strong>Rolar Item de Concentração</strong>: rola um item de teste de Concentração (comportamento padrão do Midi QOL).",
+
   "midi-qol.RemoveConcentration.Name": "Remover Concentração ao Falhar na Salvaguarda de Concentração",
   "midi-qol.UsePlayerPortrait.Name": "Usar Imagem do Ator no Cartão de Chat",
   "midi-qol.UsePlayerPortrait.Hint": "Para atores de Jogadores, usar a imagem ao invés do token nos cartões de chat do Midi QOL.",
@@ -583,7 +584,8 @@
   "midi-qol.ActiveDefenceString": "Active Defence",
   "midi-qol.ActiveDefence.Name": "Defesa Ativa",
   "midi-qol.ActiveDefence.Hint": "Ao invés do MJ rolar 'Para Atingir', jogadores fazem uma rolagem de defesa. Usará o módulo LMRTFY, se instalado.",
-  "midi-qol.ActiveDefenceShowGM.Name": "MJ Vê Rolagens Ativas de Defesa Ativa",
+  "midi-qol.ActiveDefenceShow.Name": "Exibição Padrão para Rolagens de Defesa Ativa",
+  "midi-qol.ActiveDefenceShow.Hint": "Se definido para 'Self Roll' ao usar LMRTFY, a rolagem será escondida do MJ, independente de outras configurações.",
   "midi-qol.PromptDamageRoll.Name": "Aprimorar Diálogo de Rolagem de Dano",
   "midi-qol.PromptDamageRoll.Hint": "Ao usar o Diálogo de Rolagem de Dano, exibe um diálogo aprimorado que possibilita escolher o tipo de dano.",
   "midi-qol.GMHide3dDice.Name": "Esconder rolagens de ataque/dano/salvaguardas de dados 3D do MJ. Subscreve outras configurações (apenas Cartão Mesclado)",
@@ -622,9 +624,9 @@
   "midi-qol.HPUpdated": "PV Atualizado",
   "midi-qol.HPNPCUpdated": "PV de PdJ Atualizado",
   "midi-qol.HPNotUpdated": "PV Não Atualizado",
-  "midi-qol.reactionDamaged": "Sofreu Dano",
+  "midi-qol.reactionDamaged": "Sofrer Dano",
   "midi-qol.reactionManual": "Manual",
-  "midi-qol.reactionPreAttack": "Pré Rolagem de Ataque",
+  "midi-qol.reactionPreAttack": "Alvo de Ataque",
   "midi-qol.ddbGL.Name": "Habilitar suporte a ddb-game-log",
   "midi-qol.ddbGL.Hint": "Aceitar ataque/dano/salvaguardas do ddb-game-log para iniciar fluxos do Midi QOL no Foundry.",
   "midi-qol.ShowReactionChatMessage.Name": "Exibir Cartão de Chat para Reações",
@@ -653,7 +655,9 @@
   "midi-qol.TargetConfirmation.Name": "Confirmação de Alvo",
   "midi-qol.TargetConfirmation.Blurb": "Selecione até {targetCount} alvos. Shift-Click para selecionar múltiplos alvos.",
   "midi-qol.TargetConfirmation.BlurbAny": "Selecione os alvos. Shift-Click para selecionar múltiplos alvos.",
+
   "midi-qol.AddDead.Name": "Adiciona efeito quando PV = 0",
+
   "midi-qol.AddDead.Hint1": "Jogador Controlado",
   "midi-qol.AddDead.Hint2": "MJ Controlado",
   "midi-qol.AddDeadOptions": {
@@ -789,7 +793,7 @@
   "midi-qol.ShowFastForward.Hint": "Mostrar indicador de Avanço Rápido nos botões de ataque e dano.",
   "midi-qol.MeasuredTemplate": "Modelo",
   "midi-qol.AutoRemoveTemplate.Name": "Remover automaticamente modelos posicionados de magias expiradas",
-  "midi-qol.AttackPerTarget.Name": "Role Ataques Separados por Alvo",
+  "midi-qol.AttackPerTarget.Name": "Rolar Ataques Separados por Alvo",
   "midi-qol.SkillAbilityCheckAdvantage.Name": "Vantagem em Testes de Atributo dá vantagem em Perícias",
   "midi-qol.SkillAbilityCheckAdvantage.Hint": "Se um ator possuir vantagem/desvantagem em testes de atributo, perícias baseadas naquele atributo também possuem vantagem/desvantagem.",
   "midi-qol.ignoreTotalCover": "Sem Cobertura Completa",
@@ -906,7 +910,7 @@
     "Friendly": "Amigável",
     "notFriendly": "Não-Amigável"
   },
-  "midi-qol.AoETargetTypeIncludeSelf.Name": "Se incluir em alvos de Área de Efeito",
+  "midi-qol.AoETargetTypeIncludeSelf.Name": "Se Incluir em Alvos de Área de Efeito",
   "midi-qol.AutoCompleteWorkflow.Name": "Completar Fluxo se Exigido",
   "midi-qol.AutoCompleteWorkflow.Hint": "Fluxos serão marcados como concluídos se rolados antes da conclusão. Nenhuma rolagem adicional será realizada.",
   "midi-qol.squareRadius": "Raio Quadrado",
@@ -920,6 +924,7 @@
   "DND5E.DamageApplication.Change.Spell": "{type} de Magia Personalizada",
   "DND5E.DamageApplication.Change.Magic": "{type} Mágico Personalizado",
   "DND5E.DamageApplication.Change.Nonmagic": "{type} Não-Mágico Personalizado",
+  "DND5E.DamageApplication.Change.Saved": "{type} Salvo",
   "midi-qol.SettingsSearch": "Configurações de Pesquisa",
   "midi-qol.MidiPropertiesTab.Name": "Permissão Mínima para Propriedades de Itens",
   "midi-qol.MidiPropertiesTab.Hint": "Permissão mínima que um usuário deve ter para acessar a aba de propriedades de itens do Midi QOL. <strong>Necessário reiniciar o mundo para aplicar</strong>."
