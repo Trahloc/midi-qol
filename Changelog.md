@@ -3,9 +3,9 @@
 * Fix for physical damage bypasses not working in dnd5e 3.2 using midi damage application.
 * Special durations on applied enchantments now work.
 * Fix for detecting vision when global illumination enabled.
-* More changes for tokens unable to see attacker.CanSee, canSense set for condition evaluation i.e. canSee/canSense and tartget.canSee/canSense set for condition evalauation. Should now work with levels 3d canvas.
-* Added workflow.targetsCanSee, workflow.targets.canSense, workflow.tokenCanSee, workflow.tokenCanSense. These are sets containing targets that can see/sense the token using the item and which of the targets the token can see/sense. This is set just after targeting is complete.
-* **Breaking** for dnd version 3.2 and above effect.addDependents has been retired, you should now use effect.addDependent[...arrayOfDependents] instead of effect.addDependents[arrayofDependents]. These values are available in condition evaluation via canSee/canSense (the token can see/sense the target) and target.canSee/target.canSense (the target can see/Sense the token doing the attack).
+* More changes for tokens unable to see attacker. Should now work with levels 3d canvas.
+* Added workflow.targetsCanSee, workflow.targets.canSense, workflow.tokenCanSee, workflow.tokenCanSense. These are sets containing targets that can see/sense the token using the item and which of the targets the token can see/sense. This is set just after targeting is complete. These values are available in condition evaluation via canSee/canSense (the token can see/sense the target) and target.canSee/target.canSense (the target can see/Sense the token doing the attack).
+* **Breaking** for dnd version 3.2 and above effect.addDependents has been retired, you should now use effect.addDependent[...arrayOfDependents] instead of effect.addDependents[arrayofDependents]. 
 * For v12, Math.clamped is replaced by Math.clamp. Math.clamped will return a deprecation warning.
 
 ### 11.4.33
