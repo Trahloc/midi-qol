@@ -1,9 +1,20 @@
+### 11.4.34
+* Fix for overtime effects not expiring correctly when players advance the combat turn.
+* Fix for physical damage bypasses not working in dnd5e 3.2 using midi damage application.
+* Special durations on applied enchantments now work.
+* Fix for detecting vision when global illumination enabled.
+* More changes for tokens unable to see attacker.CanSee, canSense set for condition evaluation i.e. canSee/canSense and tartget.canSee/canSense set for condition evalauation. Should now work with levels 3d canvas.
+* Added workflow.targetsCanSee, workflow.targets.canSense, workflow.tokenCanSee, workflow.tokenCanSense. These are sets containing targets that can see/sense the token using the item and which of the targets the token can see/sense. This is set just after targeting is complete.
+* **Breaking** for dnd version 3.2 and above effect.addDependents has been retired, you should now use effect.addDependent[...arrayOfDependents] instead of effect.addDependents[arrayofDependents]. These values are available in condition evaluation via canSee/canSense (the token can see/sense the target) and target.canSee/target.canSense (the target can see/Sense the token doing the attack).
+* For v12, Math.clamped is replaced by Math.clamp. Math.clamped will return a deprecation warning.
+
 ### 11.4.33
 * Fix for some deprecation watnings thrown in v12
 * Fix for undo workflow throwing errors.
 * Fix for checking distance not working in v12 latest.
 * Fix for displaying 2 actor on use macro buttons on the dnd5e 3.2 character sheet.
 * Include saving throws in dnd5e damaage application as well as midi damage application. Midi will remember the saves status for a target and will display (and apply it) in the 5e damage application buttons.
+* Fix for new attunement data in dnd5e 3.2
 
 ### 11.4.32
 * Fix for ItemMacro onuseMacro effects when the effect is subject to coentration not working.

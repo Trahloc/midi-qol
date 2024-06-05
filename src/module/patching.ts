@@ -1306,7 +1306,10 @@ export function readyPatching() {
         if (!docClass) continue;
         if (!docClass.prototype.addDependent) libWrapper.register(MODULE_ID, `${classString}.prototype._onDelete`, _onDelete, "WRAPPER");
         if (!docClass.prototype.addDependent) docClass.prototype.addDependent = addDependent;
-        if (!docClass.prototype.addDependents) docClass.prototype.addDependents = addDependents;
+        //@ts-expect-error
+        if (foundry.utils.isNewerVersion("3.1.99", game.system.version)) {
+          if (!docClass.prototype.addDependents) docClass.prototype.addDependents = addDependents;
+        }
         if (!docClass.prototype.getDependents) docClass.prototype.getDependents = getDependents;
         if (!docClass.prototype.setDependents) docClass.prototype.setDependents = setDependents;
         if (!docClass.prototype.removeDependent) docClass.prototype.removeDependent = removeDependent;

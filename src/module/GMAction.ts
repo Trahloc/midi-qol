@@ -1,6 +1,6 @@
 import { checkRule, configSettings, safeGetGameSetting } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
 import { Workflow } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
@@ -46,6 +46,7 @@ export let setupSocket = () => {
   socketlibSocket.register("removeEffect", _removeEffect);
   socketlibSocket.register("removeCEEffect", _removeCEEffect);
   socketlibSocket.register("removeEffects", removeEffects);
+  socketlibSocket.register("removeEffectUuids", removeEffectUuids);
   socketlibSocket.register("removeMostRecentWorkflow", _removeMostRecentWorkflow);
   socketlibSocket.register("removeStatsForActorId", removeActorStats);
   socketlibSocket.register("removeWorkflow", _removeWorkflow);
@@ -107,6 +108,7 @@ export class SaferSocket {
       case "deleteItemEffects":
       case "deleteToken":
       case "removeEffects":
+      case "removeEffectUuids":
       case "updateActor":
       case "updateEffects":
       case "_gmSetFlag":
@@ -313,6 +315,28 @@ export async function removeEffects(data: { actorUuid: string; effects: string[]
 
 }
 
+export async function removeEffectUuids(data: { actorUuid: string; effects: string[]; options: {} }) {
+  debug("removeEffects started");
+  let removeFunc = async () => {
+    try {
+      debug("removeFunc: remove effects started")
+      const actor = MQfromActorUuid(data.actorUuid);
+      if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
+      const effectsToDelete = getAppliedEffects(actor, {includeEnchantments: true}).filter(ef => data.effects.includes(ef.uuid));
+      return await expireEffects(actor, effectsToDelete, data.options);
+    } catch (err) {
+      const message = `GMACTION: remove effects error for ${data?.actorUuid}`;
+      console.warn(message, err);
+      TroubleShooter.recordError(err, message);
+    } finally {
+      warn("removeFunc: remove effects completed")
+    }
+  };
+  // Using the seamphore queue leads to quite a few potential cases of deadlock - disabling for now
+  // if (globalThis.DAE?.actionQueue) return globalThis.DAE.actionQueue.add(removeFunc)
+  // else return removeFunc();
+  return removeFunc();
+}
 export async function createEffects(data: { actorUuid: string, effects: any[] }) {
   const createEffectsFunc = async () => {
     const actor = MQfromActorUuid(data.actorUuid);
@@ -389,11 +413,12 @@ export async function _canSense(data: { tokenUuid, targetUuid }) {
   //@ts-expect-error fromUuidSync
   const target = fromUuidSync(data.targetUuid)?.object;
   if (!target || !token) return true;
-  if (!token.vision.active) {
+  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+  if (!token.vision.active || !token.vision.los) {
     token.vision.initialize({
       x: token.center.x,
       y: token.center.y,
-      radius: Math.clamped(token.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
+      radius: clamp(token.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
       externalRadius: Math.max(token.mesh.width, token.mesh.height) / 2,
       angle: token.document.sight.angle,
       contrast: token.document.sight.contrast,

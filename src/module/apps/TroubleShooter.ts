@@ -301,7 +301,8 @@ export class TroubleShooter extends FormApplication {
         "Proficiency Variant": safeGetGameSetting(gameSystemId, "proficiencyModifier"),
         "Collapse Item Cards": safeGetGameSetting(gameSystemId, "autoCollapseItemCards"),
         "Critical Damage Maximize Dice": safeGetGameSetting(gameSystemId, "criticalDamageMaxDice"),
-        "Critical Damage Modifiers": safeGetGameSetting(gameSystemId, "criticalDamageModifiers")
+        "Critical Damage Modifiers": safeGetGameSetting(gameSystemId, "criticalDamageModifiers"),
+        "Concentration Disabled": safeGetGameSetting(gameSystemId, "disableConcentration"),
       },
       "moduleSettings": {}
     }

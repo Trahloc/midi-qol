@@ -3,7 +3,7 @@ import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templ
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision } from "./utils.js"
+import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -258,6 +258,10 @@ export class Workflow {
     this.templateId = null;
     this.templateUuid = null;
     this.template = undefined;
+    this.targetsCanSense = new Set();
+    this.targetsCanSee = new Set();
+    this.tokenCanSense = new Set();
+    this.tokenCanSee = new Set();
 
     this.saveRequests = {};
     this.defenceRequests = {};
@@ -1235,17 +1239,40 @@ export class Workflow {
 
           if (hasItemTargetEffects && (!ceTargetEffect || ["none", "both", "itempri"].includes(useCE))) {
             let damageComponents = {};
-            let damageListItem = this.damageList?.find(entry => entry.tokenUuid === (token.uuid ?? token.document.uuid));
-            if (damageListItem) {
-              for (let dde of [...(damageListItem.damageDetail[0] ?? []), ...(damageListItem.damageDetail[1] ?? [])]) {
-                if (!dde?.damage) continue;
-                damageComponents[dde.type] = dde.damage + (damageComponents[dde.type] ?? 0);
-              };
+            let damageListItem;
+            let damageApplied;
+            let totalDamage;
+            if (configSettings.v3DamageApplication) {
+              const allDamages = this.v3Damages?.[token.document.uuid];
+              if (allDamages) {
+                totalDamage = allDamages.totalDamage;
+                damageApplied = allDamages.appliedDamage;
+                damageComponents = allDamages.tokenDamages.reduce((summary, damages) => {
+                  let damagesSummary = damages.reduce((damageComponents, damageEntry) => {
+                    damageComponents[damageEntry.type] = damageEntry.value + (damageComponents[damageEntry.type] ?? 0);
+                    return damageComponents;
+                  }, {});
+                  Object.keys(damagesSummary).forEach(key => {
+                    summary[key] = damagesSummary[key] + (summary[key] ?? 0);
+                  });
+                  return summary;
+                }, {});
+              }
+            } else {
+              damageApplied = damageListItem?.appliedDamage,
+                totalDamage = damageListItem?.totalDamage;
+              damageListItem = this.damageList?.find(entry => entry.tokenUuid === (token.uuid ?? token.document.uuid));
+              if (damageListItem) {
+                for (let dde of [...(damageListItem.damageDetail[0] ?? []), ...(damageListItem.damageDetail[1] ?? [])]) {
+                  if (!dde?.damage) continue;
+                  damageComponents[dde.type] = dde.damage + (damageComponents[dde.type] ?? 0);
+                };
+              }
             }
 
 
             await globalThis.DAE.doEffects(theItem, true, [token], {
-              damageTotal: damageListItem?.totalDamage,
+              damageTotal: totalDamage,
               critical: this.isCritical,
               fumble: this.isFumble,
               itemCardId: this.itemCardId,
@@ -1262,8 +1289,8 @@ export class Workflow {
               workflowOptions: this.workflowOptions,
               context: {
                 damageComponents,
-                damageApplied: damageListItem?.appliedDamage,
-                damage: damageListItem?.totalDamage  // this is curently ignored see damageTotal above
+                damageApplied,
+                damage: totalDamage  // this is curently ignored see damageTotal above
               }
             })
           }
@@ -1659,15 +1686,14 @@ export class Workflow {
       // if we are using a proxy token to attack use that for hidden invisible
       const invisibleToken = token ? hasCondition(token, "invisible") : false;
       const invisibleTarget = hasCondition(target, "invisible");
-      const tokenCanDetect = token ? canSense(token, target, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
-      const targetCanDetect = token ? canSense(target, token, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
-
-      const invisAdvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleToken || !targetCanDetect : !targetCanDetect;
+      const tokenCanSense = this.tokenCanSense?.has(target);
+      const targetCanSense = this.targetsCanSense?.has(token);
+      const invisAdvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleToken || !targetCanSense : !targetCanSense;
       if (invisAdvantage) {
         if (invisibleToken) {
           this.attackAdvAttribution.add("ADV:invisible");
           this.advReminderAttackAdvAttribution.add("ADV:Invisible");
-        } else if (!targetCanDetect) {
+        } else if (!targetCanSense) {
           this.attackAdvAttribution.add("ADV:not detected");
           this.advReminderAttackAdvAttribution.add("ADV:Not Detected");
         }
@@ -1676,16 +1702,16 @@ export class Workflow {
         this.advantage = true;
       }
 
-      const invisDisadvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleTarget || !tokenCanDetect : !tokenCanDetect;
+      const invisDisadvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleTarget || !tokenCanSense : !tokenCanSense;
       if (invisDisadvantage) {
         // Attacker can't see target so disadvantage
-        log(`Disadvantage given to ${this.actor.name} due to invisible target`, invisibleTarget, tokenCanDetect);
+        log(`Disadvantage given to ${this.actor.name} due to invisible target`, invisibleTarget, tokenCanSense);
         if (invisibleTarget) {
           this.attackAdvAttribution.add("DIS:invisible foe");
           this.advReminderAttackAdvAttribution.add("DIS:Invisible Foe");
           foundry.utils.setProperty(this.actor, "flags.midi.evaluated.disadvantage.attack.invisible", { value: true, effects: ["Invisible Defender"] });
         }
-        if (!tokenCanDetect) {
+        if (!tokenCanSense) {
           this.attackAdvAttribution.add("DIS:not detected");
           this.advReminderAttackAdvAttribution.add("DIS:Not Detected");
           foundry.utils.setProperty(this.actor, "flags.midi.evaluated.disadvantage.attack.invisible", { value: true, effects: ["Defender Not Detected"] });
@@ -2097,8 +2123,7 @@ export class Workflow {
     if (debugEnabled > 0) warn(`expireTargetEffects | ${expireList}`)
     for (let target of this.targets) {
       const expriryReason: string[] = [];
-      //@ts-expect-error appliedEffects
-      const appliedEffects = target.actor?.appliedEffects;
+      const appliedEffects = getAppliedEffects(target?.actor, { includeEnchantments: true });
       if (!appliedEffects) continue; // nothing to expire
       const expiredEffects: (string | null)[] = appliedEffects.filter(ef => {
         let wasExpired = false;
@@ -2176,9 +2201,9 @@ export class Workflow {
           expriryReason.push(`isSave.${abl}`);
         };
         return wasExpired;
-      }).map(ef => ef.id);
+      }).map(ef => ef.uuid);
       if (expiredEffects.length > 0) {
-        await timedAwaitExecuteAsGM("removeEffects", {
+        await timedAwaitExecuteAsGM("removeEffectUuids", {
           actorUuid: target.actor?.uuid,
           effects: expiredEffects,
           options: { "expiry-reason": `midi-qol:${expriryReason}` }
@@ -3022,8 +3047,9 @@ export class Workflow {
         },
         content: `<div data-item-id="${this.item.id}"></div> ${saveContent}`,
         flavor: `<h4>${this.saveDisplayFlavor}</h4>`,
-        flags: { MODULE_ID: { type: MESSAGETYPES.SAVES } }
       };
+      setProperty(chatData, `flags.${MODULE_ID}.type`, MESSAGETYPES.SAVES);
+
       //@ts-expect-error
       if (game.release.generation < 12) {
         chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;

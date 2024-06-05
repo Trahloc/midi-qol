@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MQdefaultDamageType, MODULE_ID } from "../midi-qol.js";
 import { DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -538,26 +538,52 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       } else options.configureDialog = !(["both", "item"].includes(isAutoConsumeResource(workflow)));
     }
 
-    if (configSettings.optionalRules.invisAdvantage !== "none" && game.modules.get("levels-3d-preview")?.active) {
-      let needPause = false;
-      for (let tokenRef of targetsToUse) {
-        const token = getToken(tokenRef);
-        if (token) {
-          //@ts-expect-error
-          if (!token.document.sight.enabled || !token.vision?.active) {
-            initializeVision(token);
-            needPause = true;
-          }
-        }
+    const token = getToken(workflow.tokenUuid);
+    let needPause = false;
+    for (let tokenRef of targetsToUse) {
+      const target = getToken(tokenRef);
+      if (!target) continue;
+        if (
+          //@ts-expect-error - sight not enabled but we are treating it as if it is
+          (!target.document.sight.enabled && configSettings.optionalRules.invisVision) 
+          //@ts-expect-error - sight enabled but not the owner of the token
+          || (!target.isOwner && target.document.sight.enabled)
+          || (!target.vision || !target.vision?.los)) {
+          initializeVision(target);
+          needPause = game.modules.get("levels-3d-preview")?.active ?? false;
       }
-      if (needPause) await busyWait(0.1);
     }
-    
+    if (needPause) {
+      await busyWait(0.1);
+      for (let tokenRef of targetsToUse) {
+        const target = getToken(tokenRef);
+        if (!target || !target.vision?.los) continue;
+        const sourceId = target.sourceId;
+        //@ts-expect-error
+        canvas?.effects?.visionSources.set(sourceId, target.vision);
+      }
+    }
+
+    for (let tokenRef of targetsToUse) {
+      const target = getToken(tokenRef);
+      if (!target) continue;
+      const tokenCanSense = token ? canSense(token, target, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
+      const targetCanSense = token ? canSense(target, token, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
+      if (targetCanSense) workflow.targetsCanSense.add(token);
+      else workflow.targetsCanSense.delete(token);
+      if (tokenCanSense) workflow.tokenCanSense.add(target);
+      else workflow.tokenCanSense.delete(target);
+      const tokenCanSee = token ? canSee(token, target) : true;
+      const targetCanSee = token ? canSee(target, token) : true;
+      if (targetCanSee) workflow.targetsCanSee.add(token);
+      else workflow.targetsCanSee.delete(token);
+      if (tokenCanSee) workflow.tokenCanSee.add(target);
+      else workflow.tokenCanSee.delete(target);
+    }
     workflow.processAttackEventOptions();
     await workflow.checkAttackAdvantage();
     workflow.showCard = true;
     const wrappedRollStart = Date.now();
-    const token = getToken(workflow.tokenUuid);
 
     const autoCreatetemplate = token && hasAutoPlaceTemplate(this);
     let result = await wrapped(workflow.config, foundry.utils.mergeObject(options, { workflowId: workflow.id }, { inplace: false }));

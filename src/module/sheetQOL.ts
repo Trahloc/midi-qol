@@ -31,7 +31,6 @@ export function setupSheetQol() {
   // Hooks.on("renderedTidy5eSheet", enableSheetQOL);
 }
 let enableSheetQOL = (app, html, data) => {
-  console.error("enable sheet qol ", app, html, data)
   // find out how to reinstate the original handler later.
   const defaultTag = ".item .item-image";
   let rollTag = knownSheets[app.constructor.name] ? knownSheets[app.constructor.name] : defaultTag;

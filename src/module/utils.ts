@@ -200,7 +200,14 @@ export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, 
   } else {
     var dt = value > 0 ? Math.min(tmp, value) : 0;
     var newTemp = tmp - dt;
-    var newHP: number = Math.clamped(oldHP - (value - dt), 0, hp.max + (parseInt(hp.tempmax) || 0));
+
+    var newHP: number;
+    //@ts-expect-error
+    if ((game.release.generation < 12))
+      newHP = Math.clamped(oldHP - (value - dt), 0, hp.max + (parseInt(hp.tempmax) || 0));
+    else
+      //@ts-expect-error
+      newHP = Math.clamp(oldHP - (value - dt), 0, hp.max + (parseInt(hp.tempmax) || 0)); ``
   }
   //TODO review this awfulness
   // Stumble around trying to find the actual token that corresponds to the multi level token TODO make this sane
@@ -237,7 +244,7 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
   let phsyicalDamageTypes;
   //@ts-expect-error
   if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) { // physicalDamageTypes have gone away
-    phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPphysical);
+    phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
   } else {
     phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
   }
@@ -423,7 +430,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         return [];
     }
     let uncannyDodge = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack;
-    if (uncannyDodge && workflow) uncannyDodge = canSense(targetToken, workflow?.tokenUuid);
+    if (uncannyDodge && workflow) uncannyDodge = workflow.targetsCanSense.has(getToken(workflow?.tokenUuid)); //canSense(targetToken, workflow?.tokenUuid);
     if (game.system.id === "sw5e" && targetActor?.type === "starship") {
       // Starship damage r esistance applies only to attacks
       if (item && ["mwak", "rwak"].includes(item?.system.actionType)) {
@@ -731,14 +738,13 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         "TargetOnUse",
         healedDamaged,
         { actor: t.actor, token: t });
-      //@ts-expect-error
-      const expiredEffects = t?.actor?.appliedEffects.filter(ef => {
+      const expiredEffects = getAppliedEffects(t?.actor, { includeEnchantments: true }).filter(ef => {
         const specialDuration = foundry.utils.getProperty(ef, "flags.dae.specialDuration");
         if (!specialDuration) return false;
         return specialDuration.includes(healedDamaged);
-      }).map(ef => ef.id)
+      }).map(ef => ef.uuid)
       if (expiredEffects?.length ?? 0 > 0) {
-        await timedAwaitExecuteAsGM("removeEffects", {
+        await timedAwaitExecuteAsGM("removeEffectUuids", {
           actorUuid: t.actor?.uuid,
           effects: expiredEffects,
           options: { "expiry-reason": `midi-qol:${healedDamaged}` }
@@ -949,7 +955,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
           returnDamages = workflow.damages;
           const appliedTotal = returnDamages.reduce((acc, value) => acc + value.value, 0);
           allDamages[tokenDocument.uuid].totalDamage += (options.midi.totalDamage ?? 0);
-          allDamages[tokenDocument.uuid].appliedDamage += (options.midi.appliedDamage ?? 0);
+          allDamages[tokenDocument.uuid].appliedDamage += (appliedTotal ?? 0);
           if (appliedTotal !== 0 && hitTargets.has(token)) {
             const healedDamaged = appliedTotal < 0 ? "isHealed" : "isDamaged";
             workflow.damages = foundry.utils.duplicate(returnDamages);
@@ -961,14 +967,13 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
               "TargetOnUse",
               healedDamaged,
               { actor: token.actor, token });
-            //@ts-expect-error
-            const expiredEffects = token?.actor?.appliedEffects.filter(ef => {
+            const expiredEffects = getAppliedEffects(token?.actor, { includeEnchantments: true }).filter(ef => {
               const specialDuration = foundry.utils.getProperty(ef, "flags.dae.specialDuration");
               if (!specialDuration) return false;
               return specialDuration.includes(healedDamaged);
-            }).map(ef => ef.id)
+            }).map(ef => ef.uuid)
             if (expiredEffects?.length ?? 0 > 0) {
-              await timedAwaitExecuteAsGM("removeEffects", {
+              await timedAwaitExecuteAsGM("removeEffectUuids", {
                 actorUuid: token.actor?.uuid,
                 effects: expiredEffects,
                 options: { "expiry-reason": `midi-qol:${healedDamaged}` }
@@ -1844,13 +1849,12 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           checkGMStatus: true,
           targetUuids: [theTargetUuid],
           rollMode,
-          asUser: playerForActor(actor)?.id,
           workflowOptions: { targetConfirmation: "none", autoRollDamage: "onHit", fastForwardDamage, isOverTime: true, allowIncapacitated },
           flags: {
             dnd5e: { "itemData": ownedItem.toObject() },
-            MODULE_ID: { "isOverTime": true }
           }
         };
+        foundry.utils.setProperty(options, `flags.${MODULE_ID}.isOverTime`, true);
         await completeItemUse(ownedItem, {}, options); // worried about multiple effects in flight so do one at a time
         if (actionSaveSuccess) {
           await expireEffects(actor, [effect], { "expiry-reason": "midi-qol:overTime:actionSave" });
@@ -2985,6 +2989,11 @@ export async function removeHidden() {
   const token: Token | undefined = canvas.tokens?.get(this.tokenId);
   if (!token) return;
   await removeTokenCondition(token, i18n(`midi-qol.hidden`));
+  if (installedModules.get("perceptive")) {
+    //@ts-expect-error .api
+    const api = game.modules.get("perceptive")?.api;
+    api?.PerceptiveFlags.setPerceptiveStealthing(token.document, false);
+  }
   log(`Hidden removed for ${this.actor.name}`)
 }
 
@@ -3014,7 +3023,10 @@ export async function expireMyEffects(effectsToExpire: string[]) {
     })
     if (debugEnabled > 1) debug("expiry map is ", test)
   }
-  const myExpiredEffects = this.actor.appliedEffects?.filter(ef => {
+
+  let allEffects = this.actor.items.contents.flatMap(i => i.effects.contents).filter(ae => ae.isAppliedEnchantment)
+  allEffects = allEffects.concat(this.actor.appliedEffects);
+  const myExpiredEffects = allEffects?.filter(ef => {
     const specialDuration = foundry.utils.getProperty(ef.flags, "dae.specialDuration");
     if (!specialDuration || !specialDuration?.length) return false;
     return (expireAction && specialDuration.includes("1Action")) ||
@@ -3043,9 +3055,9 @@ export async function expireRollEffect(rolltype: string, abilityId: string, succ
     if (success === false && specialDuration.includes(`is${rollType}Failure`)) return true;
     if (success === false && specialDuration.includes(`is${rollType}Failure.${abilityId}`)) return true;
     return false;
-  }).map(ef => ef.id);
+  }).map(ef => ef.uuid);
   if (expiredEffects?.length > 0) {
-    await timedAwaitExecuteAsGM("removeEffects", {
+    await timedAwaitExecuteAsGM("removeEffectUuids", {
       actorUuid: this.uuid,
       effects: expiredEffects,
       options: { MODULE_ID: `special-duration:${rollType}:${abilityId}` }
@@ -3874,7 +3886,7 @@ function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
     if (item.system.preparation.mode !== "innate") return item.system.level <= maxLevel;
   }
   //@ts-expect-error
-  if (foundry.utils.isNewerVersion(game.system.version,"3.1.99")) {
+  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
     if (!item.system.attuned && item.system.attunement === "required") return false;
   } else {
     if (item.system.attunement === GameSystemConfig.attunementTypes.REQUIRED) return false;
@@ -4584,7 +4596,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   //@ts-expect-error
   if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
     rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
-  
+
   } else {
     rollData.isAttuned = rollData.item?.attunement !== GameSystemConfig.attunementTypes.REQUIRED;
   }
@@ -4605,6 +4617,10 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.semiSuperSaver = data.workflow?.semiSuperSavers.has(data.target);
       rollData.target.isHit = data.workflow?.hitTargets.has(data.target);
       rollData.target.isHitEC = data.workflow?.hitTargets.has(data.target);
+      rollData.target.canSense = data.workflow?.targetsCanSense?.has(data.workflow?.token);
+      rollData.target.canSee = data.workflow?.targetsCanSee?.has(data.workflow?.token);
+      rollData.canSense = data.workflow?.tokenCanSense?.has(data.target);
+      rollData.canSee = data.workflow?.tokenCanSee?.has(data.target);
     }
 
     rollData.humanoid = globalThis.MidiQOL.humanoid;
@@ -5405,72 +5421,71 @@ export function canSenseModes(tokenEntity: Token | TokenDocument | string, targe
   if (!token || !target) return [];
   return _canSenseModes(token, target, validModes);
 }
-export function initializeVision(tk: Token) {
+export function initializeVision(tk: Token, force = false) {
   //@ts-expect-error
-  if (!tk.document.sight.enabled || !tk.vision?.active) {
-    //@ts-expect-error
-    console.warn("initialising vision for ", tk.name, tk.document.sight.enabled, tk.vision?.active);
-    //@ts-expect-error
-    const sightEnabled = tk.document.sight.enabled;
+  console.warn("initialising vision for ", tk.name, tk.document.sight.enabled, tk.vision?.active);
+  //@ts-expect-error
+  const sightEnabled = tk.document.sight.enabled;
 
+  //@ts-expect-error
+  tk.document.sight.enabled = true;
+  //@ts-expect-error
+  tk.document._prepareDetectionModes();
+  const sourceId = tk.sourceId;
+  //@ts-expect-error
+  if (game.release.generation >= 12) {
     //@ts-expect-error
-    tk.document.sight.enabled = true;
-    //@ts-expect-error
-    tk.document._prepareDetectionModes();
-    const sourceId = tk.sourceId;
-    //@ts-expect-error
-    if (game.release.generation >= 12) {
-      //@ts-expect-error
-      tk.vision = new CONFIG.Canvas.visionSourceClass({ sourceId, object: tk });
-    }
-
-    tk.vision.initialize({
-      x: tk.center.x,
-      y: tk.center.y,
-      //@ts-expect-error
-      elevation: tk.document.elevation,
-      //@ts-expect-error
-      radius: Math.clamped(tk.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
-      //@ts-expect-error
-      externalRadius: tk.externalRadius, // Math.max(tk.mesh.width, tk.mesh.height) / 2,
-      //@ts-expect-error
-      angle: tk.document.sight.angle,
-      //@ts-expect-error
-      contrast: tk.document.sight.contrast,
-      //@ts-expect-error
-      saturation: tk.document.sight.saturation,
-      //@ts-expect-error
-      brightness: tk.document.sight.brightness,
-      //@ts-expect-error
-      attenuation: tk.document.sight.attenuation,
-      //@ts-expect-error
-      rotation: tk.document.rotation,
-      //@ts-expect-error
-      visionMode: tk.document.sight.visionMode,
-      //@ts-expect-error
-      color: globalThis.Color.from(tk.document.sight.color),
-      //@ts-expect-error
-      isPreview: !!tk._original,
-      //@ts-expect-error specialStatusEffects
-      blinded: tk.document.hasStatusEffect(CONFIG.specialStatusEffects.BLIND)
-    });
-
-    if (!tk.vision.los && game.modules.get("perfect-vision")?.active) {
-      error(`canSense los not calcluated. Can't check if ${tk.name} can see`, tk.vision);
-      return false;
-    } else if (!tk.vision.los) {
-      //@ts-expect-error
-      tk.vision.shape = tk.vision._createRestrictedPolygon();
-      //@ts-expect-error
-      tk.vision.los = tk.vision.shape;
-    }
-    //@ts-expect-error
-    tk.vision.anmimated = false;
-    //@ts-expect-error
-    canvas?.effects?.visionSources.set(sourceId, tk.vision);
-    //@ts-expect-error
-    tk.document.sight.enabled = sightEnabled;
+    tk.vision = new CONFIG.Canvas.visionSourceClass({ sourceId, object: tk });
   }
+
+  //@ts-expect-error
+  const clamp: (v1: number, v2: number, v3: number) => number = (game.release.generation >= 12) ? Math.clamp : Math.clamped;
+  tk.vision.initialize({
+    x: tk.center.x,
+    y: tk.center.y,
+    //@ts-expect-error
+    elevation: tk.document.elevation,
+    //@ts-expect-error
+    radius: clamp(tk.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
+    //@ts-expect-error
+    externalRadius: tk.externalRadius, // Math.max(tk.mesh.width, tk.mesh.height) / 2,
+    //@ts-expect-error
+    angle: tk.document.sight.angle,
+    //@ts-expect-error
+    contrast: tk.document.sight.contrast,
+    //@ts-expect-error
+    saturation: tk.document.sight.saturation,
+    //@ts-expect-error
+    brightness: tk.document.sight.brightness,
+    //@ts-expect-error
+    attenuation: tk.document.sight.attenuation,
+    //@ts-expect-error
+    rotation: tk.document.rotation,
+    //@ts-expect-error
+    visionMode: tk.document.sight.visionMode,
+    //@ts-expect-error
+    color: globalThis.Color.from(tk.document.sight.color),
+    //@ts-expect-error
+    isPreview: !!tk._original,
+    //@ts-expect-error specialStatusEffects
+    blinded: tk.document.hasStatusEffect(CONFIG.specialStatusEffects.BLIND)
+  });
+
+  if (!tk.vision.los && game.modules.get("perfect-vision")?.active) {
+    error(`canSense los not calcluated. Can't check if ${tk.name} can see`, tk.vision);
+    return false;
+  } else if (!tk.vision.los) {
+    //@ts-expect-error
+    tk.vision.shape = tk.vision._createRestrictedPolygon();
+    //@ts-expect-error
+    tk.vision.los = tk.vision.shape;
+  }
+  //@ts-expect-error
+  tk.vision.anmimated = false;
+  //@ts-expect-error
+  canvas?.effects?.visionSources.set(sourceId, tk.vision);
+  //@ ts-expect-error
+  // tk.document.sight.enabled = sightEnabled;
   return true;
 }
 export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity: Token | TokenDocument, validModesParam: Array<string> = ["all"]): Array<string> {
@@ -5486,8 +5501,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   //@ts-expect-error .hidden
   if (target.document?.hidden || token.document?.hidden) return [];
   if (!token.hasSight && !configSettings.optionalRules.invisVision) return ["senseAll"];
-  if (!token.hasSight && !configSettings.optionalRules.invisVision) return ["senseAll"];
-  if (!initializeVision(token)) return ["noSight"];
+  if ((!token.vision || !token.vision.los) && !initializeVision(token)) return ["noSight"];
   const matchedModes: Set<string> = new Set();
   // Determine the array of offset points to test
   const t = Math.min(target.w, target.h) / 4;
@@ -5504,13 +5518,12 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   const modes = CONFIG.Canvas.detectionModes;
   let validModes = new Set(validModesParam);
 
-  // First test basic detection for light sources which specifically provide vision
   //@ts-expect-error
   const lightSources = foundry.utils.isNewerVersion(game.system.version, "12.0") ? canvas?.effects?.lightSources : canvas?.effects?.lightSources.values();
   for (const lightSource of (lightSources ?? [])) {
     if (/*!lightSource.data.vision ||*/ !lightSource.active || lightSource.disabled) continue;
     if (!validModes.has(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID) && !validModes.has("all")) continue;
-    const result = lightSource.testVisibility(config);
+    const result = lightSource.testVisibility && lightSource.testVisibility(config);
     if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
   }
 
@@ -6296,7 +6309,8 @@ export function isEffectExpired(effect): boolean {
 
 export async function expireEffects(actor, effects: ActiveEffect[], options: any): Promise<any> {
   if (!effects) return {};
-  const effectsToDelete: string[] = [];
+  const actorEffectsToDelete: string[] = [];
+  const effectsToDelete: ActiveEffect[] = [];
   const effectsToDisable: ActiveEffect[] = [];
   for (let effect of effects) {
     if (!effect.id) continue;
@@ -6305,16 +6319,22 @@ export async function expireEffects(actor, effects: ActiveEffect[], options: any
     //@ts-expect-error
     if (effect.transfer)
       effectsToDisable.push(effect);
-    else
-      effectsToDelete.push(effect.id);
+    else if (effect.parent instanceof Actor)
+      actorEffectsToDelete.push(effect.id);
+    else if (effect.parent instanceof Item) // this should be enchantments
+      effectsToDelete.push(effect);
   }
-  if (effectsToDelete.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", effectsToDelete, options);
+  if (actorEffectsToDelete.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", actorEffectsToDelete, options);
   if (effectsToDisable.length > 0) {
     for (let effect of effectsToDisable) {
       await effect.update({ "disabled": true })
     }
   }
-  return { deleted: effectsToDelete, disabled: effectsToDisable };
+  if (effectsToDelete.length > 0) {
+    for (let effect of effectsToDelete)
+      await effect.delete();
+  }
+  return { deleted: actorEffectsToDelete, disabled: effectsToDisable, itemEffects: effectsToDelete };
 }
 
 export function blankOrUndefinedDamageType(s: string | undefined): string {
@@ -6426,4 +6446,14 @@ export async function addConcentrationDependent(actorRef: Token | TokenDocument 
     return concentrationEffect.addDependent(dependent);
   } else
     return socketlibSocket.executeAsGM("addDependent", { concentrationEffectUuid: concentrationEffect.uuid, dependentUuid: dependent.uuid });
+}
+
+export function getAppliedEffects(actor, { includeEnchantments }) {
+  if (!actor) return [];
+  let effects = actor.appliedEffects;
+  if (includeEnchantments) {
+    const enchantments = actor.items.contents.flatMap(i => i.effects.contents).filter(ae => ae.isAppliedEnchantment);
+    effects = effects.concat(enchantments);
+  }
+  return effects;
 }

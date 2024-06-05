@@ -520,7 +520,7 @@
   "midi-qol.DRAllPerDamageDetail.Name": "(House Rule) DRALL (DR.rwak/...) is deducted from BOTH attack damage and Other damage",
   "midi-qol.DRAllPerDamageDetail.Hint": "Unchecked means DRALL applies just once to the total damage",
   "midi-qol.invisible": "Invisible",
-  "midi-qol.hidden": "Hidden",
+  "midi-qol.hidden": "Hiding",
   "midi-qol.nevertarget": "Never Target",
   "midi-qol.DamageCardMultHeader": "Mult",
   "midi-qol.DamageCardUndoHeader": "Undo",
