@@ -1,3 +1,6 @@
+### 11.4.36
+* Midi's config panel will now put in english versions for any options missing from the translated version in drop down lists.
+
 ### 11.4.35
 * Display saving throw results when using non-merge cards - which was broken.
 * Fix for audio-helper error when using midi sounds.

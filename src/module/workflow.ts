@@ -4311,7 +4311,8 @@ export class Workflow {
     for (let target of this.targets) {
       if (!target.actor) continue;  // no actor means multi levels or bugged actor - but we won't roll a save
       let advantage: boolean | undefined = undefined;
-      let advantageMode = game[game.system.id].dice.D20Roll.ADV_MODE.NORMAL;
+      //@ts-expect-error
+      let advantageMode = game.system.dice.D20Roll.ADV_MODE.NORMAL;
       //@ts-expect-error
       const targetActorSystem = target.actor.system;
 
@@ -4328,9 +4329,11 @@ export class Workflow {
       if (wfadvantage && !wfdisadvantage) {
         advantage = false;
         formula = `2d20kl${modString}`;
-        advantageMode = game[game.system.id].dice.D20Roll.ADV_MODE.DISADVANTAGE;
+        //@ts-expect-error
+        advantageMode = game.system.dice.D20Roll.ADV_MODE.DISADVANTAGE;
       } else if (!wfadvantage && wfdisadvantage) {
-        advantageMode = game[game.system.id].dice.D20Roll.ADV_MODE.ADVANTAGE;
+        //@ts-expect-error
+        advantageMode = game.system.dice.D20Roll.ADV_MODE.ADVANTAGE;
         advantage = true;
         formula = `2d20kh${modString}`;
       }
@@ -4350,7 +4353,8 @@ export class Workflow {
               if (this.defenceRequests[requestId]) {
                 delete this.defenceRequests[requestId];
                 delete this.defenceTimeouts[requestId];
-                const result = await (new game[game.system.id].dice.D20Roll(formula, {}, { advantageMode })).roll({ async: true });
+                //@ts-expect-error
+                const result = await (new game.system.dice.D20Roll(formula, {}, { advantageMode })).roll({ async: true });
                 result.toMessage({ flavor: `${this.item.name} ${i18n("midi-qol.ActiveDefenceString")}` });
 
                 resolve(result);
@@ -4361,7 +4365,8 @@ export class Workflow {
       } else {  // must be a GM so can do the roll direct
         promises.push(
           new Promise(async (resolve) => {
-            const result = await (new game[game.system.id].dice.D20Roll(formula, {}, { advantageMode })).roll({ async: true })
+            //@ts-expect-error
+            const result = await (new game.system.dice.D20Roll(formula, {}, { advantageMode })).roll({ async: true })
             displayDSNForRoll(result, "attackRoll")
             resolve(result);
           })
@@ -4861,7 +4866,7 @@ export class DDBGameLogWorkflow extends Workflow {
   }
   async WorkflowState_AwaitTemplate(context: any = {}): Promise<WorkflowState> {
     if (!this.item?.hasAreaTarget) return super.WorkflowState_AwaitTemplate;
-    let system: any = game[game.system.id]
+    let system: any = game.system;
     // Create the template
     const template = system.canvas.AbilityTemplate.fromItem(this.item);
     if (template) template.drawPreview();

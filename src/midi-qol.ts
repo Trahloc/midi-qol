@@ -57,7 +57,8 @@ export function geti18nOptions(key) {
   const translations = game.i18n.translations[MODULE_ID] ?? {};
   //@ts-ignore _fallback not accessible
   const fallback = game.i18n._fallback[MODULE_ID] ?? {};
-  return translations[key] ?? fallback[key] ?? {};
+  let translation = foundry.utils.mergeObject(fallback[key] ?? {}, translations[key] ?? {}, {overwrite: true, inplace: false});
+  return translation;
 }
 export function geti18nTranslations() {
   // @ts-expect-error _fallback
