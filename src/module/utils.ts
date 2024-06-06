@@ -3024,8 +3024,7 @@ export async function expireMyEffects(effectsToExpire: string[]) {
     if (debugEnabled > 1) debug("expiry map is ", test)
   }
 
-  let allEffects = this.actor.items.contents.flatMap(i => i.effects.contents).filter(ae => ae.isAppliedEnchantment)
-  allEffects = allEffects.concat(this.actor.appliedEffects);
+  let allEffects = getAppliedEffects(this.actor, {includeEnchantments: true});
   const myExpiredEffects = allEffects?.filter(ef => {
     const specialDuration = foundry.utils.getProperty(ef.flags, "dae.specialDuration");
     if (!specialDuration || !specialDuration?.length) return false;
@@ -5422,8 +5421,6 @@ export function canSenseModes(tokenEntity: Token | TokenDocument | string, targe
   return _canSenseModes(token, target, validModes);
 }
 export function initializeVision(tk: Token, force = false) {
-  //@ts-expect-error
-  console.warn("initialising vision for ", tk.name, tk.document.sight.enabled, tk.vision?.active);
   //@ts-expect-error
   const sightEnabled = tk.document.sight.enabled;
 

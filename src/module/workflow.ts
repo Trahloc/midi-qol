@@ -3068,6 +3068,7 @@ export class Workflow {
         if (debugEnabled > 1) debug("Trying to whisper message", chatData)
       }
       if (this.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? {}, this.flagTags);
+      chatData.rolls = this.saveRolls;
       // await ChatMessage.create(chatData);
       // Non GMS don't have permission to create the message so hand it off to a gm client
       const result = await timedAwaitExecuteAsGM("createChatMessage", { chatData });
