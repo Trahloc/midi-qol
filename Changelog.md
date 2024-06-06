@@ -1,3 +1,7 @@
+### 11.4.35
+* Display saving throw results when using non-merge cards - which was broken.
+* Fix for audio-helper error when using midi sounds.
+
 ### 11.4.34
 * Fix for overtime effects not expiring correctly when players advance the combat turn.
 * Fix for physical damage bypasses not working in dnd5e 3.2 using midi damage application.

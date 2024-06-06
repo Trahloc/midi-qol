@@ -29,7 +29,7 @@ export class MidiSounds {
     //@ts-ignore
     if (playlist && sound) { // TODO check this v10
       //@ts-expect-error v12 AudioHelper moved to foundry.audio.AudioHelper
-      const faAudioHelper = foundry.audio.AudioHelper;
+      const faAudioHelper = foundry.audio?.AudioHelper;
       if (faAudioHelper)
         return faAudioHelper.play({ src: sound.path, volume: sound.volume, autoplay: true, loop: false }, true);
       return AudioHelper.play({ src: sound.path, volume: sound.volume, autoplay: true, loop: false }, true);
