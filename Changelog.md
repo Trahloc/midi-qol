@@ -1,12 +1,12 @@
 ### 11.4.37
 * Fix for incorrect processing of some damage details passed to doEffects.
-* Remove deprecation warining for debounce in v12
+* Remove deprecation warning for debounce in v12
 * Switch to newer multi select for blind rolls choices.
 * Fix for dsn integration breaking in v12
 * Fix for action save overtime dialog messages being wrong on skill rolls.
 * Fix for multiple damage lines not inheriting the weapon properties correctly, in particular magical/silvered etc. when using dnd5e damage application. The change is noticeable when using CPR Sneak Attack, which would do non-magical sneak attack damage even if the weapon is magical.
 * Fix for not setting fastforward to false for rolls with optional babonuses defined.
-* Fix for weapons target single opponennt overriding specific settings for the item. Thanks @Michael
+* Fix for weapons target single opponent overriding specific settings for the item. Thanks @Michael
 * Support for auto expiring summoned creatures when the summoning item has a duration. Enable via config flag.
 * **Breaking** Skill/Save/Check rolls set to be blind will also be blind when the GM rolls them.
   - if a roll is set to be blind, the before and after chat card will also be blind.
