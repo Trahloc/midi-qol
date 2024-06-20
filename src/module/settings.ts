@@ -71,6 +71,7 @@ class ConfigSettings {
   autoCheckSaves: string = "none";
   autoFastForward: string = "off";
   autoItemEffects: string;
+  autoRemoveSummonedCreature: boolean = false;
   autoRemoveTemplate: boolean;
   autoRollAttack: boolean = false;
   autoRollDamage: string = "none";
@@ -150,9 +151,9 @@ class ConfigSettings {
   rollNPCSaves: string = "auto";
   rollOtherDamage: string | boolean = "none";
   rollOtherSpellDamage: string | boolean = "none";
-  rollChecksBlind: string[] = ["none"];
-  rollSavesBlind: string[] = ["none"];
-  rollSkillsBlind: string[] = ["none"];
+  rollChecksBlind: string[] = [];
+  rollSavesBlind: string[] = [];
+  rollSkillsBlind: string[] = [];
   saveStatsEvery: number = 20;
   showDSN: boolean = true;
   showFastForward: boolean = false;
@@ -357,7 +358,7 @@ export let fetchParams = () => {
   if (configSettings.rollOtherDamage === true) configSettings.rollOtherDamage = "ifSave";
   if (configSettings.rollOtherDamage === undefined) configSettings.rollOtherDamage = "none";
   if (configSettings.rollOtherSpellDamage === "activation") {
-    ui.notifications?.error("midi-qol | rollOtherSpellDamage is set to activation, this is no longer supported, setting to none"); 
+    ui.notifications?.error("midi-qol | rollOtherSpellDamage is set to activation, this is no longer supported, setting to none");
     configSettings.rollOtherSpellDamage = "none";
   }
   if (configSettings.rollOtherSpellDamage === "activation") {
@@ -366,13 +367,16 @@ export let fetchParams = () => {
   }
   configSettings.effectActivation = false;
   if (!configSettings.rollOtherSpellDamage) configSettings.rollOtherSpellDamage = "none";
-  if (!configSettings.rollChecksBlind) configSettings.rollChecksBlind = ["none"];
+  if (!configSettings.rollChecksBlind) configSettings.rollChecksBlind = [];
+  configSettings.rollChecksBlind = configSettings.rollChecksBlind.filter((item) => item !== "none");
   //@ts-expect-error type mismatch - this is for legacy true setting
   if (configSettings.rollChecksBlind === true) configSettings.rollChecksBlind = ["all"];
-  if (!configSettings.rollSavesBlind) configSettings.rollSavesBlind = ["none"];
+  if (!configSettings.rollSavesBlind) configSettings.rollSavesBlind = [];
+  configSettings.rollSavesBlind = configSettings.rollSavesBlind.filter((item) => item !== "none");
   //@ts-expect-error type mismatch - this is for legacy true setting
   if (configSettings.rollSavesBlind === true) configSettings.rollSavessBlind = ["all"];
-  if (!configSettings.rollSkillsBlind) configSettings.rollSkillsBlind = ["none"];
+  if (!configSettings.rollSkillsBlind) configSettings.rollSkillsBlind = [];
+  configSettings.rollSkillsBlind = configSettings.rollSkillsBlind.filter((item) => item !== "none");
   //@ts-expect-error type mismatch - this is for legacy true setting
   if (configSettings.rollSkillsBlind === true) configSettings.rollSkillsBlind = ["all"];
   if (configSettings.promptDamageRoll === undefined) configSettings.promptDamageRoll = false;
@@ -529,7 +533,7 @@ export let fetchParams = () => {
   if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated";
   if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
   if (configSettings.v3DamageApplication === undefined) configSettings.v3DamageApplication = false;
-  
+
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
   criticalDamageGM = String(game.settings.get("midi-qol", "CriticalDamageGM"));
@@ -574,19 +578,17 @@ export let fetchParams = () => {
 
   setDebugLevel(debugText);
 
-  if (safeGetGameSetting(game.system.id, "disableConcentration" ) === false) {
-    if (configSettings.concentrationAutomation) {
-      //@ts-expect-error
-      ui.notifications?.warn(`You must first disable concentration in ${game.system.title} to enable midi concentration automation`);
-    }
-    configSettings.concentrationAutomation = false;
-  }
-  if (configSettings.concentrationAutomation) {
-    // Force on use macro to true
-    if (!configSettings.allowUseMacro) {
-      console.warn("Concentration requires On Use Macro to be enabled. Enabling")
-      configSettings.allowUseMacro = true;
-    }
+  //@ts-expect-error
+  if (configSettings.concentrationAutomation && game.user === game.users?.activeGM) {
+    Hooks.once("ready", () => {
+      if (configSettings.concentrationAutomation) {
+        //@ts-expect-error
+        ui.notifications?.warn(`Midi concentration automation is deprecated in favour of ${game.system.title} concentration checking - settings updated to use ${game.system.id} concentration`, { permanent: true })
+      };
+      configSettings.concentrationAutomation = false;
+      game.settings.set(game.system.id, "disableConcentration", false);
+      game.settings.set("midi-qol", "ConfigSettings", configSettings)
+    });
   }
   Hooks.callAll("midi-qol.ConfigSettingsChanged");
 }

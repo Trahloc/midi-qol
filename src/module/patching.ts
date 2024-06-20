@@ -195,7 +195,7 @@ async function doRollSkill(wrapped, ...args) {
     let rollMode: string = result.options?.rollMode ?? game.settings.get("core", "rollMode");
     const saveRollMode = game.settings.get("core", "rollMode");
     const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
-    if (!game.user?.isGM && blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
+    if (blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
       rollMode = "blindroll";
       game.settings.set("core", "rollMode", "blindroll");
     }
@@ -213,6 +213,7 @@ async function doRollSkill(wrapped, ...args) {
     }
 
     if (rollMode !== "blindroll") rollMode = result.options.rollMode;
+    else result.options.rollMode = "blindroll";
     await displayDSNForRoll(result, "skill", rollMode);
 
     if (!options.simulate) {
@@ -432,9 +433,9 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
 
     if (options.fromMars5eChatCard) { // It seems mtb ignores the advantage/disadvantage flags sent in the request
-      options.advantage = options.event?.altKey;
-      options.disadvantage = options.event?.ctrlKey;
-      if (!autoFastForwardAbilityRolls) options.fastForward = options.event?.shiftKey;
+      options.advantage ||= options.event?.altKey;
+      options.disadvantage ||= options.event?.ctrlKey;
+      if (!autoFastForwardAbilityRolls) options.fastForward ||= options.event?.shiftKey;
     }
     options.advantage ||= options.event?.advantage;
     options.disadvantage ||= options.event?.disadvantage;
@@ -462,11 +463,13 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     delete procOptions.event;
     let messageData;
     const type = rollType === "save" ? "preRollAbilitySave" : "preRollAbilityTest";
+
     Hooks.once(`${game.system.id}.${type}`, (actor, rollData, skillId) => {
       messageData = rollData.messageData;
       if (overtimeActorUuid)
         messageData["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
-    })
+    });
+
     result = await wrapped(abilityId, procOptions);
     if (success === false) {
       result = new Roll("-1[auto fail]");
@@ -498,13 +501,14 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     let blindCheckRoll;
     let blindSaveRoll;
     const saveRollMode = game.settings.get("core", "rollMode");
-    if (!game.user?.isGM && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
+    if (["publicroll", "roll", "gmroll"].includes(rollMode)) {
       switch (rollType) {
         case "check":
           blindCheckRoll = configSettings.rollChecksBlind.includes("all") || configSettings.rollChecksBlind.includes(abilityId);
           if (blindCheckRoll) {
             rollMode = "blindroll";
             game.settings.set("core", "rollMode", "blindroll");
+            result.options.rollMode = "blindroll";
           }
 
           break;
@@ -513,6 +517,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
           if (blindSaveRoll) {
             rollMode = "blindroll";
             game.settings.set("core", "rollMode", "blindroll");
+            result.options.rollMode = "blindroll";
             break;
           }
       }
@@ -1665,7 +1670,7 @@ class CustomizeDamageFormula {
       active: true,
       label: "Formula",
       roll,
-      id: randomID()
+      id: foundry.utils.randomID()
     }));
     const item = rolls[0]?.data.item;
     //@ts-expect-error
@@ -1686,7 +1691,7 @@ class CustomizeDamageFormula {
           active: false,
           label: "Versatile",
           roll: new DamageRoll(versatileFormula, rolls[0].data, rolls[0].options),
-          id: randomID()
+          id: foundry.utils.randomID()
         })
       }
       if ((item.formula ?? "").length > 0) {
@@ -1697,7 +1702,7 @@ class CustomizeDamageFormula {
           active: false,
           label: "Other",
           roll: new DamageRoll(item.formula, rolls[0].data, rolls[0].options),
-          id: randomID()
+          id: foundry.utils.randomID()
         })
       }
     }

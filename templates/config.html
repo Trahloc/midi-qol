@@ -154,6 +154,12 @@
         </div>
 
         <div class="form-group">
+          <label>{{localize "midi-qol.AutoRemoveSummonedCreature.Name"}}</label>
+          <input id="autoRemoveTemplate" type="checkbox" name="autoRemoveSummonedCreature" data-dtype="Boolean"
+            {{checked configSettings.autoRemoveSummonedCreature}} />
+        </div>
+
+        <div class="form-group">
           <label>{{localize "midi-qol.RangeTarget.Name"}}</label>
           <select name="rangeTarget" data-dtype="String">
             {{selectOptions rangeTargetOptions selected=configSettings.rangeTarget}}
@@ -401,6 +407,7 @@
     <!-- Concentration tab-->
     <div class="tab" data-tab="concentration" data-group="sections">
       <!-- Concentration-->
+      {{#if displayConcentrationAutomation}}
       <div class="midi-qol-box">
         <div class="form-group">
           <label>{{localize "midi-qol.ConcentrationAutomation.Name"}}</label>
@@ -409,7 +416,7 @@
           <div class="notes midi-qol-faint">{{{localize "midi-qol.ConcentrationAutomation.Hint"}}}</div>
         </div>
       </div>
-
+      {{/if}}
       <div class="midi-qol-box">
         <div class="form-group">
           <label>{{localize "midi-qol.DoConcentrationCheck.Name"}}</label>
@@ -427,7 +434,8 @@
           <label>{{localize "midi-qol.ConcentrationIncapacitatedConditionCheck.Name"}}</label>
           <input type="checkbox" name="concentrationIncapacitatedConditionCheck" data-dtype="Boolean" {{checked
             configSettings.concentrationIncapacitatedConditionCheck}} />
-          <div class="notes midi-qol-faint">{{{localize "midi-qol.ConcentrationIncapacitatedConditionCheck.Hint"}}}</div>
+          <div class="notes midi-qol-faint">{{{localize "midi-qol.ConcentrationIncapacitatedConditionCheck.Hint"}}}
+          </div>
         </div>
 
         <div class="form-group">
@@ -567,23 +575,30 @@
       <div class="midi-qol-box">
         <div class="form-group">
           <label>{{localize "midi-qol.RollChecksBlind.Name"}}</label>
-          <select class="midi-qol-blind-select" name="rollChecksBlind" multiple>
+          <multi-select class="midi-qol-blind-select" name="rollChecksBlind">
             {{selectOptions RollChecksBlindOptions selected=configSettings.rollChecksBlind}}
-          </select>
+            {{#each rollChecksBlind}}
+            <option value "{{id}}" {{selected id ../configSettings.rollChecksBlind.id}}>{{name}}</option>
+            {{/each}}
+          </multi-select>
         </div>
-
         <div class="form-group">
           <label>{{localize "midi-qol.RollSavesBlind.Name"}}</label>
-          <select class="midi-qol-blind-select" name="rollSavesBlind" multiple>
+          <multi-select class="midi-qol-blind-select" name="rollSavesBlind">
             {{selectOptions RollSavesBlindOptions selected=configSettings.rollSavesBlind}}
-          </select>
+            {{#each rollSavesBlind}}
+            <option value "{{id}}" {{selected id ../configSettings.rollSavesBlind.id}}>{{name}}</option>
+            {{/each}}
+          </multi-select>
         </div>
-
         <div class="form-group">
           <label>{{localize "midi-qol.RollSkillsBlind.Name"}}</label>
-          <select class="midi-qol-blind-select" name="rollSkillsBlind" multiple>
+          <multi-select class="midi-qol-blind-select" name="rollSkillsBlind">
             {{selectOptions RollSkillsBlindOptions selected=configSettings.rollSkillsBlind}}
-          </select>
+            {{#each rollSkillsBlind}}
+            <option value "{{id}}" {{selected id ../configSettings.rollSkillsBlind.id}}>{{name}}</option>
+            {{/each}}
+          </multi-select>
         </div>
       </div>
       <div class="midi-qol-box">
@@ -876,11 +891,11 @@
         <div class="form-group midiPropoertiesTab">
           <label>{{localize "midi-qol.MidiPropertiesTab.Name"}}</label>
           <select name="midiPropertiesTabRole" data-dtype="String">
-             {{selectOptions midiPropertiesTabOptions selected=configSettings.midiPropertiesTabRole}}
+            {{selectOptions midiPropertiesTabOptions selected=configSettings.midiPropertiesTabRole}}
           </select>
           <div class="notes midi-qol-faint">{{{localize "midi-qol.MidiPropertiesTab.Hint"}}}</div>
         </div>
-        
+
         <div class="form-group allowActorUseMacro">
           <label>{{localize "midi-qol.AllowActorUseMacro.Name"}}</label>
           <input id="allowActorUseMacro" type="checkbox" name="allowActorUseMacro" data-dtype="Boolean" {{checked
@@ -972,8 +987,8 @@
           <label>{{localize "midi-qol.ShowFastForward.Name"}}</label>
           <input type="checkbox" name="showFastForward" data-dtype="Boolean" {{checked
             configSettings.showFastForward}} />
-            <div class="notes midi-qol-faint">{{{localize "midi-qol.ShowFastForward.Hint"}}}</div>
-          </div>
+          <div class="notes midi-qol-faint">{{{localize "midi-qol.ShowFastForward.Hint"}}}</div>
+        </div>
 
       </div>
       <div class="midi-qol-box">
@@ -987,8 +1002,8 @@
           <label>{{localize "midi-qol.UsePlayerPortrait.Name"}}</label>
           <input type="checkbox" name="usePlayerPortrait" data-dtype="Boolean" {{checked
             configSettings.usePlayerPortrait}} />
-            <div class="notes midi-qol-faint">{{{localize "midi-qol.UsePlayerPortrait.Hint"}}}</div>
-          </div>
+          <div class="notes midi-qol-faint">{{{localize "midi-qol.UsePlayerPortrait.Hint"}}}</div>
+        </div>
 
       </div>
       <div class="midi-qol-box">
@@ -1010,9 +1025,9 @@
           <label>{{localize "midi-qol.PlayerStatsOnly.Name"}}</label>
           <input type="checkbox" name="playerStatsOnly" data-dtype="Boolean" {{checked
             configSettings.playerStatsOnly}} />
-            <div class="notes midi-qol-faint">{{{localize "midi-qol.PlayerStatsOnly.Hint"}}}</div>
-          </div>
-          <button type="button" name="show-stats" id="midi-qol-show-stats">
+          <div class="notes midi-qol-faint">{{{localize "midi-qol.PlayerStatsOnly.Hint"}}}</div>
+        </div>
+        <button type="button" name="show-stats" id="midi-qol-show-stats">
           <i class="fas fa-dice-d20"></i> {{localize "midi-qol.ShowStats"}}
         </button>
       </div>
@@ -1037,8 +1052,8 @@
           <label>{{localize "midi-qol.UseCustomSounds.Name"}}</label>
           <input id="useCustomSounds" type="checkbox" name="useCustomSounds" data-dtype="Boolean" {{checked
             configSettings.useCustomSounds}} />
-            <div class="notes midi-qol-faint">{{{localize "midi-qol.UseCustomSounds.Hint"}}}</div>
-          </div>
+          <div class="notes midi-qol-faint">{{{localize "midi-qol.UseCustomSounds.Hint"}}}</div>
+        </div>
       </div>
     </div>
 

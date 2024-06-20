@@ -322,7 +322,7 @@ export async function removeEffectUuids(data: { actorUuid: string; effects: stri
       debug("removeFunc: remove effects started")
       const actor = MQfromActorUuid(data.actorUuid);
       if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
-      const effectsToDelete = getAppliedEffects(actor, {includeEnchantments: true}).filter(ef => data.effects.includes(ef.uuid));
+      const effectsToDelete = getAppliedEffects(actor, { includeEnchantments: true }).filter(ef => data.effects.includes(ef.uuid));
       return await expireEffects(actor, effectsToDelete, data.options);
     } catch (err) {
       const message = `GMACTION: remove effects error for ${data?.actorUuid}`;
@@ -739,7 +739,8 @@ async function createV3ReverseDamageCard(data: {
   actorUuid: string,
   updateContext: any,
   forceApply: boolean,
-  actorId: string
+  actorId: string,
+  chatCardUuid
 }
 ) {
   let cardIds: string[] = [];
@@ -768,14 +769,15 @@ async function createV3PlayerDamageCard(data: {
   actorUuid: string,
   updateContext: any,
   forceApply: boolean,
+
   actorId: string
 }): Promise<string | undefined> {
+  let shouldShow = true;
+  let chatCardUuid;
   /*
-let shouldShow = true;
-let chatCardUuid;
 if (configSettings.playerCardDamageDifferent) {
   shouldShow = false;
-  for (let damageItem of data.damageList) {
+  for (let damageItem of data.allDamages) {
     if (damageItem.totalDamage !== damageItem.appliedDamage) shouldShow = true;
   }
 }
@@ -783,6 +785,7 @@ if (!shouldShow) return;
 if (configSettings.playerDamageCard === "none") return;
 let showNPC = ["npcplayerresults", "npcplayerbuttons"].includes(configSettings.playerDamageCard);
 let playerButtons = ["playerbuttons", "npcplayerbuttons"].includes(configSettings.playerDamageCard);
+
 const damageList = data.damageList;
 //@ts-ignore
 let actor: CONFIG.Actor.documentClass; // { update: (arg0: { "system.attributes.hp.temp": any; "system.attributes.hp.value": number; "flags.dae.damageApplied": any; damageItem: any[] }) => Promise<any>; img: any; type: string; name: any; data: { data: { traits: { [x: string]: any; }; }; }; };
@@ -816,11 +819,11 @@ if (["yesCard", "noCard", "yesCardNPC", "yesCardMisses", "noCardMisses"].include
     // whisper: ChatMessage.getWhisperRecipients("players").filter(u => u.active).map(u => u.id),
     flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
   };
-          //@ts-expect-error
+          //@ ts-expect-error
         if (game.release.generation < 12) {
           chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
         } else {
-          //@ts-expect-error
+          //@t s-expect-error
           chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
         }
   if (data.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", data.flagTags);
@@ -843,7 +846,8 @@ async function createV3GMReverseDamageCard(
     actorUuid: string,
     updateContext: any,
     forceApply: boolean,
-    actorId: string
+    actorId: string,
+    chatCardUuid
   },
   doHits: boolean = true): Promise<string | undefined> {
   let chatCardUuid;
@@ -856,6 +860,7 @@ async function createV3GMReverseDamageCard(
     needsButtonAll: false,
     tooltip: ""
   };
+
   //@ts-expect-error
   const aggregator = game.system.dice.aggregateDamageRolls;
   //@ts-expect-error
@@ -1467,16 +1472,27 @@ async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: n
 }
 
 export async function rollActionSave(data: any) {
-  let {request, actorUuid, abilities, options, content, title, saveDC} = data;
+  let { request, actorUuid, abilities, options, content, title, saveDC } = data;
   let saveResult: any = await new Promise(async (resolve, reject) => {
     const buttons: any = {};
     for (let ability of abilities) {
-      let config: any = {type: request,  dc: saveDC, action: "rollRequest", hideDC: !game.user?.isGM && !configSettings.displaySaveDC, format: "short", icon: true};
-      if (["check", "save"].includes(request)) config.ability =  ability;
-      else if (request === "skill") config.skill = ability;
+      let config: any = {
+        type: request,
+        dc: saveDC,
+        action: "rollRequest",
+        hideDC: !game.user?.isGM && !configSettings.displaySaveDC,
+        format: "short",
+        icon: true
+      };
+      if (["check", "save"].includes(request)) config.ability = ability;
+      else if (request === "skill") {
+        config.skill = ability;
+        //@ts-expect-error
+        config.ability = game.system.config.skills[ability].ability;
+      }
       const button = {
-      //@ts-expect-error
-      label: game.system?.enrichers?.createRollLabel(config) ?? `${saveDC} ${ability} ${request}`,
+        //@ts-expect-error
+        label: game.system?.enrichers?.createRollLabel(config) ?? `${saveDC} ${ability} ${request}`,
         callback: async (html: any) => {
           let roll = await rollAbility({
             targetUuid: actorUuid,
@@ -1503,11 +1519,11 @@ export async function rollActionSave(data: any) {
         title,
         content: `<style>  #${id} .dialog-buttons { flex-direction: column;} </style> ${content}`,
         buttons,
-        rejectClose: false, 
-        close: () => {return (null)}
-      }, {"id": id});
+        rejectClose: false,
+        close: () => { return (null) }
+      }, { "id": id });
     }
     resolve("invalid");
   })
- return saveResult
+  return saveResult
 }

@@ -303,6 +303,19 @@
   scrollbar-width: thin;
 }
 
+.dice-result .dice-tooltip .dice .total {
+    flex: 50%;
+    max-width: 62.66px;
+}
+
+.dice-result .dice-tooltip .dice .dice-rolls {
+    flex: 50%;
+}
+
+.dice-result .dice-tooltip .dice .total .label {
+    white-space: normal;
+}
+
 .dice-result .midi-dice-tooltip {
   flex: auto;
   order: unset;
@@ -557,6 +570,7 @@
       gap: 0.15rem; 
   }
   
+  
   .dice-result .dice-tooltip .tooltip-part {
       padding: 0;
   }
@@ -573,7 +587,7 @@
     margin-top: 0.1rem;
   }
   
-  .midi-qol-attack-roll > div:nth-child(1), .midi-qol-damage-roll > div:nth-child(1) {
+  .midi-qol-attack-roll > div:nth-child(1), .midi-qol-damage-roll > div:nth-child(1), .midi-qol-other-damage-roll > div:nth-child(1) {
     text-transform: uppercase;
     font-size: 10px;
     font-weight: bold;

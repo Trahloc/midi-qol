@@ -348,7 +348,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       allowedTargets = 9999;
     else
       allowedTargets = (this.system.target?.type === "creature" ? this.system.target?.value : 9999) ?? 9999;
-    if (requiresTargets && configSettings.enforceSingleWeaponTarget && allAttackTypes.includes(this.system.actionType)) {
+    if (requiresTargets && configSettings.enforceSingleWeaponTarget && allAttackTypes.includes(this.system.actionType) && allowedTargets === 9999) {
       allowedTargets = 1;
       if (requiresTargets && targetsToUse.size !== 1) {
         ui.notifications?.warn(i18nFormat("midi-qol.wrongNumberTargets", { allowedTargets }));
@@ -543,14 +543,14 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     for (let tokenRef of targetsToUse) {
       const target = getToken(tokenRef);
       if (!target) continue;
-        if (
-          //@ts-expect-error - sight not enabled but we are treating it as if it is
-          (!target.document.sight.enabled && configSettings.optionalRules.invisVision) 
-          //@ts-expect-error - sight enabled but not the owner of the token
-          || (!target.isOwner && target.document.sight.enabled)
-          || (!target.vision || !target.vision?.los)) {
-          initializeVision(target);
-          needPause = game.modules.get("levels-3d-preview")?.active ?? false;
+      if (
+        //@ts-expect-error - sight not enabled but we are treating it as if it is
+        (!target.document.sight.enabled && configSettings.optionalRules.invisVision)
+        //@ts-expect-error - sight enabled but not the owner of the token
+        || (!target.isOwner && target.document.sight.enabled)
+        || (!target.vision || !target.vision?.los)) {
+        initializeVision(target);
+        needPause = game.modules.get("levels-3d-preview")?.active ?? false;
       }
     }
     if (needPause) {
@@ -1103,17 +1103,14 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
       for (let i = 0; i < result.length; i++) {
         result[i] = await result[i].reroll({ maximize: true });
       }
-      // result = result.map(r => new DamageRoll(r.formula).roll({ maximize: true, async: false }));
     } else if (needsMinDamage) {
       for (let i = 0; i < result.length; i++) {
         result[i] = await result[i].reroll({ minimize: true });
-        // result = result.map(r => new DamageRoll(r.formula).roll({ minimize: true, async: false }));
       }
     } else if (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kh`) || foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kl`)) {
       let result2: Roll[] = [];
       for (let i = 0; i < result.length; i++) {
         result2.push(await result[i].reroll({ async: true }));
-        // result2 = result.map(r => r.reroll({ async: false }));
       }
       if ((foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kh`) && (sumRolls(result2) > sumRolls(result)))
         || (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kl`) && (sumRolls(result2) < sumRolls(result)))) {

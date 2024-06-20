@@ -235,7 +235,7 @@ export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, 
  * 
  */
 
-export let getTraitMult = (actor, dmgTypeString, item): number => {
+export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[] = []): number => {
   dmgTypeString = getDamageType(dmgTypeString);
   let totalMult = 1;
   if (dmgTypeString.includes("healing") || dmgTypeString.includes("temphp")) totalMult = -1;
@@ -255,8 +255,9 @@ export let getTraitMult = (actor, dmgTypeString, item): number => {
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.system.attackBonus > 0);
     magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.type !== "weapon");
     magicalDamage = magicalDamage || (configSettings.requireMagical === "nonspell" && item?.type === "spell");
-    const silverDamage = item?.system.properties.has("sil") || magicalDamage;
-    const adamantineDamage = item?.system.properties?.has("ada");
+    magicalDamage = magicalDamage || damageProperties.includes("mgc");
+    const silverDamage = item?.system.properties.has("sil") || magicalDamage || damageProperties.includes("sil");
+    const adamantineDamage = item?.system.properties?.has("ada") || damageProperties.includes("ada");
     const physicalDamage = phsyicalDamageTypes.includes(dmgTypeString);
 
     let traitList = [
@@ -884,7 +885,6 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
   if (configSettings.v3DamageApplication) {
     const allDamages = {};
-
     for (let token of theTargets) {
       if (!token.actor) continue;
       const tokenDocument = getTokenDocument(token);
@@ -909,6 +909,11 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         challengeModeScale = scale;
       }
 
+      // TODO make the reaction call for reaction damaged
+      if (workflow.damageRolls?.length || workflow.otherDamageRoll || workflow.bonusDamageRolls?.length) {
+        const isHealing = ("heal" === workflow.item?.system.actionType);
+        await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? [workflow.otherDamageRoll], !isHealing ? "reactiondamage" : "reactionheal", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
+      }
       for (let [rolls, saves, type] of [[workflow.damageRolls, baseDamageSaves, "defaultDamage"], [(workflow.otherDamageMatches?.has(token) ?? true) ? [workflow.otherDamageRoll] : [], workflow.saves, "otherDamage"], [workflow.bonusDamageRolls, bonusDamageSaves, "bonusDamage"]]) {
         const tokenDamages = allDamages[tokenDocument.uuid].tokenDamages;
         if (rolls?.length > 0 && rolls[0]) {
@@ -946,13 +951,14 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
           //@ts-expect-error
           let returnDamages = token.actor.calculateDamage(damages, options);
-          workflow.damages = returnDamages;
+          workflow.damages = foundry.utils.duplicate(returnDamages);
+
+
           //@ts-expect-error isEmpty
           if (!foundry.utils.isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
             await workflow.callMacros(workflow.item, workflow.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
             if (workflow.ammo) await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
           }
-          returnDamages = workflow.damages;
           const appliedTotal = returnDamages.reduce((acc, value) => acc + value.value, 0);
           allDamages[tokenDocument.uuid].totalDamage += (options.midi.totalDamage ?? 0);
           allDamages[tokenDocument.uuid].appliedDamage += (appliedTotal ?? 0);
@@ -1745,7 +1751,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         if (theItem) itemData = theItem.toObject();
       }
 
-      itemData.img = effect.img ?? effect.icon; // v12 icon -> img
+      itemData.img = effect.icon ?? effect.img; // v12 icon -> img
       foundry.utils.setProperty(itemData, "system.save.dc", saveDC);
       foundry.utils.setProperty(itemData, "system.save.scaling", "flat");
       itemData.type = "equipment";
@@ -1768,10 +1774,12 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         let skill = saveAbility[0];
         if (!GameSystemConfig.skills[skill]) { // not a skill id see if the name matches an entry
           //@ts-expect-error
-          const skillEntry = Object.entries(GameSystemConfig.skills).find(([id, entry]) => entry.label.toLocaleLowerCase() === skill)
-          if (skillEntry) skill = skillEntry[0];
-
-        }
+          const skillEntry: any = Object.entries(GameSystemConfig.skills).find(([id, entry]) => entry.label.toLocaleLowerCase() === skill)
+          if (skillEntry) {
+            skill = skillEntry[0];
+            foundry.utils.setProperty(itemData, "system.save.ability", skillEntry.ability);
+          }
+        } else foundry.utils.setProperty(itemData, "system.save.ability", GameSystemConfig.skills[skill].ability)
         foundry.utils.setProperty(itemData, "flags.midi-qol.overTimeSkillRoll", skill)
       }
 
@@ -1937,7 +1945,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
     const magicItemUuid = item.magicItem.items.find(i => i.id === item.id)?.uuid;
     theItem = await fromUuid(magicItemUuid);
   } else theItem = item;
-  options = mergeObject(options, { workflowOptions: { forceCompletion: true } })
+  options = foundry.utils.mergeObject(options, { workflowOptions: { forceCompletion: true } })
   // delete any existing workflow - complete item use always is fresh.
   if (Workflow.getWorkflow(theItem.uuid)) await Workflow.removeWorkflow(theItem.uuid);
   let localRoll = (!options.asUser && game.user?.isGM) || !options.checkGMStatus || options.asUser === game.user?.id;
@@ -2139,9 +2147,15 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
   // const snappedOrigin = canvas?.grid?.getSnappedPosition(x,y)
   const origin = new PIXI.Point(x, y);
   const tokenCenter = token.center;
-  const ray: Ray = new Ray(origin, tokenCenter)
-  distance = canvas?.grid?.measureDistances([{ ray }], { gridSpaces: false })[0];
-  distance = Math.max(0, distance);
+  //@ts-expect-error
+  if (game.release.generation >= 12) {
+    //@ts-expect-error
+    distance = Math.max(canvas.grid.meaasurePath([origin, tokenCenter]).distance);
+  } else {
+    const ray: Ray = new Ray(origin, tokenCenter)
+    distance = canvas?.grid?.measureDistances([{ ray }], { gridSpaces: false })[0];
+    distance = Math.max(0, distance);
+  }
   return distance;
 }
 
@@ -2333,7 +2347,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   return distance;
 };
 
-let pointWarn = debounce(() => {
+let pointWarn = foundry.utils.debounce(() => {
   ui.notifications?.warn("4 Point LOS check selected but dnd5e-helpers not installed")
 }, 100)
 
@@ -3024,7 +3038,7 @@ export async function expireMyEffects(effectsToExpire: string[]) {
     if (debugEnabled > 1) debug("expiry map is ", test)
   }
 
-  let allEffects = getAppliedEffects(this.actor, {includeEnchantments: true});
+  let allEffects = getAppliedEffects(this.actor, { includeEnchantments: true });
   const myExpiredEffects = allEffects?.filter(ef => {
     const specialDuration = foundry.utils.getProperty(ef.flags, "dae.specialDuration");
     if (!specialDuration || !specialDuration?.length) return false;
@@ -3440,8 +3454,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       if (showRoll && newRoll !== originalRoll) {
         //TODO match the renderRoll to the roll type
         const newRollHTML = await midiRenderRoll(newRoll);
-        const originalRollHTML = await midiRenderRoll(originalRoll)
-        const chatData: any = mergeObject({
+        const originalRollHTML = await midiRenderRoll(originalRoll);
+        const chatData: any = foundry.utils.mergeObject({
           flavor: `${title}`,
           speaker: ChatMessage.getSpeaker({ actor: this.actor }),
           content: `${originalRollHTML}<br>${newRollHTML}`,
@@ -3458,8 +3472,10 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           //@ts-expect-error
           chatData.style = CONST.CHAT_MESSAGE_STYLES.ROLL;
         }
-        ChatMessage.applyRollMode(chatData, rollMode);
-        ChatMessage.create(chatData);
+        //@ts-expect-error
+        if (originalRoll.options.rollMode) ChatMessage.applyRollMode(chatData, originalRoll.options.rollMode);
+        else ChatMessage.applyRollMode(chatData, rollMode);
+        await ChatMessage.create(chatData);
         foundry.utils.setProperty(newRoll, "flags.midi-qol.chatMessageShown", true);
       }
       resolve(newRoll)
@@ -5232,9 +5248,19 @@ export function computeFlankingStatus(token, target): boolean {
 
   if (!token.document.disposition) return false; // Neutral tokens can't get flanking
   if (allies.length <= 1) return false; // length 1 means no other allies nearby
+  let gridW;
+  let gridH;
 
-  let gridW = canvas?.grid?.w ?? 100;
-  let gridH = canvas?.grid?.h ?? 100;
+  //@ts-expect-error
+  if (game.release.generation > 11) {
+    //@ts-expect-error
+    gridW = canvas?.grid?.sizeX ?? 100;
+    //@ts-expect-error
+    gridH = canvas?.grid?.sizeY ?? 100;
+  } else {
+    let gridW = canvas?.grid?.w ?? 100;
+    let gridH = canvas?.grid?.h ?? 100;
+  }
   const tl = { x: target.x, y: target.y };
   const tr = { x: target.x + target.document.width * gridW, y: target.y };
   const bl = { x: target.x, y: target.y + target.document.height * gridH };
@@ -5518,7 +5544,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   //@ts-expect-error
   const lightSources = foundry.utils.isNewerVersion(game.system.version, "12.0") ? canvas?.effects?.lightSources : canvas?.effects?.lightSources.values();
   for (const lightSource of (lightSources ?? [])) {
-    if (/*!lightSource.data.vision ||*/ !lightSource.active || lightSource.disabled) continue;
+    if (/*!lightSource.data.vision ||*/ !lightSource.active || lightSource.data.disabled) continue;
     if (!validModes.has(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID) && !validModes.has("all")) continue;
     const result = lightSource.testVisibility && lightSource.testVisibility(config);
     if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
@@ -5698,7 +5724,7 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
               // for attack rolls only add a d20 if only one was rolled - else it becomes clear what is happening
               if (["attackRoll", "attackRollD20"].includes(rollType ?? "") && term.faces === 20 && term.number !== 1) continue;
               let numExtra = Math.ceil(term.number * Math.random());
-              let extraDice = new Die({ faces: term.faces, number: numExtra }).evaluate();
+              let extraDice = await (new Die({ faces: term.faces, number: numExtra }).evaluate());
               term.number += numExtra;
               term.results = term.results.concat(extraDice.results);
             }
@@ -5999,16 +6025,30 @@ export function midiMeasureDistances(segments, options: any = {}) {
     isGridless = canvas?.grid?.grid?.constructor.name === "BaseGrid";
   }
   if (!isGridless || !options.gridSpaces || !configSettings.griddedGridless) {
-    const distances = canvas?.grid?.measureDistances(segments, options);
-    if (!configSettings.gridlessFudge) return distances; // TODO consider other impacts of doing this
-    return distances;
-    return distances?.map(d => Math.max(0, d - configSettings.gridlessFudge));
+    //@ts-expect-error
+    if (game.release.generation >= 12) {
+      //@ts-expect-error
+      const distances = segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]).distance)
+      return distances;
+    } else {
+      const distances = canvas?.grid?.measureDistances(segments, options);
+      if (!configSettings.gridlessFudge) return distances; // TODO consider other impacts of doing this
+      return distances;
+      return distances?.map(d => Math.max(0, d - configSettings.gridlessFudge));
+    }
   }
 
   const rule = safeGetGameSetting("dnd5e", "diagonalMovement") ?? "EUCL"; // V12
 
-  if (!configSettings.gridlessFudge || !options.gridSpaces || !["555", "5105", "EUCL"].includes(rule))
-    return canvas?.grid?.measureDistances(segments, options);
+  if (!configSettings.gridlessFudge || !options.gridSpaces || !["555", "5105", "EUCL"].includes(rule)) {
+    //@ts-expect-error
+    if (game.release.generation >= 12) {
+      //@ts-expect-error
+      return segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]).distance)
+    } else {
+      return canvas?.grid?.measureDistances(segments, options);
+    }
+  }
 
   // Track the total number of diagonals
   let nDiagonal = 0;
@@ -6073,6 +6113,14 @@ export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
   if (!roll) return bonusRoll;
   //@ts-expect-error _evaluated
   if (!roll._evaluated) roll = roll.clone().evaluate({ async: false }); // V12
+  else {
+    for (let term of roll.terms) {
+      //@ts-expect-error _evaluated
+      if (!term._evaluated && term instanceof OperatorTerm) {
+        term.evaluate();
+      }
+    }
+  }
   //@ts-expect-error _evaluate
   if (!bonusRoll._evaluated) bonusRoll = bonusRoll.clone().evaluate({ async: false }) // V12
   let terms;

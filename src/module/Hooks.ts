@@ -100,7 +100,6 @@ export let readyHooks = async () => {
     }
   });
 
-
   // Handle removal of concentration
   Hooks.on("deleteActiveEffect", (...args) => {
     let [deletedEffect, options, user] = args;
@@ -147,20 +146,55 @@ export let readyHooks = async () => {
 
   Hooks.on("dnd5e.preItemUsageConsumption", preItemUsageConsumptionHook);
 
-  Hooks.on("dnd5e.preRollAttack", (item, rollConfig) => {
-    if (rollConfig.fastForward && rollConfig.dialogOptions.babonus?.optionals?.length) rollConfig.fastForward = false;
+  // Midi sets fastForward to true for most of these rolls - based on roll settings
+  // need to handle the cases where there is an optional babonus defined and disable fastforward.
+
+  Hooks.on("babonus.filterBonuses", (bonuses, object, details, hookType) => {
+    foundry.utils.setProperty(object, "flags.midi-qol.babonusOptional", bonuses.filter(bonus => bonus.optional));
   });
 
-  Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
-    if (rollConfig.fastForward && rollConfig.dialogOptions.babonus?.optionals?.length) rollConfig.fastForward = false;
-    if ((item.parent instanceof Actor && item.type === "spell")) {
-      const actor = item.parent;
-      const actorSpellBonus = foundry.utils.getProperty(actor, "system.bonuses.spell.all.damage");
-      if (actorSpellBonus) rollConfig.rollConfigs[0].parts.push(actorSpellBonus);
-    }
-    return preRollDamageHook(item, rollConfig)
+  Hooks.on("dnd5e.preRollAttack", (item, rollConfig) => {
+    rollConfig.fastForward &&= !foundry.utils.getProperty(item, "flags.midi-qol.babonusOptional")?.length;
+    rollConfig.fastForward &&= !rollConfig.dialogOptions?.babonus?.optionals?.length; // V11 only
+    return true;
   });
-  // Hooks.on("dnd5e.rollDamage", rollDamageMacro);
+
+
+  Hooks.on("dnd5e.preRollAbilitySave", (actor, rollData, abilityId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
+    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
+    return true;
+  })
+
+  Hooks.on("dnd5e.preRollAbilityTest", (actor, rollData, abilityId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
+    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
+    return true;
+  });
+
+  Hooks.on("dnd5e.preRollToolCheck", (actor, rollData, toolId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
+    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
+    return true;
+  });
+
+  Hooks.on("dnd5e.preRollSkill", (actor, rollData, skillId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
+    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
+    return true;
+  })
+
+  Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
+    rollConfig.fastForward &&= !foundry.utils.getProperty(item, "flags.midi-qol.babonusOptional")?.length;
+    rollConfig.fastForward &&= !rollConfig.dialogOptions?.babonus?.optionals?.length; // V11 only
+    return true;
+  });
+
+  Hooks.on("dnd5e.preRollDeathSave",  (actor, rollData, abilityId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
+    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
+    return true;
+  });
 
   Hooks.on("updateCombat", (combat: Combat, update, options, userId) => {
     //@ts-expect-error
@@ -173,7 +207,6 @@ export let readyHooks = async () => {
     }
   });
 
-  // Hooks.on("dnd5e.preRollDeathSave", preRollDeathSaveHook);
   Hooks.on("dnd5e.rollDeathSave", deathSaveHook);
   // Concentration Check is rolled as an item roll so we need an item.
   itemJSONData.name = concentrationCheckItemName;
@@ -831,6 +864,14 @@ export const itemJSONData = {
     },
   }
 }
+Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
+  if ((item.parent instanceof Actor && item.type === "spell")) {
+    const actor = item.parent;
+    const actorSpellBonus = foundry.utils.getProperty(actor, "system.bonuses.spell.all.damage");
+    if (actorSpellBonus) rollConfig.rollConfigs[0].parts.push(actorSpellBonus);
+  }
+  return preRollDamageHook(item, rollConfig)
+});
 
 Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
@@ -866,7 +907,7 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
       }
     }
     // For damage absorption ignore other immunity/resistance/vulnerability
-    if (actor.system.traits.da) {
+    if (actor.system.traits.da && false) { // not doing this makes absorbing tatoos much easier to implement
       for (let damage of damages) {
         if (ignore("absorption", damage.type, false)) continue;
         if (actor.system.traits.da?.value?.has(damage.type) || actor.system.traits.da?.all) {

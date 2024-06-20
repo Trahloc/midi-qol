@@ -1,3 +1,25 @@
+### 11.4.37
+* Fix for incorrect processing of some damage details passed to doEffects.
+* Remove deprecation warining for debounce in v12
+* Switch to newer multi select for blind rolls choices.
+* Fix for dsn integration breaking in v12
+* Fix for action save overtime dialog messages being wrong on skill rolls.
+* Fix for multiple damage lines not inheriting the weapon properties correctly, in particular magical/silvered etc. when using dnd5e damage application. The change is noticeable when using CPR Sneak Attack, which would do non-magical sneak attack damage even if the weapon is magical.
+* Fix for not setting fastforward to false for rolls with optional babonuses defined.
+* Fix for weapons target single opponennt overriding specific settings for the item. Thanks @Michael
+* Support for auto expiring summoned creatures when the summoning item has a duration. Enable via config flag.
+* **Breaking** Skill/Save/Check rolls set to be blind will also be blind when the GM rolls them.
+  - if a roll is set to be blind, the before and after chat card will also be blind.
+* **Breaking** Midi concentration is now fully deprecated in favour of dnd5e concentration. 
+  - The concentration automation setting has been removed and if was enabled midi will enable dnd5e concentration automation and disable midi-concentration.
+  - All of the other midi concentration settings still apply.
+* **Breaking** SRD thrown weapons are defined as melee weapons with the thrown property (dagger, dart etc). Accodingly midi's checking for nearby foes granting disadvantage has changed to
+  - If the item is making a ranged attack (rwak/rsak) a nearby foe will cause disadvantage.
+  - If the item has the thrown property and mwak/msak and the range is less than the disadvantage threshold midi will treat the attack as a mwak/msak and not apply disadvantage to the roll.
+* **Breaking** Midi damage application decides if damage is magical/silvered/adamantine based only on the item's properties used to roll the damage. These properties are inheritied for EVERY damage roll (base damage, bonus damage/other Damage). So a non-magical weapon with Hunter's Mark will do non-magical damage.
+  - DND5e Damage application assigns the weapon properties to all base damage rolls and OtherDamage roll, bonusDamage rolls have their own independent properties. So a non-magical weapon doing Hunter's Mark damage can do magical Hunter's Mark Damage.
+* Preferred route for bonus damage rolls is now to return a DamageRoll, which allows you to specify additional damage properties. e.g. for Hunter's Mark return await (newDamageRoll("1d6", {}, {properties: ["mgc", flavor: "Hunter's Mark"]})). The existing mechanism is still supported.
+
 ### 11.4.36
 * Midi's config panel will now put in english versions for any options missing from the translated version in drop down lists.
 

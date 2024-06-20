@@ -1,4 +1,3 @@
-2024/05/08-19:32:38.481667 7fc464bf9640 Log #608: 0 ops saved to Table #611 OK
-2024/05/08-19:32:38.481834 7fc464bf9640 Archiving /home/timp/foundry-data/foundryv11dnd3/Data/modules/midi-qol/packs/sampleitems/000608.log: OK
-2024/05/08-19:32:38.483265 7fc464bf9640 Table #610: 195 entries OK
-2024/05/08-19:32:38.486718 7fc464bf9640 **** Repaired leveldb /home/timp/foundry-data/foundryv11dnd3/Data/modules/midi-qol/packs/sampleitems; recovered 1 files; 292776 bytes. Some data may have been lost. ****
+2024/06/21-01:47:18.119751 7fd941fbf640 Log #901: 0 ops saved to Table #902 OK
+2024/06/21-01:47:18.119863 7fd941fbf640 Archiving /home/timp/foundry-data/foundryv11dnd3/Data/modules/midi-qol/packs/sampleitems/000901.log: OK
+2024/06/21-01:47:18.122765 7fd941fbf640 **** Repaired leveldb /home/timp/foundry-data/foundryv11dnd3/Data/modules/midi-qol/packs/sampleitems; recovered 0 files; 0 bytes. Some data may have been lost. ****
