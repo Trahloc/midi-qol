@@ -81,9 +81,10 @@
     "Creare Falò",
     "Fulmine Adescante",
     "Spruzzo Velenoso",
-    "Cordone di Frecce",
+    "Cordone di Freccia",
     "Disintegrazione",
     "Fiamma Sacra",
+    "Cordone di Frecce",
     "Morsa del Gelo",
     "Infestazione",
     "Rintocco dei Morti",
@@ -126,10 +127,11 @@
 "midi-qol.halfDamage": "la metà del danno",
 "midi-qol._comment for translators_halfDamageAlt": "Il testo di seguito è cercato da midi nella descrizione dell'incantesimo",
 "midi-qol.halfDamageAlt": "danno dimezzato",
+"midi-qol.halfDamageText": "{damageType}",
 "midi-qol._comment for translators_noDamage": "Entrambe le linee di testo di seguito sono cercate da midi nella descrizione dell'incantesimo",
 "midi-qol.noDamage": "nessun danno su salvataggio",
 "midi-qol.noDamageAlt": "salvataggio senza danno",
-"midi-qol.noDamageText": "Nessun danno su salvataggio",
+"midi-qol.noDamageText": "{damageType}",
 "midi-qol.PreRollChecks.Name": "Sperimentale: Applica controlli prima del tiro rapido/macro",
 "midi-qol.PreRollChecks.Hint": "Sperimentale: controlli prima del tiro di un oggetto; attualmente nella portata e il lanciatore ha > 0 HP",
 "midi-qol.noTargets": "Devi selezionare un token prima di lanciare l'attacco",
@@ -152,7 +154,8 @@
     "maxDamageExplode": "Massimo danno di base ed esplodi i dadi critici",
     "explodeCharacter": "Esplodi i dadi critici del personaggio",
     "explodeNPC": "Esplodi i dadi critici dell'NPC",
-    "baseDamage": "Solo Danno Extra dell'Arma"
+    "baseDamage": "Solo Danno Extra dell'Arma",
+    "maxBaseRollCrit": "Max Base Roll Crit"
 },
 "midi-qol.MergeCard.Name": "Unisci i Lanci in una sola scheda",
 "midi-qol.MergeCard.Hint": "Unisci Attacchi, Colpi, Danni, Tiri di Salvataggio in una sola scheda chat",
@@ -167,6 +170,7 @@
 "midi-qol.saving-throw": "Tiro Salvezza",
 "midi-qol.ability-check": "Prova Caratteristica",
 "midi-qol.ability-checks": "Prove Caratteristica",
+"midi-qol.skill-check": "Prova Abilità",
 "midi-qol.noAttackRoll": "Devi tirare l'attacco prima di lanciare il danno",
 "midi-qol.config": "Configurazione Midi QoL",
 "midi-qol.Hint": "Configura le varie impostazioni del workflow per midi-qol. Sii avvertito, ce ne sono molte",
@@ -213,8 +217,10 @@
 "midi-qol.autoTargetOptions": {
     "none": "Nessuno",
     "always": "Sempre",
+    "alwaysIgnoreIncapacitated": "Sempre - Ignora Incapacitati/Morti",
     "alwaysIgnoreDefeated": "Sempre - Ignora Sconfitti",
     "wallsBlock": "Blocchi del Muro",
+    "wallsBlockIgnoreIncapacitated": "Blocchi del Muro - Ignora Incapacitati/Morti",
     "wallsBlockIgnoreDefeated": "Blocchi del Muro - Ignora Sconfitti",
     "dftemplates": "Usa Modelli Enhanced di DF",
     "walledtemplates": "Usa Modelli con Muri"
@@ -229,8 +235,10 @@
 "midi-qol.rangeTargetOptions": {
     "none": "Nessuno",
     "always": "Sempre",
+    "alwaysIgnoreIncpacitated": "Sempre - Ignora Incapacitati/Morti",
     "alwaysIgnoreDefeated": "Sempre - Ignora Sconfitti",
     "wallsBlock": "Blocchi del Muro",
+    "wallsBlockIgnoreInacpacitated": "Blocchi del Muro - Ignora Incapacitati/Morti",
     "wallsBlockIgnoreDefeated": "Blocchi del Muro - Ignora Sconfitti"
 },
 "midi-qol.autoRollDamageOptions": {
@@ -278,7 +286,8 @@
     "autoDialog": "Tira automaticamente e mostra il dialogo di tiro",
     "letme": "Fammi Tira Quello Per Te",
     "letmeQuery": "LMRTFY + Query",
-    "mtb": "Barra del Token del Monaco"
+    "mtb": "Barra del Token del Monaco",
+    "rer": "Rippers Epic Rolls"
 },
 "midi-qol.playerRollSavesOptions": {
     "none": "Nessuno",
@@ -286,7 +295,8 @@
     "letme": "Fammi Tira Quello Per Te",
     "letmeQuery": "LMRTFY + Query",
     "chat": "Messaggio Chat",
-    "mtb": "Barra del Token del Monaco"
+    "mtb": "Barra del Token del Monaco",
+    "rer": "Rippers Epic Rolls"
 },
 "midi-qol.playerRollSavesOptionsReduced": {
     "none": "Nessuno",
@@ -312,13 +322,15 @@
     "d20Only": "Mostra solo l'Attacco d20 + il totale del Danno",
     "hitDamage": "Mostra Colpo/Errore + il totale del Danno",
     "hitCriticalDamage": "Mostra Colpo/Errore/Colpo Critico/Errore Critico + il totale del Danno",
+    "attackTotalOnly": "Mostra solo il totale del tiro per colpire",
     "d20AttackOnly": "Mostra solo il d20 di Attacco",
     "all": "Intero Lancio"
 },
 "midi-qol.RollOtherDamageOptions": {
     "none": "Spento",
-    "ifSave": "Se il Tiro di Salvataggio è presente",
-    "activation": "Condizione di Attivazione"
+    "always": "Tira Sempre",
+    "condition": "Altra condizione verificata",
+    "ifSave": "Condizione verificata e TS presente"
 },
 "midi-qol.potion": "Pozione",
 "midi-qol.HideRollDetails.Name": "Nascondi dettagli dei lanci GM",
@@ -338,6 +350,7 @@
 "midi-qol.EnableWorkflow.Name": "Abilita supporto automazione dei lanci",
 "midi-qol.EnableWorkflow.Hint": "Se abilitato, è possibile configurare l'automazione dei lanci nel pannello delle Impostazioni di Workflow",
 "midi-qol.magicalProp": "Magico",
+"midi-qol.confirmTargetsProp": "Conferma Bersagli",
 "midi-qol.noDamageSaveProp": "Nessun Danno al Salvataggio",
 "midi-qol.fullDamageSaveProp": "Danno Completo al Salvataggio",
 "midi-qol.defaultDamageType": "Nessuno",
@@ -373,6 +386,8 @@
     "preDamageApplication": "Prima dell'applicazione del Danno",
     "preActiveEffects": "Prima degli Effetti Attivi",
     "postActiveEffects": "Dopo gli Effetti Attivi",
+    "isTargeted": "Il bersaglio è targhettato ma prima del tiro",
+    "isPreAttacked": "Il bersaglio è attaccato, prima che vengano controllate le reazioni",
     "isAttacked": "Target subisce un attacco",
     "isHit": "Target di un colpo andato a segno",
     "preTargetSave": "Il Target sta per effettuare un tiro di salvataggio",
@@ -391,6 +406,7 @@
 "midi-qol.AutoFastForwardAttack.Name": "Avanzamento Veloce Automatico dell'Attacco",
 "midi-qol.AutoFastForwardDamage.Name": "Avanzamento Veloce Automatico del Danno",
 "midi-qol.midi-none": "Nessun Danno",
+"midi-qol.noType": "Nessun Tipo",
 "midi-qol.ItemList": "Scegli oggetti da mostrare sui dettagli della scheda dell'oggetto",
 "midi-qol.DisplayItems": "Mostra Dettagli",
 "midi-qol.fastForward": "(veloce)",
@@ -426,6 +442,9 @@
 "midi-qol.Hits": "Colpi",
 "midi-qol.Misses": "Mancati",
 "midi-qol.Saves": "Salvataggi",
+"midi-qol.SavesBase": "Se il bersaglio salva fai normale danno",
+"midi-qol.SavesBonus": "Se il bersaglio salva applica la macro del danno bonus",
+"midi-qol.SavesOther": "Se il bersaglio salva fai danno alternativo",
 "midi-qol.Damage": "Danno",
 "midi-qol.Concentrating": "Concentrazione",
 "midi-qol.concentrationCheckName": "Controllo Concentrazione",
@@ -448,6 +467,13 @@
 },
 "midi-qol.InvisVision.Name": "Forza la visione durante il controllo",
 "midi-qol.InvisVision.Hint": "Se selezionato, si comporta come se tutti i token avessero la visione abilitata. Non selezionato: i token senza visione possono vedere tutto",
+"midi-qol.HiddenAdvantage.Name": "Attaccanti nascosti hanno vantaggio/svantaggio negli attacchi",
+"midi-qol.HiddenAdvantage.Hint": "Attaccanti nascosti hanno vantaggio negli attacchi. Svantaggio se il bersaglio è nascosto",
+"midi-qol.HiddenAdvantageOptions": {
+  "none": "Non applicare",
+  "effect": "Controlla lo Stato 'Nascosto'",
+  "perceptive": "Percezione"
+},
 "midi-qol.CantSeeAdvantage.Hint": "(Usa Visione del Token) Gli attaccanti invisibili hanno vantaggio sui bersagli che non possono vederli. Svantaggio se possono vedere il bersaglio",
 "midi-qol.CheckRange.Name": "Controlla la gittata dell'arma durante l'attacco",
 "midi-qol.CheckRangeOptions": {
@@ -468,7 +494,8 @@
   "centerLevels": "Centro + Livelli",
   "levelsautocover": "Copertura Automatica Livelli",
   "simbuls-cover-calculator": "Calcolatore di Copertura Simbuls",
-  "tokencover": "Copertura Alternativa dei Token"
+  "tokencover": "Copertura Alternativa dei Token",
+  "tokenvisibility": "Visibilità alternativa Token - deprecated"
 },
 "midi-qol.NearbyAllyRanged.Name": "(Regola della Casa) Gli attacchi a distanza contro nemici vicini agli alleati hanno svantaggio.",
 "midi-qol.WallsBlockRangeOptions": {
@@ -482,7 +509,8 @@
   "none": "Nessuna",
   "simbuls-cover-calculator": "Calcolatore di Copertura di Simbul",
   "levelsautocover": "Copertura Automatica Livelli",
-  "tokencover": "Copertura Alternativa dei Token"
+  "tokencover": "Copertura Alternativa dei Token",
+  "tokenvisibility": "Visibilità alternativa Token - deprecated"
 },
 "midi-qol.NearbyAllyRanged.Hint": "Gli attacchi a distanza con alleati nelle vicinanze (5 piedi) del bersaglio hanno svantaggio per i bersagli più piccoli di questa dimensione (l*l). 0 disabilita",
 "midi-qol.Incapacitated.Name": "Gli attori incapaci non possono effettuare azioni o reazioni",
@@ -522,6 +550,14 @@
   "nonspell": "Gli oggetti non incantesimi fanno danno non magico",
   "allitems": "Tutti gli oggetti fanno danno non magico"
 },
+"midi-qol.DoConcentrationCheck.Name": "Obbliga prova di concentrazione quando si prende danno",
+"midi-qol.DoConcentrationCheckOptions": {
+  "none": "Mai",
+  "chatOnly": "Solo messaggio chat",
+  "chat": "Messaggio Chat + Tiro Automatico",
+  "item": "Tiro Concentrazione"
+},
+"midi-qol.DoConcentrationCheck.Hint": "<strong>Solo Messaggio Chat</strong> mostra un messaggio in chat con un pulsante (richiede concentrazione dnd5e)<br><strong>Messaggio Chat + Tiro Automatico</strong> mostra un messaggio in chat e tira automaticamente il TS (richiede concentrazione dnd5e)<br><strong>Tiro Concentrazione</strong> Tira prova concentrazione (funzione standard midi)",
 "midi-qol.RemoveConcentration.Name": "Rimuovi la concentrazione in caso di fallimento del tiro salvezza",
 "midi-qol.RemoveConcentration.Hint": "Se abilitato, la concentrazione verrà rimossa in caso di fallimento del tiro salvezza quando si subisce danno, altrimenti deve essere rimossa manualmente",
 "midi-qol.UsePlayerPortrait.Name": "Usa il ritratto dell'attore nelle carte della chat di midi-qol",
@@ -548,7 +584,8 @@
 "midi-qol.ActiveDefenceString": "Difesa Attiva",
 "midi-qol.ActiveDefence.Name": "Difesa Attiva",
 "midi-qol.ActiveDefence.Hint": "Invece di far effettuare il tiro 'Per Colpire' al GM, i giocatori effettuano un tiro di difesa. Richiede LMRTFY e non funziona con migliori tiri",
-"midi-qol.ActiveDefenceShowGM.Name": "Il GM vede i tiri di difesa attiva",
+"midi-qol.ActiveDefenceShow.Name": "Visualizzazione predefinita per tiri di difesa attiva",
+"midi-qol.ActiveDefenceShow.Hint": "Se impostato su 'Tiro Automatico' quando si usa LMRTFY, il tiro è nascosto al DM secondo le altre impostazioni",
 "midi-qol.PromptDamageRoll.Name": "Prompt Migliorato per il Tiro del Danno",
 "midi-qol.PromptDamageRoll.Hint": "Quando si utilizza il Prompt per il Tiro del Danno, visualizza un prompt migliorato che supporta la scelta del danno dell'oggetto.",
 "midi-qol.GMHide3dDice.Name": "Nascondi i tiri del GM per attacco/danno/tiro salvezza a 3D - sovrascrive altre impostazioni (unisci solo scheda)",
@@ -576,8 +613,14 @@
 "midi-qol.NonSilverPhysical": "Danno Fisico Non d'Argento",
 "midi-qol.NonAdamantinePhysical": "Danno Fisico Non d'Adamantio",
 "midi-qol.NonMagical": "Danno Non Magico",
+"midi-qol.NonMagicalPhysical": "Non Magico o Fisico",
 "midi-qol.Magical": "Danno Magico",
+"midi-qol.ConditionHeader": "Condizioni di Attivazione",
+"midi-qol.EffectActivationCondition.Name": "Applicazione Effetto",
 "midi-qol.EffectActivation": "Condizione di Attivazione vera richiesta per l'effetto",
+"midi-qol.ItemActivationCondition.Name": "Utilizzo Oggetto",
+"midi-qol.ReactionActivationCondition.Name": "Reazione",
+"midi-qol.OtherActivationCondition.Name": "Danno alternativo",
 "midi-qol.HPUpdated": "Punti Ferita Aggiornati",
 "midi-qol.HPNPCUpdated": "Punti Ferita PNG Aggiornati",
 "midi-qol.HPNotUpdated": "Punti Ferita Non Aggiornati",
@@ -587,32 +630,40 @@
 "midi-qol.ddbGL.Name": "Abilita il supporto ddb-game-log",
 "midi-qol.ddbGL.Hint": "Accetta attacchi/danni/tiri salvezza da ddb-game-log per attivare i flussi di lavoro midi in Foundry",
 "midi-qol.ShowReactionChatMessage.Name": "Mostra il prompt della chat per le reazioni",
-"midi-qol.reactionFlavorPreAttack": "{actorName} viene attaccato da {itemName} e può usare una reazione",
-"midi-qol.reactionFlavorAttack": "{actorName} viene colpito da {itemName} e può usare una reazione",
-"midi-qol.reactionFlavorDamage": "{actorName} viene danneggiato da {itemName} e può usare una reazione",
+"midi-qol.reactionFlavorHit": "{actorName} è colpito da {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorTargeted":"{actorName} è bersagliato da {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorMiss":  "{actorName} è mancato da {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorCrit":  "{actorName} subisce critico da {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorFumble":  "{actorName} è attaccato da {itemName} che manca malamente e può usare la reazione ",
+"midi-qol.reactionFlavorHeal":  "{actorName} è curato da {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorDamage": "{actorName} subisce danno da {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorAttacked": "{actorName} è attaccato da {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorPreAttack": "{actorName} sta per essere attaccato da {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorSave": "{actorName} effettua TS a causa di {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorSaveFail":  "{actorName} fallisce TS a causa di {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorSaveSuccess":  "{actorName} supera TS a causa di {itemName} e può usare la reazione",
+"midi-qol.reactionFlavorMoved": "è spostato",
 "midi-qol.AccelKeysOverride.Name": "I tasti di velocità midi-qol sovrascrivono gli altri",
 "midi-qol.AccelKeysOverride.Hint": "Se impostato, midi utilizzerà sempre le corrispondenze dei tasti di velocità per vantaggio/svantaggio, invece di deferire a migliori tiri (ad esempio)",
 "midi-qol.NoWorkflow": "Nessun flusso di lavoro per l'oggetto {itemName}",
 "midi-qol._comment for translators_DeferText": "Il testo qui sotto viene cercato da midi nel campo onUseMacro nei dati dell'oggetto. Se lo cambiate, ogni oggetto con un onUseMacro dovrà essere modificato per corrispondere",
 "midi-qol.DeferText": "[Rimanda]",
 "midi-qol._comment for translators_ItemMacroText": "Il testo qui sotto viene cercato da midi nel campo onUseMacro nei dati dell'oggetto. Se lo cambiate, ogni oggetto con un onUseMacro dovrà essere modificato per corrispondere",
-"midi-qol.ItemMacroText": "MacroOggetto",
-"midi-qol.LateTargeting.Name": "Selezione Obiettivo Ritardata",
-"midi-qol.LateTargeting.Hint": "Quando si effettua il tiro automatico di attacco, gli oggetti che non sono ad Area d'Effetto, a Distanza o auto-targetting si metteranno in pausa e aspetteranno la selezione degli obiettivi.",
-"midi-qol.LateTargeting.Blurb": "Scegli {targetCount} obiettivi",
-"midi-qol.LateTargetingOptions": {
-  "none": "Nessuna Selezione Obiettivo Ritardata",
-  "noTargetsSelected": "Selezione Obiettivo Ritardata solo se nessuno è selezionato",
-  "all": "Mostra selezione obiettivo ritardata tranne che per Area d'Effetto e Area a Distanza",
-  "onlyArea": "Mostra selezione obiettivo ritardata solo per Area d'Effetto e Area a Distanza",
-  "allArea": "Mostra sempre selezione obiettivo ritardata"
-},
+"midi-qol.ItemMacroText": "Macro Oggetto",
+"midi-qol.TargetConfirmationConfig.Name": "Conferma Bersaglio",
+"midi-qol.TargetConfirmationConfig.Hint": "Quando si Tira, confermare il bersaglio prima di completare il lancio",
+"midi-qol.TargetConfirmation.Name": "Conferma Bersaglio",
+"midi-qol.TargetConfirmation.Blurb": "Seleziona fino a {targetCount} bersagli. Shift+Click per selezionare bersagli multipli",
+"midi-qol.TargetConfirmation.BlurbAny": "Seleziona qualunque numero di bersagli. Shift+Click per selezionare bersagli multipli",
+
 "midi-qol.AddDead.Name": "Aggiungi effetto Quando HP = 0",
-"midi-qol.AddDead.Hint": "Aggiungi 'Sconfitto' per PNG, Effetto Conveniente 'Incosciente' per PG",
+
+"midi-qol.AddDead.Hint1": "Controllato dal Giocatore",
+"midi-qol.AddDead.Hint2": "Controllato dal DM",
 "midi-qol.AddDeadOptions": {
   "none": "Non Aggiornare",
   "overlay": "Aggiungi effetto come sovrapposizione",
-  "normal": "aggiungi effetto come icona"
+  "normal": "Aggiungi effetto come icona"
 },
 "midi-qol.Wounded": "Ferito",
 "midi-qol.AddWounded.Name": "Segna come Ferito quando PF scendono sotto %",
@@ -657,7 +708,8 @@
 "midi-qol.ShowReactionAttackRollOptions": {
   "none": "Colpo dell'attacco",
   "d20": "Solo il tiro del d20",
-  "all": "Tiro totale di attacco"
+  "all": "Tiro totale di attacco",
+  "allCrit": "Tiro totale di attacco + Critico"
 },
 "midi-qol.Reactions": "Prompt per le Reazioni",
 "midi-qol.ReactionsTab": "Reazioni",
@@ -741,9 +793,8 @@
 "midi-qol.ShowFastForward.Hint": "Mostra l'indicatore Fast Forward sui pulsanti di attacco e danno",
 "midi-qol.MeasuredTemplate": "Template",
 "midi-qol.AutoRemoveTemplate.Name": "Rimuovi automaticamente il template piazzato alla scadenza dell'incantesimo",
+"midi-qol.AutoRemoveSummonedCreature.Name": "Auto rimuovi creature evocate per durata terminata o concentrazione persa (per evocazioni dnd5e)",
 "midi-qol.AttackPerTarget.Name": "Effettua un tiro di attacco separato per bersaglio",
-"midi-qol.itemUseHooks.Name": "Utilizza i ganci di utilizzo dell'oggetto",
-"midi-qol.itemUseHooks.Hint": "NON impostare questo - usato per il test dell'autore",
 "midi-qol.SkillAbilityCheckAdvantage.Name": "Vantaggio sulla Prova Caratteristica conferisce Vantaggio sull'Abilità",
 "midi-qol.SkillAbilityCheckAdvantage.Hint": "Se un attore ha vantaggio/svantaggio su Prova Caratteristica, le abilità basate su quella caratteristica avranno vantaggio/svantaggio",
 "midi-qol.ignoreTotalCover": "Nessun Copertura Totale",
@@ -797,7 +848,85 @@
   "GMPlayer": "Il GM e il Giocatore possono confermare"
 },
 "midi-qol.ConfirmRoll": "Conferma",
-"midi-qol.ConfirmMiss": "Conferma Errore",
-"midi-qol.ConfirmHit": "Conferma Colpo",
-"midi-qol.AverageNPCDamage.Name": "Tutti i dadi del danno/critico lanciati per gli attacchi dei PNG sono risultati 'medi'"
+"midi-qol.ConfirmMiss": "Conferma Mancato",
+"midi-qol.ConfirmHit": "Conferma Colpito",
+"midi-qol.AverageDamage.Name": "Tutti i tiri per i danni/critici sono risultati medi",
+"midi-qol.AverageDamageOptions" : {
+  "none": "Nessuno",
+  "npc": "Solo i tiri per il danno degli PNG",
+  "character": "Solo i tiri per il danno dei PG",
+  "all": "Tutti i tiri di danno"
+},
+"midi-qol.GriddedGridless.Name": "Scene senza Griglia",
+"midi-qol.GridlessFudge.Name": "Fattore di Conversione",
+"midi-qol.GridlessFudge.Hint": "Scala il fattore di conversione dalla distanza misurata quando si controlla la gittata. Specifico per griglie con unità di conversione come ft/m",
+"midi-qol.GriddedGridless.Hint": "Se impostato, midi userà la griglia quadrata per tutte i calcoli delle distanze nelle scene senza griglia",
+"midi-qol.targetConfirmationPosition": "Conferma Posizione Bersaglio",
+"midi-qol.TargetConfirmationEnabled": "Abilita Conferma Bersaglio",
+"midi-qol.TargetConfirmationAll": "Conferma sempre i bersagli",
+"midi-qol.TargetConfirmationNoneTargeted": "Conferma bersagli se nessuno è selezionato",
+"midi-qol.TargetConfirmation.hasAttack": "Conferma bersagli se si ha un attacco",
+"midi-qol.TargetConfirmationCreatureTarget": "Conferma bersagli se si ha come bersaglio una creatura",
+"midi-qol.TargetConfirmationSelfTarget": "Conferma bersagli se si bersaglia se stessi ",
+"midi-qol.TargetConfirmationAoETarget": "Conferma bersagli se l'attacco è un Area di Effetto",
+"midi-qol.TargetConfirmationRangedAoE": "Conferma bersagli se l'attacco è un Area di Effetto a distanza",
+"midi-qol.TargetConfirmationLongRangeTarget": "Conferma bersagli se qualche bersaglio è a gittata lunga",
+"midi-qol.TargetConfirmationCoveredTarget": "Conferma bersagli se qualche bersaglio ha copertura",
+"midi-qol.TargetConfirmationMixedDisposition": "Conferma bersagli se si bersagliano alleati e nemici",
+"midi-qol.TargetConfirmationAllies": "Conferma bersagli se qualche bersaglio è un alleato",
+"midi-qol.OutOfRange": "Fuori Gittata",
+"midi-qol.SaveDROrder.Name": "Ordine di Riduzione del Danno e TS",
+"midi-qol.SaveDROrder.Hint": "Ordine nel quale è applicata la Riduzione del Danno. Se 'Nessuno' si applica la Riduzione del Danno",
+"midi-qol.SaveDROrderOptions": {
+  "DRSavedr": "Riduzione Danno -> TS -> Resistenza Danno",
+  "SaveDRdr": "TS -> Riduzione Danno -> Resistenza Danno"
+},
+"midi-qol.WaitingForPreviousWorkflow": "Il precedente tiro di {name} non è stato completato.",
+"midi-qol.ConfirmTargetOptions": {
+  "default": "Impostazioni Midi",
+  "always": "Sempre",
+  "never": "Mai"
+},
+"midi-qol.SaveDamageOptions": {
+  "default": "Impostazioni Midi", 
+  "fulldam": "Danno Pieno", 
+  "halfdam": "Metà Danno", 
+  "nodam": "Nessun Danno"
+},
+"midi-qol.MidiSettings": "Impostazioni Midi",
+"midi-qol.ConcentrationIncapacitatedConditionCheck.Name": "Rimuovi Concentrazione quando è applicato lo status di incapacitato",
+"midi-qol.ConcentrationIncapacitatedConditionCheck.Hint": "Incapacitato, Morto, Incosciente, Pietrificato, Paralizzato and Stordito rimuovono Concentrazione",
+"midi-qol.AoETargetType.Name": "Tipo di bersaglio ad Area di Effetto",
+"midi-qol.AoETargetType.Hint": "Midi bersaglierà solo i token del tipo specificato quando si usano templates ad Area di Effetto",
+"midi-qol.AoETargetTypeOptions": {
+  "any": "Chiunque",
+  "ally": "Alleato",
+  "notAlly": "Non Alleato",
+  "enemy": "Nemico",
+  "notEnemy": "Non Nemico",
+  "neutral": "Neutrale",
+  "notNeutral": "Non Neutrale",
+  "hostile": "Ostile",
+  "notHostile": "Not Ostile",
+  "Friendly": "Amichevole",
+  "notFriendly": "Not Amichevole"
+},
+"midi-qol.AoETargetTypeIncludeSelf.Name": "Include sè stesso nei bersagli dell'Area di Effetto",
+"midi-qol.AutoCompleteWorkflow.Name": "Autocompleta il workflow se richiesto",
+"midi-qol.AutoCompleteWorkflow.Hint": "I Workflows saranno segnalati come completi se lanciati prima del completamento, non saranno lanciati dadi extra",
+"midi-qol.squareRadius": "Raggio Quadrato",
+"midi-qol.AddFakeDice.Name": "Aggiungi finti dadi ai tiri del DM con Dice So Nice",
+"midi-qol.MidiFieldsTab.Name": "Mostra i campi degli oggetti di Midi in schede separate",
+"midi-qol.UndoChatColor.Name": "Cancella Chat Cards Color",
+"midi-qol.UndoChatColor.Hint": "Rimuove la Chat Card. Altrimenti le chats sono ricolorate",
+"midi-qol.v3DamageApplication.Name": "Usa il calcolo del danno di DND5E",
+"midi-qol.v3DamageApplication.Hint": "Sperimentale. Se abilitato, Midi userà il calcolo del danno di DND5E. Il cambio richiede di ricaricare l'applicazione",
+"DND5E.DamageApplication.Change.Absorption": "{type} Assorbimento",
+"DND5E.DamageApplication.Change.Spell": "Personalizza Incantesimo {type}",
+"DND5E.DamageApplication.Change.Magic": "Personalizza Magico {type}",
+"DND5E.DamageApplication.Change.Nonmagic": "Personalizza Non Magico {type}",
+"DND5E.DamageApplication.Change.Saved": "Salvato {type}",
+"midi-qol.SettingsSearch": "Cerca Impostazioni",
+"midi-qol.MidiPropertiesTab.Name": "Ruolo utente minimo per la scheda delle proprietà degli oggetti",
+"midi-qol.MidiPropertiesTab.Hint": "Ruolo utente minimo che permette di accedere alla scheda delle proprietà degli oggetti di Midi-QoL. <strong>Cambio richiede di ricaricare</strong>"
 }
