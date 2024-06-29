@@ -1856,6 +1856,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           saveDC,
           checkGMStatus: true,
           targetUuids: [theTargetUuid],
+          ignoreUserTargets: true,
           rollMode,
           workflowOptions: { targetConfirmation: "none", autoRollDamage: "onHit", fastForwardDamage, isOverTime: true, allowIncapacitated },
           flags: {
@@ -1939,6 +1940,8 @@ export async function completeItemRoll(item, options: any) {
 
 export async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false, targetUuids: [], asUser: undefined }) {
   let theItem: any;
+  let targetsToUse = new Set();
+
   if (typeof item === "string") {
     theItem = MQfromUuid(item);
   } else if (!(item instanceof CONFIG.Item.documentClass)) {
@@ -1952,13 +1955,15 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
   if (localRoll) {
     return new Promise((resolve) => {
       let saveTargets = Array.from(game.user?.targets ?? []).map(t => { return t.id });
-      let selfTarget = false;
       if (options.targetUuids?.length > 0 && game.user && theItem.system.target.type !== "self") {
-        game.user.updateTokenTargets([]);
+        if (!options.ignoreUserTargets) game.user.updateTokenTargets([]);
         for (let targetUuid of options.targetUuids) {
           const theTarget = MQfromUuid(targetUuid);
-          if (theTarget) theTarget.object.setTarget(true, { user: game.user, releaseOthers: false, groupSelection: true });
+          if (theTarget && !options.ignoreUserTargets) theTarget.object.setTarget(true, { user: game.user, releaseOthers: false, groupSelection: true });
+          targetsToUse.add(theTarget.object)
         }
+      } else if (options.targetUuids === undefined && !options.ignoreUserTargets) {
+        targetsToUse = new Set(game.user?.targets);
       }
       let hookName = `midi-qol.postCleanup.${item?.uuid}`;
       if (!(item instanceof CONFIG.Item.documentClass)) {
@@ -1967,7 +1972,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
       }
       Hooks.once(hookName, (workflow) => {
         if (debugEnabled > 0) warn(`completeItemUse hook fired: ${workflow.workflowName} ${hookName}`)
-        if (!workflow.aborted && saveTargets && game.user) {
+        if (!workflow.aborted && saveTargets && game.user && !options.ignoreUserTargets) {
           game.user?.updateTokenTargets(saveTargets);
         }
         resolve(workflow);
@@ -1976,6 +1981,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
       if (item.magicItem) {
         item.magicItem.magicItemActor.roll(item.magicItem.id, item.id);
       } else {
+        options.targetsToUse = targetsToUse
         item.use(config, options).then(result => { if (!result) resolve(result) });
       }
     })
@@ -2150,7 +2156,7 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
   //@ts-expect-error
   if (game.release.generation >= 12) {
     //@ts-expect-error
-    distance = Math.max(canvas.grid.meaasurePath([origin, tokenCenter]).distance);
+    distance = canvas.grid.measurePath([origin, tokenCenter]).distance;
   } else {
     const ray: Ray = new Ray(origin, tokenCenter)
     distance = canvas?.grid?.measureDistances([{ ray }], { gridSpaces: false })[0];
@@ -2555,64 +2561,71 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
   let existingCoverBonus = foundry.utils.getProperty(target, "actor.flags.midi-qol.acBonus") ?? 0;
   if (!attacker) return existingCoverBonus;
   let coverBonus = 0;
-  //@ts-expect-error .Levels
-  let levelsAPI = CONFIG.Levels?.API;
-  switch (configSettings.optionalRules.coverCalculation) {
-    case "levelsautocover":
-      if (!installedModules.get("levelsautocover") || !game.settings.get("levelsautocover", "apiMode")) return 0;
-      //@ts-expect-error
-      const coverData = AutoCover.calculateCover(attacker.document ? attacker : attacker.object, target.document ? target : target.object);
-      // const coverData = AutoCover.calculateCover(attacker, target, {DEBUG: true});
-      //@ts-expect-error
-      const coverDetail = AutoCover.getCoverData();
-      if (coverData.rawCover === 0) coverBonus = FULL_COVER;
-      else if (coverData.rawCover > coverDetail[1].percent) coverBonus = 0;
-      else if (coverData.rawCover < coverDetail[0].percent) coverBonus = THREE_QUARTERS_COVER;
-      else if (coverData.rawCover < coverDetail[1].percent) coverBonus = HALF_COVER;
-      if (coverData.obstructingToken) coverBonus = Math.max(2, coverBonus);
-      console.log("midi-qol | ComputerCoverBonus - For token ", attacker.name, " attacking ", target.name, " cover data is ", coverBonus, coverData, coverDetail)
-      break;
-    case "simbuls-cover-calculator":
-      if (!installedModules.get("simbuls-cover-calculator")) return 0;
-      if (globalThis.CoverCalculator) {
+  try {
+    //@ts-expect-error .Levels
+    let levelsAPI = CONFIG.Levels?.API;
+    switch (configSettings.optionalRules.coverCalculation) {
+      case "levelsautocover":
         //@ts-expect-error
-        const coverData = globalThis.CoverCalculator.Cover(attacker.document ? attacker : attacker.object, target);
-        if (attacker === target) {
-          coverBonus = 0;
-          break;
+        if (!installedModules.get("levelsautocover") || !game.settings.get("levelsautocover", "apiMode") || !AutoCover) return 0;
+        //@ts-expect-error
+        const coverData = AutoCover.calculateCover(attacker.document ? attacker : attacker.object, target.document ? target : target.object);
+        // const coverData = AutoCover.calculateCover(attacker, target, {DEBUG: true});
+        //@ts-expect-error
+        const coverDetail = AutoCover.getCoverData();
+        if (coverData.rawCover === 0) coverBonus = FULL_COVER;
+        else if (coverData.rawCover > coverDetail[1].percent) coverBonus = 0;
+        else if (coverData.rawCover < coverDetail[0].percent) coverBonus = THREE_QUARTERS_COVER;
+        else if (coverData.rawCover < coverDetail[1].percent) coverBonus = HALF_COVER;
+        if (coverData.obstructingToken) coverBonus = Math.max(2, coverBonus);
+        console.log("midi-qol | ComputerCoverBonus - For token ", attacker.name, " attacking ", target.name, " cover data is ", coverBonus, coverData, coverDetail)
+        break;
+      case "simbuls-cover-calculator":
+        if (!installedModules.get("simbuls-cover-calculator")) return 0;
+        if (globalThis.CoverCalculator) {
+          //@ts-expect-error
+          const coverData = globalThis.CoverCalculator.Cover(attacker.document ? attacker : attacker.object, target);
+          if (attacker === target) {
+            coverBonus = 0;
+            break;
+          }
+          if (coverData?.data?.results.cover === 3) coverBonus = FULL_COVER;
+          else coverBonus = -coverData?.data?.results.value ?? 0;
+          console.log("midi-qol | ComputeCover Bonus - For token ", attacker.name, " attacking ", target.name, " cover data is ", coverBonus, coverData)
         }
-        if (coverData?.data?.results.cover === 3) coverBonus = FULL_COVER;
-        else coverBonus = -coverData?.data?.results.value ?? 0;
-        console.log("midi-qol | ComputeCover Bonus - For token ", attacker.name, " attacking ", target.name, " cover data is ", coverBonus, coverData)
-      }
-      break;
-    case "tokencover":
-      if (!installedModules.get("tokencover")) coverBonus = 0;
-      else if (safeGetGameSetting("tokencover", "midiqol-covercheck") === "midiqol-covercheck-none") {
-        const coverValue = calcTokenCover(attacker, target);
-        if (coverValue === 4 || coverValue === 3) coverBonus = FULL_COVER;
-        else if (coverValue === 2) coverBonus = THREE_QUARTERS_COVER;
-        else if (coverValue === 1) coverBonus = HALF_COVER;
-        else coverBonus = 0;
-      }
-      break;
-    case "none":
-    default:
+        break;
+      case "tokencover":
+        if (!installedModules.get("tokencover")) coverBonus = 0;
+        else if (safeGetGameSetting("tokencover", "midiqol-covercheck") === "midiqol-covercheck-none") {
+          const coverValue = calcTokenCover(attacker, target);
+          if (coverValue === 4 || coverValue === 3) coverBonus = FULL_COVER;
+          else if (coverValue === 2) coverBonus = THREE_QUARTERS_COVER;
+          else if (coverValue === 1) coverBonus = HALF_COVER;
+          else coverBonus = 0;
+        }
+        break;
+      case "none":
+      default:
+        coverBonus = 0;
+        break;
+    }
+
+    if (item?.flags?.midiProperties?.ignoreTotalCover && item.type === "spell") coverBonus = 0;
+    else if (item?.flags?.midiProperties?.ignoreTotalCover && coverBonus === FULL_COVER) coverBonus = THREE_QUARTERS_COVER;
+    if (item?.system.actionType === "rwak" && attacker.actor && foundry.utils.getProperty(attacker.actor, "flags.midi-qol.sharpShooter") && coverBonus !== FULL_COVER)
       coverBonus = 0;
-      break;
+    if (["rsak"/*, rpak*/].includes(item?.system.actionType) && attacker.actor && foundry.utils.getProperty(attacker.actor, "flags.dnd5e.spellSniper") && coverBonus !== FULL_COVER)
+      coverBonus = 0;
+    if (target.actor && coverBonus > existingCoverBonus)
+      foundry.utils.setProperty(target.actor, "flags.midi-qol.acBonus", coverBonus);
+    else coverBonus = existingCoverBonus;
+    return coverBonus;
+  } catch (err) {
+    const message = "Error in computeCoverBonus";
+    error(message, err);
+    TroubleShooter.recordError(err, message)
+    return 0;
   }
-
-  if (item?.flags?.midiProperties?.ignoreTotalCover && item.type === "spell") coverBonus = 0;
-  else if (item?.flags?.midiProperties?.ignoreTotalCover && coverBonus === FULL_COVER) coverBonus = THREE_QUARTERS_COVER;
-  if (item?.system.actionType === "rwak" && attacker.actor && foundry.utils.getProperty(attacker.actor, "flags.midi-qol.sharpShooter") && coverBonus !== FULL_COVER)
-    coverBonus = 0;
-  if (["rsak"/*, rpak*/].includes(item?.system.actionType) && attacker.actor && foundry.utils.getProperty(attacker.actor, "flags.dnd5e.spellSniper") && coverBonus !== FULL_COVER)
-    coverBonus = 0;
-  if (target.actor && coverBonus > existingCoverBonus)
-    foundry.utils.setProperty(target.actor, "flags.midi-qol.acBonus", coverBonus);
-  else coverBonus = existingCoverBonus;
-  return coverBonus;
-
 }
 export function isAutoFastAttack(workflow: Workflow | undefined = undefined): boolean {
   if (workflow?.workflowOptions?.autoFastAttack !== undefined) return workflow.workflowOptions.autoFastAttack;
@@ -2948,6 +2961,11 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
       //@ts-expect-error hasStatusEffect
       if (td.hasStatusEffect(specials.FLY)) return 1;
       break;
+    case "hidden":
+    case "hiding":
+      //@ts-expect-error hasStatusEffect
+      if (td.hasStatusEffect("hidden") || td.hasStatusEffect("hiding")) return 1;
+      break;
     case "inaudible":
     case "silent":
       //@ts-expect-error hasStatusEffect
@@ -2984,34 +3002,66 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
 
 export async function removeInvisible() {
   if (!canvas || !canvas.scene) return;
-  const token: Token | undefined = canvas.tokens?.get(this.tokenId);
+  const token: Token | undefined = this.attackingToken ?? canvas.tokens?.get(this.tokenId);
   if (!token) return;
-  await removeTokenCondition(token, i18n(`midi-qol.invisible`));
+  removeInvisibleCondition(token);
+}
+
+export async function removeInvisibleCondition(tokenRef: Token | TokenDocument | string | undefined) {
+  const token = getToken(tokenRef);
+  if (!token) return;
+  await removeTokenConditionEffect(token, i18n(`midi-qol.invisible`));
   //@ts-expect-error
   if (game.release.generation < 12) {
     //@ts-expect-error
-    await token.document.toggleActiveEffect({ id: CONFIG.specialStatusEffects.INVISIBLE }, { active: false });
+    if (CONFIG.specialStatusEffects.INVISIBLE) await token.document.toggleActiveEffect({ id: CONFIG.specialStatusEffects.INVISIBLE }, { active: false });
   } else {
     //@ts-expect-error
-    await token?.actor?.toggleStatusEffect(CONFIG.specialStatusEffects.INVISIBLE, { active: false })
+    if (CONFIG.specialStatusEffects.INVISIBLE) await token?.actor?.toggleStatusEffect(CONFIG.specialStatusEffects.INVISIBLE, { active: false })
   }
-  log(`Hidden/Invisibility removed for ${this.actor.name}`)
+  if (debugEnabled > 0) log(`Invisibility removed for ${token.name}`)
 }
 
 export async function removeHidden() {
   if (!canvas || !canvas.scene) return;
-  const token: Token | undefined = canvas.tokens?.get(this.tokenId);
+  const token: Token | undefined = this.attackingToken ?? canvas.tokens?.get(this.tokenId);
   if (!token) return;
-  await removeTokenCondition(token, i18n(`midi-qol.hidden`));
+  removeHiddenCondition(token);
+}
+
+export async function removeHiddenCondition(tokenRef: Token | TokenDocument | string | undefined) {
+  const token = getToken(tokenRef);
+  if (!token) return;
+  //@ts-expect-error
+  if (game.release.generation >= 12) {
+    if (!token.actor) return
+    if (CONFIG.statusEffects.find(se => se.id === "hidden")) {
+      //@ts-expect-error
+      await token.actor.toggleStatusEffect("hidden", { active: false });
+    }
+    if (CONFIG.statusEffects.find(se => se.id === "hiding")) {
+      //@ts-expect-error
+      await token.actor.toggleStatusEffect("hiding", { active: false });
+    }
+  } else {
+    const hidingEffect = CONFIG.statusEffects.find(i => i.id === "hiding");
+    //@ts-expect-error
+    if (hidingEffect) await token.document.toggleActiveEffect(hidingEffect, { active: false });
+    const hiddenEffect = CONFIG.statusEffects.find(i => i.id === "hidden");
+    //@ts-expect-error
+    if (hiddenEffect) await token.document.toggleActiveEffect(hiddenEffect, { active: false });
+  }
+  // Try and remove hidden if set by another active effect
+  await removeTokenConditionEffect(token, i18n(`midi-qol.hidden`));
   if (installedModules.get("perceptive")) {
     //@ts-expect-error .api
     const api = game.modules.get("perceptive")?.api;
     api?.PerceptiveFlags.setPerceptiveStealthing(token.document, false);
   }
-  log(`Hidden removed for ${this.actor.name}`)
+  if (debugEnabled > 0) log(`Hidden removed for ${token.name}`)
 }
 
-export async function removeTokenCondition(token: Token, condition: string) {
+export async function removeTokenConditionEffect(token: Token, condition: string) {
   if (!token) return;
   //@ts-expect-error appliedEffects
   const hasEffect = token.actor?.appliedEffects.find(ef => ef.name === condition);
@@ -5167,8 +5217,18 @@ export async function computeFlankedStatus(target): Promise<boolean> {
   if (!canvas || !target) return false;
   const allies: any /*Token v10*/[] = findPotentialFlankers(target);
   if (allies.length <= 1) return false; // length 1 means no other allies nearby
-  let gridW = canvas?.grid?.w ?? 100;
-  let gridH = canvas?.grid?.h ?? 100;
+  let gridW;
+  let gridH;
+  //@ts-expect-error
+  if (game.release.generation >= 12) {
+    //@ts-expect-error
+    gridW = canvas?.grid?.sizeX ?? 100;
+    //@ts-expect-error
+    gridH = canvas?.grid?.sizeY ?? 100;
+  } else {
+    gridW = canvas?.grid?.w ?? 100;
+    gridH = canvas?.grid?.h ?? 100;
+  }
   const tl = { x: target.x, y: target.y };
   const tr = { x: target.x + target.document.width * gridW, y: target.y };
   const bl = { x: target.x, y: target.y + target.document.height * gridH };
@@ -5252,14 +5312,14 @@ export function computeFlankingStatus(token, target): boolean {
   let gridH;
 
   //@ts-expect-error
-  if (game.release.generation > 11) {
+  if (game.release.generation >= 12) {
     //@ts-expect-error
     gridW = canvas?.grid?.sizeX ?? 100;
     //@ts-expect-error
     gridH = canvas?.grid?.sizeY ?? 100;
   } else {
-    let gridW = canvas?.grid?.w ?? 100;
-    let gridH = canvas?.grid?.h ?? 100;
+    gridW = canvas?.grid?.w ?? 100;
+    gridH = canvas?.grid?.h ?? 100;
   }
   const tl = { x: target.x, y: target.y };
   const tr = { x: target.x + target.document.width * gridW, y: target.y };
@@ -5363,7 +5423,7 @@ export async function markFlanking(token, target): Promise<boolean> {
   // checkFlankedStatus requires only a target token
   if (!canvas) return false;
   let needsFlanking = false;
-  if (!target || !checkRule("checkFlanking") || checkRule["checkFlanking"] === "off") return false;
+  if (!target || !checkRule("checkFlanking") || checkRule("checkFlanking") === "off") return false;
   if (["ceonly", "ceadv"].includes(checkRule("checkFlanking"))) {
     //@ts-expect-error
     const dfreds = game.dfreds;

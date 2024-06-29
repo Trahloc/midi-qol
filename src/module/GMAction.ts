@@ -920,7 +920,7 @@ async function createV3GMReverseDamageCard(
     if (appliedDamage || appliedTempDamage || oldVitality !== newVitality) {
       const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
       if (oldVitality !== newVitality) update[vitalityResource] = newVitality;
-      const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem: damageItem.tokenDamages }, data.updateContext ?? {});
+      const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem: damageItem.tokenDamages }, data.updateContext ?? {}, {inplace: false});
       if (game.user?.isGM && doHits && damageWasApplied &&
         (newTempHP !== actor.system.attributes.hp.temp
           || newHP !== actor.system.attributes.hp.value
@@ -1113,7 +1113,7 @@ async function prepareDamageListItems(data: {
     let newHP = Math.max(0, oldHP - hpDamage);
     if (createPromises && doHits && (["yes", "yesCard", "yesCardNPC", "yesCardMisses"].includes(data.autoApplyDamage) || data.forceApply)) {
       if ((newHP !== oldHP || newTempHP !== oldTempHP) && (data.autoApplyDamage !== "yesCardNPC" || actor.type !== "character")) {
-        const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem }, data.updateContext ?? {});
+        const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem }, data.updateContext ?? {}, {inplace: false});
         if (actor.isOwner) {
           //@ts-ignore
           promises.push(actor.update({ "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP, "flags.dae.damageApplied": appliedDamage }, updateContext));
@@ -1340,7 +1340,7 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, actor);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, {inplace: false});
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
@@ -1366,7 +1366,7 @@ export let processUndoDamageCard = (message, html, data) => {
         reverseButton.children()[0].classList.add("midi-qol-enable-damage-button");
         log(`Setting HP to ${newTempHP} and ${newHP}`);
         const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem }, {inplace: false});
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = newVitality;
@@ -1393,7 +1393,7 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, data.updateContext);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem });
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, {inplace: false});
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
@@ -1423,7 +1423,7 @@ export let processUndoDamageCard = (message, html, data) => {
           await actor.applyDamage(totalDamage, { multiplier, ignore: true });
         } else {
           const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-          const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem });
+          const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem }, {inplace: false});
           const vitalityResource = checkRule("vitalityResource");
           if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
             update[vitalityResource.trim()] = newVitality;

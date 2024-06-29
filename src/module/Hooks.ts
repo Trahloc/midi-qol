@@ -211,8 +211,31 @@ export let readyHooks = async () => {
   // Concentration Check is rolled as an item roll so we need an item.
   itemJSONData.name = concentrationCheckItemName;
 }
-
 export function restManager(actor, result) {
+  if (!actor || !result)
+      return;
+  removeReactionUsed(actor); // remove reaction used for a rest
+  removeBonusActionUsed(actor);
+  removeActionUsed(actor);
+  const specialDuration = (effect) => { return foundry.utils.getProperty(effect, "flags.dae.specialDuration") };
+  const effectsToExpire = (actorRef) => {
+    //@ts-expect-error
+     const effects = foundry.utils.isNewerVersion(game.system.version, "2.99") ? actorRef.appliedEffects : actorRef.effects;
+     const validEffects = effects.filter(effect => (specialDuration(effect) ?? []).length > 0);
+     return {
+          newDay: validEffects.filter(ef => result.newDay && specialDuration(ef)?.includes(`newDay`)),
+          longRest: validEffects.filter(ef => result.longRest && specialDuration(ef)?.includes(`longRest`) && !specialDuration(ef)?.includes(`newDay`)), 
+          shortRest: validEffects.filter(ef => specialDuration(ef)?.includes(`shortRest`) && !specialDuration(ef)?.includes(`newDay`)), 
+    }
+  }
+  const myExpiredEffects = effectsToExpire(actor);
+  if (result.longRest && myExpiredEffects.longRest.length) expireEffects(actor, myExpiredEffects.longRest, { "expiry-reason": "midi-qol:longRest" });
+  if (result.longRest && myExpiredEffects.shortRest.length) expireEffects(actor, myExpiredEffects.shortRest, { "expiry-reason": "midi-qol:shortRest" });
+  if (!result.longRest && myExpiredEffects.shortRest.length) expireEffects(actor, myExpiredEffects.shortRest, { "expiry-reason": "midi-qol:shortRest" });
+  if (result.newDay && myExpiredEffects.newDay.length) expireEffects(actor, myExpiredEffects.newDay, { "expiry-reason": "midi-qol:newDay" });
+}
+
+export function oldrestManager(actor, result) {
   if (!actor || !result) return;
   removeReactionUsed(actor); // remove reaction used for a rest
   removeBonusActionUsed(actor);
@@ -625,7 +648,14 @@ export function initHooks() {
     //@ts-ignore .grid v10
     let grid_size = canvas.scene?.grid.size;
     // This will work for all grids except gridless
-    let coords = canvas.grid.grid.getPixelsFromGridPosition(...canvas.grid.grid.getGridPositionFromPixels(dropData.x, dropData.y));
+    let coords;
+    //@ts-expect-error
+    if (game.release.generation < 12) {
+      coords = canvas.grid.grid.getPixelsFromGridPosition(...canvas.grid.grid.getGridPositionFromPixels(dropData.x, dropData.y));
+    } else {
+      //@ts-expect-error
+      coords = canvas.grid.getPixelsFromGridPosition(...canvas.grid.getGridPositionFromPixels(dropData.x, dropData.y));
+    }
 
     // Assume a square grid for gridless
     //@ts-expect-error .grid v10

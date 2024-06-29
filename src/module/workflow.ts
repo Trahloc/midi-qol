@@ -3,7 +3,7 @@ import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templ
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects } from "./utils.js"
+import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects, canSee } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -129,7 +129,7 @@ export class Workflow {
     return Workflow._workflows[id];
   }
 
-  get workflowType() { return this.__proto__.constructor.name };
+  get workflowType() { return "BaseWorkflow" };
 
   get hasSave(): boolean {
     if (this.ammo?.hasSave) return true;
@@ -185,7 +185,7 @@ export class Workflow {
   constructor(actor: any /* Actor5e*/, item: any /* Item5e*/, speaker, targets, options: any = {}) {
     this.actor = actor;
     this.item = item;
-    if (Workflow.getWorkflow(item?.uuid) && !(this instanceof DummyWorkflow)) {
+    if (this.workflowType === "BaseWorkflow") {
       const existing = Workflow.getWorkflow(item.uuid);
       if (existing) {
         Workflow.removeWorkflow(item.uuid);
@@ -412,8 +412,8 @@ export class Workflow {
     if (workflow.placeTemplateHookId) {
       Hooks.off("createMeasuredTemplate", workflow.placeTemplateHookId)
       Hooks.off("preCreateMeasuredTemplate", workflow.preCreateTemplateHookId);
-      if (workflow.postSummonHookId) Hooks.off("dnd5e.postSummon", workflow.postSummonHookId);
     }
+    if (workflow.postSummonHookId) Hooks.off("dnd5e.postSummon", workflow.postSummonHookId);
     delete Workflow._workflows[id];
     // Remove buttons
     if (workflow.itemCardUuid) {
@@ -721,7 +721,26 @@ export class Workflow {
           this.attackAdvAttribution.add("DIS:range");
           this.advReminderAttackAdvAttribution.add("DIS:Long Range");
       }
-      this.attackingToken = attackingToken;
+      if (this.attackingToken !== attackingToken) { // changed the attacking token so update the canSee data
+        // need to clean this up
+        for (let tokenRef of this.targets) {
+          const target = getToken(tokenRef);
+          this.attackingToken = attackingToken;
+          const token = this.attackingToken;
+          if (!target) continue;
+          const tokenCanSense = token ? canSense(token, target, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
+          const targetCanSense = token ? canSense(target, token, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
+          if (targetCanSense) this.targetsCanSense.add(token);
+          else this.targetsCanSense.delete(token);
+          if (tokenCanSense) this.tokenCanSense.add(target);
+          else this.tokenCanSense.delete(target);
+          const tokenCanSee = token ? canSee(token, target) : true;
+          const targetCanSee = token ? canSee(target, token) : true;
+          if (targetCanSee) this.targetsCanSee.add(token);
+          else this.targetsCanSee.delete(token);
+          if (tokenCanSee) this.tokenCanSee.add(target);
+        }
+      }
     }
     if (!this.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor, debugEnabled > 0)) return this.WorkflowState_RollFinished
     return this.WorkflowState_PreambleComplete;
@@ -1034,7 +1053,7 @@ export class Workflow {
 
     // now done in itemhandling this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
     const damageBonusMacros = this.getDamageBonusMacros();
-    if (damageBonusMacros && this.workflowType === "Workflow") {
+    if (damageBonusMacros) { //  && this.workflowType === "Workflow") { // TODO check this
       await this.rollBonusDamage(damageBonusMacros);
     }
     return this.WorkflowState_DamageRollComplete;
@@ -1091,7 +1110,7 @@ export class Workflow {
       if (this.ammo && this.options.noOnUseMacro !== true) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preSave"), "OnUse", "preSave");
     }
 
-    if (this.workflowType === "Workflow" && !this.item?.hasAttack && this.item?.system.target?.type !== "self") { // Allow editing of targets if there is no attack that has already been processed.
+    if (this.workflowType === "BaseWorkflow" && !this.options.ignoreUserTargets && !this.item?.hasAttack && this.item?.system.target?.type !== "self") { // Allow editing of targets if there is no attack that has already been processed.
       this.targets = new Set(game.user?.targets);
       this.hitTargets = new Set(this.targets);
     }
@@ -1452,8 +1471,8 @@ export class Workflow {
     if (this.placeTemplateHookId) {
       Hooks.off("createMeasuredTemplate", this.placeTemplateHookId);
       Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId);
-      if (this.postSummonHookId) Hooks.off("dnd5e.postSummon", this.postSummonHookid);
     }
+    if (this.postSummonHookId) Hooks.off("dnd5e.postSummon", this.postSummonHookid);
     if (configSettings.autoItemEffects === "applyRemove") await this.removeEffectsButton();
     // TODO see if we can delete the workflow - I think that causes problems for Crymic
     //@ts-expect-error scrollBottom protected
@@ -1476,8 +1495,8 @@ export class Workflow {
     if (this.placeTemplateHookId) {
       Hooks.off("createMeasuredTemplate", this.placeTemplateHookId);
       Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId);
-      if (this.postSummonHookId) Hooks.off("dnd5e.postSummon", this.postSummonHookid);
     }
+    if (this.postSummonHookId) Hooks.off("dnd5e.postSummon", this.postSummonHookid);
     //@ts-expect-error
     if (this.itemCardUuid && fromUuidSync(this.itemCardUuid)) {
       await this.chatCard.delete();
@@ -1622,8 +1641,8 @@ export class Workflow {
       let selfTarget = this.item.actor.token ? this.item.actor.token.object : getTokenForActor(this.item.actor);
       if (selfTarget) selfTarget = this.token; //TODO see why this is here
       let effectData;
-      const summonString = " " + i18n("midi-qol.Summoned");
-      let effect = this.item.actor.effects.find(ef => ef.name === this.item.name + summonString);
+      const summonString = i18n("DND5E.ActionSumm") + ": ";
+      let effect = this.item.actor.effects.find(ef => ef.name === summonString + this.item.name);
       if (effect) { // effect already applied
         await effect.addDependent(...this.summonedCreatures);
       } else { // add an effect which will cause the template to be deleted
@@ -1631,7 +1650,7 @@ export class Workflow {
           origin: this.item?.uuid, //flag the effect as associated to the spell being cast
           disabled: false,
           icon: this.item?.img,
-          label: this.item?.name + summonString,
+          label: summonString + this.item?.name,
           duration: {},
           flags: {
             dae: {
@@ -1777,7 +1796,7 @@ export class Workflow {
 
     // Check hidden
     if (checkRule("hiddenAdvantage") && checkRule("HiddenAdvantage") !== "none" && target) {
-      if (checkRule("hiddenAdvantage") === "perceptive" && installedModules.get("perceptive")) {
+      if (checkRule("hiddenAdvantage") === "perceptive" && installedModules.get("perceptive")?.active) {
         //@ts-expect-error .api
         const perceptiveApi = game.modules.get("perceptive")?.api;
         const tokenSpotted = await perceptiveApi?.isSpottedby(token, target, { LOS: false, Range: true, Effects: true, Hidden: false, canbeSpotted: true }) ?? true;
@@ -1820,11 +1839,12 @@ export class Workflow {
       && (["rwak", "rsak", "rpak"].includes(actType) || (this.item.system.properties?.has("thr") && actType == "mwak"))) {
       let nearbyFoe;
       const me = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
-      if (!this.item.system.properties?.has("thr")) { // one of rwak/rsak/rpak
+      if (actType !== "mwak") { // one of rwak/rsak/rpak
         nearbyFoe = checkNearby(-1, canvas?.tokens?.get(this.tokenId), configSettings.optionalRules.nearbyFoe, { includeIncapacitated: false, canSee: true });
       } else if (this.item.system.properties?.has("thr")) {
+        const meleeRange = 5 + (this.item.system?.properties?.has("rch") ? 5 : 0);
         //@ts-expect-error .first
-        if (actType === "mwak" && getDistance(me, this.targets.first(), false) <= configSettings.optionalRules.nearbyFoe) nearbyFoe = false;
+        if (getDistance(me, this.targets.first(), false) <= meleeRange) nearbyFoe = false;
         else nearbyFoe = checkNearby(-1, canvas?.tokens?.get(this.tokenId), configSettings.optionalRules.nearbyFoe, { includeIncapacitated: false, canSee: true });
       }
       if (nearbyFoe) {
@@ -2054,7 +2074,7 @@ export class Workflow {
         && (this.damageList.find(dl => dl.tokenUuid === (target.uuid ?? target.document.uuid) && dl.appliedDamage > 0));
 
       if (this.targets.has(target) && triggerList.includes("isTargeted")) {
-        if (wasAttacked && triggerList.includes("isTargeted")) {
+        if (triggerList.includes("isTargeted")) {
           result.push(...await this.callMacros(this.item,
             actorOnUseMacros?.getMacros("isTargeted"),
             "TargetOnUse",
@@ -2720,7 +2740,7 @@ export class Workflow {
   async displayDamageRolls(doMerge) {
     const chatMessage = this.chatCard;
     let content = (chatMessage && foundry.utils.duplicate(chatMessage.content)) ?? "";
-    if ((getRemoveDamageButtons(this.item) && configSettings.confirmAttackDamage === "none") || this.workflowType !== "Workflow") {
+    if ((getRemoveDamageButtons(this.item) && configSettings.confirmAttackDamage === "none") || this.workflowType === "TrapWorkflow") {
       const versatileRe = /<button data-action="versatile">[^<]*<\/button>/
       const damageRe = /<button data-action="damage">[^<]*<\/button>/
       const formulaRe = /<button data-action="formula">[^<]*<\/button>/
@@ -2870,37 +2890,31 @@ export class Workflow {
       var searchString;
       var replaceString;
       // TODO test if we are doing better rolls rolls for the new chat cards and damageonlyworkflow
-      switch (this.workflowType) {
-        case "Workflow":
-        case "TrapWorkflow":
-        case "DamageOnlyWorkflow":
-        case "DDBGameLogWorkflow":
-          /*
-          if (content && getRemoveAttackButtons() && showHits) {
-            const searchRe = /<button data-action="attack">[^<]*<\/button>/;
-            content = content.replace(searchRe, "");
-          }
-          */
-          searchString = /<div class="midi-qol-hits-display">[\s\S]*?<div class="end-midi-qol-hits-display">/;
-          replaceString = `<div class="midi-qol-hits-display">${hitContent}<div class="end-midi-qol-hits-display">`
-          content = content.replace(searchString, replaceString);
 
-          const update: any = {
-            "content": content,
-            timestamp: Date.now(),
-            "flags.midi-qol.type": MESSAGETYPES.HITS,
-            "flags.midi-qol.displayId": this.displayId,
-          }
-          //@ts-expect-error
-          if (game.release.generation < 12) {
-            update.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
-          } else {
-            //@ts-expect-error
-            update.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
-          }
-          await debouncedUpdate(chatMessage, update);
-          break;
+      /*
+      if (content && getRemoveAttackButtons() && showHits) {
+        const searchRe = /<button data-action="attack">[^<]*<\/button>/;
+        content = content.replace(searchRe, "");
       }
+      */
+      searchString = /<div class="midi-qol-hits-display">[\s\S]*?<div class="end-midi-qol-hits-display">/;
+      replaceString = `<div class="midi-qol-hits-display">${hitContent}<div class="end-midi-qol-hits-display">`
+      content = content.replace(searchString, replaceString);
+
+      const update: any = {
+        "content": content,
+        timestamp: Date.now(),
+        "flags.midi-qol.type": MESSAGETYPES.HITS,
+        "flags.midi-qol.displayId": this.displayId,
+      }
+      //@ts-expect-error
+      if (game.release.generation < 12) {
+        update.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+      } else {
+        //@ts-expect-error
+        update.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+      }
+      await debouncedUpdate(chatMessage, update);
     } else {
       let speaker = foundry.utils.duplicate(this.speaker);
       let user: User | undefined | null = game.user;
@@ -3064,29 +3078,26 @@ export class Workflow {
           }
         })
       }
-      switch (this.workflowType) {
-        case "Workflow":
-        case "TrapWorkflow":
-        case "DDBGameLogWorkflow":
-          searchString = /<div class="midi-qol-saves-display">[\s\S]*?<div class="end-midi-qol-saves-display">/;
-          replaceString = `<div class="midi-qol-saves-display"><div data-item-id="${this.item.id}">${saveContent}</div><div class="end-midi-qol-saves-display">`
-          content = content.replace(searchString, replaceString);
-          const update: any = {
-            content,
-            rolls: this.chatRolls,
-            "flags.midi-qol.type": MESSAGETYPES.SAVES,
-            "flags.midi-qol.saveUuids": Array.from(this.saves).map(t => getTokenDocument(t)?.uuid),
-            "flags.midi-qol.failedSaveUuids": Array.from(this.failedSaves).map(t => getTokenDocument(t)?.uuid),
-            "flags.dnd5e.targets": dnd5eTargetDetails
-          };
+      if (this.workflowType !== "DamageOnlyWorkflow") {
+        searchString = /<div class="midi-qol-saves-display">[\s\S]*?<div class="end-midi-qol-saves-display">/;
+        replaceString = `<div class="midi-qol-saves-display"><div data-item-id="${this.item.id}">${saveContent}</div><div class="end-midi-qol-saves-display">`
+        content = content.replace(searchString, replaceString);
+        const update: any = {
+          content,
+          rolls: this.chatRolls,
+          "flags.midi-qol.type": MESSAGETYPES.SAVES,
+          "flags.midi-qol.saveUuids": Array.from(this.saves).map(t => getTokenDocument(t)?.uuid),
+          "flags.midi-qol.failedSaveUuids": Array.from(this.failedSaves).map(t => getTokenDocument(t)?.uuid),
+          "flags.dnd5e.targets": dnd5eTargetDetails
+        };
+        //@ts-expect-error
+        if (game.release.generation < 12) {
+          update.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+        } else {
           //@ts-expect-error
-          if (game.release.generation < 12) {
-            update.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
-          } else {
-            //@ts-expect-error
-            update.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
-          }
-          await debouncedUpdate(chatMessage, update);
+          update.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+        }
+        await debouncedUpdate(chatMessage, update);
       }
     } else {
       const saveContent = await renderTemplate("modules/midi-qol/templates/saves.html", templateData);
@@ -4318,7 +4329,7 @@ export class Workflow {
       } else {
         // create a template and select targets and the filter
       }
-      this.targets = new Set(game.user?.targets ?? []);
+      if (!this.ignoreUserTargets) this.targets = new Set(game.user?.targets ?? []);
       this.saves = new Set();
       this.failedSaves = new Set(this.targets)
       this.hitTargets = new Set(this.targets);
@@ -4352,7 +4363,7 @@ export class Workflow {
   }
   get useActiveDefence() {
     //@ts-expect-error
-    return game.user.isGM && checkRule("activeDefence") && ["Workflow"].includes(this.workflowType);
+    return game.user.isGM && checkRule("activeDefence");
   }
   async checkActiveAttacks(attackBonus = 0, whisper = false, fumbleTarget, criticalTarget) {
     if (debugEnabled > 1) debug(`active defence : whisper ${whisper}  hit targets ${this.targets}`)
@@ -4486,7 +4497,7 @@ export class Workflow {
 
     if (rolls instanceof Roll) rolls = [rolls];
     //@ts-expect-error
-    const baseRollProperties = rolls[0].options?.properties ?? {};
+    const baseRollProperties = rolls[0].options?.properties ?? [];
     rolls.forEach(roll => {
       setRollOperatorEvaluated(roll);
     });
@@ -4498,7 +4509,7 @@ export class Workflow {
     }
     for (let i = 1; i < rolls.length; i++) {
       //@ts-expect-error
-      setProperty(rolls[i], "options.properties", foundry.utils.mergeObject(baseRollProperties, rolls[i].options?.properties ?? {}));
+      setProperty(rolls[i], "options.properties", (rolls[i].options?.properties ?? []).concat(baseRollProperties));
     }
     this.damageRolls = rolls;
     this.damageTotal = sumRolls(this.damageRolls)
@@ -4552,6 +4563,9 @@ export class Workflow {
     this.otherDamageHTML = await midiRenderOtherDamageRoll(roll);
     foundry.utils.setProperty(roll, "options.midi-qol.rollType", "otherDamage")
   }
+}
+
+export class UserWorkflow extends Workflow {
 }
 
 export class DamageOnlyWorkflow extends Workflow {
@@ -4620,7 +4634,7 @@ export class DamageOnlyWorkflow extends Workflow {
     return this;
   }
 
-  get workflowType() { return this.__proto__.constructor.name };
+  get workflowType() { return "DamageOnlyWorkflow" };
   get damageFlavor() {
     if (this.useOther && this.flavor) return this.flavor;
     else return super.damageFlavor;
@@ -4701,6 +4715,8 @@ export class TrapWorkflow extends Workflow {
     this.performState(this.WorkflowState_Start);
     return this;
   }
+
+  get workflowType() { return "TrapWorkflow" };
 
   async WorkflowState_Start(context: any = {}): Promise<WorkflowState> {
     this.saveTargets = validTargetTokens(game.user?.targets);
@@ -4981,8 +4997,8 @@ export class DDBGameLogWorkflow extends Workflow {
     if (this.placeTemplateHookId) {
       Hooks.off("createMeasuredTemplate", this.placeTemplateHookId);
       Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId);
-      if (this.postSummonHookId) Hooks.off("dnd5e.postSummon", this.postSummonHookId);
     }
+    if (this.postSummonHookId) Hooks.off("dnd5e.postSummon", this.postSummonHookId);
     super.WorkflowState_RollFinished().then(() => Workflow.removeWorkflow(this.item.uuid));
     return this.WorkflowState_Suspend;
   }

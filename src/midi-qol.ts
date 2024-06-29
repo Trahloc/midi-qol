@@ -5,8 +5,8 @@ import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, re
 import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Hooks.js';
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
-import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, DDBGameLogWorkflow } from './module/workflow.js';
-import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, DDBGameLogWorkflow, UserWorkflow } from './module/workflow.js';
+import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -57,7 +57,7 @@ export function geti18nOptions(key) {
   const translations = game.i18n.translations[MODULE_ID] ?? {};
   //@ts-ignore _fallback not accessible
   const fallback = game.i18n._fallback[MODULE_ID] ?? {};
-  let translation = foundry.utils.mergeObject(fallback[key] ?? {}, translations[key] ?? {}, {overwrite: true, inplace: false});
+  let translation = foundry.utils.mergeObject(fallback[key] ?? {}, translations[key] ?? {}, { overwrite: true, inplace: false });
   return translation;
 }
 export function geti18nTranslations() {
@@ -115,7 +115,7 @@ Hooks.once('init', async function () {
   log('Initializing midi-qol');
   //@ts-expect-error
   const systemVersion = game.system.version;
-  
+
 
   //@ts-expect-error
   GameSystemConfig = game.system.config;
@@ -470,6 +470,7 @@ Hooks.once('ready', function () {
       }
       readySettingsSetup();
     }
+    Hooks.callAll("midi-qol.ready")
   }
 
   if (game.user?.isGM) {
@@ -559,6 +560,7 @@ Hooks.once('ready', function () {
 
 import { setupMidiTests } from './module/tests/setupTest.js';
 import { TargetConfirmationConfig } from './module/apps/TargetConfirmationConfig.js';
+import { Socket } from './module/lib/sockset.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -636,6 +638,8 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     reactionDialog: class reactionDialog,
     typeOrRace(entity: Token | Actor | TokenDocument | string): string,
     reportMidiCriticalFlags: function reportMidiCriticalFlags(): void,
+    removeHiddentCondition: async function removeHiddenCondition(tokenRef: Token | TokenDocument | UUID), 
+    removeInvisibleCondition: async function removeInvisibleCondition(tokenRef: Token | TokenDocument | UUID),
     resolveTargetConfirmation: async function resolveTargetConfirmation(targetConfirmation: any, item: Item, actor: Actor, token: Token, targets: any, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
     safeGetGameSettings function safeGetGameSetting(module: string key: string): string | undefined,
     selectTargetsForTemplate: templateTokens,
@@ -753,7 +757,10 @@ function setupMidiQOLApi() {
     raceOrType,
     typeOrRace,
     reactionDialog,
+    removeHiddenCondition,
+    removeInvisibleCondition,
     removeMostRecentWorkflow,
+    removeReactionUsed,
     reportMidiCriticalFlags,
     resolveTargetConfirmation,
     safeGetGameSetting,
@@ -773,6 +780,8 @@ function setupMidiQOLApi() {
     WallsBlockConditions,
     warn,
     Workflow,
+    UserWorkflow,
+    workflowClass: Workflow,
     Workflows,
     moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }, animate: boolean = true) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
@@ -816,6 +825,7 @@ function setupMidiQOLApi() {
     setReactionUsed,
   }
   globalThis.MidiQOL.actionQueue = new foundry.utils.Semaphore();
+  Hooks.callAll("midi-qol.setup", globalThis.MidiQOL);
 }
 
 export function testfunc(scope) {
@@ -1147,5 +1157,5 @@ function midiOnerror(event: string | Event, source?: string | undefined, lineno?
   if (midiOldErrorHandler) return midiOldErrorHandler(event, source, lineno, colno, error);
   return false;
 }
-// globalThis.onerror = midiOnerror;
 
+// globalThis.onerror = midiOnerror;

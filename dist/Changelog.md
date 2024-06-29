@@ -1,12 +1,34 @@
+### 11.4.38
+* Midi will now recongnise the core statusEffect "Hiding" (or hideen) as providing advantage/disadvantage when set. Added MidiQOL.removeHiddenCondition(tokenRef) and midiQOL.removeInvisibleCondition(tokenRef).
+* new option to completeItemUse, options.ignoreUserTargets which, if set, causes completeItemUse to both ignore game.user.targets (only using options.targetUuids) and to leave game.user.targets unchanged during the call.
+  - overtime effects now set options.ignoreUserTargets when rolling the overtime item. Should resolve the interaction between overtime effects and monk's combat details.
+* Fix for setting damageRolls options.properties incorrectly.
+* Fix for regression in 11.4.37 for flanking.
+* Fix for regression in 11.4.37 not displaying apply effects buttons when requested.
+* Token macro "isTargeted" will trigger even if the item being used does not have an attack.
+* export removeReactionUsed in MidiQOL.
+* Updated some items for dnd5e 3.x, changes to attunement checking mainly, removal of some deprecation warnings for macros.
+* Rewrite of Flaming Sphere to use dnd5e summoning instead of warpgate. Casting the spell will (if no flaming sphere actor exists) create one in the game which will be used thereafter. Supports spell scaling for all damage and requires Active Auras.
+* Fix to shield spell, thanks @thatlonelybugbear
+
+**For Macro Writers**
+* Added support for user created workflow classes. 
+  - item.use(config, options), now supports config.midi.workflowClass, which must be a subclass of MidiQOL.Workflow, which will be used when constructing a workflow
+  - midi-qol will now use globalThis.workflowClass when instantiating a workflow when rolling an item, so you can change the default class midi will use when using an item - use this at your own risk. It must be a sublcass of MidiQOL.Workflow.
+  - midi-qol predefines UserWorkflow, which extends Workflow, as a handy way for you to experiment with custom workflows. Change UserWorkflow however you want (perhaps via libwrapper/monkey patching) and use that when doing an item.user(config, options) or (better) you can define your own class which must extend MidiQOL.Workflow.
+  - When a workflow is created, the created workflow starts in the WorkflowState_NoAction state and is marked suspended until item.use creates the chat card, manages targets and signals that processing is complete and will then transition to WorkflowState_Start. You can change that behaviour by overriding Workflow.WorflowState_NoAction, or having the constructor perform a different state, which is what DamageOnlyWorkflow does.
+* Two new hooks called by midi, "midi-qol.ready" and "midi-qol.setup", called after midi's ready/setup processing is completed. globalThis.MidiQOL will be created and complete when "midi-qol.setup" is called, so can be used for user defined workflow creation.
+* An FYI I discovered. If you run a macro on preItemUse, any spell will have rolledItem.system.level set to the base level of the spell since the user has not chosen a spell level yet.
+
 ### 11.4.37
 * Fix for incorrect processing of some damage details passed to doEffects.
-* Remove deprecation warining for debounce in v12
+* Remove deprecation warning for debounce in v12
 * Switch to newer multi select for blind rolls choices.
 * Fix for dsn integration breaking in v12
 * Fix for action save overtime dialog messages being wrong on skill rolls.
 * Fix for multiple damage lines not inheriting the weapon properties correctly, in particular magical/silvered etc. when using dnd5e damage application. The change is noticeable when using CPR Sneak Attack, which would do non-magical sneak attack damage even if the weapon is magical.
 * Fix for not setting fastforward to false for rolls with optional babonuses defined.
-* Fix for weapons target single opponennt overriding specific settings for the item. Thanks @Michael
+* Fix for weapons target single opponent overriding specific settings for the item. Thanks @Michael
 * Support for auto expiring summoned creatures when the summoning item has a duration. Enable via config flag.
 * **Breaking** Skill/Save/Check rolls set to be blind will also be blind when the GM rolls them.
   - if a roll is set to be blind, the before and after chat card will also be blind.

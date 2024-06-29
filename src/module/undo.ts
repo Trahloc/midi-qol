@@ -2,6 +2,7 @@
 import { debug, debugEnabled, error, log, warn } from "../midi-qol.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { configSettings } from "./settings.js";
+import { installedModules } from "./setupModules.js";
 import { busyWait } from "./tests/setupTest.js";
 import { getConcentrationEffect, isReactionItem } from "./utils.js";
 import { Workflow } from "./workflow.js";
@@ -355,8 +356,8 @@ function getChanges(newData, savedData): any {
   delete savedData.items;
   delete savedData.effects;
 
-  const changes = flattenObject(diffObject(newData, savedData));
-  const tempChanges = flattenObject(diffObject(savedData, newData));
+  const changes = foundry.utils.flattenObject(diffObject(newData, savedData));
+  const tempChanges = foundry.utils.flattenObject(diffObject(savedData, newData));
   const toDelete = {};
   for (let key of Object.keys(tempChanges)) {
     if (!changes[key]) {
@@ -420,14 +421,21 @@ async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData
     else await actor.createEmbeddedDocuments("ActiveEffect", effectsToAdd, { keepId: true, isUndo: true });
   }
 
-  // const itemsToUpdate = getUpdateItems(actorData.items ?? [], actor);
-  if (dae?.actionQueue) await dae.actionQueue.add(actor.updateEmbeddedDocuments.bind(actor), "Item", actorData.items, { keepId: true, isUndo: true });
-  else await actor.updateEmbeddedDocuments("Item", actorData.items, { keepId: true, isUndo: true });
-
+  // older versions of effect macro will throw an error when multiple items are updated.
+  //@ts-expect-error .version
+  if (game.modules.get("effectmacro")?.active && foundry.utils.isNewerVersion("12.0.1", game.modules.get("effectmacro")?.version)) {
+    for (let itemData of actorData.items) {
+      await actor.updateEmbeddedDocuments("Item", [itemData], { keepId: true, isUndo: true });
+    }
+  } else {
+    if (dae?.actionQueue) await dae.actionQueue.add(actor.updateEmbeddedDocuments.bind(actor), "Item", actorData.items, { keepId: true, isUndo: true });
+    else await actor.updateEmbeddedDocuments("Item", actorData.items, { keepId: true, isUndo: true });
+  }
   if (actorData.effects?.length > 0) {
     if (dae?.actionQueue) await dae.actionQueue.add(actor.updateEmbeddedDocuments.bind(actor), "ActiveEffect", actorData.effects, { keepId: true, isUndo: true });
     else await actor.updateEmbeddedDocuments("ActiveEffect", actorData.effects, { keepId: true, isUndo: true });
   }
+
 
   actorChanges = actorData ? getChanges(actor.toObject(true), actorData) : {};
   if (debugEnabled > 0) warn("undoSingleTokenActor | Actor data ", actor.name, actorData, actorChanges);

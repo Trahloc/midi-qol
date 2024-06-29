@@ -1,5 +1,5 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MQdefaultDamageType, MODULE_ID } from "../midi-qol.js";
-import { DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
+import { DamageOnlyWorkflow, DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
 import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee } from "./utils.js";
 import { installedModules } from "./setupModules.js";
@@ -198,6 +198,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     let targetConfirmationHasRun = false;
     let selfTarget = this.system.target?.type === "self";
     let targetsToUse: Set<Token> = validTargetTokens(game.user?.targets);
+    if (options.targetsToUse) targetsToUse = options.targetsToUse;
 
     // remove selection of untargetable targets
     if (canvas?.scene) {
@@ -235,7 +236,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     attackPerTarget &&= !ammoSelectorFirstPass
     attackPerTarget &&= (game.user?.targets.size ?? 0) > 0
     if (attackPerTarget) {
-      let targets = new Set(game.user?.targets);
+      let targets = new Set(targetsToUse);
       const optionsToUse = foundry.utils.duplicate(options);
       const configToUse = foundry.utils.duplicate(config);
       let ammoUpdateHookId;
@@ -331,7 +332,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (!(await preTemplateTargets(this, options, pressedKeys)))
         return null;
       //@ts-expect-error
-      if (game.user?.targets) targetsToUse = game.user?.targets;
+      if ((options.targetsToUse?.size ?? 0) === 0 && game.user?.targets) targetsToUse = game.user?.targets;
     }
 
     let shouldAllowRoll = !requiresTargets // we don't care about targets
@@ -394,7 +395,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (tokenToUse && targetsToUse.size > 0) {
         if (rangeDetails.result === "fail")
           return null;
-        else tokenToUse = rangeDetails.attackingToken;
+        else {
+          tokenToUse = rangeDetails.attackingToken;
+        }
       }
     }
     if (this.type === "spell" && shouldAllowRoll) {
@@ -443,7 +446,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       return null;
     }
     let workflow: Workflow;
-    workflow = new Workflow(this.actor, this, speaker, targetsToUse, { event: config.event || options.event || event, pressedKeys, workflowOptions: options.workflowOptions });
+    let workflowClass = config?.midi?.workflowClass ?? globalThis.MidiQOL.workflowClass;
+    if (!(workflowClass.prototype instanceof Workflow)) workflowClass = Workflow;
+    workflow = new workflowClass(this.actor, this, speaker, targetsToUse, { event: config.event || options.event || event, pressedKeys, workflowOptions: options.workflowOptions });
     workflow.inCombat = inCombat ?? false;
     workflow.isTurn = isTurn ?? false;
     workflow.AoO = AoO;
@@ -538,7 +543,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       } else options.configureDialog = !(["both", "item"].includes(isAutoConsumeResource(workflow)));
     }
 
-    const token = getToken(workflow.tokenUuid);
     let needPause = false;
     for (let tokenRef of targetsToUse) {
       const target = getToken(tokenRef);
@@ -567,16 +571,16 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     for (let tokenRef of targetsToUse) {
       const target = getToken(tokenRef);
       if (!target) continue;
-      const tokenCanSense = token ? canSense(token, target, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
-      const targetCanSense = token ? canSense(target, token, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
-      if (targetCanSense) workflow.targetsCanSense.add(token);
-      else workflow.targetsCanSense.delete(token);
+      const tokenCanSense = tokenToUse ? canSense(tokenToUse, target, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
+      const targetCanSense = tokenToUse ? canSense(target, tokenToUse, globalThis.MidiQOL.InvisibleDisadvantageVisionModes) : true;
+      if (targetCanSense) workflow.targetsCanSense.add(tokenToUse);
+      else workflow.targetsCanSense.delete(tokenToUse);
       if (tokenCanSense) workflow.tokenCanSense.add(target);
       else workflow.tokenCanSense.delete(target);
-      const tokenCanSee = token ? canSee(token, target) : true;
-      const targetCanSee = token ? canSee(target, token) : true;
-      if (targetCanSee) workflow.targetsCanSee.add(token);
-      else workflow.targetsCanSee.delete(token);
+      const tokenCanSee = tokenToUse ? canSee(tokenToUse, target) : true;
+      const targetCanSee = tokenToUse ? canSee(target, tokenToUse) : true;
+      if (targetCanSee) workflow.targetsCanSee.add(tokenToUse);
+      else workflow.targetsCanSee.delete(tokenToUse);
       if (tokenCanSee) workflow.tokenCanSee.add(target);
       else workflow.tokenCanSee.delete(target);
     }
@@ -585,7 +589,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     workflow.showCard = true;
     const wrappedRollStart = Date.now();
 
-    const autoCreatetemplate = token && hasAutoPlaceTemplate(this);
+    const autoCreatetemplate = tokenToUse && hasAutoPlaceTemplate(this);
     let result = await wrapped(workflow.config, foundry.utils.mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
     if (!result) {
       await workflow.performState(workflow.WorkflowState_Abort)
@@ -614,14 +618,14 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
       if (useSquare) {
         const adjust = (templateOptions.distance ?? target.value) / 2;
-        templateOptions.x = Math.floor((token.center?.x ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
-        templateOptions.y = token.center?.y ?? 0;
+        templateOptions.x = Math.floor((tokenToUse.center?.x ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
+        templateOptions.y = tokenToUse.center?.y ?? 0;
         if (game.settings.get("dnd5e", "gridAlignedSquareTemplates")) {
-          templateOptions.y = Math.floor((token.center?.y ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
+          templateOptions.y = Math.floor((tokenToUse.center?.y ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
         }
       } else {
-        templateOptions.x = token.center?.x ?? 0;
-        templateOptions.y = token.center?.y ?? 0;
+        templateOptions.x = tokenToUse.center?.x ?? 0;
+        templateOptions.y = tokenToUse.center?.y ?? 0;
       }
 
       if (workflow?.actor) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.actorUuid`, workflow.actor.uuid);
@@ -645,7 +649,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         workflow.templateUuid = td.uuid;
         workflow.template = td;
         workflow.templateId = td?.object?.id;
-        if (token && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
+        if (tokenToUse && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
           //@ts-expect-error .object
           await token.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
           if (workflow && !foundry.utils.getProperty(workflow, "item.flags.walledtemplates.noAutotarget"))
@@ -717,7 +721,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     }
 
     workflow.systemCard = options.systemCard;
-    if (["Workflow"].includes(workflow.workflowType)) {
+    if (workflow.workflowType === "BaseWorkflow") {
       if (this.system.target?.type === "self") {
         workflow.targets = getTokenForActorAsSet(this.actor)
       } else if (game.user?.targets?.size ?? 0 > 0) workflow.targets = validTargetTokens(game.user?.targets);
@@ -734,7 +738,6 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
           workflow.itemCardId = itemCard.id;
           workflow.itemCardUuid = itemCard.uuid;
           workflow.needItemCard = false;
-
         }
       }
     }
@@ -744,7 +747,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       workflow.disadvantage = false;
       workflow.rollOptions = foundry.utils.deepClone(defaultRollOptions);
     }
-    if (workflow instanceof TrapWorkflow) workflow.rollOptions.fastForward = true;
+    if (workflow.workflowType === "TrapWorkflow") workflow.rollOptions.fastForward = true;
 
     if (configSettings.allowUseMacro && workflow.options.noTargetOnusemacro !== true) {
       await workflow.triggerTargetMacros(["isPreAttacked"]);
@@ -1329,7 +1332,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     const isPlayerOwned = this.actor.hasPlayerOwner;
     const hideItemDetails = (["none", "cardOnly"].includes(configSettings.showItemDetails) || (configSettings.showItemDetails === "pc" && !isPlayerOwned))
       || !configSettings.itemTypeList?.includes(this.type);
-    const hasEffects = !["applyNoButton", "applyRemove"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "Workflow" && this.effects.find(ae => !ae.transfer && !foundry.utils.getProperty(ae, "flags.dae.dontApply"));
+    const hasEffects = !["applyNoButton", "applyRemove"].includes(configSettings.autoItemEffects) && hasDAE(workflow) && workflow.workflowType === "BaseWorkflow" && this.effects.find(ae => !ae.transfer && !foundry.utils.getProperty(ae, "flags.dae.dontApply"));
     let dmgBtnText = (this.system?.actionType === "heal") ? i18n(`${SystemString}.Healing`) : i18n(`${SystemString}.Damage`);
     if (workflow.rollOptions.fastForwardDamage && configSettings.showFastForward) dmgBtnText += ` ${i18n("midi-qol.fastForward")}`;
     let versaBtnText = i18n(`${SystemString}.Versatile`);
@@ -1360,7 +1363,7 @@ export async function wrappedDisplayCard(wrapped, options) {
       hideItemDetails,
       dmgBtnText,
       versaBtnText,
-      showProperties: workflow.workflowType === "Workflow",
+      showProperties: workflow.workflowType === "BaseWorkflow",
       hasEffects,
       effects: this.effects,
       isMerge: configSettings.mergeCard,
@@ -1439,6 +1442,7 @@ export async function wrappedDisplayCard(wrapped, options) {
   } catch (err) {
     const message = `wrappedDisplayCard error for ${this.parent?.name} ${this.name} ${this.uuid}`;
     TroubleShooter.recordError(message, err);
+    TroubleShooter.recordError(err, message);
     throw err;
   }
 }
@@ -1726,7 +1730,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   workflow.targets = new Set(game.user?.targets ?? new Set()).filter(token => isTargetable(token));
   workflow.hitTargets = new Set(workflow.targets);
   workflow.templateData = templateDocument.toObject(); // TODO check this v10
-  if (this instanceof TrapWorkflow) return;
+  if (workflow.workflowType === "TrapWorkflow") return;
   if (debugEnabled > 0) warn("selectTargets ", workflow?.suspended, workflow?.needTemplate, templateDocument);
   if (workflow.needTemplate) {
     workflow.needTemplate = false;
