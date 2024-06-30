@@ -14,7 +14,7 @@
 **For Macro Writers**
 * Added support for user created workflow classes. 
   - item.use(config, options), now supports config.midi.workflowClass, which must be a subclass of MidiQOL.Workflow, which will be used when constructing a workflow
-  - midi-qol will now use globalThis.workflowClass when instantiating a workflow when rolling an item, so you can change the default class midi will use when using an item - use this at your own risk. It must be a sublcass of MidiQOL.Workflow.
+  - midi-qol will now use globalThis.MidiQOL.workflowClass when instantiating a workflow when rolling an item, so you can change the default class midi will use when using an item - use this at your own risk. It must be a sublcass of MidiQOL.Workflow.
   - midi-qol predefines UserWorkflow, which extends Workflow, as a handy way for you to experiment with custom workflows. Change UserWorkflow however you want (perhaps via libwrapper/monkey patching) and use that when doing an item.user(config, options) or (better) you can define your own class which must extend MidiQOL.Workflow.
   - When a workflow is created, the created workflow starts in the WorkflowState_NoAction state and is marked suspended until item.use creates the chat card, manages targets and signals that processing is complete and will then transition to WorkflowState_Start. You can change that behaviour by overriding Workflow.WorflowState_NoAction, or having the constructor perform a different state, which is what DamageOnlyWorkflow does.
 * Two new hooks called by midi, "midi-qol.ready" and "midi-qol.setup", called after midi's ready/setup processing is completed. globalThis.MidiQOL will be created and complete when "midi-qol.setup" is called, so can be used for user defined workflow creation.

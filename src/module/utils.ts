@@ -58,6 +58,14 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
   if (rolls instanceof DamageRoll) {
     rolls = [rolls];
   }
+  //@ts-expect-error
+  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
+    //TODO work out how to segregate damage detail by damage properites.
+    //@ts-expect-error
+    const aggregatedRolls: CONFIG.Dice.DamageRoll[] = game.system.dice.aggregateDamageRolls(rolls/*, {respectProperties: true}*/);
+    const  detail = aggregatedRolls.map(roll => ({damage: roll.total, type: roll.options.type, formula: roll.formula, properties: new Set(roll.options.properties ?? [])}));
+    return detail;
+  }
   if (item?.system.damage?.parts[0]) {
     defaultType = item.system.damage.parts[0][1]
   }
@@ -67,19 +75,19 @@ export function createDamageDetail({ roll, item, versatile, defaultType = MQdefa
       let rr = r;
       if (rr.terms?.length) for (let i = rr.terms.length - 1; i >= 0;) {
         const term = rr.terms[i--];
-        if (!(term instanceof NumericTerm) && !(term instanceof DiceTerm)) continue;
+        if (!(term instanceof NumericTerm) && !(term instanceof DiceTerm) && !(term instanceof ParentheticalTerm)) continue;
         const flavorType = getDamageType(term.flavor);
         let type = (term.flavor !== "") ? flavorType : rr.options.type;
         if (!type || type === "none") type = r.options.type ?? defaultType;
         let multiplier = 1
         let operator = rr.terms[i];
         while (operator instanceof OperatorTerm) {
+          if (operator.operator === "*") multiplier *= 2;
           if (operator.operator === "-") multiplier *= -1;
           operator = rolls.entries[i--];
         }
         let value = Number((term?.total ?? "0")) * multiplier;
         damageParts[type] = value + (damageParts[type] ?? 0);
-        damageParts[type]
       }
     }
     //  damageParts[r.options.type || defaultType] = r.total + (damageParts[r.options.type || defaultType] ?? 0);
