@@ -317,7 +317,7 @@ export let chatDamageButtons = (message, html, data) => {
       defaultDamageType = (item?.system.damage?.parts[0] && item?.system.damage.parts[0][1]) ?? "bludgeoning";
     }
     // TODO fix this for versatile damage
-    const damageList = createDamageDetail({ roll: theRolls, item, ammo: null, versatile: false, defaultType: defaultDamageType });
+    const damageList = createDamageDetail({ roll: theRolls, item, defaultType: defaultDamageType });
     const totalDamage = theRolls.reduce((acc, r) => r.total + acc, 0);
     addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, "damage", targetField, "position:relative; top:0px; color:black");
   } else if (foundry.utils.getProperty(message, "flags.midi-qol.damageDetail") || foundry.utils.getProperty(message, "flags.midi-qol.otherDamageDetail")) {

@@ -607,8 +607,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         target = item.system.target ?? { value: 0 };
       }
       const fudge = 0.1;
-      //@ts-expect-error width/height
-      const { width, height } = token.document;
+      const { width, height } = tokenToUse.document;
       if (useSquare) {
         templateOptions.distance = target.value + fudge + Math.max(width, height, 0) * gs;
         item = item.clone({ "system.target.value": templateOptions.distance, "system.target.type": "square" })
@@ -1131,7 +1130,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
 
     if (this.system.actionType === "heal" && !Object.keys(GameSystemConfig.healingTypes).includes(workflow.defaultDamageType ?? "")) workflow.defaultDamageType = "healing";
 
-    workflow.damageDetail = createDamageDetail({ roll: result, item: this, ammo: workflow.ammo, defaultType: workflow.defaultDamageType, versatile: workflow.rollOptions.versatile });
+    workflow.damageDetail = createDamageDetail({ roll: result, item: this, defaultType: workflow.defaultDamageType });
     await workflow.setDamageRolls(result);
     if (workflow.workflowOptions?.damageRollDSN !== false) {
       let promises = result.map(r => displayDSNForRoll(r, "damageRoll"));
@@ -1225,7 +1224,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
           if (otherMagicalDamage && !otherProperties.includes("mgc")) otherProperties.push("mgc");
           otherProperties.push(workflow?.otherDamageItem?.system.actionType)
           await workflow.setOtherDamageRoll(otherResult);
-          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, ammo: null, versatile: false, defaultType: workflow.otherDamageItem.system.damage?.parts[0]?.[1] ?? workflow.defaultDamageType ?? MQdefaultDamageType });
+          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, defaultType: workflow.otherDamageItem.system.damage?.parts[0]?.[1] ?? workflow.defaultDamageType ?? MQdefaultDamageType });
           if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
           if (!configSettings.mergeCard) {
             foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "other");

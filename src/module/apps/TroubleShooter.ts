@@ -505,6 +505,17 @@ export class TroubleShooter extends FormApplication {
         case "midi-qol":
           foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
+        case "monks-combat-details":
+          if (safeGetGameSetting("monks-combat-details", "auto-defeated") !== "none" && configSettings.addDead) {
+            data.problems.push({
+              moduleId: "monks-combat-details",
+              severity: "Error",
+              problemSummary: "Both Midi and Monks Combat Details are adding defeated effects",
+              fixer: "Disable defeated effects in one of the modules",
+              problemDetail: undefined
+            });
+          }
+          break;
         case "monks-little-details":
           foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;

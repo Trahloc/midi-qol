@@ -229,16 +229,25 @@ export function queueUndoData(data: any): boolean {
         inProgress.allTargets.set(undoEntry.actorUuid, undoEntry);
       }
     }
+    /* This replaces the use of midi-qol concentration data but I'm not sure it's needed
     //@ts-expect-error
     let actor = fromUuidSync(undoEntry.actorUuid);
     if (actor instanceof TokenDocument) actor = actor.actor;
-    const concentrationTargets = actor && foundry.utils.getProperty(actor, "flags.midi-qol.concentration-data")?.targets;;
-    concentrationTargets?.forEach(({ actorUuid, tokenUuid }) => {
-      const targetData = createTargetData(tokenUuid)
-      if (targetData && !inProgress.allTargets.get(actorUuid)) {
-        inProgress.allTargets.set(actorUuid, targetData)
+    for (let effect of actor?.appliedEffects) {
+      const dependents = effect.getDependents();
+      for (let dependent of dependents) {
+        let token;
+        if (dependent instanceof ActiveEffect) dependent = dependent.parent;
+        if (dependent instanceof Actor && dependent.isToken) token = dependent.token;
+        else if (dependent instanceof Actor) token = dependent.getActiveTokens()[0];
+        if (!token) continue;
+        const targetData = createTargetData(token.uuid)
+        if (targetData && !inProgress.allTargets.get(token.actor.uuid)) {
+          inProgress.allTargets.set(token.actor.uuid, targetData)
+        }
       }
-    });
+    }
+    */
   });
 
   addQueueEntry(undoDataQueue, inProgress);

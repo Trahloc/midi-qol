@@ -1071,13 +1071,13 @@ export class Workflow {
     }
 
     if (this.damageRolls)
-      this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
+      this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: this.defaultDamageType });
     else this.damageDetail = [];
     if (this.otherDamageRoll) {
-      this.otherDamageDetail = createDamageDetail({ roll: this.otherDamageRoll, item: null, ammo: null, versatile: false, defaultType: this.defaultDamageType });
+      this.otherDamageDetail = createDamageDetail({ roll: this.otherDamageRoll, item: null, defaultType: this.defaultDamageType });
     } else this.otherDamageDetail = [];
     if (this.bonusDamageRolls)
-      this.bonusDamageDetail = createDamageDetail({ roll: this.bonusDamageRolls, item: null, ammo: null, versatile: false, defaultType: this.defaultDamageType });
+      this.bonusDamageDetail = createDamageDetail({ roll: this.bonusDamageRolls, item: null, defaultType: this.defaultDamageType });
     else this.bonusDamageDetail = [];
 
     await asyncHooksCallAll("midi-qol.DamageRollComplete", this);
@@ -4096,7 +4096,6 @@ export class Workflow {
             if (!foundry.utils.getProperty(this.item, "flags.midi-qol.noProvokeReaction") && !options.noProvokeReaction) {
               result = await doReactions(targetToken, this.tokenUuid, this.attackRoll, "reaction", { item: this.item, workflow: this, workflowOptions });
             }
-            // TODO work out how reactions can return something useful console.error("result is ", result)
             if (!Workflow.getWorkflow(this.id)) // workflow has been removed - bail out
               return;
             targetAC = Number.parseInt(targetActor.system.attributes.ac.value) + bonusAC;
@@ -4624,7 +4623,7 @@ export class DamageOnlyWorkflow extends Workflow {
         damageRoll = damageRoll.roll({ async: false });
     }
     this.setDamageRolls([damageRoll]).then(() => {
-      this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: null, versatile: this.rollOptions.versatile, defaultType: damageType });
+      this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: damageType });
       this.damageTotal = damageTotal;
       this.isCritical = options.isCritical ?? false;
       this.kickStart = false;
@@ -4664,7 +4663,7 @@ export class DamageOnlyWorkflow extends Workflow {
         // TODO come back and fix this for dnd3
         const newRolls = await processDamageRollBonusFlags.bind(this)();
         await this.setDamageRolls(newRolls);
-        this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
+        this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: this.defaultDamageType });
       }
     } else {
 
@@ -4854,7 +4853,7 @@ export class TrapWorkflow extends Workflow {
     let defaultDamageType;
     defaultDamageType = this.item?.system.damage?.parts[0]?.[1] ?? this.defaultDamageType;
 
-    this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: defaultDamageType });
+    this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: defaultDamageType });
     // apply damage to targets plus saves plus immunities
     await this.displayDamageRolls(configSettings.mergeCard)
     if (this.isFumble) {
@@ -4961,13 +4960,13 @@ export class DDBGameLogWorkflow extends Workflow {
     this.defaultDamageType = this.item.system.damage?.parts[0]?.[1] ?? this.defaultDamageType ?? MQdefaultDamageType;
     if (this.item?.system.actionType === "heal" && !Object.keys(GameSystemConfig.healingTypes).includes(this.defaultDamageType ?? "")) this.defaultDamageType = "healing";
 
-    this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
+    this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: this.defaultDamageType });
 
     const damageBonusMacros = this.getDamageBonusMacros();
     if (damageBonusMacros) {
       await this.rollBonusDamage(damageBonusMacros);
     }
-    this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, ammo: this.ammo, versatile: this.rollOptions.versatile, defaultType: this.defaultDamageType });
+    this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: this.defaultDamageType });
     this.otherDamageDetail = [];
     if (this.bonusDamageRolls) {
       const messageData = {

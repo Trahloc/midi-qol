@@ -1,5 +1,21 @@
+### 11.4.40
+* Fix for DamageOnlyWorkflows not applying.
+* If you use Monk's combat details you need to choose either Monks or Midi to apply the dead status (when reaching 0 HP). Either is fine but both will result in errors about duplicate/missing effects in embedded collections. Midi trouble shoort weill generate an error if both are enabled.
+
+* Two new options for flags.midi-qol.optional.NAME effects
+  - flags.midi-qol.optional.NAME.activation, which determines if the optional effect is available. If present it must evaluate to true or the optional effect will be skipped.
+  - flags.midi-qol.optional.NAME.force, which determines if the optional effect should always be applied. If present and it evaluates to true the effect will be auto applied and not appear in the dialog.
+  - The flags are checked in order, so .activation first (and if it's false .force will have no impact) then .force.
+  - if .activation and .force mean there are no effects that the player can choose from the dialog will be skipped.
+
+### 11.4.39
+* Midi has it's own method for working out what types of damage are present in a damage roll. DND5e v3.2 introduces a much better solution. 
+* If you have version 3.2 of dnd5e installed midi will automatically use this better way of working out the damage present. 
+  - As a byproduct of doing this, issues with parenthetical rolls (@item.level) * 1d4 [for example] are resolved and apply the right damage. The support for this is better in foundry v12 (the chat card will be correct) than in v11 (the damage breakdown will display incorrectly).
+  - This change works with both dnd5e damage application and midi damage application.
+
 ### 11.4.38
-* Midi will now recongnise the core statusEffect "Hiding" (or hideen) as providing advantage/disadvantage when set. Added MidiQOL.removeHiddenCondition(tokenRef) and midiQOL.removeInvisibleCondition(tokenRef).
+* Midi will now recongnise the core statusEffect "Hiding" (or hidden) as providing advantage/disadvantage when set. Added MidiQOL.removeHiddenCondition(tokenRef) and midiQOL.removeInvisibleCondition(tokenRef).
 * new option to completeItemUse, options.ignoreUserTargets which, if set, causes completeItemUse to both ignore game.user.targets (only using options.targetUuids) and to leave game.user.targets unchanged during the call.
   - overtime effects now set options.ignoreUserTargets when rolling the overtime item. Should resolve the interaction between overtime effects and monk's combat details.
 * Fix for setting damageRolls options.properties incorrectly.

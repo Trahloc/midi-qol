@@ -50,24 +50,29 @@ export function getDamageFlavor(damageType): string | undefined {
 /**
  *  return a list of {damage: number, type: string} for the roll and the item
  */
-export function createDamageDetail({ roll, item, versatile, defaultType = MQdefaultDamageType, ammo }): { damage: unknown; type: string; }[] {
+export function createDamageDetail({ roll, item, defaultType = MQdefaultDamageType }): { damage: unknown; type: string; }[] {
   let damageParts = {};
   let rolls = roll;
   //@ts-expect-error
   const DamageRoll = CONFIG.Dice.DamageRoll;
-  if (rolls instanceof DamageRoll) {
+  if (rolls instanceof Roll) {
     rolls = [rolls];
-  }
-  //@ts-expect-error
-  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
-    //TODO work out how to segregate damage detail by damage properites.
-    //@ts-expect-error
-    const aggregatedRolls: CONFIG.Dice.DamageRoll[] = game.system.dice.aggregateDamageRolls(rolls/*, {respectProperties: true}*/);
-    const  detail = aggregatedRolls.map(roll => ({damage: roll.total, type: roll.options.type, formula: roll.formula, properties: new Set(roll.options.properties ?? [])}));
-    return detail;
   }
   if (item?.system.damage?.parts[0]) {
     defaultType = item.system.damage.parts[0][1]
+  }
+  //@ts-expect-error
+  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
+    rolls = foundry.utils.deepClone(rolls).map(r => {
+      if (!r.options.type) r.options.type = defaultType;
+      return r;
+    })
+
+    //TODO work out if/how to segregate damage detail by damage properites.
+    //@ts-expect-error
+    const aggregatedRolls: CONFIG.Dice.DamageRoll[] = game.system.dice.aggregateDamageRolls(rolls/*, {respectProperties: true}*/);
+    const detail = aggregatedRolls.map(roll => ({ damage: roll.total, type: roll.options.type, formula: roll.formula, properties: new Set(roll.options.properties ?? []) }));
+    return detail;
   }
   if (rolls instanceof Array) {
     for (let r of rolls) {
@@ -995,23 +1000,24 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
             }
           }
           tokenDamages.push(returnDamages);
-          /* setup damageList for backwards compatibility... {
-  tokenId, tokenUuid, actorId: a.id, actorUuid: a.uuid, tempDamage: tmp - newTemp, hpDamage: oldHP - newHP, oldTempHP: tmp, newTempHP: newTemp,
-  oldHP: oldHP, newHP: newHP, totalDamage: totalDamage, appliedDamage: value, sceneId, oldVitality, newVitality
-};
-*/
         }
       }
     }
     workflow.v3Damages = allDamages;
-    let baseDamageRolls: Roll[] = [];
-    for (let damageRolls of [workflow.damageRolls, workflow.otherDamageRoll, workflow.bonusDamageRolls]) {
-      if (damageRolls?.length > 0 && damageRolls[0]) {
-        baseDamageRolls = baseDamageRolls.concat(damageRolls);
-      }
+    let baseDamageRolls: Roll[] = workflow.damageRolls ?? [];
+    let otherDamageRolls: Roll[] = [];
+    if (configSettings.singleConcentrationRoll || true) { // this needs more work for dual checks
+      if (workflow.otherDamageRoll) baseDamageRolls = baseDamageRolls.concat(workflow.otherDamageRoll);
+      if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
+      otherDamageRolls = [];
+    } else {
+      if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
+      if (workflow.otherDamageRoll) otherDamageRolls = [workflow.otherDamageRoll];
     }
+
     const options = { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false };
-    const chatCardUuids = await timedAwaitExecuteAsGM("createV3ReverseDamageCard", {
+    let chatCardUuids: string[] = [];
+    const cardIds: string[] = await timedAwaitExecuteAsGM("createV3ReverseDamageCard", {
       autoApplyDamage: configSettings.autoApplyDamage,
       sender: game.user?.name,
       actorId: workflow.actor?.id,
@@ -1024,6 +1030,23 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       updateContext: options.updateContext,
       forceApply: options.forceApply,
     });
+    if (cardIds) chatCardUuids.push(...cardIds);
+    if (otherDamageRolls.length > 0) {
+      const cardIds = await timedAwaitExecuteAsGM("createV3ReverseDamageCard", {
+        autoApplyDamage: configSettings.autoApplyDamage,
+        sender: game.user?.name,
+        actorId: workflow.actor?.id,
+        charName: workflow.actor?.name ?? game?.user?.name,
+        allDamages,
+        baseDamageRolls: baseDamageRolls.map(r => JSON.stringify(r)),
+        chatCardId: workflow.itemCardId,
+        chatCardUuid: workflow.itemCardUuid,
+        flagTags: workflow.flagTags,
+        updateContext: options.updateContext,
+        forceApply: options.forceApply,
+      });
+      if (cardIds) chatCardUuids.push(...cardIds)
+    }
     if (workflow && configSettings.undoWorkflow) {
       // Assumes workflow.undoData.chatCardUuids has been initialised
       if (workflow.undoData) {
@@ -3079,17 +3102,22 @@ export async function removeTokenConditionEffect(token: Token, condition: string
 // this = {actoaddStatusEffectChangebonusDialog(r, item, myExpiredEffects}
 export async function expireMyEffects(effectsToExpire: string[]) {
   const expireHit = effectsToExpire.includes("1Hit") && !this.effectsAlreadyExpired.includes("1Hit");
-  const expireAction = effectsToExpire.includes("1Action") && !this.effectsAlreadyExpired.includes("1Action");
+  let expireAnyAction = effectsToExpire.includes("1Action") && !this.effectsAlreadyExpired.includes("1Action");
+  const expireBonusAction = (effectsToExpire.includes("1Action") || effectsToExpire.includes["Bonus Action"]) && !this.effectsAlreadyExpired.includes("Bonus Action");
+  const expireReaction = (effectsToExpire.includes("1Action") || effectsToExpire.includes["Reaction"]) && !this.effectsAlreadyExpired.includes("Reaction");
+  const expireTurnAction = (effectsToExpire.includes("1Action") || effectsToExpire.includes["Turn Action"]) && !this.effectsAlreadyExpired.includes("Turn Action");
   const expireSpell = effectsToExpire.includes("1Spell") && !this.effectsAlreadyExpired.includes("1Spell");
   const expireAttack = effectsToExpire.includes("1Attack") && !this.effectsAlreadyExpired.includes("1Attack");
   const expireDamage = effectsToExpire.includes("DamageDealt") && !this.effectsAlreadyExpired.includes("DamageDealt");
   const expireInitiative = effectsToExpire.includes("Initiative") && !this.effectsAlreadyExpired.includes("Initiative");
-
+  //
+  expireAnyAction ||= expireBonusAction || expireReaction || expireTurnAction;
+  if (expireAnyAction) effectsToExpire.push("1Action");
   // expire any effects on the actor that require it
   if (debugEnabled && false) {
     const test = this.actor.effects.map(ef => {
       const specialDuration = foundry.utils.getProperty(ef.flags, "dae.specialDuration");
-      return [(expireAction && specialDuration?.includes("1Action")),
+      return [(expireAnyAction && specialDuration?.includes("1Action")),
       (expireAttack && specialDuration?.includes("1Attack") && this.item?.hasAttack),
       (expireHit && this.item?.hasAttack && specialDuration?.includes("1Hit") && this.hitTargets.size > 0)]
     })
@@ -3100,7 +3128,10 @@ export async function expireMyEffects(effectsToExpire: string[]) {
   const myExpiredEffects = allEffects?.filter(ef => {
     const specialDuration = foundry.utils.getProperty(ef.flags, "dae.specialDuration");
     if (!specialDuration || !specialDuration?.length) return false;
-    return (expireAction && specialDuration.includes("1Action")) ||
+    return (expireAnyAction && specialDuration.includes("1Action")) ||
+      (expireBonusAction && specialDuration.includes("Bonus Action") && this.item.system.activation.type === "bonus") ||
+      (expireReaction && specialDuration.includes("Reaction") && this.item.system.activation.type === "reaction") ||
+      (expireTurnAction && specialDuration.includes("Turn Action") && this.item.system.activation.type === "action" ) ||
       (expireAttack && this.item?.hasAttack && specialDuration.includes("1Attack")) ||
       (expireSpell && this.item?.type === "spell" && specialDuration.includes("1Spell")) ||
       (expireAttack && this.item?.hasAttack && specialDuration.includes(`1Attack:${this.item?.system.actionType}`)) ||
@@ -3109,7 +3140,7 @@ export async function expireMyEffects(effectsToExpire: string[]) {
       (expireDamage && this.item?.hasDamage && specialDuration.includes("DamageDealt")) ||
       (expireInitiative && specialDuration.includes("Initiative"))
   });
-  if (debugEnabled > 1) debug("expire my effects", myExpiredEffects, expireAction, expireAttack, expireHit);
+  if (debugEnabled > 1) debug("expire my effects", myExpiredEffects, expireAnyAction, expireAttack, expireHit);
   this.effectsAlreadyExpired = this.effectsAlreadyExpired.concat(effectsToExpire);
   if (myExpiredEffects?.length > 0) await expireEffects(this.actor, myExpiredEffects, { "expiry-reason": `midi-qol:${effectsToExpire}` });
 }
@@ -3160,6 +3191,7 @@ class RollModifyDialog extends Application {
   timeRemaining: number;
   timeoutId: any;
   secondTimeoutId: any;
+  aborted: boolean = false;
 
   data: {
     //@ts-expect-error dnd5e v10
@@ -3290,7 +3322,6 @@ class RollModifyDialog extends Application {
         selector[selector.length - 1] = "all";
         const allSelector = selector.join(".");
         value = foundry.utils.getProperty(flagData ?? {}, allSelector);
-
         if (value !== undefined) {
           let labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
           labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
@@ -3315,6 +3346,7 @@ class RollModifyDialog extends Application {
             icon = CONFIG.Macro.sidebarIcon;
             labelDetail = value.split(".").slice(1).join(".");
           } else labelDetail = `${value}`
+          // check force condition. if true call the callback and return obj
 
           obj[foundry.utils.randomID()] = {
             icon: `<i class="${icon}"></i>`,
@@ -3489,6 +3521,35 @@ export async function processDamageRollBonusFlags(): Promise<Roll[]> { // bound 
   return this.damageRolls;
 }
 
+async function displayBeforeAfterRolls(data: {originalRoll: Roll, newRoll: Roll, rollMode, title: string, player: User | undefined, options: any, actor: Actor}) {
+  let {originalRoll, newRoll, rollMode, title, player, options, actor} = data;
+  if (!options) options = {};
+  //TODO match the renderRoll to the roll type
+  const newRollHTML = await midiRenderRoll(newRoll);
+  const originalRollHTML = await midiRenderRoll(originalRoll);
+  const chatData: any = foundry.utils.mergeObject({
+    flavor: `${title}`,
+    speaker: ChatMessage.getSpeaker({ actor: actor }),
+    content: `${originalRollHTML}<br>${newRollHTML}`,
+    whisper: [player?.id ?? ""],
+    rolls: [originalRoll, newRoll],
+    sound: CONFIG.sounds.dice,
+  },
+    options.messageData);
+  //@ts-expect-error
+  if (game.release.generation < 12) {
+    chatData.type = CONST.CHAT_MESSAGE_TYPES.ROLL;
+  } else {
+    //@ts-expect-error
+    chatData.style = CONST.CHAT_MESSAGE_STYLES.ROLL;
+  }
+  //@ts-expect-error
+  if (originalRoll.options.rollMode) ChatMessage.applyRollMode(chatData, originalRoll.options.rollMode);
+  else ChatMessage.applyRollMode(chatData, rollMode);
+  foundry.utils.setProperty(newRoll, "flags.midi-qol.chatMessageShown", true);
+  return await ChatMessage.create(chatData);
+}
+
 export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, roll: Roll, rollType: string, options: any = {}): Promise<Roll | undefined> {
   const showDiceSoNice = dice3dEnabled(); // && configSettings.mergeCard;
   let timeoutId;
@@ -3498,7 +3559,230 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
   let rollHTML = await midiRenderRoll(roll);
   const player = playerForActor(this.actor);
 
-  let timeout = options.timeout ?? configSettings.reactionTimeout ?? defaultTimeout
+  const callback = async (dialog, button) => {
+    if (this.seconditimeoutId) {
+      clearTimeout(this.seconditimeoutId);
+    }
+
+    let reRoll;
+    let chatMessage;
+    const undoId = foundry.utils.randomID();
+    const undoData: any = {
+      id: undoId,
+      userId: player?.id ?? "",
+      userName: player?.name ?? "Gamemaster",
+      itemName: button.label,
+      itemUuid: "",
+      actorUuid: this.actor.uuid,
+      actorName: this.actor.name,
+      isReaction: true
+    }
+    await untimedExecuteAsGM("queueUndoDataDirect", undoData)
+
+    const rollMode = foundry.utils.getProperty(this.actor ?? {}, button.key)?.rollMode ?? game.settings.get("core", "rollMode");
+    if (!hasEffectGranting(this.actor, button.key, flagSelector)) return;
+    let resultApplied = false; // This is just for macro calls
+    let macroToCall;
+    const allFlagSelector = flagSelector.split(".").slice(0, -1).join(".") + ".all";
+    let specificMacro = false;
+    const possibleMacro = foundry.utils.getProperty(this.actor ?? {}, `${button.key}.${flagSelector}`) ||
+      foundry.utils.getProperty(this.actor ?? {}, `${button.key}.${allFlagSelector}`);
+    if (possibleMacro && (button.value.trim().startsWith("ItemMacro") || button.value.trim().startsWith("Macro") || button.value.trim().startsWith("function"))) {
+      macroToCall = button.value;
+      if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
+      specificMacro = true;
+    } else if (foundry.utils.getProperty(this.actor ?? {}, `${button.key}.macroToCall`)?.trim()) {
+      macroToCall = foundry.utils.getProperty(this.actor ?? {}, `${button.key}.macroToCall`)?.trim();
+    }
+    if (macroToCall) {
+      let result;
+      let workflow;
+      if (this instanceof Workflow || this.workflow) {
+        workflow = this.workflow ?? this;
+      } else {
+        const itemUuidOrName = button.value.split(".").slice(1).join(".");
+        //@ts-expect-error
+        let item = fromUuidSync(itemUuidOrName);
+        if (!item && this.actor) item = this.actor.items.getName(itemUuidOrName);
+        if (!item && this instanceof Actor) item = this.items.getName(itemUuidOrName);
+        workflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
+      }
+      const macroData = workflow.getMacroData();
+      macroData.macroPass = `${button.key}.${flagSelector}`;
+      macroData.tag = "optional";
+      macroData.roll = roll;
+
+      result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll, bonus: (!specificMacro ? button.value : undefined) });
+      if (typeof result === "string")
+        button.value = result;
+      else {
+        if (result instanceof Roll) {
+          newRoll = result;
+          resultApplied = true;
+        }
+        if (specificMacro) {
+          newRoll = roll;
+          resultApplied = true;
+        }
+      }
+      if (result === undefined && debugEnabled > 0) console.warn(`midi-qol | bonusDialog | macro ${button.value} return undefined`)
+    }
+
+    //@ts-expect-error
+    const D20Roll = CONFIG.Dice.D20Roll;
+    // do the roll modifications
+    if (!resultApplied) switch (button.value) {
+      case "reroll": reRoll = await roll.reroll();
+        if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType, rollMode);
+        newRoll = reRoll; break;
+      case "reroll-query":
+        reRoll = reRoll = await roll.reroll();
+        if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType, rollMode);
+        const newRollHTML = await midiRenderRoll(reRoll);
+        if (await Dialog.confirm({ title: "Confirm reroll", content: `Replace ${rollHTML} with ${newRollHTML}`, defaultYes: true }))
+          newRoll = reRoll
+        else
+          newRoll = roll;
+        break;
+      case "reroll-kh": reRoll = await roll.reroll();
+        if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
+        newRoll = reRoll;
+        if (reRoll.total <= (roll.total ?? 0)) newRoll = roll;
+        break;
+      case "reroll-kl": reRoll = await roll.reroll();
+        newRoll = reRoll;
+        if (reRoll.total > (roll.total ?? 0)) newRoll = roll;
+        if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
+        break;
+      case "reroll-max": newRoll = await roll.reroll({ maximize: true });
+        if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
+        break;
+      case "reroll-min": newRoll = await roll.reroll({ minimize: true });
+        if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
+        break;
+      case "success":
+        newRoll = newRoll = await roll.clone().evaluate();
+        //@ts-expect-error
+        newRoll.terms[0].results.forEach(res => res.result = 99);
+        //@ts-expect-error
+        newRoll._total = 99;
+        setProperty(newRoll, "options", duplicate(roll.options))
+        setProperty(newRoll, "options.success", true);
+        break;
+      case "fail":
+        newRoll = newRoll = await roll.clone().evaluate();
+        setProperty(newRoll, "options", duplicate(roll.options))
+        setProperty(newRoll, "options.success", false);
+        //@ts-expect-error
+        newRoll.terms[0].results.forEach(res => res.result = -1);
+        //@ts-expect-error
+        newRoll._total = -1;
+      default:
+        if (typeof button.value === "string" && button.value.startsWith("replace ")) {
+          const rollParts = button.value.split(" ");
+          newRoll = new Roll(rollParts.slice(1).join(" "), (this.item ?? this.actor).getRollData());
+          newRoll = await newRoll.evaluate();
+          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType, rollMode);
+        } else if (flagSelector.startsWith("damage.") && foundry.utils.getProperty(this.actor ?? this, `${button.key}.criticalDamage`)) {
+          //@ts-expect-error .DamageRoll
+          const DamageRoll = CONFIG.Dice.DamageRoll
+          let rollOptions = foundry.utils.duplicate(roll.options);
+          //@ts-expect-error
+          rollOptions.configured = false;
+          // rollOptions = { critical: (this.isCritical || this.rollOptions.critical), configured: false };
+          //@ts-expect-error D20Roll
+          newRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
+          let rollData: any = {}
+          if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
+          else rollData = this.actor?.getRollData() ?? {}; // 
+          const tempRoll = new DamageRoll(`${button.value}`, rollData, rollOptions);
+          await tempRoll.evaluate();
+          if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
+          newRoll = addRollTo(roll, tempRoll);
+        } else {
+          //@ts-expect-error
+          newRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
+          let rollData: any = {}
+          if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
+          else rollData = this.actor?.getRollData() ?? this;
+          const tempRoll = await (new Roll(button.value, rollData)).roll();
+          if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
+          newRoll = addRollTo(newRoll, tempRoll);
+        }
+        break;
+    }
+
+    if (showRoll && this.category === "ac") { // TODO do a more general fix for displaying this stuff
+      const newRollHTML = await midiRenderRoll(newRoll);
+      const chatData: any = {
+        flavor: game.i18n.localize("DND5E.ArmorClass"),
+        content: `${newRollHTML}`,
+        whisper: [player?.id ?? ""]
+      };
+      ChatMessage.applyRollMode(chatData, rollMode);
+      chatMessage = await ChatMessage.create(chatData);
+    }
+
+    await removeEffectGranting(this.actor, button.key);
+    roll = newRoll;
+    if (dialog) {
+      validFlags = validFlags.filter(bf => bf !== button.key);
+      if (validFlags.length === 0) {
+        dialog?.close();
+        return;
+      }
+
+      const newRollHTML = /*reRoll ? await midiRenderRoll(reRoll) :*/ await midiRenderRoll(newRoll);
+      dialog.data.flags = validFlags;
+      dialog.data.currentRoll = newRoll;
+      if (game.user?.isGM) {
+        dialog.data.content = newRollHTML;
+      } else {
+        if (["publicroll", "gmroll", "selfroll"].includes(rollMode)) dialog.data.content = newRollHTML;
+        else dialog.data.content = "Hidden Roll";
+      }
+      dialog.render(true);
+      // dialog.close();
+    }
+    if (chatMessage) untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: undoId, chatCardUuids: [(await chatMessage).uuid] });
+  }
+
+  const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), item: this.item, actor: this.actor, target: this.targets?.first() });
+  let validFlags: string[] = [];
+  let lastForceFlag = ""
+  const oldRoll = foundry.utils.deepClone(roll);;
+  for (let flagName of bonusFlags) {
+    if ((getOptionalCountRemaining(this.actor, `${flagName}.count`)) < 1) continue;
+    let activationCondition = foundry.utils.getProperty(this.actor ?? {}, `${flagName}.activation`);
+    if (activationCondition !== undefined) {
+      activationCondition = await evalCondition(activationCondition, conditionData, { errorReturn: true, async: true });
+      if (!activationCondition) continue;
+    }
+    let forcedCondition = foundry.utils.getProperty(this.actor ?? {}, `${flagName}.force`);
+    if (forcedCondition !== undefined) {
+      forcedCondition = await evalCondition(forcedCondition, conditionData, { errorReturn: true, async: true });
+      if (forcedCondition) {
+        await callback(undefined, {
+          key: flagName,
+          value: foundry.utils.getProperty(this.actor ?? {}, `${flagName}.${flagSelector}`) ?? foundry.utils.getProperty(this.actor ?? {}, `${flagName}.attack.all`) ?? "",
+          label: "none"
+        });
+        lastForceFlag = flagName;
+        continue;
+      }
+    }
+    if (foundry.utils.getProperty(this.actor, flagName) !== undefined) validFlags.push(flagName);
+  }
+  if (showRoll && lastForceFlag !== "") {
+    DSNMarkDiceDisplayed(roll);
+    const rollMode = foundry.utils.getProperty(this.actor ?? {}, lastForceFlag)?.rollMode ?? options.rollMode ?? game.settings.get("core", "rollMode");
+    const card = await displayBeforeAfterRolls({originalRoll: oldRoll, newRoll: roll, rollMode, title, player, options, actor: this.actor});
+    if (card?.uuid && this instanceof Workflow) { // this does not work currently since the undoId has not yet been set
+      await untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: this.undoId, chatCardUuids: [card.uuid] }); 
+    }
+  }
+  if (validFlags.length === 0) return roll;
+  let timeout = options.timeout ?? configSettings.reactionTimeout ?? defaultTimeout;
   return new Promise((resolve, reject) => {
     async function onClose() {
       if (timeoutId) clearTimeout(timeoutId);
@@ -3510,31 +3794,10 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       DSNMarkDiceDisplayed(newRoll);
 
       if (showRoll && newRoll !== originalRoll) {
-        //TODO match the renderRoll to the roll type
-        const newRollHTML = await midiRenderRoll(newRoll);
-        const originalRollHTML = await midiRenderRoll(originalRoll);
-        const chatData: any = foundry.utils.mergeObject({
-          flavor: `${title}`,
-          speaker: ChatMessage.getSpeaker({ actor: this.actor }),
-          content: `${originalRollHTML}<br>${newRollHTML}`,
-          whisper: [player?.id ?? ""],
-          rolls: [originalRoll, newRoll],
-          sound: CONFIG.sounds.dice,
-          flags: bonusFlags
-        },
-          options.messageData);
-        //@ts-expect-error
-        if (game.release.generation < 12) {
-          chatData.type = CONST.CHAT_MESSAGE_TYPES.ROLL;
-        } else {
-          //@ts-expect-error
-          chatData.style = CONST.CHAT_MESSAGE_STYLES.ROLL;
+        const card = await displayBeforeAfterRolls({originalRoll, newRoll, rollMode, title, player, options, actor: this.actor});
+        if (card?.uuid && this instanceof Workflow) { // this does not work currently since the undoId has not yet been set
+          await untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: this.undoId, chatCardUuids: [card.uuid] }); 
         }
-        //@ts-expect-error
-        if (originalRoll.options.rollMode) ChatMessage.applyRollMode(chatData, originalRoll.options.rollMode);
-        else ChatMessage.applyRollMode(chatData, rollMode);
-        await ChatMessage.create(chatData);
-        foundry.utils.setProperty(newRoll, "flags.midi-qol.chatMessageShown", true);
       }
       resolve(newRoll)
     }
@@ -3542,194 +3805,6 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       timeoutId = setTimeout(() => {
         resolve(newRoll);
       }, timeout * 1000);
-    }
-    const callback = async (dialog, button) => {
-      if (this.seconditimeoutId) {
-        clearTimeout(this.seconditimeoutId);
-      }
-
-      let reRoll;
-      let chatMessage;
-      const undoId = foundry.utils.randomID();
-      const undoData: any = {
-        id: undoId,
-        userId: player?.id ?? "",
-        userName: player?.name ?? "Gamemaster",
-        itemName: button.label,
-        itemUuid: "",
-        actorUuid: this.actor.uuid,
-        actorName: this.actor.name,
-        isReaction: true
-      }
-      await untimedExecuteAsGM("queueUndoDataDirect", undoData)
-
-      const rollMode = foundry.utils.getProperty(this.actor ?? {}, button.key)?.rollMode ?? game.settings.get("core", "rollMode");
-      if (!hasEffectGranting(this.actor, button.key, flagSelector)) return;
-      let resultApplied = false; // This is just for macro calls
-      let macroToCall;
-      const allFlagSelector = flagSelector.split(".").slice(0, -1).join(".") + ".all";
-      let specificMacro = false;
-      const possibleMacro = foundry.utils.getProperty(this.actor ?? {}, `${button.key}.${flagSelector}`) ||
-        foundry.utils.getProperty(this.actor ?? {}, `${button.key}.${allFlagSelector}`);
-      if (possibleMacro && (button.value.trim().startsWith("ItemMacro") || button.value.trim().startsWith("Macro") || button.value.trim().startsWith("function"))) {
-        macroToCall = button.value;
-        if (macroToCall.startsWith("Macro.")) macroToCall = macroToCall.replace("Macro.", "");
-        specificMacro = true;
-      } else if (foundry.utils.getProperty(this.actor ?? {}, `${button.key}.macroToCall`)?.trim()) {
-        macroToCall = foundry.utils.getProperty(this.actor ?? {}, `${button.key}.macroToCall`)?.trim();
-      }
-      if (macroToCall) {
-        let result;
-        let workflow;
-        if (this instanceof Workflow || this.workflow) {
-          workflow = this.workflow ?? this;
-        } else {
-          const itemUuidOrName = button.value.split(".").slice(1).join(".");
-          //@ts-expect-error
-          let item = fromUuidSync(itemUuidOrName);
-          if (!item && this.actor) item = this.actor.items.getName(itemUuidOrName);
-          if (!item && this instanceof Actor) item = this.items.getName(itemUuidOrName);
-          workflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
-        }
-        const macroData = workflow.getMacroData();
-        macroData.macroPass = `${button.key}.${flagSelector}`;
-        macroData.tag = "optional";
-        macroData.roll = roll;
-
-        result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll, bonus: (!specificMacro ? button.value : undefined) });
-        if (typeof result === "string")
-          button.value = result;
-        else {
-          if (result instanceof Roll) {
-            newRoll = result;
-            resultApplied = true;
-          }
-          if (specificMacro) {
-            newRoll = roll;
-            resultApplied = true;
-          }
-        }
-        if (result === undefined && debugEnabled > 0) console.warn(`midi-qol | bonusDialog | macro ${button.value} return undefined`)
-      }
-
-      //@ts-expect-error
-      const D20Roll = CONFIG.Dice.D20Roll;
-      // do the roll modifications
-      if (!resultApplied) switch (button.value) {
-        case "reroll": reRoll = await roll.reroll();
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType, rollMode);
-          newRoll = reRoll; break;
-        case "reroll-query":
-          reRoll = reRoll = await roll.reroll();
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType, rollMode);
-          const newRollHTML = await midiRenderRoll(reRoll);
-          if (await Dialog.confirm({ title: "Confirm reroll", content: `Replace ${rollHTML} with ${newRollHTML}`, defaultYes: true }))
-            newRoll = reRoll
-          else
-            newRoll = roll;
-          break;
-        case "reroll-kh": reRoll = await roll.reroll();
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
-          newRoll = reRoll;
-          if (reRoll.total <= (roll.total ?? 0)) newRoll = roll;
-          break;
-        case "reroll-kl": reRoll = await roll.reroll();
-          newRoll = reRoll;
-          if (reRoll.total > (roll.total ?? 0)) newRoll = roll;
-          if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
-          break;
-        case "reroll-max": newRoll = await roll.reroll({ maximize: true });
-          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
-          break;
-        case "reroll-min": newRoll = await roll.reroll({ minimize: true });
-          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
-          break;
-        case "success":
-          newRoll = newRoll = await roll.clone().evaluate();
-          //@ts-expect-error
-          newRoll.terms[0].results.forEach(res => res.result = 99);
-          //@ts-expect-error
-          newRoll._total = 99;
-          setProperty(newRoll, "options", duplicate(roll.options))
-          setProperty(newRoll, "options.success", true);
-          break;
-        case "fail":
-          newRoll = newRoll = await roll.clone().evaluate();
-          setProperty(newRoll, "options", duplicate(roll.options))
-          setProperty(newRoll, "options.success", false);
-          //@ts-expect-error
-          newRoll.terms[0].results.forEach(res => res.result = -1);
-          //@ts-expect-error
-          newRoll._total = -1;
-        default:
-          if (typeof button.value === "string" && button.value.startsWith("replace ")) {
-            const rollParts = button.value.split(" ");
-            newRoll = new Roll(rollParts.slice(1).join(" "), (this.item ?? this.actor).getRollData());
-            newRoll = await newRoll.evaluate();
-            if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType, rollMode);
-          } else if (flagSelector.startsWith("damage.") && foundry.utils.getProperty(this.actor ?? this, `${button.key}.criticalDamage`)) {
-            //@ts-expect-error .DamageRoll
-            const DamageRoll = CONFIG.Dice.DamageRoll
-            let rollOptions = foundry.utils.duplicate(roll.options);
-            //@ts-expect-error
-            rollOptions.configured = false;
-            // rollOptions = { critical: (this.isCritical || this.rollOptions.critical), configured: false };
-            //@ts-expect-error D20Roll
-            newRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
-            let rollData: any = {}
-            if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
-            else rollData = this.actor?.getRollData() ?? {}; // 
-            const tempRoll = new DamageRoll(`${button.value}`, rollData, rollOptions);
-            await tempRoll.evaluate();
-            if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
-            newRoll = addRollTo(roll, tempRoll);
-          } else {
-            //@ts-expect-error
-            newRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
-            let rollData: any = {}
-            if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
-            else rollData = this.actor?.getRollData() ?? this;
-            const tempRoll = await (new Roll(button.value, rollData)).roll();
-            if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
-            newRoll = addRollTo(newRoll, tempRoll);
-          }
-          break;
-      }
-
-      if (showRoll && this.category === "ac") { // TODO do a more general fix for displaying this stuff
-        const newRollHTML = await midiRenderRoll(newRoll);
-        const chatData: any = {
-          flavor: game.i18n.localize("DND5E.ArmorClass"),
-          content: `${newRollHTML}`,
-          whisper: [player?.id ?? ""]
-        };
-        ChatMessage.applyRollMode(chatData, rollMode);
-        chatMessage = await ChatMessage.create(chatData);
-      }
-
-
-      //@ ts-expect-error D20Roll
-      // let originalRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
-      // dialog.data.rollHTML = rollHTML;
-      await removeEffectGranting(this.actor, button.key);
-      bonusFlags = bonusFlags.filter(bf => bf !== button.key);
-      if (bonusFlags.length === 0) {
-        dialog.close();
-        return;
-      }
-      const newRollHTML = /*reRoll ? await midiRenderRoll(reRoll) :*/ await midiRenderRoll(newRoll);
-      dialog.data.flags = bonusFlags;
-      dialog.data.currentRoll = newRoll;
-      roll = newRoll;
-      if (game.user?.isGM) {
-        dialog.data.content = newRollHTML;
-      } else {
-        if (["publicroll", "gmroll", "selfroll"].includes(rollMode)) dialog.data.content = newRollHTML;
-        else dialog.data.content = "Hidden Roll";
-      }
-      dialog.render(true);
-      // dialog.close();
-      if (chatMessage) untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: undoId, chatCardUuids: [(await chatMessage).uuid] });
     }
 
     let content;
@@ -3743,7 +3818,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
     const dialog = new RollModifyDialog(
       {
         actor: this.actor,
-        flags: bonusFlags,
+        flags: validFlags,
         flagSelector,
         targetObject: this,
         title,
@@ -3754,7 +3829,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         callback,
         close: onClose.bind(this),
         timeout,
-        item: this.item
+        item: this.item,
+        workflow: this instanceof Workflow ? this : undefined
       }, {
       width: 400
     }).render(true);
@@ -4224,13 +4300,13 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
     }
     if (usedReaction) return { name: "None" };
     if (!midiFlags) return { name: "None" };
-    const bonusFlags = Object.keys(midiFlags?.optional ?? {})
+    const validFlags = Object.keys(midiFlags?.optional ?? {})
       .filter(flag => {
         if (!midiFlags.optional[flag].ac) return false;
         if (!midiFlags.optional[flag].count) return true;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
       }).map(flag => `flags.midi-qol.optional.${flag}`);
-    if (bonusFlags.length > 0 && triggerType === "reaction") {
+    if (validFlags.length > 0 && triggerType === "reaction") {
       //@ts-expect-error attributes
       let acRoll = await new Roll(`${actor.system.attributes.ac.value}`).roll();
       const data = {
@@ -4240,7 +4316,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
         rollTotal: acRoll.total,
       }
       //@ts-expect-error attributes
-      const newAC = await bonusDialog.bind(data)(bonusFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, acRoll, "roll");
+      const newAC = await bonusDialog.bind(data)(validFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, acRoll, "roll");
       const endTime = Date.now();
       if (debugEnabled > 0) warn("promptReactions | returned via bonus dialog ", endTime - startTime)
       return { name: actor.name, uuid: actor.uuid, ac: newAC.total };
@@ -4673,7 +4749,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   } else {
     rollData.isAttuned = rollData.item?.attunement !== GameSystemConfig.attunementTypes.REQUIRED;
   }
-
+  rollData.workflow = data.workflow;
   try {
     if (data.target) {
       rollData.target = data.target.actor?.getRollData();
@@ -4699,7 +4775,6 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     rollData.humanoid = globalThis.MidiQOL.humanoid;
     rollData.tokenUuid = data.workflow?.tokenUuid;
     rollData.tokenId = data.workflow?.tokenId;
-    rollData.workflow = {};
     rollData.effects = actor?.appliedEffects; // not needed since this is set in getRollData
     if (data.workflow) {
       rollData.w = data.workflow;
