@@ -1212,7 +1212,6 @@ async function setDeadStatus(actor, options: any) {
       }
     } else {
       let token = tokenForActor(actor); // V11 must use a token
-      //TODO V12 support actor.toggleEffect - so get rid of token and replce with actor.toggleEffect
       if (token) {
         const isBeaten = actor.effects.find(ef => ef.name === (i18n(effect?.name ?? effect?.label ?? ""))) !== undefined;
         if (isBeaten !== makeDead) {

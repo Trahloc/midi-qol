@@ -4749,7 +4749,6 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   } else {
     rollData.isAttuned = rollData.item?.attunement !== GameSystemConfig.attunementTypes.REQUIRED;
   }
-  rollData.workflow = data.workflow;
   try {
     if (data.target) {
       rollData.target = data.target.actor?.getRollData();
@@ -4778,20 +4777,16 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     rollData.effects = actor?.appliedEffects; // not needed since this is set in getRollData
     if (data.workflow) {
       rollData.w = data.workflow;
-      Object.assign(rollData.workflow, data.workflow);
-      rollData.workflow.otherDamageItem = data.workflow.otherDamageItem?.getRollData().item;
-      rollData.workflow.hasSave = data.workflow.hasSave;
-      rollData.workflow.saveItem = data.workflow.saveItem?.getRollData().item;
-      rollData.workflow.otherDamageFormula = data.workflow.otherDamageFormula;
-      rollData.workflow.shouldRollDamage = data.workflow.shouldRollDamage;
-      rollData.workflow.hasAttack = data.workflow.item.hasAttack;
-      rollData.workflow.hasDamage = data.workflow.item.hasDamage;
-
-      delete rollData.workflow.undoData;
-      delete rollData.workflow.conditionData;
+      rollData.workflow = data.workflow;
+      rollData.otherDamageItem = data.workflow.otherDamageItem?.getRollData().item;
+      rollData.hasSave = data.workflow.hasSave;
+      rollData.saveItem = data.workflow.saveItem?.getRollData().item;
+      rollData.item = data.workflow.item?.getRollData().item;
+      rollData.otherDamageFormula = data.workflow.otherDamageFormula;
+      rollData.shouldRollDamage = data.workflow.shouldRollDamage;
+      rollData.hasAttack = data.workflow.item.hasAttack;
+      rollData.hasDamage = data.workflow.item.hasDamage;
     }
-    if (data.workflow?.actor) rollData.workflow.actor = data.workflow.actor.getRollData();
-    if (data.workflow?.item) rollData.workflow.item = data.workflow.item.getRollData()?.item;
     rollData.CONFIG = CONFIG;
     rollData.CONST = CONST;
 

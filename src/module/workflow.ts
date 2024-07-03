@@ -1927,6 +1927,10 @@ export class Workflow {
           || await evalAllConditionsAsync(firstTarget.actor, `flags.midi-qol.fail.critical.${attackType}`, conditionData)) {
           this.noCritFlagSet = true;
         }
+        if (await evalAllConditionsAsync(firstTarget.actor, "flags.midi-qol.grants.fail.critical.all", conditionData)
+        || await evalAllConditionsAsync(firstTarget.actor, `flags.midi-qol.grants.fail.critical.${attackType}`, conditionData)) {
+        this.noCritFlagSet = true;
+      }
       }
     }
     this.isCritical = this.isCritical || this.critFlagSet;

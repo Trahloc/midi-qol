@@ -876,6 +876,7 @@ function setupMidiFlags() {
   midiFlags.push(`flags.${MODULE_ID}.grants.critical.range`);
   midiFlags.push(`flags.${MODULE_ID}.grants.criticalThreshold`);
   midiFlags.push(`flags.${MODULE_ID}.fail.critical.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.fail.critical.all`);
   midiFlags.push(`flags.${MODULE_ID}.advantage.concentration`)
   midiFlags.push(`flags.${MODULE_ID}.disadvantage.concentration`)
   midiFlags.push(`flags.${MODULE_ID}.ignoreNearbyFoes`);
@@ -908,6 +909,7 @@ function setupMidiFlags() {
     midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.fail.disadvantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.critical.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.fail.critical.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.fail.critical.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.attack.bonus.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.attack.success.${at}`);

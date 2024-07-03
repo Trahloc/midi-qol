@@ -1,3 +1,16 @@
+* Future versions: There are no hard and fast timelines for these releases, but....
+* 11.5.0 
+  - will be dnd5e v3.2+ only. Tentative date July 14.
+* 11.6.0 
+  - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date July 28. You are actively encouraged to both try v3 damage calculation/application and report bugs
+  - will remove concentration-data from midi-qol, all use will swtich to dependents. Currently midi-only supports backwards compatible concentration-data. 
+* 12.0.0 
+ - will be v12 only. Tentative date August 11 - assuming the most popular modules dependent on midi are v12 ready. 
+ - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
+
+### 11.4.40.1
+* Fix for conditionData not initialising correctly.
+
 ### 11.4.40
 * Fix for DamageOnlyWorkflows not applying.
 * If you use Monk's combat details you need to choose either Monks or Midi to apply the dead status (when reaching 0 HP). Either is fine but both will result in errors about duplicate/missing effects in embedded collections. Midi trouble shoort weill generate an error if both are enabled.
