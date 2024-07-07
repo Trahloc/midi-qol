@@ -506,7 +506,7 @@ export class TroubleShooter extends FormApplication {
           foundry.utils.setProperty(data.modules[module.id], "settings", TroubleShooter.getDetailedSettings(module.id));
           break;
         case "monks-combat-details":
-          if (safeGetGameSetting("monks-combat-details", "auto-defeated") !== "none" && configSettings.addDead) {
+          if (safeGetGameSetting("monks-combat-details", "auto-defeated") !== "none" && configSettings.addDead !== "none") {
             data.problems.push({
               moduleId: "monks-combat-details",
               severity: "Error",
