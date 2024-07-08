@@ -862,7 +862,7 @@ export class TroubleShooter extends FormApplication {
           */
           fixerid: -1
         });
-      } else if (walledTemplatesTargeting && configSettings.autoTarget !== "walledtemplates") {
+      } else if (safeGetGameSetting("walledtemplates", "autotarget-enabled") && configSettings.autoTarget !== "walledtemplates") {
         data.problems.push({
           moduleId: "walledtemplates",
           severity: "Error",
