@@ -643,6 +643,8 @@
 "midi-qol.reactionFlavorSaveFail":  "{actorName} fallisce TS a causa di {itemName} e può usare la reazione",
 "midi-qol.reactionFlavorSaveSuccess":  "{actorName} supera TS a causa di {itemName} e può usare la reazione",
 "midi-qol.reactionFlavorMoved": "è spostato",
+"midi-qol.reactionUsed": "Reazione usata",
+"midi-qol.bonusActionUsed": "Azione Bonus usata",
 "midi-qol.AccelKeysOverride.Name": "I tasti di velocità midi-qol sovrascrivono gli altri",
 "midi-qol.AccelKeysOverride.Hint": "Se impostato, midi utilizzerà sempre le corrispondenze dei tasti di velocità per vantaggio/svantaggio, invece di deferire a migliori tiri (ad esempio)",
 "midi-qol.NoWorkflow": "Nessun flusso di lavoro per l'oggetto {itemName}",
