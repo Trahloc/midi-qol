@@ -65,6 +65,12 @@ export function geti18nTranslations() {
   return foundry.utils.mergeObject(game.i18n._fallback[MODULE_ID] ?? {}, game.i18n.translations[MODULE_ID] ?? {});
 }
 
+export function getStaticID(id): string | undefined {
+  id = `dnd5e${id}`;
+  if (id.length >= 16) return id.substring(0, 16);
+  return id.padEnd(16, "0");
+}
+
 export let setDebugLevel = (debugText: string) => {
   debugEnabled = { "none": 0, "warn": 1, "debug": 2, "all": 3 }[debugText] || 0;
   // 0 = none, warnings = 1, debug = 2, all = 3
@@ -395,9 +401,16 @@ Hooks.once('ready', function () {
   actorAbilityRollPatching();
   //@ts-expect-error
   systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING;
+  const imgSource = game.version < 12 ? "icon" : "img";
   if (!CONFIG.statusEffects.find(e => e.id === systemConcentrationId)) {
     //@ts-expect-error name
-    CONFIG.statusEffects.push({ id: systemConcentrationId, name: i18n(`EFFECT.${SystemString}.StatusConcentrating`), icon: "systems/dnd5e/icons/svg/statuses/concentrating.svg", special: "CONCENTRATING" });
+    CONFIG.statusEffects.push({ id: systemConcentrationId, name: i18n(`EFFECT.${SystemString}.StatusConcentrating`), [imgSource]: "systems/dnd5e/icons/svg/statuses/concentrating.svg", special: "CONCENTRATING" });
+  }
+  if (!CONFIG.statusEffects.find(e => e.name === 'Reaction' || e.id === "reaction")) {
+    CONFIG.statusEffects.push({ id: "reaction", _id: getStaticID("reaction"), name: i18n("midi-qol.reactionUsed"), [imgSource]: "modules/midi-qol/icons/reaction.svg", flags: { dae: { specialDuration: ["turnStart", "combatEnd"] } } });
+  }
+  if (!CONFIG.statusEffects.find(e => e.name === 'Bonus Action' || e.id === "bonusaction")) {
+    CONFIG.statusEffects.push({ id: "bonusaction", _id: getStaticID("bonusaction"), name: i18n("midi-qol.bonusActionUsed"), [imgSource]: "modules/midi-qol/icons/bonus-action.svg", flags: { dae: { specialDuration: ["turnStart", "combatEnd"] } } });
   }
   MQOnUseOptions = {
     "preTargeting": "Called before targeting is resolved (*)",

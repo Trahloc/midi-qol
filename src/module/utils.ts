@@ -1,4 +1,4 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
@@ -4985,6 +4985,13 @@ export async function setReactionUsed(actor: Actor) {
   } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name ?? se.label) === i18n("DND5E.Reaction")))) {
     await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
   }
+  else {
+    const id = "reaction";
+    await actor.effects.get(getStaticID(id))?.delete();
+    effect = await ActiveEffect.implementation.fromStatusEffect(id, { keepId: true });
+    effect.origin = actor.uuid;
+    await ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
+  }
 }
 
 export async function setBonusActionUsed(actor: Actor) {
@@ -4999,6 +5006,13 @@ export async function setBonusActionUsed(actor: Actor) {
     if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name ?? se.label) === i18n("DND5E.BonusAction")))) {
       await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
     }
+  else {
+    const id = "bonusaction";
+    await actor.effects.get(getStaticID(id))?.delete();
+    effect = await ActiveEffect.implementation.fromStatusEffect(id, { keepId: true });
+    effect.origin = actor.uuid;
+    await ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
+  }
   await actor.setFlag(MODULE_ID, "actions.bonusActionCombatRound", game.combat?.round);
   const result = await actor.setFlag(MODULE_ID, "actions.bonus", true);
   if (debugEnabled > 0) warn("setBonusActionUsed | finishing");
@@ -5012,7 +5026,7 @@ export async function removeActionUsed(actor: Actor) {
 
 export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
   let effectRemoved = false;
-  const reactionEffect = getReactionEffect();
+  let reactionEffect = getReactionEffect();
   if (removeCEEffect && reactionEffect && !effectRemoved) {
     //@ts-expect-error
     if (await game.dfreds?.effectInterface?.hasEffectApplied(reactionEffect.name, actor.uuid)) {
@@ -5027,9 +5041,15 @@ export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
   }
 
   if (installedModules.get("condition-lab-triggler") && !effectRemoved) {
-    const effect = actor.effects.find(ef => ef.name === i18n("DND5E.Reaction"));
+    reactionEffect = actor.effects.find(ef => ef.name === i18n("DND5E.Reaction"));
     if (installedModules.get("times-up") && effect && foundry.utils.getProperty(effect, "flags.dae.specialDuration")?.includes("turnStart")) {
-    } else await effect?.delete(); // reaction always non-transfer
+    } else await reactionEffect?.delete(); // reaction always non-transfer
+    // times-up will handle removing this
+    effectRemoved = true;
+  }
+  reactionEffect = actor.effects.get(getStaticID("reaction"));
+  if (/*!effectRemoved &&*/ reactionEffect) {
+    await reactionEffect?.delete(); // reaction always non-transfer
     // times-up will handle removing this
     effectRemoved = true;
   }
@@ -5108,6 +5128,7 @@ export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false
     const effect = actor.effects.find(ef => ef.name === i18n("DND5E.BonusAction"));
     await effect?.delete(); // bonus action alays non-transfer
   }
+  await actor.effects.get(getStaticID("bonusaction"))?.delete()
   await actor.setFlag(MODULE_ID, "actions.bonus", false);
   return actor?.unsetFlag(MODULE_ID, "actions.bonusActionCombatRound");
 }
