@@ -4993,9 +4993,9 @@ export async function setReactionUsed(actor: Actor) {
   //@ts-expect-error
   effect.updateSource({
     origin: actor.uuid,
-    changes:[
-      {key: 'flags.midi-qol.actions.reaction.used', mode: 2, value: true},
-      {key: 'flags.midi-qol.actions.reaction.round', mode: 2, value: game.combat?.round ?? false}
+    changes: [
+      { key: 'flags.midi-qol.actions.reaction.used', mode: 2, value: true },
+      { key: 'flags.midi-qol.actions.reactionCombatRound', mode: 2, value: game.combat?.round ?? false }
     ]
   });
   // effect.origin = actor.uuid;
@@ -5006,10 +5006,17 @@ export async function setReactionUsed(actor: Actor) {
 export async function setBonusActionUsed(actor: Actor) {
   if (debugEnabled > 0) warn("setBonusActionUsed | starting");
   if (!["all", "displayOnly"].includes(configSettings.enforceBonusActions) && configSettings.enforceBonusActions !== actor.type) return;
-  await actor.update({"flags.midi-qol.actions.bonus": true, "flags.midi-qol.actions.bonusCombatRound": game.combat?.round});  
+  await actor.update({ "flags.midi-qol.actions.bonus": true, "flags.midi-qol.actions.bonusActionCombatRound": game.combat?.round });
   const id = "bonusaction";
   await actor.effects.get(getStaticID(id))?.delete();
   const effect = foundry.utils.deepClone(midiBonusActionEffect);
+  effect.updateSource({
+    origin: actor.uuid,
+    changes: [
+      { key: 'flags.midi-qol.actions.bonus.used', mode: 2, value: true },
+      { key: 'flags.midi-qol.actions.bonusActionCombatRound', mode: 2, value: game.combat?.round ?? false }
+    ]
+  });
   effect.origin = actor.uuid;
   //@ts-expect-error
   await ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
@@ -5431,7 +5438,7 @@ export function getFlankedEffect(): ActiveEffect | undefined {
   return undefined;
 }
 
-export function getReactionEffect(): ActiveEffect{
+export function getReactionEffect(): ActiveEffect {
   return midiReactionEffect;
 }
 export function getBonusActionEffect(): ActiveEffect {

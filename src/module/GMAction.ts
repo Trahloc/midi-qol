@@ -944,6 +944,7 @@ async function createV3GMReverseDamageCard(
     if (damageItem.superSaver) toolTipHeader.push("Super Saved");
     else if (damageItem.semiSuperSaver) toolTipHeader.push("Semi Super Saved");
     else if (damageItem.saved) toolTipHeader.push("Saved");
+    if (damageItem.uncannyDodge) toolTipHeader.push("Uncanny Dodge");
     let tooltip = [...toolTipHeader, ...tooltipList].join("<br>");
 
     let listItem = {

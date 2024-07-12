@@ -1,12 +1,15 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 * 11.5.0 
-  - will be dnd5e v3.2+ only. Tentative date July 14.
+  - will be dnd5e v3.2+ only. Tentative date July 22. 
 * 11.6.0 
-  - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date July 28. You are actively encouraged to both try v3 damage calculation/application and report bugs
+  - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date July 29. You are actively encouraged to both try v3 damage calculation/application and report bugs
   - will remove concentration-data from midi-qol, all use will swtich to dependents. Currently midi-only supports backwards compatible concentration-data. 
 * 12.0.0 
- - will be v12 only. Tentative date August 11 - assuming the most popular modules dependent on midi are v12 ready. 
+ - will be v12 only. Tentative date August 15 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
+
+### 11.4.41.1
+* Fix for wrong combat round flag being used in reactions/bonus actions.
 
 ### 11.4.41
 * Support uncanny-dodge with dnd5e damage application. Updated uncanny dodge item to check attacker visibility.
@@ -14,18 +17,17 @@
 * Added flags.midi-qol.grants.noCritical.all/attack type. This will eventually replace flags.midi-qol.fail.critical.all/attack type.
 * Support apply damage right click for midi chat cards, will pick up the damage rolls, but won't apply immunity/resistance to selected tokens.
 * Reactions
-  - midi now creates reaction and bonus action status effects. These are used exlusively by midi when managin reactions/bonus actions - CE/CLT effects are no longer used.
-  - You can configure the midi status efects by modifying CONFIG.statusEffects. Do so with care.
+  - midi now creates reaction and bonus action status effects. These are used elusively by midi when managin reactions/bonus actions - CE/CLT effects are no longer used.
+  - You can configure the midi status effects by modifying CONFIG.statusEffects. Do so with care.
 * Change so that attack advantage is only processed once.
-* Changed item use condtion evaluation to be async.
+* Changed item use condition evaluation to be async.
 * Corrected minflags condition evaluation to be async.
 * Changed reaction condition to be async evaluation. 
 * Corrected evaluation of flags.grants.critical.attackType to be async.
-
 * Concentration
   - Call dnd5e.preRollConcentration/dnd5e.rollConcentration hooks are now called when using the midi concentration item.
-  - Option Chat + auto roll will now only display a simplified chat card and auto roll the concentation save.
-* Remove reference to now non-existent alernative token cover setting, which means using alternative token cover now works agin. thanks @thatlonelybugbear.
+  - Option Chat + auto roll will now only display a simplified chat card and auto roll the concentration save.
+* Remove reference to now non-existent alernative token cover setting, which means using alternative token cover now works again. thanks @thatlonelybugbear.
 
 
 ### 11.4.40.1
