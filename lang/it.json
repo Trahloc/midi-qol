@@ -928,6 +928,7 @@
 "DND5E.DamageApplication.Change.Magic": "Personalizza Magico {type}",
 "DND5E.DamageApplication.Change.Nonmagic": "Personalizza Non Magico {type}",
 "DND5E.DamageApplication.Change.Saved": "Salvato {type}",
+"DND5E.DamageApplication.Change.UncannyDodge": "Schivata Prodigiosa {type}",
 "midi-qol.SettingsSearch": "Cerca Impostazioni",
 "midi-qol.MidiPropertiesTab.Name": "Ruolo utente minimo per la scheda delle proprietà degli oggetti",
 "midi-qol.MidiPropertiesTab.Hint": "Ruolo utente minimo che permette di accedere alla scheda delle proprietà degli oggetti di Midi-QoL. <strong>Cambio richiede di ricaricare</strong>"
