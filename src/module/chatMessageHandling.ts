@@ -618,7 +618,8 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
   } else {
     player = game.users?.players.find(p => p.active && actor?.permission[p.id ?? ""] === CONST.ENTITY_PERMISSIONS.OWNER)
   }
-  if (!player || !player.active) player = ChatMessage.getWhisperRecipients("GM").find(u => u.active);
+  //@ts-expect-error
+  if (!player || !player.active) player = game.users?.activeGM;
   if (player?.id !== game.user?.id) return;
 
   const item = actor.items.get(itemId);
@@ -637,9 +638,13 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     return;
   }
   if (flags.dnd5e.roll.type === "attack") {
+    //@ts-expect-error
+    let rolls = message.rolls;
+    if (!(rolls instanceof Array)) rolls = [rolls];
     workflow.needItemCard = false;
-    workflow.attackRoll = message.roll ?? undefined;
-    workflow.attackTotal = message.roll?.total ?? 0;
+    workflow.attackRoll = rolls[0] ?? undefined;
+    workflow.attackTotal = rolls[0]?.total ?? 0;
+    workflow.needsDamage = workflow.item.hasDamage;
     //@ts-ignore content v10
     workflow.attackRollHTML = message.content;
     workflow.attackRolled = true;
@@ -650,15 +655,19 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
   }
 
   if (["damage", "heal"].includes(flags.dnd5e.roll.type)) {
+    //@ts-expect-error
+    let rolls = message.rolls;
+    if (!rolls) return;
     workflow.needItemCard = false;
     workflow.attackRolled = true;
-    if (!workflow.damageRolled && message.roll) {
-      workflow.setDamageRolls(message.roll);
-    } else if (workflow.needsOtherDamage && message.roll) {
-      workflow.setOtherDamageRoll(message.roll);
+    if (!(rolls instanceof Array)) rolls = [rolls];
+    if (workflow.needsDamage && rolls?.length) {
+      workflow.needsDamage = false;
+      workflow.setDamageRolls(rolls);
+    } else if (workflow.needsOtherDamage && rolls?.length) {
+      workflow.setOtherDamageRoll(rolls[0]);
       workflow.needsOtherDamage = false;
     }
-    workflow.damageRolled = true;
     if (workflow.currentAction === workflow.WorkflowState_WaitForDamageRoll) {
       if (workflow.suspended) workflow.unSuspend({ damageRoll: workflow.damageRoll })
       // TODO NW workflow.performState(workflow.WorkflowState_WaitForDamageRoll);

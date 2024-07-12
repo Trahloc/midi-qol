@@ -65,7 +65,7 @@ export function geti18nTranslations() {
   return foundry.utils.mergeObject(game.i18n._fallback[MODULE_ID] ?? {}, game.i18n.translations[MODULE_ID] ?? {});
 }
 
-export function getStaticID(id): string | undefined {
+export function getStaticID(id: string): string {
   id = `dnd5e${id}`;
   if (id.length >= 16) return id.substring(0, 16);
   return id.padEnd(16, "0");
@@ -94,6 +94,8 @@ export let MQOnUseOptions;
 export let GameSystemConfig;
 export let SystemString;
 export let systemConcentrationId;
+export let midiReactionEffect;
+export let midiBonusActionEffect;
 
 export const MESSAGETYPES = {
   HITS: 1,
@@ -117,11 +119,14 @@ Hooks.once("levelsReady", function () {
 });
 export let systemString = "DND5E"
 export let MQDamagetypes = ["defaultDamage", "otherDamage", "bonusDamage"];
+Hooks.once("init", () => {
+  //@ts-expect-error
+  CONFIG.ChatMessage.documentClass = defineChatMessageMidiClass(CONFIG.ChatMessage.documentClass);
+});
 Hooks.once('init', async function () {
   log('Initializing midi-qol');
   //@ts-expect-error
   const systemVersion = game.system.version;
-
 
   //@ts-expect-error
   GameSystemConfig = game.system.config;
@@ -171,6 +176,17 @@ Hooks.once('init', async function () {
     let [message, err] = args;
     TroubleShooter.recordError(err, message);
   });
+
+  //@ts-expect-error
+  if (!CONFIG.statusEffects.find(e => e._id === getStaticID("reaction"))) {
+    //@ts-expect-error
+    CONFIG.statusEffects.push({ id: "reaction", _id: getStaticID("reaction"), name: i18n("midi-qol.reactionUsed"), icon: "modules/midi-qol/icons/reaction.svg", effectData: { transfer: false}, flags: { dae: { specialDuration: ["turnStart", "combatEnd", "shortRest"] } } });
+  }
+  //@ts-expect-error
+  if (!CONFIG.statusEffects.find(e => e._id === getStaticID("bonusaction"))) {
+    //@ts-expect-error
+    CONFIG.statusEffects.push({ id: "bonusaction", _id: getStaticID("bonusaction"), name: i18n("midi-qol.bonusActionUsed"), icon: "modules/midi-qol/icons/bonus-action.svg", flags: { dae: { specialDuration: ["turnStart", "combatEnd", "shortRest"] } } });
+  }
 });
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
   specials[`flags.${MODULE_ID}.onUseMacroName`] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
@@ -225,6 +241,11 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
     fieldMappings[`flags.${MODULE_ID}.DR.final`] = `system.traits.dm.midi.final`;
     fieldMappings[`flags.${MODULE_ID}.concentrationSaveBonus`] = "system.attributes.concentration.bonuses.save";
   }
+  fieldMappings[`flags.${MODULE_ID}.fail.critical.all`] = `flags.${MODULE_ID}.grants.noCritical.all`;
+  for (let attackType of allAttackTypes) {
+    fieldMappings[`flags.${MODULE_ID}.fail.critical.${attackType}`] = `flags.${MODULE_ID}.grants.noCritical.${attackType}`;
+  }
+
 });
 /* ------------------------------------ */
 /* Setup module							*/
@@ -282,6 +303,10 @@ function addConfigOptions() {
     config.midiProperties["saveDamage"] = "Save Damage";
     config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
     config.midiProperties["otherSaveDamage"] = "Other Damage Save";
+    config.midiProperties["idr"] = "Ignore dr";
+    config.midiProperties["idi"] = "Ignore di";
+    config.midiProperties["idv"] = "Ignore dv";
+    config.midiProperties["ida"] = "Ignore da";
     if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
       config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
       config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
@@ -308,7 +333,7 @@ function addConfigOptions() {
     }
 
     if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
-      config.damageResistanceTypes = {};
+      config.damageResistanceTypes = config.damageResistanceTypes ?? {};
       if (!configSettings.v3DamageApplication) {
         config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
         config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
@@ -317,18 +342,18 @@ function addConfigOptions() {
       config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
       config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
       config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
-      config.damageResistanceTypes["healing"] = config.healingTypes.healing;
-      config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
+      config.damageResistanceTypes["healing"] = config.healingTypes?.healing?.label;
+      config.damageResistanceTypes["temphp"] = config.healingTypes?.temphp?.label;
     } else {
-      config.damageResistanceTypes = {};
+      config.damageResistanceTypes = config.damageResistanceTypes ?? {};
       config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
       config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
       config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
       config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
       config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
       config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
-      config.damageResistanceTypes["healing"] = config.healingTypes.healing;
-      config.damageResistanceTypes["temphp"] = config.healingTypes.temphp;
+      config.damageResistanceTypes["healing"] = config.healingTypes.healing?.label;
+      config.damageResistanceTypes["temphp"] = config.healingTypes.temphp?.label;
     }
     if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
       //@ts-expect-error
@@ -401,17 +426,25 @@ Hooks.once('ready', function () {
   actorAbilityRollPatching();
   //@ts-expect-error
   systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING;
+  //@ts-expect-error
   const imgSource = game.version < 12 ? "icon" : "img";
   if (!CONFIG.statusEffects.find(e => e.id === systemConcentrationId)) {
     //@ts-expect-error name
     CONFIG.statusEffects.push({ id: systemConcentrationId, name: i18n(`EFFECT.${SystemString}.StatusConcentrating`), [imgSource]: "systems/dnd5e/icons/svg/statuses/concentrating.svg", special: "CONCENTRATING" });
   }
-  if (!CONFIG.statusEffects.find(e => e.name === 'Reaction' || e.id === "reaction")) {
-    CONFIG.statusEffects.push({ id: "reaction", _id: getStaticID("reaction"), name: i18n("midi-qol.reactionUsed"), [imgSource]: "modules/midi-qol/icons/reaction.svg", flags: { dae: { specialDuration: ["turnStart", "combatEnd"] } } });
-  }
-  if (!CONFIG.statusEffects.find(e => e.name === 'Bonus Action' || e.id === "bonusaction")) {
-    CONFIG.statusEffects.push({ id: "bonusaction", _id: getStaticID("bonusaction"), name: i18n("midi-qol.bonusActionUsed"), [imgSource]: "modules/midi-qol/icons/bonus-action.svg", flags: { dae: { specialDuration: ["turnStart", "combatEnd"] } } });
-  }
+
+  // Initialise these effects so that we don't need to make a raft of code aysnc only to fetch these
+  //@ts-expect-error
+  ActiveEffect.implementation.fromStatusEffect("reaction", { keepId: true }).then(effect => {
+    midiReactionEffect = effect;
+    globalThis.MidiQOL.midiReactionEffect = effect;
+  });
+  //@ts-expect-error
+  ActiveEffect.implementation.fromStatusEffect("bonusaction", { keepId: true }).then(effect => {
+    midiBonusActionEffect = effect
+    globalThis.MidiQOL.midiBonusActionEffect = effect;
+  });
+
   MQOnUseOptions = {
     "preTargeting": "Called before targeting is resolved (*)",
     "preItemRoll": "Called before the item is rolled (*)",
@@ -574,6 +607,7 @@ Hooks.once('ready', function () {
 import { setupMidiTests } from './module/tests/setupTest.js';
 import { TargetConfirmationConfig } from './module/apps/TargetConfirmationConfig.js';
 import { Socket } from './module/lib/sockset.js';
+import { defineChatMessageMidiClass } from './module/ChatMessageMidi.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -876,12 +910,9 @@ function setupMidiFlags() {
   midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.save.all`)
   midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.check.all`)
   midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.skill.all`)
-
   midiFlags.push(`flags.${MODULE_ID}.grants.fail.advantage.attack.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.fail.disadvantage.attack.all`);
   midiFlags.push(`flags.${MODULE_ID}.neverTarget`);
-
-  // TODO work out how to do grants damage.max
   midiFlags.push(`flags.${MODULE_ID}.grants.attack.success.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.attack.fail.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.attack.bonus.all`);
@@ -889,7 +920,7 @@ function setupMidiFlags() {
   midiFlags.push(`flags.${MODULE_ID}.grants.critical.range`);
   midiFlags.push(`flags.${MODULE_ID}.grants.criticalThreshold`);
   midiFlags.push(`flags.${MODULE_ID}.fail.critical.all`);
-  midiFlags.push(`flags.${MODULE_ID}.grants.fail.critical.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.noCritical.all`);
   midiFlags.push(`flags.${MODULE_ID}.advantage.concentration`)
   midiFlags.push(`flags.${MODULE_ID}.disadvantage.concentration`)
   midiFlags.push(`flags.${MODULE_ID}.ignoreNearbyFoes`);
@@ -922,7 +953,7 @@ function setupMidiFlags() {
     midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.fail.disadvantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.critical.${at}`);
-    midiFlags.push(`flags.${MODULE_ID}.grants.fail.critical.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.grants.noCritical.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.fail.critical.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.attack.bonus.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.attack.success.${at}`);

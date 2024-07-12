@@ -10,7 +10,7 @@ import { saveUndoData } from "./undo.js";
 import { untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
-import { ChatMessageMidi } from "./ChatMessageMidi.js";
+// import { ChatMessageMidi } from "./ChatMessageMidi.js";
 
 function itemRequiresPostTemplateConfiramtion(item): boolean {
   const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
@@ -423,25 +423,6 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         return null;
       }
     }
-
-    const needsConcentration = this.requiresConcentration; // itemRequiresConcentration(this)
-    let checkConcentration = configSettings.concentrationAutomation;
-    if (needsConcentration && checkConcentration) {
-      const concentrationEffect = getConcentrationEffect(this.actor);
-      if (concentrationEffect) {
-        //@ts-ignore
-        const concentrationEffectName = (concentrationEffect._sourceName && concentrationEffect._sourceName !== "None") ? concentrationEffect._sourceName : "";
-
-        shouldAllowRoll = false;
-        let d = await Dialog.confirm({
-          title: i18n("midi-qol.ActiveConcentrationSpell.Title"),
-          content: i18n(concentrationEffectName ? "midi-qol.ActiveConcentrationSpell.ContentNamed" : "midi-qol.ActiveConcentrationSpell.ContentGeneric").replace("@NAME@", concentrationEffectName),
-          yes: () => { shouldAllowRoll = true },
-        });
-        if (!shouldAllowRoll) return null; // user aborted spell
-      }
-    }
-
     if (!shouldAllowRoll) {
       return null;
     }
@@ -658,12 +639,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         else if (getAutoTarget(workflow?.item) !== "none") selectTargets.bind(workflow)(td);
       }
     }
-    if (needsConcentration && checkConcentration) {
-      const concentrationEffect = getConcentrationEffect(this.actor);
-      if (concentrationEffect) {
-        await this.actor.endConcentration();
-      }
-    }
+
     if (itemUsesBonusAction && !hasBonusAction && configSettings.enforceBonusActions !== "none" && workflow.inCombat) await setBonusActionUsed(this.actor);
     if (itemUsesReaction && !hasReaction && configSettings.enforceReactions !== "none" && workflow.inCombat) await setReactionUsed(this.actor);
 
@@ -986,7 +962,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
           await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
         }
         delete data._id;
-        const itemCard = await ChatMessage.create(data);
+        const itemCard = await CONFIG.ChatMessage.documentClass.create(data);
         workflow.itemCardId = itemCard?.id;
         workflow.itemCardUuid = itemCard?.uuid;
       }
@@ -1071,7 +1047,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     const targetMinFlags = foundry.utils.getProperty(firstTargetActor, `flags.${MODULE_ID}.grants.min.damage`) ?? {};
     const minFlags = foundry.utils.getProperty(workflow, `actor.flags.${MODULE_ID}.min`) ?? {};
     let needsMinDamage = (minFlags.damage?.all && await evalActivationCondition(workflow, minFlags.damage.all, firstTarget, { async: true, errorReturn: false }))
-      || (minFlags?.damage && minFlags.damage[this.system.actionType] && evalActivationCondition(workflow, minFlags.damage[this.system.actionType], firstTarget));
+      || (minFlags?.damage && minFlags.damage[this.system.actionType] && await evalActivationCondition(workflow, minFlags.damage[this.system.actionType], firstTarget, { async: true, errorReturn: false }));
     needsMinDamage = needsMinDamage || (
       (targetMinFlags.damage && await evalActivationCondition(workflow, targetMinFlags.all, firstTarget, { async: true, errorReturn: false }))
       || (targetMinFlags[this.system.actionType] && await evalActivationCondition(workflow, targetMinFlags[this.system.actionType], firstTarget, { async: true, errorReturn: false })));
@@ -1431,7 +1407,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     let card;
     if (createMessage == false) card = chatData;
     if (configSettings.mergeCard) {
-      card = await ChatMessageMidi.create(chatData)
+      card = await CONFIG.ChatMessage.documentClass.create(chatData)
     } else {
       //@ts-expect-error
       card = createMessage !== false ? await game.system.documents.ChatMessage5e.create(chatData) : chatData;
@@ -1688,26 +1664,28 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
 
   let item = workflow.item;
   let targeting = getAutoTarget(item);
-  if ((game.user?.targets.size === 0 || user !== game.user?.id)
-    && templateDocument?.object && !installedModules.get("levelsvolumetrictemplates") && targeting !== "none") {
-    //@ts-expect-error fromUuidSync
+  if ((game.user?.targets.size === 0 || user !== game.user?.id) && targeting !== "none") {
+    //@ts-expect-error
     let mTemplate: MeasuredTemplate = fromUuidSync(templateDocument.uuid)?.object;
-    //@ts-ignore
-    if (mTemplate.shape)
-      //@ts-ignore templateDocument.x, mtemplate.distance TODO check this v10
+    if (templateDocument?.object && !installedModules.get("levelsvolumetrictemplates")) {
+      if (mTemplate.shape)
+        //@ts-ignore templateDocument.x, mtemplate.distance TODO check this v10
+        templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(workflow.item));
+      else {
+        console.warn("midi-qol | selectTargets | Need to compute template shape")
+        // @ ts-expect-error
+        // mTemplate.shape = mTemplate._computeShape();
+        let { shape, distance } = computeTemplateShapeDistance(templateDocument);
+        //@ts-expect-error
+        mTemplate.shape = shape;
+        //@ ts-expect-error
+        // mTemplate.distance = distance;
+        if (debugEnabled > 0) warn(`selectTargets computed shape ${shape} distance ${distance}`)
+      }
       templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(workflow.item));
-    else {
-      console.warn("midi-qol | selectTargets | Need to compute template shape")
-      // @ ts-expect-error
-      // mTemplate.shape = mTemplate._computeShape();
-      let { shape, distance } = computeTemplateShapeDistance(templateDocument);
+    } else if (templateDocument.object) {
       //@ts-expect-error
-      mTemplate.shape = shape;
-      //@ ts-expect-error
-      // mTemplate.distance = distance;
-      if (debugEnabled > 0) warn(`selectTargets computed shape ${shape} distance ${distance}`)
-      //@ts-ignore .x, .y v10
-      templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(workflow.item));
+      VolumetricTemplates.compute3Dtemplate(templateDocument.object, canvas?.tokens?.placeables);
     }
   }
   workflow.templateId = templateDocument?.id;

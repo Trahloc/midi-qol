@@ -8,12 +8,32 @@
  - will be v12 only. Tentative date August 11 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.4.41
+* Support uncanny-dodge with dnd5e damage application. Updated uncanny dodge item to check attacker visibility.
+* Enable support for ddb-game-long again. If using make sure to enable it in both midi's settings and ddb-game-logs settings.
+* Added flags.midi-qol.grants.noCritical.all/attack type. This will eventually replace flags.midi-qol.fail.critical.all/attack type.
+* Support apply damage right click for midi chat cards, will pick up the damage rolls, but won't apply immunity/resistance to selected tokens.
+* Reactions
+  - midi now creates reaction and bonus action status effects. These are used exlusively by midi when managin reactions/bonus actions - CE/CLT effects are no longer used.
+  - You can configure the midi status efects by modifying CONFIG.statusEffects. Do so with care.
+* Change so that attack advantage is only processed once.
+* Changed item use condtion evaluation to be async.
+* Corrected minflags condition evaluation to be async.
+* Changed reaction condition to be async evaluation. 
+* Corrected evaluation of flags.grants.critical.attackType to be async.
+
+* Concentration
+  - Call dnd5e.preRollConcentration/dnd5e.rollConcentration hooks are now called when using the midi concentration item.
+  - Option Chat + auto roll will now only display a simplified chat card and auto roll the concentation save.
+* Remove reference to now non-existent alernative token cover setting, which means using alternative token cover now works agin. thanks @thatlonelybugbear.
+
+
 ### 11.4.40.1
 * Fix for conditionData not initialising correctly.
 
 ### 11.4.40
 * Fix for DamageOnlyWorkflows not applying.
-* If you use Monk's combat details you need to choose either Monks or Midi to apply the dead status (when reaching 0 HP). Either is fine but both will result in errors about duplicate/missing effects in embedded collections. Midi trouble shoort weill generate an error if both are enabled.
+* If you use Monk's combat details you need to choose either Monks or Midi to apply the dead status (when reaching 0 HP). Either is fine but both will result in errors about duplicate/missing effects in embedded collections. Midi troubleshooter will generate an error if both are enabled.
 
 * Two new options for flags.midi-qol.optional.NAME effects
   - flags.midi-qol.optional.NAME.activation, which determines if the optional effect is available. If present it must evaluate to true or the optional effect will be skipped.

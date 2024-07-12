@@ -1,4 +1,4 @@
-import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID } from "../midi-qol.js";
+import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID, getStaticID } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating } from "./utils.js";
@@ -104,6 +104,7 @@ export let readyHooks = async () => {
   Hooks.on("deleteActiveEffect", (...args) => {
     let [deletedEffect, options, user] = args;
     if (options.undo) return; // TODO check that this is right
+    if (debugEnabled > 0) console.warn("deleteActiveEffect", deletedEffect, options, user);
     const checkConcentration = configSettings.concentrationAutomation;
     //@ts-expect-error activeGM
     if (!game.users?.activeGM?.isSelf) return;
@@ -121,16 +122,14 @@ export let readyHooks = async () => {
             }
           }
         }
-        if (getReactionEffect() && deletedEffect.name === getReactionEffect()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
-          // TODO see if this can massaged into a single transaction
-          await deletedEffect.parent?.unsetFlag(MODULE_ID, "actions.reactionCombatRound");
-          await deletedEffect.parent?.setFlag(MODULE_ID, "actions.reaction", false);
+        /*
+        if (deletedEffect._id === getStaticID("reaction") && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
+          await deletedEffect.parent.update({ "flags.midi-qol.actions.reaction": false, "flags.midi-qol.actions.-=reactionCombatRound": false});
         }
-        if (getBonusActionEffect() && deletedEffect.name === getBonusActionEffect()?.name && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
-          // TODO see if this can massaged into a single transaction
-          await deletedEffect.parent.setFlag(MODULE_ID, "actions.bonus", false);
-          await deletedEffect.parent.unsetFlag(MODULE_ID, "actions.bonusActionCombatRound");
+        if (deletedEffect._id === getStaticID("bonusaction") && deletedEffect.parent instanceof CONFIG.Actor.documentClass) {
+          await deletedEffect.parent.update({ "flags.midi-qol.actions.bonus": false, "flags.midi-qol.actions.-=bonusActionCombatRound": false});
         }
+        */
         return true;
       } catch (err) {
         console.warn("Error in deleteActiveEffect", err, deletedEffect, options);
@@ -190,7 +189,7 @@ export let readyHooks = async () => {
     return true;
   });
 
-  Hooks.on("dnd5e.preRollDeathSave",  (actor, rollData, abilityId) => {
+  Hooks.on("dnd5e.preRollDeathSave", (actor, rollData, abilityId) => {
     rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
     rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
     return true;
@@ -211,28 +210,29 @@ export let readyHooks = async () => {
   // Concentration Check is rolled as an item roll so we need an item.
   itemJSONData.name = concentrationCheckItemName;
 }
-export function restManager(actor, result) {
+export async function restManager(actor, result) {
   if (!actor || !result)
-      return;
-  removeReactionUsed(actor); // remove reaction used for a rest
-  removeBonusActionUsed(actor);
-  removeActionUsed(actor);
+    return;
   const specialDuration = (effect) => { return foundry.utils.getProperty(effect, "flags.dae.specialDuration") };
   const effectsToExpire = (actorRef) => {
     //@ts-expect-error
-     const effects = foundry.utils.isNewerVersion(game.system.version, "2.99") ? actorRef.appliedEffects : actorRef.effects;
-     const validEffects = effects.filter(effect => (specialDuration(effect) ?? []).length > 0);
-     return {
-          newDay: validEffects.filter(ef => result.newDay && specialDuration(ef)?.includes(`newDay`)),
-          longRest: validEffects.filter(ef => result.longRest && specialDuration(ef)?.includes(`longRest`) && !specialDuration(ef)?.includes(`newDay`)), 
-          shortRest: validEffects.filter(ef => specialDuration(ef)?.includes(`shortRest`) && !specialDuration(ef)?.includes(`newDay`)), 
+    const effects = foundry.utils.isNewerVersion(game.system.version, "2.99") ? actorRef.appliedEffects : actorRef.effects;
+    const validEffects = effects.filter(effect => (specialDuration(effect) ?? []).length > 0);
+    return {
+      newDay: validEffects.filter(ef => result.newDay && specialDuration(ef)?.includes(`newDay`)),
+      longRest: validEffects.filter(ef => result.longRest && specialDuration(ef)?.includes(`longRest`) && !specialDuration(ef)?.includes(`newDay`)),
+      shortRest: validEffects.filter(ef => specialDuration(ef)?.includes(`shortRest`) && !specialDuration(ef)?.includes(`newDay`)),
     }
   }
   const myExpiredEffects = effectsToExpire(actor);
-  if (result.longRest && myExpiredEffects.longRest.length) expireEffects(actor, myExpiredEffects.longRest, { "expiry-reason": "midi-qol:longRest" });
-  if (result.longRest && myExpiredEffects.shortRest.length) expireEffects(actor, myExpiredEffects.shortRest, { "expiry-reason": "midi-qol:shortRest" });
-  if (!result.longRest && myExpiredEffects.shortRest.length) expireEffects(actor, myExpiredEffects.shortRest, { "expiry-reason": "midi-qol:shortRest" });
-  if (result.newDay && myExpiredEffects.newDay.length) expireEffects(actor, myExpiredEffects.newDay, { "expiry-reason": "midi-qol:newDay" });
+  if (result.longRest && myExpiredEffects.longRest.length) await expireEffects(actor, myExpiredEffects.longRest, { "expiry-reason": "midi-qol:longRest" });
+  if (result.longRest && myExpiredEffects.shortRest.length) await expireEffects(actor, myExpiredEffects.shortRest, { "expiry-reason": "midi-qol:shortRest" });
+  if (!result.longRest && myExpiredEffects.shortRest.length) await expireEffects(actor, myExpiredEffects.shortRest, { "expiry-reason": "midi-qol:shortRest" });
+  if (result.newDay && myExpiredEffects.newDay.length) await expireEffects(actor, myExpiredEffects.newDay, { "expiry-reason": "midi-qol:newDay" });
+  await removeReactionUsed(actor, true); // remove reaction used for a rest
+  await removeBonusActionUsed(actor, true);
+  await removeActionUsed(actor);
+
 }
 
 export function oldrestManager(actor, result) {
@@ -322,7 +322,7 @@ export function initHooks() {
   // Hooks.on("preCreateActiveEffect", checkImmunity); Disabled in lieu of having effect marked suppressed
   Hooks.on("preUpdateItem", preUpdateItemActorOnUseMacro);
   Hooks.on("preUpdateActor", preUpdateItemActorOnUseMacro);
-  Hooks.on("combatRound", expirePerTurnBonusActions);
+  Hooks.on("combatRound", expirePerTurnBonusActions); // TODO Move this to the update combat hook?
   Hooks.on("combatTurn", expirePerTurnBonusActions);
   Hooks.on("updateCombatant", (combatant, updates, options, user) => {
     if (game?.user?.id !== user) return true;
@@ -905,81 +905,95 @@ Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
 
 Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
-  const ignore = (category, type, skipDowngrade) => {
-    return options.ignore === true
-      || options.ignore?.[category] === true
-      || options.ignore?.[category]?.has?.(type);
-  };
-  const mo = options.midi;
-  if (mo?.noCalc) return true;
-  if (mo) {
-    if (configSettings.saveDROrder === "DRSavedr" && (mo.saveMultiplier ?? 1) !== 1 && options?.ignore !== true) {
-    } else if (configSettings.saveDROrder === "SaveDRdr" && (mo.saveMultiplier ?? 1) !== 1) {
-      for (let damage of damages) {
-        if (ignore("saved", damage.type, false)) continue;
-        damage.value = damage.value * mo.saveMultiplier;
-        // no point doing this yet since dnd5e damage application overwrites it.
-        foundry.utils.setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * mo.saveMultiplier);
-        foundry.utils.setProperty(damage, "active.saved", true);
+  try {
+    const ignore = (category, type, skipDowngrade) => {
+      return options.ignore === true
+        || options.ignore?.[category] === true
+        || options.ignore?.[category]?.has?.(type);
+    };
+    const mo = options.midi;
+    if (mo?.noCalc) return true;
+    if (mo) {
+      if (configSettings.saveDROrder === "DRSavedr" && mo.saved && options?.ignore !== true) {
+      } else if (configSettings.saveDROrder === "SaveDRdr" && mo.saved) {
+        for (let damage of damages) {
+          if (ignore("saved", damage.type, false)) continue;
+          damage.value = damage.value * mo.saveMultiplier;
+          // no point doing this yet since dnd5e damage application overwrites it.
+          foundry.utils.setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * mo.saveMultiplier);
+          foundry.utils.setProperty(damage, "active.saved", true);
+        }
       }
-    }
 
-    const categories = { "idi": "immunity", "idr": "resistance", "idv": "vulnerability", "ida": "absorption" };
-    if (mo?.sourceActor) {
-      for (let key of ["idi", "idr", "idv", "ida"]) {
-        if (foundry.utils.getProperty(mo.sourceActor, `system.traits.${key}`) && mo.sourceActor.system.traits[key].value.size > 0) {
-          const trait = foundry.utils.getProperty(mo.sourceActor, `system.traits.${key}`);
-          if (!options.ignore?.[categories[key]]) foundry.utils.setProperty(options, `ignore.${categories[key]}`, new Set())
-          for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
-            if (trait.value.has(dt) || trait.all) options.ignore[categories[key]].add(dt);
+      const categories = { "idi": "immunity", "idr": "resistance", "idv": "vulnerability", "ida": "absorption" };
+      if (mo?.sourceActor) {
+        for (let key of ["idi", "idr", "idv", "ida"]) {
+          if (foundry.utils.getProperty(mo.sourceActor, `system.traits.${key}`) && mo.sourceActor.system.traits[key].value.size > 0) {
+            const trait = foundry.utils.getProperty(mo.sourceActor, `system.traits.${key}`);
+            if (!options.ignore?.[categories[key]]) foundry.utils.setProperty(options, `ignore.${categories[key]}`, new Set())
+            for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
+              if (trait.value.has(dt) || trait.all) options.ignore[categories[key]].add(dt);
+            }
           }
         }
       }
-    }
-    // For damage absorption ignore other immunity/resistance/vulnerability
-    if (actor.system.traits.da && false) { // not doing this makes absorbing tatoos much easier to implement
-      for (let damage of damages) {
-        if (ignore("absorption", damage.type, false)) continue;
-        if (actor.system.traits.da?.value?.has(damage.type) || actor.system.traits.da?.all) {
-          if (!options?.ignore?.immunity) foundry.utils.setProperty(options, "ignore.immunity", new Set())
-          if (!options?.ignore?.resistance) foundry.utils.setProperty(options, "ignore.resistance", new Set())
-          if (!options?.ignore?.vulnerability) foundry.utils.setProperty(options, "ignore.vulnerability", new Set())
-          if (actor.system.traits.di.value.has(damage.type)) options.ignore.immunity.add(damage.type);
-          if (actor.system.traits.dr.value.has(damage.type)) options.ignore.resistance.add(damage.type);
-          if (actor.system.traits.dv.value.has(damage.type)) options.ignore.vulnerability.add(damage.type);
+      // For damage absorption ignore other immunity/resistance/vulnerability
+      if (actor.system.traits.da && false) { // not doing this makes absorbing tatoos much easier to implement
+        for (let damage of damages) {
+          if (ignore("absorption", damage.type, false)) continue;
+          if (actor.system.traits.da?.value?.has(damage.type) || actor.system.traits.da?.all) {
+            if (!options?.ignore?.immunity) foundry.utils.setProperty(options, "ignore.immunity", new Set())
+            if (!options?.ignore?.resistance) foundry.utils.setProperty(options, "ignore.resistance", new Set())
+            if (!options?.ignore?.vulnerability) foundry.utils.setProperty(options, "ignore.vulnerability", new Set())
+            if (actor.system.traits.di.value.has(damage.type)) options.ignore.immunity.add(damage.type);
+            if (actor.system.traits.dr.value.has(damage.type)) options.ignore.resistance.add(damage.type);
+            if (actor.system.traits.dv.value.has(damage.type)) options.ignore.vulnerability.add(damage.type);
+          }
+        }
+      }
+        for (let damage of damages) {
+          if (mo.saved) {
+            foundry.utils.setProperty(damage, "active.saved", true);
+          }
+          if (mo.superSaver && mo.saved) {
+            foundry.utils.setProperty(damage, "active.superSaver", true);
+          }
+          if (mo.semiSuperSaver && mo.saved) {
+            foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
+          }
+      }
+
+      if ((mo?.uncannyDodge)) {
+        for (let damage of damages) {
+          if (ignore("uncannyDodge", damage.type, true)) continue;
+          foundry.utils.setProperty(damage, "active.uncannyDodge", true);
+          foundry.utils.setProperty(damage, "multiplier", (damage.multiplier ?? 1) * 0.5);
+          damage.value = damage.value * 0.5;;
         }
       }
     }
-    if ((mo.saveMultiplier ?? 1) !== 1) {
-      for (let damage of damages) {
-        if (mo.saved) {
-          foundry.utils.setProperty(damage, "active.saved", true);
-        }
-        if (mo.superSaver) {
-          foundry.utils.setProperty(damage, "active.superSaver", true);
-        }
-        if (mo.semiSuperSaver) {
-          foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
-        }
+
+    const totalDamage = damages.reduce((a, b) => {
+      if (options.invertHealing !== false && b.type === "temphp") {
+        b.multiplier = (b.multiplier ?? 1) * -1;
+        b.value = b.value * -1;
       }
+      if (b.type === "midi-none") b.value = 0;
+      return a + (["temphp", "midi-none"].includes(b.type) ? 0 : b.value)
     }
+      , 0);
+    foundry.utils.setProperty(options, "midi.totalDamage", totalDamage);
+  } catch (err) {
+    const message = `Error in preCalculateDamage`;
+    error(message, err);
+    TroubleShooter.recordError(err, message);
+  } finally {
+    return true;
   }
-  const totalDamage = damages.reduce((a, b) => {
-    if (options.invertHealing !== false && b.type === "temphp") {
-      b.multiplier = (b.multiplier ?? 1) * -1;
-      b.value = b.value * -1;
-    }
-    if (b.type === "midi-none") b.value = 0;
-    return a + (["temphp", "midi-none"].includes(b.type) ? 0 : b.value)
-  }
-    , 0);
-  foundry.utils.setProperty(options, "midi.totalDamage", totalDamage);
-  return true;
 });
 
 Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
-
   const mo = options.midi;
   if (mo?.noCalc) return true;
   for (let damage of damages) {
@@ -1060,7 +1074,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     }
   }
 
-  if (configSettings.saveDROrder === "DRSavedr" && (mo.saveMultiplier ?? 1) !== 1 && options?.ignore !== true) {
+  if (configSettings.saveDROrder === "DRSavedr" && mo.saved && options?.ignore !== true) {
     damages.forEach(damage => {
       if (options?.ignore?.saved === true || options?.ignore?.saved?.has(damage.type)) return;
       foundry.utils.setProperty(damage, "active.saved", true);
@@ -1102,13 +1116,6 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         }
       }
     }
-    const physicalDamage = damages.reduce((total, damage) => {
-      //@ts-expect-error
-      const isPhysical = game.system.config.damageTypes[damage.type]?.isPhysical;
-      total += isPhysical ? damage.value : 0;
-      return total;
-    }, 0);
-
     for (let special of Object.keys(actor.system.traits.dm?.midi ?? {})) {
       let dr;
       let drRoll;
@@ -1235,7 +1242,7 @@ Hooks.on("dnd5e.preRollConcentration", (actor, options) => {
   let concDisadv = options.disadvantage;
   if (concAdvFlag || concDisadvFlag) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
-    if (evalAllConditions(actor, "flags.midi-qol.advantage.concentration", conditionData)) {
+    if (concAdvFlag && evalAllConditions(actor, "flags.midi-qol.advantage.concentration", conditionData)) {
       concAdv = true;
     }
     if (concDisadvFlag && evalAllConditions(actor, "flags.midi-qol.disadvantage.concentration", conditionData)) {

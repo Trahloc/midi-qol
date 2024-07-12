@@ -201,7 +201,7 @@ async function doRollSkill(wrapped, ...args) {
     }
     const flavor = result.options?.flavor;
     const maxflags = foundry.utils.getProperty(this, "flags.midi-qol.max") ?? {};
-    const maxValue = (maxflags.skill && (maxflags.skill.all || maxflags.check[skillId])) ?? false;
+    const maxValue = (maxflags.skill && (maxflags.skill.all || maxflags.skill[skillId])) ?? false;
     if (maxValue && Number.isNumeric(maxValue)) {
       result = setRollMaxDiceTerm(result, Number(maxValue));
     }
@@ -470,6 +470,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
         messageData["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
     });
 
+    if (options.isConcentrationCheck && Hooks.call("dnd5e.preRollConcentration", this, options) === false) return;
     result = await wrapped(abilityId, procOptions);
     if (success === false) {
       result = new Roll("-1[auto fail]");
@@ -479,6 +480,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       else result = await result.evaluate()
     }
     if (!result) return result;
+    if (options.isConcentrationCheck) Hooks.callAll("dnd5e.rollConcentration", this, result);
 
     const flavor = result.options?.flavor;
     let maxFlags = foundry.utils.getProperty(this, "flags.midi-qol.max.ability") ?? {};
@@ -617,7 +619,7 @@ export function preRollDeathSaveHook(actor, rollData: any): boolean {
 export function deathSaveHook(actor, result, details) {
   if (configSettings.addDead !== "none" && details.chatString === "DND5E.DeathSaveFailure") {
     setDeadStatus(actor, { effect: getDeadStatus(), useDefeated: true, makeDead: true });
-    setDeadStatus(actor, { effect: getUnconsciousStatus(), useDefeated: false, makeDead: false });
+    // setDeadStatus(actor, { effect: getUnconsciousStatus(), useDefeated: false, makeDead: false });
   }
 }
 
@@ -854,15 +856,28 @@ export function initPatching() {
 function _DAgetTargetOptions(...args) {
   let [uuid] = args;
   const options = currentDAGetTargetOptions.bind(this)(...args);
-  const damageType = (this.damages?.flags?.[MODULE_ID]) ? this.damages.flags[MODULE_ID].damageType : undefined;
+  // const damageType = getProperty(this, `damages.flags.${MODULE_ID}.damageType`);
+  const damageType = this.damages?.flags?.[MODULE_ID]?.damageType;
+  let targetDetails;
   if (damageType) {
     const targets = this?.chatMessage?.flags?.dnd5e?.targets ?? [];
-    const targetDetails = targets.find(target => target.uuid === uuid);
+    targetDetails = targets.find(target => target.uuid === uuid);
     if (!targetDetails) return options;
+    options.midi = duplicate(targetDetails);
     if (targetDetails.saved) {
       const saveMult = targetDetails.saveMults?.[damageType];
-      if (saveMult !== undefined)
+      if (saveMult !== undefined) {
         foundry.utils.setProperty(options, "midi.saveMultiplier", saveMult);
+        if (targetDetails.superSaver && targetDetails.saved && saveMult === 0.5) {
+          foundry.utils.setProperty(options, "midi.saveMultiplier", 0);
+        }
+        if (targetDetails.semiSuperSaver && targetDetails.saved) {
+          foundry.utils.setProperty(options, "midi.saveMultiplier", 0);
+        }
+      }
+    }
+    if (targetDetails.uncannyDodge) {
+      foundry.utils.setProperty(options, "midi.uncannyDodge", true);
     }
   }
   return options;
@@ -874,6 +889,7 @@ function _DAcalculateDamage(actor, options) {
   active.saved = new Set();
   active.spell = new Set();
   active.magic = new Set();
+  active.uncannyDodge = new Set();
   active.nonmagic = new Set();
   const damages = actor.calculateDamage(this.damages, options);
   for (const damage of damages) {
@@ -882,6 +898,7 @@ function _DAcalculateDamage(actor, options) {
     if (damage.active.magic) active.magic.add(damage.type);
     if (damage.active.nonmagic) active.nonmagic.add(damage.type);
     if (damage.active.saved) active.saved.add(damage.type);
+    if (damage.active.uncannyDodge) active.uncannyDodge.add(damage.type);
   }
   const union = t => {
     if (foundry.utils.getType(options.ignore?.[t]) === "Set") active[t] = active[t].union(options.ignore[t]);
@@ -891,6 +908,7 @@ function _DAcalculateDamage(actor, options) {
   union("magic");
   union("nonmagic");
   union("saved");
+  union("uncannyDodge");
   return { temp, total, active };
 }
 
@@ -1153,21 +1171,17 @@ export async function checkWounded(actor, update, options, user) {
   }
   if (configSettings.addDead !== "none") {
     let effect: any = getDeadStatus();
-    let otherEffect: any = getUnconsciousStatus();
     let useDefeated = true;
 
     if ((actor.type === "character" || actor.hasPlayerOwner) && !vitalityResource) {
       effect = getUnconsciousStatus();
-      otherEffect = getDeadStatus();
-      useDefeated = false;
+      useDefeated = effect === getDeadStatus();
     }
     if (!needsBeaten) {
-      await setDeadStatus(actor, { effect: getDeadStatus(), useDefeated, makeDead: false });
-      await setDeadStatus(actor, { effect: getUnconsciousStatus(), useDefeated, makeDead: false });
+      await setDeadStatus(actor, { effect, useDefeated, makeDead: false });
+
     } else {
       await setDeadStatus(actor, { effect, useDefeated, makeDead: needsBeaten });
-      if (effect !== otherEffect)
-        await setDeadStatus(actor, { effect: otherEffect, useDefeated: false, makeDead: false });
     }
   }
 }
@@ -1204,11 +1218,10 @@ async function setDeadStatus(actor, options: any) {
         //@ts-expect-error
         else combatant = game.combat?.getCombatantByActor(actor.id);
         if (combatant && useDefeated) await combatant.update({ defeated: makeDead });
-        if (effect) await actor.toggleStatusEffect(effect.id, { overlay: configSettings.addDead === "overlay", active: makeDead });
-
-        const deadEffect: any = getDeadStatus();
-        if (!makeDead && deadEffect)
-          await actor.toggleStatusEffect(deadEffect.id, { overlay: configSettings.addDead === "overlay", active: false });
+        await actor.toggleStatusEffect(effect.id, { overlay: configSettings.addDead === "overlay", active: makeDead });
+        const token = tokenForActor(actor);
+        //@ts-expect-error TODO find out why such a long delay is needed
+        setTimeout(() => token._onApplyStatusEffect(effect.id, makeDead), 1000);
       }
     } else {
       let token = tokenForActor(actor); // V11 must use a token
@@ -1220,10 +1233,11 @@ async function setDeadStatus(actor, options: any) {
           //@ts-expect-error
           else combatant = game.combat?.getCombatantByActor(actor.id);
           if (combatant && useDefeated) await combatant.update({ defeated: makeDead });
-          if (effect) await token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: makeDead });
-          const deadEffect: any = getDeadStatus();
-          if (!makeDead && deadEffect)
-            await token.toggleEffect(deadEffect, { overlay: configSettings.addDead === "overlay", active: false });
+          if (effect) {
+            await token.toggleEffect(effect, { overlay: configSettings.addDead === "overlay", active: makeDead });
+            //@ts-expect-error TODO find out why such a long delay is needed
+            setTimeout(() => token._onApplyStatusEffect(effect.id, makeDead), 1500);
+          }
         }
       }
     }
@@ -1397,8 +1411,36 @@ function createConcentrationEffectData(wrapped, item, data: any = {}) {
 }
 
 export async function challengeConcentration(wrapped, { dc = 10, ability = null } = {}) {
-  if (["chat", "chatOnly"].includes(configSettings.doConcentrationCheck))
+  if (["chatOnly"].includes(configSettings.doConcentrationCheck))
     return wrapped({ dc, ability });
+  const isConcentrating = this.concentration.effects.size > 0;
+  if (!isConcentrating) return null;
+  if (["chat"].includes(configSettings.doConcentrationCheck)) {
+    const isConcentrating = this.concentration.effects.size > 0;
+    const dataset = {
+      action: "concentration",
+      dc,
+    };
+    //@ts-expect-error
+    if (ability && ability in game.system.config.abilities) dataset.ability = ability;
+    const config = {
+      type: "concentration",
+      format: "short",
+      icon: true
+    }
+    //@ts-expect-error
+    const enrichers = game.system.enrichers;
+    //@ts-expect-error
+    return ChatMessage.implementation.create({
+      content: `<div class="dnd5e chat-card request-card" data-action="concentration" data-dc="${dc}" data-type="midi-concentration">
+      <div><span class="visible-dc">${enrichers.createRollLabel({ ...dataset, ...config })} ${i18n("DND5E.Roll")}</span></div>
+      <div><span class="hidden-dc">${enrichers.createRollLabel({ ...dataset, ...config, hideDC: true })} ${i18n("DND5E.Roll")}</span></div>
+      </div>`,
+      whisper: game.users?.filter(user => this.testUserPermission(user, "OWNER")),
+      //@ts-expect-errorq
+      speaker: ChatMessage.implementation.getSpeaker({ actor: this })
+    });
+  }
   // item rolls are picked up when the damage is updated in dnd5e.damageActor
   return;
 }

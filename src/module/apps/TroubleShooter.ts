@@ -835,7 +835,8 @@ export class TroubleShooter extends FormApplication {
   }
   public static checkWalledTemplates(data: TroubleShooterData) {
     if (game.modules.get("walledtemplates")?.active) {
-      const walledTemplatesTargeting = safeGetGameSetting("walledtemplates", "autotarget-enabled");
+      const walledTemplatesTargeting = safeGetGameSetting("walledtemplates", "autotarget-menu") === 'yes' || (safeGetGameSetting("walledtemplates", "autotarget-menu") === 'toggle' && safeGetGameSetting("walledtemplates", "autotarget-enabled"));
+      // const walledTemplatesTargeting = safeGetGameSetting("walledtemplates", "autotarget-enabled");
       const midiTargeting = configSettings.autoTarget !== "walledtemplates" && configSettings.autoTarget !== "none";
 
       if (walledTemplatesTargeting && midiTargeting) {

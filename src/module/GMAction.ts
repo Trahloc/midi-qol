@@ -878,9 +878,9 @@ async function createV3GMReverseDamageCard(
 
     const actor = tokenDocument.actor;
     if (!tokenDocument || !actor) continue;
-    let appliedDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + dArray.reduce((acc, di) => acc + ((di.type === "temphp") ? 0 : di.value), 0), 0);
+    let appliedDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + Math.floor(dArray.reduce((acc, di) => acc + ((di.type === "temphp") ? 0 : di.value), 0)), 0);
     appliedDamage = appliedDamage < 0 ? Math.ceil(appliedDamage) : Math.floor(appliedDamage);
-    let appliedTempDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + dArray.reduce((acc, di) => acc + ((di.type !== "temphp") ? 0 : di.value), 0), 0);
+    let appliedTempDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + Math.floor(dArray.reduce((acc, di) => acc + ((di.type !== "temphp") ? 0 : di.value), 0)), 0);
     appliedTempDamage = appliedTempDamage < 0 ? Math.ceil(appliedTempDamage) : Math.floor(appliedTempDamage);
     let newTempHP = actor.system.attributes.hp.temp ?? 0;
     if (appliedTempDamage > 0) {
@@ -930,6 +930,7 @@ async function createV3GMReverseDamageCard(
     }
     const tooltipList = damageItem.tokenDamages.reduce((items, list) => items.concat(list)).map(di => {
       let allMods: string[] = Object.keys(di.active).reduce((acc: string[], k) => {
+        if (!["saved", "semiSuperSaver", "superSaver"].includes(k)) return acc;
         if (di.active[k] && k !== "multiplier") acc.push(k);
         return acc;
       }, []);
@@ -940,9 +941,9 @@ async function createV3GMReverseDamageCard(
     if (newHP !== oldHP) toolTipHeader.push(`HP: ${oldHP} -> ${newHP}`);
     if ((newTempHP ?? 0) !== (oldTempHP ?? 0)) toolTipHeader.push(`TempHP: ${oldTempHP} -> ${newTempHP}`);
     if ((newVitality ?? 0) !== (oldVitality ?? 0)) toolTipHeader.push(`Vitality: ${oldVitality} -> ${newVitality}`);
-    if (damageItem.saved) toolTipHeader.push("Saved");
-    if (damageItem.superSaver) toolTipHeader.push("Super Saver");
-    if (damageItem.semiSuperSaver) toolTipHeader.push("Semi Super Saver");
+    if (damageItem.superSaver) toolTipHeader.push("Super Saved");
+    else if (damageItem.semiSuperSaver) toolTipHeader.push("Semi Super Saved");
+    else if (damageItem.saved) toolTipHeader.push("Saved");
     let tooltip = [...toolTipHeader, ...tooltipList].join("<br>");
 
     let listItem = {

@@ -1,4 +1,4 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
@@ -300,7 +300,7 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
           totalMult = totalMult * mult;
           continue;
         }
-        if (!magicalDamage && (trait.has("nonmagic") || customs.includes(GameSystemConfig.damageResistanceTypes["nonmagic"]))) {
+        if (!magicalDamage && (trait.has("nonmagic") || customs.includes(GameSystemConfig.damageResistanceTypes?.["nonmagic"]))) {
           totalMult = totalMult * mult;
           continue;
         } else if (!magicalDamage && physicalDamage && (trait.has("physical") || customs.includes(GameSystemConfig.customDamageResistanceTypes?.physical))) {
@@ -427,7 +427,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
 
     const firstDamageHealing = applyDamageDetails[0].damageDetail && ["healing", "temphp"].includes(applyDamageDetails[0].damageDetail[0]?.type);
     const isHealing = ("heal" === workflow.item?.system.actionType) || firstDamageHealing;
-    const noDamageReactions = (item?.hasSave && item.flags?.midiProperties?.nodam && workflow?.saves?.has(t));
+    const noDamageReactions = (item?.hasSave /* TODO && item.flags?.midiProperties?.nodam*/ && workflow?.saves?.has(t));
     const noProvokeReaction = foundry.utils.getProperty(workflow, `item.flags.${MODULE_ID}.noProvokeReaction`);
 
     if (totalDamage > 0
@@ -444,7 +444,6 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         return [];
     }
     let uncannyDodge = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack;
-    if (uncannyDodge && workflow) uncannyDodge = workflow.targetsCanSense.has(getToken(workflow?.tokenUuid)); //canSense(targetToken, workflow?.tokenUuid);
     if (game.system.id === "sw5e" && targetActor?.type === "starship") {
       // Starship damage r esistance applies only to attacks
       if (item && ["mwak", "rwak"].includes(item?.system.actionType)) {
@@ -549,8 +548,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = 0;
           }
         }
-        if (!nonMagicalPysicalDRUsed && physicalDamage && !magicalDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical-physical`)) {
-          const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical-physical`) || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
+        const nonMagicalPhysicalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical-physical`);
+        if (!nonMagicalPysicalDRUsed && physicalDamage && !magicalDamage && nonMagicalPhysicalProperty) {
+          const DR = (await new Roll(`${nonMagicalPhysicalProperty}) || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -558,8 +558,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonMagicalDRUsed && !magicalDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical`)) {
-          const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.non-magical") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
+        const nonMagicalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical`);
+        if (!nonMagicalDRUsed && !magicalDamage && nonMagicalProperty) {
+          const DR = (await new Roll(`${nonMagicalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -567,8 +568,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonSilverDRUsed && physicalDamage && !silverDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-silver`)) {
-          const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.non-silver") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
+        const nonSilverProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-silver`);
+        if (!nonSilverDRUsed && physicalDamage && !silverDamage && nonSilverProperty) {
+          const DR = (await new Roll(`${nonSilverProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -576,8 +578,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonAdamantineDRUsed && physicalDamage && !adamantineDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-adamant`)) {
-          const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.non-adamant") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0
+        const nonAdamantineProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-adamant`);
+        if (!nonAdamantineDRUsed && physicalDamage && !nonAdamantineProperty) {
+          const DR = (await new Roll(`${nonAdamantineProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -585,8 +588,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!physicalDRUsed && physicalDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.physical`)) {
-          const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.physical") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
+        const physicalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.physical`);
+        if (!physicalDRUsed && physicalDamage && physicalProperty) {
+          const DR = (await new Roll(`${physicalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -594,8 +598,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
             DRType = Math.max(DRType, DR);
           }
         }
-        if (!nonPhysicalDRUsed && !physicalDamage && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-physical`)) {
-          const DR = (await new Roll(`${foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.non-physical") || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
+        const nonPhysicalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-physical`);
+        if (!nonPhysicalDRUsed && !physicalDamage && nonPhysicalProperty) {
+          const DR = (await new Roll(`${nonPhysicalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {
@@ -644,8 +649,8 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
           if (superSavers.has(t) && itemSaveMultiplier === 0.5) {
             mult = saves.has(t) ? 0 : 0.5;
           }
-          if (semiSuperSavers.has(t) && itemSaveMultiplier === 0.5)
-            mult = saves.has(t) ? 0 : 1;
+          if (semiSuperSavers.has(t) && saves.has(t))
+            mult = 0;
         }
         if (uncannyDodge) mult = mult / 2;
         const resMult = getTraitMult(targetActor, type, item);
@@ -687,8 +692,9 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
 
     totalAppliedDamage += appliedDamage;
     if (!dmgType) dmgType = "temphp";
-    if (!["healing", "temphp"].includes(dmgType) && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.final`)) {
-      let DRType = (await new Roll(`foundry.utils.getProperty(targetActor, "flags.midi-qol.DR.final") || "0"`, targetActor.getRollData()).evaluate()).total ?? 0;
+    const drFinalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.final`);
+    if (!["healing", "temphp"].includes(dmgType) && drFinalProperty) {
+      let DRType = (await new Roll(`${drFinalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
       appliedDamage = Math.max(0, appliedDamage - DRType)
     }
 
@@ -940,12 +946,18 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
           let saveMultiplier = 1;
           if (saves.has(token)) {
             saveMultiplier = getSaveMultiplierForItem(item, type);
-          } else if (workflow.superSavers.has(token)) {
-            saveMultiplier = getSaveMultiplierForItem(item, type) === 0.5 ? 0 : 0.5;
-          } else if (workflow.semiSuperSavers.has(token)) {
-            saveMultiplier = getSaveMultiplierForItem(item, type) === 0.5 ? 0 : 1;
+          }
+          if (workflow.superSavers.has(token) && getSaveMultiplierForItem(item, type) === 0.5) {
+            saveMultiplier = saves.has(token) ? 0 : 0.5;
+          }
+          if (workflow.semiSuperSavers.has(token) && this.saves.has(token)) {
+            saveMultiplier = 0;
           }
 
+          let tokenUuid = getTokenDocument(token)?.uuid;
+          const allTargetElts = document.querySelectorAll(`[data-message-id="${workflow.chatCard?.id}"]`)?.[0]?.getElementsByTagName("damage-application");
+          //@ts-expect-error
+          const allTargetOptions = allTargetElts ? Array.from(allTargetElts).map(targetElt => targetElt.getTargetOptions(tokenDocument.uuid)) : [];
           options = {
             invertHealing: true,
             multiplier: challengeModeScale,
@@ -959,20 +971,32 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
               semiSuperSaver: workflow.semiSuperSavers?.has(token),
               token,
               sourceActor: workflow.actor,
+              uncannyDodge: foundry.utils.getProperty(token.actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack
             }
           };
 
+          const categories = { "idi": "immunity", "idr": "resistance", "idv": "vulnerability", "ida": "absorption" };
+          if (workflow.item) {
+            for (let key of ["idi", "idr", "idv", "ida"]) {
+              const property = foundry.utils.getProperty(workflow.item, `flags.midiProperties.${key}`);
+              if (property) {
+                if (!options.ignore?.[categories[key]]) foundry.utils.setProperty(options, `ignore.${categories[key]}`, new Set())
+                for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
+                  options.ignore[categories[key]].add(dt);
+                }
+              }
+            }
+          }
           //@ts-expect-error
           let returnDamages = token.actor.calculateDamage(damages, options);
           workflow.damages = foundry.utils.duplicate(returnDamages);
-
 
           //@ts-expect-error isEmpty
           if (!foundry.utils.isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
             await workflow.callMacros(workflow.item, workflow.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
             if (workflow.ammo) await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
           }
-          const appliedTotal = returnDamages.reduce((acc, value) => acc + value.value, 0);
+          const appliedTotal = Math.floor(returnDamages.reduce((acc, value) => acc + value.value, 0));
           allDamages[tokenDocument.uuid].totalDamage += (options.midi.totalDamage ?? 0);
           allDamages[tokenDocument.uuid].appliedDamage += (appliedTotal ?? 0);
           if (appliedTotal !== 0 && hitTargets.has(token)) {
@@ -1038,7 +1062,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         actorId: workflow.actor?.id,
         charName: workflow.actor?.name ?? game?.user?.name,
         allDamages,
-        baseDamageRolls: baseDamageRolls.map(r => JSON.stringify(r)),
+        baseDamageRolls: otherDamageRolls.map(r => JSON.stringify(r)),
         chatCardId: workflow.itemCardId,
         chatCardUuid: workflow.itemCardUuid,
         flagTags: workflow.flagTags,
@@ -1208,9 +1232,9 @@ export let getSaveMultiplierForItem = (item: Item, itemDamageType) => {
 
   //@ts-expect-error item.flags v10
   const midiItemProperties: any = item.flags.midiProperties;
-  if (midiItemProperties?.nodam || itemDamageSave === "nodam") return 0;
-  if (midiItemProperties?.fulldam || itemDamageSave === "fulldam") return 1;
-  if (midiItemProperties?.halfdam || itemDamageSave === "halfdam") return 0.5;
+  if (itemDamageSave === "nodam") return 0;
+  if (itemDamageSave === "fulldam") return 1;
+  if (itemDamageSave === "halfdam") return 0.5;
 
   if (!configSettings.checkSaveText)
     return configSettings.defaultSaveMult;
@@ -1490,7 +1514,7 @@ function replaceAtFields(value, context, options: { blankValue: string | number,
   let re = /@[\w\._\-]+/g
   let result = foundry.utils.duplicate(value);
   result = result.replace("@item.level", "@itemLevel") // fix for outdated item.level
-  result = result.replace("@flags.midi-qol", "@flags.midiqol");
+  result = result.replace(`@flags.${MODULE_ID}`, "@flags.midiqol");
   // Remove @data references allow a little bit of recursive lookup
   do {
     count += 1;
@@ -1500,21 +1524,6 @@ function replaceAtFields(value, context, options: { blankValue: string | number,
   } while (count < options.maxIterations && result.includes("@"));
   return result;
 }
-
-/* over time effects now run off the updateCombatHook and calls _processOverTime directly
-export async function processOverTime(wrapped, data, options, user) {
-  if (data.round === undefined && data.turn === undefined) return wrapped(data, options, user);
-  try {
-    // await expirePerTurnBonusActions(this, data, options, user);
-    await _processOverTime(this, data, options, user)
-  } catch (err) {
-    TroubleShooter.recordError(err, "processOverTime");
-    error("processOverTime", err)
-  } finally {
-    return wrapped(data, options, user);
-  }
-}
-*/
 
 export async function doOverTimeEffect(actor, effect, startTurn: boolean = true, options: any = { saveToUse: undefined, rollFlags: undefined, isActionSave: false }) {
   if (game.user?.isGM)
@@ -1532,7 +1541,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
   // const rollData = actor.getRollData();
   if (!rollData.flags) rollData.flags = actor.flags;
   rollData.flags.midiqol = rollData.flags[MODULE_ID];
-  const changes = effect.changes.filter(change => change.key.startsWith("flags.midi-qol.OverTime"));
+  const changes = effect.changes.filter(change => change.key.startsWith(`flags.${MODULE_ID}.OverTime`));
   if (changes.length > 0) for (let change of changes) {
     // flags.midi-qol.OverTime turn=start/end, damageRoll=rollspec, damageType=string, saveDC=number, saveAbility=str/dex/etc, damageBeforeSave=true/[false], label="String"
     let spec = change.value;
@@ -1658,7 +1667,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       if (saveResult?.class) saveResult = JSON.parse(JSON.stringify(saveResult));
       const success = saveResult?.options?.success || saveResult?.total >= saveDC;
       if (saveResult?.options) saveResultDisplayed = true;
-      setProperty(effect, "flags.midi-qol.actionSaveSuccess", success === true);
+      setProperty(effect, `flags.${MODULE_ID}.actionSaveSuccess`, success === true);
     } else if (actionSave && actionSave === "roll" && options.isActionSave && options.saveToUse) {
       // player has made a save record the save/flags on the effect
       // if a match and saved then record the save success
@@ -1730,14 +1739,14 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           chatCard?.setFlag(MODULE_ID, "actorUuid", actor.uuid)
         }
       }
-      foundry.utils.setProperty(effect, "flags.midi-qol.actionSaveSuccess", undefined);
+      foundry.utils.setProperty(effect, `flags.${MODULE_ID}.actionSaveSuccess`, undefined);
       effect.setFlag(MODULE_ID, "overtimeChatcardUuids", chatCardUuids)
         .then(() => effect.setFlag(MODULE_ID, "actionSaveSuccess", undefined));
 
       if (changeTurnEnd) return effect.id;
     }
 
-    let actionSaveSuccess = foundry.utils.getProperty(effect, "flags.midi-qol.actionSaveSuccess");
+    let actionSaveSuccess = foundry.utils.getProperty(effect, `flags.${MODULE_ID}.actionSaveSuccess`);
     if (actionSaveSuccess === true && changeTurnEnd) {
       await expireEffects(actor, [effect], { "expiry-reason": "midi-qol:overTime:actionSave" });
       return effect.id;
@@ -1787,7 +1796,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       foundry.utils.setProperty(itemData, "system.save.scaling", "flat");
       itemData.type = "equipment";
       foundry.utils.setProperty(itemData, "system.type.value", "trinket");
-      foundry.utils.setProperty(itemData, "flags.midi-qol.noProvokeReaction", true);
+      foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.noProvokeReaction`, true);
       if (saveMagic) {
         itemData.type = "spell";
         foundry.utils.setProperty(itemData, "system.preparation", { mode: "atwill" });
@@ -1811,7 +1820,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
             foundry.utils.setProperty(itemData, "system.save.ability", skillEntry.ability);
           }
         } else foundry.utils.setProperty(itemData, "system.save.ability", GameSystemConfig.skills[skill].ability)
-        foundry.utils.setProperty(itemData, "flags.midi-qol.overTimeSkillRoll", skill)
+        foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.overTimeSkillRoll`, skill)
       }
 
 
@@ -1849,8 +1858,8 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       foundry.utils.setProperty(itemData.flags, "midi-qol.forceCEOff", true);
       if (killAnim) foundry.utils.setProperty(itemData.flags, "autoanimations.killAnim", true)
       if (macroToCall) {
-        foundry.utils.setProperty(itemData, "flags.midi-qol.onUseMacroName", macroToCall);
-        foundry.utils.setProperty(itemData, "flags.midi-qol.onUseMacroParts", new OnUseMacros(macroToCall));
+        foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.onUseMacroName`, macroToCall);
+        foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.onUseMacroParts`, new OnUseMacros(macroToCall));
       }
       // Try and find the source actor for the overtime effect so that optional bonuses etc can fire.
       //@ts-expect-error
@@ -1943,13 +1952,13 @@ export async function _processOverTime(combat, data, options, userId) {
     const startTurn = toTest > prev;
 
     // Remove reaction used status from each combatant
-    if (actor && toTest !== prev) {
+    if (actor && toTest !== prev && !installedModules.get("times-up")) {
       // do the whole thing as a GM to avoid multiple calls to the GM to set/remove flags/conditions
       await untimedExecuteAsGM("removeActionBonusReaction", { actorUuid: actor.uuid });
     }
 
     if (actor) for (let effect of actor.appliedEffects) {
-      if (effect.changes.some(change => change.key.startsWith("flags.midi-qol.OverTime"))) {
+      if (effect.changes.some(change => change.key.startsWith(`flags.${MODULE_ID}.OverTime`))) {
         await doOverTimeEffect(actor, effect, startTurn);
       }
     }
@@ -2223,7 +2232,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   if (!canvas || !canvas.grid || !canvas.dimensions) return -1;
 
   const actor = t1.actor;
-  const ignoreWallsFlag = foundry.utils.getProperty(actor, "flags.midi-qol.ignoreWalls");
+  const ignoreWallsFlag = foundry.utils.getProperty(actor, `flags.${MODULE_ID}.ignoreWalls`);
   // get condition data & eval the property
   if (ignoreWallsFlag) {
     wallblocking = false;
@@ -2429,15 +2438,15 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     let longRange = (item.system.range?.long ?? 0);
     if (item.parent?.system) {
       let conditionData;
-      let rangeBonus = foundry.utils.getProperty(item.parent, `flags.midi-qol.range.${attackType}`) ?? "0"
-      rangeBonus = rangeBonus + " + " + (foundry.utils.getProperty(item.parent, `flags.midi-qol.range.all`) ?? "0");
+      let rangeBonus = foundry.utils.getProperty(item.parent, `flags.${MODULE_ID}.range.${attackType}`) ?? "0"
+      rangeBonus = rangeBonus + " + " + (foundry.utils.getProperty(item.parent, `flags.${MODULE_ID}.range.all`) ?? "0");
       if (rangeBonus !== "0 + 0") {
         conditionData = createConditionData({ item, actor: item.parent, target: token })
         const bonusValue = evalCondition(rangeBonus, conditionData, { errorReturn: 0, async: false });
         range = Math.max(0, range + bonusValue);
       };
-      let longRangeBonus = foundry.utils.getProperty(item.parent, `flags.midi-qol.long.${attackType}`) ?? "0"
-      longRangeBonus = longRangeBonus + " + " + (foundry.utils.getProperty(item.parent, `flags.midi-qol.long.all`) ?? "0");
+      let longRangeBonus = foundry.utils.getProperty(item.parent, `flags.${MODULE_ID}.long.${attackType}`) ?? "0"
+      longRangeBonus = longRangeBonus + " + " + (foundry.utils.getProperty(item.parent, `flags.${MODULE_ID}.long.all`) ?? "0");
       if (longRangeBonus !== "0 + 0") {
         if (!conditionData)
           conditionData = createConditionData({ item, actor: item.parent, target: token })
@@ -2471,7 +2480,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
           break;
       }
     }
-    if (foundry.utils.getProperty(actor, "flags.midi-qol.sharpShooter") && range < longRange) range = longRange;
+    if (foundry.utils.getProperty(actor, `flags.${MODULE_ID}.sharpShooter`) && range < longRange) range = longRange;
     if (item.system.actionType === "rsak" && foundry.utils.getProperty(actor, "flags.dnd5e.spellSniper")) {
       range = 2 * range;
       longRange = 2 * longRange;
@@ -2549,7 +2558,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     attackingToken: tokenIn,
   }
 
-  const canOverride = foundry.utils.getProperty(tokenIn.actor ?? {}, "flags.midi-qol.rangeOverride.attack.all") || foundry.utils.getProperty(tokenIn.actor ?? {}, `flags.midi-qol.rangeOverride.attack.${itemIn.system.actionType}`)
+  const canOverride = foundry.utils.getProperty(tokenIn.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.all`) || foundry.utils.getProperty(tokenIn.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.${itemIn.system.actionType}`)
 
   const { result, reason, range, longRange } = checkRangeFunction(itemIn, attackingToken, targetsIn);
   if (!canOverride) { // no overrides so just do the check
@@ -2563,7 +2572,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
   // Initial Check
   // Now we loop through all owned tokens
   let possibleAttackers: Token[] = ownedTokens.filter(t => {
-    const canOverride = foundry.utils.getProperty(t.actor ?? {}, "flags.midi-qol.rangeOverride.attack.all") || foundry.utils.getProperty(t.actor ?? {}, `flags.midi-qol.rangeOverride.attack.${itemIn.system.actionType}`)
+    const canOverride = foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.all`) || foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.${itemIn.system.actionType}`)
     return canOverride;
   });
 
@@ -2589,7 +2598,7 @@ export const THREE_QUARTERS_COVER = 5;
 export const HALF_COVER = 2;
 
 export function computeCoverBonus(attacker: Token | TokenDocument, target: Token | TokenDocument, item: any = undefined) {
-  let existingCoverBonus = foundry.utils.getProperty(target, "actor.flags.midi-qol.acBonus") ?? 0;
+  let existingCoverBonus = foundry.utils.getProperty(target, `actor.flags.${MODULE_ID}.acBonus`) ?? 0;
   if (!attacker) return existingCoverBonus;
   let coverBonus = 0;
   try {
@@ -2627,7 +2636,7 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
         break;
       case "tokencover":
         if (!installedModules.get("tokencover")) coverBonus = 0;
-        else if (safeGetGameSetting("tokencover", "midiqol-covercheck") === "midiqol-covercheck-none") {
+        else {
           const coverValue = calcTokenCover(attacker, target);
           if (coverValue === 4 || coverValue === 3) coverBonus = FULL_COVER;
           else if (coverValue === 2) coverBonus = THREE_QUARTERS_COVER;
@@ -2643,12 +2652,12 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
 
     if (item?.flags?.midiProperties?.ignoreTotalCover && item.type === "spell") coverBonus = 0;
     else if (item?.flags?.midiProperties?.ignoreTotalCover && coverBonus === FULL_COVER) coverBonus = THREE_QUARTERS_COVER;
-    if (item?.system.actionType === "rwak" && attacker.actor && foundry.utils.getProperty(attacker.actor, "flags.midi-qol.sharpShooter") && coverBonus !== FULL_COVER)
+    if (item?.system.actionType === "rwak" && attacker.actor && foundry.utils.getProperty(attacker.actor, `flags.${MODULE_ID}.sharpShooter`) && coverBonus !== FULL_COVER)
       coverBonus = 0;
     if (["rsak"/*, rpak*/].includes(item?.system.actionType) && attacker.actor && foundry.utils.getProperty(attacker.actor, "flags.dnd5e.spellSniper") && coverBonus !== FULL_COVER)
       coverBonus = 0;
     if (target.actor && coverBonus > existingCoverBonus)
-      foundry.utils.setProperty(target.actor, "flags.midi-qol.acBonus", coverBonus);
+      foundry.utils.setProperty(target.actor, `flags.${MODULE_ID}.acBonus`, coverBonus);
     else coverBonus = existingCoverBonus;
     return coverBonus;
   } catch (err) {
@@ -2710,7 +2719,7 @@ export function itemIsVersatile(item) {
 
 export function getRemoveAttackButtons(item?: Item): boolean {
   if (item) {
-    const itemSetting = foundry.utils.getProperty(item, "flags.midi-qol.removeAttackDamageButtons");
+    const itemSetting = foundry.utils.getProperty(item, `flags.${MODULE_ID}.removeAttackDamageButtons`);
     if (itemSetting) {
       if (["all", "attack"].includes(itemSetting)) return true;
       if (itemSetting !== "default") return false;
@@ -2722,7 +2731,7 @@ export function getRemoveAttackButtons(item?: Item): boolean {
 }
 export function getRemoveDamageButtons(item?: Item): boolean {
   if (item) {
-    const itemSetting = foundry.utils.getProperty(item, "flags.midi-qol.removeAttackDamageButtons");
+    const itemSetting = foundry.utils.getProperty(item, `flags.${MODULE_ID}.removeAttackDamageButtons`);
     if (itemSetting) {
       if (["all", "damage"].includes(itemSetting)) return true;
       if (itemSetting !== "default") return false;
@@ -3103,9 +3112,9 @@ export async function removeTokenConditionEffect(token: Token, condition: string
 export async function expireMyEffects(effectsToExpire: string[]) {
   const expireHit = effectsToExpire.includes("1Hit") && !this.effectsAlreadyExpired.includes("1Hit");
   let expireAnyAction = effectsToExpire.includes("1Action") && !this.effectsAlreadyExpired.includes("1Action");
-  const expireBonusAction = (effectsToExpire.includes("1Action") || effectsToExpire.includes["Bonus Action"]) && !this.effectsAlreadyExpired.includes("Bonus Action");
-  const expireReaction = (effectsToExpire.includes("1Action") || effectsToExpire.includes["Reaction"]) && !this.effectsAlreadyExpired.includes("Reaction");
-  const expireTurnAction = (effectsToExpire.includes("1Action") || effectsToExpire.includes["Turn Action"]) && !this.effectsAlreadyExpired.includes("Turn Action");
+  const expireBonusAction = (effectsToExpire.includes("1Action") || effectsToExpire.includes("Bonus Action")) && !this.effectsAlreadyExpired.includes("Bonus Action");
+  const expireReaction = (effectsToExpire.includes("1Action") || effectsToExpire.includes("Reaction")) && !this.effectsAlreadyExpired.includes("Reaction");
+  const expireTurnAction = (effectsToExpire.includes("1Action") || effectsToExpire.includes("Turn Action")) && !this.effectsAlreadyExpired.includes("Turn Action");
   const expireSpell = effectsToExpire.includes("1Spell") && !this.effectsAlreadyExpired.includes("1Spell");
   const expireAttack = effectsToExpire.includes("1Attack") && !this.effectsAlreadyExpired.includes("1Attack");
   const expireDamage = effectsToExpire.includes("DamageDealt") && !this.effectsAlreadyExpired.includes("DamageDealt");
@@ -3131,7 +3140,7 @@ export async function expireMyEffects(effectsToExpire: string[]) {
     return (expireAnyAction && specialDuration.includes("1Action")) ||
       (expireBonusAction && specialDuration.includes("Bonus Action") && this.item.system.activation.type === "bonus") ||
       (expireReaction && specialDuration.includes("Reaction") && this.item.system.activation.type === "reaction") ||
-      (expireTurnAction && specialDuration.includes("Turn Action") && this.item.system.activation.type === "action" ) ||
+      (expireTurnAction && specialDuration.includes("Turn Action") && this.item.system.activation.type === "action") ||
       (expireAttack && this.item?.hasAttack && specialDuration.includes("1Attack")) ||
       (expireSpell && this.item?.type === "spell" && specialDuration.includes("1Spell")) ||
       (expireAttack && this.item?.hasAttack && specialDuration.includes(`1Attack:${this.item?.system.actionType}`)) ||
@@ -3162,7 +3171,7 @@ export async function expireRollEffect(rolltype: string, abilityId: string, succ
     await timedAwaitExecuteAsGM("removeEffectUuids", {
       actorUuid: this.uuid,
       effects: expiredEffects,
-      options: { MODULE_ID: `special-duration:${rollType}:${abilityId}` }
+      options: { "expiry-reason": `midi:special-duration:${rollType}:${abilityId}` }
     });
   }
 }
@@ -3456,18 +3465,18 @@ class RollModifyDialog extends Application {
 export async function processAttackRollBonusFlags() { // bound to workflow
   let attackBonus = "attack.all";
   if (this.item && this.item.hasAttack) attackBonus = `attack.${this.item.system.actionType}`;
-  const optionalFlags = foundry.utils.getProperty(this.actor ?? {}, "flags.midi-qol.optional") ?? {};
+  const optionalFlags = foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional`) ?? {};
   // If the attack roll is a fumble only select flags that allow the roll to be rerolled.
   let bonusFlags = Object.keys(optionalFlags)
     .filter(flag => {
-      const hasAttackFlag = foundry.utils.getProperty(this.actor ?? {}, `flags.midi-qol.optional.${flag}.attack.all`) ||
-        foundry.utils.getProperty(this.actor ?? {}, `flags.midi-qol.optional.${flag}.${attackBonus}`);
+      const hasAttackFlag = foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional.${flag}.attack.all`) ||
+        foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional.${flag}.${attackBonus}`);
       if (hasAttackFlag === undefined) return false;
       if (this.isFumble && !hasAttackFlag?.includes("roll")) return false;
       if (!this.actor.flags[MODULE_ID].optional[flag].count) return true;
       return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
     })
-    .map(flag => `flags.midi-qol.optional.${flag}`);
+    .map(flag => `flags.${MODULE_ID}.optional.${flag}`);
 
   if (bonusFlags.length > 0) {
     const newRoll = await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, this.attackRoll, "attackRoll")
@@ -3482,14 +3491,14 @@ export async function processAttackRollBonusFlags() { // bound to workflow
       if (this.item && this.item.hasAttack) attackBonus = `attack.fail.${this.item.system.actionType}`;
       let bonusFlags = Object.keys(optionalFlags)
         .filter(flag => {
-          const hasAttackFlag = foundry.utils.getProperty(this.actor ?? {}, `flags.midi-qol.optional.${flag}.attack.fail.all`)
-            || foundry.utils.getProperty(this.actor ?? {}, `flags.midi-qol.optional.${flag}.${attackBonus}`);
+          const hasAttackFlag = foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional.${flag}.attack.fail.all`)
+            || foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional.${flag}.${attackBonus}`);
           if (hasAttackFlag === undefined) return false;
           if (this.isFumble && !hasAttackFlag?.includes("roll")) return false;
           if (!this.actor.flags[MODULE_ID].optional[flag].count) return true;
           return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
         })
-        .map(flag => `flags.midi-qol.optional.${flag}`);
+        .map(flag => `flags.${MODULE_ID}.optional.${flag}`);
       if (bonusFlags.length > 0) {
         const newRoll = await bonusDialog.bind(this)(bonusFlags, attackBonus, checkMechanic("displayBonusRolls"), `${this.actor.name} - ${i18n("DND5E.Attack")} ${i18n("DND5E.Roll")}`, this.attackRoll, "attackRoll");
         this.setAttackRoll(newRoll);
@@ -3502,15 +3511,15 @@ export async function processAttackRollBonusFlags() { // bound to workflow
 export async function processDamageRollBonusFlags(): Promise<Roll[]> { // bound to a workflow
   let damageBonus = "damage.all";
   if (this.item) damageBonus = `damage.${this.item.system.actionType}`;
-  const optionalFlags = foundry.utils.getProperty(this.actor ?? {}, "flags.midi-qol.optional") ?? {};
+  const optionalFlags = foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional`) ?? {};
   const bonusFlags = Object.keys(optionalFlags)
     .filter(flag => {
-      const hasDamageFlag = foundry.utils.getProperty(this.actor ?? {}, `flags.midi-qol.optional.${flag}.damage.all`) !== undefined ||
-        foundry.utils.getProperty(this.actor ?? {}, `flags.midi-qol.optional.${flag}.${damageBonus}`) !== undefined;
+      const hasDamageFlag = foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional.${flag}.damage.all`) !== undefined ||
+        foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional.${flag}.${damageBonus}`) !== undefined;
       if (!hasDamageFlag) return false;
       return getOptionalCountRemainingShortFlag(this.actor, flag) > 0;
     })
-    .map(flag => `flags.midi-qol.optional.${flag}`);
+    .map(flag => `flags.${MODULE_ID}.optional.${flag}`);
   if (bonusFlags.length > 0) {
     // this.damageRollHTML = await midiRenderDamageRoll(this.damageRoll);
     // this.damamgeRollHTML = $(this.damageRolHTML).find(".dice-roll").remove();
@@ -3521,8 +3530,8 @@ export async function processDamageRollBonusFlags(): Promise<Roll[]> { // bound 
   return this.damageRolls;
 }
 
-async function displayBeforeAfterRolls(data: {originalRoll: Roll, newRoll: Roll, rollMode, title: string, player: User | undefined, options: any, actor: Actor}) {
-  let {originalRoll, newRoll, rollMode, title, player, options, actor} = data;
+async function displayBeforeAfterRolls(data: { originalRoll: Roll, newRoll: Roll, rollMode, title: string, player: User | undefined, options: any, actor: Actor }) {
+  let { originalRoll, newRoll, rollMode, title, player, options, actor } = data;
   if (!options) options = {};
   //TODO match the renderRoll to the roll type
   const newRollHTML = await midiRenderRoll(newRoll);
@@ -3546,7 +3555,7 @@ async function displayBeforeAfterRolls(data: {originalRoll: Roll, newRoll: Roll,
   //@ts-expect-error
   if (originalRoll.options.rollMode) ChatMessage.applyRollMode(chatData, originalRoll.options.rollMode);
   else ChatMessage.applyRollMode(chatData, rollMode);
-  foundry.utils.setProperty(newRoll, "flags.midi-qol.chatMessageShown", true);
+  foundry.utils.setProperty(newRoll, `flags.${MODULE_ID}.chatMessageShown`, true);
   return await ChatMessage.create(chatData);
 }
 
@@ -3776,9 +3785,9 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
   if (showRoll && lastForceFlag !== "") {
     DSNMarkDiceDisplayed(roll);
     const rollMode = foundry.utils.getProperty(this.actor ?? {}, lastForceFlag)?.rollMode ?? options.rollMode ?? game.settings.get("core", "rollMode");
-    const card = await displayBeforeAfterRolls({originalRoll: oldRoll, newRoll: roll, rollMode, title, player, options, actor: this.actor});
+    const card = await displayBeforeAfterRolls({ originalRoll: oldRoll, newRoll: roll, rollMode, title, player, options, actor: this.actor });
     if (card?.uuid && this instanceof Workflow) { // this does not work currently since the undoId has not yet been set
-      await untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: this.undoId, chatCardUuids: [card.uuid] }); 
+      await untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: this.undoId, chatCardUuids: [card.uuid] });
     }
   }
   if (validFlags.length === 0) return roll;
@@ -3794,9 +3803,9 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       DSNMarkDiceDisplayed(newRoll);
 
       if (showRoll && newRoll !== originalRoll) {
-        const card = await displayBeforeAfterRolls({originalRoll, newRoll, rollMode, title, player, options, actor: this.actor});
+        const card = await displayBeforeAfterRolls({ originalRoll, newRoll, rollMode, title, player, options, actor: this.actor });
         if (card?.uuid && this instanceof Workflow) { // this does not work currently since the undoId has not yet been set
-          await untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: this.undoId, chatCardUuids: [card.uuid] }); 
+          await untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: this.undoId, chatCardUuids: [card.uuid] });
         }
       }
       resolve(newRoll)
@@ -3839,9 +3848,9 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
 
 //@ts-expect-error dnd5e v10
 export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.documents.Actor5e, flag: string) {
-  const countValue = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`);
-  const altCountValue = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.countAlt`);
-  const countRemaining = getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.count`) && getOptionalCountRemaining(actor, `flags.midi-qol.optional.${flag}.countAlt`)
+  const countValue = getOptionalCountRemaining(actor, `flags.${MODULE_ID}.optional.${flag}.count`);
+  const altCountValue = getOptionalCountRemaining(actor, `flags.${MODULE_ID}.optional.${flag}.countAlt`);
+  const countRemaining = getOptionalCountRemaining(actor, `flags.${MODULE_ID}.optional.${flag}.count`) && getOptionalCountRemaining(actor, `flags.${MODULE_ID}.optional.${flag}.countAlt`)
   return countRemaining;
 }
 //@ts-expect-error dnd5e v10
@@ -3849,11 +3858,13 @@ export function getOptionalCountRemaining(actor: globalThis.dnd5e.documents.Acto
   const countValue = foundry.utils.getProperty(actor, flag);
   if (!countValue) return 1;
 
-  if (["turn", "each-round", "each-turn"].includes(countValue) && game.combat) {
-    let usedFlag = flag.replace(".countAlt", ".used");
-    usedFlag = flag.replace(".count", ".used");
+  if (["each-round", "each-turn"].includes(countValue) && game.combat) {
+    let usedFlag = flag.replace(".count", ".used");
     // check for the flag
     if (foundry.utils.getProperty(actor, usedFlag)) return 0;
+  } else if (["turn"].includes(countValue)) {
+    let usedFlag = flag.replace(".count", ".used");
+    if (foundry.utils.getProperty(actor, usedFlag) || game.combat?.turns[game.combat?.turn]?.actor !== actor) return 0;
   } else if (countValue === "reaction") {
     // return await hasUsedReaction(actor)
     return actor.getFlag(MODULE_ID, "actions.reactionCombatRound") && needsReactionCheck(actor) ? 0 : 1;
@@ -3938,12 +3949,12 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
   }
 
   if (["turn", "each-round", "each-turn"].includes(count.value)) {
-    const flagKey = `${changeKey}.used`.replace("flags.midi-qol.", "");
+    const flagKey = `${changeKey}.used`.replace(`flags.${MODULE_ID}.`, "");
     actorUpdates[`${changeKey}.used`] = true;
     // await actor.setFlag(MODULE_ID, flagKey, true);
   }
   if (["turn", "each-round", "each-turn"].includes(countAlt?.value)) {
-    const flagKey = `${changeKey}.used`.replace("flags.midi-qol.", "");
+    const flagKey = `${changeKey}.used`.replace(`flags.${MODULE_ID}.`, "");
     actorUpdates[`${changeKey}.used`] = true;
     // await actor.setFlag(MODULE_ID, flagKey, true);
   }
@@ -4104,19 +4115,20 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       if (getReactionSetting(player) === "allMI" && !usedReaction) {
         possibleReactions = possibleReactions.concat(await getMagicItemReactions(target.actor, triggerType));
       }
-      reactions = possibleReactions.filter(item => {
+      for (let item of possibleReactions) {
         const theItem = item instanceof Item ? item : item.baseItem;
-        const reactionCondition = foundry.utils.getProperty(theItem ?? {}, "flags.midi-qol.reactionCondition")
+        const reactionCondition = foundry.utils.getProperty(theItem ?? {}, `flags.${MODULE_ID}.reactionCondition`)
         if (reactionCondition) {
           if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using condition ${reactionCondition}`);
-          const returnvalue = evalReactionActivationCondition(options.workflow, reactionCondition, target, { extraData: { reaction: reactionTriggerLabelFor(triggerType) } });
-          return returnvalue;
+          const returnvalue = await evalReactionActivationCondition(options.workflow, reactionCondition, target, { async: true, extraData: { reaction: reactionTriggerLabelFor(triggerType) } });
+          if (returnvalue) reactions.push(item);
         } else {
           if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using ${triggerType} filter`);
           //@ts-expect-error .system
-          return theItem.system.activation?.type === triggerType || (triggerType === "reactionhit" && theItem.system.activation?.type === "reaction");
+          if (theItem.system.activation?.type === triggerType || (triggerType === "reactionhit" && theItem.system.activation?.type === "reaction"))
+            reactions.push(item);
         }
-      });
+      };
 
       if (debugEnabled > 0)
         warn(`doReactions ${triggerType} for ${target.actor?.name} ${target.name}`, reactions, possibleReactions);
@@ -4272,7 +4284,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
     if (!actor) return;
     const usedReaction = hasUsedReaction(actor);
     // if ( usedReaction && needsReactionCheck(actor)) return false;
-    const midiFlags: any = foundry.utils.getProperty(actor ?? {}, "flags.midi-qol");
+    const midiFlags: any = foundry.utils.getProperty(actor ?? {}, `flags.${MODULE_ID}`);
     let result;
     let reactionItems: any = [];
     const maxLevel = maxCastLevel(target.actor);
@@ -4305,7 +4317,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
         if (!midiFlags.optional[flag].ac) return false;
         if (!midiFlags.optional[flag].count) return true;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
-      }).map(flag => `flags.midi-qol.optional.${flag}`);
+      }).map(flag => `flags.${MODULE_ID}.optional.${flag}`);
     if (validFlags.length > 0 && triggerType === "reaction") {
       //@ts-expect-error attributes
       let acRoll = await new Roll(`${actor.system.attributes.ac.value}`).roll();
@@ -4592,16 +4604,17 @@ export function reportMidiCriticalFlags() {
   let report: string[] = [];
   if (game?.actors) for (let a of game.actors) {
     for (let item of a.items.contents) {
-      if (!["", "20", 20].includes((foundry.utils.getProperty(item, "flags.midi-qol.criticalThreshold") || ""))) {
-        report.push(`Actor ${a.name}'s Item ${item.name} has midi critical flag set ${foundry.utils.getProperty(item, "flags.midi-qol.criticalThreshold")}`)
+      if (!["", "20", 20].includes((foundry.utils.getProperty(item, `flags.${MODULE_ID}.criticalThreshold`) || ""))) {
+        report.push(`Actor ${a.name}'s Item ${item.name} has midi critical flag set ${foundry.utils.getProperty(item, `flags.${MODULE_ID}.criticalThreshold`)}`)
       }
     }
   }
   if (game?.scenes) for (let scene of game.scenes) {
     for (let tokenDocument of scene.tokens) { // TODO check this v10
       if (tokenDocument.actor) for (let item of tokenDocument.actor.items.contents) {
-        if (!tokenDocument.isLinked && !["", "20", 20].includes((foundry.utils.getProperty(item, "flags.midi-qol.criticalThreshold") || ""))) {
-          report.push(`Scene ${scene.name}, Token Name ${tokenDocument.name}, Actor Name ${tokenDocument.actor.name}, Item ${item.name} has midi critical flag set ${foundry.utils.getProperty(item, "flags.midi-qol.criticalThreshold")}`)
+        if (!tokenDocument.isLinked && !["", "20", 20].includes((foundry.utils.getProperty(item, `flags.${MODULE_ID}.criticalThreshold`) || ""))) {
+          const criticalThreshold = foundry.utils.getProperty(item, `flags.${MODULE_ID}.criticalThreshold`);
+          report.push(`Scene ${scene.name}, Token Name ${tokenDocument.name}, Actor Name ${tokenDocument.actor.name}, Item ${item.name} has midi critical flag set ${criticalThreshold}`)
         }
       }
     }
@@ -4727,7 +4740,7 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
 }
 
 export function effectActivationConditionToUse(workflow: Workflow) {
-  return foundry.utils.getProperty(this, "flags.midi-qol.effectCondition");
+  return foundry.utils.getProperty(this, `flags.${MODULE_ID}.effectCondition`);
 }
 
 export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined, item?: Item | string | undefined, extraData?: any }) {
@@ -4806,7 +4819,7 @@ export async function evalAllConditionsAsync(actorRef: Token | TokenDocument | A
   if (!actor) return errorReturn;
   //@ts-expect-error .applyActiveEffects
   const effects = actor.appliedEffects.filter(ef => ef.changes.some(change => change.key === flag));
-  let keyToUse = flag.replace("flags.midi-qol.", "flags.midi.evaluated.");
+  let keyToUse = flag.replace(`flags.${MODULE_ID}.`, "flags.midi.evaluated.");
   keyToUse = keyToUse.replace("flags.dnd5e.", "flags.midi.evaluated.dnd5e.");
   let returnValue = errorReturn;
   foundry.utils.setProperty(actor, `${keyToUse}.value`, false);
@@ -4840,7 +4853,7 @@ export function evalAllConditions(actorRef: Token | TokenDocument | Actor | stri
   if (!actor) return errorReturn;
   //@ts-expect-error .applyActiveEffects
   const effects = actor.appliedEffects.filter(ef => ef.changes.some(change => change.key === flag));
-  let keyToUse = flag.replace("flags.midi-qol.", "flags.midi.evaluated.");
+  let keyToUse = flag.replace(`flags.${MODULE_ID}.`, "flags.midi.evaluated.");
   keyToUse = keyToUse.replace("flags.dnd5e.", "flags.midi.evaluated.dnd5e.");
   let returnValue = errorReturn;
   foundry.utils.setProperty(actor, `${keyToUse}.value`, false);
@@ -4973,50 +4986,33 @@ export async function setActionUsed(actor: Actor) {
 
 export async function setReactionUsed(actor: Actor) {
   if (!["all", "displayOnly"].includes(configSettings.enforceReactions) && configSettings.enforceReactions !== actor.type) return;
-  let effect;
-  await actor.setFlag(MODULE_ID, "actions.reactionCombatRound", game.combat?.round);
-  await actor.setFlag(MODULE_ID, "actions.reaction", true);
-  const reactionEffect = getReactionEffect();
-  if (reactionEffect) {
-    //@ts-expect-error .dfreds
-    const effectInterface = game.dfreds?.effectInterface;
-    await effectInterface?.addEffectWith({ effectData: reactionEffect.toObject(), uuid: actor.uuid });
-    //@ts-expect-error se.name
-  } else if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name ?? se.label) === i18n("DND5E.Reaction")))) {
-    await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
-  }
-  else {
-    const id = "reaction";
-    await actor.effects.get(getStaticID(id))?.delete();
-    effect = await ActiveEffect.implementation.fromStatusEffect(id, { keepId: true });
-    effect.origin = actor.uuid;
-    await ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
-  }
+  // await actor.update({"flags.midi-qol.actions.reaction": true, "flags.midi-qol.actions.reactionCombatRound": game.combat?.round});  
+  const id = "reaction";
+  await actor.effects.get(getStaticID(id))?.delete();
+  const effect = foundry.utils.deepClone(getReactionEffect());
+  //@ts-expect-error
+  effect.updateSource({
+    origin: actor.uuid,
+    changes:[
+      {key: 'flags.midi-qol.actions.reaction.used', mode: 2, value: true},
+      {key: 'flags.midi-qol.actions.reaction.round', mode: 2, value: game.combat?.round ?? false}
+    ]
+  });
+  // effect.origin = actor.uuid;
+  //@ts-expect-error
+  await ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
 }
 
 export async function setBonusActionUsed(actor: Actor) {
   if (debugEnabled > 0) warn("setBonusActionUsed | starting");
   if (!["all", "displayOnly"].includes(configSettings.enforceBonusActions) && configSettings.enforceBonusActions !== actor.type) return;
-  let effect;
-  if (getBonusActionEffect()) {
-    //@ts-expect-error
-    await game.dfreds?.effectInterface?.addEffect({ effectName: getBonusActionEffect().name, uuid: actor.uuid });
-  } else
-    //@ts-expect-error
-    if (installedModules.get("condition-lab-triggler") && (effect = CONFIG.statusEffects.find(se => (se.name ?? se.label) === i18n("DND5E.BonusAction")))) {
-      await actor.createEmbeddedDocuments("ActiveEffect", [effect]);
-    }
-  else {
-    const id = "bonusaction";
-    await actor.effects.get(getStaticID(id))?.delete();
-    effect = await ActiveEffect.implementation.fromStatusEffect(id, { keepId: true });
-    effect.origin = actor.uuid;
-    await ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
-  }
-  await actor.setFlag(MODULE_ID, "actions.bonusActionCombatRound", game.combat?.round);
-  const result = await actor.setFlag(MODULE_ID, "actions.bonus", true);
-  if (debugEnabled > 0) warn("setBonusActionUsed | finishing");
-  return result;
+  await actor.update({"flags.midi-qol.actions.bonus": true, "flags.midi-qol.actions.bonusCombatRound": game.combat?.round});  
+  const id = "bonusaction";
+  await actor.effects.get(getStaticID(id))?.delete();
+  const effect = foundry.utils.deepClone(midiBonusActionEffect);
+  effect.origin = actor.uuid;
+  //@ts-expect-error
+  await ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
 }
 
 export async function removeActionUsed(actor: Actor) {
@@ -5024,37 +5020,13 @@ export async function removeActionUsed(actor: Actor) {
   else return await untimedExecuteAsGM("_gmSetFlag", { base: MODULE_ID, key: "actions.action", value: false, actorUuid: actor.uuid })
 }
 
-export async function removeReactionUsed(actor: Actor, removeCEEffect = true) {
-  let effectRemoved = false;
-  let reactionEffect = getReactionEffect();
-  if (removeCEEffect && reactionEffect && !effectRemoved) {
-    //@ts-expect-error
-    if (await game.dfreds?.effectInterface?.hasEffectApplied(reactionEffect.name, actor.uuid)) {
-      const effect = actor.effects.getName(reactionEffect?.name ?? "Reaction");
-      if (installedModules.get("times-up") && effect && foundry.utils.getProperty(effect, "flags.dae.specialDuration")?.includes("turnStart")) {
-        // times up will handle removing this
-      }
-      //@ts-expect-error
-      else await game.dfreds.effectInterface?.removeEffect({ effectName: reactionEffect.name, uuid: actor.uuid });
-      effectRemoved = true;
-    }
+export async function removeReactionUsed(actor: Actor, force = false) {
+  if (debugEnabled > 0) warn("removeReactionUsed | starting", actor);
+  if (force || !installedModules.get("times-up")) { // if times-up installed the special duration will expire the effect
+    await actor.effects.get(getStaticID("reaction"))?.delete(); // reaction always non-transfer
   }
-
-  if (installedModules.get("condition-lab-triggler") && !effectRemoved) {
-    reactionEffect = actor.effects.find(ef => ef.name === i18n("DND5E.Reaction"));
-    if (installedModules.get("times-up") && effect && foundry.utils.getProperty(effect, "flags.dae.specialDuration")?.includes("turnStart")) {
-    } else await reactionEffect?.delete(); // reaction always non-transfer
-    // times-up will handle removing this
-    effectRemoved = true;
-  }
-  reactionEffect = actor.effects.get(getStaticID("reaction"));
-  if (/*!effectRemoved &&*/ reactionEffect) {
-    await reactionEffect?.delete(); // reaction always non-transfer
-    // times-up will handle removing this
-    effectRemoved = true;
-  }
-  await actor?.unsetFlag(MODULE_ID, "actions.reactionCombatRound");
-  return actor?.setFlag(MODULE_ID, "actions.reaction", false);
+  // safety net unset of flags - just in case.
+  if (force) await actor.update({ "flags.midi-qol.actions.reaction": false, "flags.midi-qol.actions.-=reactionCombatRound": null });
 }
 
 export function hasUsedAction(actor: Actor) {
@@ -5062,19 +5034,7 @@ export function hasUsedAction(actor: Actor) {
 }
 
 export function hasUsedReaction(actor: Actor) {
-  const reactionEffect = getReactionEffect();
-  if (reactionEffect) {
-    //@ts-expect-error .dfreds
-    if (game.dfreds?.effectInterface?.hasEffectApplied(reactionEffect.name, actor.uuid)) {
-      return true;
-    }
-  }
-
-  if (installedModules.get("condition-lab-triggler") && actor.effects.some(ef => ef.name === i18n("DND5E.Reaction"))) {
-    return true;
-  }
-  if (actor.getFlag(MODULE_ID, "actions.reaction")) return true;
-  return false;
+  return (actor.getFlag(MODULE_ID, "actions.reaction"));
 }
 
 export async function expirePerTurnBonusActions(combat: Combat, data, options) {
@@ -5086,11 +5046,13 @@ export async function expirePerTurnBonusActions(combat: Combat, data, options) {
     for (let effect of actor.appliedEffects) {
       for (let change of effect.changes) {
         if (change.key.match(optionalFlagRe)
-          && ((change.value === "each-turn") || (change.value = "each-round" && data.round !== combat.round))) {
+          && ((change.value === "each-turn")
+            || (change.value === "each-round" && data.round !== combat.round))
+          || (change.value === "turn" && combat?.turns[data.turn ?? combat.turn].actor === actor)) {
           const usedKey = change.key.replace(/.(count|countAlt)$/, ".used")
           const isUsed = foundry.utils.getProperty(actor, usedKey);
           if (isUsed) {
-            const key = usedKey.replace("flags.midi-qol.", "");
+            const key = usedKey.replace(`flags.${MODULE_ID}.`, "");
             //TODO turn this into actor updates instead of each flag
             await untimedExecuteAsGM("_gmUnsetFlag", { actorUuid: actor.uuid, base: MODULE_ID, key });
           }
@@ -5101,36 +5063,15 @@ export async function expirePerTurnBonusActions(combat: Combat, data, options) {
 }
 
 export function hasUsedBonusAction(actor: Actor) {
-  if (getBonusActionEffect()) {
-    //@ts-expect-error
-    if (game.dfreds?.effectInterface?.hasEffectApplied(getBonusActionEffect().name, actor.uuid)) {
-      return true;
-    }
-  }
-
-  if (installedModules.get("condition-lab-triggler") && actor.effects.some(ef => ef.name === i18n("DND5E.BonusAction"))) {
-    return true;
-  }
-
-  if (actor.getFlag(MODULE_ID, "actions.bonus")) return true;
-  return false;
+  return actor.getFlag(MODULE_ID, "actions.bonus");
 }
 
-export async function removeBonusActionUsed(actor: Actor, removeCEEffect = false) {
-  if (removeCEEffect && getBonusActionEffect()) {
-    //@ts-expect-error
-    if (await game.dfreds?.effectInterface?.hasEffectApplied((getBonusActionEffect().name), actor.uuid)) {
-      //@ts-expect-error
-      await game.dfreds.effectInterface?.removeEffect({ effectName: (getBonusActionEffect().name), uuid: actor.uuid });
-    }
+export async function removeBonusActionUsed(actor: Actor, force = false) {
+  if (force || !installedModules.get("times-up")) { // bonus action will be expired by times-up if installed
+    await actor.effects.get(getStaticID("bonusaction"))?.delete()
   }
-  if (installedModules.get("condition-lab-triggler")) {
-    const effect = actor.effects.find(ef => ef.name === i18n("DND5E.BonusAction"));
-    await effect?.delete(); // bonus action alays non-transfer
-  }
-  await actor.effects.get(getStaticID("bonusaction"))?.delete()
-  await actor.setFlag(MODULE_ID, "actions.bonus", false);
-  return actor?.unsetFlag(MODULE_ID, "actions.bonusActionCombatRound");
+  // Safety net flag reset just in case
+  if (force) await actor.update({ "flags.midi-qol.actions.bonus": false, "flags.midi-qol.actions.-=bonusActionCombatRound": null });
 }
 
 
@@ -5490,22 +5431,11 @@ export function getFlankedEffect(): ActiveEffect | undefined {
   return undefined;
 }
 
-export function getReactionEffect(): ActiveEffect | undefined {
-  //@ts-expect-error
-  const dfreds = game.dfreds;
-  if (!dfreds?.effectInterface) return undefined;
-  let reactionEffect = dfreds.effectInterface.findEffectByName("Reaction");
-  if (!reactionEffect) reactionEffect = dfreds.effectInterface.findEffectByName(`${SystemString}.Reaction`)
-  return reactionEffect;
-
+export function getReactionEffect(): ActiveEffect{
+  return midiReactionEffect;
 }
-export function getBonusActionEffect(): ActiveEffect | undefined {
-  //@ts-expect-error
-  const dfreds = game.dfreds;
-  if (!dfreds?.effectInterface) return undefined;
-  let bonusActionEffect = dfreds.effectInterface.findEffectByName("Bonus Action");
-  if (!bonusActionEffect) bonusActionEffect = dfreds.effectInterface.findEffectByName(`${SystemString}.BonusAction`);
-  return bonusActionEffect;
+export function getBonusActionEffect(): ActiveEffect {
+  return midiBonusActionEffect;
 }
 
 export function getIncapacitatedStatusEffect() {
@@ -6445,7 +6375,7 @@ export function canSee(tokenEntity, targetEntity) {
     (d) =>
       //@ts-expect-error DetectionMode
       detectionModes[d].type === DetectionMode.DETECTION_TYPES.SIGHT ||
-      NON_SIGHT_CONSIDERED_SIGHT.includes[d]
+      NON_SIGHT_CONSIDERED_SIGHT.includes(d)
   );
   return canSense(tokenEntity, targetEntity, sightDetectionModes);
 }
@@ -6549,14 +6479,14 @@ export function blankOrUndefinedDamageType(s: string | undefined): string {
 
 export function processConcentrationSave(message, html, data) {
   if (configSettings.doConcentrationCheck !== "chat") return;
-  let button = html.find("[data-action=concentration]");
+  let elt = html.find("[data-action=concentration]");
   const hasRolled = foundry.utils.getProperty(message, `flags.${MODULE_ID}.concentrationRolled`);
   //@ts-expect-error
   if (hasRolled || !game.users?.activeGM.isSelf) return;
-  if (button.length === 1 && !hasRolled) {
-    let { action, dc, type } = button[0].dataset;
+  if (elt.length === 1 && !hasRolled) {
+    let { action, dc, type } = elt[0].dataset;
     let token, actor;
-    if (action === "concentration" && type === "concentration") {
+    if (action === "concentration" && type === "midi-concentration") {
       dc = Number(dc);
       let { actor, alias, scene, token } = message.speaker;
       if (scene && token) token = game.scenes?.get(scene)?.tokens.get(token);

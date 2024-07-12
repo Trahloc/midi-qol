@@ -770,7 +770,9 @@ An optional attack bonus prompts the attacker after the attack roll is made, but
   - **every** - you can use the optional effect on every occurrence
   - **reaction** - behaves as a reaction roll, i.e. uses up your reaction
   - **a number** - how many times the effect can be used before expiring
-  - **turn** - can be used once per turn (assumes in combat)
+  - **turn** - can be used once during your turn (assumes in combat).
+  - **each-turn** - can be used once per turn (assumes in combat).
+  - **each-round** - can be used once per round on any turn (assumes in combat).
   - **@fields** - available if the @field > 0, decrements the @field on use. 
   You can specify a resource to consume in the count field, e.g. @resources.tertiary.value which will decrement the tertiary resource field until it is all used up (i.e. 0). Resources can be set to refresh on rests, so this will support the full uses per day definition.  
   - **ItemUses.ItemName** - Additional option for optional.NAME.count ItemUses.ItemName, which will use the value of the uses field for the item name ItemName (which must be on the actor), it means you don't need to use a resources entry for these any more. eg `ItemUses.my super duper item`
