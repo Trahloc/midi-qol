@@ -928,7 +928,7 @@
   "DND5E.DamageApplication.Change.Magic": "{type} Mágico Personalizado",
   "DND5E.DamageApplication.Change.Nonmagic": "{type} Não-Mágico Personalizado",
   "DND5E.DamageApplication.Change.Saved": "{type} Salvo",
-  "DND5E.DamageApplication.Change.UncannyDodge": "Esquiva Sobrenatural {type}",
+  "DND5E.DamageApplication.Change.UncannyDodge": "{type} Esquiva Sobrenatural",
   "midi-qol.SettingsSearch": "Configurações de Pesquisa",
   "midi-qol.MidiPropertiesTab.Name": "Permissão Mínima para Propriedades de Itens",
   "midi-qol.MidiPropertiesTab.Hint": "Permissão mínima que um usuário deve ter para acessar a aba de propriedades de itens do Midi QOL. <strong>Necessário reiniciar o mundo para aplicar</strong>."
