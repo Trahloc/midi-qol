@@ -439,7 +439,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     workflow.rangeDetails = rangeDetails;
     workflow.castData = {
       baseLevel: this.system.level,
-      castLevel: workflow.itemLevel,
+      castLevel: workflow.castLevel,
       itemUuid: workflow.itemUuid
     };
     if (configSettings.undoWorkflow) await saveUndoData(workflow);
@@ -1142,6 +1142,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
       if ((workflow.otherDamageFormula ?? "") !== "") { // other damage formula swaps in versatile if needed
         let otherRollData = workflow.otherDamageItem?.getRollData();
         otherRollData.spellLevel = spellLevel;
+        foundry.utils.setProperty(otherRollData, "item.level", spellLevel);
         let otherRollResult = new DamageRoll(workflow.otherDamageFormula, otherRollData, otherRollOptions);
         otherRollResult = Roll.fromTerms(otherRollResult.terms); // coerce it back to a roll
         // let otherRollResult = new Roll.fromRoll((workflow.otherDamageFormula, otherRollData, otherRollOptions);
@@ -1260,11 +1261,11 @@ export function preItemUsageConsumptionHook(item, config, options): boolean {
   }
   // need to get spell level from the html returned in result
   if (item.type === "spell") {
-    workflow.itemLevel = item.system.level;
+    workflow.castLevel = item.system.level;
     workflow.castData.castLevel = item.system.level;
   }
   if (item.type === "power") {
-    workflow.itemLevel = item.system.level;
+    workflow.castLevel = item.system.level;
     workflow.castData.castLevel = item.system.level;
   }
   workflow.dnd5eConsumptionConfig = config;
@@ -1288,7 +1289,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     let { systemCard, workflowId, minimalCard, createMessage, workflow } = options ?? {};
     // let workflow = options.workflow; // Only DamageOnlyWorkflow passes this in
     if (workflowId) workflow = Workflow.getWorkflow(this.uuid);
-    if (workflow) workflow.itemLevel = this.system.level;
+    if (workflow) workflow.castLevel = this.system.level;
     if (systemCard === undefined) systemCard = false;
     if (!workflow) return wrapped(options);
     if (debugEnabled > 0) warn("show item card ", this, this.actor, this.actor.token, systemCard, workflow);

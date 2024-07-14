@@ -914,14 +914,22 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
     const mo = options.midi;
     if (mo?.noCalc) return true;
     if (mo) {
-      if (configSettings.saveDROrder === "DRSavedr" && mo.saved && options?.ignore !== true) {
-      } else if (configSettings.saveDROrder === "SaveDRdr" && mo.saved) {
+      if (configSettings.saveDROrder === "DRSavedr" && options?.ignore !== true) {
+        // Currently now way to disable just super saver and leave saver
+      } else if (configSettings.saveDROrder === "SaveDRdr" && options.ignore !== true) {
         for (let damage of damages) {
-          if (ignore("saved", damage.type, false)) continue;
-          damage.value = damage.value * mo.saveMultiplier;
-          // no point doing this yet since dnd5e damage application overwrites it.
-          foundry.utils.setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * mo.saveMultiplier);
-          foundry.utils.setProperty(damage, "active.saved", true);
+          if (mo.superSaver && (options?.ignore?.superSaver === true || options?.ignore?.superSaver?.has(damage.type))) continue;
+          if (mo.semiSuperSaver && (options?.ignore?.semiSuperSaver === true || options?.ignore?.semiSuperSaver?.has(damage.type))) continue;
+          if (mo.saved && (options?.ignore?.saved === true || options?.ignore?.saved?.has(damage.type))) continue;
+          if (mo.superSaver) {
+            foundry.utils.setProperty(damage, "active.superSaver", true);
+          } else if (mo.semiSuperSaver) {
+            foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
+          } else if (mo.saved) {
+            foundry.utils.setProperty(damage, "active.saved", true);
+          }
+          damage.value = damage.value * (mo.saveMultiplier ?? 1);
+          foundry.utils.setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * (mo.saveMultiplier ?? 1));
         }
       }
 
@@ -951,16 +959,16 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
           }
         }
       }
-        for (let damage of damages) {
-          if (mo.saved) {
-            foundry.utils.setProperty(damage, "active.saved", true);
-          }
-          if (mo.superSaver && mo.saved) {
-            foundry.utils.setProperty(damage, "active.superSaver", true);
-          }
-          if (mo.semiSuperSaver && mo.saved) {
-            foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
-          }
+      for (let damage of damages) {
+        if (mo.saved) {
+          foundry.utils.setProperty(damage, "active.saved", true);
+        }
+        if (mo.superSaver && mo.saved) {
+          foundry.utils.setProperty(damage, "active.superSaver", true);
+        }
+        if (mo.semiSuperSaver && mo.saved) {
+          foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
+        }
       }
 
       if ((mo?.uncannyDodge)) {
@@ -1074,13 +1082,22 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     }
   }
 
-  if (configSettings.saveDROrder === "DRSavedr" && mo.saved && options?.ignore !== true) {
-    damages.forEach(damage => {
-      if (options?.ignore?.saved === true || options?.ignore?.saved?.has(damage.type)) return;
-      foundry.utils.setProperty(damage, "active.saved", true);
-      foundry.utils.setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * (options.midi?.saveMultiplier ?? 1));
-      damage.value = damage.value * options.midi?.saveMultiplier;
-    });
+  if (configSettings.saveDROrder === "DRSavedr" && options?.ignore !== true) {
+    // Currently now way to disable just super saver and leave saver
+    for (let damage of damages) {
+      if (mo.superSaver && (options?.ignore?.superSaver === true || options?.ignore?.superSaver?.has(damage.type))) continue;
+      if (mo.semiSuperSaver && (options?.ignore?.semiSuperSaver === true || options?.ignore?.semiSuperSaver?.has(damage.type))) continue;
+      if (mo.saved && (options?.ignore?.saved === true || options?.ignore?.saved?.has(damage.type))) continue;
+      damage.value = damage.value * (mo.saveMultiplier ?? 1);
+      foundry.utils.setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * (mo.saveMultiplier ?? 1));
+      if (mo.superSaver) {
+        foundry.utils.setProperty(damage, "active.superSaver", true);
+      } else if (mo.semiSuperSaver) {
+        foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
+      } else if (mo.saved) {
+        foundry.utils.setProperty(damage, "active.saved", true);
+      }
+    };
   }
 
   // Insert DR.ALL as a -ve damage value maxed at the total damage.

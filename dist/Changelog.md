@@ -8,6 +8,10 @@
  - will be v12 only. Tentative date August 15 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.4.42
+* Fix for super savers and semi super savers in dnd damage application.
+* Fix for @item.level references in other damage rolls.
+
 ### 11.4.41.1
 * Fix for wrong combat round flag being used in reactions/bonus actions.
 

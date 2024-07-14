@@ -928,6 +928,8 @@
   "DND5E.DamageApplication.Change.Magic": "Custom Magical {type}",
   "DND5E.DamageApplication.Change.Nonmagic": "Custom Non Magical {type}",
   "DND5E.DamageApplication.Change.Saved": "Saved {type}",
+  "DND5E.DamageApplication.Change.SuperSaver": "1/2 or no damage save {type}",
+  "DND5E.DamageApplication.Change.SemiSuperSaver": "Full or no damage save {type}",
   "DND5E.DamageApplication.Change.UncannyDodge": "Uncanny Dodge {type}",
   "midi-qol.SettingsSearch": "Search Settings",
   "midi-qol.MidiPropertiesTab.Name": "Lowest User role for Item's properties",

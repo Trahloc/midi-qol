@@ -864,16 +864,16 @@ function _DAgetTargetOptions(...args) {
     targetDetails = targets.find(target => target.uuid === uuid);
     if (!targetDetails) return options;
     options.midi = duplicate(targetDetails);
+    const saveMult = targetDetails.saveMults?.[damageType];
     if (targetDetails.saved) {
-      const saveMult = targetDetails.saveMults?.[damageType];
-      if (saveMult !== undefined) {
-        foundry.utils.setProperty(options, "midi.saveMultiplier", saveMult);
-        if (targetDetails.superSaver && targetDetails.saved && saveMult === 0.5) {
-          foundry.utils.setProperty(options, "midi.saveMultiplier", 0);
-        }
-        if (targetDetails.semiSuperSaver && targetDetails.saved) {
-          foundry.utils.setProperty(options, "midi.saveMultiplier", 0);
-        }
+      foundry.utils.setProperty(options, "midi.saveMultiplier", saveMult ?? 0.5);
+    }
+    if (saveMult !== undefined) {
+      if (targetDetails.superSaver && saveMult === 0.5) {
+        foundry.utils.setProperty(options, "midi.saveMultiplier", targetDetails.saved ? 0 : 0.5);
+      }
+      if (targetDetails.semiSuperSaver && saveMult === 0.5) {
+        foundry.utils.setProperty(options, "midi.saveMultiplier", targetDetails.saved ? 0 : 1);
       }
     }
     if (targetDetails.uncannyDodge) {
@@ -887,6 +887,8 @@ function _DAcalculateDamage(actor, options) {
   const { temp, total, active } = currentDAcalculateDamage.bind(this)(actor, options);
   active.absorption = new Set();
   active.saved = new Set();
+  active.superSaver = new Set();
+  active.semiSuperSaver = new Set();
   active.spell = new Set();
   active.magic = new Set();
   active.uncannyDodge = new Set();
@@ -897,7 +899,10 @@ function _DAcalculateDamage(actor, options) {
     if (damage.active.spell) active.spell.add(damage.type);
     if (damage.active.magic) active.magic.add(damage.type);
     if (damage.active.nonmagic) active.nonmagic.add(damage.type);
-    if (damage.active.saved) active.saved.add(damage.type);
+    if (damage.active.superSaver) active.superSaver.add(damage.type);
+    else if (damage.active.semiSuperSaver) active.semiSuperSaver.add(damage.type);
+    else if (damage.active.saved) active.saved.add(damage.type);
+
     if (damage.active.uncannyDodge) active.uncannyDodge.add(damage.type);
   }
   const union = t => {

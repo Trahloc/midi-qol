@@ -4994,7 +4994,7 @@ export async function setReactionUsed(actor: Actor) {
   effect.updateSource({
     origin: actor.uuid,
     changes: [
-      { key: 'flags.midi-qol.actions.reaction.used', mode: 2, value: true },
+      { key: 'flags.midi-qol.actions.reaction', mode: 2, value: true },
       { key: 'flags.midi-qol.actions.reactionCombatRound', mode: 2, value: game.combat?.round ?? false }
     ]
   });

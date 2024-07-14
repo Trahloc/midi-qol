@@ -53,7 +53,7 @@ export class Workflow {
   get uuid() { return this._id }
   itemId: string;
   itemUuid: string;
-  itemLevel: number;
+  castLevel: number;
   _currentState: number;
   public workflowAction: WorkflowState;
   isCritical: boolean;
@@ -240,7 +240,7 @@ export class Workflow {
     this.currentAction = this.WorkflowState_NoAction;
     this.suspended = true;
     this.aborted = false;
-    this.itemLevel = item?.level || 0;
+    this.castLevel = item?.level || 0;
     this.displayId = this.id;
     this.itemCardData = {};
     this.attackCardData = undefined;
@@ -976,7 +976,8 @@ export class Workflow {
           shouldRoll = await evalActivationCondition(this, otherCondition, this.targets.first(), { async: true, errorReturn: false });
         if (shouldRoll) {
           let otherRollData = this.otherDamageItem?.getRollData();
-          otherRollData.spellLevel = this.rollOptions.spellLevel ?? this.otherDamageItem.system.level;
+          otherRollData.spellLevel = this.rollOptions.spellLevel ?? this.castLevel ?? this.otherDamageItem.system.level;
+          foundry.utils.setProperty(otherRollData, "item.level", this.castLevel);
           let otherRollResult = new Roll(this.otherDamageFormula, otherRollData, {});
           otherRollResult = await otherRollResult.evaluate();
           await this.setOtherDamageRoll(otherRollResult);
@@ -1000,7 +1001,7 @@ export class Workflow {
         this.item = new CONFIG.Item.documentClass(storedData, { parent: this.actor })
       }
 
-      this.rollOptions.spellLevel = this.itemLevel;
+      this.rollOptions.spellLevel = this.castLevel;
 
       this.item.rollDamage(this.rollOptions);
       return this.WorkflowState_Suspend;
@@ -1333,7 +1334,7 @@ export class Workflow {
               metaData,
               origin,
               selfEffects: "none",
-              spellLevel: (this.itemLevel ?? 0),
+              spellLevel: (this.castLevel ?? 0),
               toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
               tokenId: this.tokenId,
               tokenUuid: this.tokenUuid,
@@ -1410,7 +1411,7 @@ export class Workflow {
             {
               toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
               whisper: false,
-              spellLevel: this.itemLevel,
+              spellLevel: this.castLevel,
               critical: this.isCritical,
               fumble: this.isFumble,
               itemCardId: this.itemCardId,
@@ -2468,14 +2469,14 @@ export class Workflow {
       otherDamageDetail: this.otherDamageDetail,
       otherDamageList: this.otherDamageList,
       otherDamageTotal: this.otherDamageTotal,
-      powerLevel: game.system.id === "sw5e" ? this.itemLevel : undefined,
+      powerLevel: game.system.id === "sw5e" ? this.castLevel : undefined,
       rollData: (this.item ?? this.actor).getRollData(),
       rollOptions: this.rollOptions,
       saves,
       saveUuids,
       semiSuperSavers,
       semiSuperSaverUuids,
-      spellLevel: this.itemLevel,
+      spellLevel: this.castLevel,
       superSavers,
       superSaverUuids,
       targets,
@@ -3067,14 +3068,12 @@ export class Workflow {
           let uncannyDodge = foundry.utils.getProperty(t, `actor.flags.${MODULE_ID}.uncanny-dodge`) && this.item?.hasAttack;
           let saveMults: any = {};
           for (let type of MQDamagetypes) {
-            if (saves.has(t.uuid)) {
               saveMults[type] = getSaveMultiplierForItem(this.saveItem, type);
               if (superSavers.has(t.uuid)) {
-                saveMults[type] = saveMults[type] === 0.5 ? 0 : saveMults[type];
+                saveMults[type] = (saves.has(t) && saveMults[type]) === 0.5 ? 0 : 0.5;
               } else if (semiSuperSavers.has(t.uuid)) {
-                saveMults[type] = saveMults[type] === 0.5 ? 0 : 1;
+                saveMults[type] = (saves.has(t) && saveMults[type]) === 0.5 ? 0 : 1;
               }
-            }
           }
           return {
             name: t?.actor?.name,
@@ -4850,8 +4849,9 @@ export class TrapWorkflow extends Workflow {
       // fumble means no trap damage/effects
       return this.WorkflowState_RollFinished;
     }
-    if (debugEnabled > 1) debug("TrapWorkflow: Rolling damage ", this.event, this.itemLevel, this.rollOptions.versatile, this.targets, this.hitTargets);
+    if (debugEnabled > 1) debug("TrapWorkflow: Rolling damage ", this.event, this.castLevel, this.rollOptions.versatile, this.targets, this.hitTargets);
     this.rollOptions.fastForward = true;
+    this.rollOptions.spellLevel = this.castLevel;
     this.item.rollDamage(this.rollOptions);
     return this.WorkflowState_Suspend; // wait for a damage roll to advance the state.
   }
