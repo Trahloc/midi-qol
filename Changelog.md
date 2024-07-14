@@ -5,7 +5,7 @@
   - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date July 29. You are actively encouraged to both try v3 damage calculation/application and report bugs
   - will remove concentration-data from midi-qol, all use will swtich to dependents. Currently midi-only supports backwards compatible concentration-data. 
 * 12.0.0 
- - will be v12 only. Tentative date August 15 - assuming the most popular modules dependent on midi are v12 ready. 
+ - will be v12 only. Tentative date August  15 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
 ### 11.4.42
