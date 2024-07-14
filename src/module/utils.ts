@@ -2992,7 +2992,7 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
       if (td.hasStatusEffect(specials.DEAF)) return 1;
       break;
     case "disease":
-    case "disieased":
+    case "diseased":
       //@ts-expect-error hasStatusEffect
       if (td.hasStatusEffect(specials.DISEASE)) return 1;
       break;

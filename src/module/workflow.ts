@@ -780,7 +780,7 @@ export class Workflow {
         if (!theItem) continue;
         const activationCondition = foundry.utils.getProperty(theItem, `flags.${MODULE_ID}.itemCondition`);
         if (activationCondition) {
-          if (await !evalActivationCondition(this, activationCondition, token, { async: true })) {
+          if (!(await evalActivationCondition(this, activationCondition, token, { async: true }))) {
             ui.notifications?.warn(`midi-qol | Activation condition ${activationCondition} failed roll cancelled`)
             return this.WorkflowState_Cancel;
           }
