@@ -643,6 +643,8 @@
 "midi-qol.reactionFlavorSaveFail":  "{actorName} fallisce TS a causa di {itemName} e può usare la reazione",
 "midi-qol.reactionFlavorSaveSuccess":  "{actorName} supera TS a causa di {itemName} e può usare la reazione",
 "midi-qol.reactionFlavorMoved": "è spostato",
+"midi-qol.reactionUsed": "Reazione usata",
+"midi-qol.bonusActionUsed": "Azione Bonus usata",
 "midi-qol.AccelKeysOverride.Name": "I tasti di velocità midi-qol sovrascrivono gli altri",
 "midi-qol.AccelKeysOverride.Hint": "Se impostato, midi utilizzerà sempre le corrispondenze dei tasti di velocità per vantaggio/svantaggio, invece di deferire a migliori tiri (ad esempio)",
 "midi-qol.NoWorkflow": "Nessun flusso di lavoro per l'oggetto {itemName}",
@@ -926,6 +928,9 @@
 "DND5E.DamageApplication.Change.Magic": "Personalizza Magico {type}",
 "DND5E.DamageApplication.Change.Nonmagic": "Personalizza Non Magico {type}",
 "DND5E.DamageApplication.Change.Saved": "Salvato {type}",
+"DND5E.DamageApplication.Change.SuperSaver": "Metà o nessun danno salvataggio {type}",
+"DND5E.DamageApplication.Change.SemiSuperSaver": "Totale o nessun danno salvataggio {type}",
+"DND5E.DamageApplication.Change.UncannyDodge": "Schivata Prodigiosa {type}",
 "midi-qol.SettingsSearch": "Cerca Impostazioni",
 "midi-qol.MidiPropertiesTab.Name": "Ruolo utente minimo per la scheda delle proprietà degli oggetti",
 "midi-qol.MidiPropertiesTab.Hint": "Ruolo utente minimo che permette di accedere alla scheda delle proprietà degli oggetti di Midi-QoL. <strong>Cambio richiede di ricaricare</strong>"
