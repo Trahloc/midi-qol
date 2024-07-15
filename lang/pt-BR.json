@@ -643,6 +643,8 @@
   "midi-qol.reactionFlavorSaveFail":  "{actorName} falhou em uma salvaguarda de {itemName} e pode usar sua reação",
   "midi-qol.reactionFlavorSaveSuccess":  "{actorName} foi bem-sucedido em uma salvaguarda de {itemName} e pode usar sua reação",
   "midi-qol.reactionFlavorMoved": "isMoved",
+  "midi-qol.reactionUsed": "Reação Usada",
+  "midi-qol.bonusActionUsed": "Ação Bônus Usada",
   "midi-qol.AccelKeysOverride.Name": "Chaves de Velocidade do Midi QOL Subscreve Outras",
   "midi-qol.AccelKeysOverride.Hint": "Se ativado, Midi QOL vai sempre usar o mapeamento de velocidade de chaves para vantagem/desvantagem ao invés de, por exemplo, repassar para o módulo Better Rolls",
   "midi-qol.NoWorkflow": "Sem Fluxo para o item {itemName}",
@@ -926,6 +928,9 @@
   "DND5E.DamageApplication.Change.Magic": "{type} Mágico Personalizado",
   "DND5E.DamageApplication.Change.Nonmagic": "{type} Não-Mágico Personalizado",
   "DND5E.DamageApplication.Change.Saved": "{type} Salvo",
+  "DND5E.DamageApplication.Change.SuperSaver": "{type} 1/2 ou Sem Dano em Sucesso",
+  "DND5E.DamageApplication.Change.SemiSuperSaver": "{type} Total ou Sem Dano em Sucesso",
+  "DND5E.DamageApplication.Change.UncannyDodge": "{type} Esquiva Sobrenatural",
   "midi-qol.SettingsSearch": "Configurações de Pesquisa",
   "midi-qol.MidiPropertiesTab.Name": "Permissão Mínima para Propriedades de Itens",
   "midi-qol.MidiPropertiesTab.Hint": "Permissão mínima que um usuário deve ter para acessar a aba de propriedades de itens do Midi QOL. <strong>Necessário reiniciar o mundo para aplicar</strong>."
