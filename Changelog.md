@@ -8,6 +8,10 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.4.43.1
+* Fix for not being able to disable automatic template removal.
+* Fix for mace of disruption when not using dnd5e damage application - create a dummy details that is ignored in midi damage application.
+
 ### 11.4.43
 * Fix for levelsVolumetricTemplates not getting elevation set correctly in v12.
 * Fix for reaction/bonus action checking failing in v11 when using Convenient Effects set to replace status effects.
@@ -15,7 +19,6 @@
 * Fix for completeItemUse not using targeted tokens by default.
 * **Breaking** To sidestep a problem with midi accelerator keys getting stuck when using the electron app, midi will now clear all such keys when the roll completes. This means you will have to release and press the advantage key (for example) after each attack .
 * Midi marked as compatible with dnd5e 3.3. A sight change to hit target displays to align with dnd5e chat card.
-* Switch to using the dnd5e setting to auto collapse trays, rather than midi doing it by itself.
 * Option to use collapsible targets, as dnd5e does, set in the misc tab.
 * Fix for bonus damage rolls with max critical damage dice.
 * Fix for item.getRollData(), which would overwrite the system.type information with item.type. You can get item.type (i.e. weapon/feature etc) from rollData.item.itemType. rollData.item.type will be item.system.type.

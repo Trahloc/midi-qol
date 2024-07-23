@@ -711,6 +711,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     ditem.damageDetail = foundry.utils.duplicate([damageDetailResolved]);
     ditem.critical = workflow?.isCritical;
     ditem.wasHit = options.hitTargets.has(t);
+    ditem.details = [];
     //@ts-expect-error isEmpty Allow macros to fiddle with the damage
     if (!foundry.utils.isEmpty(workflow) && configSettings.allowUseMacro && !workflow?.options?.noTargetOnuseMacro && workflow.item?.flags) {
       workflow.damageItem = ditem;

@@ -155,7 +155,7 @@
 
         <div class="form-group">
           <label>{{localize "midi-qol.AutoRemoveSummonedCreature.Name"}}</label>
-          <input id="autoRemoveTemplate" type="checkbox" name="autoRemoveSummonedCreature" data-dtype="Boolean"
+          <input id="autoRemoveSummonedCreature" type="checkbox" name="autoRemoveSummonedCreature" data-dtype="Boolean"
             {{checked configSettings.autoRemoveSummonedCreature}} />
         </div>
 
@@ -957,7 +957,7 @@
             configSettings.collapsibleTargets}} />
           <div class="notes midi-qol-faint">{{{localize "midi-qol.CollapsibleTargets.Hint"}}}</div>
         </div>
-        
+
         <div class="midi-qol-box">
           <div class="form-group">
             <label>{{localize "midi-qol.ConfirmAttackDamage.Name"}}</label>
