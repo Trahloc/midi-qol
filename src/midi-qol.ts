@@ -118,7 +118,7 @@ Hooks.once("levelsReady", function () {
   levelsAPI = CONFIG.Levels.API;
 });
 export let systemString = "DND5E"
-export let MQDamagetypes = ["defaultDamage", "otherDamage", "bonusDamage"];
+export let MQDamageRollTypes = ["defaultDamage", "otherDamage", "bonusDamage"];
 Hooks.once("init", () => {
   //@ts-expect-error
   CONFIG.ChatMessage.documentClass = defineChatMessageMidiClass(CONFIG.ChatMessage.documentClass);
@@ -127,7 +127,9 @@ Hooks.once('init', async function () {
   log('Initializing midi-qol');
   //@ts-expect-error
   const systemVersion = game.system.version;
-
+  Hooks.once('dfreds-convenient-effects.ready()', () => {
+    setupMidiStatusEffects();
+  });
   //@ts-expect-error
   GameSystemConfig = game.system.config;
   if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
@@ -176,19 +178,6 @@ Hooks.once('init', async function () {
     let [message, err] = args;
     TroubleShooter.recordError(err, message);
   });
-
-  //@ts-expect-error
-  const imgSource = game.version < 12 ? "icon" : "img";
-  //@ts-expect-error
-  if (!CONFIG.statusEffects.find(e => e._id === getStaticID("reaction"))) {
-    //@ts-expect-error
-    CONFIG.statusEffects.push({ id: "reaction", _id: getStaticID("reaction"), name: i18n("midi-qol.reactionUsed"), changes: [{ key: "flags.midi-qol.actions.reaction", mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: true }], [imgSource]: "modules/midi-qol/icons/reaction.svg", effectData: { transfer: false }, flags: { dae: { specialDuration: ["turnStart", "combatEnd", "shortRest"] } } });
-  }
-  //@ts-expect-error
-  if (!CONFIG.statusEffects.find(e => e._id === getStaticID("bonusaction"))) {
-    //@ts-expect-error
-    CONFIG.statusEffects.push({ id: "bonusaction", _id: getStaticID("bonusaction"), name: i18n("midi-qol.bonusActionUsed"), changes: [{ key: "flags.midi-qol.actions.bonus", mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: true }], [imgSource]: "modules/midi-qol/icons/bonus-action.svg", flags: { dae: { specialDuration: ["turnStart", "combatEnd", "shortRest"] } } });
-  }
 });
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
   specials[`flags.${MODULE_ID}.onUseMacroName`] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
@@ -426,26 +415,7 @@ Hooks.once('ready', function () {
   registerSettings();
   gameStats = new RollStats();
   actorAbilityRollPatching();
-  //@ts-expect-error
-  systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING;
-  //@ts-expect-error
-  const imgSource = game.version < 12 ? "icon" : "img";
-  if (!CONFIG.statusEffects.find(e => e.id === systemConcentrationId)) {
-    //@ts-expect-error name
-    CONFIG.statusEffects.push({ id: systemConcentrationId, name: i18n(`EFFECT.${SystemString}.StatusConcentrating`), [imgSource]: "systems/dnd5e/icons/svg/statuses/concentrating.svg", special: "CONCENTRATING" });
-  }
-
-  // Initialise these effects so that we don't need to make a raft of code aysnc only to fetch these
-  //@ts-expect-error
-  ActiveEffect.implementation.fromStatusEffect("reaction", { keepId: true }).then(effect => {
-    midiReactionEffect = effect;
-    globalThis.MidiQOL.midiReactionEffect = effect;
-  });
-  //@ts-expect-error
-  ActiveEffect.implementation.fromStatusEffect("bonusaction", { keepId: true }).then(effect => {
-    midiBonusActionEffect = effect
-    globalThis.MidiQOL.midiBonusActionEffect = effect;
-  });
+  setupMidiStatusEffects();
 
   MQOnUseOptions = {
     "preTargeting": "Called before targeting is resolved (*)",
@@ -1087,6 +1057,8 @@ function setupMidiFlags() {
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.countAlt`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.ac`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.criticalDamage`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.activation`);
+  midiFlags.push(`flags.${MODULE_ID}.optional.NAME.force`);
 
   midiFlags.push(`flags.${MODULE_ID}.uncanny-dodge`);
   midiFlags.push(`flags.${MODULE_ID}.OverTime`);
@@ -1206,4 +1178,41 @@ function midiOnerror(event: string | Event, source?: string | undefined, lineno?
   return false;
 }
 
+export function setupMidiStatusEffects() {
+  //@ts-expect-error
+  systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING;
+  //@ts-expect-error
+  const imgSource = game.version < 12 ? "icon" : "img";
+  if (!CONFIG.statusEffects.find(e => e.id === systemConcentrationId)) {
+    //@ts-expect-error name
+    CONFIG.statusEffects.push({ id: systemConcentrationId, name: i18n(`EFFECT.${SystemString}.StatusConcentrating`), [imgSource]: "systems/dnd5e/icons/svg/statuses/concentrating.svg", special: "CONCENTRATING" });
+  }
+  // Initialise these effects so that we don't need to make a raft of code aysnc only to fetch these
+  if (configSettings.enforceBonusActions !== "none") {
+    //@ts-expect-error
+    if (!CONFIG.statusEffects.find(e => e._id === getStaticID("bonusaction"))) {
+      //@ts-expect-error
+      CONFIG.statusEffects.push({ id: "bonusaction", _id: getStaticID("bonusaction"), name: i18n("midi-qol.bonusActionUsed"), changes: [{ key: "flags.midi-qol.actions.bonus", mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: true }], [imgSource]: "modules/midi-qol/icons/bonus-action.svg", flags: { dae: { specialDuration: ["turnStart", "combatEnd", "shortRest"] } } });
+    }
+    //@ts-expect-error
+    ActiveEffect.implementation.fromStatusEffect("bonusaction", { keepId: true }).then(effect => {
+      midiBonusActionEffect = effect
+      globalThis.MidiQOL.midiBonusActionEffect = effect;
+    });
+  }
+
+  if (configSettings.enforceReactions !== "none") {
+    //@ts-expect-error
+    if (!CONFIG.statusEffects.find(e => e._id === getStaticID("reaction"))) {
+      //@ts-expect-error
+      CONFIG.statusEffects.push({ id: "reaction", _id: getStaticID("reaction"), name: i18n("midi-qol.reactionUsed"), changes: [{ key: "flags.midi-qol.actions.reaction", mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: true }], [imgSource]: "modules/midi-qol/icons/reaction.svg", effectData: { transfer: false }, flags: { dae: { specialDuration: ["turnStart", "combatEnd", "shortRest"] } } });
+    }
+    //@ts-expect-error
+    ActiveEffect.implementation.fromStatusEffect("reaction", { keepId: true }).then(effect => {
+      midiReactionEffect = effect;
+      globalThis.MidiQOL.midiReactionEffect = effect;
+    });
+
+  }
+}
 // globalThis.onerror = midiOnerror;

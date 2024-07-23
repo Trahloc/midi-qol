@@ -676,9 +676,9 @@
   "midi-qol.FailFriendly": "Friends Fail",
   "midi-qol.SaveFriendly": "Friends Save",
   "midi-qol.OffHandWeapon": "Off Hand",
-  "midi-qol.RollToggle.Hint": "Toggle fast/auto roll setting for attack/damage/ability Checks",
+  "midi-qol.RollToggle.Hint": "Toggle fast/auto roll setting for attack/damage/ability Checks while held",
   "midi-qol.RollToggle.Name": "Roll Toggle",
-  "midi-qol.FastForward.Hint": "Fast forward the next roll",
+  "midi-qol.FastForward.Hint": "Fast forward all rolls while held",
   "midi-qol.FastForward.Name": "Fast Forward",
   "midi-qol.KeysAdvantage.Hint": "Roll with advantage",
   "midi-qol.KeysDisadvantage.Hint": " Roll with disadvantage",
@@ -933,5 +933,7 @@
   "DND5E.DamageApplication.Change.UncannyDodge": "Uncanny Dodge {type}",
   "midi-qol.SettingsSearch": "Search Settings",
   "midi-qol.MidiPropertiesTab.Name": "Lowest User role for Item's properties",
-  "midi-qol.MidiPropertiesTab.Hint": "Lowest user role than can access an Item's midi-qol properties tab. <strong>Requires reload on change</strong>"
+  "midi-qol.MidiPropertiesTab.Hint": "Lowest user role than can access an Item's midi-qol properties tab. <strong>Requires reload on change</strong>",
+  "midi-qol.CollapsibleTargets.Name": "Collapsible Targets",
+  "midi-qol.CollapsibleTargets.Hint": "The Hit/Miss target display in the chat card are collapsible"
 }

@@ -371,7 +371,7 @@ export class TroubleShooter extends FormApplication {
     data.summary.midiSettings["Roll Seperate Attacks per Target"] = configSettings.attackPerTarget;
     data.summary.midiSettings["Auto Check Saves"] = geti18nOptions("autoCheckSavesOptions")[configSettings.autoCheckSaves];
     data.summary.midiSettings["Auto Apply Damage to Target"] = geti18nOptions("autoApplyDamageOptions")[configSettings.autoApplyDamage];
-    data.summary.midiSettings["Enable Concentration Automation"] = configSettings.concentrationAutomation;
+    // data.summary.midiSettings["Enable Concentration Automation"] = configSettings.concentrationAutomation;
     data.summary.midiSettings["Expire 1Hit/1Attack/1Action on roll"] = checkMechanic("actionSpecialDurationImmediate");
     data.summary.midiSettings["Inapacitated Actors can't Take Actions"] = checkMechanic("incapacitated");
     data.summary.midiSettings["Calculate Cover"] = geti18nOptions("CoverCalculationOptions")[configSettings.optionalRules.coverCalculation];
@@ -647,33 +647,17 @@ export class TroubleShooter extends FormApplication {
   }
 
   public static checkConcentrationStatusEffects(data: TroubleShooterData) {
-    if (!configSettings.concentrationAutomation) return;
+    if (safeGetGameSetting(game.system.id, "disableConcentration")) return;
     let severity: "Error" | "Warn" = "Error";
     let statusEffect = CONFIG.statusEffects.find(e => e.id === systemConcentrationId);
 
-    let statusesEfffect = CONFIG.statusEffects.find(e => {
-      //@ts-expect-error
-      const statuses = e.statuses;
-      switch (foundry.utils.getType(statuses)) {
-        case "Array": return statuses.includes(systemConcentrationId) || statuses.includes("Concentrating");
-        case "Set": return statuses.has(systemConcentrationId) || statuses.has("Concentrating");
-        default: return false;
-      }
-    });
-    //@ts-expect-error
-    let statusEffectName = CONFIG.statusEffects.find(e => e.name.toLowerCase() === i18n("EFFECT.DND5E.StatusConcentrating").toLowerCase());
-    let fixString = `Create a status effect with the id '${systemConcentrationId}' or enable the default CONFIG.statusEffects - check Convenient Effects or CLT`;
-    if (statusEffectName || statusesEfffect) {
-      fixString = "Midi found an alternate concentration effect that will function until dnd5e 3.1 comes out";
-      severity = "Warn";
-    }
     if (!statusEffect) {
       data.problems.push({
         moduleId: "midi-qol",
         severity,
         problemSummary: `Concentration Automation is enabled but the status effect with id "${systemConcentrationId}" was not found.`,
         problemDetail: undefined,
-        fixer: fixString
+        fixer: "Check which module is removing the concentrating status effect"
       });
     }
   }

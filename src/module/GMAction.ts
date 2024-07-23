@@ -29,7 +29,6 @@ export let setupSocket = () => {
   socketlibSocket.register("createChatMessage", createChatMessage);
   socketlibSocket.register("createEffects", createEffects);
   socketlibSocket.register("createReverseDamageCard", createReverseDamageCard);
-  socketlibSocket.register("createV3ReverseDamageCard", createV3ReverseDamageCard);
   socketlibSocket.register("D20Roll", _D20Roll);
   socketlibSocket.register("ddbglPendingFired", ddbglPendingFired);
   socketlibSocket.register("deleteEffects", deleteEffects);
@@ -489,7 +488,12 @@ async function _completeItemUse(data: {
 async function updateActor(data) {
   //@ts-expect-error fromUuidSync
   let actor = fromUuidSync(data.actorUuid);
-  if (actor) await actor.update(data.actorData);
+  if (!actor) return;
+  if (data.actorData) {
+    console.warn(`midi-qol | updateActor actorData deprecated. Call await MidiQOL.socket().execuateAsGM("updateActor"({ updates }) instead`)
+    await actor.update(data.actorData);
+  }
+  if (data.updates) await actor.update(data.updates);
 }
 
 async function createActor(data) {
@@ -729,340 +733,7 @@ export function monksTokenBarSaves(data: { tokenData: any[]; request: any; silen
       isMagicSave: data.isMagicSave
     });
 }
-async function createV3ReverseDamageCard(data: {
-  allDamages: any[],
-  baseDamageRolls: Roll[],
-  autoApplyDamage: string,
-  flagTags: any,
-  sender: string,
-  charName: string,
-  actorUuid: string,
-  updateContext: any,
-  forceApply: boolean,
-  actorId: string,
-  chatCardUuid
-}
-) {
-  let cardIds: string[] = [];
-  let cardId = await createV3PlayerDamageCard(data);
-  if (cardId) cardIds.push(cardId);
-  let id;
-  if (Object.values(data.allDamages).some(de => de.isHit)) {
-    id = await createV3GMReverseDamageCard(data, true);
-    if (id) cardIds.push(id);
-  }
-  if (Object.values(data.allDamages).some(de => !de.isHit) && ["yesCardMisses", "noCardMisses"].includes(data.autoApplyDamage)) {
-    id = await createV3GMReverseDamageCard(data, false);
-    if (id) cardIds.push(id);
-  }
-  return cardIds;
-}
 
-// Fetch the token, then use the tokenData.actor.id
-async function createV3PlayerDamageCard(data: {
-  baseDamageRolls: Roll[],
-  allDamages: any[],
-  autoApplyDamage: string,
-  flagTags: any,
-  sender: string,
-  charName: string,
-  actorUuid: string,
-  updateContext: any,
-  forceApply: boolean,
-
-  actorId: string
-}): Promise<string | undefined> {
-  let shouldShow = true;
-  let chatCardUuid;
-  /*
-if (configSettings.playerCardDamageDifferent) {
-  shouldShow = false;
-  for (let damageItem of data.allDamages) {
-    if (damageItem.totalDamage !== damageItem.appliedDamage) shouldShow = true;
-  }
-}
-if (!shouldShow) return;
-if (configSettings.playerDamageCard === "none") return;
-let showNPC = ["npcplayerresults", "npcplayerbuttons"].includes(configSettings.playerDamageCard);
-let playerButtons = ["playerbuttons", "npcplayerbuttons"].includes(configSettings.playerDamageCard);
-
-const damageList = data.damageList;
-//@ts-ignore
-let actor: CONFIG.Actor.documentClass; // { update: (arg0: { "system.attributes.hp.temp": any; "system.attributes.hp.value": number; "flags.dae.damageApplied": any; damageItem: any[] }) => Promise<any>; img: any; type: string; name: any; data: { data: { traits: { [x: string]: any; }; }; }; };
-const startTime = Date.now();
-let tokenIdList: any[] = [];
-let templateData = {
-  damageApplied: ["yes", "yesCard", "yesCardMisses"].includes(data.autoApplyDamage) ? i18n("midi-qol.HPUpdated") : i18n("midi-qol.HPNotUpdated"),
-  damageList: [],
-  needsButtonAll: false,
-  showNPC,
-  playerButtons
-};
-
-prepareDamageListItems(data, templateData, tokenIdList, false, showNPC, true)
-if (templateData.damageList.length === 0) {
-  log("No damage data to show to player");
-  return;
-}
-
-templateData.needsButtonAll = damageList.length > 1;
-//@ts-ignore
-templateData.playerButtons = templateData.playerButtons && templateData.damageList.some(listItem => listItem.isCharacter)
-if (["yesCard", "noCard", "yesCardNPC", "yesCardMisses", "noCardMisses"].includes(data.autoApplyDamage)) {
-  const content = await renderTemplate("modules/midi-qol/templates/damage-results-player.html", templateData);
-  const speaker: any = ChatMessage.getSpeaker();
-  speaker.alias = data.sender;
-  let chatData: any = {
-    user: game.user?.id,
-    speaker: { scene: getCanvas()?.scene?.id, alias: data.charName, user: game.user?.id, actor: data.actorId },
-    content: content,
-    // whisper: ChatMessage.getWhisperRecipients("players").filter(u => u.active).map(u => u.id),
-    flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
-  };
-          //@ ts-expect-error
-        if (game.release.generation < 12) {
-          chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
-        } else {
-          //@t s-expect-error
-          chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
-        }
-  if (data.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", data.flagTags);
-  chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
-}
-log(`createPlayerReverseDamageCard elapsed: ${Date.now() - startTime}ms`)
-return chatCardUuid;
-*/
-  return undefined;
-}
-
-async function createV3GMReverseDamageCard(
-  data: {
-    baseDamageRolls: Roll[],
-    allDamages: any[],
-    autoApplyDamage: string,
-    flagTags: any,
-    sender: string,
-    charName: string,
-    actorUuid: string,
-    updateContext: any,
-    forceApply: boolean,
-    actorId: string,
-    chatCardUuid
-  },
-  doHits: boolean = true): Promise<string | undefined> {
-  let chatCardUuid;
-  const damageWasApplied = (doHits && (["yes", "yesCard", "yesCardMisses"].includes(data.autoApplyDamage)) || data.forceApply);
-  const tokenIdList: any[] = [];
-  let templateData = {
-    damageWasApplied,
-    damageApplied: damageWasApplied ? i18n("midi-qol.HPUpdated") : data.autoApplyDamage === "yesCardNPC" ? i18n("midi-qol.HPNPCUpdated") : i18n("midi-qol.HPNotUpdated"),
-    damageList: [],
-    needsButtonAll: false,
-    tooltip: ""
-  };
-
-  //@ts-expect-error
-  const aggregator = game.system.dice.aggregateDamageRolls;
-  //@ts-expect-error
-  let baseDamageRolls = data.baseDamageRolls.map(r => CONFIG.Dice.DamageRoll.fromJSON(r))
-  baseDamageRolls = aggregator(baseDamageRolls, { respectProperties: false });
-  const baseDamage = baseDamageRolls.map(roll => ({
-    value: roll.total,
-    type: roll.options.type,
-    properties: new Set(roll.options.properties ?? [])
-  }));
-  for (let uuid of Object.keys(data.allDamages)) {
-    let damageItem = data.allDamages[uuid];
-    //@ts-expect-error
-    const tokenDocument = fromUuidSync(uuid);
-
-    const actor = tokenDocument.actor;
-    if (!tokenDocument || !actor) continue;
-    let appliedDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + Math.floor(dArray.reduce((acc, di) => acc + ((di.type === "temphp") ? 0 : di.value), 0)), 0);
-    appliedDamage = appliedDamage < 0 ? Math.ceil(appliedDamage) : Math.floor(appliedDamage);
-    let appliedTempDamage = damageItem.tokenDamages.reduce((acc, dArray) => acc + Math.floor(dArray.reduce((acc, di) => acc + ((di.type !== "temphp") ? 0 : di.value), 0)), 0);
-    appliedTempDamage = appliedTempDamage < 0 ? Math.ceil(appliedTempDamage) : Math.floor(appliedTempDamage);
-    let newTempHP = actor.system.attributes.hp.temp ?? 0;
-    if (appliedTempDamage > 0) {
-      newTempHP = Math.max(0, newTempHP - appliedTempDamage);
-    } else newTempHP = Math.max(actor.system.attributes.hp.temp, -appliedTempDamage);
-    if (appliedDamage > 0 && appliedDamage > newTempHP) {
-      appliedDamage -= newTempHP;
-      newTempHP = 0;
-    } else if (appliedDamage > 0 && appliedDamage <= newTempHP) {
-      newTempHP -= appliedDamage;
-      appliedDamage = 0;
-    }
-    if (doHits && !damageItem.isHit) continue;
-    if (!doHits && damageItem.isHit) continue;
-    // if (doHits && !damageItem.isHit) continue;
-    const oldHP = actor.system.attributes.hp.value;
-    let oldVitality = 0;
-    let newVitality = 0;
-    const vitalityResource = checkRule("vitalityResource");
-    if (appliedDamage > oldHP) { // Chec for vitality damage
-      if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
-        oldVitality = foundry.utils.getProperty(actor, vitalityResource.trim()) ?? 0;
-        newVitality = Math.max(0, oldVitality - (appliedDamage - oldHP));
-      }
-    }
-    const newHP = Math.min(actor.system.attributes.hp.effectiveMax, Math.max(0, oldHP - appliedDamage));
-    const oldTempHP = actor.system.attributes.hp.temp;
-    appliedDamage = (oldHP - newHP);
-    appliedTempDamage = (oldTempHP - newTempHP);
-    let img = tokenDocument?.texture.src || actor.img;
-    if (configSettings.usePlayerPortrait && actor.type === "character")
-      img = actor?.img || tokenDocument?.texture.src;
-    if (VideoHelper.hasVideoExtension(img)) {
-      //@ts-ignore - createThumbnail not defined
-      img = await game.video.createThumbnail(img, { width: 100, height: 100 });
-    }
-    if (appliedDamage || appliedTempDamage || oldVitality !== newVitality) {
-      const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-      if (oldVitality !== newVitality) update[vitalityResource] = newVitality;
-      const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem: damageItem.tokenDamages }, data.updateContext ?? {}, {inplace: false});
-      if (game.user?.isGM && doHits && damageWasApplied &&
-        (newTempHP !== actor.system.attributes.hp.temp
-          || newHP !== actor.system.attributes.hp.value
-          || newVitality !== oldVitality)) {
-        await actor.update(update, data.updateContext);
-      }
-    }
-    const tooltipList = damageItem.tokenDamages.reduce((items, list) => items.concat(list)).map(di => {
-      let allMods: string[] = Object.keys(di.active).reduce((acc: string[], k) => {
-        if (!["saved", "semiSuperSaver", "superSaver"].includes(k)) return acc;
-        if (di.active[k] && k !== "multiplier") acc.push(k);
-        return acc;
-      }, []);
-      let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
-      return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{ ...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes }[di.type === "" ? "none" : di.type]?.label ?? "none"} ${mods}`
-    });
-    const toolTipHeader: string[] = [];
-    if (newHP !== oldHP) toolTipHeader.push(`HP: ${oldHP} -> ${newHP}`);
-    if ((newTempHP ?? 0) !== (oldTempHP ?? 0)) toolTipHeader.push(`TempHP: ${oldTempHP} -> ${newTempHP}`);
-    if ((newVitality ?? 0) !== (oldVitality ?? 0)) toolTipHeader.push(`Vitality: ${oldVitality} -> ${newVitality}`);
-    if (damageItem.superSaver) toolTipHeader.push("Super Saved");
-    else if (damageItem.semiSuperSaver) toolTipHeader.push("Semi Super Saved");
-    else if (damageItem.saved) toolTipHeader.push("Saved");
-    if (damageItem.uncannyDodge) toolTipHeader.push("Uncanny Dodge");
-    let tooltip = [...toolTipHeader, ...tooltipList].join("<br>");
-
-    let listItem = {
-      isCharacter: actor.hasPlayerOwner,
-      isNpc: !actor.hasPlayerOwner,
-      actorUuid: actor.uuid,
-      // tokenId: tokenId ?? "none",
-      displayUuid: actor.uuid.replaceAll(".", ""),
-      tokenUuid: uuid,
-      tokenImg: img,
-      hpDamage: appliedDamage,
-      abshpDamage: Math.abs(appliedDamage),
-      tempDamage: appliedTempDamage,
-      totalDamage: Math.abs(damageItem.totalDamage),
-      halfDamage: Math.abs(Math.floor(appliedDamage / 2)),
-      doubleDamage: Math.abs(appliedDamage * 2),
-      appliedDamage,
-      playerViewTotalDamage: appliedDamage + appliedTempDamage,
-      absDamage: Math.abs(appliedDamage),
-      tokenName: (tokenDocument?.name && configSettings.useTokenNames) ? tokenDocument.name : actor.name,
-      dmgSign: appliedDamage < 0 ? "+" : "-", // negative damage is added to hit points
-      newHP,
-      newTempHP,
-      oldTempHP,
-      oldHP,
-      oldVitality: 0,
-      newVitality: 0,
-      buttonId: uuid,
-      iconPrefix: (data.autoApplyDamage === "yesCardNPC" && actor.type === "character") ? "*" : "",
-      updateContext: data.updateContext,
-      tooltip
-    };
-
-    tokenIdList.push({
-      tokenId: tokenDocument.id,
-      tokenUuid: tokenDocument.uuid,
-      actorUuid: actor.uuid,
-      actorId: actor.id,
-      oldTempHP,
-      oldHP,
-      totalDamage: Math.abs(appliedDamage),
-      newHP,
-      newTempHP,
-      damageItem,
-      oldVitality: 0,
-      newVitality: 0,
-      updateContext: data.updateContext
-    });
-
-    ["di", "dv", "dr", "dm", "da"].forEach(trait => {
-      const traits = actor?.system.traits[trait];
-      if (!traits) return;
-      if (traits.value instanceof Array && (traits?.custom || traits?.value.length > 0)) {
-        listItem[trait] = (`${traitList[trait]}: ${traits.value.map(t => GameSystemConfig.damageResistanceTypes[t]).join(",").concat(" " + traits?.custom)}`);
-      } else if (trait === "dm") {
-        let tl: string[];
-
-        tl = Object.keys(traits.amount ?? {}).reduce((acc: any[], v) => {
-          if (baseDamage.some(d => d.type === v)) acc.push(`${v}:${traits.amount[v]}`);
-          return acc;
-        }, [])
-        if (traits.midi) for (let dt of Object.keys(traits.midi)) tl.push(`${dt === "none" ? "all" : dt}: ${traits.midi[dt]}`);
-        if (tl.length > 0)
-          listItem[trait] = (`${traitList[trait]} ${tl.join(",")}`);
-      } else if (trait === "da") {
-        let tl: string[];
-        if (traits.midi) tl = ["all"];
-        else {
-          tl = Object.keys(traits ?? {}).reduce((acc: any[], v) => {
-            if (baseDamage.some(d => d.type === v)) acc.push(v);
-            return acc
-          }, [])
-        }
-        if (tl.length > 0)
-          listItem[trait] = (`${traitList[trait]}: ${tl.join(",")}`);
-      } else if (traits.value instanceof Set && (traits?.custom || traits?.value.size > 0)) {
-        let tl = traits.value.reduce((acc, v) => {
-          if (baseDamage.some(d => d.type === v)) acc.push(v);
-          if (v === "none") acc.push("all");
-          return acc
-        }, []);
-        if (tl.includes("all")) tl = ["all"];
-        if (tl.length > 0)
-          listItem[trait] = (`${traitList[trait]}: ${tl.join(",").concat(" " + traits?.custom)}`);
-      }
-    });
-    //@ts-expect-error
-    templateData.damageList.push(listItem);
-
-  }
-
-  if (templateData.damageList.length > 1) templateData.needsButtonAll = true;
-  if (["yesCard", "noCard", "yesCardNPC", "yesCardMisses", "noCardMisses"].includes(data.autoApplyDamage)) {
-    const content = await renderTemplate("modules/midi-qol/templates/damage-results-v3.html", templateData);
-    const speaker: any = ChatMessage.getSpeaker();
-    speaker.alias = game.user?.name;
-    let chatData: any = {
-      user: game.user?.id,
-      speaker: { scene: getCanvas()?.scene?.id, alias: game.user?.name, user: game.user?.id },
-      content: content,
-      whisper: ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id),
-      flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
-    };
-    //@ts-expect-error
-    if (game.release.generation < 12) {
-      chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
-    } else {
-      //@ts-expect-error
-      chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
-    }
-    if (data.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", data.flagTags);
-    chatCardUuid = (await ChatMessage.create(chatData))?.uuid;
-    //@ts-expect-error - the main chat card ends up with a later timestamp than this so just push it out a bit
-    // a hack but not sure how to do it properly
-    if (chatCardUuid) fromUuidSync(chatCardUuid).update({ timestamp: Date.now() + 50 });
-  }
-  return chatCardUuid;
-}
 async function createReverseDamageCard(data: {
   damageList: any;
   autoApplyDamage: string;
@@ -1095,7 +766,7 @@ async function prepareDamageListItems(data: {
   let promises: Promise<any>[] = [];
 
   for (let damageItem of damageList) {
-    let { tokenId, tokenUuid, actorId, actorUuid, oldHP, oldTempHP, newTempHP, tempDamage, hpDamage, totalDamage, appliedDamage, sceneId, oldVitality, newVitality, wasHit } = damageItem;
+    let { tokenId, tokenUuid, actorId, actorUuid, oldHP, oldTempHP, tempDamage, hpDamage, vitalityDamage, totalDamage, appliedDamage, sceneId, oldVitality, newVitality, wasHit } = damageItem;
     if (doHits && !wasHit) continue;
     if (!doHits && wasHit) continue;
     let tokenDocument;
@@ -1113,17 +784,23 @@ async function prepareDamageListItems(data: {
     }
     if (!showNPC && !actor.hasPlayerOwner) continue;
     let newHP = Math.max(0, oldHP - hpDamage);
+    let newTempHP = Math.max(0, oldTempHP - tempDamage);
     if (createPromises && doHits && (["yes", "yesCard", "yesCardNPC", "yesCardMisses"].includes(data.autoApplyDamage) || data.forceApply)) {
-      if ((newHP !== oldHP || newTempHP !== oldTempHP) && (data.autoApplyDamage !== "yesCardNPC" || actor.type !== "character")) {
-        const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem }, data.updateContext ?? {}, {inplace: false});
+      if ((hpDamage || tempDamage || newVitality !== oldVitality) && (data.autoApplyDamage !== "yesCardNPC" || actor.type !== "character")) {
+        const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem }, data.updateContext ?? {}, { inplace: false });
         if (actor.isOwner) {
-          //@ts-ignore
-          promises.push(actor.update({ "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP, "flags.dae.damageApplied": appliedDamage }, updateContext));
+          const updates = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
+          if (oldVitality !== newVitality) {
+            vitalityDamage = oldVitality - newVitality;
+            const vitalityResource = checkRule("vitalityResource");
+            if (typeof vitalityResource === "string")
+              updates[vitalityResource.trim()] = newVitality;
+          }
+          updateContext.damageItem = damageItem;
+          updates["flags.dae.damageApplied"] = hpDamage + tempDamage + (vitalityDamage ?? 0);
+          if (Hooks.call("dnd5e.preApplyDamage", actor, hpDamage + tempDamage + (vitalityDamage ?? 0), updates, updateContext))
+            promises.push(actor.update(updates, updateContext));
         }
-      } else if (oldVitality !== newVitality && actor.isOwner && doHits) {
-        const vitalityResource = checkRule("vitalityResource");
-        if (typeof vitalityResource === "string")
-          promises.push(actor.update({ [vitalityResource.trim()]: newVitality }))
       }
     }
     tokenIdList.push({ tokenId, tokenUuid, actorUuid, actorId, oldTempHP: oldTempHP, oldHP, totalDamage: Math.abs(totalDamage), newHP, newTempHP, damageItem, oldVitality, newVitality, updateContext: data.updateContext });
@@ -1136,7 +813,7 @@ async function prepareDamageListItems(data: {
       img = await game.video.createThumbnail(img, { width: 100, height: 100 });
     }
 
-    let listItem = {
+    let listItem: any = {
       isCharacter: actor.hasPlayerOwner,
       isNpc: !actor.hasPlayerOwner,
       actorUuid,
@@ -1163,26 +840,49 @@ async function prepareDamageListItems(data: {
       newVitality,
       buttonId: tokenUuid,
       iconPrefix: (data.autoApplyDamage === "yesCardNPC" && actor.type === "character") ? "*" : "",
-      updateContext: data.updateContext
+      updateContext: data.updateContext,
     };
-
-    ["di", "dv", "dr"].forEach(trait => {
-      const traits = actor?.system.traits[trait]
-      if (traits.value instanceof Array && (traits?.custom || traits?.value.length > 0)) {
-        //@ts-expect-error CONFIG.DND5E
-        listItem[trait] = (`${traitList[trait]}: ${traits.value.map(t => CONFIG.DND5E.damageResistanceTypes[t]).join(",").concat(" " + traits?.custom)}`);
-      } else if (traits.value instanceof Set && (traits?.custom || traits?.value.size > 0)) {
-        const tl = traits.value.reduce((acc, v) => { acc.push(v); return acc }, [])
-        listItem[trait] = (`${traitList[trait]}: ${tl.join(",").concat(" " + traits?.custom)}`);
+    if (configSettings.v3DamageApplication) {
+      const tooltipList = damageItem.damageItem?.map(di => {
+        let allMods: string[] = Object.keys(di.active).reduce((acc: string[], k) => {
+          if (["saved", "semiSuperSaver", "superSaver"].includes(k)) return acc;
+          if (di.active[k] && k !== "multiplier") acc.push(k);
+          return acc;
+        }, []);
+        let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
+        return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{ ...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes }[di.type === "" ? "none" : di.type]?.label ?? "none"} ${mods}`
+      });
+      const toolTipHeader: string[] = [];
+      if (damageItem.damageItem) {
+        if (newHP !== oldHP) toolTipHeader.push(`HP: ${oldHP} -> ${newHP}`);
+        if ((newTempHP ?? 0) !== (oldTempHP ?? 0)) toolTipHeader.push(`TempHP: ${oldTempHP} -> ${newTempHP}`);
+        if ((newVitality ?? 0) !== (oldVitality ?? 0)) toolTipHeader.push(`Vitality: ${oldVitality} -> ${newVitality}`);
+        if (damageItem.superSaver) toolTipHeader.push("Super Saved");
+        else if (damageItem.semiSuperSaver) toolTipHeader.push("Semi Super Saved");
+        else if (damageItem.saved) toolTipHeader.push("Saved");
+        if (damageItem.uncannyDodge) toolTipHeader.push("Uncanny Dodge");
+        if (damageItem.details?.length > 0) toolTipHeader.push(...damageItem.details);
       }
-    });
-    //@ts-ignore
-    const actorFlags: any = actor.flags;
-    const DRFlags = actorFlags[MODULE_ID] ? actorFlags[MODULE_ID].DR : undefined;
-    if (DRFlags) {
-      listItem["DR"] = "DR: ";
-      for (let key of Object.keys(DRFlags)) {
-        listItem["DR"] += `${key}:${DRFlags[key]} `;
+      listItem.tooltip = [...(toolTipHeader ?? []), ...(tooltipList ?? [])].join("<br>");
+    } else {
+      ["di", "dv", "dr"].forEach(trait => {
+        const traits = actor?.system.traits[trait]
+        if (traits.value instanceof Array && (traits?.custom || traits?.value.length > 0)) {
+          //@ts-expect-error CONFIG.DND5E
+          listItem[trait] = (`${traitList[trait]}: ${traits.value.map(t => CONFIG.DND5E.damageResistanceTypes[t]).join(",").concat(" " + traits?.custom)}`);
+        } else if (traits.value instanceof Set && (traits?.custom || traits?.value.size > 0)) {
+          const tl = traits.value.reduce((acc, v) => { acc.push(v); return acc }, [])
+          listItem[trait] = (`${traitList[trait]}: ${tl.join(",").concat(" " + traits?.custom)}`);
+        }
+      });
+      //@ts-ignore
+      const actorFlags: any = actor.flags;
+      const DRFlags = actorFlags[MODULE_ID] ? actorFlags[MODULE_ID].DR : undefined;
+      if (DRFlags) {
+        listItem["DR"] = "DR: ";
+        for (let key of Object.keys(DRFlags)) {
+          listItem["DR"] += `${key}:${DRFlags[key]} `;
+        }
       }
     }
     //@ts-ignore listItem
@@ -1288,6 +988,7 @@ async function createGMReverseDamageCard(
       whisper: ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id),
       flags: { "midiqol": { "undoDamage": tokenIdList, updateContext: data.updateContext } }
     };
+
     //@ts-expect-error
     if (game.release.generation < 12) {
       chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
@@ -1342,7 +1043,7 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, actor);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, {inplace: false});
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, { inplace: false });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
@@ -1368,7 +1069,7 @@ export let processUndoDamageCard = (message, html, data) => {
         reverseButton.children()[0].classList.add("midi-qol-enable-damage-button");
         log(`Setting HP to ${newTempHP} and ${newHP}`);
         const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem }, {inplace: false});
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem }, { inplace: false });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = newVitality;
@@ -1395,7 +1096,7 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = MQfromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, data.updateContext);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, {inplace: false});
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, { inplace: false });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
@@ -1425,7 +1126,7 @@ export let processUndoDamageCard = (message, html, data) => {
           await actor.applyDamage(totalDamage, { multiplier, ignore: true });
         } else {
           const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-          const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem }, {inplace: false});
+          const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem }, { inplace: false });
           const vitalityResource = checkRule("vitalityResource");
           if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
             update[vitalityResource.trim()] = newVitality;

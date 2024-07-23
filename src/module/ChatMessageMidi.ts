@@ -1,4 +1,4 @@
-import { GameSystemConfig, MQDamagetypes, debugEnabled, i18n, log, warn } from "../midi-qol.js";
+import { GameSystemConfig, MQDamageRollTypes, debugEnabled, i18n, log, warn } from "../midi-qol.js";
 import { chatDamageButtons } from "./chatMessageHandling.js";
 import { setDamageRollMinTerms } from "./itemhandling.js";
 import { addChatDamageButtons, configSettings } from "./settings.js";
@@ -38,8 +38,7 @@ export function defineChatMessageMidiClass(baseClass: any) {
     applyChatCardDamage(li, multiplier) {
       const type = this.flags.dnd5e?.roll?.type;
       if (type !== "midi") return super.applyChatCardDamage(li, multiplier);
-      const rollsToCheck = this.rolls.filter(r => MQDamagetypes.includes(foundry.utils.getProperty(r, "options.midi-qol.rollType")));
-      //@ts-expect-error
+      const rollsToCheck = this.rolls.filter(r => MQDamageRollTypes.includes(foundry.utils.getProperty(r, "options.midi-qol.rollType")));      //@ts-expect-error
       const damages = game.system.dice.aggregateDamageRolls(rollsToCheck, { respectProperties: true }).map(roll => ({
         value: roll.total,
         type: roll.options.type,
@@ -154,11 +153,11 @@ export function defineChatMessageMidiClass(baseClass: any) {
         return super._enrichDamageTooltip(rolls, html);
       }
       if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") return;
-      for (let dType of MQDamagetypes) {
-        const rollsToCheck = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === dType);
+      for (let rollType of MQDamageRollTypes) {
+        const rollsToCheck = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === rollType);
         let rType = "damage";
-        if (dType === "otherDamage") rType = "other-damage";
-        else if (dType === "bonusDamage") rType = "bonus-damage";
+        if (rollType === "otherDamage") rType = "other-damage";
+        else if (rollType === "bonusDamage") rType = "bonus-damage";
         if (rollsToCheck?.length) {
           html.querySelectorAll(`.midi-${rType}-roll`)?.forEach(el => el.remove());
           for (let roll of this.collectRolls(rollsToCheck, configSettings.mergeCardMultiDamage)) {
@@ -183,7 +182,7 @@ export function defineChatMessageMidiClass(baseClass: any) {
           || (addChatDamageButtons === "gm" && game.user?.isGM)
           || (addChatDamageButtons === "pc" && !game.user?.isGM);
         if (shouldAddButtons) {
-          for (let dType of MQDamagetypes) {
+          for (let dType of MQDamageRollTypes) {
             rolls = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === dType);
             if (!rolls.length) continue;
             let damageApplication = document.createElement("damage-application");

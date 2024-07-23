@@ -7,6 +7,7 @@ import { configureDamageRollDialog } from "./patching.js";
 import { TargetConfirmationConfig } from "./apps/TargetConfirmationConfig.js";
 import { _updateAction } from "./utils.js";
 import { error } from "jquery";
+import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 
 export var itemRollButtons: boolean;
 export var criticalDamage: string;
@@ -80,6 +81,7 @@ class ConfigSettings {
   autoTarget: string = "none";
   averageDamage: string = "none";
   checkSaveText: boolean = false;
+  collapsibleTargets: boolean = true;
   concentrationAutomation: boolean = false;
   consumeResource: string = "none";
   convenientEffectsReaction: string = "Reaction";
@@ -203,7 +205,8 @@ class ConfigSettings {
     criticalNat20: false,
     actionSpecialDurationImmediate: false,
     vitalityResource: "",
-    autoRerollInitiative: false
+    autoRerollInitiative: false,
+  
   };
 }
 
@@ -533,7 +536,7 @@ export let fetchParams = () => {
   if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated";
   if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
   if (configSettings.v3DamageApplication === undefined) configSettings.v3DamageApplication = false;
-
+  if (configSettings.collapsibleTargets === undefined) configSettings.collapsibleTargets = true;
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
   criticalDamageGM = String(game.settings.get("midi-qol", "CriticalDamageGM"));

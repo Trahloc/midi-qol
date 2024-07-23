@@ -2,7 +2,7 @@ import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAtt
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating } from "./utils.js";
-import { activateMacroListeners } from "./apps/Item.js"
+import { activateMacroListeners, getCurrentSourceMacros } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preUpdateItemActorOnUseMacro, zeroHPExpiry, deathSaveHook } from "./patching.js";
 import { preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
@@ -37,6 +37,9 @@ export let readyHooks = async () => {
   Hooks.on("targetToken", foundry.utils.debounce(checkflanking, 150));
 
   Hooks.on("ddb-game-log.pendingRoll", (data) => {
+    ddbglPendingHook(data);
+  });
+  Hooks.on("ddb-game-log.fulfilledRoll", (data) => {
     ddbglPendingHook(data);
   });
 
@@ -235,20 +238,6 @@ export async function restManager(actor, result) {
 
 }
 
-export function oldrestManager(actor, result) {
-  if (!actor || !result) return;
-  removeReactionUsed(actor); // remove reaction used for a rest
-  removeBonusActionUsed(actor);
-  removeActionUsed(actor);
-  const myExpiredEffects = actor.effects.filter(ef => {
-    const specialDuration = foundry.utils.getProperty(ef, "flags.dae.specialDuration");
-    return specialDuration && ((result.longRest && specialDuration.includes(`longRest`))
-      || (result.newDay && specialDuration.includes(`newDay`))
-      || specialDuration.includes(`shortRest`));
-  });
-  if (myExpiredEffects?.length > 0) expireEffects(actor, myExpiredEffects, { "expiry-reason": "midi-qol:rest" });
-}
-
 export function initHooks() {
   if (debugEnabled > 0) warn("Init Hooks processing");
   Hooks.on("preCreateChatMessage", (message: ChatMessage, data, options, user) => {
@@ -356,7 +345,8 @@ export function initHooks() {
       AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
       AutoTargetOptions: autoTargetOptions,
       RemoveAttackDamageButtonsOptions,
-      hasReaction: item.system.activation?.type?.includes("reaction")
+      hasReaction: item.system.activation?.type?.includes("reaction"),
+      onUseMacroParts: getCurrentSourceMacros(item)
     });
     if (!foundry.utils.getProperty(item, "flags.midi-qol.autoTarget")) {
       foundry.utils.setProperty(data, "flags.midi-qol.autoTarget", "default");
@@ -923,9 +913,9 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
           if (mo.saved && (options?.ignore?.saved === true || options?.ignore?.saved?.has(damage.type))) continue;
           if (mo.superSaver) {
             foundry.utils.setProperty(damage, "active.superSaver", true);
-          } else if (mo.semiSuperSaver) {
+          } else if (mo.semiSuperSaver && (mo.saveMultiplier ?? 1) !== 1) {
             foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
-          } else if (mo.saved) {
+          } else if (mo.saved && (mo.saveMultiplier ?? 1) !== 1) {
             foundry.utils.setProperty(damage, "active.saved", true);
           }
           damage.value = damage.value * (mo.saveMultiplier ?? 1);
@@ -959,6 +949,7 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
           }
         }
       }
+      /*
       for (let damage of damages) {
         if (mo.saved) {
           foundry.utils.setProperty(damage, "active.saved", true);
@@ -970,7 +961,7 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
           foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
         }
       }
-
+*/
       if ((mo?.uncannyDodge)) {
         for (let damage of damages) {
           if (ignore("uncannyDodge", damage.type, true)) continue;
@@ -991,6 +982,7 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
     }
       , 0);
     foundry.utils.setProperty(options, "midi.totalDamage", totalDamage);
+    if (Hooks.call("midi-qol.dnd5ePreCalculateDamage", actor, damages, options) === false) return false;
   } catch (err) {
     const message = `Error in preCalculateDamage`;
     error(message, err);
@@ -1092,9 +1084,9 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
       foundry.utils.setProperty(damage, "active.multiplier", (damage.active?.multiplier ?? 1) * (mo.saveMultiplier ?? 1));
       if (mo.superSaver) {
         foundry.utils.setProperty(damage, "active.superSaver", true);
-      } else if (mo.semiSuperSaver) {
+      } else if (mo.semiSuperSaver && (mo.saveMultiplier ?? 1) !== 1) {
         foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
-      } else if (mo.saved) {
+      } else if (mo.saved && (mo.saveMultiplier ?? 1) !== 1) {
         foundry.utils.setProperty(damage, "active.saved", true);
       }
     };
@@ -1231,6 +1223,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     }
     if (drAll) damages.push({ type: "none", value: drAll, active: { modification: true, multiplier: 1 }, properties: new Set() });
   }
+  Hooks.callAll("midi-qol.dnd5eCalculateDamage", actor, damages, options);
   return true;
 });
 

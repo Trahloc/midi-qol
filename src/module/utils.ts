@@ -10,6 +10,7 @@ import { OnUseMacros } from "./apps/Item.js";
 import { Options } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
+import { toEditorSettings } from "typescript";
 
 const defaultTimeout = 30;
 export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | String;
@@ -192,12 +193,13 @@ export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, 
   let prevDamage = existingDamage?.find(ed => ed.tokenId === t.id);
   //@ts-expect-error attributes
   var hp = a.system.attributes.hp;
-  var oldHP, tmp, oldVitality, newVitality;
+  var oldHP, tmp, oldVitality, newVitality, vitalityDamage;
   const vitalityResource = checkRule("vitalityResource");
   if (hp.value <= 0 && typeof vitalityResource === "string" && foundry.utils.getProperty(a, vitalityResource) !== undefined) {
     // Damage done to vitality rather than hp
     oldVitality = foundry.utils.getProperty(a, vitalityResource) ?? 0;
     newVitality = Math.max(0, oldVitality - appliedDamage);
+    vitalityDamage = appliedDamage;
   }
   if (prevDamage) {
     oldHP = prevDamage.newHP;
@@ -206,7 +208,7 @@ export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, 
     oldHP = hp.value;
     tmp = parseInt(hp.temp) || 0;
   }
-  let value = Math.floor(appliedDamage);
+  let value = appliedDamage < 0 ? Math.ceil(appliedDamage) : Math.floor(appliedDamage);
   if (dmgType.includes("temphp")) { // only relevent for healing of tmp HP
     var newTemp = Math.max(tmp, -value, 0);
     var newHP: number = oldHP;
@@ -238,7 +240,7 @@ export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, 
   // TODO change tokenId, actorId to tokenUuid and actor.uuid
   return {
     tokenId, tokenUuid, actorId: a.id, actorUuid: a.uuid, tempDamage: tmp - newTemp, hpDamage: oldHP - newHP, oldTempHP: tmp, newTempHP: newTemp,
-    oldHP: oldHP, newHP: newHP, totalDamage: totalDamage, appliedDamage: value, sceneId, oldVitality, newVitality
+    oldHP: oldHP, newHP: newHP, totalDamage: totalDamage, vitalityDamage, appliedDamage: value, sceneId, oldVitality, newVitality
   };
 }
 
@@ -387,7 +389,6 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
   options = { hitTargets: new Set(), existingDamage: [], workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false } }:
   { applyDamageDetails: applyDamageDetails[]; theTargets: Set<Token | TokenDocument>; item: any; options?: { hitTargets: Set<Token | TokenDocument>, existingDamage: any[][]; workflow: Workflow | undefined; updateContext: any | undefined; forceApply: boolean, noConcentrationCheck: boolean }; }): Promise<any[]> {
   let damageList: any[] = [];
-  let targetNames: string[] = [];
   let appliedDamage;
   let workflow: any = options.workflow ?? {};
   if (debugEnabled > 0) warn("applyTokenDamage |", applyDamageDetails, theTargets, item, workflow)
@@ -719,6 +720,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     workflow.damageItem = ditem;
     await asyncHooksCallAll(`midi-qol.preTargetDamageApplication`, t, { item, workflow, damageItem: ditem, ditem });
     ditem = workflow.damageItem;
+    ditem.targetname = t.name;
     let dnd5eDamages = ditem.damageDetail[0].reduce((acc, detail) => {
       acc[detail.type] = Math.floor((detail.damage - (detail.DR ?? 0)) * detail.damageMultiplier)
       return acc;
@@ -735,7 +737,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         isFumble: workflow.isFumble,
         save: workflow.saves?.has(t),
         fumbleSave: workflow.fumbleSaves?.has(t),
-        criticalSave: workflow.criticalSaves?.has(t)
+        criticalSave: workflow.criticalSaves?.has(t),
       }
     };
     if (options.hitTargets.has(t) && !configSettings.v3DamageApplication) {
@@ -744,8 +746,6 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
     }
     // delete workflow.damageItem
     damageList.push(ditem);
-    targetNames.push(t.name);
-
 
     if (ditem.appliedDamage !== 0 && ditem.wasHit) {
       const healedDamaged = ditem.appliedDamage < 0 ? "isHealed" : "isDamaged";
@@ -786,7 +786,6 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
       actorId: workflow.actor?.id,
       charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
       damageList: damageList,
-      targetNames,
       chatCardId: workflow.itemCardId,
       chatCardUuid: workflow.itemCardUuid,
       flagTags: workflow.flagTags,
@@ -904,37 +903,47 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
   if (configSettings.v3DamageApplication) {
     const allDamages = {};
-    for (let token of theTargets) {
-      if (!token.actor) continue;
-      const tokenDocument = getTokenDocument(token);
+    workflow.damageList = [];
+    let totalDamage = 0;
+    totalDamage = workflow.damageRolls?.reduce((acc, roll) => acc + (roll.total ?? 0), 0) ?? 0;
+    if (workflow.otherDamageRoll) totalDamage += workflow.otherDamageRoll.total ?? 0;
+    if (workflow.bonusDamageRolls?.length > 0) totalDamage += workflow.bonusDamageRolls.reduce((acc, roll) => acc + (roll.total ?? 0), 0);
+
+    for (let tokenRef of theTargets) {
+      const token = getToken(tokenRef);
+      const tokenDocument = getTokenDocument(tokenRef);
+      if (!token?.actor) continue;
       if (!tokenDocument) continue;
+      let challengeModeScale = 1;
+
       allDamages[tokenDocument?.uuid] = {
         uuid: getTokenDocument(token)?.uuid,
-        tokenDamages: [],
+        tokenDamages: { combinedDamage: [], defaultDamage: [], otherDamage: [], bonusDamage: [] },
         isHit: hitTargets.has(token),
-        saved: savesToUse.has(token),
+        saved: workflow.saves.has(token),
         superSaver: workflow.superSavers.has(token),
         semiSuperSaver: workflow.semiSuperSavers.has(token),
-        totalDamage: 0,
-        appliedDamage: 0,
-        tempDamage: 0,
-        challengeModeScale: 1
+        critical: workflow.isCritical,
+        actorId: token.actor.id,
+        actorUuid: token.actor.uuid,
+        totalDamage,
+        scenneId: canvas?.scene?.id,
       };
-      let challengeModeScale = 1;
       let options: any = {};
       if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && workflow.attackRoll && workflow.hitTargetsEC?.has(token)) {
         //scale the damage detail for a glancing blow - only for the first damage list? or all?
         const scale = workflow.challengeModeScale[tokenDocument?.uuid ?? "dummy"] ?? 1;
         challengeModeScale = scale;
       }
-
-      // TODO make the reaction call for reaction damaged
-      if (workflow.damageRolls?.length || workflow.otherDamageRoll || workflow.bonusDamageRolls?.length) {
+      allDamages[tokenDocument.uuid].challengeModeScale = challengeModeScale;
+      if (totalDamage !== 0 && (workflow.hitTargets.has(token) || workflow.hitTargetsEC.has(token) || workflow.saveItem.hasSave)) {
         const isHealing = ("heal" === workflow.item?.system.actionType);
         await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? [workflow.otherDamageRoll], !isHealing ? "reactiondamage" : "reactionheal", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
       }
+      const tokenDamages = allDamages[tokenDocument.uuid].tokenDamages;
+
+
       for (let [rolls, saves, type] of [[workflow.damageRolls, baseDamageSaves, "defaultDamage"], [(workflow.otherDamageMatches?.has(token) ?? true) ? [workflow.otherDamageRoll] : [], workflow.saves, "otherDamage"], [workflow.bonusDamageRolls, bonusDamageSaves, "bonusDamage"]]) {
-        const tokenDamages = allDamages[tokenDocument.uuid].tokenDamages;
         if (rolls?.length > 0 && rolls[0]) {
           //@ts-expect-error
           const damages = game.system.dice.aggregateDamageRolls(rolls, { respectProperties: true }).map(roll => ({
@@ -954,14 +963,12 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
             saveMultiplier = 0;
           }
 
-          let tokenUuid = getTokenDocument(token)?.uuid;
           const allTargetElts = document.querySelectorAll(`[data-message-id="${workflow.chatCard?.id}"]`)?.[0]?.getElementsByTagName("damage-application");
           //@ts-expect-error
           const allTargetOptions = allTargetElts ? Array.from(allTargetElts).map(targetElt => targetElt.getTargetOptions(tokenDocument.uuid)) : [];
           options = {
             invertHealing: true,
             multiplier: challengeModeScale,
-            // ignore: {"resistance": new Set(["fire"])},
             midi: {
               saved: saves?.has(token),
               itemType: item.type,
@@ -975,6 +982,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
             }
           };
 
+          // TODO make this a setting in midi-qol targetOptions
           const categories = { "idi": "immunity", "idr": "resistance", "idv": "vulnerability", "ida": "absorption" };
           if (workflow.item) {
             for (let key of ["idi", "idr", "idv", "ida"]) {
@@ -987,50 +995,25 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
               }
             }
           }
-          //@ts-expect-error
-          let returnDamages = token.actor.calculateDamage(damages, options);
-          workflow.damages = foundry.utils.duplicate(returnDamages);
 
-          //@ts-expect-error isEmpty
-          if (!foundry.utils.isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
-            await workflow.callMacros(workflow.item, workflow.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
-            if (workflow.ammo) await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
+          foundry.utils.setProperty(options, "midi.applyDamage", true);
+          //@ts-expect-error
+          let returnDamages = foundry.utils.duplicate(token.actor.calculateDamage(damages, options));
+          if (configSettings.singleConcentrationRoll || type !== "otherDamage") {
+            tokenDamages[type] = returnDamages;
+            tokenDamages["combinedDamage"] = tokenDamages["combinedDamage"].concat(returnDamages);
+          } else if (!configSettings.singleConcentrationRoll && type === "otherDamage") {
+            tokenDamages["otherDamage"] = returnDamages;
           }
-          const appliedTotal = Math.floor(returnDamages.reduce((acc, value) => acc + value.value, 0));
-          allDamages[tokenDocument.uuid].totalDamage += (options.midi.totalDamage ?? 0);
-          allDamages[tokenDocument.uuid].appliedDamage += (appliedTotal ?? 0);
-          if (appliedTotal !== 0 && hitTargets.has(token)) {
-            const healedDamaged = appliedTotal < 0 ? "isHealed" : "isDamaged";
-            workflow.damages = foundry.utils.duplicate(returnDamages);
-            await asyncHooksCallAll(`midi-qol.${healedDamaged}`, token, { item, workflow, damageItem: workflow.ditem, ditem: workflow.ditem });
-            const actorOnUseMacros = foundry.utils.getProperty(token.actor ?? {}, `flags.${MODULE_ID}.onUseMacroParts`) ?? new OnUseMacros();
-            // It seems applyTokenDamageMany without a workflow gets through to here - so a silly guard in place TODO come back and fix this properly
-            if (workflow.callMacros) await workflow.callMacros(workflow.item,
-              actorOnUseMacros?.getMacros(healedDamaged),
-              "TargetOnUse",
-              healedDamaged,
-              { actor: token.actor, token });
-            const expiredEffects = getAppliedEffects(token?.actor, { includeEnchantments: true }).filter(ef => {
-              const specialDuration = foundry.utils.getProperty(ef, "flags.dae.specialDuration");
-              if (!specialDuration) return false;
-              return specialDuration.includes(healedDamaged);
-            }).map(ef => ef.uuid)
-            if (expiredEffects?.length ?? 0 > 0) {
-              await timedAwaitExecuteAsGM("removeEffectUuids", {
-                actorUuid: token.actor?.uuid,
-                effects: expiredEffects,
-                options: { "expiry-reason": `midi-qol:${healedDamaged}` }
-              });
-            }
-          }
-          tokenDamages.push(returnDamages);
         }
       }
     }
     workflow.v3Damages = allDamages;
+
     let baseDamageRolls: Roll[] = workflow.damageRolls ?? [];
     let otherDamageRolls: Roll[] = [];
-    if (configSettings.singleConcentrationRoll || true) { // this needs more work for dual checks
+
+    if (configSettings.singleConcentrationRoll) {
       if (workflow.otherDamageRoll) baseDamageRolls = baseDamageRolls.concat(workflow.otherDamageRoll);
       if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
       otherDamageRolls = [];
@@ -1039,38 +1022,42 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       if (workflow.otherDamageRoll) otherDamageRolls = [workflow.otherDamageRoll];
     }
 
-    const options = { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false };
+    workflow.damageList = Object.values(allDamages);
+    const toCheck = ["combinedDamage"];
+    if (!configSettings.singleConcentrationRoll && workflow.otherDamageRoll) toCheck.push("otherDamage");
     let chatCardUuids: string[] = [];
-    const cardIds: string[] = await timedAwaitExecuteAsGM("createV3ReverseDamageCard", {
-      autoApplyDamage: configSettings.autoApplyDamage,
-      sender: game.user?.name,
-      actorId: workflow.actor?.id,
-      charName: workflow.actor?.name ?? game?.user?.name,
-      allDamages,
-      baseDamageRolls: baseDamageRolls.map(r => JSON.stringify(r)),
-      chatCardId: workflow.itemCardId,
-      chatCardUuid: workflow.itemCardUuid,
-      flagTags: workflow.flagTags,
-      updateContext: options.updateContext,
-      forceApply: options.forceApply,
-    });
-    if (cardIds) chatCardUuids.push(...cardIds);
-    if (otherDamageRolls.length > 0) {
-      const cardIds = await timedAwaitExecuteAsGM("createV3ReverseDamageCard", {
+    for (let selector of toCheck) {
+      workflow.damageList.forEach(damageEntry => {
+        damageEntry.damageItem = damageEntry.tokenDamages[selector];
+      });
+
+      for (let tokenRef of theTargets) {
+        const token = getToken(tokenRef);
+        const tokenDocument = getTokenDocument(tokenRef);
+        if (!token?.actor) continue;
+        if (!tokenDocument) continue;
+        const tokenDamages = allDamages[tokenDocument.uuid];
+        workflow?.setupv3DamageDetails(allDamages, selector, token);
+        await workflow?.callv3DamageHooks(tokenDamages, token);
+        tokenDamages.tokenDamages[selector] = tokenDamages.damageItem;
+        // workflow?.setupv3DamageDetails(allDamages, selector, token);
+      }
+      const options = { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false };
+      const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
         autoApplyDamage: configSettings.autoApplyDamage,
         sender: game.user?.name,
         actorId: workflow.actor?.id,
-        charName: workflow.actor?.name ?? game?.user?.name,
-        allDamages,
-        baseDamageRolls: otherDamageRolls.map(r => JSON.stringify(r)),
+        charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
+        damageList: workflow.damageList,
         chatCardId: workflow.itemCardId,
         chatCardUuid: workflow.itemCardUuid,
         flagTags: workflow.flagTags,
-        updateContext: options.updateContext,
+        updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
         forceApply: options.forceApply,
       });
-      if (cardIds) chatCardUuids.push(...cardIds)
+      if (cardIds) chatCardUuids.push(...cardIds);
     }
+
     if (workflow && configSettings.undoWorkflow) {
       // Assumes workflow.undoData.chatCardUuids has been initialised
       if (workflow.undoData) {
@@ -1418,7 +1405,8 @@ export function midiCustomEffect(...args) {
     `flags.${MODULE_ID}.noCritical`,
     `flags.${MODULE_ID}.ignoreCover`,
     `flags.${MODULE_ID}.ignoreWalls`
-  ]; // These have trailing data in the change key change.key values and should always just be a string
+  ];
+  // These have trailing data in the change key change.key values and should always just be a string
   if (change.key === `flags.${game.system.id}.DamageBonusMacro`) {
     // DAEdnd5e - daeCustom processes these
   } else if (change.key === `flags.${MODULE_ID}.onUseMacroName`) {
@@ -1978,7 +1966,7 @@ export async function completeItemRoll(item, options: any) {
   return completeItemUse(item, {}, options);
 }
 
-export async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false, targetUuids: [], asUser: undefined }) {
+export async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false, targetUuids: undefined, asUser: undefined }) {
   let theItem: any;
   let targetsToUse = new Set();
 
@@ -3706,6 +3694,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           else rollData = this.actor?.getRollData() ?? {}; // 
           const tempRoll = new DamageRoll(`${button.value}`, rollData, rollOptions);
           await tempRoll.evaluate();
+          setRollOperatorEvaluated(tempRoll);
           if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
           newRoll = addRollTo(roll, tempRoll);
         } else {
@@ -3771,14 +3760,15 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
     if (forcedCondition !== undefined) {
       forcedCondition = await evalCondition(forcedCondition, conditionData, { errorReturn: true, async: true });
       if (forcedCondition) {
+        const altFlag = flagSelector.split(".").slice(0, -1).join(".") + ".all";
         await callback(undefined, {
           key: flagName,
-          value: foundry.utils.getProperty(this.actor ?? {}, `${flagName}.${flagSelector}`) ?? foundry.utils.getProperty(this.actor ?? {}, `${flagName}.attack.all`) ?? "",
+          value: foundry.utils.getProperty(this.actor ?? {}, `${flagName}.${flagSelector}`) ?? foundry.utils.getProperty(this.actor ?? {}, `${flagName}.${altFlag}`) ?? "",
           label: "none"
         });
         lastForceFlag = flagName;
-        continue;
       }
+      continue;
     }
     if (foundry.utils.getProperty(this.actor, flagName) !== undefined) validFlags.push(flagName);
   }
@@ -4037,6 +4027,9 @@ async function getMagicItemReactions(actor: Actor, triggerType: string): Promise
 
 function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
   if (!item.system.activation?.type?.includes("reaction")) return false;
+  if (item.system.activation.type !== "reaction") {
+    console.warn(`midi-qol | itemReaction | item ${item.name} has a reaction type of ${item.system.activation.type} which is deprecated - please update to reaction and reaction conditions`)
+  }
   if (item.system.activation?.cost > 0 && onlyZeroCost) return false;
   if (item.type === "spell") {
     if (configSettings.ignoreSpellReactionRestriction) return true;
@@ -4689,7 +4682,8 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     }
     const evl = new Function('sandbox', src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync, nonWorkflowTargetedToken: game?.user?.targets.first(), combat: game.combat });
+
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4707,8 +4701,9 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
   return result;
 };
 
-export function evalReactionActivationCondition(workflow: Workflow, condition: string | undefined, target: Token | TokenDocument, options: any = {}): boolean {
+export function evalReactionActivationCondition(workflow: Workflow, condition: string | undefined | boolean, target: Token | TokenDocument, options: any = {}): boolean {
   if (options.errorReturn === undefined) options.errorReturn = false
+  // if (condition === undefined || condition === "" || condition === false) return false;
   return evalActivationCondition(workflow, condition, target, options);
 }
 export function evalActivationCondition(workflow: Workflow, condition: string | undefined | boolean, target: Token | TokenDocument, options: any = {}): boolean {
@@ -5050,7 +5045,7 @@ export async function expirePerTurnBonusActions(combat: Combat, data, options) {
     const actor = combatant.actor;
     if (!actor) continue;
     //@ts-expect-error .appledEffects
-    for (let effect of actor.appliedEffects) {
+    for (let effect of actor.allApplicableEffects()) {
       for (let change of effect.changes) {
         if (change.key.match(optionalFlagRe)
           && ((change.value === "each-turn")
@@ -5109,6 +5104,8 @@ export async function asyncHooksCallAll(hook, ...args): Promise<boolean | undefi
     console.log(`DEBUG | midi-qol async Calling ${hook} hook with args:`);
     console.log(args);
   }
+  // console.warn(`DEBUG | midi-qol async Calling ${hook} hook with args:`, ...args);
+
   //@ts-expect-error
   const hookEvents = Hooks.events[hook];
   if (debugEnabled > 1) debug("asyncHooksCall", hook, "hookEvents:", hookEvents, args)
@@ -5137,6 +5134,8 @@ export async function asyncHooksCall(hook, ...args): Promise<boolean | undefined
     console.log(`DEBUG | midi-qol async Calling ${hook} hook with args:`);
     console.log(args);
   }
+  // console.warn(`DEBUG | midi-qol async Calling ${hook} hook with args:`, ...args);
+
   //@ts-expect-error events
   const hookEvents = Hooks.events[hook];
   if (debugEnabled > 1) log("asyncHooksCall", hook, "hookEvents:", hookEvents, args)
@@ -6468,7 +6467,7 @@ export async function expireEffects(actor, effects: ActiveEffect[], options: any
   if (actorEffectsToDelete.length > 0) await actor.deleteEmbeddedDocuments("ActiveEffect", actorEffectsToDelete, options);
   if (effectsToDisable.length > 0) {
     for (let effect of effectsToDisable) {
-      await effect.update({ "disabled": true })
+      await effect.update({ "disabled": true }, options)
     }
   }
   if (effectsToDelete.length > 0) {

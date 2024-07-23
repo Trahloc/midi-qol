@@ -49,6 +49,12 @@ export class MidiKeyManager {
     window.addEventListener('keyup', (event) => this.handleKeyUpEvent(event));
   }
 
+  resetStickyKeys() {
+    if (!configSettings.fixStickyKeys) return;
+    //@ts-expect-error
+    game.keyboard?.downKeys.clear();
+  }
+
   handleKeyUpEvent(event) { // Not being used TODO remove if not required
     if (!configSettings.fixStickyKeys) return;
     if (event.isComposing) return;
@@ -252,13 +258,11 @@ export class MidiKeyManager {
       name: i18n("midi-qol.RollToggle.Name"),
       hint: i18n("midi-qol.RollToggle.Hint"),
       editable: [
-        { key: "KeyT" },
-        
+        { key: "KeyT" },     
         { key: "ControlLeft", modifiers: ["Alt"]},
         { key: "ControlRight", modifiers: ["Alt"]},
         { key: "AltLeft", modifiers: ["Control"]},
         { key: "AltRight", modifiers: ["Control"]}
-        
       ],
       onDown: () => { this._rollToggle = true; this.track("roll toggle down"); return false; },
       onUp: () => { this._rollToggle = false; this.track("roll toggle up"); return false; },

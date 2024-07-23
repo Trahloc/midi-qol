@@ -4,7 +4,12 @@
   "description": "{{description}}",
 
   "version": "{{version}}",
-  "authors": [{ "name": "tposney" }],
+  "authors": [
+    { "name": "tposney",
+    "discord": "tposney#1462",
+    "ko-fi": "https://ko-fi.com/tposney"
+    }
+  ],
   "socket": true,
   "scripts": [],
   "esmodules": ["src/midi-qol.js"],
@@ -16,7 +21,7 @@
         "type": "system",
         "compatibility": {
           "minimum": "3.1",
-          "maximum": "3.3"
+          "maximum": "3.3.99"
         }
       },
       {

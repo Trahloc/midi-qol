@@ -1,12 +1,12 @@
-import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID, MQDamagetypes, MQOnUseOptions } from "../midi-qol.js";
+import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID, MQDamageRollTypes, MQOnUseOptions } from "../midi-qol.js";
 import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templateTokens } from "./itemhandling.js";
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects, canSee } from "./utils.js"
+import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects, canSee, calculateDamage } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
-import { mapSpeedKeys } from "./MidiKeyManager.js";
+import { MidiKeyManager, mapSpeedKeys } from "./MidiKeyManager.js";
 import { saveTargetsUndoData } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
@@ -45,6 +45,7 @@ export class Workflow {
   inCombat: boolean; // Is the item wielder in combat.
   isTurn: boolean; // Is it the item wielder's turn.
   AoO: boolean; // Is the attack an attack of
+  damageList: any[];
 
   _id: string;
   saveDisplayFlavor: string;
@@ -53,7 +54,6 @@ export class Workflow {
   get uuid() { return this._id }
   itemId: string;
   itemUuid: string;
-  castLevel: number;
   _currentState: number;
   public workflowAction: WorkflowState;
   isCritical: boolean;
@@ -240,7 +240,7 @@ export class Workflow {
     this.currentAction = this.WorkflowState_NoAction;
     this.suspended = true;
     this.aborted = false;
-    this.castLevel = item?.level || 0;
+    // this.spellLevel = item?.level || 0;
     this.displayId = this.id;
     this.itemCardData = {};
     this.attackCardData = undefined;
@@ -331,6 +331,11 @@ export class Workflow {
     this.kickStart = false;
   }
 
+  get spellLevel(): number {
+    let spellLevel;
+    if (this.chatCard) spellLevel = foundry.utils.getProperty(this.chatCard, "flags.dnd5e.use.spellLevel")
+    return spellLevel ?? this.item.level ?? 0;
+  }
   public someEventKeySet() {
     return this.event?.shiftKey || this.event?.altKey || this.event?.ctrlKey || this.event?.metaKey;
   }
@@ -390,7 +395,7 @@ export class Workflow {
       if (removeDamageButtons) {
         setTimeout(() => {
           const chatmessageElt = document?.querySelector(`[data-message-id="${chatMessage.id ?? "XXX"}"]`);
-          if (chatmessageElt) chatmessageElt?.querySelectorAll(".collapsible").forEach(ce => { if (!ce.classList.contains("collapsed")) ce.classList.add("collapsed") });
+          // if (chatmessageElt) chatmessageElt?.querySelectorAll(".collapsible").forEach(ce => { if (!ce.classList.contains("collapsed")) ce.classList.add("collapsed") });
         }, 1);
       }
     } catch (err) {
@@ -976,8 +981,8 @@ export class Workflow {
           shouldRoll = await evalActivationCondition(this, otherCondition, this.targets.first(), { async: true, errorReturn: false });
         if (shouldRoll) {
           let otherRollData = this.otherDamageItem?.getRollData();
-          otherRollData.spellLevel = this.rollOptions.spellLevel ?? this.castLevel ?? this.otherDamageItem.system.level;
-          foundry.utils.setProperty(otherRollData, "item.level", this.castLevel);
+          otherRollData.spellLevel = this.rollOptions.spellLevel ?? this.spellLevel ?? this.otherDamageItem.system.level;
+          foundry.utils.setProperty(otherRollData, "item.level", otherRollData.spellLevel);
           let otherRollResult = new Roll(this.otherDamageFormula, otherRollData, {});
           otherRollResult = await otherRollResult.evaluate();
           await this.setOtherDamageRoll(otherRollResult);
@@ -1001,7 +1006,7 @@ export class Workflow {
         this.item = new CONFIG.Item.documentClass(storedData, { parent: this.actor })
       }
 
-      this.rollOptions.spellLevel = this.castLevel;
+      this.rollOptions.spellLevel = this.spellLevel;
 
       this.item.rollDamage(this.rollOptions);
       return this.WorkflowState_Suspend;
@@ -1301,16 +1306,17 @@ export class Workflow {
               if (allDamages) {
                 totalDamage = allDamages.totalDamage;
                 damageApplied = allDamages.appliedDamage;
-                damageComponents = allDamages.tokenDamages.reduce((summary, damages) => {
-                  let damagesSummary = damages.reduce((damageComponents, damageEntry) => {
-                    damageComponents[damageEntry.type] = damageEntry.value + (damageComponents[damageEntry.type] ?? 0);
-                    return damageComponents;
+                damageComponents = [allDamages.tokenDamages["combinedDamage"], configSettings.singleConcentrationRoll ? [] : (allDamages.tokenDamages["otherDamage"] ?? [])]
+                  .reduce((summary, damages) => {
+                    let damagesSummary = damages.reduce((damageComponents, damageEntry) => {
+                      damageComponents[damageEntry.type] = damageEntry.value + (damageComponents[damageEntry.type] ?? 0);
+                      return damageComponents;
+                    }, {});
+                    Object.keys(damagesSummary).forEach(key => {
+                      summary[key] = damagesSummary[key] + (summary[key] ?? 0);
+                    });
+                    return summary;
                   }, {});
-                  Object.keys(damagesSummary).forEach(key => {
-                    summary[key] = damagesSummary[key] + (summary[key] ?? 0);
-                  });
-                  return summary;
-                }, {});
               }
             } else {
               damageListItem = this.damageList?.find(entry => entry.tokenUuid === (token.uuid ?? token.document.uuid));
@@ -1334,7 +1340,7 @@ export class Workflow {
               metaData,
               origin,
               selfEffects: "none",
-              spellLevel: (this.castLevel ?? 0),
+              spellLevel: this.spellLevel,
               toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
               tokenId: this.tokenId,
               tokenUuid: this.tokenUuid,
@@ -1344,7 +1350,9 @@ export class Workflow {
               context: {
                 damageComponents,
                 damageApplied,
-                damage: totalDamage  // this is curently ignored see damageTotal above
+                damage: totalDamage,  // this is curently ignored see damageTotal above
+                otherDamage: this.otherDamageTotal ?? 0,
+                bonusDamage: this.bonusDamageTotal ?? 0
               }
             })
           }
@@ -1411,7 +1419,7 @@ export class Workflow {
             {
               toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
               whisper: false,
-              spellLevel: this.castLevel,
+              spellLevel: this.spellLevel,
               critical: this.isCritical,
               fumble: this.isFumble,
               itemCardId: this.itemCardId,
@@ -1425,6 +1433,11 @@ export class Workflow {
               metaData,
               origin,
               damageTotal: (this.damageTotal ?? 0) + (this.otherDamageTotal ?? 0) + (this.bonusDamageTotal ?? 0),
+              context: {
+                damage: (this.damageTotal ?? 0),  // this is curently ignored see damageTotal above
+                otherDamage: this.otherDamageTotal ?? 0,
+                bonusDamage: this.bonusDamageTotal ?? 0
+              }
             })
         }
       }
@@ -1469,7 +1482,6 @@ export class Workflow {
     return this.WorkflowState_RollFinished;
   }
   async WorkflowState_Cleanup(context: any = {}): Promise<WorkflowState> {
-    // globalThis.MidiKeyManager.resetKeyState();
     if (this.placeTemplateHookId) {
       Hooks.off("createMeasuredTemplate", this.placeTemplateHookId);
       Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId);
@@ -1479,6 +1491,8 @@ export class Workflow {
     // TODO see if we can delete the workflow - I think that causes problems for Crymic
     //@ts-expect-error scrollBottom protected
     ui.chat?.scrollBottom();
+    globalThis.MidiKeyManager.resetKeyState();
+    globalThis.MidiKeyManager.resetStickyKeys();
     return this.WorkflowState_Completed;
   }
 
@@ -2469,14 +2483,15 @@ export class Workflow {
       otherDamageDetail: this.otherDamageDetail,
       otherDamageList: this.otherDamageList,
       otherDamageTotal: this.otherDamageTotal,
-      powerLevel: game.system.id === "sw5e" ? this.castLevel : undefined,
+      powerLevel: game.system.id === "sw5e" ? this.spellLevel : undefined,
       rollData: (this.item ?? this.actor).getRollData(),
       rollOptions: this.rollOptions,
       saves,
       saveUuids,
       semiSuperSavers,
       semiSuperSaverUuids,
-      spellLevel: this.castLevel,
+      castLevel: this.spellLevel,
+      spellLevel: this.spellLevel,
       superSavers,
       superSaverUuids,
       targets,
@@ -2886,6 +2901,7 @@ export class Workflow {
       attackType: this.item?.name ?? "",
       attackTotal: this.attackTotal,
       oneCard: configSettings.mergeCard,
+      collapsibleTargets: configSettings.collapsibleTargets,
       showHits,
       hits: this.hitDisplayData,
       isGM: game.user?.isGM,
@@ -3067,13 +3083,13 @@ export class Workflow {
         dnd5eTargetDetails = dnd5eTargets.map(t => {
           let uncannyDodge = foundry.utils.getProperty(t, `actor.flags.${MODULE_ID}.uncanny-dodge`) && this.item?.hasAttack;
           let saveMults: any = {};
-          for (let type of MQDamagetypes) {
-              saveMults[type] = getSaveMultiplierForItem(this.saveItem, type);
-              if (superSavers.has(t.uuid)) {
-                saveMults[type] = (saves.has(t) && saveMults[type]) === 0.5 ? 0 : 0.5;
-              } else if (semiSuperSavers.has(t.uuid)) {
-                saveMults[type] = (saves.has(t) && saveMults[type]) === 0.5 ? 0 : 1;
-              }
+          for (let type of MQDamageRollTypes) {
+            saveMults[type] = getSaveMultiplierForItem(this.saveItem, type);
+            if (superSavers.has(t.uuid)) {
+              saveMults[type] = (saves.has(t) && saveMults[type]) === 0.5 ? 0 : 0.5;
+            } else if (semiSuperSavers.has(t.uuid)) {
+              saveMults[type] = (saves.has(t) && saveMults[type]) === 0.5 ? 0 : 1;
+            }
           }
           return {
             name: t?.actor?.name,
@@ -3870,6 +3886,75 @@ export class Workflow {
     return true;
   }
 
+  setupv3DamageDetails(allDamages, selector, token: Token) {
+
+    const damages = allDamages[token.document.uuid];
+    let { amount, temp } = damages.tokenDamages[selector].reduce((acc, d) => {
+      if ( d.type === "temphp" ) acc.temp += d.value;
+      else acc.amount += d.value;
+      return acc;
+    }, { amount: 0, temp: 0 });
+    amount = amount > 0 ? Math.floor(amount) : Math.ceil(amount);
+    //@ts-expect-error
+    const as = token.actor?.system;
+    if (!as || !as.attributes.hp) return;
+    let effectiveTemp = as.attributes.hp.temp ?? 0;
+    if (temp < 0) {
+      // healing temp hp
+      effectiveTemp = Math.max(as.attributes.hp.temp ?? 0, -temp);
+    } else 
+      effectiveTemp = Math.max(0, (as.attributes.hp.temp ?? 0) - temp);
+    damages.tokenUuid = token.document.uuid;
+    damages.tokenId = token.id;
+    damages.oldHP = as.attributes.hp.value;
+    damages.newHP = as.attributes?.hp?.value;
+    damages.oldTempHP = as.attributes.hp.temp ?? 0;
+    damages.newTempHP = as.attributes.hp.temp ?? 0;
+    const deltaTemp = amount > 0 ? Math.min(effectiveTemp, amount) : 0;
+    //@ts-expect-error
+    const deltaHP = Math.clamp(amount - deltaTemp, -as.attributes.hp.damage, as.attributes.hp.value);
+    damages.newHP -= deltaHP;
+    damages.hpDamage = deltaHP;
+    damages.newTemp = Math.max(0, effectiveTemp - deltaTemp);
+    damages.tempDamage = damages.oldTempHP - damages.newTemp;
+    damages.wasHit = damages.isHit;
+    damages.appliedDamage = deltaHP;
+    damages.details = [];
+  }
+
+  async callv3DamageHooks(damages, token: Token) {
+    this.damageItem = damages;
+    //@ts-expect-error isEmpty
+    if (!foundry.utils.isEmpty(this) && configSettings.allowUseMacro && this.item?.flags) {
+      await this.callMacros(this.item, this.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
+      if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication", damages);
+    }
+
+    if (damages.appliedDamage !== 0 && (this.hitTargets.has(token) || this.hitTargetsEC.has(token) || this.saveItem.hasSave)) {
+      const healedDamaged = damages.appliedDamage < 0 ? "isHealed" : "isDamaged";
+      await asyncHooksCallAll(`midi-qol.${healedDamaged}`, token, { item: this.item, workflow: this, damageItem: damages, ditem: damages });
+      const actorOnUseMacros = foundry.utils.getProperty(token.actor ?? {}, `flags.${MODULE_ID}.onUseMacroParts`) ?? new OnUseMacros();
+      // It seems applyTokenDamageMany without a this gets through to here - so a silly guard in place TODO come back and fix this properly
+      if (this.callMacros) await this.callMacros(this.item,
+        actorOnUseMacros?.getMacros(healedDamaged),
+        "TargetOnUse",
+        healedDamaged,
+        { actor: token.actor, token: token });
+      const expiredEffects = getAppliedEffects(token?.actor, { includeEnchantments: true }).filter(ef => {
+        const specialDuration = foundry.utils.getProperty(ef, "flags.dae.specialDuration");
+        if (!specialDuration) return false;
+        return specialDuration.includes(healedDamaged);
+      }).map(ef => ef.uuid)
+      if (expiredEffects?.length ?? 0 > 0) {
+        await timedAwaitExecuteAsGM("removeEffectUuids", {
+          actorUuid: token.actor?.uuid,
+          effects: expiredEffects,
+          options: { "expiry-reason": `midi-qol:${healedDamaged}` }
+        });
+      }
+    }
+    Object.assign(damages, this.damageItem);
+  }
 
   processDefenceRoll(message, html, data) {
     if (!this.defenceRequests) return true;
@@ -4849,9 +4934,9 @@ export class TrapWorkflow extends Workflow {
       // fumble means no trap damage/effects
       return this.WorkflowState_RollFinished;
     }
-    if (debugEnabled > 1) debug("TrapWorkflow: Rolling damage ", this.event, this.castLevel, this.rollOptions.versatile, this.targets, this.hitTargets);
+    if (debugEnabled > 1) debug("TrapWorkflow: Rolling damage ", this.event, this.spellLevel, this.rollOptions.versatile, this.targets, this.hitTargets);
     this.rollOptions.fastForward = true;
-    this.rollOptions.spellLevel = this.castLevel;
+    this.rollOptions.spellLevel = this.spellLevel;
     this.item.rollDamage(this.rollOptions);
     return this.WorkflowState_Suspend; // wait for a damage roll to advance the state.
   }

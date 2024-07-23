@@ -733,7 +733,11 @@ function _midiATIRefresh(template) {
     //@ts-expect-error CONFIG.Levels
     const levelsTemplateData = CONFIG.Levels.handlers.TemplateHandler.getTemplateData(false);
     if (!template.document.elevation !== levelsTemplateData.elevation) {
-      foundry.utils.setProperty(template.document, "flags.levels.elevation", levelsTemplateData.elevation);
+      //@ts-expect-error
+      if (game.release.generation >= 12) {
+        template.document.elevation = levelsTemplateData.elevation;
+      }
+      else foundry.utils.setProperty(template.document, "flags.levels.elevation", levelsTemplateData.elevation);
     }
     // Filter which tokens to pass - not too far wall blocking is left to levels.
     let distance = template.distance;
@@ -863,7 +867,7 @@ function _DAgetTargetOptions(...args) {
     const targets = this?.chatMessage?.flags?.dnd5e?.targets ?? [];
     targetDetails = targets.find(target => target.uuid === uuid);
     if (!targetDetails) return options;
-    options.midi = duplicate(targetDetails);
+    options.midi = foundry.utils.duplicate(targetDetails);
     const saveMult = targetDetails.saveMults?.[damageType];
     if (targetDetails.saved) {
       foundry.utils.setProperty(options, "midi.saveMultiplier", saveMult ?? 0.5);
@@ -2077,7 +2081,7 @@ function itemGetRollData(wrapped, ...args) {
   data.item.flags = this.flags;
   data.item.midiFlags = foundry.utils.getProperty(this, "flags.midi-qol");
   data.item.name = this.name;
-  data.item.type = this.type;
+  data.item.itemType = this.type;
   return data;
 }
 function _filterItems(wrapped, items, filters) {

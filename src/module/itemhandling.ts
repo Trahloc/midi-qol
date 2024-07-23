@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MQdefaultDamageType, MODULE_ID } from "../midi-qol.js";
 import { DamageOnlyWorkflow, DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee, createConditionData, evalCondition } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -406,19 +406,24 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const needsSomatic = this.system.properties.has("somatic");
       const needsMaterial = this.system.properties.has("material");
       //TODO Consider how to disable this check for DamageOnly workflows and trap workflows
-      if (midiFlags?.fail?.spell?.all) {
+      const conditionData = createConditionData({actor: this.actor, item: this});
+      const notSpell = await evalCondition(midiFlags?.fail?.spell?.all, conditionData, { errorReturn: false, async: true });
+      if (notSpell) {
         ui.notifications?.warn("You are unable to cast the spell");
         return null;
       }
-      if ((midiFlags?.fail?.spell?.verbal || midiFlags?.fail?.spell?.vocal) && needsVerbal) {
+      const notVerbal = await evalCondition(midiFlags?.fail?.spell?.verbal, conditionData, {errorReturn: false, async: true});
+      if (notVerbal && needsVerbal) {
         ui.notifications?.warn("You make no sound and the spell fails");
         return null;
       }
-      if (midiFlags?.fail?.spell?.somatic && needsSomatic) {
+      const notSomatic = await evalCondition(midiFlags?.fail?.spell?.somatic, conditionData, {errorReturn: false, async: true});
+      if (notSomatic && needsSomatic) {
         ui.notifications?.warn("You can't make the gestures and the spell fails");
         return null;
       }
-      if (midiFlags?.fail?.spell?.material && needsMaterial) {
+      const notMaterial = await evalCondition(midiFlags?.fail?.spell?.material, conditionData, {errorReturn: false, async: true});
+      if (notMaterial && needsMaterial) {
         ui.notifications?.warn("You can't use the material component and the spell fails");
         return null;
       }
@@ -437,11 +442,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     workflow.options = options;
     workflow.attackingToken = tokenToUse;
     workflow.rangeDetails = rangeDetails;
-    workflow.castData = {
-      baseLevel: this.system.level,
-      castLevel: workflow.castLevel,
-      itemUuid: workflow.itemUuid
-    };
+
     if (configSettings.undoWorkflow) await saveUndoData(workflow);
 
     workflow.rollOptions.versatile = workflow.rollOptions.versatile || versatile || workflow.isVersatile;
@@ -572,6 +573,11 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     const autoCreatetemplate = tokenToUse && hasAutoPlaceTemplate(this);
     let result = await wrapped(workflow.config, foundry.utils.mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
+    workflow.castData = {
+      baseLevel: this.system.level,
+      castLevel: workflow.spellLevel,
+      itemUuid: workflow.itemUuid
+    };
     if (!result) {
       await workflow.performState(workflow.WorkflowState_Abort)
       return null;
@@ -997,8 +1003,8 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
 
       const damageRollData = {
         critical: workflow.workflowOptions?.critical || (workflow.rollOptions.critical || workflow.isCritical || critical),
-        spellLevel: workflow.rollOptions.spellLevel,
-        powerLevel: workflow.rollOptions.spellLevel,
+        spellLevel: workflow.rollOptions.spellLevel ?? workflow.spellLevel,
+        powerLevel: workflow.rollOptions.spellLevel ?? workflow.spellLevel,
         versatile: workflow.rollOptions.versatile,
         // dnd3 event: {},
         event: undefined,
@@ -1141,12 +1147,12 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
       otherRollOptions.critical = (workflow.otherDamageItem?.flags.midiProperties?.critOther ?? false) && (workflow.isCritical || workflow.rollOptions.critical);
       if ((workflow.otherDamageFormula ?? "") !== "") { // other damage formula swaps in versatile if needed
         let otherRollData = workflow.otherDamageItem?.getRollData();
-        otherRollData.spellLevel = spellLevel;
-        foundry.utils.setProperty(otherRollData, "item.level", spellLevel);
+        otherRollData.spellLevel = spellLevel ?? workflow.spellLevel;
+        foundry.utils.setProperty(otherRollData, "item.level", otherRollData.spellLevel);
         let otherRollResult = new DamageRoll(workflow.otherDamageFormula, otherRollData, otherRollOptions);
         otherRollResult = Roll.fromTerms(otherRollResult.terms); // coerce it back to a roll
         // let otherRollResult = new Roll.fromRoll((workflow.otherDamageFormula, otherRollData, otherRollOptions);
-        otherResult = await otherRollResult?.evaluate({ async: true, maximize: needsMaxDamage, minimize: needsMinDamage });
+        otherResult = await otherRollResult?.evaluate({ maximize: needsMaxDamage, minimize: needsMinDamage });
         if (otherResult?.total !== undefined) {
           switch (game.system.id) {
             case "sw5e":
@@ -1251,21 +1257,9 @@ export function preItemUsageConsumptionHook(item, config, options): boolean {
   /* Spell level can be fetched in preItemUsageConsumption */
   if (!game.settings.get(MODULE_ID, "EnableWorkflow")) return true;
   const workflow = Workflow.getWorkflow(item.uuid);
-  if (!workflow) {
-    if (!game.settings.get(MODULE_ID, "EnableWorkflow")) {
-      const message = `Failed to find workflow in preItemUsageConsumption for ${item?.name} ${item?.uuid}`;
-      error(message);
-      TroubleShooter.recordError(new Error(message), message);
-    }
-    return true;
-  }
+  if (!workflow) return true
   // need to get spell level from the html returned in result
-  if (item.type === "spell") {
-    workflow.castLevel = item.system.level;
-    workflow.castData.castLevel = item.system.level;
-  }
-  if (item.type === "power") {
-    workflow.castLevel = item.system.level;
+  if (item.type === "spell" || item.type === "power") {
     workflow.castData.castLevel = item.system.level;
   }
   workflow.dnd5eConsumptionConfig = config;
@@ -1289,7 +1283,6 @@ export async function wrappedDisplayCard(wrapped, options) {
     let { systemCard, workflowId, minimalCard, createMessage, workflow } = options ?? {};
     // let workflow = options.workflow; // Only DamageOnlyWorkflow passes this in
     if (workflowId) workflow = Workflow.getWorkflow(this.uuid);
-    if (workflow) workflow.castLevel = this.system.level;
     if (systemCard === undefined) systemCard = false;
     if (!workflow) return wrapped(options);
     if (debugEnabled > 0) warn("show item card ", this, this.actor, this.actor.token, systemCard, workflow);
@@ -1693,7 +1686,6 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   workflow.templateUuid = templateDocument?.uuid;
   // if (user === game.user?.id && item) templateDocument.setFlag(MODULE_ID, "originUuid", item.uuid); // set a refernce back to the item that created the template.
   if (targeting === "none") { // this is no good
-
     Hooks.callAll("midi-qol-targeted", workflow.targets);
     return true;
   }
@@ -1713,7 +1705,6 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   if (workflow.needTemplate) {
     workflow.needTemplate = false;
     if (workflow.suspended) workflow.unSuspend.bind(workflow)({ templateDocument });
-    // TODO NW return workflow.performState(workflow.WorkflowState_AwaitTemplate);
   }
   return;
 };

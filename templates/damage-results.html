@@ -20,12 +20,16 @@
                     style="border:0px">
                 </div>
                 <div class="midi-qol-tooltiptext" style="text-align: left;">
+                  {{#if damage.tooltip}}
+                  <div>{{{damage.tooltip}}}</div>
+                  {{else}}
                   <div>{{damage.di}}</div>
                   <div>{{damage.dr}}</div>
                   <div>{{damage.dv}}</div>
                   <div>{{damage.da}}</div>
                   <div>{{damage.DR}}</div>
                   <div>{{damage.dm}}</div>
+                  {{/if}}
                 </div>
                 </img>
               </div>

@@ -3,45 +3,98 @@
   <div>{{attackType}}</div>
   {{/unless}}
   <div class="dnd5e2 evaluation">
+    {{#if collapsibleTargets}}
+    <div class="card-tray targets-tray collapsible">
+      <label class="roboto-upper">
+        <i class="fas fa-bullseye" inert></i>
+        <span>{{localize "DND5E.TargetPl"}}</span>
+        <i class="fas fa-caret-down" inert></i>
+      </label>
+      <div class="collapsible-content">
+        <ul class="dnd5e2 unlist evaluation wrapper">
+          {{#each hits as |hit iid|}}
+          <li data-uuid="${uuid}">
+            <div class="midi-qol midi-qol-hit-class target {{hit.hitClass}}" style="align-content: center;">
+              <i class="midi-qol-hit-symbol fas {{hit.hitSymbol}}"></i>
+              <img src="{{hit.img}}"
+                style="background-color: var(--dnd5e-background-10); width: 22px !important; height: 22px !important;" />
+              <div class="name-stacked">
+                <span class="midi-qol-target-name title midi-qol-gmTokenName" id="{{hit.target.id}}"
+                  data-uuid="{{hit.target.document.uuid}}">
+                  {{{hit.gmName}}}
+                </span>
+                <span class="midi-qol-target-name title midi-qol-playerTokenName" id="{{hit.target.id}}"
+                  data-uuid="{{hit.target.document.uuid}}">
+                  {{hit.playerName}}
+                </span>
+              </div>
+              {{#if showAC}}
+              <div class="midi-qol-hit-class {{hit.acClass}}">
+                <span>
+                  <i class="fas fa-shield-halved"></i>
+                  {{#if hit.bonusAC}}
+                  <span style="font-weight: bold;">{{hit.ac}}+{{hit.bonusAC}}</span>
+                  {{else}}
+                  <span style="font-weight: bold;">{{hit.ac}}</span>
+                  {{/if}}
+                </span>
+              </div>
+              {{else}}
+              {{#if hit.bonusAC}}
+              <div class="midi-qol-hit-class {{hit.acClass}}">
+                <span>
+                  <i class="fas fa-shield-halved"></i>
+                  <span style="font-weight: bold;">+{{hit.bonusAC}}</span>
+                </span>
+              </div>
+              {{/if}}
+              {{/if}}
+            </div>
+          </li>
+          {{/each}}
+        </ul>
+      </div>
+    </div>
+    {{else}}
     {{#each hits as |hit iid|}}
-    <div>
-      <div class="midi-qol midi-qol-hit-class target {{hit.hitClass}}" style="align-content: center;">
-        <img src="{{hit.img}}" style="background-color: var(--dnd5e-background-10);" />
-        
-        <div class="name-stacked">
-          <span class="midi-qol-target-name title midi-qol-gmTokenName" id="{{hit.target.id}}"
-            data-uuid="{{hit.target.document.uuid}}">
-            {{{hit.gmName}}}
-            <i class="midi-qol-hit-symbol fas {{hit.hitSymbol}}"></i>
-          </span>
-          <span class="midi-qol-target-name title midi-qol-playerTokenName" id="{{hit.target.id}}"
-            data-uuid="{{hit.target.document.uuid}}">
-            {{hit.playerName}}
-            <i class="midi-qol-hit-symbol fas {{hit.hitSymbol}}"></i>
-          </span>
-        </div>
-        {{#if showAC}}
-        <div class="midi-qol-hit-class {{hit.acClass}}">
-          <span>
-            <i class="fas fa-shield-halved"></i>
-            {{#if hit.bonusAC}}
-            <span style="font-weight: bold;">{{hit.ac}}+{{hit.bonusAC}}</span>
-            {{else}}
-            <span style="font-weight: bold;">{{hit.ac}}</span>
-            {{/if}}
-          </span>
-        </div>
-        {{else}} 
-        {{#if hit.bonusAC}}
-          <div class="midi-qol-hit-class {{hit.acClass}}">
-            <span>
-              <i class="fas fa-shield-halved"></i>
-              <span style="font-weight: bold;">+{{hit.bonusAC}}</span>
-            </span>
-            {{/if}}
+    <div class="midi-qol midi-qol-hit-class target {{hit.hitClass}}" style="align-content: center;">
+      <img src="{{hit.img}}" style="background-color: var(--dnd5e-background-10);" />
+
+      <div class="name-stacked">
+        <span class="midi-qol-target-name title midi-qol-gmTokenName" id="{{hit.target.id}}"
+          data-uuid="{{hit.target.document.uuid}}">
+          {{{hit.gmName}}}
+          <i class="midi-qol-hit-symbol fas {{hit.hitSymbol}}"></i>
+        </span>
+        <span class="midi-qol-target-name title midi-qol-playerTokenName" id="{{hit.target.id}}"
+          data-uuid="{{hit.target.document.uuid}}">
+          {{hit.playerName}}
+          <i class="midi-qol-hit-symbol fas {{hit.hitSymbol}}"></i>
+        </span>
+      </div>
+      {{#if showAC}}
+      <div class="midi-qol-hit-class {{hit.acClass}}">
+        <span>
+          <i class="fas fa-shield-halved"></i>
+          {{#if hit.bonusAC}}
+          <span style="font-weight: bold;">{{hit.ac}}+{{hit.bonusAC}}</span>
+          {{else}}
+          <span style="font-weight: bold;">{{hit.ac}}</span>
+          {{/if}}
+        </span>
+      </div>
+      {{else}}
+      {{#if hit.bonusAC}}
+      <div class="midi-qol-hit-class {{hit.acClass}}">
+        <span>
+          <i class="fas fa-shield-halved"></i>
+          <span style="font-weight: bold;">+{{hit.bonusAC}}</span>
+        </span>
         {{/if}}
+        {{/if}}
+
       </div>
     </div>
     {{/each}}
+    {{/if}}
   </div>
-</div>

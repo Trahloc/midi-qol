@@ -1,12 +1,36 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 * 11.5.0 
-  - will be dnd5e v3.2+ only. Tentative date July 22. 
+  - will be dnd5e v3.2+ only. Tentative date July 29. 
 * 11.6.0 
-  - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date July 29. You are actively encouraged to both try v3 damage calculation/application and report bugs
+  - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date August 5. You are actively encouraged to both try v3 damage calculation/application and report bugs
   - will remove concentration-data from midi-qol, all use will swtich to dependents. Currently midi-only supports backwards compatible concentration-data. 
 * 12.0.0 
- - will be v12 only. Tentative date August  15 - assuming the most popular modules dependent on midi are v12 ready. 
+ - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
+
+### 11.4.43
+* Fix for levelsVolumetricTemplates not getting elevation set correctly in v12.
+* Fix for reaction/bonus action checking failing in v11 when using Convenient Effects set to replace status effects.
+* vocal/somatic/material flags now can be conditions instead of true/false.
+* Fix for completeItemUse not using targeted tokens by default.
+* **Breaking** To sidestep a problem with midi accelerator keys getting stuck when using the electron app, midi will now clear all such keys when the roll completes. This means you will have to release and press the advantage key (for example) after each attack .
+* Midi marked as compatible with dnd5e 3.3. A sight change to hit target displays to align with dnd5e chat card.
+* Switch to using the dnd5e setting to auto collapse trays, rather than midi doing it by itself.
+* Option to use collapsible targets, as dnd5e does, set in the misc tab.
+* Fix for bonus damage rolls with max critical damage dice.
+* Fix for item.getRollData(), which would overwrite the system.type information with item.type. You can get item.type (i.e. weapon/feature etc) from rollData.item.itemType. rollData.item.type will be item.system.type.
+* dnd5e damage application now uses the same data structures as midi-qol damage application.
+  - single/dual concentration checks now work.
+  - player damage card now works.
+  - Should now call the right isDamaged hooks/onUse macros (WIP). Only oldHP, hpDamage, oldTempHP, tempDamage, oldVitality and newVitality are "live" (i.e. used in calculating damage applied), changing these will change the damage appied to the target. Others are cosmetic only for the reverse damage card.
+  - Now calls dnd5e.preDamageApplication to allow macros to block/modify damage application after all calculations are complete. Passes the updates that will be applied to the token, providing a last place to modify the damage applied.
+  - workflow.damageItem is the live damage item being processed inside the hook/macro call.
+  - for other hooks pcalled rior to damage being calculated workflow.damageList is the live damage that midi will apply,
+  - As well as the dnd5e.preCalculateDamage and dnd5e.calculateDamage hooks (called by dnd5e), midi will call midi-qol.dnd5ePreCalculdateDamage and midi-qol.dnd5eCalculateDamage, same arguments as the dnd5e hooks, but guaranteed to be called after midi has done its calculations. The damages object passed in these hooks is "live" so changes made will affect the damage applied to the target, These hooks are not async. 
+  - The hooks will be called multiple times for the same item roll as dnd5e calls calculate damage multiple times due to the chat card updates. When processing the hook you can check options.midi.applyDamage. If true this is the calculate damage call that will actually apply damage to the target.
+  - See Mace of disruption for a damage hook/onuseMacro combination that works with both dnd5e/midi damage.
+  - Macros/hooks have the ability to include flavor text in the damage application tooltip. damageItem.details is an array of strings that will be included in the reverse damage chat card. See mace of disruption for an example.
+
 
 ### 11.4.42
 * Fix for super savers and semi super savers in dnd damage application.
