@@ -406,23 +406,23 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const needsSomatic = this.system.properties.has("somatic");
       const needsMaterial = this.system.properties.has("material");
       //TODO Consider how to disable this check for DamageOnly workflows and trap workflows
-      const conditionData = createConditionData({actor: this.actor, item: this});
+      const conditionData = createConditionData({ actor: this.actor, item: this });
       const notSpell = await evalCondition(midiFlags?.fail?.spell?.all, conditionData, { errorReturn: false, async: true });
       if (notSpell) {
         ui.notifications?.warn("You are unable to cast the spell");
         return null;
       }
-      const notVerbal = await evalCondition(midiFlags?.fail?.spell?.verbal, conditionData, {errorReturn: false, async: true});
+      const notVerbal = await evalCondition(midiFlags?.fail?.spell?.verbal, conditionData, { errorReturn: false, async: true });
       if (notVerbal && needsVerbal) {
         ui.notifications?.warn("You make no sound and the spell fails");
         return null;
       }
-      const notSomatic = await evalCondition(midiFlags?.fail?.spell?.somatic, conditionData, {errorReturn: false, async: true});
+      const notSomatic = await evalCondition(midiFlags?.fail?.spell?.somatic, conditionData, { errorReturn: false, async: true });
       if (notSomatic && needsSomatic) {
         ui.notifications?.warn("You can't make the gestures and the spell fails");
         return null;
       }
-      const notMaterial = await evalCondition(midiFlags?.fail?.spell?.material, conditionData, {errorReturn: false, async: true});
+      const notMaterial = await evalCondition(midiFlags?.fail?.spell?.material, conditionData, { errorReturn: false, async: true });
       if (notMaterial && needsMaterial) {
         ui.notifications?.warn("You can't use the material component and the spell fails");
         return null;
@@ -573,11 +573,13 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 
     const autoCreatetemplate = tokenToUse && hasAutoPlaceTemplate(this);
     let result = await wrapped(workflow.config, foundry.utils.mergeObject(options, { workflowId: workflow.id }, { inplace: false }));
-    workflow.castData = {
-      baseLevel: this.system.level,
-      castLevel: workflow.spellLevel,
-      itemUuid: workflow.itemUuid
-    };
+    if (this.type === "spell" || this.type === "power") {
+      workflow.castData = {
+        baseLevel: this.system.level,
+        castLevel: workflow.spellLevel,
+        itemUuid: workflow.itemUuid
+      };
+    }
     if (!result) {
       await workflow.performState(workflow.WorkflowState_Abort)
       return null;
@@ -1258,10 +1260,7 @@ export function preItemUsageConsumptionHook(item, config, options): boolean {
   if (!game.settings.get(MODULE_ID, "EnableWorkflow")) return true;
   const workflow = Workflow.getWorkflow(item.uuid);
   if (!workflow) return true
-  // need to get spell level from the html returned in result
-  if (item.type === "spell" || item.type === "power") {
-    workflow.castData.castLevel = item.system.level;
-  }
+
   workflow.dnd5eConsumptionConfig = config;
   return true;
 }

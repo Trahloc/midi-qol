@@ -2,11 +2,11 @@ import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debug
 import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templateTokens } from "./itemhandling.js";
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
-import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
+import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuid, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects, canSee, calculateDamage } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
-import { MidiKeyManager, mapSpeedKeys } from "./MidiKeyManager.js";
+import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { saveTargetsUndoData } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
@@ -1491,8 +1491,6 @@ export class Workflow {
     // TODO see if we can delete the workflow - I think that causes problems for Crymic
     //@ts-expect-error scrollBottom protected
     ui.chat?.scrollBottom();
-    globalThis.MidiKeyManager.resetKeyState();
-    globalThis.MidiKeyManager.resetStickyKeys();
     return this.WorkflowState_Completed;
   }
 
@@ -2901,7 +2899,8 @@ export class Workflow {
       attackType: this.item?.name ?? "",
       attackTotal: this.attackTotal,
       oneCard: configSettings.mergeCard,
-      collapsibleTargets: configSettings.collapsibleTargets,
+      //@ts-expect-error
+      collapsibleTargets: configSettings.collapsibleTargets && foundry.utils.isNewerVersion(game.system.version, "3.2.99"),
       showHits,
       hits: this.hitDisplayData,
       isGM: game.user?.isGM,
@@ -2915,14 +2914,6 @@ export class Workflow {
       var content = chatMessage && foundry.utils.duplicate(chatMessage.content);
       var searchString;
       var replaceString;
-      // TODO test if we are doing better rolls rolls for the new chat cards and damageonlyworkflow
-
-      /*
-      if (content && getRemoveAttackButtons() && showHits) {
-        const searchRe = /<button data-action="attack">[^<]*<\/button>/;
-        content = content.replace(searchRe, "");
-      }
-      */
       searchString = /<div class="midi-qol-hits-display">[\s\S]*?<div class="end-midi-qol-hits-display">/;
       replaceString = `<div class="midi-qol-hits-display">${hitContent}<div class="end-midi-qol-hits-display">`
       content = content.replace(searchString, replaceString);
@@ -2976,7 +2967,6 @@ export class Workflow {
           if (rollMode === "blindroll") {
             chatData["blind"] = true;
           }
-
           if (debugEnabled > 1) debug("Trying to whisper message", chatData)
         }
         if (showHits) {
@@ -4317,10 +4307,12 @@ export class Workflow {
         hitSymbol = "fa-times";
       }
       let hitStyle = "";
-      if (configSettings.highlightSuccess) {
+      /* success highlighting needs to be in chatmessage handling
+      if (configSettings.highlightSuccess && safeGetGameSetting("dnd5e", "attackVisibility") !== "none") {
         if (isHit || isHitEC) hitStyle = "color: green;";
         else hitStyle = "color: red;";
       }
+      */
       //TODO work out hot to do
       if (attackTotal !== this.attackTotal) {
         if (!configSettings.displayHitResultNumeric &&

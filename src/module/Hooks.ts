@@ -148,6 +148,17 @@ export let readyHooks = async () => {
 
   Hooks.on("dnd5e.preItemUsageConsumption", preItemUsageConsumptionHook);
 
+  //@ts-expect-error
+  if (foundry.utils.isNewerVersion("12.1.0", game.modules.get("babonus")?.version ?? "0"))
+    registerBaBonusHooks();
+
+  Hooks.on("dnd5e.rollDeathSave", deathSaveHook);
+  // Concentration Check is rolled as an item roll so we need an item.
+  itemJSONData.name = concentrationCheckItemName;
+}
+
+function registerBaBonusHooks() {
+  if (!game.modules.get("babonus")?.active) return;
   // Midi sets fastForward to true for most of these rolls - based on roll settings
   // need to handle the cases where there is an optional babonus defined and disable fastforward.
 
@@ -208,10 +219,6 @@ export let readyHooks = async () => {
       combat.rollInitiative(combatantIds, { updateTurn: true }).then(() => combat.update({ turn: 0 }));
     }
   });
-
-  Hooks.on("dnd5e.rollDeathSave", deathSaveHook);
-  // Concentration Check is rolled as an item roll so we need an item.
-  itemJSONData.name = concentrationCheckItemName;
 }
 export async function restManager(actor, result) {
   if (!actor || !result)
@@ -672,6 +679,10 @@ export function initHooks() {
     item?.use();
     return true;
   })
+
+  //@ts-expect-error
+  if (foundry.utils.isNewerVersion(game.modules.get("babonus")?.version ?? "0", "12.0.5"))
+    Hooks.once("babonus.initializeRollHooks", registerBaBonusHooks);
 }
 
 function setupMidiFlagTypes() {
@@ -949,19 +960,6 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
           }
         }
       }
-      /*
-      for (let damage of damages) {
-        if (mo.saved) {
-          foundry.utils.setProperty(damage, "active.saved", true);
-        }
-        if (mo.superSaver && mo.saved) {
-          foundry.utils.setProperty(damage, "active.superSaver", true);
-        }
-        if (mo.semiSuperSaver && mo.saved) {
-          foundry.utils.setProperty(damage, "active.semiSuperSaver", true);
-        }
-      }
-*/
       if ((mo?.uncannyDodge)) {
         for (let damage of damages) {
           if (ignore("uncannyDodge", damage.type, true)) continue;
@@ -1022,41 +1020,20 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
   // Handle custom immunities
   for (let trait of ["da", "dv", "di", "dr"]) {
     if ((actor.system.traits[trait]?.custom?.length ?? 0) > 0) {
-      customs = actor.system.traits[trait].custom.split(";").map(s => s.trim());
-      for (let custom of customs) {
-        switch (custom) {
-          case "spell":
-            for (let damage of damages) {
-              if (GameSystemConfig.healingTypes[damage.type]) continue;
-              if (ignore("spell", damage.type, false) || damage.active["spell"]) continue;
-              if (damage.properties.has("spell")) {
-                damage.active["spell"] = true;
-                damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
-                damage.value = damage.value * traitMultipliers[trait];
-              }
-            }
-          case "nonmagic":
-            for (let damage of damages) {
-              if (GameSystemConfig.healingTypes[damage.type]) continue;
-              if (ignore("nonmagic", damage.type, false) || damage.active["nonmagic"]) continue;
-              if (!damage.properties.has("magic") && !damage.properties.has("spell")) {
-                damage.active["nonmagic"] = true;
-                damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
-                damage.value = damage.value * traitMultipliers[trait];
-              }
-            }
-          case "magic":
-            for (let damage of damages) {
-              if (GameSystemConfig.healingTypes[damage.type]) continue;
-              if (ignore("magic", damage.type, false) || damage.active["magic"]) continue;
-              if (damage.properties.has("mgc") || damage.properties.has("spell")) {
-                damage.active["magic"] = true;
-                damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
-                damage.value = damage.value * traitMultipliers[trait];
-              }
-            }
+      actor.system.traits[trait].custom.split(";").map(s => s.trim()).forEach(custom => {
+        for (let damage of damages) {
+          if (GameSystemConfig.healingTypes[damage.type]) return;
+          if (ignore(custom, damage.type, false) || damage.active[custom]) return;
+          switch (custom) {
+            case "spell": if (!damage.properties.has("spell")) return;
+            case "nonmagic": if (damage.properties.has("magic") || damage.properties.has("spell")) return;
+            case "magic": if (!damage.properties.has("magic") && !damage.properties.has("spell")) return;
+          }
+          damage.active[custom] = true;
+          damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
+          damage.value = damage.value * traitMultipliers[trait];
         }
-      }
+      });
     }
   }
 

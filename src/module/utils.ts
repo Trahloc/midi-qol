@@ -293,9 +293,8 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
       }
 
       const bypasses = actor.system.traits[type].bypasses ?? new Set();
-      if (magicalDamage && physicalDamage && bypasses.has("mgc")) continue; // magical damage bypass of trait.
-      if (adamantineDamage && physicalDamage && bypasses.has("ada")) continue;
-      if (silverDamage && physicalDamage && bypasses.has("sil")) continue;
+      let bypassTrait = item.system.properties.intersection(bypasses).size > 0;
+      if (physicalDamage && bypassTrait) continue;
       // process new custom field versions
       if (!["healing", "temphp"].includes(dmgTypeString)) {
         if (customs.includes(dmgTypeString) || trait.has(dmgTypeString)) {
@@ -551,7 +550,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
         }
         const nonMagicalPhysicalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical-physical`);
         if (!nonMagicalPysicalDRUsed && physicalDamage && !magicalDamage && nonMagicalPhysicalProperty) {
-          const DR = (await new Roll(`${nonMagicalPhysicalProperty}) || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
+          const DR = (await new Roll(`${nonMagicalPhysicalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
           if (DR < 0) {
             damageDetailItem.damage -= DR;
           } else {

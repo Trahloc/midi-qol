@@ -65,7 +65,7 @@ export function checkOverTimeSaves(message, data, options, user) {
         await doOverTimeEffect(actor, effect, true, { saveToUse: roll, rollFlags: data.flags?.dnd5e?.roll, isActionSave: true })
       }
     };
-    func(actor, data.flags.dnd5e.roll, message.rolls[message.rolls.length -1]);
+    func(actor, data.flags.dnd5e.roll, message.rolls[message.rolls.length - 1]);
   } catch (err) {
     const message = `checkOverTimeSaves error for ${actor?.name} ${actor.uuid}`;
     console.warn(message, err);
@@ -217,7 +217,7 @@ export let hideStuffHandler = (message, html, data) => {
       // html.find(".dice-result").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`); Monks saving throw css
       //TODO this should probably just check formula
     }
-    if ((configSettings.autoCheckHit === "whisper" || message.blind)) {
+    if (configSettings.autoCheckHit === "whisper" || message.blind || safeGetGameSetting("dnd5e", "attackRollVisibility") === "none") {
       if (configSettings.mergeCard) {
         html.find(".midi-qol-hits-display").hide();
       } else if (html.find(".midi-qol-single-hit-card").length === 1 && data.whisper) {
@@ -232,14 +232,14 @@ export let hideStuffHandler = (message, html, data) => {
       }
     }
 
-        // message.shouldDisplayChallenge returns true for message owners, which is not quite what we want.
-        let shouldDisplayChallenge = true;
-        if (game.user?.isGM) shouldDisplayChallenge = true;
-        else switch (safeGetGameSetting("dnd5e", "challengeVisibility")) {
-          case "all": shouldDisplayChallenge = true; break;
-          case "player": shouldDisplayChallenge = !game.user?.isGM; break;
-          default: shouldDisplayChallenge = false; break;
-        }
+    // message.shouldDisplayChallenge returns true for message owners, which is not quite what we want.
+    let shouldDisplayChallenge = true;
+    if (game.user?.isGM) shouldDisplayChallenge = true;
+    else switch (safeGetGameSetting("dnd5e", "challengeVisibility")) {
+      case "all": shouldDisplayChallenge = true; break;
+      case "player": shouldDisplayChallenge = !game.user?.isGM; break;
+      default: shouldDisplayChallenge = false; break;
+    }
     // Hide the save dc if required
     if (!configSettings.displaySaveDC || !shouldDisplayChallenge) {
       html.find(".midi-qol-saveDC").remove();
@@ -248,17 +248,31 @@ export let hideStuffHandler = (message, html, data) => {
       }
     }
     if (!shouldDisplayChallenge) {
-      html.find(".midi-qol-hits-display .midi-qol-hit-symbol").remove();
-      html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("hit");
-      html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("miss");
       html.find(".midi-qol-saves-display .midi-qol-save-symbol").remove();
       html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("hit");
       html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("miss");
     }
-    if (!configSettings.displayHitResultNumeric || !shouldDisplayChallenge) {
-      html.find(".midi-qol-npc-ac").remove();
+    if (safeGetGameSetting("dnd5e", "attackRollVisibility")) {
+      const visibility = safeGetGameSetting("dnd5e", "attackRollVisibility");
+      if (visibility === "none") {
+        html.find(".midi-qol-hits-display .midi-qol-hit-symbol").remove();
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("hit");
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("miss");
+        html.find(".midi-qol-hit-symbol").remove();
+        html.find(".midi-qol-npc-ac").remove();
+      } else if (visibility === "hideAC" || !configSettings.displayHitResultNumeric) {
+        html.find(".midi-qol-npc-ac").remove();
+      }
+    } else {
+      if (!shouldDisplayChallenge) {
+        html.find(".midi-qol-hits-display .midi-qol-hit-symbol").remove();
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("hit");
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("miss");
+      }
+      if (!configSettings.displayHitResultNumeric || !shouldDisplayChallenge) {
+        html.find(".midi-qol-npc-ac").remove();
+      }
     }
-
     if (message.user?.id !== game.user?.id || configSettings.confirmAttackDamage === "gmOnly") {
       html.find(".midi-qol-confirm-damage-roll-complete-hit").hide();
       html.find(".midi-qol-confirm-damage-roll-complete-miss").hide();

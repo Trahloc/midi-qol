@@ -1,7 +1,7 @@
 import { GameSystemConfig, MQDamageRollTypes, debugEnabled, i18n, log, warn } from "../midi-qol.js";
 import { chatDamageButtons } from "./chatMessageHandling.js";
 import { setDamageRollMinTerms } from "./itemhandling.js";
-import { addChatDamageButtons, configSettings } from "./settings.js";
+import { addChatDamageButtons, configSettings, safeGetGameSetting } from "./settings.js";
 import { getDamageType } from "./utils.js";
 
 export function defineChatMessageMidiClass(baseClass: any) {
@@ -200,6 +200,23 @@ export function defineChatMessageMidiClass(baseClass: any) {
         }
       }
     }
+/*
+          // Dnd 3.3.1 introduced attack roll visibility - that takes precedence,
+          let visibility = safeGetGameSetting("dnd5e", "attackRollVisibility");
+          if (!visibility)  {
+            switch (configSettings.autoCheckHit) {
+              case "none":
+                visibility = "none";
+                break;
+              case "all":
+                visibility = "all";
+                break;
+              case "whisper":
+                visibility = "hideAC";
+                break
+            }
+          }
+          */
     enrichAttackRolls(html) {
       if (!this.user.isGM || game.user?.isGM) return;
       const hitFlag = foundry.utils.getProperty(this, "flags.midi-qol.isHit");

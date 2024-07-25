@@ -1,12 +1,22 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 * 11.5.0 
   - will be dnd5e v3.2+ only. Tentative date July 29. 
+  - change target display to use dnd5e target details && fully support attack roll display config - remove midi's hit display control.
+  - enhance challenge display support
+  - attack rolls to be migrated to dnd5e attack rolls.
 * 11.6.0 
   - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date August 5. You are actively encouraged to both try v3 damage calculation/application and report bugs
   - will remove concentration-data from midi-qol, all use will swtich to dependents. Currently midi-only supports backwards compatible concentration-data. 
 * 12.0.0 
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
+
+### 11.4.44
+* Better fix for sticky keys thanks @Andrea
+* Custom bypasses now work with midi-qol damage.
+* Fix for chat card display broken when checking for hits and only GM sees.
+* Midi mostly respects the 3.3.1 dnd5e setting Attack Roll Visibility. The most restrictive setting takes precedence, and disabling hit checking in midi takes absolute precedence.
+* Change so that collapsible targets is only available in dnd 3.3+
 
 ### 11.4.43.1
 * Fix for not being able to disable automatic template removal.

@@ -49,12 +49,6 @@ export class MidiKeyManager {
     window.addEventListener('keyup', (event) => this.handleKeyUpEvent(event));
   }
 
-  resetStickyKeys() {
-    if (!configSettings.fixStickyKeys) return;
-    //@ts-expect-error
-    game.keyboard?.downKeys.clear();
-  }
-
   handleKeyUpEvent(event) { // Not being used TODO remove if not required
     if (!configSettings.fixStickyKeys) return;
     if (event.isComposing) return;
@@ -68,7 +62,6 @@ export class MidiKeyManager {
     // Don't do anything if downKeys for the key is not set
     // Had to take this out since ctrl-space removes the downKey(Control) but does not send a CTRL-Up status
     //@ts-ignore .downKeys
-    // if (!keyboardManager?.downKeys.has(context.key)) return;
     if (!(keyboardManager?.hasFocus && ["Control", "Alt", "Shift"].includes(context.event.key))) return;
     //@ts-ignore
     keyboardManager?.downKeys.delete(context.key);
@@ -100,14 +93,14 @@ export class MidiKeyManager {
     }
 
     // Don't Cancel event since it should do whatever else it is supposed to.
-    if ( handled && context.event ) {
-      if ( debug.keybindings ) console.log("Event was not consumed");
+    if (handled && context.event) {
+      if (debug.keybindings) console.log("Event was not consumed");
     }
     if (debug.keybindings) console.groupEnd();
   }
   getstate(): Options {
-    const state: Options =  {
-      advantage: this._rollToggle ? false: this._adv,
+    const state: Options = {
+      advantage: this._rollToggle ? false : this._adv,
       disadvantage: this._rollToggle ? false : this._dis,
       versatile: this._vers,
       other: this._other,
@@ -129,7 +122,7 @@ export class MidiKeyManager {
   }
   get pressedKeys(): Options {
     if (configSettings.fixStickyKeys) {
-      const formElements = [ "button"];
+      const formElements = ["button"];
       const selector = formElements.map(el => `${el}:focus`).join(", ");
       const selectors = document.querySelectorAll(selector);
       //@ts-ignore
@@ -149,7 +142,7 @@ export class MidiKeyManager {
     return returnValue;
   }
 
-  track (status: string) {
+  track(status: string) {
     //@ts-ignore
     if (CONFIG.debug.keybindings) {
       console.log("midi-qol | key pressed ", status);
@@ -179,8 +172,8 @@ export class MidiKeyManager {
       editable: [
         { key: "ControlLeft" },
         { key: "ControlRight" },
-        { key: "MetaLeft"},
-        { key: "MetaRight"}
+        { key: "MetaLeft" },
+        { key: "MetaRight" }
       ],
       onDown: () => { this._dis = true; this.track("dis down"); return false; },
       onUp: () => { this._dis = false; this.track("dis up"); return false; },
@@ -206,7 +199,7 @@ export class MidiKeyManager {
         { key: "ShiftLeft" },
         { key: "ShiftRight" }
       ],
-      onDown: () => { this._vers = true; this.track("versatile down");return false; },
+      onDown: () => { this._vers = true; this.track("versatile down"); return false; },
       onUp: () => { this._vers = false; this.track("versatile up"); return false; },
       restricted: worldSettings,                         // Restrict this Keybinding to gamemaster only?
       precedence: normalPrecedence
@@ -232,8 +225,8 @@ export class MidiKeyManager {
         { key: "KeyC" },
         { key: "ControlLeft" },
         { key: "ControlRight" },
-        { key: "MetaLeft"},
-        { key: "MetaRight"}
+        { key: "MetaLeft" },
+        { key: "MetaRight" }
 
       ],
       onDown: () => { this._critical = true; this.track("crit down"); return false; },
@@ -253,21 +246,27 @@ export class MidiKeyManager {
       restricted: worldSettings,                         // Restrict this Keybinding to gamemaster only?
       precedence: normalPrecedence
     });
-    
+
     keybindings.register("midi-qol", "rollToggle", {
       name: i18n("midi-qol.RollToggle.Name"),
       hint: i18n("midi-qol.RollToggle.Hint"),
       editable: [
-        { key: "KeyT" },     
-        { key: "ControlLeft", modifiers: ["Alt"]},
-        { key: "ControlRight", modifiers: ["Alt"]},
-        { key: "AltLeft", modifiers: ["Control"]},
-        { key: "AltRight", modifiers: ["Control"]}
+        { key: "KeyT" },
+        { key: "ControlLeft", modifiers: ["Alt"] },
+        { key: "ControlRight", modifiers: ["Alt"] },
+        { key: "AltLeft", modifiers: ["Control"] },
+        { key: "AltRight", modifiers: ["Control"] }
       ],
       onDown: () => { this._rollToggle = true; this.track("roll toggle down"); return false; },
       onUp: () => { this._rollToggle = false; this.track("roll toggle up"); return false; },
       restricted: worldSettings,                         // Restrict this Keybinding to gamemaster only?
       precedence: normalPrecedence
+    });
+
+    Hooks.on('renderDialog', (dialog, html, data) => {
+      if (configSettings.fixStickyKeys)
+        //@ts-expect-error
+        game.keyboard?.releaseKeys();
     });
   }
 }
