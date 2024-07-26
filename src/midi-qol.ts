@@ -124,6 +124,8 @@ Hooks.once("init", () => {
   CONFIG.ChatMessage.documentClass = defineChatMessageMidiClass(CONFIG.ChatMessage.documentClass);
 });
 Hooks.once('init', async function () {
+  //@ts-expect-error
+  if ( game.release.generation < 12 ) Math.clamp = Math.clamped;
   log('Initializing midi-qol');
   //@ts-expect-error
   const systemVersion = game.system.version;

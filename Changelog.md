@@ -11,6 +11,9 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.4.44.1
+* Fix for Math.clamp error
+
 ### 11.4.44
 * Better fix for sticky keys thanks @Andrea
 * Custom bypasses now work with midi-qol damage.
