@@ -1,7 +1,7 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID, getStaticID } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuid, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuidSync, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating } from "./utils.js";
 import { activateMacroListeners, getCurrentSourceMacros } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preUpdateItemActorOnUseMacro, zeroHPExpiry, deathSaveHook } from "./patching.js";
@@ -115,8 +115,7 @@ export let readyHooks = async () => {
     if (debugEnabled > 0) warn("deleteActiveEffectHook", deletedEffect, deletedEffect.parent.name, options);
     async function changefunc() {
       try {
-        //@ts-expect-error
-        let origin = fromUuidSync(deletedEffect.origin);
+        let origin = MQfromUuidSync(deletedEffect.origin);
         if (origin instanceof ActiveEffect && !options.noConcentrationCheck && configSettings.removeConcentrationEffects !== "none") {
           //@ts-expect-error
           if (origin.statuses?.has(CONFIG.specialStatusEffects.CONCENTRATING) && origin.getDependents()?.length === 0) {
@@ -298,15 +297,13 @@ export function initHooks() {
 
     if (failedSaveOverTimeEffectsToDelete[wfuuid]) {
       if (workflow.saves.size === 1 || !workflow.hasSave) {
-        //@ts-expect-error
-        let effect = fromUuidSync(failedSaveOverTimeEffectsToDelete[wfuuid].uuid);
+        let effect = MQfromUuidSync(failedSaveOverTimeEffectsToDelete[wfuuid].uuid);
         expireEffects(effect.parent, [effect], { "expiry-reason": "midi-qol:overTime" });
       }
       delete failedSaveOverTimeEffectsToDelete[wfuuid];
     }
     if (overTimeEffectsToDelete[wfuuid]) {
-      //@ts-expect-error
-      let effect = fromUuidSync(overTimeEffectsToDelete[wfuuid].uuid);
+      let effect = MQfromUuidSync(overTimeEffectsToDelete[wfuuid].uuid);
       expireEffects(effect.parent, [effect], { "expiry-reason": "midi-qol:overTime" });
       delete overTimeEffectsToDelete[wfuuid];
     }
@@ -670,7 +667,7 @@ export function initHooks() {
       ui.notifications?.warn("No target selected");
       return true;
     }
-    const item = MQfromUuid(dropData.uuid)
+    const item = MQfromUuidSync(dropData.uuid)
     if (!item) {
       const message = `actor / item broke for ${dropData?.uuid}`;
       error(message);
@@ -1025,9 +1022,11 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           if (GameSystemConfig.healingTypes[damage.type]) return;
           if (ignore(custom, damage.type, false) || damage.active[custom]) return;
           switch (custom) {
-            case "spell": if (!damage.properties.has("spell")) return;
-            case "nonmagic": if (damage.properties.has("magic") || damage.properties.has("spell")) return;
-            case "magic": if (!damage.properties.has("magic") && !damage.properties.has("spell")) return;
+            case "spell": if (!damage.properties.has("spell")) return; break;
+            case "nonmagic": if (damage.properties.has("magic") || damage.properties.has("spell")) return; break;
+            case "magic": if (!damage.properties.has("magic") && !damage.properties.has("spell")) return; break;
+            default: if (damage.properties.has(custom)) break;
+              return;
           }
           damage.active[custom] = true;
           damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];

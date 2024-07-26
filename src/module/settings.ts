@@ -72,6 +72,7 @@ class ConfigSettings {
   autoItemEffects: string;
   autoRemoveSummonedCreature: boolean = false;
   autoRemoveTemplate: boolean;
+  autoRemoveInstantaneousTemplate: boolean;
   autoRollAttack: boolean = false;
   autoRollDamage: string = "none";
   autoCompleteWorkflow = false;
@@ -499,6 +500,7 @@ export let fetchParams = () => {
   if (configSettings.hidePlayerDamageCard === undefined) configSettings.hidePlayerDamageCard = true;
   if (configSettings.attackPerTarget === undefined) configSettings.attackPerTarget = false;
   if (configSettings.autoRemoveTemplate === undefined) configSettings.autoRemoveTemplate = true;
+  if (configSettings.autoRemoveInstantaneousTemplate === undefined) configSettings.autoRemoveInstantaneousTemplate = false;
   if (configSettings.removeConcentrationEffects === undefined) configSettings.removeConcentrationEffects = "effects";
   if (configSettings.doConcentrationCheck === undefined) configSettings.doConcentrationCheck = configSettings.removeConcentration ? "chat" : "none";
   if (configSettings.undoWorkflow === undefined) configSettings.undoWorkflow = false;

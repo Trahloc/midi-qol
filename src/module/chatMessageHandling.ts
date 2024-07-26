@@ -1,7 +1,7 @@
 import { debug, warn, i18n, error, debugEnabled, MQdefaultDamageType, i18nFormat, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
 import { DDBGameLogWorkflow, Workflow } from "./workflow.js";
 import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll, safeGetGameSetting } from "./settings.js";
-import { createDamageDetail, MQfromUuid, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat } from "./utils.js";
+import { createDamageDetail, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat, MQfromUuidSync } from "./utils.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 export const MAESTRO_MODULE_NAME = "maestro";
@@ -16,16 +16,16 @@ export let colorChatMessageHandler = (message, html, data) => {
 
   if (actor) user = playerForActor(actor);
   if (!user) return true;
-  //@ts-ignore .color not defined
+  //@ts-expect-error .color not defined
   html[0].style.borderColor = user.color;
   const sender = html.find('.message-sender')[0];
   if (!sender) return;
   if (coloredBorders === "borderNamesBackground") {
     sender.style["text-shadow"] = `1px 1px 1px #FFFFFF`;
-    //@ts-ignore .color not defined
+    //@ts-expect-error .color not defined
     sender.style.backgroundColor = user.color;
   } else if (coloredBorders === "borderNamesText") {
-    //@ts-ignore .color not defined
+    //@ts-expect-error .color not defined
     sender.style.color = user.color;
     sender.style["text-shadow"] = `1px 1px 1px ${sender.style.color}`;
   }
@@ -44,8 +44,7 @@ export function checkOverTimeSaves(message, data, options, user) {
   const overtimeActorUuid = foundry.utils.getProperty(message, "flags.midi-qol.overtimeActorUuid");
   if (actor.uuid !== overtimeActorUuid) {
     if (overtimeActorUuid) {
-      //@ts-expect-error
-      const overTimeActor = fromUuidSync(overtimeActorUuid);
+      const overTimeActor = MQfromUuidSync(overtimeActorUuid);
       ui.notifications?.warn(`Over time actor mismatch ${actor.name} should be ${overTimeActor.name}`);
     }
     return true;
@@ -60,7 +59,7 @@ export function checkOverTimeSaves(message, data, options, user) {
 
   try {
     let func = async (actor: Actor, rollFlags: any, roll: Roll) => {
-      //@ts-ignore .changes v10
+      //@ts-expect-error .changes v10
       for (let effect of actor.effects.filter(ef => ef.changes.some(change => change.key === "flags.midi-qol.OverTime"))) {
         await doOverTimeEffect(actor, effect, true, { saveToUse: roll, rollFlags: data.flags?.dnd5e?.roll, isActionSave: true })
       }
@@ -90,9 +89,9 @@ let _highlighted: Token | null = null;
 let _onTargetHover = (event) => {
   event.preventDefault();
   if (!canvas?.scene?.active) return;
-  const token: Token | undefined = canvas?.tokens?.get(event.currentTarget.id);
+  const token: Token | undefined = canvas?.tokens?.get(event.currentTarget.dataset.id);
   if (token?.isVisible) {
-    //@ts-ignore _controlled, _onHoverIn
+    //@ts-expect-error _controlled, _onHoverIn
     if (!token?._controlled) token._onHoverIn(event);
     _highlighted = token;
   }
@@ -107,25 +106,33 @@ let _onTargetHover = (event) => {
 let _onTargetHoverOut = (event) => {
   event.preventDefault();
   if (!canvas?.scene?.active) return;
-  //@ts-ignore onHoverOut
+  //@ts-expect-error onHoverOut
   if (_highlighted) _highlighted._onHoverOut(event);
   _highlighted = null;
 }
 
 let _onTargetSelect = (event) => {
+  event.stopPropagation();
   event.preventDefault();
   if (!canvas?.scene?.active) return;
-  const token = canvas.tokens?.get(event.currentTarget.id);
-  //@ts-ignore multiSelect
-  token?.control({ multiSelect: false, releaseOthers: true });
+  const token = canvas.tokens?.get(event.currentTarget.dataset.id);
+  //@ts-expect-error
+  if (token?.controlled) token?.release();
+  else if (token && token?.isVisible && game.user && token.actor?.testUserPermission(game.user, "OWNER")) {
+    token?.control({ releaseOthers: false });
+    canvas?.animatePan(token.center)
+  }
+
 };
 
 function _onTargetShow(event) {
   event.stopImmediatePropagation();
   event.preventDefault();
   if (!canvas?.scene?.active) return;
-  const token = canvas.tokens?.get(event.currentTarget.id);
-  if (token) token.actor?.sheet?.render(true);
+  const token = canvas.tokens?.get(event.currentTarget.dataset.id);
+  if (game.user && token?.actor?.testUserPermission(game.user, "OWNER")) {
+    token.actor.sheet?.render(true);
+  }
 }
 
 export let hideRollRender = (msg, html, data) => {
@@ -140,15 +147,16 @@ export let hideRollRender = (msg, html, data) => {
   return true;
 };
 
+
 export let hideRollUpdate = (message, data, diff, id) => {
   if (forceHideRoll && message.whisper.length > 0 || message.blind) {
     if (!game.user?.isGM && ((!message.isAuthor && (message.whisper.indexOf(game.user?.id) === -1) || message.blind))) {
       let messageLi = $(`.message[data-message-id=${data._id}]`);
       if (debugEnabled > 0) warn("hideRollUpdate: Hiding ", message.whisper, messageLi)
       messageLi.hide();
-      //@ts-ignore
+      //@ts-expect-error
       if (window.ui.sidebar.popouts.chat) {
-        //@ts-ignore
+        //@ts-expect-error
         let popoutLi = window.ui.sidebar.popouts.chat.element.find(`.message[data-message-id=${data._id}]`)
         popoutLi.hide();
       }
@@ -183,12 +191,11 @@ export let hideStuffHandler = (message, html, data) => {
     html.find(".midi-qol-versatile-damage-button").hide();
   }
 
-
+  let ids = html.find(".midi-qol-target-select")
+  ids.hover(_onTargetHover, _onTargetHoverOut)
+  ids.click(_onTargetSelect);
+  ids.contextmenu(_onTargetShow)
   if (game.user?.isGM) {
-    let ids = html.find(".midi-qol-target-name")
-    ids.hover(_onTargetHover, _onTargetHoverOut)
-    ids.click(_onTargetSelect);
-    ids.contextmenu(_onTargetShow)
     html.find(".midi-qol-playerTokenName").remove();
     if (configSettings.hidePlayerDamageCard && $(html).find(".midi-qol-player-damage-card").length) html.hide();
 
@@ -201,7 +208,7 @@ export let hideStuffHandler = (message, html, data) => {
     }
     html.find(".midi-qol-target-npc-Player").hide();
 
-    //@ts-ignore
+    //@ts-expect-error
     ui.chat.scrollBottom
     return;
 
@@ -286,7 +293,7 @@ export let hideStuffHandler = (message, html, data) => {
       html.find(".midi-qol-gmTokenName").remove();
     }
   }
-  //@ts-ignore
+  //@ts-expect-error
   setTimeout(() => ui.chat.scrollBottom(), 0);
   return true;
 
@@ -379,7 +386,7 @@ export function addChatDamageButtonsToHTML(totalDamage, damageList, html, actorI
     button.on("click", async (ev) => {
       ev.stopPropagation();
       // const item = game.actors.get(actorId).items.get(itemId);
-      const item = MQfromUuid(itemUuid);
+      const item = MQfromUuidSync(itemUuid);
       const modDamageList = foundry.utils.duplicate(damageList).map(di => {
         if (mult === -1) di.type = "healing";
         else if (mult === -2) di.type = "temphp";
@@ -448,17 +455,15 @@ export async function onChatCardAction(event) {
   if (!["confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
   if (!message?.user) return;
 
-  //@ts-ignore speaker
   var actor, item;
-
   // Recover the actor for the chat card
-  //@ts-ignore
+  //@ts-expect-error
   actor = await CONFIG.Item.documentClass._getChatCardActor(card);
   if (!actor) return;
 
   // Get the Item from stored flag data or by the item ID on the Actor
   const storedData = message?.getFlag(game.system.id, "itemData");
-  //@ts-ignore
+  //@ts-expect-error
   item = storedData ? new CONFIG.Item.documentClass(storedData, { parent: actor }) : actor.items.get(card.dataset.itemId);
 
   const spellLevel = parseInt(card.dataset.spellLevel) || null;
@@ -553,7 +558,7 @@ export function ddbglPendingFired(data) {
     error("DDB Game Log - no item/action for pending roll"); return
   }
   // const tokenUuid = `Scene.${sceneId??0}.Token.${tokenId??0}`;
-  const token = MQfromUuid(`Scene.${sceneId ?? 0}.Token.${tokenId ?? 0}`);
+  const token = MQfromUuidSync(`Scene.${sceneId ?? 0}.Token.${tokenId ?? 0}`);
   const actor = (token instanceof CONFIG.Token.documentClass) ? token?.actor ?? game.actors?.get(actorId ?? "") : undefined;
   if (!actor || !(token instanceof CONFIG.Token.documentClass)) {
     warn(" ddb-game-log hook could not find actor");
@@ -577,7 +582,7 @@ export function ddbglPendingFired(data) {
 
   let workflow: Workflow | undefined = DDBGameLogWorkflow.get(item.uuid);
   if (actionType === "attack") workflow = undefined;
-  //@ts-ignore .hasAttack
+  //@ts-expect-error .hasAttack
   if (["damage", "heal"].includes(actionType) && item.hasAttack && !workflow) {
     warn(` ddb-game-log damage roll without workflow being started ${actor.name} using ${item.name}`);
     return;
@@ -590,15 +595,14 @@ export function ddbglPendingFired(data) {
       actor: actorId,
       alias: token?.name ?? actor.name
     }
-    //@ts-ignore
+    //@ts-expect-error
     workflow = new DDBGameLogWorkflow(actor, item, speaker, game.user.targets, {});
-    //@ts-ignore .displayCard
+    //@ts-expect-error .displayCard
     item.displayCard({ showFullCard: false, workflow, createMessage: false, defaultCard: true });
     // showItemCard.bind(item)(false, workflow, false, true);
 
     return;
   }
-
 }
 export function ddbglPendingHook(data) { // need to propagate this to all players.
   if (!configSettings.optionalRules.enableddbGL) return;
@@ -607,19 +611,19 @@ export function ddbglPendingHook(data) { // need to propagate this to all player
 
 export function processCreateDDBGLMessages(message: ChatMessage, options: any, user: string) {
   if (!configSettings.optionalRules.enableddbGL) return;
-  //@ts-ignore flags v10
+
+  //@ts-expect-error flags v10
   const flags: any = message.flags;
   if (!flags || !flags["ddb-game-log"] || !game.user) return;
   const ddbGLFlags: any = flags["ddb-game-log"];
   if (!ddbGLFlags || ddbGLFlags.pending) return;
   // let sceneId, tokenId, actorId, itemId;
-  //@ts-ignore
   if (!(["attack", "damage", "heal"].includes(flags.dnd5e?.roll?.type))) return;
   const itemId = flags.dnd5e?.roll?.itemId;
   if (!itemId) { error("Could not find item for fulfilled roll"); return }
-  //@ts-ignore speaker v10
-  const token = MQfromUuid(`Scene.${message.speaker.scene}.Token.${message.speaker.token}`);
-  //@ts-ignore speaker v10
+  //@ts-expect-error speaker v10
+  const token = MQfromUuidSync(`Scene.${message.speaker.scene}.Token.${message.speaker.token}`);
+  //@ts-expect-error speaker v10
   const actor = token.actor ?? game.actors?.get(message.speaker.actor ?? "");
   if (!actor) {
     error("ddb-game-log could not find actor for roll");
@@ -651,6 +655,11 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     error(`ddb-game-log roll no workflow for ${item.name}`)
     return;
   }
+  if (configSettings.undoWorkflow && workflow.undoData && message) {
+    if (!workflow.undoData.chatCardUuids) workflow.undoData.chatCardUuids = [];
+    workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat([message.uuid]);
+    untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
+  }
   if (flags.dnd5e.roll.type === "attack") {
     //@ts-expect-error
     let rolls = message.rolls;
@@ -659,7 +668,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
     workflow.attackRoll = rolls[0] ?? undefined;
     workflow.attackTotal = rolls[0]?.total ?? 0;
     workflow.needsDamage = workflow.item.hasDamage;
-    //@ts-ignore content v10
+    //@ts-expect-error content v10
     workflow.attackRollHTML = message.content;
     workflow.attackRolled = true;
     if (workflow.currentAction === workflow.WorkflowState_WaitForAttackRoll) {
@@ -692,3 +701,4 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
 function legacyApplyTokenDamageMany(arg0: any[], arg1: Set<Token>, arg2: null, arg3: { existingDamage: never[]; workflow: undefined; updateContext: undefined; }) {
   throw new Error("Function not implemented.");
 }
+

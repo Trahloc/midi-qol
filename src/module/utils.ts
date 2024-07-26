@@ -218,11 +218,7 @@ export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, 
 
     var newHP: number;
     //@ts-expect-error
-    if ((game.release.generation < 12))
-      newHP = Math.clamped(oldHP - (value - dt), 0, hp.max + (parseInt(hp.tempmax) || 0));
-    else
-      //@ts-expect-error
-      newHP = Math.clamp(oldHP - (value - dt), 0, hp.max + (parseInt(hp.tempmax) || 0)); ``
+    newHP = Math.clamp(oldHP - (value - dt), 0, hp.max + (parseInt(hp.tempmax) || 0));
   }
   //TODO review this awfulness
   // Stumble around trying to find the actual token that corresponds to the multi level token TODO make this sane
@@ -293,7 +289,8 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
       }
 
       const bypasses = actor.system.traits[type].bypasses ?? new Set();
-      let bypassTrait = item.system.properties.intersection(bypasses).size > 0;
+      const itemProperties = item?.system.properties ?? new Set()
+      let bypassTrait = itemProperties.intersection(bypasses).size > 0;
       if (physicalDamage && bypassTrait) continue;
       // process new custom field versions
       if (!["healing", "temphp"].includes(dmgTypeString)) {
@@ -399,7 +396,7 @@ export async function applyTokenDamageMany({ applyDamageDetails, theTargets, ite
   if (!(item instanceof CONFIG.Item.documentClass)) {
     if (workflow.item) item = workflow.item;
     else if (item?.uuid) {
-      item = MQfromUuid(item.uuid);
+      item = MQfromUuidSync(item.uuid);
     } else if (item) {
       error("ApplyTokenDamage passed item must be of type Item or null/undefined");
       return [];
@@ -942,7 +939,6 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       }
       const tokenDamages = allDamages[tokenDocument.uuid].tokenDamages;
 
-
       for (let [rolls, saves, type] of [[workflow.damageRolls, baseDamageSaves, "defaultDamage"], [(workflow.otherDamageMatches?.has(token) ?? true) ? [workflow.otherDamageRoll] : [], workflow.saves, "otherDamage"], [workflow.bonusDamageRolls, bonusDamageSaves, "bonusDamage"]]) {
         if (rolls?.length > 0 && rolls[0]) {
           //@ts-expect-error
@@ -1419,8 +1415,7 @@ export function midiCustomEffect(...args) {
         if (change.effect.origin.includes("Item.")) {
           args[0] = `ItemMacro.${change.effect.origin}`;
         } else {
-          //@ts-expect-error
-          const origin = fromUuidSync(change.effect.origin);
+          const origin = MQfromUuidSync(change.effect.origin);
           if (origin instanceof Item) args[0] = `ItemMacro.${origin.uuid}`;
           //@ts-expect-error
           else if (origin instanceof ActiveEffect) args[0] = `ItemMacro.${origin.origin}`;
@@ -1604,8 +1599,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
     if (endTurn) {
       const chatcardUuids = effect.getFlag(MODULE_ID, "overtimeChatcardUuids");
       if (chatcardUuids) for (let chatcardUuid of chatcardUuids) {
-        //@ts-expect-error
-        const chatCard = fromUuidSync(chatcardUuid);
+        const chatCard = MQfromUuidSync(chatcardUuid);
         chatCard?.delete();
       }
     }
@@ -1666,8 +1660,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       if (success !== undefined) {
         const chatcardUuids = effect.getFlag(MODULE_ID, "overtimeChatcardUuids");
         for (let chatcardUuid of chatcardUuids) {
-          //@ts-expect-error
-          const chatCard = fromUuidSync(chatcardUuid);
+          const chatCard = MQfromUuidSync(chatcardUuid);
           await chatCard?.delete();
         }
       }
@@ -1850,8 +1843,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.onUseMacroParts`, new OnUseMacros(macroToCall));
       }
       // Try and find the source actor for the overtime effect so that optional bonuses etc can fire.
-      //@ts-expect-error
-      let origin: any = fromUuidSync(effect.origin);
+      let origin: any = MQfromUuidSync(effect.origin);
       while (origin && !(origin instanceof Actor)) {
         origin = origin?.parent;
       }
@@ -1971,7 +1963,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
   let targetsToUse = new Set();
 
   if (typeof item === "string") {
-    theItem = MQfromUuid(item);
+    theItem = MQfromUuidSync(item);
   } else if (!(item instanceof CONFIG.Item.documentClass)) {
     const magicItemUuid = item.magicItem.items.find(i => i.id === item.id)?.uuid;
     theItem = await fromUuid(magicItemUuid);
@@ -1986,7 +1978,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
       if (options.targetUuids?.length > 0 && game.user && theItem.system.target.type !== "self") {
         if (!options.ignoreUserTargets) game.user.updateTokenTargets([]);
         for (let targetUuid of options.targetUuids) {
-          const theTarget = MQfromUuid(targetUuid);
+          const theTarget = MQfromUuidSync(targetUuid);
           if (theTarget && !options.ignoreUserTargets) theTarget.object.setTarget(true, { user: game.user, releaseOthers: false, groupSelection: true });
           targetsToUse.add(theTarget.object)
         }
@@ -2799,8 +2791,7 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
   const dnd5eTargets: any = [];
   if (concentrationData.item instanceof Item)
     concentrationData.item = concentrationData.item.uuid;
-  //@ts-expect-error
-  const sourceItem = fromUuidSync(concentrationData.item);
+  const sourceItem = MQfromUuidSync(concentrationData.item);
   let selfTargeted = false;
   let targets: { tokenUuid: string | undefined, actorUuid: string | undefined }[] = [];
   let concentrationEffect = getConcentrationEffect(actor, sourceItem);
@@ -3168,20 +3159,32 @@ export function validTargetTokens(tokenSet: Set<Token> | undefined | any): Set<T
   return tokenSet?.filter(tk => tk.actor).filter(tk => isTargetable(tk)) ?? new Set();
 }
 
-export function MQfromUuid(uuid): any | null {
-  if (!uuid || uuid === "") return null;
-  //@ts-expect-error foundry v10 types
-  return fromUuidSync(uuid)
+// TODO when v12 only change all refs to fromUuidSync
+export function MQfromUuidSync(uuid: string | undefined | null): any { 
+  if (!!!uuid) return null;
+  //@ts-expect-error
+  return fromUuidSync(uuid);
 }
 
-export function MQfromActorUuid(uuid: string | undefined): any {
-  let doc = MQfromUuid(uuid);
+
+export function fromActorUuid(uuid: string | undefined): any {
+  let doc = MQfromUuidSync(uuid);
   if (doc instanceof Actor) return doc;
   if (doc instanceof Token) return doc.actor;
   if (doc instanceof TokenDocument) return doc.actor;
   return null;
 }
 
+export function actorFromUuid(uuid: string | undefined): any {
+  let doc = MQfromUuidSync(uuid);
+  if (doc instanceof Actor) return doc;
+  if (doc instanceof Token) return doc.actor;
+  if (doc instanceof TokenDocument) return doc.actor;
+  if (doc instanceof Item) return doc.parent;
+  if (doc instanceof ActiveEffect && doc.parent instanceof Actor) return doc.parent;
+  if (doc instanceof ActiveEffect && doc.parent instanceof Item) return doc.parent.parent;
+  return null;
+}
 
 class RollModifyDialog extends Application {
   rollExpanded: boolean;
@@ -3289,8 +3292,7 @@ class RollModifyDialog extends Application {
               labelDetail = this.data.item?.name ?? "Macro";
             else {
               const uuid = value.split(".").slice(1).join(".");
-              //@ts-expect-error
-              const item = fromUuidSync(uuid);
+              const item = MQfromUuidSync(uuid);
               if (item)
                 labelDetail = item.name;
               else
@@ -3328,8 +3330,7 @@ class RollModifyDialog extends Application {
               labelDetail = this.data.item?.name ?? "Macro";
             else {
               const uuid = value.split(".").slice(1).join(".");
-              //@ts-expect-error
-              const item = fromUuidSync(uuid);
+              const item = MQfromUuidSync(uuid);
               if (item)
                 labelDetail = item.name;
               else
@@ -3598,8 +3599,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         workflow = this.workflow ?? this;
       } else {
         const itemUuidOrName = button.value.split(".").slice(1).join(".");
-        //@ts-expect-error
-        let item = fromUuidSync(itemUuidOrName);
+        let item = MQfromUuidSync(itemUuidOrName);
         if (!item && this.actor) item = this.actor.items.getName(itemUuidOrName);
         if (!item && this instanceof Actor) item = this.items.getName(itemUuidOrName);
         workflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
@@ -4271,7 +4271,7 @@ export async function requestReactions(target: Token, player: User, triggerToken
 export async function promptReactions(tokenUuid: string, reactionItemList: ReactionItemReference[], triggerTokenUuid: string | undefined, reactionFlavor: string, triggerType: string, options: any = {}) {
   try {
     const startTime = Date.now();
-    const target: Token = MQfromUuid(tokenUuid);
+    const target: Token = MQfromUuidSync(tokenUuid);
     const actor: Actor | null = target.actor;
     let player = playerFor(getTokenDocument(target));
     if (!actor) return;
@@ -4624,8 +4624,7 @@ export function reportMidiCriticalFlags() {
 export function getConcentrationEffect(actor, itemRef?: Item | string): ActiveEffect | undefined {
   let item;
   if (typeof itemRef === "string") {
-    //@ts-expect-error
-    item = fromUuidSync(itemRef);
+    item = MQfromUuidSync(itemRef);
     if (!item) item = actor.concentration.items?.find(i => i.name === itemRef)
   } else item = itemRef;
   // concentration should not be a passive effect so don't need to do applied effects
@@ -4648,7 +4647,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
       AsyncFunction = (async function () { }).constructor;
     const evl = AsyncFunction("sandbox", src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync, nonWorkflowTargetedToken: game.user.targets.first(), combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, nonWorkflowTargetedToken: game.user.targets.first(), combat: game.combat });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4682,7 +4681,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     }
     const evl = new Function('sandbox', src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync, nonWorkflowTargetedToken: game?.user?.targets.first(), combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game?.user?.targets.first(), combat: game.combat });
 
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
@@ -4743,9 +4742,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   let item;
   if (data.item) {
     if (data.item instanceof Item) item = data.item;
-    else if (typeof data.item === "string")
-      //@ts-expect-error
-      item = fromUuidSync(data.item);
+    else if (typeof data.item === "string") item = MQfromUuidSync(data.item);
   }
   if (!item) item = data.workflow?.item;
   let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
@@ -5556,15 +5553,13 @@ export function initializeVision(tk: Token, force = false) {
     tk.vision = new CONFIG.Canvas.visionSourceClass({ sourceId, object: tk });
   }
 
-  //@ts-expect-error
-  const clamp: (v1: number, v2: number, v3: number) => number = (game.release.generation >= 12) ? Math.clamp : Math.clamped;
   tk.vision.initialize({
     x: tk.center.x,
     y: tk.center.y,
     //@ts-expect-error
     elevation: tk.document.elevation,
     //@ts-expect-error
-    radius: clamp(tk.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
+    radius: Math.clamp(tk.sightRange, 0, canvas?.dimensions?.maxR ?? 0),
     //@ts-expect-error
     externalRadius: tk.externalRadius, // Math.max(tk.mesh.width, tk.mesh.height) / 2,
     //@ts-expect-error
@@ -5679,7 +5674,7 @@ export function tokenForActor(actorRef: Actor | string): Token | undefined {
   let actor: Actor;
   if (!actorRef) return undefined
   // if (actor.token) return actor.token;
-  if (typeof actorRef === "string") actor = MQfromActorUuid(actorRef);
+  if (typeof actorRef === "string") actor = fromActorUuid(actorRef);
   else actor = actorRef;
   //@ts-expect-error getActiveTokens returns an array of tokens not tokenDocuments
   const tokens: Token[] = actor.getActiveTokens();
@@ -5998,8 +5993,7 @@ export async function contestedRoll(data: {
 }
 
 function displayContestedResults(chatCardUuid: string | undefined, resultContent: string, speaker, flavor: string | undefined) {
-  //@ts-expect-error
-  let itemCard = getCachedDocument(chatCardUuid) ?? fromUuidSync(chatCardUuid);
+  let itemCard = getCachedDocument(chatCardUuid) ?? MQfromUuidSync(chatCardUuid);
   if (itemCard && configSettings.mergeCard) {
     let content = foundry.utils.duplicate(itemCard.content ?? "")
     const searchRE = /<div class="midi-qol-saves-display">[\s\S]*?<div class="end-midi-qol-saves-display">/;
@@ -6016,7 +6010,7 @@ export function getActor(actorRef: Actor | Token | TokenDocument | string): Acto
   if (actorRef instanceof Actor) return actorRef;
   if (actorRef instanceof Token) return actorRef.actor;
   if (actorRef instanceof TokenDocument) return actorRef.actor;
-  if (typeof actorRef === "string") return MQfromActorUuid(actorRef);
+  if (typeof actorRef === "string") return fromActorUuid(actorRef);
   return null;
 }
 
@@ -6024,7 +6018,7 @@ export function getTokenDocument(tokenRef: Actor | Token | TokenDocument | strin
   if (!tokenRef) return undefined;
   if (tokenRef instanceof TokenDocument) return tokenRef;
   if (typeof tokenRef === "string") {
-    const document = MQfromUuid(tokenRef);
+    const document = MQfromUuidSync(tokenRef);
     if (document instanceof TokenDocument) return document;
     if (document instanceof Actor) return tokenForActor(document)?.document;
   }
@@ -6039,7 +6033,7 @@ export function getToken(tokenRef: Actor | Token | TokenDocument | string | unde
   //@ts-expect-error return cast
   if (tokenRef instanceof TokenDocument) return tokenRef.object;
   if (typeof tokenRef === "string") {
-    const entity = MQfromUuid(tokenRef);
+    const entity = MQfromUuidSync(tokenRef);
     //@ts-expect-error return cast
     if (entity instanceof TokenDocument) return entity.object;
     if (entity instanceof Actor) return tokenForActor(entity);
@@ -6309,8 +6303,7 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
     function render([html]) {
       html.parentElement.querySelectorAll('.dialog-button').forEach((n) => {
         const img = document.createElement('IMG');
-        //@ts-expect-error
-        const eff = fromUuidSync(n.dataset.button);
+        const eff = MQfromUuidSync(n.dataset.button);
         //@ts-expect-error
         img.src = eff.icon;
         const effNameSpan = document.createElement('span');
@@ -6397,8 +6390,7 @@ export async function _updateAction(document) {
   const updates = updatesCache[document.uuid];
   clearUpdatesCache(document.uuid);
   if (debugEnabled > 0) warn("update action | Doing updateAction", updates);
-  //@ts-expect-error
-  const baseDocument = fromUuidSync(document.uuid);
+  const baseDocument = MQfromUuidSync(document.uuid);
   return await baseDocument.update(updates);
 }
 
@@ -6428,8 +6420,7 @@ export function clearUpdatesCache(uuid: string | undefined | null) {
 
 export function getCachedDocument(uuid: string | undefined | null) {
   if (!uuid) return undefined;
-  //@ts-expect-error
-  let document = fromUuidSync(uuid);
+  let document = MQfromUuidSync(uuid);
   let updates = document?.uuid && updatesCache[document.uuid];
   if (updates) {
     document = foundry.utils.deepClone(document);
@@ -6454,8 +6445,7 @@ export async function expireEffects(actor, effects: ActiveEffect[], options: any
   const effectsToDisable: ActiveEffect[] = [];
   for (let effect of effects) {
     if (!effect.id) continue;
-    //@ts-expect-error
-    if (!fromUuidSync(effect.uuid)) continue;
+    if (!MQfromUuidSync(effect.uuid)) continue;
     //@ts-expect-error
     if (effect.transfer)
       effectsToDisable.push(effect);

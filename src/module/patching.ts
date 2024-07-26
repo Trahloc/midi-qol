@@ -1,7 +1,7 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, doConcentrationCheck } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, doConcentrationCheck, MQfromUuidSync } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -147,8 +147,7 @@ async function doRollSkill(wrapped, ...args) {
       const target = options.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
       if (target?.dataset?.midiOvertimeActorUuid) overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
       if (overtimeActorUuid && this.uuid !== overtimeActorUuid) {
-        //@ts-expect-error
-        const actualActor = fromUuidSync(overtimeActorUuid);
+        const actualActor = MQfromUuidSync(overtimeActorUuid);
         if (actualActor) return actualActor.rollSkill(...args);
       }
     }
@@ -412,8 +411,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       options.rollMode = target.dataset.midiRollMode ?? options.rollMode;
     }
     if (overtimeActorUuid && this.uuid !== overtimeActorUuid) {
-      //@ts-expect-error
-      const actualActor = fromUuidSync(overtimeActorUuid);
+      const actualActor = MQfromUuidSync(overtimeActorUuid);
       if (actualActor && rollType === "save")
         return actualActor.rollAbilitySave(...args);
       else return actualActor.rollAbilityTest(...args);
@@ -1398,8 +1396,7 @@ async function _addDependent(...dependent) {
 function _getDependents() {
   const id = game.system.id ?? MODULE_ID;
   return (this.getFlag(id, "dependents") || []).reduce((arr, { uuid }) => {
-    //@ts-expect-error
-    const effect = fromUuidSync(uuid);
+    const effect = MQfromUuidSync(uuid);
     if (effect) arr.push(effect);
     return arr;
   }, []);
@@ -1507,8 +1504,7 @@ export let itemPatching = () => {
 export async function checkDeleteTemplate(templateDocument, options, user) {
   if (user !== game.user?.id) return;
   if (options.undo) return;
-  //@ts-expect-error
-  let origin = fromUuidSync(templateDocument.getFlag("dnd5e", "origin"));
+  let origin = MQfromUuidSync(templateDocument.getFlag("dnd5e", "origin"));
   if (origin instanceof Item && origin.parent instanceof Actor) {
     //@ts-expect-error
     origin = origin.parent.effects?.find(ef => ef.getFlag("dnd5e", "dependents")?.some(dep => dep.uuid === templateDocument.uuid));

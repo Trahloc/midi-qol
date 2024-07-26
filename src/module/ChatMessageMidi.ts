@@ -200,23 +200,8 @@ export function defineChatMessageMidiClass(baseClass: any) {
         }
       }
     }
-/*
-          // Dnd 3.3.1 introduced attack roll visibility - that takes precedence,
-          let visibility = safeGetGameSetting("dnd5e", "attackRollVisibility");
-          if (!visibility)  {
-            switch (configSettings.autoCheckHit) {
-              case "none":
-                visibility = "none";
-                break;
-              case "all":
-                visibility = "all";
-                break;
-              case "whisper":
-                visibility = "hideAC";
-                break
-            }
-          }
-          */
+
+
     enrichAttackRolls(html) {
       if (!this.user.isGM || game.user?.isGM) return;
       const hitFlag = foundry.utils.getProperty(this, "flags.midi-qol.isHit");
@@ -258,6 +243,19 @@ export function defineChatMessageMidiClass(baseClass: any) {
         html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.remove());
         html.querySelectorAll(".midi-attack-roll .dice-tooltip")?.forEach(el => el.remove());
         html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
+      }
+      let visibility = safeGetGameSetting("dnd5e", "attackRollVisibility") ?? "all";
+      if (!game.user?.isGM && visibility !== "all") {
+        // Dnd 3.3.1 introduced attack roll visibility - that takes precedence
+        if (!visibility) {
+          switch (visibility) {
+            case "none":
+              html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.classList.remove("hit"));
+              html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.classList.remove("hit"));
+            case "hideAC":
+              break
+          }
+        }
       }
     }
 

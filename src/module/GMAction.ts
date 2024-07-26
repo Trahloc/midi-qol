@@ -1,6 +1,6 @@
 import { checkRule, configSettings, safeGetGameSetting } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, MQfromActorUuid, MQfromUuid, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, fromActorUuid, MQfromUuidSync, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
 import { Workflow } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
@@ -168,7 +168,7 @@ export class SaferSocket {
 }
 
 export async function removeActionBonusReaction(data: { actorUuid: string }) {
-  const actor = MQfromActorUuid(data.actorUuid);
+  const actor = fromActorUuid(data.actorUuid);
   if (!actor) return;
   if (hasUsedReaction(actor)) await removeReactionUsed(actor);
   if (hasUsedBonusAction(actor)) await removeBonusActionUsed(actor);
@@ -178,7 +178,7 @@ export async function removeActionBonusReaction(data: { actorUuid: string }) {
 
 // Remove a single effect. Allow anyone to call this.
 async function _removeEffect(data: { effectUuid: string }) {
-  const effect = MQfromUuid(data.effectUuid);
+  const effect = MQfromUuidSync(data.effectUuid);
   if (!effect) return;
   return effect.delete();
 }
@@ -295,7 +295,7 @@ export async function removeEffects(data: { actorUuid: string; effects: string[]
   let removeFunc = async () => {
     try {
       debug("removeFunc: remove effects started")
-      const actor = MQfromActorUuid(data.actorUuid);
+      const actor = fromActorUuid(data.actorUuid);
       if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
       const effectsToDelete = actor?.appliedEffects.filter(ef => data.effects.includes(ef.id));
       return await expireEffects(actor, effectsToDelete, data.options);
@@ -319,7 +319,7 @@ export async function removeEffectUuids(data: { actorUuid: string; effects: stri
   let removeFunc = async () => {
     try {
       debug("removeFunc: remove effects started")
-      const actor = MQfromActorUuid(data.actorUuid);
+      const actor = fromActorUuid(data.actorUuid);
       if (configSettings.paranoidGM && !paranoidCheck("removeEffects", actor, data)) return "gmBlocked";
       const effectsToDelete = getAppliedEffects(actor, { includeEnchantments: true }).filter(ef => data.effects.includes(ef.uuid));
       return await expireEffects(actor, effectsToDelete, data.options);
@@ -338,7 +338,7 @@ export async function removeEffectUuids(data: { actorUuid: string; effects: stri
 }
 export async function createEffects(data: { actorUuid: string, effects: any[] }) {
   const createEffectsFunc = async () => {
-    const actor = MQfromActorUuid(data.actorUuid);
+    const actor = fromActorUuid(data.actorUuid);
     for (let effect of data.effects) { // override default foundry behaviour of blank being transfer
       if (effect.transfer === undefined) effect.transfer = false;
     }
@@ -352,7 +352,7 @@ export async function createEffects(data: { actorUuid: string, effects: any[] })
 }
 
 export async function updateEffects(data: { actorUuid: string, updates: any[] }) {
-  const actor = MQfromActorUuid(data.actorUuid);
+  const actor = fromActorUuid(data.actorUuid);
   return actor?.updateEmbeddedDocuments("ActiveEffect", data.updates);
 }
 
@@ -390,16 +390,14 @@ export async function timedAwaitExecuteAsGM(toDo: string, data: any) {
 }
 
 export async function _gmUnsetFlag(data: { base: string, key: string, actorUuid: string }) {
-  //@ts-expect-error
-  let actor = fromUuidSync(data.actorUuid);
+  let actor = MQfromUuidSync(data.actorUuid);
   actor = actor.actor ?? actor;
   if (!actor) return undefined;
   return actor.unsetFlag(data.base, data.key)
 }
 
 export async function _gmSetFlag(data: { base: string, key: string, value: any, actorUuid: string }) {
-  //@ts-expect-error
-  let actor = fromUuidSync(data.actorUuid);
+  let actor = MQfromUuidSync(data.actorUuid);
   actor = actor.actor ?? actor;
   if (!actor) return undefined;
   return actor.setFlag(data.base, data.key, data.value)
@@ -407,10 +405,8 @@ export async function _gmSetFlag(data: { base: string, key: string, value: any, 
 
 // Seems to work doing it on the client instead.
 export async function _canSense(data: { tokenUuid, targetUuid }) {
-  //@ts-expect-error fromUuidSync
-  const token = fromUuidSync(data.tokenUuid)?.object;
-  //@ts-expect-error fromUuidSync
-  const target = fromUuidSync(data.targetUuid)?.object;
+  const token = MQfromUuidSync(data.tokenUuid)?.object;
+  const target = MQfromUuidSync(data.targetUuid)?.object;
   if (!target || !token) return true;
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
   if (!token.vision.active || !token.vision.los) {
@@ -436,8 +432,8 @@ export async function _canSense(data: { tokenUuid, targetUuid }) {
 }
 
 export async function _gmOverTimeEffect(data: { actorUuid, effectUuid, startTurn, options }) {
-  const actor = MQfromActorUuid(data.actorUuid);
-  const effect = MQfromUuid(data.effectUuid)
+  const actor = fromActorUuid(data.actorUuid);
+  const effect = MQfromUuidSync(data.effectUuid)
   log("Called _gmOvertime", actor.name, effect.name)
   return gmOverTimeEffect(actor, effect, data.startTurn, data.options)
 }
@@ -486,8 +482,7 @@ async function _completeItemUse(data: {
 }
 
 async function updateActor(data) {
-  //@ts-expect-error fromUuidSync
-  let actor = fromUuidSync(data.actorUuid);
+  let actor = MQfromUuidSync(data.actorUuid);
   if (!actor) return;
   if (data.actorData) {
     console.warn(`midi-qol | updateActor actorData deprecated. Call await MidiQOL.socket().execuateAsGM("updateActor"({ updates }) instead`)
@@ -511,8 +506,7 @@ async function deleteToken(data: { tokenUuid: string }) {
 
 export async function deleteEffectsByUuid(data: { effectsToDelete: string[], options: any }) {
   for (let effectUuid of data.effectsToDelete) {
-    //@ts-expect-error fromUuidSync
-    const effect = fromUuidSync(effectUuid);
+    const effect = MQfromUuidSync(effectUuid);
     if (effect !== undefined && !isEffectExpired(effect)) {
       if (effect.transfer)
         await effect.update({ disabled: true });
@@ -523,7 +517,7 @@ export async function deleteEffectsByUuid(data: { effectsToDelete: string[], opt
 }
 
 export async function deleteEffects(data: { actorUuid: string, effectsToDelete: string[], options: any }) {
-  const actor = MQfromActorUuid(data.actorUuid);
+  const actor = fromActorUuid(data.actorUuid);
   if (!actor) return;
   // Check that none of the effects were deleted while we were waiting to execute
   let finalEffectsToDelete = actor.appliedEffects.filter(ef => data.effectsToDelete.includes(ef.id) && !isEffectExpired(ef));
@@ -547,7 +541,7 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
     try {
       let { targets, origin, ignore, options } = data;
       for (let idData of targets) {
-        let actor = idData.tokenUuid ? MQfromActorUuid(idData.tokenUuid) : idData.actorUuid ? MQfromUuid(idData.actorUuid) : undefined;
+        let actor = idData.tokenUuid ? fromActorUuid(idData.tokenUuid) : idData.actorUuid ? MQfromUuidSync(idData.actorUuid) : undefined;
         if (actor?.actor) actor = actor.actor;
         if (!actor) {
           error("GMAction:deleteItemEffects | could not find actor for ", idData.tokenUuid);
@@ -609,14 +603,12 @@ async function addConvenientEffect(options) {
 }
 
 async function _addDependent(data: { concentrationEffectUuid: string, dependentUuid: string }) {
-  //@ts-expect-error
-  const concentrationEffect = fromUuidSync(data.concentrationEffectUuid);
+  const concentrationEffect = MQfromUuidSync(data.concentrationEffectUuid);
   if (!concentrationEffect) {
     console.error("GMAction.addDependent | concentration effect not found", data.concentrationEffectUuid);
     return undefined;
   }
-  //@ts-expect-error
-  const dependent = fromUuidSync(data.dependentUuid);
+  const dependent = MQfromUuidSync(data.dependentUuid);
   if (!dependent) {
     console.error("GMAction.addDependent | dependent not found", data.dependentUuid);
     return undefined;
@@ -626,7 +618,7 @@ async function _addDependent(data: { concentrationEffectUuid: string, dependentU
 
 async function localDoReactions(data: { tokenUuid: string; reactionItemList: ReactionItemReference[], triggerTokenUuid: string, reactionFlavor: string; triggerType: string; options: any }) {
   if (data.options.itemUuid) {
-    data.options.item = MQfromUuid(data.options.itemUuid);
+    data.options.item = MQfromUuidSync(data.options.itemUuid);
   }
   // reactonItemUuidList can't used since magic items don't have a uuid, so must always look them up locally.
   const result = await promptReactions(data.tokenUuid, data.reactionItemList, data.triggerTokenUuid, data.reactionFlavor, data.triggerType, data.options)
@@ -651,7 +643,7 @@ export async function createChatMessage(data: { chatData: any; }) {
 }
 
 export async function _D20Roll(data: { request: string, targetUuid: string, formula: string, rollMode: string, options: any, targetDC: number, messageData: any }) {
-  const actor = MQfromActorUuid(data.targetUuid);
+  const actor = fromActorUuid(data.targetUuid);
   if (!actor) {
     error(`GMAction.D20Roll | no actor for ${data.targetUuid}`)
     return {};
@@ -680,8 +672,7 @@ export async function _D20Roll(data: { request: string, targetUuid: string, form
   });
 }
 export async function rollConcentration(data: { actorUuid, targetValue, whisper }) {
-  //@ts-expect-error
-  const actor = fromUuidSync(data.actorUuid);
+  const actor = MQfromUuidSync(data.actorUuid);
   if (!actor) {
     error(`GMAction.rollConcentration | no actor for ${data.actorUuid}`)
     return {};
@@ -692,7 +683,7 @@ export async function rollConcentration(data: { actorUuid, targetValue, whisper 
 export async function rollAbility(data: { request: string; targetUuid: string; ability: string; options: any; }) {
   if (data.request === "test") data.request = "abil";
   if (data.request === "check") data.request = "abil";
-  const actor = MQfromActorUuid(data.targetUuid);
+  const actor = fromActorUuid(data.targetUuid);
   if (!actor) {
     error(`GMAction.rollAbility | no actor for ${data.targetUuid}`)
     return {};
@@ -772,11 +763,11 @@ async function prepareDamageListItems(data: {
     let tokenDocument;
     let actor;
     if (tokenUuid) {
-      tokenDocument = MQfromUuid(tokenUuid);
-      actor = tokenDocument?.actor ?? tokenDocument ?? MQfromActorUuid(actorUuid);
+      tokenDocument = MQfromUuidSync(tokenUuid);
+      actor = tokenDocument?.actor ?? tokenDocument ?? fromActorUuid(actorUuid);
     }
     else
-      actor = MQfromActorUuid(actorUuid)
+      actor = fromActorUuid(actorUuid)
 
     if (!actor) {
       if (debugEnabled > 0) warn(`GMAction: reverse damage card could not find actor to update HP tokenUuid ${tokenUuid} actorUuid ${actorUuid}`);
@@ -1004,14 +995,14 @@ async function createGMReverseDamageCard(
 }
 
 async function doClick(event: { stopPropagation: () => void; }, actorUuid: any, totalDamage: any, mult: any, data: any) {
-  let actor = MQfromActorUuid(actorUuid);
+  let actor = fromActorUuid(actorUuid);
   log(`Applying ${totalDamage} mult ${mult} HP to ${actor.name}`);
   await actor.applyDamage(totalDamage, foundry.utils.mergeObject({ multiplier: mult, ignore: true }, data.updateContext));
   event.stopPropagation();
 }
 
 async function doMidiClick(ev: any, actorUuid: any, newTempHP: any, newHP: any, newVitality: number, mult: number, data: any) {
-  let actor = MQfromActorUuid(actorUuid);
+  let actor = fromActorUuid(actorUuid);
   log(`Setting HP to ${newTempHP} and ${newHP}`);
   let updateContext = foundry.utils.mergeObject({ dhp: (newHP - actor.system.attributes.hp.value) }, data.updateContext);
   if (actor.isOwner) {
@@ -1040,7 +1031,7 @@ export let processUndoDamageCard = (message, html, data) => {
         const reverseButton = html.find(`#reverse-${actorUuid.replaceAll(".", "")}`);
         reverseButton.children()[0].classList.remove("midi-qol-enable-damage-button");
         reverseButton.children()[0].classList.add("midi-qol-disable-damage-button");
-        let actor = MQfromActorUuid(actorUuid);
+        let actor = fromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, actor);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
         const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, { inplace: false });
@@ -1060,7 +1051,7 @@ export let processUndoDamageCard = (message, html, data) => {
     (async () => {
       for (let { actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, damageItem, oldVitality, newVitality } of message.flags.midiqol.undoDamage) {
         if (!actorUuid) continue;
-        let actor = MQfromActorUuid(actorUuid);
+        let actor = fromActorUuid(actorUuid);
         const applyButton = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
         applyButton.children()[0].classList.add("midi-qol-disable-damage-button");
         applyButton.children()[0].classList.remove("midi-qol-enable-damage-button");
@@ -1093,7 +1084,7 @@ export let processUndoDamageCard = (message, html, data) => {
       otherButton.children()[0].classList.remove("midi-qol-disable-damage-button");
       otherButton.children()[0].classList.add("midi-qol-enable-damage-button");
       (async () => {
-        let actor = MQfromActorUuid(actorUuid);
+        let actor = fromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, data.updateContext);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
         const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, { inplace: false });
@@ -1119,7 +1110,7 @@ export let processUndoDamageCard = (message, html, data) => {
       const mults = { "-1": -1, "x1": 1, "x0.25": 0.25, "x0.5": 0.5, "x2": 2 };
       let multiplier = 1;
       (async () => {
-        let actor = MQfromActorUuid(actorUuid);
+        let actor = fromActorUuid(actorUuid);
         log(`Setting HP to ${newTempHP} and ${newHP}`, data.updateContext);
         if (mults[multiplierString]) {
           multiplier = mults[multiplierString]
@@ -1157,7 +1148,7 @@ export let processUndoDamageCard = (message, html, data) => {
 }
 
 async function _moveToken(data: { tokenUuid: string, newCenter: { x: number, y: number }, animate: boolean }): Promise<any> {
-  const tokenDocument = MQfromUuid(data.tokenUuid);
+  const tokenDocument = MQfromUuidSync(data.tokenUuid);
   if (!tokenDocument) return;
   return tokenDocument.update({ x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0 }, { animate: data.animate ?? true });
 }

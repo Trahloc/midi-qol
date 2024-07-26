@@ -1,7 +1,7 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MQdefaultDamageType, MODULE_ID } from "../midi-qol.js";
 import { DamageOnlyWorkflow, DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee, createConditionData, evalCondition } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee, createConditionData, evalCondition, MQfromUuidSync } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -275,8 +275,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       // TODO why is this heere
       game.user?.targets?.clear();
       const targetids = (options.targetUuids ?? []).map(uuid => {
-        //@ts-expect-error fromUuidSync
-        const targetDocument = fromUuidSync(uuid);
+        const targetDocument = MQfromUuidSync(uuid);
         //@ts-expect-error .object
         return targetDocument instanceof TokenDocument ? targetDocument.object.id : ""
       });
@@ -1125,6 +1124,14 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     else await workflow.setDamageRolls[result];
     let card;
     if (!configSettings.mergeCard) {
+      messageData = foundry.utils.mergeObject(messageData, {
+        "flags.dnd5e": {
+          targets: workflow._formatAttackTargets(),
+          roll: { type: "damage", itemId: this.id, itemUuid: this.uuid },
+          originatingMessage: workflow.chatCard.id
+        }
+      })
+      const message = await this.attackRoll?.toMessage(foundry.utils.expandObject(messageData));
       card = await DamageRoll.toMessage(result, messageData, { rollMode: game.settings.get("core", "rollMode") });
       // card = await result.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
     }
@@ -1658,8 +1665,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   let item = workflow.item;
   let targeting = getAutoTarget(item);
   if ((game.user?.targets.size === 0 || user !== game.user?.id) && targeting !== "none") {
-    //@ts-expect-error
-    let mTemplate: MeasuredTemplate = fromUuidSync(templateDocument.uuid)?.object;
+    let mTemplate: MeasuredTemplate = MQfromUuidSync(templateDocument.uuid)?.object;
     if (templateDocument?.object && !installedModules.get("levelsvolumetrictemplates")) {
       if (mTemplate.shape)
         //@ts-ignore templateDocument.x, mtemplate.distance TODO check this v10

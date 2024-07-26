@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, DDBGameLogWorkflow, UserWorkflow } from './module/workflow.js';
-import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, MQfromActorUuid, MQfromUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility } from './module/utils.js';
+import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, fromActorUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility, MQfromUuidSync, actorFromUuid } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -132,6 +132,9 @@ Hooks.once('init', async function () {
   Hooks.once('dfreds-convenient-effects.ready()', () => {
     setupMidiStatusEffects();
   });
+  //@ts-expect-error
+  if ( game.release.generation < 12 && !Math.clamp) Math.clamp = Math.clamped;
+
   //@ts-expect-error
   GameSystemConfig = game.system.config;
   if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
@@ -768,9 +771,10 @@ function setupMidiQOLApi() {
     midiRenderBonusDamageRoll,
     midiRenderOtherDamageRoll,
     midiSoundSettings: () => { return midiSoundSettings },
-    MQfromActorUuid,
-    MQfromUuid,
-    MQFromUuid: MQfromUuid,
+    MQfromActorUuid: fromActorUuid,
+    actorFromUuid,
+    MQfromUuid: MQfromUuidSync,
+    MQfromUuidSync,
     MQOnUseOptions,
     overTimeJSONData,
     playerFor,

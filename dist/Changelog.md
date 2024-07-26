@@ -11,6 +11,14 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.4.45
+* Fix for ddb gamelong and undo workflow enabled throwing an error.
+* Reinstated hover/click/right click for targets in target display.
+* Recommended settings for dnd5e damage application in v3.3+, if auto applying damage and effects, dnd5e "Collapse Trays in Chat" set to Collapse All, midi setting for collapsible targets set to unchecked.
+* Some changes for non-merge cards to work better with 3.3 (and probably 3.2) damage processing.
+* Fix for some non-merge card oddities (duplicate targets in multi target select), very large token in chat card
+* Fix for applyTokenDamageMany failing
+
 ### 11.4.44.1
 * Fix for Math.clamp error
 

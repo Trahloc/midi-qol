@@ -4,7 +4,7 @@ import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { configSettings } from "./settings.js";
 import { installedModules } from "./setupModules.js";
 import { busyWait } from "./tests/setupTest.js";
-import { getConcentrationEffect, isReactionItem } from "./utils.js";
+import { MQfromUuidSync, getConcentrationEffect, isReactionItem } from "./utils.js";
 import { Workflow } from "./workflow.js";
 
 var dae;
@@ -46,10 +46,8 @@ export function queueUndoDataDirect(undoDataDef) {
 export function _queueUndoDataDirect(undoDataDef) {
   if (!configSettings.undoWorkflow) return;
   const undoData: any = {};
-  //@ts-expect-error fromUuidSync
-  const tokenDoc = fromUuidSync(undoDataDef.tokendocUuid);
-  //@ts-expect-error fromUuidSync
-  const actor = fromUuidSync(undoDataDef.actorUuid);
+  const tokenDoc = MQfromUuidSync(undoDataDef.tokendocUuid);
+  const actor = MQfromUuidSync(undoDataDef.actorUuid);
   if (!actor) return;
   undoData.id = undoDataDef.id ?? foundry.utils.randomID();
   undoData.actorEntry = { actorUuid: undoDataDef.actorUuid, tokenUuid: undoDataDef.tokendocUuid, actorData: actor?.toObject(true), tokenData: tokenDoc?.toObject(true) };
@@ -101,8 +99,7 @@ export async function saveUndoData(workflow: Workflow): Promise<boolean> {
 
 export function createTargetData(tokenUuid) {
   if (!tokenUuid) return undefined;
-  //@ts-expect-error  
-  const tokendoc = fromUuidSync(tokenUuid);
+  const tokendoc = MQfromUuidSync(tokenUuid);
   if (!tokendoc) {
     error("undo | createTargetData could not fetch token document for ", tokenUuid);
     return undefined;
@@ -116,12 +113,10 @@ export function createTargetData(tokenUuid) {
 // Called to save snapshots of workflow actor/token data
 export function startUndoWorkflow(undoData: any): boolean {
   if (!configSettings.undoWorkflow) return true;
-  //@ts-expect-error fromUuidSync
-  let actor = fromUuidSync(undoData.actorUuid);
+  let actor = MQfromUuidSync(undoData.actorUuid);
   if (actor instanceof TokenDocument) actor = actor.actor;
   const actorData = actor?.toObject(true);
-  //@ts-expect-error fromUuidSync
-  const tokenData = actor?.isToken ? actor.token.toObject(true) : fromUuidSync(undoData.tokendocUuid ?? "")?.toObject(true);
+  const tokenData = actor?.isToken ? actor.token.toObject(true) : MQfromUuidSync(undoData.tokendocUuid ?? "")?.toObject(true);
   undoData.actorEntry = { actorUuid: undoData.actorUuid, tokenUuid: undoData.tokendocUuid, actorData, tokenData };
   undoData.allTargets = new Collection; // every token referenced by the workflow
   const concentrationEffect = getConcentrationEffect(actor, undoData.itemUuid);
@@ -231,7 +226,7 @@ export function queueUndoData(data: any): boolean {
     }
     /* This replaces the use of midi-qol concentration data but I'm not sure it's needed
     //@ts-expect-error
-    let actor = fromUuidSync(undoEntry.actorUuid);
+    let actor = MQfromUuidSync(undoEntry.actorUuid);
     if (actor instanceof TokenDocument) actor = actor.actor;
     for (let effect of actor?.appliedEffects) {
       const dependents = effect.getDependents();
@@ -333,8 +328,7 @@ export async function _removeChatCards(data: { chatCardUuids: string[] }) {
   if (!data.chatCardUuids) return;
   try {
     for (let uuid of data.chatCardUuids) {
-      //@ts-expect-error fromUuidSync
-      const card = await fromUuidSync(uuid);
+      const card = await MQfromUuidSync(uuid);
       await removeChatCard(card);
     }
   } catch (err) {
@@ -365,8 +359,8 @@ function getChanges(newData, savedData): any {
   delete savedData.items;
   delete savedData.effects;
 
-  const changes = foundry.utils.flattenObject(diffObject(newData, savedData));
-  const tempChanges = foundry.utils.flattenObject(diffObject(savedData, newData));
+  const changes = foundry.utils.flattenObject(foundry.utils.diffObject(newData, savedData));
+  const tempChanges = foundry.utils.flattenObject(foundry.utils.diffObject(savedData, newData));
   const toDelete = {};
   for (let key of Object.keys(tempChanges)) {
     if (!changes[key]) {
@@ -379,11 +373,9 @@ function getChanges(newData, savedData): any {
   return foundry.utils.mergeObject(changes, toDelete);
 }
 async function undoSingleTokenActor({ tokenUuid, actorUuid, actorData, tokenData }) {
-  //@ts-expect-error
-  let actor = fromUuidSync(actorUuid ?? "");
+  let actor = MQfromUuidSync(actorUuid ?? "");
   if (actor instanceof TokenDocument) actor = actor.actor;
-  //@ts-expect-error fromuuidSync
-  const tokendoc = actor?.isToken ? actor.token : fromUuidSync(tokenUuid ?? "");
+  const tokendoc = actor?.isToken ? actor.token : MQfromUuidSync(tokenUuid ?? "");
   if (!actor) return;
   let actorChanges;
   let tokenChanges;
@@ -480,8 +472,7 @@ export async function removeChatCard(chatCard: ChatMessage | undefined) {
 export async function undoWorkflow(undoData: any) {
   log(`Undoing workflow for Player ${undoData.userName} Token: ${undoData.actorEntry.actorData.name} Item: ${undoData.itemName ?? ""}`)
   for (let templateUuid of undoData.templateUuids)
-    //@ts-expect-error fromUuidSync
-    await fromUuidSync(templateUuid)?.delete();
+    await MQfromUuidSync(templateUuid)?.delete();
   if (globalThis.Sequencer && undoData.sequencerUuid) await globalThis.Sequencer.EffectManager.endEffects({ origin: undoData.sequencerUuid })
 
   for (let undoEntry of undoData.allTargets) {
@@ -492,8 +483,7 @@ export async function undoWorkflow(undoData: any) {
   const shouldDelete = false;
   // delete cards...
   if (undoData.itemCardUuid) {
-    //@ts-expect-error
-    const message = fromUuidSync(undoData.itemCardUuid);
+    const message = MQfromUuidSync(undoData.itemCardUuid);
     await removeChatCard(message);
   }
   // if (undoData.itemCardId) await removeChatCard(game.messages?.get(undoData.itemCardId));
