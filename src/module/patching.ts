@@ -545,6 +545,8 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
 
 
     await expireRollEffect.bind(this)(rollType, abilityId, success);
+    if (options.isConcentrationCheck) expireRollEffect.bind(this)("isConcentrationSave", success);
+
     return result;
   } catch (err) {
     const message = `doAbilityRoll error ${this.name} ${abilityId} ${rollType} ${this.uuid}`;
@@ -895,12 +897,14 @@ function _DAcalculateDamage(actor, options) {
   active.magic = new Set();
   active.uncannyDodge = new Set();
   active.nonmagic = new Set();
+  active.DR = new Set();
   const damages = actor.calculateDamage(this.damages, options);
   for (const damage of damages) {
     if (damage.active.absorption) active.absorption.add(damage.type);
     if (damage.active.spell) active.spell.add(damage.type);
     if (damage.active.magic) active.magic.add(damage.type);
     if (damage.active.nonmagic) active.nonmagic.add(damage.type);
+    if (damage.active.DR) active.DR.add(damage.type);
     if (damage.active.superSaver) active.superSaver.add(damage.type);
     else if (damage.active.semiSuperSaver) active.semiSuperSaver.add(damage.type);
     else if (damage.active.saved) active.saved.add(damage.type);
@@ -916,6 +920,7 @@ function _DAcalculateDamage(actor, options) {
   union("nonmagic");
   union("saved");
   union("uncannyDodge");
+  union("DR");
   return { temp, total, active };
 }
 
@@ -1301,11 +1306,11 @@ export function readyPatching() {
   libWrapper.register(MODULE_ID, "Notifications.prototype.notify", notificationNotify, "MIXED");
   //@ts-expect-error
   const gameVersion = game.system.version;
-  if ((game.system.id === "dnd5e" && foundry.utils.isNewerVersion("2.1.0", gameVersion))) {
+  if ((game.system.id === "dnd5e" && foundry.utils.isNewerVersion("3.1.0", gameVersion))) {
     if (ui.notifications)
       ui.notifications.error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`);
     else
-      error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`);
+      error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 3.2.0 or later`);
   }
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollInitiativeDialog", rollInitiativeDialog, "MIXED");
@@ -1481,7 +1486,6 @@ export function configureDamageRollDialog() {
 function _getUsageConfig(wrapped): any {
   //Radius tempalte spells with self/spec/any will auto place the template so don't prompt for it in config.
   const config = wrapped();
-  //  const autoCreatetemplate = this.hasAreaTarget && ["self"].includes(this.system.range?.units) && ["radius"].includes(this.system.target.type);
   const autoCreatetemplate = this.hasAreaTarget && hasAutoPlaceTemplate(this);
   if (autoCreatetemplate) config.createMeasuredTemplate = null;
   return config;

@@ -201,6 +201,63 @@ export function defineChatMessageMidiClass(baseClass: any) {
       }
     }
 
+    _highlightCriticalSuccessFailure(html) {
+      if (this.getFlag("dnd5e", "roll.type") !== "midi") return super._highlightCriticalSuccessFailure(html);
+      if ( !this.isContentVisible || !this.rolls.length ) return;
+
+      const originatingMessage = game.messages?.get(this.getFlag("dnd5e", "originatingMessage")) ?? this;
+      //@ts-expect-error
+      const displayChallenge = originatingMessage?.shouldDisplayChallenge;
+      const displayAttackResult = game.user?.isGM || (game.settings.get("dnd5e", "attackRollVisibility") !== "none");
+  
+      /**
+       * Create an icon to indicate success or failure.
+       * @param {string} cls  The icon class.
+       * @returns {HTMLElement}
+       */
+      function makeIcon(cls) {
+        const icon = document.createElement("i");
+        icon.classList.add("fas", cls);
+        icon.setAttribute("inert", "");
+        return icon;
+      }
+  
+      // Highlight rolls where the first part is a d20 roll
+      for ( let [index, d20Roll] of this.rolls.entries() ) {
+  
+        const d0 = d20Roll.dice[0];
+        if ( (d0?.faces !== 20) || (d0?.values.length !== 1) ) continue;
+  
+        //@ts-expect-error
+        d20Roll = game.system.dice.D20Roll.fromRoll(d20Roll);
+        const d = d20Roll.dice[0];
+  
+        const isModifiedRoll = ("success" in d.results[0]) || d.options.marginSuccess || d.options.marginFailure;
+        if ( isModifiedRoll ) continue;
+  
+        // Highlight successes and failures
+        const total = html.find(".dice-total")[index];
+        if ( !total ) continue;
+        // Only attack rolls and death saves can crit or fumble.
+        const canCrit = ["attack", "death"].includes(this.getFlag("dnd5e", "roll.type")) || ["attack"].includes(foundry.utils.getProperty(d20Roll, "options.midi-qol.rollType"))  ;
+        const isAttack = (this.getFlag("dnd5e", "roll.type") === "attack") || ["attack"].includes(foundry.utils.getProperty(d20Roll, "options.midi-qol.rollType"));
+        const showResult = isAttack ? displayAttackResult : displayChallenge;
+        if ( d.options.target && showResult ) {
+          if ( d20Roll.total >= d.options.target ) total.classList.add("success");
+          else total.classList.add("failure");
+        }
+        if ( canCrit && d20Roll.isCritical ) total.classList.add("critical");
+        if ( canCrit && d20Roll.isFumble ) total.classList.add("fumble");
+  
+        const icons = document.createElement("div");
+        icons.classList.add("icons");
+        if ( total.classList.contains("critical") ) icons.append(makeIcon("fa-check-double"));
+        else if ( total.classList.contains("fumble") ) icons.append(makeIcon("fa-xmark"), makeIcon("fa-xmark"));
+        else if ( total.classList.contains("success") ) icons.append(makeIcon("fa-check"));
+        else if ( total.classList.contains("failure") ) icons.append(makeIcon("fa-xmark"));
+        if ( icons.children.length ) total.append(icons);
+      }
+    }
 
     enrichAttackRolls(html) {
       if (!this.user.isGM || game.user?.isGM) return;
@@ -243,19 +300,6 @@ export function defineChatMessageMidiClass(baseClass: any) {
         html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.remove());
         html.querySelectorAll(".midi-attack-roll .dice-tooltip")?.forEach(el => el.remove());
         html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
-      }
-      let visibility = safeGetGameSetting("dnd5e", "attackRollVisibility") ?? "all";
-      if (!game.user?.isGM && visibility !== "all") {
-        // Dnd 3.3.1 introduced attack roll visibility - that takes precedence
-        if (!visibility) {
-          switch (visibility) {
-            case "none":
-              html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.classList.remove("hit"));
-              html.querySelectorAll(".midi-attack-roll .dice-formula")?.forEach(el => el.classList.remove("hit"));
-            case "hideAC":
-              break
-          }
-        }
       }
     }
 

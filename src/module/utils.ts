@@ -353,8 +353,98 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
   return totalMult;
   // Check the custom immunities
 }
-
 export async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves,
+  options: any = { label: "defaultDamage", existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
+    let allDamages: any = {};
+    damageDetail = damageDetail.map(de => ({ ...de, value: (de.value ?? de.damage) }))
+    if (configSettings.v3DamageApplication) {
+      let workflow: any = options.workflow ?? {};
+      if (item && !options.workflow) workflow = Workflow.getWorkflow(item.uuid) ?? {};
+
+      for (let tokenRef of theTargets) {
+        const token = getToken(tokenRef);
+        const actor = token?.actor
+        if (!actor || !token) continue;
+        const isHit = true;
+        const saved = !!saves?.has(token);
+        const superSaver = !!options.superSavers?.has(token);
+        const semiSuperSaver = !!options.semiSuperSavers?.has(token);
+        let saveMultiplier = 1;
+        if (saved) {
+          saveMultiplier = getSaveMultiplierForItem(item, "defaultDamage");
+        }
+        if (superSaver && getSaveMultiplierForItem(item, "defaultDamage") === 0.5) {
+          saveMultiplier = saves.has(token) ? 0 : 0.5;
+        }
+        if (semiSuperSaver && saved) {
+          saveMultiplier = 0;
+        }
+
+
+        allDamages[token.document.uuid] = { 
+          uuid: token.document.uuid,
+          tokenDamages: {combinedDamage: []},
+          isHit,
+          saved,
+          superSaver,
+          semiSuperSaver,
+          critical: false,
+          actorId: actor.id,
+          actorUuid: actor.uuid,
+          totalDamage,
+          sceneId: canvas?.scene?.id
+        };
+
+        const calcOptions = {
+          invertHealing: true,
+          multiplier: 1,
+          midi: {
+            saved,
+            itemType: item?.type,
+            saveMultiplier,
+            isHit: true,
+            superSaver,
+            semiSuperSaver,
+            token,
+            sourceActor: actor,
+            uncannyDodge: foundry.utils.getProperty(actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack,
+            // some options for ripper's module
+            save: saved,
+            target: token,
+            fumbleSave: false,
+            criticalSave: false,
+            isCritical: false,
+            isFumble: false
+          }
+        };
+        if (configSettings.saveDROrder === "DRSavedr") {
+          calcOptions.midi.saveMultiplier = saveMultiplier; 
+        } else {
+          calcOptions.midi.saveMultiplier = 1;
+          calcOptions.multiplier = saveMultiplier;
+        }
+        //@ts-expect-error
+        allDamages[token.document.uuid].tokenDamages["combinedDamage"] = foundry.utils.duplicate(actor.calculateDamage(damageDetail, calcOptions));
+        setupv3DamageDetails(allDamages, "combinedDamage", token);
+      }
+      const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
+        autoApplyDamage: configSettings.autoApplyDamage,
+        sender: game.user?.name,
+        actorId: workflow.actor?.id,
+        charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
+        damageList: Object.values(allDamages),
+        chatCardId: workflow.itemCardId,
+        chatCardUuid: workflow.itemCardUuid,
+        flagTags: workflow.flagTags,
+        updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
+        forceApply: options.forceApply,
+      });
+      return cardIds;
+    } else {
+      return midiApplyTokenDamage(damageDetail, totalDamage, theTargets, item, saves, options);
+    }
+}
+export async function midiApplyTokenDamage(damageDetail, totalDamage, theTargets, item, saves,
   options: any = { label: "defaultDamage", existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
   const fixedTargets: Set<Token> = theTargets.map(t => getToken(t));
 
@@ -819,6 +909,41 @@ export async function legacyApplyTokenDamageMany(damageDetailArr, totalDamageArr
   return applyTokenDamageMany({ applyDamageDetails: mappedDamageDetailArray, theTargets, item, options })
 }
 
+export function setupv3DamageDetails(allDamages, selector, token: Token) {
+  const damages = allDamages[token.document.uuid];
+  let { amount, temp } = damages.tokenDamages[selector].reduce((acc, d) => {
+    if (d.type === "temphp") acc.temp += d.value;
+    else acc.amount += d.value;
+    return acc;
+  }, { amount: 0, temp: 0 });
+  amount = amount > 0 ? Math.floor(amount) : Math.ceil(amount);
+  //@ts-expect-error
+  const as = token.actor?.system;
+  if (!as || !as.attributes.hp) return;
+  let effectiveTemp = as.attributes.hp.temp ?? 0;
+  if (temp < 0) {
+    // healing temp hp
+    effectiveTemp = Math.max(as.attributes.hp.temp ?? 0, -temp);
+  } else
+    effectiveTemp = Math.max(0, (as.attributes.hp.temp ?? 0) - temp);
+  damages.tokenUuid = token.document.uuid;
+  damages.tokenId = token.id;
+  damages.oldHP = as.attributes.hp.value;
+  damages.newHP = as.attributes?.hp?.value;
+  damages.oldTempHP = as.attributes.hp.temp ?? 0;
+  damages.newTempHP = as.attributes.hp.temp ?? 0;
+  const deltaTemp = amount > 0 ? Math.min(effectiveTemp, amount) : 0;
+  //@ts-expect-error
+  const deltaHP = Math.clamp(amount - deltaTemp, -as.attributes.hp.damage, as.attributes.hp.value);
+  damages.newHP -= deltaHP;
+  damages.hpDamage = deltaHP;
+  damages.newTemp = Math.max(0, effectiveTemp - deltaTemp);
+  damages.tempDamage = damages.oldTempHP - damages.newTemp;
+  damages.wasHit = damages.isHit;
+  damages.appliedDamage = deltaHP;
+  damages.details = [];
+}
+
 export async function processDamageRoll(workflow: Workflow, defaultDamageType: string) {
   if (debugEnabled > 0) warn("processDamageRoll |", workflow)
   // proceed if adding chat damage buttons or applying damage for our selves
@@ -924,7 +1049,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         actorId: token.actor.id,
         actorUuid: token.actor.uuid,
         totalDamage,
-        scenneId: canvas?.scene?.id,
+        sceneId: canvas?.scene?.id,
       };
       let options: any = {};
       if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && workflow.attackRoll && workflow.hitTargetsEC?.has(token)) {
@@ -991,8 +1116,18 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
               }
             }
           }
-
           foundry.utils.setProperty(options, "midi.applyDamage", true);
+          // Setup some other options for ripper's modules
+          options = foundry.utils.mergeObject(options, {midi: {
+            save: workflow.saves.has(token),
+            fumbleSave: workflow.fumbleSaves.has(token),
+            criticalSave: workflow.criticalSaves.has(token),
+            isCritical: workflow.isCritical,
+            isFumble: workflow.isFumble,
+            target: token,
+            superSavers: workflow.superSavers,
+            semiSuperSavers: workflow.semiSuperSavers
+          }}, {insertKeys: true, insertValues: true});
           //@ts-expect-error
           let returnDamages = foundry.utils.duplicate(token.actor.calculateDamage(damages, options));
           if (configSettings.singleConcentrationRoll || type !== "otherDamage") {
@@ -1005,26 +1140,26 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       }
     }
     workflow.v3Damages = allDamages;
-
-    let baseDamageRolls: Roll[] = workflow.damageRolls ?? [];
-    let otherDamageRolls: Roll[] = [];
-
-    if (configSettings.singleConcentrationRoll) {
-      if (workflow.otherDamageRoll) baseDamageRolls = baseDamageRolls.concat(workflow.otherDamageRoll);
-      if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
-      otherDamageRolls = [];
-    } else {
-      if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
-      if (workflow.otherDamageRoll) otherDamageRolls = [workflow.otherDamageRoll];
-    }
-
+    /*
+        let baseDamageRolls: Roll[] = workflow.damageRolls ?? [];
+        let otherDamageRolls: Roll[] = [];
+    
+        if (configSettings.singleConcentrationRoll) {
+          if (workflow.otherDamageRoll) baseDamageRolls = baseDamageRolls.concat(workflow.otherDamageRoll);
+          if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
+          otherDamageRolls = [];
+        } else {
+          if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
+          if (workflow.otherDamageRoll) otherDamageRolls = [workflow.otherDamageRoll];
+        }
+    */
     workflow.damageList = Object.values(allDamages);
     const toCheck = ["combinedDamage"];
     if (!configSettings.singleConcentrationRoll && workflow.otherDamageRoll) toCheck.push("otherDamage");
     let chatCardUuids: string[] = [];
     for (let selector of toCheck) {
       workflow.damageList.forEach(damageEntry => {
-        damageEntry.damageItem = damageEntry.tokenDamages[selector];
+        damageEntry.damageDetail = damageEntry.tokenDamages[selector];
       });
 
       for (let tokenRef of theTargets) {
@@ -1033,10 +1168,10 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         if (!token?.actor) continue;
         if (!tokenDocument) continue;
         const tokenDamages = allDamages[tokenDocument.uuid];
-        workflow?.setupv3DamageDetails(allDamages, selector, token);
+        setupv3DamageDetails(allDamages, selector, token);
         await workflow?.callv3DamageHooks(tokenDamages, token);
-        tokenDamages.tokenDamages[selector] = tokenDamages.damageItem;
-        // workflow?.setupv3DamageDetails(allDamages, selector, token);
+        tokenDamages.tokenDamages[selector] = tokenDamages.damageDetail;
+        // setupv3DamageDetails(allDamages, selector, token);
       }
       const options = { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false };
       const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
@@ -1435,7 +1570,15 @@ export function midiCustomEffect(...args) {
       foundry.utils.setProperty(actor, change.key, macroString)
     } else foundry.utils.setProperty(actor, change.key, change.value);
     return true;
-  } else if (deferredEvaluation.some(k => change.key.startsWith(k))) {
+  } /*
+  TODO revisit this if going to allow item macro in flags evaluation
+  else if (change.key.startsWith(`flags.${MODULE_ID}.`) && (change.value.trim().includes("ItemMacro") || change.value.trim().includes(MQItemMacroLabel))) {
+    if (change.effect?.origin?.includes("Item.")) {
+      const macroString = `ItemMacro.${change.effect.origin}`;
+      foundry.utils.setProperty(actor, change.key, macroString)
+    } else foundry.utils.setProperty(actor, change.key, change.value);
+  } */
+  else if (deferredEvaluation.some(k => change.key.startsWith(k))) {
     if (typeof change.value !== "string") foundry.utils.setProperty(actor, change.key, change.value);
     else if (["true", "1"].includes(change.value.trim())) foundry.utils.setProperty(actor, change.key, true);
     else if (["false", "0"].includes(change.value.trim())) foundry.utils.setProperty(actor, change.key, false);
@@ -1936,6 +2079,9 @@ export async function _processOverTime(combat, data, options, userId) {
       // do the whole thing as a GM to avoid multiple calls to the GM to set/remove flags/conditions
       await untimedExecuteAsGM("removeActionBonusReaction", { actorUuid: actor.uuid });
     }
+    if (actor && toTest !== prev) {
+      removeActionUsed(actor);
+    }
 
     if (actor) for (let effect of actor.appliedEffects) {
       if (effect.changes.some(change => change.key.startsWith(`flags.${MODULE_ID}.OverTime`))) {
@@ -1986,7 +2132,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
         targetsToUse = new Set(game.user?.targets);
       }
       let hookName = `midi-qol.postCleanup.${item?.uuid}`;
-      if (!(item instanceof CONFIG.Item.documentClass)) {
+      if (!(theItem instanceof CONFIG.Item.documentClass)) {
         // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
         hookName = "midi-qol.postCleanup";
       }
@@ -1998,11 +2144,11 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
         resolve(workflow);
       });
 
-      if (item.magicItem) {
-        item.magicItem.magicItemActor.roll(item.magicItem.id, item.id);
+      if (theItem.magicItem) {
+        theItem.magicItem.magicItemActor.roll(theItem.magicItem.id, theItem.id);
       } else {
         options.targetsToUse = targetsToUse
-        item.use(config, options).then(result => { if (!result) resolve(result) });
+        theItem.use(config, options).then(result => { if (!result) resolve(result) });
       }
     })
   } else {
@@ -2186,8 +2332,8 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
 }
 
 export function getDistanceSimpleOld(t1: Token, t2: Token, includeCover, wallBlocking = false) {
-  //@ts-expect-error logCompatibilityWarning
-  logCompatibilityWarning("getDistance(t1,t2,includeCover,wallBlocking) is deprecated in favor computeDistance(t1,t2,wallBlocking?).", { since: "11.2.1", untill: "12.0.0" });
+  //@ts-expect-error foundry.utils.logCompatibilityWarning
+  foundry.utils.logCompatibilityWarning("getDistance(t1,t2,includeCover,wallBlocking) is deprecated in favor computeDistance(t1,t2,wallBlocking?).", { since: "11.2.1", untill: "12.0.0" });
   return getDistance(t1, t2, wallBlocking);
 }
 export function getDistanceSimple(t1: Token, t2: Token, wallBlocking = false) {
@@ -2206,8 +2352,8 @@ export function checkDistance(t1: any, t2: any, distance: number, wallsBlocking?
 export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking = false): number {
   if (!canvas || !canvas.scene) return -1;
   if (!canvas.grid || !canvas.dimensions) return -1;
-  t1 = getToken(t1);
-  t2 = getToken(t2);
+  t1 = getPlaceable(t1);
+  t2 = getPlaceable(t2);
   if (!t1 || !t2) return -1;
   if (!canvas || !canvas.grid || !canvas.dimensions) return -1;
 
@@ -2217,15 +2363,23 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   if (ignoreWallsFlag) {
     wallblocking = false;
   }
+  let t1DocWidth = t1.document.width ?? 1;
+  if (t1DocWidth > 10) t1DocWidth = t1DocWidth / canvas.dimensions.size;
+  let t1DocHeight = t1.document.height ?? 1;
+  if (t1DocHeight > 10) t1DocHeight = t1DocHeight / canvas.dimensions.size;
+  let t2DocWidth = t2.document.width ?? 1;
+  if (t2DocWidth > 10) t2DocWidth = t2DocWidth / canvas.dimensions.size;
+  let t2DocHeight = t2.document.height ?? 1;
+  if (t2DocHeight > 10) t2DocHeight = t2DocHeight / canvas.dimensions.size;
 
-  const t1StartX = t1.document.width >= 1 ? 0.5 : t1.document.width / 2;
-  const t1StartY = t1.document.height >= 1 ? 0.5 : t1.document.height / 2;
-  const t2StartX = t2.document.width >= 1 ? 0.5 : t2.document.width / 2;
-  const t2StartY = t2.document.height >= 1 ? 0.5 : t2.document.height / 2;
+  const t1StartX = t1DocWidth >= 1 ? 0.5 : t1DocWidth / 2;
+  const t1StartY = t1DocHeight >= 1 ? 0.5 : t1DocHeight / 2;
+  const t2StartX = t2DocWidth >= 1 ? 0.5 : t2DocWidth / 2;
+  const t2StartY = t2DocHeight >= 1 ? 0.5 : t2DocHeight / 2;
   const t1Elevation = t1.document.elevation ?? 0;
   const t2Elevation = t2.document.elevation ?? 0;
-  const t1TopElevation = t1Elevation + Math.max(t1.document.height, t1.document.width) * (canvas?.dimensions?.distance ?? 5);
-  const t2TopElevation = t2Elevation + Math.min(t2.document.height, t2.document.width) * (canvas?.dimensions?.distance ?? 5); // assume t2 is trying to make itself small
+  const t1TopElevation = t1Elevation + Math.max(t1DocHeight, t1DocWidth) * (canvas?.dimensions?.distance ?? 5);
+  const t2TopElevation = t2Elevation + Math.min(t2DocHeight, t2DocWidth) * (canvas?.dimensions?.distance ?? 5); // assume t2 is trying to make itself small
   let coverVisible;
   // For levels autocover and simbul's cover calculator pre-compute token cover - full cover means no attack and so return -1
   // otherwise don't bother doing los checks they are overruled by the cover check
@@ -2248,126 +2402,181 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   }
 
   var x, x1, y, y1, d, r, segments: { ray: Ray }[] = [], rdistance, distance;
-  for (x = t1StartX; x < t1.document.width; x++) {
-    for (y = t1StartY; y < t1.document.height; y++) {
-      let origin;
-      //@ts-expect-error
-      if (game.release.generation > 11) {
+  let heightDifference = 0;
+  if (!(t2.document instanceof WallDocument)) {
+    for (x = t1StartX; x < t1DocWidth; x++) {
+      for (y = t1StartY; y < t1DocHeight; y++) {
+        let origin;
         //@ts-expect-error
-        const point = canvas.grid.getCenterPoint({ x: Math.round(t1.document.x + (canvas.dimensions.size * x)), y: Math.round(t1.document.y + (canvas.dimensions.size * y)) });
-        origin = new PIXI.Point(point.x, point.y);
-      } else
-        origin = new PIXI.Point(...canvas.grid.getCenter(Math.round(t1.document.x + (canvas.dimensions.size * x)), Math.round(t1.document.y + (canvas.dimensions.size * y))));
-      for (x1 = t2StartX; x1 < t2.document.width; x1++) {
-        for (y1 = t2StartY; y1 < t2.document.height; y1++) {
-          let dest;
+        if (game.release.generation > 11) {
           //@ts-expect-error
-          if (game.release.generation > 11) {
+          const point = canvas.grid.getCenterPoint({ x: Math.round(t1.document.x + (canvas.dimensions.size * x)), y: Math.round(t1.document.y + (canvas.dimensions.size * y)) });
+          origin = new PIXI.Point(point.x, point.y);
+        } else
+          origin = new PIXI.Point(...canvas.grid.getCenter(Math.round(t1.document.x + (canvas.dimensions.size * x)), Math.round(t1.document.y + (canvas.dimensions.size * y))));
+        for (x1 = t2StartX; x1 < t2DocWidth; x1++) {
+          for (y1 = t2StartY; y1 < t2DocHeight; y1++) {
+            let dest;
             //@ts-expect-error
-            const point = canvas.grid.getCenterPoint({ x: Math.round(t2.document.x + (canvas.dimensions.size * x1)), y: Math.round(t2.document.y + (canvas.dimensions.size * y1)) });
-            dest = new PIXI.Point(point.x, point.y);
-          } else
-            dest = new PIXI.Point(...canvas.grid.getCenter(Math.round(t2.document.x + (canvas.dimensions.size * x1)), Math.round(t2.document.y + (canvas.dimensions.size * y1))));
-          const r = new Ray(origin, dest);
-          if (wallblocking) {
-            switch (configSettings.optionalRules.wallsBlockRange) {
-              case "center":
-                let collisionCheck;
-
-                //@ts-expect-error polygonBackends
-                collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { mode: "any", type: "move" })
-                if (collisionCheck) continue;
-                break;
-              case "centerLevels":
-                // //@ts-expect-error
-                // TODO include auto cover calcs in checking console.error(AutoCover.calculateCover(t1, t2));
-                if (configSettings.optionalRules.wallsBlockRange === "centerLevels" && installedModules.get("levels")) {
-                  if (coverVisible === false) continue;
-                  if (coverVisible === undefined) {
-                    let p1 = {
-                      x: origin.x,
-                      y: origin.y,
-                      z: t1Elevation
-                    }
-                    let p2 = {
-                      x: dest.x,
-                      y: dest.y,
-                      z: t2Elevation
-                    }
-                    //@ts-expect-error
-                    const baseToBase = CONFIG.Levels.API.testCollision(p1, p2, "collision");
-                    p1.z = t1TopElevation;
-                    p2.z = t2TopElevation;
-                    //@ts-expect-error
-                    const topToBase = CONFIG.Levels.API.testCollision(p1, p2, "collision");
-                    if (baseToBase && topToBase) continue;
-                  }
-                } else {
+            if (game.release.generation > 11) {
+              //@ts-expect-error
+              const point = canvas.grid.getCenterPoint({ x: Math.round(t2.document.x + (canvas.dimensions.size * x1)), y: Math.round(t2.document.y + (canvas.dimensions.size * y1)) });
+              dest = new PIXI.Point(point.x, point.y);
+            } else
+              dest = new PIXI.Point(...canvas.grid.getCenter(Math.round(t2.document.x + (canvas.dimensions.size * x1)), Math.round(t2.document.y + (canvas.dimensions.size * y1))));
+            const r = new Ray(origin, dest);
+            if (wallblocking) {
+              switch (configSettings.optionalRules.wallsBlockRange) {
+                case "center":
                   let collisionCheck;
+
                   //@ts-expect-error polygonBackends
                   collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { mode: "any", type: "move" })
                   if (collisionCheck) continue;
-                }
-                break;
-              case "alternative":
-              case "simbuls-cover-calculator":
-                if (coverVisible === undefined) {
-                  let collisionCheck;
-                  //@ts-expect-error polygonBackends
-                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
-                  if (collisionCheck) continue;
-                }
-                break;
+                  break;
+                case "centerLevels":
+                  // //@ts-expect-error
+                  // TODO include auto cover calcs in checking console.error(AutoCover.calculateCover(t1, t2));
+                  if (configSettings.optionalRules.wallsBlockRange === "centerLevels" && installedModules.get("levels")) {
+                    if (coverVisible === false) continue;
+                    if (coverVisible === undefined) {
+                      let p1 = {
+                        x: origin.x,
+                        y: origin.y,
+                        z: t1Elevation
+                      }
+                      let p2 = {
+                        x: dest.x,
+                        y: dest.y,
+                        z: t2Elevation
+                      }
+                      //@ts-expect-error
+                      const baseToBase = CONFIG.Levels.API.testCollision(p1, p2, "collision");
+                      p1.z = t1TopElevation;
+                      p2.z = t2TopElevation;
+                      //@ts-expect-error
+                      const topToBase = CONFIG.Levels.API.testCollision(p1, p2, "collision");
+                      if (baseToBase && topToBase) continue;
+                    }
+                  } else {
+                    let collisionCheck;
+                    //@ts-expect-error polygonBackends
+                    collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { mode: "any", type: "move" })
+                    if (collisionCheck) continue;
+                  }
+                  break;
+                case "alternative":
+                case "simbuls-cover-calculator":
+                  if (coverVisible === undefined) {
+                    let collisionCheck;
+                    //@ts-expect-error polygonBackends
+                    collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
+                    if (collisionCheck) continue;
+                  }
+                  break;
 
-              case "none":
-              default:
+                case "none":
+                default:
+              }
             }
+            segments.push({ ray: r });
           }
-          segments.push({ ray: r });
         }
       }
     }
+    if (segments.length === 0) {
+      return -1;
+    }
+    rdistance = segments.map(ray => midiMeasureDistances([ray], { gridSpaces: true }));
+    distance = Math.min(...rdistance);
+    if (configSettings.optionalRules.distanceIncludesHeight) {
+      let t1ElevationRange = Math.max(t1DocHeight, t1DocWidth) * (canvas?.dimensions?.distance ?? 5);
+      if ((t2Elevation > t1Elevation && t2Elevation < t1TopElevation) || (t1Elevation > t2Elevation && t1Elevation < t2TopElevation)) {
+        //check if bottom elevation of each token is within the other token's elevation space, if so make the height difference 0
+        heightDifference = 0;
+      }
+      else if (t1Elevation < t2Elevation) { // t2 above t1
+        heightDifference = Math.max(0, t2Elevation - t1TopElevation) + (canvas?.dimensions?.distance ?? 5);
+      }
+      else if (t1Elevation > t2Elevation) { // t1 above t2
+        heightDifference = Math.max(0, t1Elevation - t2TopElevation) + (canvas?.dimensions?.distance ?? 5);
+      }
+    }
+  } else {
+    const w = t2.document
+    let closestPoint;
+    //@ts-expect-error
+    if (game.release.generation === 11) {
+      //@ts-expect-error
+      closestPoint = foundry.utils.closestPointToSegment(t1.center, w.object.A, w.object.B);
+    } else {
+      //@ts-expect-error
+      closestPoint = foundry.utils.closestPointToSegment(t1.center, w.object.edge.a, w.object.edge.b);
+    }
+    distance = midiMeasureDistances([{ ray: new Ray(t1.center, closestPoint) }], { gridSpaces: true });
+
+    if (configSettings.optionalRules.distanceIncludesHeight) {
+      if (!w.flags?.["wall-height"]) heightDifference = 0;
+    } else {
+      const wh = w.flags?.["wall-height"]
+      if (wh.top === null && wh.botton === null) heightDifference = 0;
+      else if (wh.top === null) heightDifference = Math.max(0, wh.bottom - t1Elevation);
+      else if (wh.bottom === null) heightDifference = Math.max(0, t1Elevation - wh.top);
+      else heightDifference = Math.max(0, wh.bottom - t1TopElevation, t1Elevation - wh.top);
+    }
   }
-  if (segments.length === 0) {
-    return -1;
-  }
-  rdistance = segments.map(ray => midiMeasureDistances([ray], { gridSpaces: true }));
-  distance = Math.min(...rdistance);
+
   if (configSettings.optionalRules.distanceIncludesHeight) {
-    let heightDifference = 0;
-    let t1ElevationRange = Math.max(t1.document.height, t1.document.width) * (canvas?.dimensions?.distance ?? 5);
-    if ((t2Elevation > t1Elevation && t2Elevation < t1TopElevation) || (t1Elevation > t2Elevation && t1Elevation < t2TopElevation)) {
-      //check if bottom elevation of each token is within the other token's elevation space, if so make the height difference 0
-      heightDifference = 0;
-    }
-    else if (t1Elevation < t2Elevation) { // t2 above t1
-      heightDifference = Math.max(0, t2Elevation - t1TopElevation) + (canvas?.dimensions?.distance ?? 5);
-    }
-    else if (t1Elevation > t2Elevation) { // t1 above t2
-      heightDifference = Math.max(0, t1Elevation - t2TopElevation) + (canvas?.dimensions?.distance ?? 5);
-    }
-    /*
-    if (Math.abs(t2Elevation - t1Elevation) < t1ElevationRange) {
-      // token 2 is within t1's size so height difference is functionally 0
-      heightDifference = 0;
-    } else if (t1Elevation < t2Elevation) { // t2 above t1
-      heightDifference = Math.max(0, t2Elevation - t1TopElevation);
-    }
-    else if (t1Elevation > t2Elevation) { // t1 above t2
-      heightDifference = Math.max(0, t1Elevation - t2TopElevation);
-    }
-    */
-    //@ts-expect-error diagonalRule from DND5E
-    const rule = canvas.grid.diagonalRule
-    if (["555", "5105"].includes(rule)) {
+    //@ts-expect-error release
+    if (game.release.generation < 12) {
+      let rule = safeGetGameSetting("dnd5e", "diagonalMovement") ?? "EUCL"; // V12
+
+      if (["555", "5105"].includes(rule)) {
+        let nd = Math.min(distance, heightDifference);
+        let ns = Math.abs(distance - heightDifference);
+        distance = nd + ns;
+        let dimension = canvas?.dimensions?.distance ?? 5;
+        if (rule === "5105") distance = distance + Math.floor(nd / 2 / dimension) * dimension;
+      } else {
+        distance = Math.sqrt(heightDifference * heightDifference + distance * distance);
+      }
+    } else { // TODO experimental
       let nd = Math.min(distance, heightDifference);
       let ns = Math.abs(distance - heightDifference);
-      distance = nd + ns;
+      // distance = nd + ns;
       let dimension = canvas?.dimensions?.distance ?? 5;
-      if (rule === "5105") distance = distance + Math.floor(nd / 2 / dimension) * dimension;
+      let diagonals = safeGetGameSetting("core", "gridDiagonals");
+      //@ts-expect-error GRID_DIAGONALS
+      const GRID_DIAGONALS = CONST.GRID_DIAGONALS;
+      // Determine the offset distance of the diagonal moves
+      let cd;
+      switch (diagonals) {
+        case GRID_DIAGONALS.EQUIDISTANT: cd = nd; break;
+        case GRID_DIAGONALS.EXACT: cd = Math.SQRT2 * nd; break;
+        case GRID_DIAGONALS.APPROXIMATE: cd = 1.5 * nd; break;
+        case GRID_DIAGONALS.RECTILINEAR: cd = 2 * nd; break;
+        case GRID_DIAGONALS.ALTERNATING_1:
+          // TODO get the diagonals return from MidiMeasureDistances
+          // if ( result.diagonals & 1 ) cd = ((nd + 1) & -2) + (nd >> 1);
+          // else cd = (nd & -2) + ((nd + 1) >> 1);
+          cd = ((nd + 1) & -2) + (nd >> 1);
+          break;
+        case GRID_DIAGONALS.ALTERNATING_2:
+          // TODO get the diagonals return from MidiMeasureDistances
+          // if ( result.diagonals & 1 ) cd = (nd & -2) + ((nd + 1) >> 1);
+          //  else cd = ((nd + 1) & -2) + (nd >> 1);
+          cd = ((nd + 1) & -2) + (nd >> 1);
+          break;
+        case GRID_DIAGONALS.ILLEGAL:
+          // Don't think I want this to be done
+          cd = 2 * nd;
+          nd = 0;
+          // n = di + dj;
+          ns = distance + heightDifference;
+          break;
+      }
+      distance = ns + cd;
 
-    } else {
-      distance = Math.sqrt(heightDifference * heightDifference + distance * distance);
     }
   }
   return distance;
@@ -2538,7 +2747,11 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
     attackingToken: tokenIn,
   }
 
-  const canOverride = foundry.utils.getProperty(tokenIn.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.all`) || foundry.utils.getProperty(tokenIn.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.${itemIn.system.actionType}`)
+  let canOverride = foundry.utils.getProperty(tokenIn.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.all`) || foundry.utils.getProperty(tokenIn.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.${itemIn.system.actionType}`)
+  if (typeof canOverride === "string") {
+    const conditionData = createConditionData({ item: itemIn, actor: tokenIn.actor });
+    canOverride = evalCondition(canOverride, conditionData)
+  }
 
   const { result, reason, range, longRange } = checkRangeFunction(itemIn, attackingToken, targetsIn);
   if (!canOverride) { // no overrides so just do the check
@@ -2827,12 +3040,6 @@ export async function setConcentrationData(actor, concentrationData: Concentrati
   }
   let templates: string[] = concentrationData.templates ?? [];
   if (concentrationData.templateUuid) templates.push(concentrationData.templateUuid)
-  await actor.setFlag(MODULE_ID, "concentration-data", {
-    uuid: concentrationData.item,
-    targets,
-    templates,
-    removeUuids: concentrationData.removeUuids ?? []
-  });
 
   if (concentrationEffect) { //duplicate the concentration data into the effect dependents
     //@ts-expect-error
@@ -3033,10 +3240,16 @@ export async function removeInvisibleCondition(tokenRef: Token | TokenDocument |
   //@ts-expect-error
   if (game.release.generation < 12) {
     //@ts-expect-error
-    if (CONFIG.specialStatusEffects.INVISIBLE) await token.document.toggleActiveEffect({ id: CONFIG.specialStatusEffects.INVISIBLE }, { active: false });
+    if (CONFIG.statusEffects.find(se => se.id === (CONFIG.specialStatusEffects.INVISIBLE ?? "invisible"))) {
+      //@ts-expect-error
+      await token.document.toggleActiveEffect({ id: CONFIG.specialStatusEffects.INVISIBLE }, { active: false });
+    }
   } else {
     //@ts-expect-error
-    if (CONFIG.specialStatusEffects.INVISIBLE) await token?.actor?.toggleStatusEffect(CONFIG.specialStatusEffects.INVISIBLE, { active: false })
+    if (CONFIG.statusEffects.find(se => se.id === (CONFIG.specialStatusEffects.INVISIBLE ?? "invisible"))) {
+      //@ts-expect-error
+      await token?.actor?.toggleStatusEffect(CONFIG.specialStatusEffects.INVISIBLE, { active: false })
+    }
   }
   if (debugEnabled > 0) log(`Invisibility removed for ${token.name}`)
 }
@@ -3160,7 +3373,7 @@ export function validTargetTokens(tokenSet: Set<Token> | undefined | any): Set<T
 }
 
 // TODO when v12 only change all refs to fromUuidSync
-export function MQfromUuidSync(uuid: string | undefined | null): any { 
+export function MQfromUuidSync(uuid: string | undefined | null): any {
   if (!!!uuid) return null;
   //@ts-expect-error
   return fromUuidSync(uuid);
@@ -4637,9 +4850,17 @@ export function getConcentrationEffect(actor, itemRef?: Item | string): ActiveEf
   }
 }
 
+async function confirm(title: string = "Are you sure", { content, defaultYes } = { content: "", defaultYes: true }): Promise<any> {
+  return Dialog.confirm({
+    title: title ?? "Confirm",
+    content,
+    defaultYes
+  });
+}
 async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined): Promise<any> {
   let result;
   try {
+    expression = expression.replace(/confirm\((.*)\)/g, "await confirm($1)");
     const src = 'with (sandbox) { return ' + expression + '}';
     //@ts-expect-error
     let AsyncFunction = foundry.utils.AsyncFunction
@@ -4647,7 +4868,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
       AsyncFunction = (async function () { }).constructor;
     const evl = AsyncFunction("sandbox", src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, nonWorkflowTargetedToken: game.user.targets.first(), combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user.targets.first(), combat: game.combat });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4664,6 +4885,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
   if (Number.isNumeric(result)) return Number(result)
   return result;
 };
+
 function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undefined = undefined): any {
   let result;
   try {
@@ -4737,7 +4959,7 @@ export function effectActivationConditionToUse(workflow: Workflow) {
   return foundry.utils.getProperty(this, `flags.${MODULE_ID}.effectCondition`);
 }
 
-export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined, item?: Item | string | undefined, extraData?: any }) {
+export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any }) {
   const actor = data.workflow?.actor ?? data.actor;
   let item;
   if (data.item) {
@@ -4750,7 +4972,6 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   //@ts-expect-error
   if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
     rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
-
   } else {
     rollData.isAttuned = rollData.item?.attunement !== GameSystemConfig.attunementTypes.REQUIRED;
   }
@@ -4880,6 +5101,7 @@ export function evalCondition(condition: string, conditionData: any, options: an
     if (condition.includes("@")) {
       condition = Roll.replaceFormulaData(condition, conditionData, { missing: "0" });
     }
+
     if (options.async) returnValue = asyncMySafeEval(condition, conditionData, options.errorReturn);
     else returnValue = mySafeEval(condition, conditionData, options.errorReturn ?? false);
     if (debugEnabled > 0) warn("evalCondition ", returnValue, condition, conditionData);
@@ -4998,14 +5220,14 @@ export async function setReactionUsed(actor: Actor) {
 export async function setBonusActionUsed(actor: Actor) {
   if (debugEnabled > 0) warn("setBonusActionUsed | starting");
   if (!["all", "displayOnly"].includes(configSettings.enforceBonusActions) && configSettings.enforceBonusActions !== actor.type) return;
-  await actor.update({ "flags.midi-qol.actions.bonus": true, "flags.midi-qol.actions.bonusActionCombatRound": game.combat?.round });
+  // await actor.update({ "flags.midi-qol.actions.bonus": true, "flags.midi-qol.actions.bonusActionCombatRound": game.combat?.round });
   const id = "bonusaction";
   await actor.effects.get(getStaticID(id))?.delete();
   const effect = foundry.utils.deepClone(midiBonusActionEffect);
   effect.updateSource({
     origin: actor.uuid,
     changes: [
-      { key: 'flags.midi-qol.actions.bonus.used', mode: 2, value: true },
+      { key: 'flags.midi-qol.actions.bonus', mode: 2, value: true },
       { key: 'flags.midi-qol.actions.bonusActionCombatRound', mode: 2, value: game.combat?.round ?? false }
     ]
   });
@@ -5670,18 +5892,26 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   return Array.from(matchedModes);
 }
 
-export function tokenForActor(actorRef: Actor | string): Token | undefined {
+export function tokensForActor(actorRef: Actor | string | undefined | null): Token[] | undefined {
   let actor: Actor;
   if (!actorRef) return undefined
-  // if (actor.token) return actor.token;
   if (typeof actorRef === "string") actor = fromActorUuid(actorRef);
   else actor = actorRef;
+  if (!(actor instanceof Actor)) return undefined;
+  //@ts-expect-error
+  if (actor.token) return [actor.token.object];
   //@ts-expect-error getActiveTokens returns an array of tokens not tokenDocuments
   const tokens: Token[] = actor.getActiveTokens();
   if (!tokens.length) return undefined;
   //@ts-expect-error .controlled
   const controlled = tokens.filter(t => t.controlled);
-  return controlled.length ? controlled.shift() : tokens.shift();
+  return controlled.length ? controlled : tokens;
+}
+
+export function tokenForActor(actor: Actor | string | undefined | null): Token | undefined {
+  const tokens = tokensForActor(actor);
+  if (!tokens) return undefined;
+  return tokens[0];
 }
 
 export async function doConcentrationCheck(actor, saveDC) {
@@ -6032,14 +6262,33 @@ export function getToken(tokenRef: Actor | Token | TokenDocument | string | unde
   if (tokenRef instanceof Token) return tokenRef;
   //@ts-expect-error return cast
   if (tokenRef instanceof TokenDocument) return tokenRef.object;
+  let entity: any = tokenRef;
   if (typeof tokenRef === "string") {
-    const entity = MQfromUuidSync(tokenRef);
-    //@ts-expect-error return cast
-    if (entity instanceof TokenDocument) return entity.object;
-    if (entity instanceof Actor) return tokenForActor(entity);
-    return undefined;
+    entity = MQfromUuidSync(tokenRef);
   }
-  if (tokenRef instanceof Actor) return tokenForActor(tokenRef);
+  if (entity instanceof Token) return entity;
+  //@ts-expect-error return cast
+  if (entity instanceof TokenDocument) return entity.object;
+  if (entity instanceof Actor) return tokenForActor(entity);
+  if (entity instanceof Item && entity.parent instanceof Actor) return tokenForActor(entity.parent);
+  if (entity instanceof ActiveEffect && entity.parent instanceof Actor) return tokenForActor(entity.parent);
+  if (entity instanceof ActiveEffect && entity.parent instanceof Item) return tokenForActor(entity.parent?.parent);
+  return undefined;
+}
+
+export function getPlaceable(tokenRef: Actor | Token | TokenDocument | string | PlaceableObject | undefined): PlaceableObject | undefined | null {
+  if (!tokenRef) return undefined;
+  if (tokenRef instanceof PlaceableObject) return tokenRef;
+  let entity: any = tokenRef;
+  if (typeof tokenRef === "string") {
+    entity = MQfromUuidSync(tokenRef);
+  }
+  if (entity instanceof PlaceableObject) return entity;
+  if (entity.object instanceof PlaceableObject) return entity.object;
+  if (entity instanceof Actor) return tokenForActor(entity);
+  if (entity instanceof Item && entity.parent instanceof Actor) return tokenForActor(entity.parent);
+  if (entity instanceof ActiveEffect && entity.parent instanceof Actor) return tokenForActor(entity.parent);
+  if (entity instanceof ActiveEffect && entity.parent instanceof Item) return tokenForActor(entity.parent?.parent);
   return undefined;
 }
 
@@ -6104,80 +6353,84 @@ export function getIconFreeLink(entity: Token | TokenDocument | Item | Actor | n
   }
 }
 
-export function midiMeasureDistances(segments, options: any = {}) {
-
-  let isGridless = safeGetGameSetting("dnd5e", "diagonalMovement") === "5105"; // V12
-  //@ts-expect-error .release
+export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}) {
+  //@ts-expect-error
   if (game.release.generation > 11) {
-    isGridless = canvas?.grid?.constructor.name === "GridlessGrid";
-  } else {
-    isGridless = canvas?.grid?.grid?.constructor.name === "BaseGrid";
-  }
-  if (!isGridless || !options.gridSpaces || !configSettings.griddedGridless) {
+    let isGridless = canvas?.grid?.constructor.name === "GridlessGrid";
+    const oldMeasurePath = canvas?.grid?.constructor.prototype._measurePath;
     //@ts-expect-error
-    if (game.release.generation >= 12) {
+    const oldDiagonals = canvas?.grid?.diagonals;
+    const oldGetOffset = canvas?.grid?.constructor.prototype.getOffset;
+    if (isGridless && options.gridSpaces && configSettings.griddedGridless && canvas?.grid) {
       //@ts-expect-error
-      const distances = segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]).distance)
-      return distances;
-    } else {
+      canvas.grid.constructor.prototype._measurePath = foundry.grid.SquareGrid.prototype._measurePath;
+      //@ts-expect-error
+      canvas.grid.constructor.prototype.getOffset = foundry.grid.SquareGrid.prototype.getOffset;
+      //@ts-expect-error
+      canvas.grid.diagonals = safeGetGameSetting("core", "gridDiagonals");
+    }
+    //@ts-expect-error
+    let distances = segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]))
+    if (canvas?.grid) {
+      if (oldMeasurePath) canvas.grid.constructor.prototype._measurePath = oldMeasurePath;
+      //@ts-expect-error
+      if (oldDiagonals) canvas.grid.diagonals = oldDiagonals;
+      if (oldGetOffset) canvas.grid.constructor.prototype.getOffset = oldGetOffset
+    }
+    return distances = distances.map(d => d.distance);
+  } else {
+    let isGridless;
+    isGridless = canvas?.grid?.grid?.constructor.name === "BaseGrid";
+    if (!isGridless || !options.gridSpaces || !configSettings.griddedGridless) {
       const distances = canvas?.grid?.measureDistances(segments, options);
       if (!configSettings.gridlessFudge) return distances; // TODO consider other impacts of doing this
       return distances;
-      return distances?.map(d => Math.max(0, d - configSettings.gridlessFudge));
     }
-  }
 
-  const rule = safeGetGameSetting("dnd5e", "diagonalMovement") ?? "EUCL"; // V12
+    const rule = safeGetGameSetting("dnd5e", "diagonalMovement") ?? "EUCL"; // V12
 
-  if (!configSettings.gridlessFudge || !options.gridSpaces || !["555", "5105", "EUCL"].includes(rule)) {
-    //@ts-expect-error
-    if (game.release.generation >= 12) {
-      //@ts-expect-error
-      return segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]).distance)
-    } else {
+    if (!configSettings.gridlessFudge || !options.gridSpaces || !["555", "5105", "EUCL"].includes(rule)) {
       return canvas?.grid?.measureDistances(segments, options);
     }
+
+    // Track the total number of diagonals
+    let nDiagonal = 0;
+    const d = canvas?.dimensions;
+    //@ts-expect-error .grid
+    const grid = canvas?.scene?.grid;
+    if (!d || !d.size) return 0;
+    const fudgeFactor = configSettings.gridlessFudge / d.distance;
+    // Iterate over measured segments
+    return segments.map(s => {
+      let r = s.ray;
+
+      // Determine the total distance traveled
+      let nx = Math.ceil(Math.max(0, Math.abs(r.dx / d.size) - fudgeFactor));
+      let ny = Math.ceil(Math.max(0, Math.abs(r.dy / d.size) - fudgeFactor));
+
+      // Determine the number of straight and diagonal moves
+      let nd = Math.min(nx, ny);
+      let ns = Math.abs(ny - nx);
+      nDiagonal += nd;
+
+      // Alternative DMG Movement
+      if (rule === "5105") {
+        let nd10 = Math.floor(nDiagonal / 2) - Math.floor((nDiagonal - nd) / 2);
+        let spaces = (nd10 * 2) + (nd - nd10) + ns;
+        return spaces * d.distance;
+      }
+
+      // Euclidean Measurement
+      else if (rule === "EUCL") {
+        let nx = Math.max(0, Math.abs(r.dx / d.size) - fudgeFactor);
+        let ny = Math.max(0, Math.abs(r.dy / d.size) - fudgeFactor);
+        return Math.ceil(Math.hypot(nx, ny) * grid?.distance);
+      }
+
+      // Standard PHB Movement
+      else return Math.max(nx, ny) * grid.distance;
+    });
   }
-
-  // Track the total number of diagonals
-  let nDiagonal = 0;
-  const d = canvas?.dimensions;
-  //@ts-expect-error .grid
-  const grid = canvas?.scene?.grid;
-  if (!d || !d.size) return 0;
-
-  const fudgeFactor = configSettings.gridlessFudge / d.distance;
-
-  // Iterate over measured segments
-  return segments.map(s => {
-    let r = s.ray;
-
-    // Determine the total distance traveled
-    let nx = Math.ceil(Math.max(0, Math.abs(r.dx / d.size) - fudgeFactor));
-    let ny = Math.ceil(Math.max(0, Math.abs(r.dy / d.size) - fudgeFactor));
-
-    // Determine the number of straight and diagonal moves
-    let nd = Math.min(nx, ny);
-    let ns = Math.abs(ny - nx);
-    nDiagonal += nd;
-
-    // Alternative DMG Movement
-    if (rule === "5105") {
-      let nd10 = Math.floor(nDiagonal / 2) - Math.floor((nDiagonal - nd) / 2);
-      let spaces = (nd10 * 2) + (nd - nd10) + ns;
-      return spaces * d.distance;
-    }
-
-    // Euclidean Measurement
-    else if (rule === "EUCL") {
-      let nx = Math.max(0, Math.abs(r.dx / d.size) - fudgeFactor);
-      let ny = Math.max(0, Math.abs(r.dy / d.size) - fudgeFactor);
-      return Math.ceil(Math.hypot(nx, ny) * grid?.distance);
-    }
-
-    // Standard PHB Movement
-    else return Math.max(nx, ny) * grid.distance;
-  });
 }
 
 export function getAutoTarget(item: Item): string {
@@ -6550,17 +6803,6 @@ export async function addConcentrationDependent(actorRef: Token | TokenDocument 
   if (!actor) {
     console.warn(`midi-qol | addConcentrationDependent | actor not found for ${actorRef}`);
     return undefined;
-  }
-  const concentrationData: any = actor?.getFlag(MODULE_ID, "concentration-data");
-  if (concentrationData) {
-    const removeUuids = concentrationData.removeUuids ?? [];
-    removeUuids.push(dependent.uuid);
-    concentrationData.removeUuids = removeUuids;
-    if (game.user?.isGM || actor.isOwner) {
-      await actor.setFlag(MODULE_ID, "concentration-data", concentrationData);
-    } else {
-      await socketlibSocket.executeAsGM("_gmsetFlag", { base: MODULE_ID, key: "concentration-data", value: concentrationData, actorUuid: actor.uuid });
-    }
   }
 
   if (!item) {

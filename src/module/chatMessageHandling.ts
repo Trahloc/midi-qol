@@ -256,15 +256,22 @@ export let hideStuffHandler = (message, html, data) => {
     }
     if (!shouldDisplayChallenge) {
       html.find(".midi-qol-saves-display .midi-qol-save-symbol").remove();
-      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("hit");
-      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("miss");
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("success");
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("failure");
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("critical");
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("fumble");
+      
     }
     if (safeGetGameSetting("dnd5e", "attackRollVisibility")) {
       const visibility = safeGetGameSetting("dnd5e", "attackRollVisibility");
       if (visibility === "none") {
+        html.find(".midi-qol-attack-roll .dice-total").removeClass("success");
+        html.find(".midi-qol-attack-roll .dice-total").removeClass("failure");
+        html.find(".midi-qol-attack-roll .dice-total").removeClass("fumble");
+        html.find(".midi-qol-attack-roll .dice-total").removeClass("critical");
         html.find(".midi-qol-hits-display .midi-qol-hit-symbol").remove();
-        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("hit");
-        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("miss");
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("success");
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("failure");
         html.find(".midi-qol-hit-symbol").remove();
         html.find(".midi-qol-npc-ac").remove();
       } else if (visibility === "hideAC" || !configSettings.displayHitResultNumeric) {
@@ -273,8 +280,8 @@ export let hideStuffHandler = (message, html, data) => {
     } else {
       if (!shouldDisplayChallenge) {
         html.find(".midi-qol-hits-display .midi-qol-hit-symbol").remove();
-        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("hit");
-        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("miss");
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("success");
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("failure");
       }
       if (!configSettings.displayHitResultNumeric || !shouldDisplayChallenge) {
         html.find(".midi-qol-npc-ac").remove();
@@ -600,7 +607,6 @@ export function ddbglPendingFired(data) {
     //@ts-expect-error .displayCard
     item.displayCard({ showFullCard: false, workflow, createMessage: false, defaultCard: true });
     // showItemCard.bind(item)(false, workflow, false, true);
-
     return;
   }
 }

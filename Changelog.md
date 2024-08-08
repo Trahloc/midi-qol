@@ -1,15 +1,36 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 * 11.5.0 
-  - will be dnd5e v3.2+ only. Tentative date July 29. 
-  - change target display to use dnd5e target details && fully support attack roll display config - remove midi's hit display control.
+  - will be dnd5e v3.2+ only. Tentative date August 12. 
+  - change target display to use dnd5e target details && fully support attack roll display config.
   - enhance challenge display support
   - attack rolls to be migrated to dnd5e attack rolls.
+
 * 11.6.0 
-  - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date August 5. You are actively encouraged to both try v3 damage calculation/application and report bugs
+  - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date August 12. You are actively encouraged to both try v3 damage calculation/application and report bugs
   - will remove concentration-data from midi-qol, all use will swtich to dependents. Currently midi-only supports backwards compatible concentration-data. 
 * 12.0.0 
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
+
+### 11.4.46
+* As far as I can tell dnd5e damage application is now feature complete. Baring any issues I'll do the 11.6 release next week.
+* Support for immediately removing templates for items with duration instantaneous, rather than currently waiting for the end of turn. Configurable via setting.
+* Added isConcentrationSave, isConcentrationSaveSuccess, isConcentrationSaveFailure special duration expiries.
+* Added confirm(title: string, {content: string, defaultYes: boolean}) to midi sandbox meaning you can have flags that prompt to be applied, e.g.
+flags.midi-qol.advantage.ability.save.dex override confirm("Advantage because of a reason"), which will prompt whenever you do a dex save. Only available in async evaluated conditions, which is almost all of them. 
+  - You do not need to await the confirm call, midi will replace confirm with await confirm when evaluating the expression.
+* Added contestedRoll to functions available in condition evaluation.
+* Fix for broken bonus action checking.
+* Fix for gridless grid in v12. Now supports/uses the full range of core measurement settings. There is no support for the fudge factor in v12 since it is built in to the core settings.
+* Changes to MidiQOL.computeDistance, the first object passed must be a Placeable (token, light, tile, sound) and the second can be a Placeable or a wall. Walls blocking is not supported when measuring distance to a wall, but height of the wall is included.
+* Fix for damage amount passed in Hook call to dnd5e.preApplyDamage.
+* Fix for attack rolls being highlighted as hit/miss when dnd5e setting is set to disable it.
+* Removed workflow.concentrationData and actor.flags.midi-qol.concentration-data.
+* Fix for arguments passed to preTargetDamageApplicaiton with dnd5e damage processing to match midi-qol damage application.
+* preTargetDamageApplication will now replicate the midi-damage application with damageItem.damageDetail, rather than damageItem.damageItem.
+* Fix for completeItemUse thanks @thatlonelybugbear.
+* workflow.workflowOptions.targetConfirmation will now take precedence over other settings, thanks @motoMoto, @thatlonelybugbear.
+* Converted MidiQOL.applyTokenDamage to use dndv3 damage application if enabled.
 
 ### 11.4.45
 * Fix for ddb gamelong and undo workflow enabled throwing an error.

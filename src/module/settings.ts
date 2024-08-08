@@ -97,7 +97,7 @@ class ConfigSettings {
   displaySaveDC: boolean = true;
   doConcentrationCheck: string = "chat";
   griddedGridless: boolean = false;
-  gridlessFudge: number = 0;
+  gridlessFudge: number | undefined = 0;
   doReactions: string = "all";
   effectActivation: boolean = false;
   enableddbGL: boolean = false;
@@ -559,6 +559,8 @@ export let fetchParams = () => {
   targetConfirmation = game.settings.get("midi-qol", "TargetConfirmation");
   if (configSettings.griddedGridless === undefined) configSettings.griddedGridless = false;
   if (configSettings.gridlessFudge === undefined) configSettings.gridlessFudge = 0;
+  //@ts-expect-error
+  if (game.release.generation >= 12) configSettings.gridlessFudge = undefined;
   if (configSettings.concentrationIncapacitatedConditionCheck === undefined) configSettings.concentrationIncapacitatedConditionCheck = false;
   if (targetConfirmation === undefined || typeof targetConfirmation === "string" || targetConfirmation instanceof String) targetConfirmation = {
     enabled: false,

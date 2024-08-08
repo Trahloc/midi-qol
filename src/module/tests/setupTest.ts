@@ -627,7 +627,7 @@ async function registerTests() {
                 assert.ok(!(await ceInterface.hasEffectApplied("Paralyzed", actor?.uuid)), "Paralyzed not removed");
               }
             }
-            
+
           })
         });
       },
@@ -860,7 +860,74 @@ async function registerTests() {
             await applyTokenDamage([{ damage: 5, type: 'healing' }], 5, new Set([token]), null, new Set(), {});
             assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp)
           });
+
+          it("tests applyTokenDamage reduction", async function () {
+            await resetActors();
+            const token = getToken(target2Name);
+            const oldHp = token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value");
+            let effectData = {
+              label: "test effect",
+              changes: [{ key: "flags.midi-qol.DR.all", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "5" }]
+            };
+            if (configSettings.v3DamageApplication) {
+              effectData.changes = [{ key: "system.traits.dm.midi.all", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "-5" }]
+            };
+            let theEffects = await token?.actor?.createEmbeddedDocuments("ActiveEffect", [effectData]);
+            await applyTokenDamage([{ damage: 5, type: 'piercing' }], 5, new Set([token]), null, new Set(), {});
+            assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp);
+            //@ts-expect-error
+            await token?.actor?.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id));
+          });
+
+          it("tests applyTokenDamage resistance", async function () {
+            await resetActors();
+            const token = getToken(target2Name);
+            const oldHp = token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value");
+            let effectData = {
+              label: "test effect",
+              changes: [{ key: "system.traits.dr.value", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "fire" }]
+            };
+            let theEffects = await token?.actor?.createEmbeddedDocuments("ActiveEffect", [effectData]);
+            await applyTokenDamage([{ damage: 10, type: 'fire' }], 10, new Set([token]), null, new Set(), {});
+            assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp - 5);
+            //@ts-expect-error
+            await token?.actor?.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id));
+            await token?.actor?.update({"system.attributes.hp.value": oldHp});
+          });
+
+          it("tests applyTokenDamage saves", async function () {
+            await resetActors();
+            const token = getToken(target2Name);
+            const actor = getActor(actor1Name)
+            const oldHp = token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value");
+            const theItem = actor?.items.getName("Saving Throw Test");
+            await applyTokenDamage([{ damage: 10, type: 'piercing' }], 10, new Set([token]), theItem, new Set([token]), {});
+            assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp - 5);
+            await actor?.update({"system.attributes.hp.value": oldHp});
+          });
+          it("tests applyTokenDamage super saver (saved)", async function () {
+            await resetActors();
+            const token = getToken(target2Name);
+            const actor = getActor(actor1Name)
+            const oldHp = token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value");
+            const theItem = actor?.items.getName("Saving Throw Test");
+            await applyTokenDamage([{ damage: 10, type: 'piercing' }], 10, new Set([token]), theItem, new Set([token]), {superSavers: new Set([token])}); 
+            assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp);
+            await actor?.update({"system.attributes.hp.value": oldHp});
+          });
+          it("tests applyTokenDamage super saver (failed)", async function () {
+            await resetActors();
+            const token = getToken(target2Name);
+            const actor = getActor(actor1Name)
+            const oldHp = token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value");
+            const theItem = actor?.items.getName("Saving Throw Test");
+            await applyTokenDamage([{ damage: 10, type: 'piercing' }], 10, new Set([token]), theItem, new Set(), {superSavers: new Set([token])}); 
+            assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp - 5);
+            await actor?.update({"system.attributes.hp.value": oldHp});
+          });
+
         });
+
       },
       { displayName: "Midi Other Tests" },
     )
@@ -874,9 +941,9 @@ async function testFormBuilder() {
   }
   const formBuilder = new globalThis.Portal.FormBuilder();
   // Test new socket library
-  Socket.register("test", (data) => {console.error("socket test", data)})
+  Socket.register("test", (data) => { console.error("socket test", data) })
   //@ts-expect-error
-  Socket.test({test: "test"}, "gms")
+  Socket.test({ test: "test" }, "gms")
 
   // Play code tp test Portal.formBuilder
   formBuilder.title("RPG Character Creation Form")

@@ -789,7 +789,7 @@ async function prepareDamageListItems(data: {
           }
           updateContext.damageItem = damageItem;
           updates["flags.dae.damageApplied"] = hpDamage + tempDamage + (vitalityDamage ?? 0);
-          if (Hooks.call("dnd5e.preApplyDamage", actor, hpDamage + tempDamage + (vitalityDamage ?? 0), updates, updateContext))
+          if (Hooks.call("dnd5e.preApplyDamage", actor, hpDamage /*+ tempDamage */ + (vitalityDamage ?? 0), updates, updateContext))
             promises.push(actor.update(updates, updateContext));
         }
       }
@@ -834,17 +834,18 @@ async function prepareDamageListItems(data: {
       updateContext: data.updateContext,
     };
     if (configSettings.v3DamageApplication) {
-      const tooltipList = damageItem.damageItem?.map(di => {
-        let allMods: string[] = Object.keys(di.active).reduce((acc: string[], k) => {
+      const tooltipList = damageItem.damageDetail?.map(di => {
+        let allMods: string[] = Object.keys(di.active ?? {}).reduce((acc: string[], k) => {
           if (["saved", "semiSuperSaver", "superSaver"].includes(k)) return acc;
           if (di.active[k] && k !== "multiplier") acc.push(k);
           return acc;
         }, []);
-        let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
+      if (di.allActives?.length > 0) allMods = allMods.concat(di.allActives);
+      let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
         return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{ ...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes }[di.type === "" ? "none" : di.type]?.label ?? "none"} ${mods}`
       });
       const toolTipHeader: string[] = [];
-      if (damageItem.damageItem) {
+      if (damageItem.damageDetail) {
         if (newHP !== oldHP) toolTipHeader.push(`HP: ${oldHP} -> ${newHP}`);
         if ((newTempHP ?? 0) !== (oldTempHP ?? 0)) toolTipHeader.push(`TempHP: ${oldTempHP} -> ${newTempHP}`);
         if ((newVitality ?? 0) !== (oldVitality ?? 0)) toolTipHeader.push(`Vitality: ${oldVitality} -> ${newVitality}`);

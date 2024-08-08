@@ -123,6 +123,8 @@ Hooks.once("init", () => {
   //@ts-expect-error
   CONFIG.ChatMessage.documentClass = defineChatMessageMidiClass(CONFIG.ChatMessage.documentClass);
 });
+
+
 Hooks.once('init', async function () {
   //@ts-expect-error
   if ( game.release.generation < 12 ) Math.clamp = Math.clamped;
@@ -189,6 +191,7 @@ Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
   specials[`flags.${MODULE_ID}.optional.NAME.macroToCall`] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
   if (configSettings.v3DamageApplication) {
     specials[`system.traits.dm.midi.all`] = ["", -1]
+    specials[`system.traits.dm.midi.magical`] = ["", -1]
     specials[`system.traits.dm.midi.non-magical`] = ["", -1]
     specials[`system.traits.dm.midi.non-magical-physical`] = ["", -1]
     specials[`system.traits.dm.midi.non-silver-physical`] = ["", -1]

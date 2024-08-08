@@ -152,13 +152,12 @@
           <input id="autoRemoveTemplate" type="checkbox" name="autoRemoveTemplate" data-dtype="Boolean" {{checked
             configSettings.autoRemoveTemplate}} />
         </div>
-        <!--
         <div class="form-group">
           <label>{{localize "midi-qol.AutoRemoveInstantaneousTemplate.Name"}}</label>
-          <input id="autoRemoveTemplate" type="checkbox" name="autoInstantaneousRemoveTemplate" data-dtype="Boolean" {{checked
+          <input id="autoRemoveInstantaneousTemplate" type="checkbox" name="autoRemoveInstantaneousTemplate" data-dtype="Boolean" {{checked
             configSettings.autoRemoveInstantaneousTemplate}} />
+            <div class="notes midi-qol-faint">{{{localize "midi-qol.AutoInstantaneousRemoveTemplate.Hint"}}}</div>
         </div>
-        -->
         <div class="form-group">
           <label>{{localize "midi-qol.AutoRemoveSummonedCreature.Name"}}</label>
           <input id="autoRemoveSummonedCreature" type="checkbox" name="autoRemoveSummonedCreature" data-dtype="Boolean"
@@ -413,16 +412,6 @@
     <!-- Concentration tab-->
     <div class="tab" data-tab="concentration" data-group="sections">
       <!-- Concentration-->
-      {{#if displayConcentrationAutomation}}
-      <div class="midi-qol-box">
-        <div class="form-group">
-          <label>{{localize "midi-qol.ConcentrationAutomation.Name"}}</label>
-          <input type="checkbox" name="concentrationAutomation" data-dtype="Boolean" {{checked
-            configSettings.concentrationAutomation}} />
-          <div class="notes midi-qol-faint">{{{localize "midi-qol.ConcentrationAutomation.Hint"}}}</div>
-        </div>
-      </div>
-      {{/if}}
       <div class="midi-qol-box">
         <div class="form-group">
           <label>{{localize "midi-qol.DoConcentrationCheck.Name"}}</label>
@@ -630,11 +619,13 @@
           </select>
         </div>
 
+        {{#if preV12}}
         <div class="form-group">
           <label>{{localize "midi-qol.GridlessFudge.Name"}}</label>
           <input type="number" step="0.1" style="width:40px;" name="gridlessFudge"
             value="{{configSettings.gridlessFudge}}" />
         </div>
+        {{/if}}
         <div class="notes midi-qol-faint">{{localize "midi-qol.GridlessFudge.Hint"}}</div>
         <div class="form-group">
           <label>{{localize "midi-qol.GriddedGridless.Name"}}</label>

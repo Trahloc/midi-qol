@@ -23,10 +23,12 @@ function itemRequiresPostTemplateConfiramtion(item): boolean {
 }
 
 export function requiresTargetConfirmation(item, options): boolean {
-  // check lateTargeting as well - legacy.
   if (options.workflowOptions?.targetConfirmation === "none") return false;
+  if (options.workflowOptions?.targetConfirmation === "always") return true;
+  // check lateTargeting as well - legacy.
   // For old version of dnd5e-scriptlets
   if (options.workflowdialogOptions?.lateTargeting === "none") return false;
+  if (options.workflowdialogOptions?.lateTargeting === "always") return true;
   if (item.system.target?.type === "self") return false;
   if (options.workflowOptions?.attackPerTarget === true) return false;
   if (item?.flags?.midiProperties?.confirmTargets === "always") return true;
@@ -36,10 +38,6 @@ export function requiresTargetConfirmation(item, options): boolean {
     numTargets = 1;
   const token = tokenForActor(item.actor);
   if (targetConfirmation.enabled) {
-    if (options.workflowOptions?.targetConfirmation && options.workflowOptions?.targetConfirmation !== "none") {
-      if (debugEnabled > 0) warn("target confirmation triggered by has workflow options");
-      return true;
-    }
     if (targetConfirmation.all &&
       ((item.system.target?.type ?? "") !== "" || item.system.range?.value || item.hasAttack) && numTargets > 0) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.all");
@@ -863,8 +861,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     const minflags = foundry.utils.getProperty(this, `flags.${MODULE_ID}.min`) ?? {};
     if ((minflags.attack && (minflags.attack.all || minflags.attack[this.system.actionType])) ?? false)
       result = await result.reroll({ minimize: true })
-    if (["formulaadv", "adv"].includes(configSettings.rollAlternate))
-      addAdvAttribution(result, workflow.attackAdvAttribution)
+    if (["formulaadv", "adv"].includes(configSettings.rollAlternate)) addAdvAttribution(result, workflow.attackAdvAttribution);
     await workflow.setAttackRoll(result);
 
     // workflow.ammo = this._ammo; Work out why this was here - seems to just break stuff
@@ -1664,14 +1661,10 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
 
   let item = workflow.item;
   let targeting = getAutoTarget(item);
-  if ((game.user?.targets.size === 0 || user !== game.user?.id) && targeting !== "none") {
+  if ((game.user?.targets.size === 0 || user !== game.user?.id || installedModules.get("levelsvolumetrictemplates")) && targeting !== "none") {
     let mTemplate: MeasuredTemplate = MQfromUuidSync(templateDocument.uuid)?.object;
     if (templateDocument?.object && !installedModules.get("levelsvolumetrictemplates")) {
-      if (mTemplate.shape)
-        //@ts-ignore templateDocument.x, mtemplate.distance TODO check this v10
-        templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getAutoTarget(workflow.item));
-      else {
-        console.warn("midi-qol | selectTargets | Need to compute template shape")
+      if (!mTemplate.shape) {
         // @ ts-expect-error
         // mTemplate.shape = mTemplate._computeShape();
         let { shape, distance } = computeTemplateShapeDistance(templateDocument);

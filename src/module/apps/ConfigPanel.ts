@@ -155,7 +155,8 @@ export class ConfigPanel extends FormApplication {
       ColorOptions: colorList.reduce((acc, c) => { acc[c] = c; return acc }, { "Delete": "Delete" }),
       DoConcentrationCheckOptions: geti18nOptions("DoConcentrationCheckOptions"),
       rollModes: CONFIG.Dice.rollModes,
-      displayConcentrationAutomation: debugEnabled > 1
+      //@ts-expect-error
+      preV12: game.release.generation < 12
     };
     if (debugEnabled > 0) warn("Config Panel: getData ", data)
     return data;
@@ -287,9 +288,6 @@ export class ItemTypeSelector extends FormApplication {
     if (!enableWorkflow) {
       ui.notifications?.error("Worklow automation is not enabled")
     }
-    // Get current values
-    configSettings.itemTypeList;
-
     // Populate choices
     //@ts-ignore
     const choices: {} = Object.keys(CONFIG.Item.typeLabels).filter(key => !["backpack", "base"].includes(key)).reduce((acc, key) => { acc[key] = CONFIG.Item.typeLabels[key]; return acc }, {});

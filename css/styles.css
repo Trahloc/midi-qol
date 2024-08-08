@@ -518,12 +518,12 @@
     margin-bottom: 0.1rem;
   }
   
-  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .target.miss {
+  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .target.failure {
       border-color: rgba(110,0,0,0.4);
     background-color: var(--dnd5e-color-failure-background);
   }
   
-  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .target.hit {
+  :is(.chat-popout, #chat-log) .message .dnd5e2.evaluation .target.success {
       border-color: rgba(0,108,0,0.4);
     background-color: var(--dnd5e-color-success-background);
   }

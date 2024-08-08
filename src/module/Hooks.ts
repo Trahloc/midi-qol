@@ -1025,8 +1025,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             case "spell": if (!damage.properties.has("spell")) return; break;
             case "nonmagic": if (damage.properties.has("magic") || damage.properties.has("spell")) return; break;
             case "magic": if (!damage.properties.has("magic") && !damage.properties.has("spell")) return; break;
-            default: if (damage.properties.has(custom)) break;
-              return;
+            default: if (!damage.properties.has(custom)) return; break;
           }
           damage.active[custom] = true;
           damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
@@ -1068,9 +1067,10 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     };
   }
 
+  const drAllActives: string[] = [];
   // Insert DR.ALL as a -ve damage value maxed at the total damage.
   let drAll = 0;
-  if (options.ignore !== true && !options.ignore?.modification?.has("none") && !options.ignore?.modification?.has("all")) {
+  if (options.ignore !== true && !options.ignore?.DR?.has("none") && !options.ignore?.DR?.has("all")) {
     if (foundry.utils.getProperty(actor, "system.traits.dm.midi.all")) {
       let drRoll = new Roll(`${actor.system.traits.dm.midi.all}`, actor.getRollData());
       let dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.all`)?.total ?? 0;
@@ -1082,8 +1082,8 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         drAll = dr;
       else if (!checkRule("maxDRValue"))
         drAll += dr;
+      drAllActives.push("DR.midi.all");
     }
-
     for (let actType of Object.keys(GameSystemConfig.itemActionTypes)) {
       if (!options.ignore?.modification?.has(actType)) {
         if (foundry.utils.getProperty(actor, `system.traits.dm.midi.${actType}`) && damages && damages[0]?.properties?.has(actType)) {
@@ -1098,6 +1098,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             drAll = dr;
           else if (!checkRule("maxDRValue"))
             drAll += dr;
+          drAllActives.push(`${actType}`);
         }
       }
     }
@@ -1105,80 +1106,80 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
       let dr;
       let drRoll;
       let selectedDamage;
+      drRoll = new Roll(`${actor.system.traits.dm.midi[special]}`, actor.getRollData())
+      dr = doSyncRoll(drRoll, `traits.dm.midi.${special}`)?.total ?? 0;;
       switch (special) {
+        case "magical":
+          selectedDamage = damages.reduce((total, damage) => {
+            const isMagical = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("mgc");
+            total += isMagical ? damage.value : 0;
+            return total;
+          }, 0);
+          drAllActives.push(i18n("Magical"));
+          break;
         case "non-magical":
-          drRoll = new Roll(`${actor.system.traits.dm.midi["non-magical"]}`, actor.getRollData())
-          dr = doSyncRoll(drRoll, "traits.dm.midi.non-magical")?.total ?? 0;;
           selectedDamage = damages.reduce((total, damage) => {
             const isNonMagical = !GameSystemConfig.healingTypes[damage.type] && !damage.properties.has("mgc");
             total += isNonMagical ? damage.value : 0;
             return total;
           }, 0);
+          drAllActives.push(i18n("Non Magical"))
           break;
         case "non-magical-physical":
-          drRoll = new Roll(`${actor.system.traits.dm.midi["non-magical-physical"]}`, actor.getRollData());
-          dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.non-magicial-physical`)?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
             const isNonMagical = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mgc");
             total += !GameSystemConfig.healingTypes[damage.type] && isNonMagical ? damage.value : 0;
             return total;
           }, 0);
+          drAllActives.push(i18n("Non Magical Physical"));
           break;
 
         case "non-silver-physical":
-          drRoll = new Roll(`${actor.system.traits.dm.midi["non-silver-physical"]}`, actor.getRollData());
-          dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi-non-silver-physical`)?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
             const isNonSilver = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("sil");
             total += isNonSilver ? damage.value : 0;
             return total;
           }, 0);
+          drAllActives.push(i18n("Non Silver Physical"));
           break;
         case "non-adamant-physical":
-          drRoll = new Roll(`${actor.system.traits.dm.midi["non-adamant-physical"]}`, actor.getRollData());
-          dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.non-adamant-physical`)?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
             const isNonSilver = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("adm");
             total += isNonSilver ? damage.value : 0;
             return total;
           }, 0);
+          drAllActives.push(i18n("Non Adamant Physical"));
           break;
         case "non-physical":
-          drRoll = new Roll(`${actor.system.traits.dm.midi["non-physical"]}`, actor.getRollData());
-          dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.non-physical`)?.total ?? 0;
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
             const isNonPhysical = !GameSystemConfig.healingTypes[damage.type] && !game.system.config.damageTypes[damage.type]?.isPhysical;
             total += isNonPhysical ? damage.value : 0;
             return total;
           }, 0);
+          drAllActives.push(i18n("Non Physical"));
           break;
 
         case "spell":
-          if (actor.system.traits.dm.midi["spell"]) {
-            drRoll = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData());
-            dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.spell`)?.total ?? 0;
             selectedDamage = damages.reduce((total, damage) => {
               const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
               total += isSpell ? damage.value : 0;
               return total;
             }, 0);
-          }
+          drAllActives.push(i18n("Spell"));
           break;
         case "non-spell":
-          if (actor.system.traits.dm.midi["non-spell"]) {
-            drRoll = new Roll(`${actor.system.traits.dm.midi["spell"]}`, actor.getRollData());
-            dr = doSyncRoll(drRoll, `${actor.name} system.traits.dm.midi.non-spell`)?.total ?? 0;
             selectedDamage = damages.reduce((total, damage) => {
               const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
               total += isSpell ? 0 : damage.value;
               return total;
             }, 0);
-          }
+            drAllActives.push(i18n("Non Spell"));
           break;
+        default: dr = 0; selectedDamage = 0; break;
       }
       if (dr) {
         if (Math.sign(selectedDamage + dr) !== Math.sign(selectedDamage)) {
@@ -1197,7 +1198,9 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     } else if (Math.sign(totalDamage) !== Math.sign(drAll + totalDamage)) {
       drAll = -totalDamage;
     }
-    if (drAll) damages.push({ type: "none", value: drAll, active: { modification: true, multiplier: 1 }, properties: new Set() });
+    if (drAll) {
+      damages.push({ type: "none", value: drAll, active: { DR: true, multiplier: 1 }, allActives: drAllActives, properties: new Set() });
+    }
   }
   Hooks.callAll("midi-qol.dnd5eCalculateDamage", actor, damages, options);
   return true;

@@ -3,7 +3,7 @@ import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templ
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, ConcentrationData, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects, canSee, calculateDamage } from "./utils.js"
+import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects, canSee, calculateDamage } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -887,12 +887,12 @@ export class Workflow {
     // if (this.workflowOptions.attackRollDSN && this.attackRoll) await displayDSNForRoll(this.attackRoll, "attackRoll");
     if (!configSettings.mergeCard) { // non merge card is not displayed yet - display it now that the attack roll is completed
       const messageData = foundry.utils.expandObject({
-          "flags.dnd5e": {
-            targets: this._formatAttackTargets(),
-            roll: {type: "attack", itemId: this.item.id, itemUuid: this.item.uuid},
-            originatingMessage: this.chatCard.id
-          },
-          speaker: getSpeaker(this.actor)
+        "flags.dnd5e": {
+          targets: this._formatAttackTargets(),
+          roll: { type: "attack", itemId: this.item.id, itemUuid: this.item.uuid },
+          originatingMessage: this.chatCard.id
+        },
+        speaker: getSpeaker(this.actor)
       })
       const message = await this.attackRoll?.toMessage(messageData);
       if (configSettings.undoWorkflow) {
@@ -963,12 +963,12 @@ export class Workflow {
 
   _formatAttackTargets() {
     const targets = new Map();
-    for ( const token of this.targets ) {
+    for (const token of this.targets) {
       const { name } = token;
       //@ts-expect-error
       const { img, system, uuid } = token.actor ?? {};
       const ac = system?.attributes?.ac ?? {};
-      if ( uuid && Number.isNumeric(ac.value) ) targets.set(uuid, { name, img, uuid, ac: ac.value });
+      if (uuid && Number.isNumeric(ac.value)) targets.set(uuid, { name, img, uuid, ac: ac.value });
     }
     return Array.from(targets.values());
   }
@@ -1501,7 +1501,7 @@ export class Workflow {
       Hooks.off("createMeasuredTemplate", this.placeTemplateHookId);
       Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId);
     }
-    if (configSettings.autoRemoveInstantaneousTemplate && this.templateUuid) {
+    if (configSettings.autoRemoveInstantaneousTemplate && this.templateUuid && this.item.system.duration.units === "inst") {
       const templateToDelete = await fromUuid(this.templateUuid);
       if (templateToDelete) await templateToDelete.delete();
     }
@@ -1576,7 +1576,7 @@ export class Workflow {
         this.hitDisplayData[targettokenUuid] = {
           isPC: targetToken.actor?.hasPlayerOwner,
           target: targetToken,
-          hitClass: "hit",
+          hitClass: "success",
           acClass: "",
           img,
           gmName: getTokenName(targetToken),
@@ -2466,7 +2466,6 @@ export class Workflow {
       bonusDamageRolls: this.bonusDamageRolls,
       bonusDamageRoll: this.bonusDamageRoll,
       bonusDamageTotal: this.bonusDamageTotal,
-      concentrationData: foundry.utils.getProperty(this.actor.flags, "midi-qol.concentration-data"),
       criticalSaves,
       criticalSaveUuids,
       damageDetail: this.damageDetail,
@@ -2893,7 +2892,7 @@ export class Workflow {
       this.hitDisplayData[tokenUuid] = {
         isPC: targetToken.actor?.hasPlayerOwner,
         target: targetToken,
-        hitClass: "none",
+        hitClass: "",
         acClass: targetToken.actor?.hasPlayerOwner ? "" : "midi-qol-npc-ac",
         img,
         gmName: getTokenName(targetToken),
@@ -3845,7 +3844,7 @@ export class Workflow {
         rollHTML,
         id: target.id,
         adv,
-        saveClass: saved ? "hit" : "miss",
+        saveClass: saved ? "success" : "failure",
       });
       i++;
     }
@@ -3889,47 +3888,12 @@ export class Workflow {
     return true;
   }
 
-  setupv3DamageDetails(allDamages, selector, token: Token) {
-    const damages = allDamages[token.document.uuid];
-    let { amount, temp } = damages.tokenDamages[selector].reduce((acc, d) => {
-      if ( d.type === "temphp" ) acc.temp += d.value;
-      else acc.amount += d.value;
-      return acc;
-    }, { amount: 0, temp: 0 });
-    amount = amount > 0 ? Math.floor(amount) : Math.ceil(amount);
-    //@ts-expect-error
-    const as = token.actor?.system;
-    if (!as || !as.attributes.hp) return;
-    let effectiveTemp = as.attributes.hp.temp ?? 0;
-    if (temp < 0) {
-      // healing temp hp
-      effectiveTemp = Math.max(as.attributes.hp.temp ?? 0, -temp);
-    } else 
-      effectiveTemp = Math.max(0, (as.attributes.hp.temp ?? 0) - temp);
-    damages.tokenUuid = token.document.uuid;
-    damages.tokenId = token.id;
-    damages.oldHP = as.attributes.hp.value;
-    damages.newHP = as.attributes?.hp?.value;
-    damages.oldTempHP = as.attributes.hp.temp ?? 0;
-    damages.newTempHP = as.attributes.hp.temp ?? 0;
-    const deltaTemp = amount > 0 ? Math.min(effectiveTemp, amount) : 0;
-    //@ts-expect-error
-    const deltaHP = Math.clamp(amount - deltaTemp, -as.attributes.hp.damage, as.attributes.hp.value);
-    damages.newHP -= deltaHP;
-    damages.hpDamage = deltaHP;
-    damages.newTemp = Math.max(0, effectiveTemp - deltaTemp);
-    damages.tempDamage = damages.oldTempHP - damages.newTemp;
-    damages.wasHit = damages.isHit;
-    damages.appliedDamage = deltaHP;
-    damages.details = [];
-  }
-
   async callv3DamageHooks(damages, token: Token) {
     this.damageItem = damages;
-    if (!configSettings.allowUseMacro && !this?.options?.noTargetOnuseMacro && this.item?.flags) {
+    if (configSettings.allowUseMacro && !this?.options?.noTargetOnuseMacro && this.item?.flags) {
       await this.triggerTargetMacros(["preTargetDamageApplication"], new Set([token]));
     }
-    await asyncHooksCallAll(`midi-qol.preTargetDamageApplication`, token, { item: this.item, workflow: this, damageItem: damages,  ditem: damages });
+    await asyncHooksCallAll(`midi-qol.preTargetDamageApplication`, token, { item: this.item, workflow: this, damageItem: damages, ditem: damages });
 
     if (damages.appliedDamage !== 0 && (this.hitTargets.has(token) || this.hitTargetsEC.has(token) || this.saveItem.hasSave)) {
       const healedDamaged = damages.appliedDamage < 0 ? "isHealed" : "isDamaged";
@@ -3955,7 +3919,7 @@ export class Workflow {
       }
     }
     Object.assign(damages, this.damageItem);
-    
+
     // Call the preDamageApplication hook which shouldn't change the damage
     if (configSettings.allowUseMacro && this.item?.flags) {
       await this.callMacros(this.item, this.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
@@ -4368,7 +4332,7 @@ export class Workflow {
         tokenuuid: targetUuid,
         hitStyle,
         ac: targetAC,
-        hitClass: ["hit", "critical", "isHitEC"].includes(isHitResult) ? "hit" : "miss",
+        hitClass: ["hit", "critical", "isHitEC"].includes(isHitResult) ? "success" : "failure",
         acClass: targetToken.actor?.hasPlayerOwner ? "" : "midi-qol-npc-ac",
         hitSymbol,
         attackType,
@@ -4574,6 +4538,7 @@ export class Workflow {
   }
   async setAttackRoll(roll: Roll) {
     this.attackRoll = roll;
+    setProperty(roll, "options.midi-qol.rollType", "attack");
     this.attackTotal = roll.total ?? 0;
     // foundry.utils.setProperty(roll, "options.flavor", `${this.otherDamageItem.name} - ${i18nSystem("Bonus")}`);
     this.attackRollHTML = await midiRenderAttackRoll(roll);
@@ -4683,28 +4648,21 @@ export class DamageOnlyWorkflow extends Workflow {
     options.itemCardId = "new";
     options.itemCardUuid = "new";
     if (!actor) actor = token.actor ?? targets[0]?.actor;
-    //@ts-expect-error spurious error on t.object
-    const theTargets = targets.map(t => t instanceof TokenDocument ? t.object : t);
+    const theTargets = Array.from(targets).map(t => getToken(t)).filter(t => t);
     let theItem: any = null;
     if (options.item) {
-      const itemData = options.item.toObject();
-      itemData._id = foundry.utils.randomID();
-      //@ts-expect-error
-      const system = itemData.system;
-      system.actionType = "other";
-      system.save.type = "";
-      theItem = new CONFIG.Item.documentClass(itemData, { parent: actor });
+      theItem = options.item.clone({ "system.actionType": "other", "system.save.type": "" }, { keepId: true });
     } else if (options.itemData) {
       const itemData = foundry.utils.duplicate(options.itemData)
       foundry.utils.setProperty(itemData, "system.actionType", "other");
       foundry.utils.setProperty(itemData, "system.save.type", "");
-      foundry.utils.setProperty(itemData, "_id", foundry.utils.randomID());
+      foundry.utils.setProperty(itemData, "_id", itemData._id ?? foundry.utils.randomID());
       theItem = new CONFIG.Item.documentClass(itemData, { parent: actor });
     } else {
       //@ts-expect-error
       theItem = new CONFIG.Item.documentClass({ name: options.flavor ?? "Damage Only Workflow", type: "feat", _id: foundry.utils.randomID(), system: { actionType: "other", save: { type: "" } } }, { parent: actor });
     }
-    super(actor, theItem, ChatMessage.getSpeaker({ token, actor }), new Set(theTargets), { event: shiftOnlyEvent, noOnUseMacro: true })
+    super(actor, theItem, ChatMessage.getSpeaker({ token, actor }), new Set(theTargets), { event: shiftOnlyEvent, noOnUseMacro: true });
     this.itemData = theItem?.toObject();
     // Do the supplied damageRoll
     this.flavor = options.flavor;
@@ -4749,7 +4707,7 @@ export class DamageOnlyWorkflow extends Workflow {
 
   async WorkflowState_Start(context: any = {}): Promise<WorkflowState> {
     this.effectsAlreadyExpired = [];
-    if (this.itemData) {
+    if (!this.item && this.itemData) {
       this.itemData.effects = this.itemData.effects.map(e => foundry.utils.duplicate(e))
       this.item = new CONFIG.Item.documentClass(this.itemData, { parent: this.actor });
       foundry.utils.setProperty(this.item, `flags.${MODULE_ID}.onUseMacroName`, null);
@@ -4758,23 +4716,26 @@ export class DamageOnlyWorkflow extends Workflow {
     this.attackTotal = 9999;
     await this.checkHits(this.options);
 
-    if ((this.itemCardId === "new" || this.itemCardUuid === "new") && this.item) { // create a new chat card for the item
-      this.createCount += 1;
-      // this.itemCard = await showItemCard.bind(this.item)(false, this, true);
-      this.itemCard = await this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true });
-      this.itemCardId = this.itemCard.id;
-      this.itemCardUuid = this.itemCard.uuid;
-      // Since this could to be the same item don't roll the on use macro, since this could loop forever
-      const whisperCard = configSettings.autoCheckHit === "whisper" || game.settings.get("core", "rollMode") === "blindroll";
-      await this.displayHits(whisperCard, configSettings.mergeCard && (this.itemCardId || this.itemCardUuid));
-      if (this.actor) { // Hacky process bonus flags
-        // TODO come back and fix this for dnd3
-        const newRolls = await processDamageRollBonusFlags.bind(this)();
-        await this.setDamageRolls(newRolls);
-        this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: this.defaultDamageType });
+    if ((this.itemCardId === "new" || this.itemCardUuid === "new")) { // create a new chat card for the item
+      if (this.item) {
+        this.createCount += 1;
+        // this.itemCard = await showItemCard.bind(this.item)(false, this, true);
+        this.itemCard = await this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true });
+        this.itemCardId = this.itemCard.id;
+        this.itemCardUuid = this.itemCard.uuid;
+      } else {
+        // no item card and no item - give up
+        return this.WorkflowState_Abort;
       }
-    } else {
-
+    }
+    // Since this could to be the same item don't roll the on use macro, since this could loop forever
+    const whisperCard = configSettings.autoCheckHit === "whisper" || game.settings.get("core", "rollMode") === "blindroll";
+    await this.displayHits(whisperCard, configSettings.mergeCard && (this.itemCardId || this.itemCardUuid));
+    if (this.actor) { // Hacky process bonus flags
+      // TODO come back and fix this for dnd3
+      const newRolls = await processDamageRollBonusFlags.bind(this)();
+      await this.setDamageRolls(newRolls);
+      this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: this.defaultDamageType });
     }
 
     // Need to pretend there was an attack roll so that hits can be registered and the correct string created
@@ -5006,7 +4967,7 @@ export class DDBGameLogWorkflow extends Workflow {
     this.preItemUseComplete = true;
     this.needsDamage = this.item.hasDamage;
     this.attackRolled = !item.hasAttack;
-    if (configSettings.undoWorkflow) this.undoData = { actor: actor.id, item: item.id, targets: Array.from(targets).map(t => t.id), options: options }; 
+    if (configSettings.undoWorkflow) this.undoData = { actor: actor.id, item: item.id, targets: Array.from(targets).map(t => t.id), options: options };
     if (this.item.system.formula) {
       shouldRollOtherDamage.bind(this.otherDamageItem)(this, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage)
         .then(result => this.needsOtherDamage = result);
@@ -5027,7 +4988,6 @@ export class DDBGameLogWorkflow extends Workflow {
     }
   }
   async WorkflowState_PreambleComplete(context: any = {}): Promise<WorkflowState> {
-
     return super.WorkflowState_PreambleComplete(context);
   }
 
@@ -5066,6 +5026,7 @@ export class DDBGameLogWorkflow extends Workflow {
   async WorkflowState_WaitForDamageRoll(context: any = {}): Promise<WorkflowState> {
     if (this.needsDamage && this.item.hasDamage) return this.WorkflowState_Suspend;
     if (this.needsOtherDamage) return this.WorkflowState_Suspend;
+    if (context.attackRoll) return this.WoorkflowState_AttackRollComplete;
     const allHitTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
     this.failedSaves = new Set(allHitTargets);
     if (!itemHasDamage(this.item)) return this.WorkflowState_WaitForSaves;
