@@ -931,9 +931,12 @@
   "DND5E.DamageApplication.Change.SuperSaver": "{type} 1/2 ou Sem Dano em Sucesso",
   "DND5E.DamageApplication.Change.SemiSuperSaver": "{type} Total ou Sem Dano em Sucesso",
   "DND5E.DamageApplication.Change.UncannyDodge": "{type} Esquiva Sobrenatural",
+  "DND5E.DamageApplication.Change.DR": "DR",
   "midi-qol.SettingsSearch": "Configurações de Pesquisa",
   "midi-qol.MidiPropertiesTab.Name": "Permissão Mínima para Propriedades de Itens",
   "midi-qol.MidiPropertiesTab.Hint": "Permissão mínima que um usuário deve ter para acessar a aba de propriedades de itens do Midi QOL. <strong>Necessário reiniciar o mundo para aplicar</strong>.",
   "midi-qol.CollapsibleTargets.Name": "Alvos Colapsáveis",
-  "midi-qol.CollapsibleTargets.Hint": "A exibição de Acerto/Erro do alvo no cartão do chat é recolhível."
+  "midi-qol.CollapsibleTargets.Hint": "A exibição de Acerto/Erro do alvo no cartão do chat é recolhível.",
+  "midi-qol.AutoRemoveInstantaneousTemplate.Name": "Remover Modelos Instantâneos",
+  "midi-qol.AutoRemoveInstantaneousTemplate.Hint": "Os modelos colocados por um item com duração Instantânea são removidos no final da rolagem do item."
 }
