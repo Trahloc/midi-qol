@@ -355,94 +355,95 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
 }
 export async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves,
   options: any = { label: "defaultDamage", existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
-    let allDamages: any = {};
-    damageDetail = damageDetail.map(de => ({ ...de, value: (de.value ?? de.damage) }))
-    if (configSettings.v3DamageApplication) {
-      let workflow: any = options.workflow ?? {};
-      if (item && !options.workflow) workflow = Workflow.getWorkflow(item.uuid) ?? {};
+  let allDamages: any = {};
+  damageDetail = damageDetail.map(de => ({ ...de, value: (de.value ?? de.damage) }))
+  if (configSettings.v3DamageApplication) {
+    let workflow: any = options.workflow ?? {};
+    if (item && !options.workflow) workflow = Workflow.getWorkflow(item.uuid) ?? {};
 
-      for (let tokenRef of theTargets) {
-        const token = getToken(tokenRef);
-        const actor = token?.actor
-        if (!actor || !token) continue;
-        const isHit = true;
-        const saved = !!saves?.has(token);
-        const superSaver = !!options.superSavers?.has(token);
-        const semiSuperSaver = !!options.semiSuperSavers?.has(token);
-        let saveMultiplier = 1;
-        if (saved) {
-          saveMultiplier = getSaveMultiplierForItem(item, "defaultDamage");
-        }
-        if (superSaver && getSaveMultiplierForItem(item, "defaultDamage") === 0.5) {
-          saveMultiplier = saves.has(token) ? 0 : 0.5;
-        }
-        if (semiSuperSaver && saved) {
-          saveMultiplier = 0;
-        }
+    for (let tokenRef of theTargets) {
+      const token = getToken(tokenRef);
+      const actor = token?.actor
+      if (!actor || !token) continue;
+      const isHit = true;
+      const saved = !!saves?.has(token);
+      const superSaver = !!options.superSavers?.has(token);
+      const semiSuperSaver = !!options.semiSuperSavers?.has(token);
+      let saveMultiplier = 1;
+      if (saved) {
+        saveMultiplier = getSaveMultiplierForItem(item, "defaultDamage");
+      }
+      if (superSaver && getSaveMultiplierForItem(item, "defaultDamage") === 0.5) {
+        saveMultiplier = saves.has(token) ? 0 : 0.5;
+      }
+      if (semiSuperSaver && saved) {
+        saveMultiplier = 0;
+      }
 
 
-        allDamages[token.document.uuid] = { 
-          uuid: token.document.uuid,
-          tokenDamages: {combinedDamage: []},
-          isHit,
+      allDamages[token.document.uuid] = {
+        uuid: token.document.uuid,
+        tokenDamages: { combinedDamage: [] },
+        isHit,
+        saved,
+        superSaver,
+        semiSuperSaver,
+        critical: false,
+        actorId: actor.id,
+        actorUuid: actor.uuid,
+        totalDamage,
+        sceneId: canvas?.scene?.id
+      };
+
+      const calcOptions = {
+        invertHealing: true,
+        multiplier: 1,
+        midi: {
           saved,
+          itemType: item?.type,
+          saveMultiplier,
+          isHit: true,
           superSaver,
           semiSuperSaver,
-          critical: false,
-          actorId: actor.id,
-          actorUuid: actor.uuid,
-          totalDamage,
-          sceneId: canvas?.scene?.id
-        };
-
-        const calcOptions = {
-          invertHealing: true,
-          multiplier: 1,
-          midi: {
-            saved,
-            itemType: item?.type,
-            saveMultiplier,
-            isHit: true,
-            superSaver,
-            semiSuperSaver,
-            token,
-            sourceActor: actor,
-            uncannyDodge: foundry.utils.getProperty(actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack,
-            // some options for ripper's module
-            save: saved,
-            target: token,
-            fumbleSave: false,
-            criticalSave: false,
-            isCritical: false,
-            isFumble: false
-          }
-        };
-        if (configSettings.saveDROrder === "DRSavedr") {
-          calcOptions.midi.saveMultiplier = saveMultiplier; 
-        } else {
-          calcOptions.midi.saveMultiplier = 1;
-          calcOptions.multiplier = saveMultiplier;
+          token,
+          sourceActor: actor,
+          uncannyDodge: foundry.utils.getProperty(actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack,
+          // some options for ripper's module
+          save: saved,
+          target: token,
+          fumbleSave: false,
+          criticalSave: false,
+          isCritical: false,
+          isFumble: false
         }
-        //@ts-expect-error
-        allDamages[token.document.uuid].tokenDamages["combinedDamage"] = foundry.utils.duplicate(actor.calculateDamage(damageDetail, calcOptions));
-        setupv3DamageDetails(allDamages, "combinedDamage", token);
+      };
+      if (configSettings.saveDROrder === "DRSavedr") {
+        calcOptions.midi.saveMultiplier = saveMultiplier;
+      } else {
+        calcOptions.midi.saveMultiplier = 1;
+        calcOptions.multiplier = saveMultiplier;
       }
-      const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
-        autoApplyDamage: configSettings.autoApplyDamage,
-        sender: game.user?.name,
-        actorId: workflow.actor?.id,
-        charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
-        damageList: Object.values(allDamages),
-        chatCardId: workflow.itemCardId,
-        chatCardUuid: workflow.itemCardUuid,
-        flagTags: workflow.flagTags,
-        updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
-        forceApply: options.forceApply,
-      });
-      return cardIds;
-    } else {
-      return midiApplyTokenDamage(damageDetail, totalDamage, theTargets, item, saves, options);
+      //@ts-expect-error
+      allDamages[token.document.uuid].tokenDamages["combinedDamage"] = foundry.utils.duplicate(actor.calculateDamage(damageDetail, calcOptions));
+      allDamages[token.document.uuid].damageDetail = allDamages[token.document.uuid].tokenDamages["combinedDamage"];
+      setupv3DamageDetails(allDamages, "combinedDamage", token);
     }
+    const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
+      autoApplyDamage: configSettings.autoApplyDamage,
+      sender: game.user?.name,
+      actorId: workflow.actor?.id,
+      charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
+      damageList: Object.values(allDamages),
+      chatCardId: workflow.itemCardId,
+      chatCardUuid: workflow.itemCardUuid,
+      flagTags: workflow.flagTags,
+      updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
+      forceApply: options.forceApply,
+    });
+    return cardIds;
+  } else {
+    return midiApplyTokenDamage(damageDetail, totalDamage, theTargets, item, saves, options);
+  }
 }
 export async function midiApplyTokenDamage(damageDetail, totalDamage, theTargets, item, saves,
   options: any = { label: "defaultDamage", existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
@@ -1118,16 +1119,18 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
           }
           foundry.utils.setProperty(options, "midi.applyDamage", true);
           // Setup some other options for ripper's modules
-          options = foundry.utils.mergeObject(options, {midi: {
-            save: workflow.saves.has(token),
-            fumbleSave: workflow.fumbleSaves.has(token),
-            criticalSave: workflow.criticalSaves.has(token),
-            isCritical: workflow.isCritical,
-            isFumble: workflow.isFumble,
-            target: token,
-            superSavers: workflow.superSavers,
-            semiSuperSavers: workflow.semiSuperSavers
-          }}, {insertKeys: true, insertValues: true});
+          options = foundry.utils.mergeObject(options, {
+            midi: {
+              save: workflow.saves.has(token),
+              fumbleSave: workflow.fumbleSaves.has(token),
+              criticalSave: workflow.criticalSaves.has(token),
+              isCritical: workflow.isCritical,
+              isFumble: workflow.isFumble,
+              target: token,
+              superSavers: workflow.superSavers,
+              semiSuperSavers: workflow.semiSuperSavers
+            }
+          }, { insertKeys: true, insertValues: true });
           //@ts-expect-error
           let returnDamages = foundry.utils.duplicate(token.actor.calculateDamage(damages, options));
           if (configSettings.singleConcentrationRoll || type !== "otherDamage") {
@@ -1535,7 +1538,8 @@ export function midiCustomEffect(...args) {
     `flags.${MODULE_ID}.critical`,
     `flags.${MODULE_ID}.noCritical`,
     `flags.${MODULE_ID}.ignoreCover`,
-    `flags.${MODULE_ID}.ignoreWalls`
+    `flags.${MODULE_ID}.ignoreWalls`,
+    `flags.${MODULE_ID}.rangeOverride`
   ];
   // These have trailing data in the change key change.key values and should always just be a string
   if (change.key === `flags.${game.system.id}.DamageBonusMacro`) {
@@ -2431,7 +2435,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                   let collisionCheck;
 
                   //@ts-expect-error polygonBackends
-                  collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { mode: "any", type: "move" })
+                  collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { source: t1.document, mode: "any", type: "move" })
                   if (collisionCheck) continue;
                   break;
                 case "centerLevels":
@@ -2461,7 +2465,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                   } else {
                     let collisionCheck;
                     //@ts-expect-error polygonBackends
-                    collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { mode: "any", type: "move" })
+                    collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { source: t1.docuent, mode: "any", type: "move" })
                     if (collisionCheck) continue;
                   }
                   break;
@@ -2470,7 +2474,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                   if (coverVisible === undefined) {
                     let collisionCheck;
                     //@ts-expect-error polygonBackends
-                    collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { mode: "any", type: "sight" })
+                    collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { source: t1.document, mode: "any", type: "sight" })
                     if (collisionCheck) continue;
                   }
                   break;
@@ -2517,16 +2521,17 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
 
     if (configSettings.optionalRules.distanceIncludesHeight) {
       if (!w.flags?.["wall-height"]) heightDifference = 0;
-    } else {
-      const wh = w.flags?.["wall-height"]
-      if (wh.top === null && wh.botton === null) heightDifference = 0;
-      else if (wh.top === null) heightDifference = Math.max(0, wh.bottom - t1Elevation);
-      else if (wh.bottom === null) heightDifference = Math.max(0, t1Elevation - wh.top);
-      else heightDifference = Math.max(0, wh.bottom - t1TopElevation, t1Elevation - wh.top);
+      else {
+        const wh = w.flags?.["wall-height"]
+        if (wh.top === null && wh.botton === null) heightDifference = 0;
+        else if (wh.top === null) heightDifference = Math.max(0, wh.bottom - t1Elevation);
+        else if (wh.bottom === null) heightDifference = Math.max(0, t1Elevation - wh.top);
+        else heightDifference = Math.max(0, wh.bottom - t1TopElevation, t1Elevation - wh.top);
+      }
     }
   }
-
   if (configSettings.optionalRules.distanceIncludesHeight) {
+
     //@ts-expect-error release
     if (game.release.generation < 12) {
       let rule = safeGetGameSetting("dnd5e", "diagonalMovement") ?? "EUCL"; // V12
@@ -2765,7 +2770,11 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
   // Initial Check
   // Now we loop through all owned tokens
   let possibleAttackers: Token[] = ownedTokens.filter(t => {
-    const canOverride = foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.all`) || foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.${itemIn.system.actionType}`)
+    let canOverride = foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.all`) || foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.${itemIn.system.actionType}`)
+    if (typeof canOverride === "string") {
+      const conditionData = createConditionData({ item: itemIn, actor: t.actor });
+      canOverride = evalCondition(canOverride, conditionData)
+    }
     return canOverride;
   });
 
@@ -6491,6 +6500,10 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
     return false;
   }
   let targets = workflow.applicationTargets;
+  let origin = item?.uuid;
+  if (workflow?.chatCard.getFlag("dnd5e", "use.concentrationId")) {
+    origin = workflow.actor.effects.get(workflow.chatCard.getFlag("dnd5e", "use.concentrationId"))?.uuid ?? item?.uuid;
+  }
   if (!targets || targets.size === 0) return;
   let returnValue = new Promise((resolve, reject) => {
     const callback = async function (dialog, html, event) {
@@ -6502,6 +6515,7 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
       await globalThis.DAE.doEffects(
         applyItem, true, targets, {
         damageTotal: 0,
+        origin,
         critical: false,
         fumble: false,
         itemCardId: "",

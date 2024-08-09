@@ -529,6 +529,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (
         //@ts-expect-error - sight not enabled but we are treating it as if it is
         (!target.document.sight.enabled && configSettings.optionalRules.invisVision)
+        || (target.document.actor?.type === "npc")
         //@ts-expect-error - sight enabled but not the owner of the token
         || (!target.isOwner && target.document.sight.enabled)
         || (!target.vision || !target.vision?.los)) {

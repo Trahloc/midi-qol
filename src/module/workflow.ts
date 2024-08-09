@@ -4538,7 +4538,7 @@ export class Workflow {
   }
   async setAttackRoll(roll: Roll) {
     this.attackRoll = roll;
-    setProperty(roll, "options.midi-qol.rollType", "attack");
+    foundry.utils.setProperty(roll, "options.midi-qol.rollType", "attack");
     this.attackTotal = roll.total ?? 0;
     // foundry.utils.setProperty(roll, "options.flavor", `${this.otherDamageItem.name} - ${i18nSystem("Bonus")}`);
     this.attackRollHTML = await midiRenderAttackRoll(roll);

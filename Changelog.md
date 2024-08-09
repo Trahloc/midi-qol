@@ -12,6 +12,11 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.4.47
+* Fix for arrow keys stuck after dialog v2 open in v12.
+* Fix for npc vision not being refreshd after lighting changes for targeting.
+* Fix for distance calculation to wall when wall-heights is enabled.
+
 ### 11.4.46
 * As far as I can tell dnd5e damage application is now feature complete. Baring any issues I'll do the 11.6 release next week.
 * Support for immediately removing templates for items with duration instantaneous, rather than currently waiting for the end of turn. Configurable via setting.
