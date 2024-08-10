@@ -2465,7 +2465,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
                   } else {
                     let collisionCheck;
                     //@ts-expect-error polygonBackends
-                    collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { source: t1.docuent, mode: "any", type: "move" })
+                    collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { source: t1.document, mode: "any", type: "move" })
                     if (collisionCheck) continue;
                   }
                   break;
@@ -5825,7 +5825,7 @@ export function initializeVision(tk: Token, force = false) {
     tk.vision.los = tk.vision.shape;
   }
   //@ts-expect-error
-  tk.vision.anmimated = false;
+  tk.vision.animated = false;
   //@ts-expect-error
   canvas?.effects?.visionSources.set(sourceId, tk.vision);
   //@ ts-expect-error
