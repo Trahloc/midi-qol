@@ -208,7 +208,7 @@ export function defineChatMessageMidiClass(baseClass: any) {
       const originatingMessage = game.messages?.get(this.getFlag("dnd5e", "originatingMessage")) ?? this;
       //@ts-expect-error
       const displayChallenge = originatingMessage?.shouldDisplayChallenge;
-      const displayAttackResult = game.user?.isGM || (game.settings.get("dnd5e", "attackRollVisibility") !== "none");
+      const displayAttackResult = game.user?.isGM || (safeGetGameSetting("dnd5e", "attackRollVisibility") !== "none");
   
       /**
        * Create an icon to indicate success or failure.

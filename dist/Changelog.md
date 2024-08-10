@@ -12,10 +12,16 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.4.48
+* Support (correctly) flags.midi-qol.fail.spell.vocal (previously verbal).
+* Fix for error thrown in ChatMessageMidi when using dnd5e 3.1.x
+
 ### 11.4.47
 * Fix for arrow keys stuck after dialog v2 open in v12.
 * Fix for npc vision not being refreshd after lighting changes for targeting.
 * Fix for distance calculation to wall when wall-heights is enabled.
+* Fix for tooltip display in tokaenDamageMany when using v3DamageApplication.
+* Effects added vi choseEffect from an item that has concentration will now be added as dependents to the concentration effect. Meaning they will be removed if concentration is lost.
 
 ### 11.4.46
 * As far as I can tell dnd5e damage application is now feature complete. Baring any issues I'll do the 11.6 release next week.

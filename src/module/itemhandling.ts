@@ -409,7 +409,12 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         ui.notifications?.warn("You are unable to cast the spell");
         return null;
       }
-      const notVerbal = await evalCondition(midiFlags?.fail?.spell?.verbal, conditionData, { errorReturn: false, async: true });
+      let notVerbal = await evalCondition(midiFlags?.fail?.spell?.verbal, conditionData, { errorReturn: false, async: true });
+      if (notVerbal && needsVerbal) {
+        ui.notifications?.warn("You make no sound and the spell fails");
+        return null;
+      }
+      notVerbal = notVerbal || await evalCondition(midiFlags?.fail?.spell?.vocal, conditionData, { errorReturn: false, async: true });
       if (notVerbal && needsVerbal) {
         ui.notifications?.warn("You make no sound and the spell fails");
         return null;
