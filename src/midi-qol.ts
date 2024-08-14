@@ -316,12 +316,14 @@ function addConfigOptions() {
 
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
     config.customDamageResistanceTypes = {
-      "spell": i18n("midi-qol.spell-damage"),
-      "nonmagic": i18n("midi-qol.NonMagical"),
+      "spell": i18n("midi-qol.SpellDamage"),
+      "not-spell": i18n("midi-qol.NonSpellDamage"),
       "magic": i18n("midi-qol.Magical"),
-      "physical": i18n("midi-qol.NonMagicalPhysical"),
-      "silver": i18n("midi-qol.NonSilverPhysical"),
-      "adamant": i18n("midi-qol.NonAdamantinePhysical"),
+      "not-magic": i18n("midi-qol.NonMagical"),
+      "physical": i18n("midi-qol.Physical"),
+      "mon-magical-physical": i18n("midi-qol.NonMagicalPhysical"),
+      "non-silver-physical": i18n("midi-qol.NonSilverPhysical"),
+      "non-adamant-physical": i18n("midi-qol.NonAdamantinePhysical"),
     };
 
 

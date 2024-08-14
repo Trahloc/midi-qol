@@ -4143,7 +4143,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
     });
     result = await evl.call(null, sandboxProxy);
   } catch (err) {
-    const message = `midi-qol | asyncMySafeEval | expression evaluation failed ${expression}`;
+    const message = `midi-qol | asyncMySafeEval | activation condition (${expression}) error, actorUuid: ${sandbox.actorUuid} itemUuid: ${sandbox.item?.uuid} targetUuid: ${sandbox.targetUuid}`;
     console.warn(message, err)
     TroubleShooter.recordError(err, message);
     result = onErrorReturn;
@@ -4179,7 +4179,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     });
     result = evl(sandboxProxy);
   } catch (err) {
-    const message = `midi-qol | mySafeEval | expression evaluation failed ${expression}`;
+    const message = `midi-qol | asyncMySafeEval | activation condition (${expression}) error, actorUuid: ${sandbox.actorUuid} itemUuid: ${sandbox.item?.uuid} targetUuid: ${sandbox.targetUuid}`;
     console.warn(message, err)
     TroubleShooter.recordError(err, message);
     result = onErrorReturn;
@@ -4355,6 +4355,7 @@ export function evalAllConditions(actorRef: Token | TokenDocument | Actor | stri
   return returnValue;
 }
 export function evalCondition(condition: string, conditionData: any, options: any = { errorReturn: false, async: false }): any | Promise<any> {
+  console.error("Evalcondition conditionData is ", conditionData, condition)
   if (typeof condition === "number" || typeof condition === "boolean") return condition;
   if (condition === undefined || condition === "" || typeof condition !== "string") return options.errorReturn ?? false;
   let returnValue;
@@ -4369,7 +4370,7 @@ export function evalCondition(condition: string, conditionData: any, options: an
 
   } catch (err) {
     returnValue = options.errorReturn ?? false;
-    const message = `midi-qol | evalCondition | activation condition (${condition}) error `;
+    const message = `midi-qol | evalCondition | activation condition (${condition}) error, actorUuid: ${conditionData.actorUuid} itemUuid: ${conditionData.item?.uuid} targetUuid: ${conditionData.targetUuid}`;
     TroubleShooter.recordError(err, message);
     console.warn(message, err, conditionData);
   }

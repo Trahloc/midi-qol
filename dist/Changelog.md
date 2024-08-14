@@ -7,6 +7,23 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.6.0
+* This release **only** supports using dnd5e damage application - which is significantly better than midi's native damage application.
+* Eventually you will need to migrate all of the flags.midi-qol.DR and flags.midi-qol.dr settings to the corresponding dnd5e settings. If you check the warnings you will be shown what to change.
+* Due to popular demand (well at least form Moto Moto) I added back the custom dr/di/dv/da settings that were previously deprecated.
+  - spell: Applies if the item applying the damage is a spell.
+  - not-spell: Applies if the item applying the damage is not a spell.
+  - magic: Applies if the item has the magic property  
+  - non-magic: Applies if the item applying the damage does not have the magical property
+  - physical: applies if the damage type is physical. This is a simpler way to specify damage resistance etc, to all physical types than ticking all of the various physical damage types. This setting **only** respects any bypasses set on the actor.
+  - non-magical-physical: Applies if the damage type is physical and the item applying the damage does not have the magical property.
+  - non-silver-physical: Applies to physical damage if the item applying the damage does not have the silvered property.
+  - non-adamant-physical: Applies to physical damage if the item applying the damage does not have the adamantine property.
+  - You can combine these (as only one will apply) so not-spell, not-magic will apply if the item is not a spell or does not have the magical property.
+  - If you want to specify damage resistance to physical damage that is not magical or silvered, specify physical in the custom field and set the bypasses to silvered and magical.
+  - These can be applied via an active effect or by entering **exactly** the custom type above into the custom field, which is a semi colon separated list.
+  - Currently does not support dnd5e downgrade, it is all or nothing for the protection, downgrade = not applied.
+
 ### 11.5.0
 * Requires dnd5e v3.3+
 * Requires dae 11.3.47+ - now uses Schema Fields for any midi added fields.

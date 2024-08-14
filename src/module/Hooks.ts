@@ -333,7 +333,7 @@ export function initHooks() {
     }
     let autoTargetOptions = foundry.utils.mergeObject({ "default": i18n("midi-qol.MidiSettings") }, geti18nOptions("autoTargetOptions"));
     let RemoveAttackDamageButtonsOptions = foundry.utils.mergeObject({ "default": i18n("midi-qol.MidiSettings") }, geti18nOptions("removeButtonsOptions"));
-    const ceForItem = getCEEffectByName(item.name); 
+    const ceForItem = getCEEffectByName(item.name);
     data = foundry.utils.mergeObject(data, {
       allowUseMacro: configSettings.allowUseMacro,
       MacroPassOptions: Workflow.allMacroPasses,
@@ -712,9 +712,9 @@ function setupMidiFlagTypes() {
     midiFlagTypes[`flags.midi-qol.DR.non-physical`] = "string";
     midiFlagTypes[`flags.midi-qol.DR.final`] = "number";
 
-      Object.keys(config.damageTypes).forEach(dt => {
-        midiFlagTypes[`flags.midi-qol.DR.${dt}`] = "string";
-      })
+    Object.keys(config.damageTypes).forEach(dt => {
+      midiFlagTypes[`flags.midi-qol.DR.${dt}`] = "string";
+    })
   }
 
   // midiFlagTypes[`flags.midi-qol.optional.NAME.attack.all`] = "string";
@@ -1018,23 +1018,27 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     if ((actor.system.traits[trait]?.custom?.length ?? 0) > 0) {
       const bypasses = actor.system.traits[trait].bypasses;
       actor.system.traits[trait].custom.split(";").map(s => s.trim()).forEach(custom => {
+        let bypassesPresent;
         for (let damage of damages) {
-          if (GameSystemConfig.healingTypes[damage.type]) return;
+          if (damage.active[categories[trait]]) continue; // only one dr/di/dv allowed
+          if (GameSystemConfig.healingTypes[damage.type]) continue;
           if (ignore(categories[trait], damage.type, false)) continue;
-          if (ignore(custom, damage.type, false) || damage.active[custom]) return;
+          if (ignore(custom, damage.type, false) || damage.active[custom]) continue;
           switch (custom) {
-            case "spell": if (!damage.properties.has("spell")) return; break;
-            case "nonmagic": if (damage.properties.has("magic") || damage.properties.has("spell")) return; break;
-            case "magic": if (!damage.properties.has("magic") && !damage.properties.has("spell")) return; break;
-            case "physical": 
-            if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mgc")) return; break;
-            case "silver": 
-              //@ts-expect-error
-              const bypassesPresent = damage.properties.intersection((new Set(["sil", "mgc"]).union(bypasses)));
-              if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || bypassesPresent.size > 0) return; 
+            case "spell": if (!damage.properties.has("spell")) continue; break;
+            case "not-spell": if (damage.properties.has("spell")) continue; break;
+            case "magic": if (!damage.properties.has("mgc")) continue; break;
+            case "not-magic": if (damage.properties.has("mgc")) continue; break;
+            case "physical":
+              bypassesPresent = damage.properties.intersection(bypasses);
+              if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || bypassesPresent.size > 0) continue; break;
+            case "non-magical-physical":
+              if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("mgc")) continue; break;
+            case "non-silver-pysical":
+              if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("sil")) continue;
               break;
-            case "adamant": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("adm")) return; break
-            default: if (!damage.properties.has(custom)) return; break;
+            case "non-adamant-physical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("adm")) continue; break
+            default: if (!damage.properties.has(custom)) continue; break;
           }
           damage.active[`${custom} custom`] = true;
           damage.active[categories[trait]] = true;
@@ -1174,20 +1178,20 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           break;
 
         case "spell":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
-              total += isSpell ? damage.value : 0;
-              return total;
-            }, 0);
+          selectedDamage = damages.reduce((total, damage) => {
+            const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
+            total += isSpell ? damage.value : 0;
+            return total;
+          }, 0);
           drAllActives.push(i18n("Spell"));
           break;
         case "non-spell":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
-              total += isSpell ? 0 : damage.value;
-              return total;
-            }, 0);
-            drAllActives.push(i18n("Non Spell"));
+          selectedDamage = damages.reduce((total, damage) => {
+            const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
+            total += isSpell ? 0 : damage.value;
+            return total;
+          }, 0);
+          drAllActives.push(i18n("Non Spell"));
           break;
         default: dr = 0; selectedDamage = 0; break;
       }
