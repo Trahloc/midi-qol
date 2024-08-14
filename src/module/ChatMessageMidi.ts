@@ -1,5 +1,4 @@
 import { GameSystemConfig, MQDamageRollTypes, debugEnabled, i18n, log, warn } from "../midi-qol.js";
-import { chatDamageButtons } from "./chatMessageHandling.js";
 import { setDamageRollMinTerms } from "./itemhandling.js";
 import { addChatDamageButtons, configSettings, safeGetGameSetting } from "./settings.js";
 import { getDamageType } from "./utils.js";
@@ -309,12 +308,10 @@ export function defineChatMessageMidiClass(baseClass: any) {
         this.rolls = foundry.utils.getProperty(this, "flags.midi-qol.roll");
         super._enrichChatCard(html);
         html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
-        chatDamageButtons(this, html, {});
         return; // Old form midi chat card tht causes dnd5e to throw errors
       }
       if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") {
         super._enrichChatCard(html);
-        chatDamageButtons(this, html, {});
         return;
       }
       if (debugEnabled > 1) warn("Enriching chat card", this.id);
@@ -324,7 +321,6 @@ export function defineChatMessageMidiClass(baseClass: any) {
         html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
         html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
       }
-      chatDamageButtons(this, html, {});
     }
 
     noDiceClicks(event) {

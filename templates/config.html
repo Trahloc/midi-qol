@@ -329,13 +329,6 @@
           </div>
 
           <div class="form-group">
-            <label>{{localize "midi-qol.v3DamageApplication.Name"}}</label>
-            <input type="checkbox" name="v3DamageApplication" data-dtype="Boolean" {{checked
-              configSettings.v3DamageApplication}} />
-            <div class="notes midi-qol-faint">{{{localize "midi-qol.v3DamageApplication.Hint"}}}</div>
-          </div>
-
-          <div class="form-group">
             <label>{{localize "midi-qol.PlayerDamageCard.Name"}}</label>
             <select name="playerDamageCard" data-dtype="String">
               {{selectOptions playerDamageCardOptions selected=configSettings.playerDamageCard}}

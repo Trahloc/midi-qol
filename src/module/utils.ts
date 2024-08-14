@@ -62,112 +62,16 @@ export function createDamageDetail({ roll, item, defaultType = MQdefaultDamageTy
   if (item?.system.damage?.parts[0]) {
     defaultType = item.system.damage.parts[0][1]
   }
+  rolls = foundry.utils.deepClone(rolls).map(r => {
+    if (!r.options.type) r.options.type = defaultType;
+    return r;
+  })
+
+  //TODO work out if/how to segregate damage detail by damage properites.
   //@ts-expect-error
-  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
-    rolls = foundry.utils.deepClone(rolls).map(r => {
-      if (!r.options.type) r.options.type = defaultType;
-      return r;
-    })
-
-    //TODO work out if/how to segregate damage detail by damage properites.
-    //@ts-expect-error
-    const aggregatedRolls: CONFIG.Dice.DamageRoll[] = game.system.dice.aggregateDamageRolls(rolls/*, {respectProperties: true}*/);
-    const detail = aggregatedRolls.map(roll => ({ damage: roll.total, type: roll.options.type, formula: roll.formula, properties: new Set(roll.options.properties ?? []) }));
-    return detail;
-  }
-  if (rolls instanceof Array) {
-    for (let r of rolls) {
-      if (!r.options.type) r.options.type = defaultType;
-      let rr = r;
-      if (rr.terms?.length) for (let i = rr.terms.length - 1; i >= 0;) {
-        const term = rr.terms[i--];
-        if (!(term instanceof NumericTerm) && !(term instanceof DiceTerm) && !(term instanceof ParentheticalTerm)) continue;
-        const flavorType = getDamageType(term.flavor);
-        let type = (term.flavor !== "") ? flavorType : rr.options.type;
-        if (!type || type === "none") type = r.options.type ?? defaultType;
-        let multiplier = 1
-        let operator = rr.terms[i];
-        while (operator instanceof OperatorTerm) {
-          if (operator.operator === "*") multiplier *= 2;
-          if (operator.operator === "-") multiplier *= -1;
-          operator = rolls.entries[i--];
-        }
-        let value = Number((term?.total ?? "0")) * multiplier;
-        damageParts[type] = value + (damageParts[type] ?? 0);
-      }
-    }
-    //  damageParts[r.options.type || defaultType] = r.total + (damageParts[r.options.type || defaultType] ?? 0);
-  } else { // rolls is a single roll and not a DamageRoll
-    let evalString = "";
-    let damageType: string | undefined = defaultType;
-    let partPos = 0;
-    let rollTerms = roll.terms;
-    let numberTermFound = false; // We won't evaluate until at least 1 numeric term is found
-    while (partPos < rollTerms.length) {
-      // Accumulate the text for each of the terms until we have enough to eval
-      const evalTerm = rollTerms[partPos];
-      partPos += 1;
-      if (evalTerm instanceof DiceTerm) {
-        // this is a dice roll
-        damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
-        if (!evalTerm?.options.flavor) {
-          foundry.utils.setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
-        }
-        numberTermFound = true;
-        evalString += evalTerm.total;
-      } else if (evalTerm instanceof Die) { // special case for better rolls that does not return a proper roll
-        damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
-        if (!evalTerm?.options.flavor) {
-          foundry.utils.setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
-        }
-        numberTermFound = true;
-        evalString += evalTerm.total;
-      } else if (evalTerm instanceof NumericTerm) {
-        damageType = getDamageType(evalTerm.options?.flavor) ?? damageType;
-        if (!evalTerm?.options.flavor) {
-          foundry.utils.setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
-        }
-        numberTermFound = true;
-        evalString += evalTerm.total;
-      }
-      if (evalTerm instanceof PoolTerm) {
-        damageType = getDamageType(evalTerm?.options?.flavor) ?? damageType;
-        if (!evalTerm?.options.flavor) {
-          foundry.utils.setProperty(evalTerm, "options.flavor", getDamageFlavor(damageType));
-        }
-        evalString += evalTerm.total;
-      }
-      if (evalTerm instanceof OperatorTerm) {
-        if (["*", "/"].includes(evalTerm.operator)) {
-          // multiply or divide keep going
-          evalString += evalTerm.total
-        } else if (["-", "+"].includes(evalTerm.operator)) {
-          if (numberTermFound) { // we have a number and a +/- so we can eval the term (do it straight away so we get the right damage type)
-            let result = Roll.safeEval(evalString);
-            damageParts[damageType || defaultType] = (damageParts[damageType || defaultType] || 0) + result;
-            // reset for the next term - we don't know how many there will be
-            evalString = "";
-            damageType = defaultType;
-            numberTermFound = false;
-            evalString = evalTerm.operator;
-          } else { // what to do with parenthetical term or others?
-            evalString += evalTerm.total;
-          }
-        }
-      }
-    }
-    // evalString contains the terms we have not yet evaluated so do them now
-
-    if (evalString) {
-      const damage = Roll.safeEval(evalString);
-      // we can always add since the +/- will be recorded in the evalString
-      damageParts[damageType || defaultType] = (damageParts[damageType || defaultType] || 0) + damage;
-    }
-  }
-  const damageDetail = Object.entries(damageParts).map(([type, damage]) => { return { damage, type } });
-  if (debugEnabled > 1) debug("CreateDamageDetail: Final damage detail is ", damageDetail);
-
-  return damageDetail;
+  const aggregatedRolls: CONFIG.Dice.DamageRoll[] = game.system.dice.aggregateDamageRolls(rolls/*, {respectProperties: true}*/);
+  const detail = aggregatedRolls.map(roll => ({ damage: roll.total, type: roll.options.type, formula: roll.formula, properties: new Set(roll.options.properties ?? []) }));
+  return detail;
 }
 
 export function getTokenForActor(actor): Token {
@@ -187,59 +91,6 @@ export function getTokenForActorAsSet(actor): Set<Token> {
   return new Set();
 }
 
-// Calculate the hp/tempHP lost for an amount of damage of type
-export function calculateDamage(a: Actor, appliedDamage, t: Token, totalDamage, dmgType, existingDamage) {
-  if (debugEnabled > 1) debug("calculate damage ", a, appliedDamage, t, totalDamage, dmgType)
-  let prevDamage = existingDamage?.find(ed => ed.tokenId === t.id);
-  //@ts-expect-error attributes
-  var hp = a.system.attributes.hp;
-  var oldHP, tmp, oldVitality, newVitality, vitalityDamage;
-  const vitalityResource = checkRule("vitalityResource");
-  if (hp.value <= 0 && typeof vitalityResource === "string" && foundry.utils.getProperty(a, vitalityResource) !== undefined) {
-    // Damage done to vitality rather than hp
-    oldVitality = foundry.utils.getProperty(a, vitalityResource) ?? 0;
-    newVitality = Math.max(0, oldVitality - appliedDamage);
-    vitalityDamage = appliedDamage;
-  }
-  if (prevDamage) {
-    oldHP = prevDamage.newHP;
-    tmp = prevDamage.newTempHP;
-  } else {
-    oldHP = hp.value;
-    tmp = parseInt(hp.temp) || 0;
-  }
-  let value = appliedDamage < 0 ? Math.ceil(appliedDamage) : Math.floor(appliedDamage);
-  if (dmgType.includes("temphp")) { // only relevent for healing of tmp HP
-    var newTemp = Math.max(tmp, -value, 0);
-    var newHP: number = oldHP;
-  } else {
-    var dt = value > 0 ? Math.min(tmp, value) : 0;
-    var newTemp = tmp - dt;
-
-    var newHP: number;
-    //@ts-expect-error
-    newHP = Math.clamp(oldHP - (value - dt), 0, hp.max + (parseInt(hp.tempmax) || 0));
-  }
-  //TODO review this awfulness
-  // Stumble around trying to find the actual token that corresponds to the multi level token TODO make this sane
-  const altSceneId = foundry.utils.getProperty(t, "flags.multilevel-tokens.sscene");
-  let sceneId = altSceneId ?? t.scene?.id;
-  const altTokenId = foundry.utils.getProperty(t, "flags.multilevel-tokens.stoken");
-  let tokenId = altTokenId ?? t.id;
-  const altTokenUuid = (altTokenId && altSceneId) ? `Scene.${altSceneId}.Token.${altTokenId}` : undefined;
-  let tokenUuid = altTokenUuid; // TODO this is nasty fix it.
-  if (!tokenUuid && t.document) tokenUuid = t.document.uuid;
-
-  if (debugEnabled > 1) debug("calculateDamage: results are ", newTemp, newHP, appliedDamage, totalDamage)
-  if (game.user?.isGM)
-    log(`${a.name} ${oldHP} takes ${value} reduced from ${totalDamage} Temp HP ${newTemp} HP ${newHP} `);
-  // TODO change tokenId, actorId to tokenUuid and actor.uuid
-  return {
-    tokenId, tokenUuid, actorId: a.id, actorUuid: a.uuid, tempDamage: tmp - newTemp, hpDamage: oldHP - newHP, oldTempHP: tmp, newTempHP: newTemp,
-    oldHP: oldHP, newHP: newHP, totalDamage: totalDamage, vitalityDamage, appliedDamage: value, sceneId, oldVitality, newVitality
-  };
-}
-
 /** 
  * Work out the appropriate multiplier for DamageTypeString on actor
  * If configSettings.damageImmunities are not being checked always return 1
@@ -253,12 +104,7 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
   if (dmgTypeString.includes("midi-none")) return 0;
   if (configSettings.damageImmunities === "none") return totalMult;
   let phsyicalDamageTypes;
-  //@ts-expect-error
-  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) { // physicalDamageTypes have gone away
-    phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
-  } else {
-    phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
-  }
+  phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
 
   if (dmgTypeString !== "") {
     // if not checking all damage counts as magical
@@ -357,109 +203,89 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
   options: any = { label: "defaultDamage", existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
   let allDamages: any = {};
   damageDetail = damageDetail.map(de => ({ ...de, value: (de.value ?? de.damage) }))
-  if (configSettings.v3DamageApplication) {
-    let workflow: any = options.workflow ?? {};
-    if (item && !options.workflow) workflow = Workflow.getWorkflow(item.uuid) ?? {};
+  let workflow: any = options.workflow ?? {};
+  if (item && !options.workflow) workflow = Workflow.getWorkflow(item.uuid) ?? {};
 
-    for (let tokenRef of theTargets) {
-      const token = getToken(tokenRef);
-      const actor = token?.actor
-      if (!actor || !token) continue;
-      const isHit = true;
-      const saved = !!saves?.has(token);
-      const superSaver = !!options.superSavers?.has(token);
-      const semiSuperSaver = !!options.semiSuperSavers?.has(token);
-      let saveMultiplier = 1;
-      if (saved) {
-        saveMultiplier = getSaveMultiplierForItem(item, "defaultDamage");
-      }
-      if (superSaver && getSaveMultiplierForItem(item, "defaultDamage") === 0.5) {
-        saveMultiplier = saves.has(token) ? 0 : 0.5;
-      }
-      if (semiSuperSaver && saved) {
-        saveMultiplier = 0;
-      }
+  for (let tokenRef of theTargets) {
+    const token = getToken(tokenRef);
+    const actor = token?.actor
+    if (!actor || !token) continue;
+    const isHit = true;
+    const saved = !!saves?.has(token);
+    const superSaver = !!options.superSavers?.has(token);
+    const semiSuperSaver = !!options.semiSuperSavers?.has(token);
+    let saveMultiplier = 1;
+    if (saved) {
+      saveMultiplier = getSaveMultiplierForItem(item, "defaultDamage");
+    }
+    if (superSaver && getSaveMultiplierForItem(item, "defaultDamage") === 0.5) {
+      saveMultiplier = saves.has(token) ? 0 : 0.5;
+    }
+    if (semiSuperSaver && saved) {
+      saveMultiplier = 0;
+    }
 
 
-      allDamages[token.document.uuid] = {
-        uuid: token.document.uuid,
-        tokenDamages: { combinedDamage: [] },
-        isHit,
+    allDamages[token.document.uuid] = {
+      uuid: token.document.uuid,
+      tokenDamages: { combinedDamage: [] },
+      isHit,
+      saved,
+      superSaver,
+      semiSuperSaver,
+      critical: false,
+      actorId: actor.id,
+      actorUuid: actor.uuid,
+      totalDamage,
+      sceneId: canvas?.scene?.id
+    };
+
+    const calcOptions = {
+      invertHealing: true,
+      multiplier: 1,
+      midi: {
         saved,
+        itemType: item?.type,
+        saveMultiplier,
+        isHit: true,
         superSaver,
         semiSuperSaver,
-        critical: false,
-        actorId: actor.id,
-        actorUuid: actor.uuid,
-        totalDamage,
-        sceneId: canvas?.scene?.id
-      };
-
-      const calcOptions = {
-        invertHealing: true,
-        multiplier: 1,
-        midi: {
-          saved,
-          itemType: item?.type,
-          saveMultiplier,
-          isHit: true,
-          superSaver,
-          semiSuperSaver,
-          token,
-          sourceActor: actor,
-          uncannyDodge: foundry.utils.getProperty(actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack,
-          // some options for ripper's module
-          save: saved,
-          target: token,
-          fumbleSave: false,
-          criticalSave: false,
-          isCritical: false,
-          isFumble: false
-        }
-      };
-      if (configSettings.saveDROrder === "DRSavedr") {
-        calcOptions.midi.saveMultiplier = saveMultiplier;
-      } else {
-        calcOptions.midi.saveMultiplier = 1;
-        calcOptions.multiplier = saveMultiplier;
+        token,
+        sourceActor: actor,
+        uncannyDodge: foundry.utils.getProperty(actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack,
+        // some options for ripper's module
+        save: saved,
+        target: token,
+        fumbleSave: false,
+        criticalSave: false,
+        isCritical: false,
+        isFumble: false
       }
-      //@ts-expect-error
-      allDamages[token.document.uuid].tokenDamages["combinedDamage"] = foundry.utils.duplicate(actor.calculateDamage(damageDetail, calcOptions));
-      allDamages[token.document.uuid].damageDetail = allDamages[token.document.uuid].tokenDamages["combinedDamage"];
-      setupv3DamageDetails(allDamages, "combinedDamage", token);
+    };
+    if (configSettings.saveDROrder === "DRSavedr") {
+      calcOptions.midi.saveMultiplier = saveMultiplier;
+    } else {
+      calcOptions.midi.saveMultiplier = 1;
+      calcOptions.multiplier = saveMultiplier;
     }
-    const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
-      autoApplyDamage: configSettings.autoApplyDamage,
-      sender: game.user?.name,
-      actorId: workflow.actor?.id,
-      charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
-      damageList: Object.values(allDamages),
-      chatCardId: workflow.itemCardId,
-      chatCardUuid: workflow.itemCardUuid,
-      flagTags: workflow.flagTags,
-      updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
-      forceApply: options.forceApply,
-    });
-    return cardIds;
-  } else {
-    return midiApplyTokenDamage(damageDetail, totalDamage, theTargets, item, saves, options);
+    //@ts-expect-error
+    allDamages[token.document.uuid].tokenDamages["combinedDamage"] = foundry.utils.duplicate(actor.calculateDamage(damageDetail, calcOptions));
+    allDamages[token.document.uuid].damageDetail = allDamages[token.document.uuid].tokenDamages["combinedDamage"];
+    setupv3DamageDetails(allDamages, "combinedDamage", token);
   }
-}
-export async function midiApplyTokenDamage(damageDetail, totalDamage, theTargets, item, saves,
-  options: any = { label: "defaultDamage", existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
-  const fixedTargets: Set<Token> = theTargets.map(t => getToken(t));
-
-  return legacyApplyTokenDamageMany([damageDetail], [totalDamage], fixedTargets, item, [saves], {
-    label: options.label,
-    hitTargets: options.hitTargets ?? fixedTargets,
-    existingDamage: options.existingDamage,
-    superSavers: options.superSavers ? [options.superSavers] : [],
-    semiSuperSavers: options.semiSuperSavers ? [options.semiSuperSavers] : [],
-    workflow: options.workflow,
-    updateContext: options.updateContext,
-    forceApply: options.forceApply ?? true,
-    noConcentrationCheck: options.noConcentrationCheck
+  const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
+    autoApplyDamage: configSettings.autoApplyDamage,
+    sender: game.user?.name,
+    actorId: workflow.actor?.id,
+    charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
+    damageList: Object.values(allDamages),
+    chatCardId: workflow.itemCardId,
+    chatCardUuid: workflow.itemCardUuid,
+    flagTags: workflow.flagTags,
+    updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
+    forceApply: options.forceApply,
   });
+  return cardIds;
 }
 
 export interface applyDamageDetails {
@@ -469,445 +295,6 @@ export interface applyDamageDetails {
   saves?: Set<Token | TokenDocument>;
   superSavers?: Set<Token | TokenDocument>;
   semiSuperSavers?: Set<Token | TokenDocument>;
-}
-
-
-export async function applyTokenDamageMany({ applyDamageDetails, theTargets, item,
-  options = { hitTargets: new Set(), existingDamage: [], workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false } }:
-  { applyDamageDetails: applyDamageDetails[]; theTargets: Set<Token | TokenDocument>; item: any; options?: { hitTargets: Set<Token | TokenDocument>, existingDamage: any[][]; workflow: Workflow | undefined; updateContext: any | undefined; forceApply: boolean, noConcentrationCheck: boolean }; }): Promise<any[]> {
-  let damageList: any[] = [];
-  let appliedDamage;
-  let workflow: any = options.workflow ?? {};
-  if (debugEnabled > 0) warn("applyTokenDamage |", applyDamageDetails, theTargets, item, workflow)
-  if (!theTargets || theTargets.size === 0) {
-    // TODO NW workflow.currentAction = workflow.WorkflowState_RollFinished
-    // probably called from refresh - don't do anything
-    return [];
-  }
-  if (!(item instanceof CONFIG.Item.documentClass)) {
-    if (workflow.item) item = workflow.item;
-    else if (item?.uuid) {
-      item = MQfromUuidSync(item.uuid);
-    } else if (item) {
-      error("ApplyTokenDamage passed item must be of type Item or null/undefined");
-      return [];
-    }
-  }
-  if (item && !options.workflow) workflow = Workflow.getWorkflow(item.uuid) ?? {};
-  const damageDetailArr = applyDamageDetails.map(a => a.damageDetail);
-  const highestOnlyDR = false;
-  let totalDamage = applyDamageDetails.reduce((a, b) => a + (b.damageTotal ?? 0), 0);
-
-  let totalAppliedDamage = 0;
-  let appliedTempHP = 0;
-  for (let t of theTargets) {
-    const targetToken: Token | undefined = getToken(t);
-    const targetTokenDocument: TokenDocument | undefined = getTokenDocument(t);
-
-    if (!targetTokenDocument || !targetTokenDocument.actor || !targetToken) continue;
-    let targetActor: any = targetTokenDocument.actor;
-
-    appliedDamage = 0;
-    appliedTempHP = 0;
-    let DRAll = 0;
-    // damage absorption:
-    const absorptions = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.absorption`) ?? {};
-
-    const firstDamageHealing = applyDamageDetails[0].damageDetail && ["healing", "temphp"].includes(applyDamageDetails[0].damageDetail[0]?.type);
-    const isHealing = ("heal" === workflow.item?.system.actionType) || firstDamageHealing;
-    const noDamageReactions = (item?.hasSave /* TODO && item.flags?.midiProperties?.nodam*/ && workflow?.saves?.has(t));
-    const noProvokeReaction = foundry.utils.getProperty(workflow, `item.flags.${MODULE_ID}.noProvokeReaction`);
-
-    if (totalDamage > 0
-      //@ts-expect-error isEmpty
-      && !foundry.utils.isEmpty(workflow)
-      && !noDamageReactions
-      && !noProvokeReaction
-      && options.hitTargets.has(t)
-      && [Workflow].includes(workflow.constructor)) {
-      // TODO check that the targetToken is actually taking damage
-      // Consider checking the save multiplier for the item as a first step
-      let result = await doReactions(targetToken, workflow.tokenUuid, workflow.damageRoll, !isHealing ? "reactiondamage" : "reactionheal", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
-      if (!Workflow.getWorkflow(workflow.id)) // workflow has been removed - bail out
-        return [];
-    }
-    let uncannyDodge = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack;
-    if (game.system.id === "sw5e" && targetActor?.type === "starship") {
-      // Starship damage r esistance applies only to attacks
-      if (item && ["mwak", "rwak"].includes(item?.system.actionType)) {
-        // This should be a roll?
-        DRAll = foundry.utils.getProperty(t, "actor.system.attributes.equip.armor.dr") ?? 0;
-      }
-    } else if (foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.all`) !== undefined)
-      DRAll = (await new Roll(`${foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.all`) || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-    if (item?.hasAttack && foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.${item?.system.actionType}`)) {
-      const flag = `flags.${MODULE_ID}.DR.${item?.system.actionType}`
-      DRAll += (await new Roll(`${foundry.utils.getProperty(targetActor, flag) ?? "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-    }
-    let DRAllRemaining = DRAll;
-    // const magicalDamage = (item?.type !== "weapon" || item?.system.attackBonus > 0 || item?.system.properties.has("mgc"));
-    let magicalDamage = item?.system.properties?.has("mgc") || item?.flags?.midiProperties?.magicdam;
-    magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.system.attackBonus > 0);
-    magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && item?.type !== "weapon");
-    magicalDamage = magicalDamage || (configSettings.requireMagical === "nonspell" && item?.type === "spell");
-
-    const silverDamage = magicalDamage || (item?.type === "weapon" && item?.system.properties?.has("sil"));
-    const adamantineDamage = item?.system.properties?.has("ada");
-
-    let AR = 0; // Armor reduction for challenge mode armor etc.
-    const ac = targetActor.system.attributes.ac;
-    let damageDetail;
-    let damageDetailResolved: any[] = [];
-    totalDamage = 0;
-    for (let i = 0; i < applyDamageDetails.length; i++) {
-      if (applyDamageDetails[i].label === "otherDamage" && !workflow.otherDamageMatches?.has(targetToken)) continue; // don't apply other damage is activationFails includes the token
-      totalDamage += (applyDamageDetails[i].damageTotal ?? 0);
-      damageDetail = foundry.utils.duplicate(applyDamageDetails[i].damageDetail ?? []);
-      const label = applyDamageDetails[i].label;
-      const itemSaveMultiplier = getSaveMultiplierForItem(item, label);
-      let attackRoll = workflow.attackTotal;
-      let saves = applyDamageDetails[i].saves ?? new Set();
-      let superSavers: Set<Token | TokenDocument> = applyDamageDetails[i].superSavers ?? new Set();
-      let semiSuperSavers: Set<Token | TokenDocument> = applyDamageDetails[i].semiSuperSavers ?? new Set();
-      var dmgType;
-
-      // Apply saves if required
-
-      // This is overall Damage Reduction
-      let maxDR = Number.NEGATIVE_INFINITY;
-
-      if (checkRule("challengeModeArmor") === "scale") {
-        AR = workflow.isCritical ? 0 : ac.AR;
-      } else if (checkRule("challengeModeArmor") === "challenge" && attackRoll) {
-        AR = ac.AR;
-      } else AR = 0;
-      let maxDRIndex = -1;
-
-
-      for (let [index, damageDetailItem] of damageDetail.entries()) {
-        if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && attackRoll && workflow.hitTargetsEC?.has(t)) {
-          //scale the damage detail for a glancing blow - only for the first damage list? or all?
-          const scale = workflow.challengeModeScale[targetActor?.uuid ?? "dummy"] ?? 1;
-          // const scale = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.challengeModeScale`) ?? 1;
-          damageDetailItem.damage *= scale;
-        }
-      }
-      let nonMagicalDRUsed = false;
-      let nonMagicalPysicalDRUsed = false;
-      let nonPhysicalDRUsed = false;
-      let nonSilverDRUsed = false;
-      let nonAdamantineDRUsed = false;
-      let physicalDRUsed = false;
-
-      if (configSettings.saveDROrder === "SaveDRdr") {
-        for (let [index, damageDetailItem] of damageDetail.entries()) {
-          let { damage, type, DR } = damageDetailItem;
-          if (!type) type = MQdefaultDamageType;
-
-          let mult = saves.has(t) ? itemSaveMultiplier : 1;
-          if (superSavers.has(t) && itemSaveMultiplier === 0.5) {
-            mult = saves.has(t) ? 0 : 0.5;
-          }
-          if (semiSuperSavers.has(t) && itemSaveMultiplier === 0.5)
-            mult = saves.has(t) ? 0 : 1;
-          damageDetailItem.damage = damageDetailItem.damage * mult;
-        }
-      }
-      // Calculate the Damage Reductions for each damage type
-      for (let [index, damageDetailItem] of damageDetail.entries()) {
-        let { damage, type } = damageDetailItem;
-        type = type ?? MQdefaultDamageType;
-        const physicalDamage = ["bludgeoning", "slashing", "piercing"].includes(type);
-
-        if (absorptions[type] && absorptions[type] !== false) {
-          const abMult = Number.isNumeric(absorptions[type]) ? Number(absorptions[type]) : 1;
-          damageDetailItem.damage = damageDetailItem.damage * abMult;
-          type = "healing";
-          damageDetailItem.type = "healing"
-        }
-        let DRType = 0;
-        if (type.toLowerCase() !== "temphp") dmgType = type.toLowerCase();
-        // Pick the highest DR applicable to the damage type being inflicted.
-        if (foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.${type}`)) {
-          const flag = `flags.${MODULE_ID}.DR.${type}`;
-          DRType = (await new Roll(`${foundry.utils.getProperty(targetActor, flag) || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-          if (DRType < 0) {
-            damageDetailItem.damage -= DRType;
-            DRType = 0;
-          }
-        }
-        const nonMagicalPhysicalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical-physical`);
-        if (!nonMagicalPysicalDRUsed && physicalDamage && !magicalDamage && nonMagicalPhysicalProperty) {
-          const DR = (await new Roll(`${nonMagicalPhysicalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-          if (DR < 0) {
-            damageDetailItem.damage -= DR;
-          } else {
-            nonMagicalPysicalDRUsed = DR > DRType;
-            DRType = Math.max(DRType, DR);
-          }
-        }
-        const nonMagicalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-magical`);
-        if (!nonMagicalDRUsed && !magicalDamage && nonMagicalProperty) {
-          const DR = (await new Roll(`${nonMagicalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-          if (DR < 0) {
-            damageDetailItem.damage -= DR;
-          } else {
-            nonMagicalDRUsed = DR > DRType;
-            DRType = Math.max(DRType, DR);
-          }
-        }
-        const nonSilverProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-silver`);
-        if (!nonSilverDRUsed && physicalDamage && !silverDamage && nonSilverProperty) {
-          const DR = (await new Roll(`${nonSilverProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-          if (DR < 0) {
-            damageDetailItem.damage -= DR;
-          } else {
-            nonSilverDRUsed = DR > DRType;
-            DRType = Math.max(DRType, DR);
-          }
-        }
-        const nonAdamantineProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-adamant`);
-        if (!nonAdamantineDRUsed && physicalDamage && !nonAdamantineProperty) {
-          const DR = (await new Roll(`${nonAdamantineProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0
-          if (DR < 0) {
-            damageDetailItem.damage -= DR;
-          } else {
-            nonAdamantineDRUsed = DR > DRType;
-            DRType = Math.max(DRType, DR);
-          }
-        }
-        const physicalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.physical`);
-        if (!physicalDRUsed && physicalDamage && physicalProperty) {
-          const DR = (await new Roll(`${physicalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-          if (DR < 0) {
-            damageDetailItem.damage -= DR;
-          } else {
-            physicalDRUsed = DR > DRType;
-            DRType = Math.max(DRType, DR);
-          }
-        }
-        const nonPhysicalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.non-physical`);
-        if (!nonPhysicalDRUsed && !physicalDamage && nonPhysicalProperty) {
-          const DR = (await new Roll(`${nonPhysicalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-          if (DR < 0) {
-            damageDetailItem.damage -= DR;
-          } else {
-            nonPhysicalDRUsed = DR > DRType;
-            DRType = Math.max(DRType, DR);
-          }
-        }
-        DRType = Math.min(damage, DRType);
-        // We have the DRType for the current damage type
-        if (DRType >= maxDR) {
-          maxDR = DRType;
-          maxDRIndex = index;
-        }
-        damageDetailItem.DR = DRType;
-      }
-
-      if (DRAll > 0 && DRAll < maxDR && checkRule("maxDRValue")) DRAll = 0;
-      if (checkRule("DRAllPerDamageDetail")) DRAllRemaining = Math.max(DRAll, 0);
-      // Now apportion DRAll to each damage type if required
-      for (let [index, damageDetailItem] of damageDetail.entries()) {
-        let { damage, type, DR } = damageDetailItem;
-        if (checkRule("maxDRValue")) {
-          if (index !== maxDRIndex) {
-            damageDetailItem.DR = 0;
-            DR = 0;
-          } else if (DRAll > maxDR) {
-            damageDetailItem.DR = 0;
-            DR = 0;
-          }
-        }
-        if (DR < damage && DRAllRemaining > 0 && !["healing", "temphp"].includes(damageDetailItem.type)) {
-          damageDetailItem.DR = Math.min(damage, DR + DRAllRemaining);
-          DRAllRemaining = Math.max(0, DRAllRemaining + DR - damage);
-        }
-        // Apply AR here
-      }
-
-      //Apply saves/dr/di/dv
-      for (let [index, damageDetailItem] of damageDetail.entries()) {
-        let { damage, type, DR } = damageDetailItem;
-        if (!type) type = MQdefaultDamageType;
-
-        let mult = 1;
-        if (configSettings.saveDROrder !== "SaveDRdr") {
-          mult = saves.has(t) ? itemSaveMultiplier : 1;
-          if (superSavers.has(t) && itemSaveMultiplier === 0.5) {
-            mult = saves.has(t) ? 0 : 0.5;
-          }
-          if (semiSuperSavers.has(t) && saves.has(t))
-            mult = 0;
-        }
-        if (uncannyDodge) mult = mult / 2;
-        const resMult = getTraitMult(targetActor, type, item);
-        mult = mult * resMult;
-        damageDetailItem.damageMultiplier = mult;
-        /*
-        if (!["healing", "temphp"].includes(type)) damage -= DR; // Damage reduction does not apply to healing
-        */
-        damage -= DR;
-        let typeDamage = Math.floor(damage * Math.abs(mult)) * Math.sign(mult);
-        let typeDamageUnRounded = damage * mult;
-
-        if (type.includes("temphp")) {
-          appliedTempHP += typeDamage
-        } else {
-          appliedDamage += typeDamageUnRounded;
-        }
-
-        // TODO: consider mwak damage reduction - we have the workflow so should be possible
-      }
-      damageDetailResolved = damageDetailResolved.concat(damageDetail);
-      if (debugEnabled > 0) warn("applyTokenDamageMany | Damage Details plus resistance/save multiplier for ", targetActor.name, foundry.utils.duplicate(damageDetail))
-    }
-    if (DRAll < 0 && appliedDamage > -1) { // negative DR is extra damage
-      damageDetailResolved = damageDetailResolved.concat({ damage: -DRAll, type: "DR", DR: DRAll });
-      appliedDamage -= DRAll;
-      // totalDamage -= DRAll; removing this allows the display to reflect the DRAll
-    }
-    if (false && !Object.keys(GameSystemConfig.healingTypes).includes(dmgType)) {
-      totalDamage = Math.max(totalDamage, 0);
-      appliedDamage = Math.max(appliedDamage, 0);
-    }
-    if (AR > 0 && appliedDamage > 0 && ["challenge", "scale"].includes(checkRule("challengeModeArmor"))
-      && !Object.keys(GameSystemConfig.healingTypes).includes(dmgType)) {
-      totalDamage = appliedDamage;
-      if (checkRule("challengeModeArmor") === "scale" || (checkRule("challengeModeArmor") === "challenge" && workflow.hitTargetsEC.has(t))) // TODO: the hitTargetsEC test won't ever fire?
-        appliedDamage = Math.max(0, appliedDamage - AR)
-    }
-
-    totalAppliedDamage += appliedDamage;
-    if (!dmgType) dmgType = "temphp";
-    const drFinalProperty = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.DR.final`);
-    if (!["healing", "temphp"].includes(dmgType) && drFinalProperty) {
-      let DRType = (await new Roll(`${drFinalProperty || "0"}`, targetActor.getRollData()).evaluate()).total ?? 0;
-      appliedDamage = Math.max(0, appliedDamage - DRType)
-    }
-
-    // Deal with vehicle damage threshold.
-    if (appliedDamage > 0 && appliedDamage < (targetActor.system.attributes.hp.dt ?? 0)) appliedDamage = 0;
-    let ditem: any = calculateDamage(targetActor, appliedDamage, targetToken, totalDamage, dmgType, options.existingDamage);
-    ditem.tempDamage = ditem.tempDamage + appliedTempHP;
-    if (appliedTempHP <= 0) { // temp healing applied to actor does not add only gets the max
-      ditem.newTempHP = Math.max(ditem.newTempHP, -appliedTempHP);
-    } else {
-      ditem.newTempHP = Math.max(0, ditem.newTempHP - appliedTempHP)
-    }
-    ditem.damageDetail = foundry.utils.duplicate([damageDetailResolved]);
-    ditem.critical = workflow?.isCritical;
-    ditem.wasHit = options.hitTargets.has(t);
-    ditem.details = [];
-    //@ts-expect-error isEmpty Allow macros to fiddle with the damage
-    if (!foundry.utils.isEmpty(workflow) && configSettings.allowUseMacro && !workflow?.options?.noTargetOnuseMacro && workflow.item?.flags) {
-      workflow.damageItem = ditem;
-      await workflow.triggerTargetMacros(["preTargetDamageApplication"], [t]);
-      ditem = workflow.damageItem;
-    }
-    workflow.damageItem = ditem;
-    await asyncHooksCallAll(`midi-qol.preTargetDamageApplication`, t, { item, workflow, damageItem: ditem, ditem });
-    ditem = workflow.damageItem;
-    ditem.targetname = t.name;
-    let dnd5eDamages = ditem.damageDetail[0].reduce((acc, detail) => {
-      acc[detail.type] = Math.floor((detail.damage - (detail.DR ?? 0)) * detail.damageMultiplier)
-      return acc;
-    }, {});
-    dnd5eDamages = Object.keys(dnd5eDamages).map(key => ({ type: key, value: dnd5eDamages[key] }));
-    const dnd5eOptions = {
-      midi: {
-        noCalc: true,
-        item,
-        superSavers: workflow.superSavers,
-        semiSuperSavers: workflow.semiSuperSavers,
-        target: t,
-        isCritical: workflow.isCritical,
-        isFumble: workflow.isFumble,
-        save: workflow.saves?.has(t),
-        fumbleSave: workflow.fumbleSaves?.has(t),
-        criticalSave: workflow.criticalSaves?.has(t),
-      }
-    };
-    if (options.hitTargets.has(t) && !configSettings.v3DamageApplication) {
-      Hooks.call("dnd5e.calculateDamage", t.actor, dnd5eDamages, dnd5eOptions);
-      Hooks.call("dnd5e.applyDamage", t.actor, appliedDamage, dnd5eOptions);
-    }
-    // delete workflow.damageItem
-    damageList.push(ditem);
-
-    if (ditem.appliedDamage !== 0 && ditem.wasHit) {
-      const healedDamaged = ditem.appliedDamage < 0 ? "isHealed" : "isDamaged";
-      workflow.ditem = foundry.utils.duplicate(ditem);
-      await asyncHooksCallAll(`midi-qol.${healedDamaged}`, t, { item, workflow, damageItem: workflow.ditem, ditem: workflow.ditem });
-      const actorOnUseMacros = foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.onUseMacroParts`) ?? new OnUseMacros();
-      // It seems applyTokenDamageMany without a workflow gets through to here - so a silly guard in place TODO come back and fix this properly
-      if (workflow.callMacros) await workflow.callMacros(workflow.item,
-        actorOnUseMacros?.getMacros(healedDamaged),
-        "TargetOnUse",
-        healedDamaged,
-        { actor: t.actor, token: t });
-      const expiredEffects = getAppliedEffects(t?.actor, { includeEnchantments: true }).filter(ef => {
-        const specialDuration = foundry.utils.getProperty(ef, "flags.dae.specialDuration");
-        if (!specialDuration) return false;
-        return specialDuration.includes(healedDamaged);
-      }).map(ef => ef.uuid)
-      if (expiredEffects?.length ?? 0 > 0) {
-        await timedAwaitExecuteAsGM("removeEffectUuids", {
-          actorUuid: t.actor?.uuid,
-          effects: expiredEffects,
-          options: { "expiry-reason": `midi-qol:${healedDamaged}` }
-        });
-      }
-    }
-  }
-  if (theTargets.size > 0) {
-    workflow.damageList = damageList;
-    //@ts-expect-error isEmpty
-    if (!foundry.utils.isEmpty(workflow) && configSettings.allowUseMacro && workflow.item?.flags) {
-      await workflow.callMacros(workflow.item, workflow.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
-      if (workflow.ammo) await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
-    }
-
-    const chatCardUuids = await timedAwaitExecuteAsGM("createReverseDamageCard", {
-      autoApplyDamage: configSettings.autoApplyDamage,
-      sender: game.user?.name,
-      actorId: workflow.actor?.id,
-      charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
-      damageList: damageList,
-      chatCardId: workflow.itemCardId,
-      chatCardUuid: workflow.itemCardUuid,
-      flagTags: workflow.flagTags,
-      updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
-      forceApply: options.forceApply,
-    })
-    if (workflow && configSettings.undoWorkflow) {
-      // Assumes workflow.undoData.chatCardUuids has been initialised
-      if (workflow.undoData) {
-        workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat(chatCardUuids);
-        untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
-      }
-    }
-  }
-  if (configSettings.keepRollStats) {
-    gameStats.addDamage(totalAppliedDamage, totalDamage, theTargets.size, item)
-  }
-  return damageList;
-};
-
-export async function legacyApplyTokenDamageMany(damageDetailArr, totalDamageArr, theTargets, item, savesArr,
-  options: { label: string, hitTargets: Set<Token | TokenDocument>, existingDamage: any[][], superSavers: Set<any>[], semiSuperSavers: Set<any>[], workflow: Workflow | undefined, updateContext: any, forceApply: any, noConcentrationCheck: boolean }
-    = { label: "defaultDamage", hitTargets: new Set(), existingDamage: [], superSavers: [], semiSuperSavers: [], workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
-  const mappedDamageDetailArray: applyDamageDetails[] = damageDetailArr.map((dd, i) => {
-    return {
-      label: options.label ?? "defaultDamage",
-      damageDetail: dd,
-      damageTotal: totalDamageArr[i],
-      saves: savesArr[i],
-      superSavers: options.superSavers[i],
-      semiSuperSavers: options.semiSuperSavers[i],
-    }
-  });
-  return applyTokenDamageMany({ applyDamageDetails: mappedDamageDetailArray, theTargets, item, options })
 }
 
 export function setupv3DamageDetails(allDamages, selector, token: Token) {
@@ -1005,11 +392,6 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
     workflow.bonusDamageDetail = undefined;
     workflow.bonusDamageTotal = undefined;
   }
-  let savesToUse = (workflow.otherDamageFormula ?? "") !== "" ? new Set() : workflow.saves;
-  // TODO come back and remove bonusDamage from the args to applyTokenDamageMany
-  // Don't check for critical - RAW say these don't get critical damage
-  // if (["rwak", "mwak"].includes(item?.system.actionType) && configSettings.rollOtherDamage !== "none") {
-  // TODO clean this up - but need to work out what save set to use for base damage
   let baseDamageSaves: Set<Token | TokenDocument> = new Set();
   let bonusDamageSaves: Set<Token | TokenDocument> = new Set();
   // If we are not doing default save damage then pass through the workflow saves
@@ -1024,299 +406,180 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   else if ((foundry.utils.getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default") === "default"
     && itemOtherFormula(workflow.saveItem) === "") baseDamageSaves = workflow.saves ?? new Set()
 
-  if (configSettings.v3DamageApplication) {
-    const allDamages = {};
-    workflow.damageList = [];
-    let totalDamage = 0;
-    totalDamage = workflow.damageRolls?.reduce((acc, roll) => acc + (roll.total ?? 0), 0) ?? 0;
-    if (workflow.otherDamageRoll) totalDamage += workflow.otherDamageRoll.total ?? 0;
-    if (workflow.bonusDamageRolls?.length > 0) totalDamage += workflow.bonusDamageRolls.reduce((acc, roll) => acc + (roll.total ?? 0), 0);
+  const allDamages = {};
+  workflow.damageList = [];
+  totalDamage = 0;
+  totalDamage = workflow.damageRolls?.reduce((acc, roll) => acc + (roll.total ?? 0), 0) ?? 0;
+  if (workflow.otherDamageRoll) totalDamage += workflow.otherDamageRoll.total ?? 0;
+  if (workflow.bonusDamageRolls?.length > 0) totalDamage += workflow.bonusDamageRolls.reduce((acc, roll) => acc + (roll.total ?? 0), 0);
+
+  for (let tokenRef of theTargets) {
+    const token = getToken(tokenRef);
+    const tokenDocument = getTokenDocument(tokenRef);
+    if (!token?.actor) continue;
+    if (!tokenDocument) continue;
+    let challengeModeScale = 1;
+
+    allDamages[tokenDocument?.uuid] = {
+      uuid: getTokenDocument(token)?.uuid,
+      tokenDamages: { combinedDamage: [], defaultDamage: [], otherDamage: [], bonusDamage: [] },
+      isHit: hitTargets.has(token),
+      saved: workflow.saves.has(token),
+      superSaver: workflow.superSavers.has(token),
+      semiSuperSaver: workflow.semiSuperSavers.has(token),
+      critical: workflow.isCritical,
+      actorId: token.actor.id,
+      actorUuid: token.actor.uuid,
+      totalDamage,
+      sceneId: canvas?.scene?.id,
+    };
+    let options: any = {};
+    if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && workflow.attackRoll && workflow.hitTargetsEC?.has(token)) {
+      //scale the damage detail for a glancing blow - only for the first damage list? or all?
+      const scale = workflow.challengeModeScale[tokenDocument?.uuid ?? "dummy"] ?? 1;
+      challengeModeScale = scale;
+    }
+    allDamages[tokenDocument.uuid].challengeModeScale = challengeModeScale;
+    if (totalDamage !== 0 && (workflow.hitTargets.has(token) || workflow.hitTargetsEC.has(token) || workflow.saveItem.hasSave)) {
+      const isHealing = ("heal" === workflow.item?.system.actionType);
+      await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? [workflow.otherDamageRoll], !isHealing ? "reactiondamage" : "reactionheal", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
+    }
+    const tokenDamages = allDamages[tokenDocument.uuid].tokenDamages;
+
+    for (let [rolls, saves, type] of [[workflow.damageRolls, baseDamageSaves, "defaultDamage"], [(workflow.otherDamageMatches?.has(token) ?? true) ? [workflow.otherDamageRoll] : [], workflow.saves, "otherDamage"], [workflow.bonusDamageRolls, bonusDamageSaves, "bonusDamage"]]) {
+      if (rolls?.length > 0 && rolls[0]) {
+        //@ts-expect-error
+        const damages = game.system.dice.aggregateDamageRolls(rolls, { respectProperties: true }).map(roll => ({
+          value: roll.total,
+          type: roll.options.type,
+          properties: new Set(roll.options.properties ?? [])
+        }));
+
+        let saveMultiplier = 1;
+        if (saves.has(token)) {
+          saveMultiplier = getSaveMultiplierForItem(item, type);
+        }
+        if (workflow.superSavers.has(token) && getSaveMultiplierForItem(item, type) === 0.5) {
+          saveMultiplier = saves.has(token) ? 0 : 0.5;
+        }
+        if (workflow.semiSuperSavers.has(token) && this.saves.has(token)) {
+          saveMultiplier = 0;
+        }
+
+        // const allTargetElts = document.querySelectorAll(`[data-message-id="${workflow.chatCard?.id}"]`)?.[0]?.getElementsByTagName("damage-application");
+        options = {
+          invertHealing: true,
+          multiplier: challengeModeScale,
+          midi: {
+            saved: saves?.has(token),
+            itemType: item.type,
+            saveMultiplier,
+            isHit: hitTargets.has(token),
+            superSaver: workflow.superSavers?.has(token),
+            semiSuperSaver: workflow.semiSuperSavers?.has(token),
+            token,
+            sourceActor: workflow.actor,
+            uncannyDodge: foundry.utils.getProperty(token.actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack,
+            applyDamage: true
+
+          }
+        };
+
+        // TODO make this a setting in midi-qol targetOptions
+        const categories = { "idi": "immunity", "idr": "resistance", "idv": "vulnerability", "ida": "absorption" };
+        if (workflow.item) {
+          for (let key of ["idi", "idr", "idv", "ida"]) {
+            const property = foundry.utils.getProperty(workflow.item, `flags.midiProperties.${key}`);
+            if (property) {
+              if (!options.ignore?.[categories[key]]) foundry.utils.setProperty(options, `ignore.${categories[key]}`, new Set())
+              for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
+                options.ignore[categories[key]].add(dt);
+              }
+            }
+          }
+        }
+        // Setup some other options for ripper's modules
+        options = foundry.utils.mergeObject(options, {
+          midi: {
+            save: workflow.saves.has(token),
+            fumbleSave: workflow.fumbleSaves.has(token),
+            criticalSave: workflow.criticalSaves.has(token),
+            isCritical: workflow.isCritical,
+            isFumble: workflow.isFumble,
+            target: token,
+            superSavers: workflow.superSavers,
+            semiSuperSavers: workflow.semiSuperSavers,
+          }
+        }, { insertKeys: true, insertValues: true });
+        //@ts-expect-error
+        let returnDamages = foundry.utils.duplicate(token.actor.calculateDamage(damages, options));
+        if (configSettings.singleConcentrationRoll || type !== "otherDamage") {
+          tokenDamages[type] = returnDamages;
+          tokenDamages["combinedDamage"] = tokenDamages["combinedDamage"].concat(returnDamages);
+        } else if (!configSettings.singleConcentrationRoll && type === "otherDamage") {
+          tokenDamages["otherDamage"] = returnDamages;
+        }
+      }
+    }
+  }
+  workflow.v3Damages = allDamages;
+  /*
+      let baseDamageRolls: Roll[] = workflow.damageRolls ?? [];
+      let otherDamageRolls: Roll[] = [];
+  
+      if (configSettings.singleConcentrationRoll) {
+        if (workflow.otherDamageRoll) baseDamageRolls = baseDamageRolls.concat(workflow.otherDamageRoll);
+        if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
+        otherDamageRolls = [];
+      } else {
+        if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
+        if (workflow.otherDamageRoll) otherDamageRolls = [workflow.otherDamageRoll];
+      }
+  */
+  workflow.damageList = Object.values(allDamages);
+  const toCheck = ["combinedDamage"];
+  if (!configSettings.singleConcentrationRoll && workflow.otherDamageRoll) toCheck.push("otherDamage");
+  let chatCardUuids: string[] = [];
+  for (let selector of toCheck) {
+    workflow.damageList.forEach(damageEntry => {
+      damageEntry.damageDetail = damageEntry.tokenDamages[selector];
+    });
 
     for (let tokenRef of theTargets) {
       const token = getToken(tokenRef);
       const tokenDocument = getTokenDocument(tokenRef);
       if (!token?.actor) continue;
       if (!tokenDocument) continue;
-      let challengeModeScale = 1;
-
-      allDamages[tokenDocument?.uuid] = {
-        uuid: getTokenDocument(token)?.uuid,
-        tokenDamages: { combinedDamage: [], defaultDamage: [], otherDamage: [], bonusDamage: [] },
-        isHit: hitTargets.has(token),
-        saved: workflow.saves.has(token),
-        superSaver: workflow.superSavers.has(token),
-        semiSuperSaver: workflow.semiSuperSavers.has(token),
-        critical: workflow.isCritical,
-        actorId: token.actor.id,
-        actorUuid: token.actor.uuid,
-        totalDamage,
-        sceneId: canvas?.scene?.id,
-      };
-      let options: any = {};
-      if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && workflow.attackRoll && workflow.hitTargetsEC?.has(token)) {
-        //scale the damage detail for a glancing blow - only for the first damage list? or all?
-        const scale = workflow.challengeModeScale[tokenDocument?.uuid ?? "dummy"] ?? 1;
-        challengeModeScale = scale;
-      }
-      allDamages[tokenDocument.uuid].challengeModeScale = challengeModeScale;
-      if (totalDamage !== 0 && (workflow.hitTargets.has(token) || workflow.hitTargetsEC.has(token) || workflow.saveItem.hasSave)) {
-        const isHealing = ("heal" === workflow.item?.system.actionType);
-        await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? [workflow.otherDamageRoll], !isHealing ? "reactiondamage" : "reactionheal", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
-      }
-      const tokenDamages = allDamages[tokenDocument.uuid].tokenDamages;
-
-      for (let [rolls, saves, type] of [[workflow.damageRolls, baseDamageSaves, "defaultDamage"], [(workflow.otherDamageMatches?.has(token) ?? true) ? [workflow.otherDamageRoll] : [], workflow.saves, "otherDamage"], [workflow.bonusDamageRolls, bonusDamageSaves, "bonusDamage"]]) {
-        if (rolls?.length > 0 && rolls[0]) {
-          //@ts-expect-error
-          const damages = game.system.dice.aggregateDamageRolls(rolls, { respectProperties: true }).map(roll => ({
-            value: roll.total,
-            type: roll.options.type,
-            properties: new Set(roll.options.properties ?? [])
-          }));
-
-          let saveMultiplier = 1;
-          if (saves.has(token)) {
-            saveMultiplier = getSaveMultiplierForItem(item, type);
-          }
-          if (workflow.superSavers.has(token) && getSaveMultiplierForItem(item, type) === 0.5) {
-            saveMultiplier = saves.has(token) ? 0 : 0.5;
-          }
-          if (workflow.semiSuperSavers.has(token) && this.saves.has(token)) {
-            saveMultiplier = 0;
-          }
-
-          const allTargetElts = document.querySelectorAll(`[data-message-id="${workflow.chatCard?.id}"]`)?.[0]?.getElementsByTagName("damage-application");
-          //@ts-expect-error
-          const allTargetOptions = allTargetElts ? Array.from(allTargetElts).map(targetElt => targetElt.getTargetOptions(tokenDocument.uuid)) : [];
-          options = {
-            invertHealing: true,
-            multiplier: challengeModeScale,
-            midi: {
-              saved: saves?.has(token),
-              itemType: item.type,
-              saveMultiplier,
-              isHit: hitTargets.has(token),
-              superSaver: workflow.superSavers?.has(token),
-              semiSuperSaver: workflow.semiSuperSavers?.has(token),
-              token,
-              sourceActor: workflow.actor,
-              uncannyDodge: foundry.utils.getProperty(token.actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack
-            }
-          };
-
-          // TODO make this a setting in midi-qol targetOptions
-          const categories = { "idi": "immunity", "idr": "resistance", "idv": "vulnerability", "ida": "absorption" };
-          if (workflow.item) {
-            for (let key of ["idi", "idr", "idv", "ida"]) {
-              const property = foundry.utils.getProperty(workflow.item, `flags.midiProperties.${key}`);
-              if (property) {
-                if (!options.ignore?.[categories[key]]) foundry.utils.setProperty(options, `ignore.${categories[key]}`, new Set())
-                for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
-                  options.ignore[categories[key]].add(dt);
-                }
-              }
-            }
-          }
-          foundry.utils.setProperty(options, "midi.applyDamage", true);
-          // Setup some other options for ripper's modules
-          options = foundry.utils.mergeObject(options, {
-            midi: {
-              save: workflow.saves.has(token),
-              fumbleSave: workflow.fumbleSaves.has(token),
-              criticalSave: workflow.criticalSaves.has(token),
-              isCritical: workflow.isCritical,
-              isFumble: workflow.isFumble,
-              target: token,
-              superSavers: workflow.superSavers,
-              semiSuperSavers: workflow.semiSuperSavers
-            }
-          }, { insertKeys: true, insertValues: true });
-          //@ts-expect-error
-          let returnDamages = foundry.utils.duplicate(token.actor.calculateDamage(damages, options));
-          if (configSettings.singleConcentrationRoll || type !== "otherDamage") {
-            tokenDamages[type] = returnDamages;
-            tokenDamages["combinedDamage"] = tokenDamages["combinedDamage"].concat(returnDamages);
-          } else if (!configSettings.singleConcentrationRoll && type === "otherDamage") {
-            tokenDamages["otherDamage"] = returnDamages;
-          }
-        }
-      }
+      const tokenDamages = allDamages[tokenDocument.uuid];
+      setupv3DamageDetails(allDamages, selector, token);
+      await workflow?.callv3DamageHooks(tokenDamages, token);
+      tokenDamages.tokenDamages[selector] = tokenDamages.damageDetail;
+      // setupv3DamageDetails(allDamages, selector, token);
     }
-    workflow.v3Damages = allDamages;
-    /*
-        let baseDamageRolls: Roll[] = workflow.damageRolls ?? [];
-        let otherDamageRolls: Roll[] = [];
-    
-        if (configSettings.singleConcentrationRoll) {
-          if (workflow.otherDamageRoll) baseDamageRolls = baseDamageRolls.concat(workflow.otherDamageRoll);
-          if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
-          otherDamageRolls = [];
-        } else {
-          if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
-          if (workflow.otherDamageRoll) otherDamageRolls = [workflow.otherDamageRoll];
-        }
-    */
-    workflow.damageList = Object.values(allDamages);
-    const toCheck = ["combinedDamage"];
-    if (!configSettings.singleConcentrationRoll && workflow.otherDamageRoll) toCheck.push("otherDamage");
-    let chatCardUuids: string[] = [];
-    for (let selector of toCheck) {
-      workflow.damageList.forEach(damageEntry => {
-        damageEntry.damageDetail = damageEntry.tokenDamages[selector];
-      });
-
-      for (let tokenRef of theTargets) {
-        const token = getToken(tokenRef);
-        const tokenDocument = getTokenDocument(tokenRef);
-        if (!token?.actor) continue;
-        if (!tokenDocument) continue;
-        const tokenDamages = allDamages[tokenDocument.uuid];
-        setupv3DamageDetails(allDamages, selector, token);
-        await workflow?.callv3DamageHooks(tokenDamages, token);
-        tokenDamages.tokenDamages[selector] = tokenDamages.damageDetail;
-        // setupv3DamageDetails(allDamages, selector, token);
-      }
-      const options = { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false };
-      const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
-        autoApplyDamage: configSettings.autoApplyDamage,
-        sender: game.user?.name,
-        actorId: workflow.actor?.id,
-        charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
-        damageList: workflow.damageList,
-        chatCardId: workflow.itemCardId,
-        chatCardUuid: workflow.itemCardUuid,
-        flagTags: workflow.flagTags,
-        updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
-        forceApply: options.forceApply,
-      });
-      if (cardIds) chatCardUuids.push(...cardIds);
-    }
-
-    if (workflow && configSettings.undoWorkflow) {
-      // Assumes workflow.undoData.chatCardUuids has been initialised
-      if (workflow.undoData) {
-        workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat(chatCardUuids);
-        untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
-      }
-    }
-  } else {
-    if (workflow.shouldRollOtherDamage) {
-      if (workflow.otherDamageRoll && configSettings.singleConcentrationRoll) {
-        appliedDamage = await applyTokenDamageMany(
-          {
-            applyDamageDetails: [
-              {
-                label: "defaultDamage",
-                damageDetail: workflow.damageDetail,
-                damageTotal: workflow.damageTotal,
-                saves: baseDamageSaves, //((foundry.utils.getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") === "default") ? undefined : workflow.saves,
-                superSavers: workflow.superSavers,
-                semiSuperSavers: workflow.semiSuperSavers
-              },
-              {
-                label: "otherDamage",
-                damageDetail: workflow.otherDamageDetail,
-                damageTotal: workflow.otherDamageTotal,
-                saves: workflow.saves,
-                superSavers: workflow.superSavers,
-                semiSuperSavers: workflow.semiSuperSavers
-              },
-              {
-                label: "bonusDamage",
-                damageDetail: workflow.bonusDamageDetail,
-                damageTotal: workflow.bonusDamageTotal,
-                saves: bonusDamageSaves,
-                superSavers: workflow.superSavers,
-                semiSuperSavers: workflow.semiSuperSavers
-              }
-            ],
-            theTargets,
-            item,
-            options: { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false }
-          }
-        );
-      } else {
-
-        appliedDamage = await applyTokenDamageMany(
-          {
-
-            applyDamageDetails: [
-              {
-                label: "defaultDamage",
-                damageDetail: workflow.damageDetail,
-                damageTotal: workflow.damageTotal,
-                saves: baseDamageSaves, // (foundry.utils.getProperty(workflow.item, "flags.midiProperties.saveDamage") ?? "default") === "default" ? undefined : workflow.saves,
-                superSavers: workflow.superSavers,
-                semiSuperSavers: workflow.semiSuperSavers
-              },
-              {
-                label: "bonusDamage",
-                damageDetail: workflow.bonusDamageDetail,
-                damageTotal: workflow.bonusDamageTotal,
-                saves: bonusDamageSaves,
-                superSavers: workflow.superSavers,
-                semiSuperSavers: workflow.semiSuperSavers
-              },
-            ],
-            theTargets,
-            item,
-            options: { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false }
-          }
-        );
-        if (workflow.otherDamageRoll) {
-          // assume previous damage applied and then calc extra damage
-          appliedDamage = await applyTokenDamageMany(
-            {
-              applyDamageDetails: [{
-                label: "otherDamage",
-                damageDetail: workflow.otherDamageDetail,
-                damageTotal: workflow.otherDamageTotal,
-                saves: workflow.saves,
-                superSavers: workflow.superSavers,
-                semiSuperSavers: workflow.semiSuperSavers
-              }],
-              theTargets,
-              item,
-              options: { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false }
-            }
-          );
-        }
-      }
-    } else {
-      appliedDamage = await applyTokenDamageMany(
-        {
-          applyDamageDetails: [
-            {
-              label: "defaultDamage",
-              damageDetail: workflow.damageDetail,
-              damageTotal: workflow.damageTotal,
-              saves: workflow.saves,
-              superSavers: workflow.superSavers,
-              semiSuperSavers: workflow.semiSuperSavers
-            },
-            {
-              label: "bonusDamage",
-              damageDetail: workflow.bonusDamageDetail,
-              damageTotal: workflow.bonusDamageTotal,
-              saves: bonusDamageSaves,
-              superSavers: workflow.superSavers,
-              semiSuperSavers: workflow.semiSuperSavers
-            },
-          ],
-          theTargets,
-          item,
-          options: {
-            existingDamage: [],
-            hitTargets,
-            workflow,
-            updateContext: undefined,
-            forceApply: false,
-            noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false
-          }
-        });
-    }
-    workflow.damageList = appliedDamage;
+    const options = { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false };
+    const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
+      autoApplyDamage: configSettings.autoApplyDamage,
+      sender: game.user?.name,
+      actorId: workflow.actor?.id,
+      charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
+      damageList: workflow.damageList,
+      chatCardId: workflow.itemCardId,
+      chatCardUuid: workflow.itemCardUuid,
+      flagTags: workflow.flagTags,
+      updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
+      forceApply: options.forceApply,
+    });
+    if (cardIds) chatCardUuids.push(...cardIds);
   }
+
+  if (workflow && configSettings.undoWorkflow) {
+    // Assumes workflow.undoData.chatCardUuids has been initialised
+    if (workflow.undoData) {
+      workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat(chatCardUuids);
+      untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
+    }
+  }
+
 
   if (debugEnabled > 1) debug("process damage roll: ", configSettings.autoApplyDamage, workflow.damageDetail, workflow.damageTotal, theTargets, item, workflow.saves)
 }
@@ -3227,8 +2490,8 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
     // If we are looking for a status effect then we don't need to check dfreds since dfreds status effects include the system status effect id
     if (Object.keys(GameSystemConfig.statusEffects).includes(condition.toLocaleLowerCase())) return 0;
     const localCondition = i18n(`midi-qol.${condition}`);
-    if  (CEHasEffectApplied({effectName: localCondition, uuid: (td.actor?.uuid ?? "")})) return 1;
-    if  (CEHasEffectApplied({effectName: condition, uuid: (td.actor?.uuid ?? "")})) return 1;
+    if (CEHasEffectApplied({ effectName: localCondition, uuid: (td.actor?.uuid ?? "") })) return 1;
+    if (CEHasEffectApplied({ effectName: condition, uuid: (td.actor?.uuid ?? "") })) return 1;
   }
   return 0;
 }
@@ -4258,12 +3521,8 @@ function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
     if (item.system.preparation?.prepared !== true && item.system.preparation?.mode === "prepared") return false;
     if (item.system.preparation.mode !== "innate") return item.system.level <= maxLevel;
   }
-  //@ts-expect-error
-  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
-    if (!item.system.attuned && item.system.attunement === "required") return false;
-  } else {
-    if (item.system.attunement === GameSystemConfig.attunementTypes.REQUIRED) return false;
-  }
+  if (!item.system.attuned && item.system.attunement === "required") return false;
+
   if (!item._getUsageUpdates({ consumeUsage: item.hasLimitedUses, consumeResource: item.hasResource, slotLevel: false }))
     return false;
 
@@ -4976,12 +4235,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   if (!item) item = data.workflow?.item;
   let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
-  //@ts-expect-error
-  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
-    rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
-  } else {
-    rollData.isAttuned = rollData.item?.attunement !== GameSystemConfig.attunementTypes.REQUIRED;
-  }
+  rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
   try {
     if (data.target) {
       rollData.target = data.target.actor?.getRollData();
@@ -5162,42 +4416,42 @@ export function getStatusName(statusId: string | undefined): string {
 
 export function getWoundedStatus(): any | undefined {
   //@ts-expect-error
-  const dfreds = game.dfreds.effectInterface;
+  const dfreds = game.dfreds?.effectInterface;
   let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiWoundedCondition);
   if (condition || !dfreds) return condition;
-  return dfreds.findEffect({effectId: configSettings.midiWoundedCondition?.replace("zce-", "ce-")});
+  return dfreds.findEffect({ effectId: configSettings.midiWoundedCondition?.replace("zce-", "ce-") });
 }
 
 export function getUnconsciousStatus(): any | undefined {
-      //@ts-expect-error
-      const dfreds = game.dfreds.effectInterface;
-      let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiUnconsciousCondition);
-      if (condition || !dfreds) return condition;
-      return dfreds.findEffect({effectId: configSettings.midiUnconsciousCondition?.replace("zce-", "ce-")});
+  //@ts-expect-error
+  const dfreds = game.dfreds?.effectInterface;
+  let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiUnconsciousCondition);
+  if (condition || !dfreds) return condition;
+  return dfreds.findEffect({ effectId: configSettings.midiUnconsciousCondition?.replace("zce-", "ce-") });
   // return CONFIG.statusEffects.find(efData => efData.id === configSettings.midiUnconsciousCondition);
 }
 
 export function getDeadStatus(): any | undefined {
-    //@ts-expect-error
-    const dfreds = game.dfreds.effectInterface;
-    let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiDeadCondition);
-    if (condition || !dfreds) return condition;
-    return dfreds.findEffect({effectId: configSettings.midiDeadCondition?.replace("zce-", "ce-")});
+  //@ts-expect-error
+  const dfreds = game.dfreds?.effectInterface;
+  let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiDeadCondition);
+  if (condition || !dfreds) return condition;
+  return dfreds.findEffect({ effectId: configSettings.midiDeadCondition?.replace("zce-", "ce-") });
   // return CONFIG.statusEffects.find(efData => efData.id === configSettings.midiDeadCondition);
 }
 
 export async function ConvenientEffectsHasEffect(effectName: string, actor: Actor, ignoreInactive: boolean = true) {
   if (ignoreInactive) {
-    return await CEHasEffectApplied({effectName, uuid: actor.uuid})
+    return await CEHasEffectApplied({ effectName, uuid: actor.uuid })
     //@ ts-expect-error .dfreds
     // return game.dfreds?.effectInterface?.hasEffectApplied(effectName, actor.uuid);
   } else {
     //@ts-expect-error
-    const effect =  actor.appliedEffects.find(ef => ef.name === effectName);
+    const effect = actor.appliedEffects.find(ef => ef.name === effectName);
     //@ts-expect-error
     if (foundry.utils.isNewerVersion(game.modules.get("dfreds-convenient-effects")?.version, "6.9")) {
       return !!isConvenientEffect(effect)
-    } return !!effect ;
+    } return !!effect;
   }
 }
 
@@ -5536,7 +4790,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
     if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
       const CEFlanked = getFlankedEffect();
       //@ts-expect-error
-      const hasFlanked = token.actor && CEFlanked && CEHasEffectApplied({effectName: CEFlanked.name, uuid: token.actor.uuid});
+      const hasFlanked = token.actor && CEFlanked && CEHasEffectApplied({ effectName: CEFlanked.name, uuid: token.actor.uuid });
       if (hasFlanked) continue;
     }
     // Loop through each square covered by attacker and ally
@@ -5551,7 +4805,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
       if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
         const CEFlanked = getFlankedEffect();
         //@ts-expect-error
-        const hasFlanked = CEFlanked && CEHasEffectApplied({effectName: CEFlanked.name, uuid: ally.actor.uuid});
+        const hasFlanked = CEFlanked && CEHasEffectApplied({ effectName: CEFlanked.name, uuid: ally.actor.uuid });
         if (hasFlanked) continue;
       }
       const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
@@ -5666,7 +4920,7 @@ export function getFlankingEffect(): ActiveEffect | undefined {
     if (!CEFlanking && dfreds.effectInterface?.findEffectByName)
       CEFlanking = dfreds.effectInterface?.findEffectByName("Flanking");
     if (!CEFlanking && dfreds.effectInterface?.findEffect)
-      CEFlanking = dfreds.effectInterface?.findEffect({effectName: "Flanking"});
+      CEFlanking = dfreds.effectInterface?.findEffect({ effectName: "Flanking" });
     return CEFlanking;
   }
   return undefined;
@@ -5680,7 +4934,7 @@ export function getFlankedEffect(): ActiveEffect | undefined {
     if (!CEFlanked && dfreds.effectInterface.findEffectByName)
       CEFlanked = dfreds?.effectInterface.findEffectByName("Flanked");
     if (!CEFlanked && dfreds.effectInterface?.findEffect)
-      CEFlanked = dfreds?.effectInterface.findEffect({effectName: "Flanked"});
+      CEFlanked = dfreds?.effectInterface.findEffect({ effectName: "Flanked" });
     return CEFlanked;
   }
   return undefined;
@@ -5718,9 +4972,9 @@ export async function markFlanking(token, target): Promise<boolean> {
       if (!CEFlanking) return needsFlanking;
       //@ ts-expect-error
       // const hasFlanking = token.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanking.name, token.actor.uuid)
-      const hasFlanking = CEHasEffectApplied({effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid});
+      const hasFlanking = CEHasEffectApplied({ effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid });
       if (needsFlanking && !hasFlanking && token.actor) {
-        await CEAddEffectWith({ effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid, overlay: false }); 
+        await CEAddEffectWith({ effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid, overlay: false });
         //@ ts-expect-error
         // await game.dfreds.effectInterface?.addEffect({ effectName: CEFlanking.name, uuid: token.actor.uuid });
       } else if (!needsFlanking && hasFlanking && token.actor) {
@@ -5740,7 +4994,7 @@ export async function markFlanking(token, target): Promise<boolean> {
       const needsFlanked = await computeFlankedStatus(target);
       //@ ts-expect-error
       // const hasFlanked = target.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, target.actor.uuid);
-      const hasFlanked = CEHasEffectApplied({effectName: CEFlanked.name ?? "Flanked", uuid: target.actor.uuid});
+      const hasFlanked = CEHasEffectApplied({ effectName: CEFlanked.name ?? "Flanked", uuid: target.actor.uuid });
       if (needsFlanked && !hasFlanked && target.actor) {
         await CEAddEffectWith({ effectName: CEFlanked.name ?? "Flanked", uuid: target.actor.uuid, overlay: false });
         //@ ts-expect-error
@@ -6887,10 +6141,10 @@ export function getCEEffectByName(name: string): any | undefined {
   if (installedModules.get("dfreds-convenient-effects") && foundry.utils.isNewerVersion("6.9.9", game.modules.get("dfreds-convenient-effects")?.version)) {
     return dfreds.effects?.all.find(e => e.name === name);
   } else {
-    return dfreds.effectInterface.findEffect({effectName: name})
+    return dfreds.effectInterface.findEffect({ effectName: name })
   }
 }
-export async function CEAddEffectWith(options: {uuid: string, effectName?: string, effectId?: string, origin?: any, effectData?: any, overlay: boolean}) {
+export async function CEAddEffectWith(options: { uuid: string, effectName?: string, effectId?: string, origin?: any, effectData?: any, overlay: boolean }) {
   //@ts-expect-error
   const dfredsInterface = game.dfreds?.effectInterface;
   let { uuid, effectName, origin, effectData, overlay, effectId } = options;
@@ -6902,26 +6156,26 @@ export async function CEAddEffectWith(options: {uuid: string, effectName?: strin
     const effect = getCEEffectByName(effectName ?? "")
     if (!effect) return undefined;
     const newEffectData = foundry.utils.mergeObject(effect.toObject(), effectData ?? {}, { inplace: false, insertKeys: true, insertValues: true, overwrite: true });
-    return dfredsInterface.addEffectWith({uuid, effect, origin, effectData: newEffectData, overlay});
+    return dfredsInterface.addEffectWith({ uuid, effect, origin, effectData: newEffectData, overlay });
   } else {
     if (!effectId) {
       effectId = getCEEffectByName(effectName ?? "")?.id;
     }
     if (!effectId) return undefined;
-    return dfredsInterface.addEffect({uuid, effectId, origin, effectData, overlay});
+    return dfredsInterface.addEffect({ uuid, effectId, origin, effectData, overlay });
   }
 }
 
-export async function CERemoveEffect(options: {effectName: string, uuid: string, effectId?: string, origin?: string}) {
+export async function CERemoveEffect(options: { effectName: string, uuid: string, effectId?: string, origin?: string }) {
   //@ts-expect-error
   const dfredsInterface = game.dfreds?.effectInterface;
   if (!dfredsInterface) return undefined;
   const { uuid, effectId, origin, effectName } = options;
   if (!uuid || (!effectName && !effectId)) return undefined;
-  return dfredsInterface.removeEffect({uuid, effectName, effectId, origin});
+  return dfredsInterface.removeEffect({ uuid, effectName, effectId, origin });
 }
 
-export async function CEToggleEffect(options: {effectName?: string, uuid: string, effectId?: string, origin?: string, overlay?: boolean}) {
+export async function CEToggleEffect(options: { effectName?: string, uuid: string, effectId?: string, origin?: string, overlay?: boolean }) {
   //@ts-expect-error
   const dfredsInterface = game.dfreds?.effectInterface;
   if (!dfredsInterface) return undefined;
@@ -6929,13 +6183,13 @@ export async function CEToggleEffect(options: {effectName?: string, uuid: string
   //@ts-expect-error
   const dfredsVersion = game.modules.get("dfreds-convenient-effects")?.version;
   if (foundry.utils.isNewerVersion("6.9.9", dfredsVersion)) {
-    return dfredsInterface.toggleEffect(effectName, {uuid, origin, overlay});
+    return dfredsInterface.toggleEffect(effectName, { uuid, origin, overlay });
   } else {
-    return dfredsInterface.toggleEffect({uuids: [uuid], effectName, effectId, origin, overlay});
+    return dfredsInterface.toggleEffect({ uuids: [uuid], effectName, effectId, origin, overlay });
   }
 }
 
-export function CEHasEffectApplied(options: {effectName: string, uuid: string, effectId?: string, origin?: string}): boolean {
+export function CEHasEffectApplied(options: { effectName: string, uuid: string, effectId?: string, origin?: string }): boolean {
   if (!installedModules.get("dfreds-convenient-effects")) return false;
   //@ts-expect-error
   const dfredsInterface = game.dfreds?.effectInterface;
@@ -6946,7 +6200,7 @@ export function CEHasEffectApplied(options: {effectName: string, uuid: string, e
   if (foundry.utils.isNewerVersion("6.9.9", game.modules.get("dfreds-convenient-effects")?.version)) {
     return dfredsInterface.hasEffectApplied(effectName, uuid);
   } else {
-    return dfredsInterface.hasEffectApplied({uuid, effectName, effectId, origin});
+    return dfredsInterface.hasEffectApplied({ uuid, effectName, effectId, origin });
   }
 }
 

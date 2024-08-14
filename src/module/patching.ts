@@ -1147,7 +1147,7 @@ export async function checkWounded(actor, update, options, user) {
       const wounded = await ConvenientEffectsHasEffect(woundedStatus.name, actor, false);
       if (wounded !== needsWounded) {
         if (needsWounded) CEAddEffectWith({ effectName: woundedStatus.name, effectId: woundedStatus.id, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
-          // await dfreds.effectInterface?.addEffectWith({ effectData: woundedStatus, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
+        // await dfreds.effectInterface?.addEffectWith({ effectData: woundedStatus, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
         else await actor.effects.find(ef => ef.name === woundedStatus.name)?.delete();
       }
     } else if (!isConvenientEffect(woundedStatus)) {
@@ -1214,7 +1214,7 @@ async function setDeadStatus(actor, options: any) {
         await combatant.update({ defeated: makeDead })
       }
       if (makeDead) {
-        await CEAddEffectWith({ effectName: effect.name, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" }); 
+        await CEAddEffectWith({ effectName: effect.name, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
         // await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
       } else { // remove beaten condition
         await CERemoveEffect({ effectName: effect.name, uuid: actor.uuid });
@@ -1308,47 +1308,41 @@ export function readyPatching() {
   libWrapper.register(MODULE_ID, "Notifications.prototype.notify", notificationNotify, "MIXED");
   //@ts-expect-error
   const gameVersion = game.system.version;
-  if ((game.system.id === "dnd5e" && foundry.utils.isNewerVersion("3.1.0", gameVersion))) {
+  if ((game.system.id === "dnd5e" && foundry.utils.isNewerVersion("3.3", gameVersion))) {
     if (ui.notifications)
-      ui.notifications.error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 2.2.0 or later`);
+      ui.notifications.error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 3.3.1 or later`);
     else
-      error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 3.2.0 or later`);
+      error(`dnd5e version ${gameVersion} is too old to support midi-qol, please update to 3.3.1 or later`);
   }
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.getInitiativeRoll", getInitiativeRoll, "WRAPPER")
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollInitiativeDialog", rollInitiativeDialog, "MIXED");
   if (true) {
     const effectClass: any = CONFIG.ActiveEffect.documentClass;
-    //@ts-expect-error .version
-    if (foundry.utils.isNewerVersion(game.system.version, "3.0.99")) {
-      const classStrings = [
-        "CONFIG.Actor.documentClass",
-        "CONFIG.Item.documentClass",
-        "CONFIG.Token.documentClass",
-        "CONFIG.MeasuredTemplate.documentClass",
-        "CONFIG.Tile.documentClass",
-        "CONFIG.AmbientLight.documentClass",
-        "CONFIG.AmbientSound.documentClass",
-        "CONFIG.Wall.documentClass",
-        "CONFIG.ActiveEffect.documentClass",
-      ];
-      const addDependent = effectClass.prototype.addDependent ?? _addDependent;
-      const getDependents = effectClass.prototype.getDependents ?? _getDependents;
-      for (let classString of classStrings) {
-        const docClass = eval(classString)
-        if (!docClass) continue;
-        if (!docClass.prototype.addDependent) libWrapper.register(MODULE_ID, `${classString}.prototype._onDelete`, _onDelete, "WRAPPER");
-        if (!docClass.prototype.addDependent) docClass.prototype.addDependent = addDependent;
-        //@ts-expect-error
-        if (foundry.utils.isNewerVersion("3.1.99", game.system.version)) {
-          if (!docClass.prototype.addDependents) docClass.prototype.addDependents = addDependents;
-        }
-        if (!docClass.prototype.getDependents) docClass.prototype.getDependents = getDependents;
-        if (!docClass.prototype.setDependents) docClass.prototype.setDependents = setDependents;
-        if (!docClass.prototype.removeDependent) docClass.prototype.removeDependent = removeDependent;
-        if (!docClass.prototype.clearDependents) docClass.prototype.clearDependents = clearDependents;
-        if (!docClass.prototype.deleteAllDependents) docClass.prototype.deleteAllDependents = deleteAllDependents;
-      }
+    const classStrings = [
+      "CONFIG.Actor.documentClass",
+      "CONFIG.Item.documentClass",
+      "CONFIG.Token.documentClass",
+      "CONFIG.MeasuredTemplate.documentClass",
+      "CONFIG.Tile.documentClass",
+      "CONFIG.AmbientLight.documentClass",
+      "CONFIG.AmbientSound.documentClass",
+      "CONFIG.Wall.documentClass",
+      "CONFIG.ActiveEffect.documentClass",
+    ];
+    const addDependent = effectClass.prototype.addDependent ?? _addDependent;
+    const getDependents = effectClass.prototype.getDependents ?? _getDependents;
+    for (let classString of classStrings) {
+      const docClass = eval(classString)
+      if (!docClass) continue;
+      if (!docClass.prototype.addDependent) libWrapper.register(MODULE_ID, `${classString}.prototype._onDelete`, _onDelete, "WRAPPER");
+      if (!docClass.prototype.addDependent) docClass.prototype.addDependent = addDependent;
+      if (!docClass.prototype.getDependents) docClass.prototype.getDependents = getDependents;
+      if (!docClass.prototype.setDependents) docClass.prototype.setDependents = setDependents;
+      if (!docClass.prototype.removeDependent) docClass.prototype.removeDependent = removeDependent;
+      if (!docClass.prototype.clearDependents) docClass.prototype.clearDependents = clearDependents;
+      if (!docClass.prototype.deleteAllDependents) docClass.prototype.deleteAllDependents = deleteAllDependents;
     }
+
   }
 }
 
@@ -1376,12 +1370,7 @@ async function deleteAllDependents() {
 }
 
 async function addDependents(...dependents) {
-  //@ts-expect-error
-  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
-    return this.addDependent(...dependents);
-  } else {
-    return _addDependent.bind(this)(...dependents);
-  }
+  return this.addDependent(...dependents);
 }
 
 /**
@@ -1499,9 +1488,7 @@ export let itemPatching = () => {
   libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
   libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
-    //@ts-expect-error .version
-    if (foundry.utils.isNewerVersion(game.system.version, "2.3.99"))
-      libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.Dice.DamageRoll.prototype.configureDamage", configureDamage, "MIXED");
   }
   configureDamageRollDialog();
@@ -2025,13 +2012,7 @@ function removeTraitValue(traitValue: string[] | Set<string>, toRemove): string[
 
 function addPhysicalDamages(traitValue) {
   let phsyicalDamageTypes;
-  //@ts-expect-error
-  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
-    phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
-  } else {
-    phsyicalDamageTypes = Object.keys(GameSystemConfig.physicalDamageTypes);
-  }
-
+  phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
   for (let dt of phsyicalDamageTypes) {
     if (traitValue instanceof Set) traitValue.add(dt);
     else if (!traitValue.includes(dt)) traitValue.push(dt);

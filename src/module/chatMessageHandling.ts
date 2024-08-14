@@ -1,7 +1,7 @@
-import { debug, warn, i18n, error, debugEnabled, MQdefaultDamageType, i18nFormat, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
+import { debug, warn, i18n, error, debugEnabled, i18nFormat, MODULE_ID } from "../midi-qol.js";
 import { DDBGameLogWorkflow, Workflow } from "./workflow.js";
-import { nsaFlag, coloredBorders, addChatDamageButtons, configSettings, forceHideRoll, safeGetGameSetting } from "./settings.js";
-import { createDamageDetail, playerFor, playerForActor, applyTokenDamage, doOverTimeEffect, isInCombat, MQfromUuidSync } from "./utils.js";
+import { nsaFlag, coloredBorders, configSettings, forceHideRoll, safeGetGameSetting } from "./settings.js";
+import { playerFor, playerForActor, doOverTimeEffect, isInCombat, MQfromUuidSync } from "./utils.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 export const MAESTRO_MODULE_NAME = "maestro";
@@ -304,130 +304,6 @@ export let hideStuffHandler = (message, html, data) => {
   setTimeout(() => ui.chat.scrollBottom(), 0);
   return true;
 
-}
-
-export let chatDamageButtons = (message, html, data) => {
-  if (debugEnabled > 1) debug("Chat Damage Buttons ", addChatDamageButtons, message, message.flags?.dnd5e?.roll?.type, message.flags)
-  const shouldAddButtons = addChatDamageButtons === "both"
-    || (addChatDamageButtons === "gm" && game.user?.isGM)
-    || (addChatDamageButtons === "pc" && !game.user?.isGM);
-
-  if (!shouldAddButtons || configSettings.v3DamageApplication) {
-    return true;
-  }
-  let targetField = ".dice-formula";
-  if (["formula", "formulaadv"].includes(configSettings.rollAlternate))
-    targetField = ".dice-total";
-  if (["damage", "other"].includes(message.flags?.dnd5e?.roll?.type)) {
-    let item;
-    let itemId;
-    let actorId = message.speaker.actor;
-    //@ts-expect-error
-    let theRolls = message.rolls.filter(r => r instanceof CONFIG.Dice.DamageRoll || message.flags.dnd5e.roll.type === "other");
-    if (theRolls.length === 0) return;
-    if (["damage", "other"].includes(message.flags?.dnd5e?.roll?.type)) {
-      itemId = message.flags.dnd5e?.roll.itemId;
-      if (game.system.id === "sw5e" && !itemId) itemId = message.flags.sw5e?.roll.itemId;
-
-      item = game.actors?.get(actorId)?.items.get(itemId);
-      if (!item) {
-        if (debugEnabled > 0) warn("Damage roll for non item");
-        return;
-      }
-    }
-    let itemUuid = `Actor.${actorId}.Item.${itemId}`;
-    // find the item => workflow => damageList, totalDamage
-    let defaultDamageType;
-    //@ts-expect-error .version
-    if (foundry.utils.isNewerVersion(game.system.version, "2.4.99")) {
-      defaultDamageType = (item?.system.damage?.parts[0]?.damageType) ?? "bludgeoning";
-    } else {
-      defaultDamageType = (item?.system.damage?.parts[0] && item?.system.damage.parts[0][1]) ?? "bludgeoning";
-    }
-    // TODO fix this for versatile damage
-    const damageList = createDamageDetail({ roll: theRolls, item, defaultType: defaultDamageType });
-    const totalDamage = theRolls.reduce((acc, r) => r.total + acc, 0);
-    addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, "damage", targetField, "position:relative; top:0px; color:black");
-  } else if (foundry.utils.getProperty(message, "flags.midi-qol.damageDetail") || foundry.utils.getProperty(message, "flags.midi-qol.otherDamageDetail")) {
-    let midiFlags = foundry.utils.getProperty(message, "flags.midi-qol");
-    let targetField = ".dice-formula";
-    if (["formula", "formulaadv"].includes(configSettings.rollAlternate))
-      targetField = ".dice-formula";
-    addChatDamageButtonsToHTML(midiFlags.damageTotal, midiFlags.damageDetail, html, midiFlags.actorUuid, midiFlags.itemUuid, "damage", `.midi-qol-damage-roll ${targetField}`);
-    addChatDamageButtonsToHTML(midiFlags.otherDamageTotal, midiFlags.otherDamageDetail, html, midiFlags.actorUuid, midiFlags.itemUuid, "other", `.midi-qol-other-damage-roll ${targetField}`);
-    addChatDamageButtonsToHTML(midiFlags.bonusDamageTotal, midiFlags.bonusDamageDetail, html, midiFlags.actorUuid, midiFlags.itemUuid, "bonus", `.midi-qol-bonus-damage-roll ${targetField}`);
-  }
-  return true;
-}
-
-export function addChatDamageButtonsToHTML(totalDamage, damageList, html, actorId, itemUuid, tag = "damage", toMatch = ".dice-total", style = "margin: 0px;") {
-  if (debugEnabled > 1) debug("addChatDamageButtons", totalDamage, damageList, html, actorId, itemUuid, toMatch, $(html).find(toMatch))
-  const btnContainer = $('<span class="dmgBtn-container-mqol"></span>');
-  let btnStylingLimeGreen = `background-color:var(--dnd5e-color-success); ${style}`;
-  let btnStylingLightGreen = `background-color:var(--dnd5e-color-success-background); ${style}`;
-  let btnStylingRed = `background-color: var(--dnd5e-color-failure-background); ${style}`;
-  const fullDamageButton = $(`<button class="dice-total-full-${tag}-button dice-total-full-button" style="${btnStylingRed}"><i class="fas fa-user-minus" title="Click to apply up to ${totalDamage} damage to selected token(s)."></i></button>`);
-  const halfDamageButton = $(`<button class="dice-total-half-${tag}-button dice-total-half-button" style="${btnStylingRed}"><i title="Click to apply up to ${Math.floor(totalDamage / 2)} damage to selected token(s).">&frac12;</i></button>`);
-  const quarterDamageButton = $(`<button class="dice-total-quarter-${tag}-button dice-total-quarter-button" style="${btnStylingRed}"><i title="Click to apply up to ${Math.floor(totalDamage / 4)} damage to selected token(s).">&frac14;</i></button>`);
-  const doubleDamageButton = $(`<button class="dice-total-double-${tag}-button dice-total-double-button" style="${btnStylingRed}"><i title="Click to apply up to ${totalDamage * 2} damage to selected token(s).">2</i></button>`);
-  const fullHealingButton = $(`<button class="dice-total-full-${tag}-healing-button dice-total-healing-button" style="${btnStylingLimeGreen}"><i class="fas fa-user-plus" title="Click to heal up to ${totalDamage} to selected token(s)."></i></button>`);
-  const fullTempHealingButton = $(`<button class="dice-total-full-${tag}-temp-healing-button dice-total-healing-button" style="${btnStylingLightGreen}"><i class="fas fa-user-plus" title="Click to add up to ${totalDamage} to selected token(s) temp HP."></i></button>`);
-
-  btnContainer.append(fullDamageButton);
-  btnContainer.append(halfDamageButton);
-  // if (!configSettings.mergeCardCondensed) btnContainer.append(quarterDamageButton);
-  btnContainer.append(quarterDamageButton);
-  btnContainer.append(doubleDamageButton);
-  btnContainer.append(fullHealingButton);
-  btnContainer.append(fullTempHealingButton);
-
-  const toMatchElement = $(html).find(toMatch);
-  toMatchElement.addClass("dmgBtn-mqol");
-  toMatchElement.append(btnContainer);
-
-  // html.querySelectorAll(toMatch).forEach(el => {el.classList.add("dmgBtn-mdqol"); el.append(btnContainer)});
-  // Handle button clicks
-  let setButtonClick = (buttonID, mult) => {
-    let button = btnContainer.find(buttonID);
-    button.off("click");
-    button.on("click", async (ev) => {
-      ev.stopPropagation();
-      // const item = game.actors.get(actorId).items.get(itemId);
-      const item = MQfromUuidSync(itemUuid);
-      const modDamageList = foundry.utils.duplicate(damageList).map(di => {
-        if (mult === -1) di.type = "healing";
-        else if (mult === -2) di.type = "temphp";
-        else di.damage = Math.floor(di.damage * mult);
-        return di;
-      });
-
-      // find solution for non-magic weapons
-      let promises: Promise<any>[] = [];
-      if (canvas?.tokens?.controlled && canvas?.tokens?.controlled?.length > 0) {
-        const totalDamage = modDamageList.reduce((acc, value) => value.damage + acc, 0);
-        await applyTokenDamage(modDamageList, totalDamage, new Set(canvas.tokens.controlled), item, new Set(),
-          { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: true });
-      }
-    });
-  };
-  setButtonClick(`.dice-total-full-${tag}-button`, 1);
-  setButtonClick(`.dice-total-half-${tag}-button`, 0.5);
-  setButtonClick(`.dice-total-double-${tag}-button`, 2);
-  setButtonClick(`.dice-total-quarter-${tag}-button`, 0.25);
-
-  setButtonClick(`.dice-total-full-${tag}-healing-button`, -1);
-  setButtonClick(`.dice-total-full-${tag}-temp-healing-button`, -2);
-
-  // logic to only show the buttons when the mouse is within the chat card and a token is selected
-  btnContainer.hide
-  $(html).hover(evIn => {
-    if (canvas?.tokens?.controlled && canvas.tokens.controlled.length > 0) {
-      btnContainer.show();
-    }
-  }, evOut => {
-    btnContainer.show();
-  });
-  return html;
 }
 
 export function processItemCardCreation(message, user) {

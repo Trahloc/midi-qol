@@ -1,8 +1,6 @@
-import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 import { geti18nOptions, i18n, systemConcentrationId } from "../../midi-qol.js";
 import { CheckedAuthorsList, checkedModuleList, checkMechanic, collectSettingData, configSettings, enableWorkflow, exportSettingsToJSON, fetchParams, importSettingsFromJSON, safeGetGameSetting } from "../settings.js";
-import { DAE_REQUIRED_VERSION, REQUIRED_MODULE_VERSIONS, getModuleVersion, installedModules } from "../setupModules.js";
-import { calculateDamage } from "../utils.js";
+import { REQUIRED_MODULE_VERSIONS, getModuleVersion, installedModules } from "../setupModules.js";
 
 const minimumMidiVersion = "11.0.7";
 

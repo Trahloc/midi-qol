@@ -921,8 +921,6 @@
   "midi-qol.MidiFieldsTab.Name": "Display Midi item fields in a separate tab",
   "midi-qol.UndoChatColor.Name": "Undo Chat Cards Color",
   "midi-qol.UndoChatColor.Hint": "Delete means remove the chat card on undo. Otherwise the undone chats are recoloured",
-  "midi-qol.v3DamageApplication.Name": "Use DND5E damage calculation",
-  "midi-qol.v3DamageApplication.Hint": "Experimental. If enabled midi will use the dnd5e damage application workflow and hooks. Changing requires reload",
   "DND5E.DamageApplication.Change.Absorption": "{type} Absorption",
   "DND5E.DamageApplication.Change.Spell": "Custom Spell",
   "DND5E.DamageApplication.Change.Magic": "Custom Magical",

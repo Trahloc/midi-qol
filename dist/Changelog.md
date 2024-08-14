@@ -9,8 +9,11 @@
 
 ### 11.5.0
 * Requires dnd5e v3.3+
-* Requires dae 11.3.47+
+* Requires dae 11.3.47+ - now uses Schema Fields for any midi added fields.
+* midi branch is now dnd33 (not dnd3) for those forking.
 * Support for Dfreds Convenient Effects v7+ (foundry v12).
+* A fix to remove flanking when using an item that does not benefit from flanking.
+**midi-qol 11.4.48 remains available as a module.json install** from the foundry package page for those not on dnd5e 3.3+
 
 ### 11.4.48
 * Support (correctly) flags.midi-qol.fail.spell.vocal (previously verbal).

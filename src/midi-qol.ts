@@ -139,7 +139,7 @@ Hooks.once("init", () => {
 
 Hooks.once('init', async function () {
   //@ts-expect-error
-  if ( game.release.generation < 12 ) Math.clamp = Math.clamped;
+  if (game.release.generation < 12) Math.clamp = Math.clamped;
   log('Initializing midi-qol');
   //@ts-expect-error
   const systemVersion = game.system.version;
@@ -149,27 +149,18 @@ Hooks.once('init', async function () {
   addConfigOptions();
 
   //@ts-expect-error
-  if ( game.release.generation < 12 && !Math.clamp) Math.clamp = Math.clamped;
+  if (game.release.generation < 12 && !Math.clamp) Math.clamp = Math.clamped;
 
   //@ts-expect-error
   GameSystemConfig = game.system.config;
-  if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
-    GameSystemConfig.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
-    GameSystemConfig.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
-  } else {
-    GameSystemConfig.damageTypes["none"] = i18n(`${SystemString}.None`);
-    GameSystemConfig.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
-  }
+  GameSystemConfig.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
+  GameSystemConfig.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
   SystemString = game.system.id.toUpperCase();
   allAttackTypes = ["rwak", "mwak", "rsak", "msak"];
   if (game.system.id === "sw5e")
     allAttackTypes = ["rwak", "mwak", "rpak", "mpak"];
   initHooks();
-  //@ts-expect-error
-  if (foundry.utils.isNewerVersion("3.1.0", game.system.version)) {
-    //@ts-expect-error remove this when dnd5e 3.1 comes out
-    CONFIG.specialStatusEffects.CONCENTRATING = "concentrating";
-  }
+
   //@ts-expect-error
   systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING;
 
@@ -320,69 +311,38 @@ function addConfigOptions() {
     config.midiProperties["idi"] = "Ignore di";
     config.midiProperties["idv"] = "Ignore dv";
     config.midiProperties["ida"] = "Ignore da";
-    if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
-      config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
-      config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
-    } else {
-      config.damageTypes["none"] = i18n(`${SystemString}.None`);
-      config.damageTypes["midi-none"] = i18n("midi-qol.midi-none");
-    }
-    // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
-    if (foundry.utils.isNewerVersion(systemVersion, "2.99") && configSettings.v3DamageApplication) {
-      config.customDamageResistanceTypes = {
-        "spell": i18n("midi-qol.spell-damage"),
-        "nonmagic": i18n("midi-qol.NonMagical"),
-        "magic": i18n("midi-qol.Magical")
-      };
-    } else {
-      config.customDamageResistanceTypes = {
-        "silver": i18n("midi-qol.NonSilverPhysical"),
-        "adamant": i18n("midi-qol.NonAdamantinePhysical"),
-        "spell": i18n("midi-qol.spell-damage"),
-        "nonmagic": i18n("midi-qol.NonMagical"),
-        "magic": i18n("midi-qol.Magical"),
-        "physical": i18n("midi-qol.NonMagicalPhysical")
-      };
-    }
+    config.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
+    config.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: "systems/dnd5e/icons/svg/trait-damage-immunities.svg", toString: function () { return this.label } };
 
-    if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
-      config.damageResistanceTypes = config.damageResistanceTypes ?? {};
-      if (!configSettings.v3DamageApplication) {
-        config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
-        config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
-        config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
-      }
-      config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
-      config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
-      config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
-      config.damageResistanceTypes["healing"] = config.healingTypes?.healing?.label;
-      config.damageResistanceTypes["temphp"] = config.healingTypes?.temphp?.label;
-    } else {
-      config.damageResistanceTypes = config.damageResistanceTypes ?? {};
+    // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
+    config.customDamageResistanceTypes = {
+      "spell": i18n("midi-qol.spell-damage"),
+      "nonmagic": i18n("midi-qol.NonMagical"),
+      "magic": i18n("midi-qol.Magical"),
+      "physical": i18n("midi-qol.NonMagicalPhysical"),
+      "silver": i18n("midi-qol.NonSilverPhysical"),
+      "adamant": i18n("midi-qol.NonAdamantinePhysical"),
+    };
+
+
+    config.damageResistanceTypes = config.damageResistanceTypes ?? {};
+    if (!configSettings.v3DamageApplication) {
       config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
       config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
       config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
-      config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
-      config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
-      config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
-      config.damageResistanceTypes["healing"] = config.healingTypes.healing?.label;
-      config.damageResistanceTypes["temphp"] = config.healingTypes.temphp?.label;
     }
-    if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
-      //@ts-expect-error
-      game.system.config.traits.di.configKey = "damageTypes";
-      //@ts-expect-error
-      game.system.config.traits.dr.configKey = "damageTypes";
-      //@ts-expect-error
-      game.system.config.traits.dv.configKey = "damageTypes";
-    } else if (foundry.utils.isNewerVersion(systemVersion, "2.0.3")) {
-      //@ts-expect-error
-      game.system.config.traits.di.configKey = "damageResistanceTypes";
-      //@ts-expect-error
-      game.system.config.traits.dr.configKey = "damageResistanceTypes";
-      //@ts-expect-error
-      game.system.config.traits.dv.configKey = "damageResistanceTypes";
-    }
+    config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
+    config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
+    config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
+    config.damageResistanceTypes["healing"] = config.healingTypes?.healing?.label;
+    config.damageResistanceTypes["temphp"] = config.healingTypes?.temphp?.label;
+
+    //@ts-expect-error
+    game.system.config.traits.di.configKey = "damageTypes";
+    //@ts-expect-error
+    game.system.config.traits.dr.configKey = "damageTypes";
+    //@ts-expect-error
+    game.system.config.traits.dv.configKey = "damageTypes";
     const dnd5eReaction = `${SystemString}.Reaction`;
     config.abilityActivationTypes["reactionpreattack"] = `${i18n(dnd5eReaction)} ${i18n("midi-qol.reactionPreAttack")}`;
     config.abilityActivationTypes["reactiondamage"] = `${i18n(dnd5eReaction)} ${i18n("midi-qol.reactionDamaged")}`;
@@ -570,9 +530,7 @@ Hooks.once('ready', function () {
   if (
     installedModules.get("lmrtfy")
     //@ts-expect-error
-    && foundry.utils.isNewerVersion("3.1.8", game.modules.get("lmrtfy").version)
-    //@ts-expect-error
-    && foundry.utils.isNewerVersion(game.system.version, "2.1.99")) {
+    && foundry.utils.isNewerVersion("3.1.8", game.modules.get("lmrtfy").version)) {
     let abbr = {};
 
     for (let key in CONFIG[SystemString].abilities) {
@@ -1043,17 +1001,12 @@ function setupMidiFlags() {
     midiFlags.push(`flags.${MODULE_ID}.damage.reroll-kh`);
     midiFlags.push(`flags.${MODULE_ID}.damage.reroll-kl`);
 
-    if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
-      Object.keys(config.damageTypes).forEach(key => {
-        midiFlags.push(`flags.${MODULE_ID}.DR.${key}`);
+    Object.keys(config.damageTypes).forEach(key => {
+      midiFlags.push(`flags.${MODULE_ID}.DR.${key}`);
 
-        // TODO dbd3 - see how to present label but check key  midiFlags.push(`flags.${MODULE_ID}.DR.${config.damageTypes[key].label}`);
-      });
-    } else {
-      Object.keys(config.damageTypes).forEach(dt => {
-        midiFlags.push(`flags.${MODULE_ID}.DR.${dt}`);
-      })
-    }
+      // TODO dbd3 - see how to present label but check key  midiFlags.push(`flags.${MODULE_ID}.DR.${config.damageTypes[key].label}`);
+    });
+
     midiFlags.push(`flags.${MODULE_ID}.DR.healing`);
     midiFlags.push(`flags.${MODULE_ID}.DR.temphp`);
   } else if (game.system.id === "sw5e") {

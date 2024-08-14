@@ -224,8 +224,7 @@ export async function restManager(actor, result) {
     return;
   const specialDuration = (effect) => { return foundry.utils.getProperty(effect, "flags.dae.specialDuration") };
   const effectsToExpire = (actorRef) => {
-    //@ts-expect-error
-    const effects = foundry.utils.isNewerVersion(game.system.version, "2.99") ? actorRef.appliedEffects : actorRef.effects;
+    const effects = actorRef.appliedEffects;
     const validEffects = effects.filter(effect => (specialDuration(effect) ?? []).length > 0);
     return {
       newDay: validEffects.filter(ef => result.newDay && specialDuration(ef)?.includes(`newDay`)),
@@ -713,15 +712,9 @@ function setupMidiFlagTypes() {
     midiFlagTypes[`flags.midi-qol.DR.non-physical`] = "string";
     midiFlagTypes[`flags.midi-qol.DR.final`] = "number";
 
-    if (foundry.utils.isNewerVersion(systemVersion, "2.99")) {
       Object.keys(config.damageTypes).forEach(dt => {
         midiFlagTypes[`flags.midi-qol.DR.${dt}`] = "string";
       })
-    } else {
-      Object.keys(config.damageResistanceTypes).forEach(dt => {
-        midiFlagTypes[`flags.midi-qol.DR.${dt}`] = "string";
-      })
-    }
   }
 
   // midiFlagTypes[`flags.midi-qol.optional.NAME.attack.all`] = "string";
@@ -1010,23 +1003,41 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
       || ((category === "immunity") && downgrade(type) && !skipDowngrade)
       || ((category === "resistance") && downgrade(type))
   };
+  /*        "spell": i18n("midi-qol.spell-damage"),
+  "nonmagic": i18n("midi-qol.NonMagical"),
+  "magic": i18n("midi-qol.Magical"),
+  "physical": i18n("midi-qol.NonMagicalPhysical"),
+  "silver": i18n("midi-qol.NonSilverPhysical"),
+  "adamant": i18n("midi-qol.NonAdamantinePhysical"),
+  */
   let customs: string[] = [];
   const categories = { "di": "immunity", "dr": "resistance", "dv": "vulnerability", "da": "absorption" };
   const traitMultipliers = { "dr": configSettings.damageResistanceMultiplier, "di": configSettings.damageImmunityMultiplier, "da": -1, "dv": configSettings.damageVulnerabilityMultiplier };
   // Handle custom immunities
   for (let trait of ["da", "dv", "di", "dr"]) {
     if ((actor.system.traits[trait]?.custom?.length ?? 0) > 0) {
+      const bypasses = actor.system.traits[trait].bypasses;
       actor.system.traits[trait].custom.split(";").map(s => s.trim()).forEach(custom => {
         for (let damage of damages) {
           if (GameSystemConfig.healingTypes[damage.type]) return;
+          if (ignore(categories[trait], damage.type, false)) continue;
           if (ignore(custom, damage.type, false) || damage.active[custom]) return;
           switch (custom) {
             case "spell": if (!damage.properties.has("spell")) return; break;
             case "nonmagic": if (damage.properties.has("magic") || damage.properties.has("spell")) return; break;
             case "magic": if (!damage.properties.has("magic") && !damage.properties.has("spell")) return; break;
+            case "physical": 
+            if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mgc")) return; break;
+            case "silver": 
+              //@ts-expect-error
+              const bypassesPresent = damage.properties.intersection((new Set(["sil", "mgc"]).union(bypasses)));
+              if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || bypassesPresent.size > 0) return; 
+              break;
+            case "adamant": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("adm")) return; break
             default: if (!damage.properties.has(custom)) return; break;
           }
-          damage.active[custom] = true;
+          damage.active[`${custom} custom`] = true;
+          damage.active[categories[trait]] = true;
           damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
           damage.value = damage.value * traitMultipliers[trait];
         }
