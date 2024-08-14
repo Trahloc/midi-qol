@@ -7,10 +7,16 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.5.0.1
+* Fix for dfreds-convenient-effects not installed. Thanks @thatlonelybugbear
+
 ### 11.5.0
 * Requires dnd5e v3.3+
-* Requires dae 11.3.47+
+* Requires dae 11.3.47+ - now uses Schema Fields for any midi added fields.
+* midi branch is now dnd33 (not dnd3) for those forking.
 * Support for Dfreds Convenient Effects v7+ (foundry v12).
+* A fix to remove flanking when using an item that does not benefit from flanking.
+**midi-qol 11.4.48 remains available as a module.json install** from the foundry package page for those not on dnd5e 3.3+
 
 ### 11.4.48
 * Support (correctly) flags.midi-qol.fail.spell.vocal (previously verbal).

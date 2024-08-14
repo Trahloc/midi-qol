@@ -5162,7 +5162,7 @@ export function getStatusName(statusId: string | undefined): string {
 
 export function getWoundedStatus(): any | undefined {
   //@ts-expect-error
-  const dfreds = game.dfreds.effectInterface;
+  const dfreds = game.dfreds?.effectInterface;
   let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiWoundedCondition);
   if (condition || !dfreds) return condition;
   return dfreds.findEffect({effectId: configSettings.midiWoundedCondition?.replace("zce-", "ce-")});
@@ -5170,7 +5170,7 @@ export function getWoundedStatus(): any | undefined {
 
 export function getUnconsciousStatus(): any | undefined {
       //@ts-expect-error
-      const dfreds = game.dfreds.effectInterface;
+      const dfreds = game.dfred?.effectInterface;
       let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiUnconsciousCondition);
       if (condition || !dfreds) return condition;
       return dfreds.findEffect({effectId: configSettings.midiUnconsciousCondition?.replace("zce-", "ce-")});
@@ -5179,7 +5179,7 @@ export function getUnconsciousStatus(): any | undefined {
 
 export function getDeadStatus(): any | undefined {
     //@ts-expect-error
-    const dfreds = game.dfreds.effectInterface;
+    const dfreds = game.dfreds?.effectInterface;
     let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiDeadCondition);
     if (condition || !dfreds) return condition;
     return dfreds.findEffect({effectId: configSettings.midiDeadCondition?.replace("zce-", "ce-")});
