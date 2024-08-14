@@ -29,6 +29,18 @@ export let timelog = (...args) => warn("midi-qol | ", Date.now(), ...args);
 export var levelsAPI;
 export var allDamageTypes;
 export const MODULE_ID = "midi-qol";
+//@ts-expect-error
+export const ArrayField = foundry.data.fields.ArrayField;
+//@ts-expect-error
+export const ObjectField = foundry.data.fields.ObjectField
+//@ts-expect-error
+export const BooleanField = foundry.data.fields.BooleanField;
+//@ts-expect-error
+export const NumberField = foundry.data.fields.NumberField;
+//@ts-expect-error
+export const StringField = foundry.data.fields.StringField;
+//@ts-expect-error
+export const SchemaField = foundry.data.fields.SchemaField;
 
 declare global {
   interface LenientGlobalVariableTypes {
@@ -134,6 +146,8 @@ Hooks.once('init', async function () {
   Hooks.once('dfreds-convenient-effects.ready()', () => {
     setupMidiStatusEffects();
   });
+  addConfigOptions();
+
   //@ts-expect-error
   if ( game.release.generation < 12 && !Math.clamp) Math.clamp = Math.clamped;
 
@@ -187,24 +201,24 @@ Hooks.once('init', async function () {
   });
 });
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
-  specials[`flags.${MODULE_ID}.onUseMacroName`] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
-  specials[`flags.${MODULE_ID}.optional.NAME.macroToCall`] = ["", CONST.ACTIVE_EFFECT_MODES.CUSTOM];
+  specials[`flags.${MODULE_ID}.onUseMacroName`] = [new StringField(), CONST.ACTIVE_EFFECT_MODES.CUSTOM];
+  specials[`flags.${MODULE_ID}.optional.NAME.macroToCall`] = [new StringField(), CONST.ACTIVE_EFFECT_MODES.CUSTOM];
   if (configSettings.v3DamageApplication) {
-    specials[`system.traits.dm.midi.all`] = ["", -1]
-    specials[`system.traits.dm.midi.magical`] = ["", -1]
-    specials[`system.traits.dm.midi.non-magical`] = ["", -1]
-    specials[`system.traits.dm.midi.non-magical-physical`] = ["", -1]
-    specials[`system.traits.dm.midi.non-silver-physical`] = ["", -1]
-    specials[`system.traits.dm.midi.non-adamant-physical`] = ["", -1]
-    specials[`system.traits.dm.midi.non-physical`] = ["", -1]
-    specials[`system.traits.dm.midi.spell`] = ["", -1]
-    specials[`system.traits.dm.midi.non-spell`] = ["", -1]
-    specials[`system.traits.dm.midi.final`] = ["", -1];
-    specials[`system.traits.idi.value`] = ["", -1];
-    specials[`system.traits.idr.value`] = ["", -1];
-    specials[`system.traits.idv.value`] = ["", -1];
-    specials[`system.traits.ida.value`] = ["", -1];
-    specials[`system.traits.idm.value`] = ["", -1];
+    specials[`system.traits.dm.midi.all`] = [new StringField(), -1]
+    specials[`system.traits.dm.midi.magical`] = [new StringField(), -1]
+    specials[`system.traits.dm.midi.non-magical`] = [new StringField(), -1]
+    specials[`system.traits.dm.midi.non-magical-physical`] = [new StringField(), -1]
+    specials[`system.traits.dm.midi.non-silver-physical`] = [new StringField(), -1]
+    specials[`system.traits.dm.midi.non-adamant-physical`] = [new StringField(), -1]
+    specials[`system.traits.dm.midi.non-physical`] = [new StringField(), -1]
+    specials[`system.traits.dm.midi.spell`] = [new StringField(), -1]
+    specials[`system.traits.dm.midi.non-spell`] = [new StringField(), -1]
+    specials[`system.traits.dm.midi.final`] = [new StringField(), -1];
+    specials[`system.traits.idi.value`] = [new StringField(), -1];
+    specials[`system.traits.idr.value`] = [new StringField(), -1];
+    specials[`system.traits.idv.value`] = [new StringField(), -1];
+    specials[`system.traits.ida.value`] = [new StringField(), -1];
+    specials[`system.traits.idm.value`] = [new StringField(), -1];
   }
 });
 Hooks.on("dae.addFieldMappings", (fieldMappings) => {

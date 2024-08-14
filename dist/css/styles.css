@@ -124,9 +124,12 @@
   margin: 2px;
 }
 
+/*
 .midi-qol-target-name:hover {
-  /*text-shadow: 0 0 4px red; */
+  text-shadow: 0 0 4px red;
 }
+*/
+
 .midi-qol-gmonly {
   display: none;
 }
@@ -489,7 +492,7 @@
   }
   
   .dnd5e2.chat-card .description:not(:has(p),.collapsed) .details { 
-    margin-top: 0.4rem; //fix for badly imported details
+    margin-top: 0.4rem; /* fix for badly imported details */
   }
   
   /* Chat card spacing */

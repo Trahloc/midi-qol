@@ -1,6 +1,6 @@
 import { checkRule, configSettings, safeGetGameSetting } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, fromActorUuid, MQfromUuidSync, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, fromActorUuid, MQfromUuidSync, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects, CERemoveEffect, CEAddEffectWith, getActor } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
 import { Workflow } from "./workflow.js";
 import { bonusCheck } from "./patching.js";
@@ -184,8 +184,9 @@ async function _removeEffect(data: { effectUuid: string }) {
 }
 
 async function _removeCEEffect(data: { effectName: string, uuid: string }) {
-  //@ts-expect-error
-  return game.dfreds.effectInterface?.removeEffect({ effectName: data.effectName, uuid: data.uuid });
+  return CERemoveEffect({ effectName: data.effectName, uuid: data.uuid });
+  //@t s-expect-error
+  // return game.dfreds.effectInterface?.removeEffect({ effectName: data.effectName, uuid: data.uuid });
 }
 
 async function cancelWorkflow(data: { workflowId: string, itemCardId: string }) {
@@ -594,12 +595,12 @@ export async function deleteItemEffects(data: { targets, origin: string, ignore:
 
 async function addConvenientEffect(options) {
   let { effectName, actorUuid, origin } = options;
-  const actorToken: any = await fromUuid(actorUuid);
-  const actor = actorToken?.actor ?? actorToken;
+  const actor: any = getActor(actorUuid);
 
   console.warn("midi-qol | Deprecated. Call await game.dfreds.effectInterface?.addEffect({ effectName, uuid: actorUuid, origin }) instead")
-  //@ts-ignore
-  await game.dfreds.effectInterface?.addEffect({ effectName, uuid: actorUuid, origin });
+  return CEAddEffectWith({ effectName, uuid: actor.uuid, origin, overlay: false });
+  //@ ts-ignore
+  // await game.dfreds.effectInterface?.addEffect({ effectName, uuid: actorUuid, origin });
 }
 
 async function _addDependent(data: { concentrationEffectUuid: string, dependentUuid: string }) {

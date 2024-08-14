@@ -2,7 +2,7 @@ import { MODULE_ID, error } from "../../midi-qol.js";
 import { applySettings } from "../apps/ConfigPanel.js";
 import { Socket } from "../lib/sockset.js";
 import { configSettings } from "../settings.js";
-import { applyTokenDamage, completeItemUse, findNearby } from "../utils.js";
+import { CEHasEffectApplied, CERemoveEffect, applyTokenDamage, completeItemUse, findNearby } from "../utils.js";
 import { TrapWorkflow } from "../workflow.js";
 
 const actor1Name = "actor1";
@@ -397,18 +397,19 @@ async function registerTests() {
             const actor = getActor(actor2Name);
             assert.ok(target && actor);
             game.user?.updateTokenTargets([target?.id ?? ""]);
-            if (await ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid))
-              await ceInterface.removeEffect({ effectName: "Deafened", uuid: target?.actor?.uuid });
-            assert.ok(!ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid));
+            if (await CEHasEffectApplied({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""})) {
+              await CERemoveEffect({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""});
+            }
+            assert.ok(!await CEHasEffectApplied({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""}));
             await completeItemUse(actor.items.getName("CE Test"), {}, { workflowOptions });
             await busyWait(0.5);
-            assert.ok(await ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid));
+            assert.ok(await CEHasEffectApplied({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""}));
             const effect: ActiveEffect | undefined = target?.actor?.effects.find(e => e.name === "CE Test");
             results = await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", [effect?.id ?? "bad"]);
             await busyWait(0.1);
-            if (await ceInterface.hasEffectApplied("Deafened", target?.actor?.uuid)) {
+            if (await CEHasEffectApplied({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""})) {
               console.warn("testCECondition", "Deafened not removed")
-              await ceInterface.removeEffect({ effectName: "Deafened", uuid: target?.actor?.uuid });
+              await CERemoveEffect({ effectName: "Deafened", uuid: target?.actor?.uuid ?? ""});
               return false;
             }
             return true;

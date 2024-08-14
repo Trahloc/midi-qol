@@ -1,9 +1,4 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
-* 11.5.0 
-  - will be dnd5e v3.2+ only. Tentative date August 12. 
-  - change target display to use dnd5e target details && fully support attack roll display config.
-  - enhance challenge display support
-  - attack rolls to be migrated to dnd5e attack rolls.
 
 * 11.6.0 
   - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date August 12. You are actively encouraged to both try v3 damage calculation/application and report bugs
@@ -11,6 +6,11 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
+
+### 11.5.0
+* Requires dnd5e v3.3+
+* Requires dae 11.3.47+
+* Support for Dfreds Convenient Effects v7+ (foundry v12).
 
 ### 11.4.48
 * Support (correctly) flags.midi-qol.fail.spell.vocal (previously verbal).
