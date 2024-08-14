@@ -5852,7 +5852,7 @@ export function initializeVision(tk: Token, force = false) {
     tk.vision.los = tk.vision.shape;
   }
   //@ts-expect-error
-  tk.vision.anmimated = false;
+  tk.vision.animated = false;
   //@ts-expect-error
   canvas?.effects?.visionSources.set(sourceId, tk.vision);
   //@ ts-expect-error
