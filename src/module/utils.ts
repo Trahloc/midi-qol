@@ -2805,8 +2805,8 @@ class RollModifyDialog extends Application {
         const allSelector = selector.join(".");
         value = foundry.utils.getProperty(flagData ?? {}, allSelector);
         if (value !== undefined) {
+          if (typeof value !== "string") value = `${value}`
           let labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
-          labelDetail = Roll.replaceFormulaData(value, this.data.actor.getRollData());
           if (value.startsWith("ItemMacro")) {
             icon = CONFIG.Macro.sidebarIcon;
             if (value === "ItemMacro")
@@ -2819,14 +2819,13 @@ class RollModifyDialog extends Application {
               else
                 labelDetail = uuid;
             }
-          }
-          else if (value.startsWith("function")) {
+          } else if (value.startsWith("function")) {
             icon = CONFIG.Macro.sidebarIcon;
-            labelDetail = value.split(".").slice(-1);
+            labelDetail = value.split(".").slice(-1).join(".");
           } else if (value.startsWith("Macro")) {
             icon = CONFIG.Macro.sidebarIcon;
             labelDetail = value.split(".").slice(1).join(".");
-          } else labelDetail = `${value}`
+          } else labelDetail = value;
           // check force condition. if true call the callback and return obj
 
           obj[foundry.utils.randomID()] = {
@@ -4355,7 +4354,6 @@ export function evalAllConditions(actorRef: Token | TokenDocument | Actor | stri
   return returnValue;
 }
 export function evalCondition(condition: string, conditionData: any, options: any = { errorReturn: false, async: false }): any | Promise<any> {
-  console.error("Evalcondition conditionData is ", conditionData, condition)
   if (typeof condition === "number" || typeof condition === "boolean") return condition;
   if (condition === undefined || condition === "" || typeof condition !== "string") return options.errorReturn ?? false;
   let returnValue;

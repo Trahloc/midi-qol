@@ -794,7 +794,9 @@ export class Workflow {
       // Not auto rolling so display targets
       const rollMode = game.settings.get("core", "rollMode");
       this.whisperAttackCard = configSettings.autoCheckHit === "whisper" || rollMode === "blindroll" || rollMode === "gmroll";
-      await this.displayTargets(this.whisperAttackCard);
+      if (this.item?.system.target?.type !== "self") {
+        await this.displayTargets(this.whisperAttackCard);
+      }
     }
     return this.WorkflowState_WaitForAttackRoll;
   }

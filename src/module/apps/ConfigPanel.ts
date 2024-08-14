@@ -57,8 +57,10 @@ export class ConfigPanel extends FormApplication {
     for (let key of Object.keys(quickSettingsDetails)) {
       quickSettingsOptions[key] = quickSettingsDetails[key].description;
     }
+    /*
     if (configSettings.addWounded > 0 && ["none", undefined].includes(configSettings.addWoundedStyle))
       configSettings.addWoundedStyle = "normal";
+    */
     const AddWoundedOptions = foundry.utils.duplicate(geti18nOptions("AddDeadOptions"));
     delete AddWoundedOptions["none"];
     let rollNPCSavesOptions = foundry.utils.duplicate(geti18nOptions("rollNPCSavesOptions"));

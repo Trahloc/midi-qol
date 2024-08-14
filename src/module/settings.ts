@@ -175,7 +175,7 @@ class ConfigSettings {
   useTokenNames: boolean = false;
   undoChatColor: string = "Delete";
   undoWorkflow: boolean = false;
-  v3DamageApplication: boolean = true;
+  v3DamageApplication: boolean = false;
   weaponHitSound: string = "";
   weaponUseSound: string = "";
   weaponUseSoundRanged: string = "";
@@ -535,7 +535,7 @@ export let fetchParams = () => {
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated";
   if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated";
   if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
-  configSettings.v3DamageApplication = true;
+  if (configSettings.v3DamageApplication === undefined) configSettings.v3DamageApplication = false;
   if (configSettings.collapsibleTargets === undefined) configSettings.collapsibleTargets = true;
   criticalDamage = String(game.settings.get("midi-qol", "CriticalDamage"));
   if (criticalDamage === "none") criticalDamage = "default";
