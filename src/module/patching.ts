@@ -1,7 +1,7 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, doConcentrationCheck, MQfromUuidSync } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, doConcentrationCheck, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -1143,14 +1143,14 @@ export async function checkWounded(actor, update, options, user) {
       const message = "wounded status condition not set - please update your midi-qol wounded condition on the mechanics tab";
       TroubleShooter.recordError(new Error(message), "In check wounded");
       ui.notifications?.warn(`midi-qol | ${message}`);
-    } else if (installedModules.get("dfreds-convenient-effects") && woundedStatus.id.startsWith("Convenient Effect:")) {
-      const wounded = await ConvenientEffectsHasEffect((woundedStatus.name), actor, false);
+    } else if (installedModules.get("dfreds-convenient-effects") && isConvenientEffect(woundedStatus)) {
+      const wounded = await ConvenientEffectsHasEffect(woundedStatus.name, actor, false);
       if (wounded !== needsWounded) {
-        if (needsWounded)
-          await dfreds.effectInterface?.addEffectWith({ effectData: woundedStatus, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
+        if (needsWounded) CEAddEffectWith({ effectName: woundedStatus.name, effectId: woundedStatus.id, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
+          // await dfreds.effectInterface?.addEffectWith({ effectData: woundedStatus, uuid: actor.uuid, overlay: configSettings.addWoundedStyle === "overlay" });
         else await actor.effects.find(ef => ef.name === woundedStatus.name)?.delete();
       }
-    } else {
+    } else if (!isConvenientEffect(woundedStatus)) {
       const token = tokenForActor(actor);
       if (woundedStatus && token) {
         if (!needsWounded) {
@@ -1203,7 +1203,7 @@ async function setDeadStatus(actor, options: any) {
   const dfreds = game.dfreds;
   let { effect, useDefeated, makeDead } = options;
   if (!effect) return;
-  if (effect && installedModules.get("dfreds-convenient-effects") && effect.id.startsWith("Convenient Effect:")) {
+  if (effect && installedModules.get("dfreds-convenient-effects") && isConvenientEffect(effect)) {
     const isBeaten = actor.effects.find(ef => ef.name === effect?.name) !== undefined;
     if ((makeDead !== isBeaten)) {
       let combatant;
@@ -1214,12 +1214,14 @@ async function setDeadStatus(actor, options: any) {
         await combatant.update({ defeated: makeDead })
       }
       if (makeDead) {
-        await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
+        await CEAddEffectWith({ effectName: effect.name, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" }); 
+        // await dfreds.effectInterface?.addEffectWith({ effectData: effect, uuid: actor.uuid, overlay: configSettings.addDead === "overlay" });
       } else { // remove beaten condition
-        await dfreds.effectInterface?.removeEffect({ effectName: effect?.name, uuid: actor.uuid })
+        await CERemoveEffect({ effectName: effect.name, uuid: actor.uuid });
+        // await dfreds.effectInterface?.removeEffect({ effectName: effect?.name, uuid: actor.uuid })
       }
     }
-  } else {
+  } else if (!isConvenientEffect(effect)) {
     //@ts-expect-error generation
     if (game.release.generation >= 12) {
       // V12 uses an actor
@@ -1375,7 +1377,7 @@ async function deleteAllDependents() {
 
 async function addDependents(...dependents) {
   //@ts-expect-error
-  if (isNewerVersion(game.system.version, "3.1.99")) {
+  if (foundry.utils.isNewerVersion(game.system.version, "3.1.99")) {
     return this.addDependent(...dependents);
   } else {
     return _addDependent.bind(this)(...dependents);

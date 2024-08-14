@@ -3,7 +3,7 @@ import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templ
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects, canSee, calculateDamage } from "./utils.js"
+import { createDamageDetail, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, itemHasDamage, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, addConcentration, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, itemRequiresConcentration, checkDefeated, getIconFreeLink, getConcentrationEffect, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, evalAllConditions, setRollOperatorEvaluated, evalAllConditionsAsync, initializeVision, getAppliedEffects, canSee, calculateDamage, CEAddEffectWith, getActor, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -1282,8 +1282,7 @@ export class Workflow {
       if (midiFlags?.forceCEOff && ["both", "cepri", "itempri"].includes(useCE)) useCE = "none";
       else if (midiFlags?.forceCEOn && ["none", "itempri"].includes(useCE)) useCE = "cepri";
       const hasCE = installedModules.get("dfreds-convenient-effects")
-      //@ts-expect-error game.dfreds
-      const ceEffect = hasCE ? game.dfreds.effects.all.find(e => e.name === theItem?.name) : undefined;
+      const ceEffect = getCEEffectByName(theItem.name);
       const ceTargetEffect = ceEffect && !(ceEffect?.flags?.dae?.selfTarget || ceEffect?.flags?.dae?.selfTargetAlways);
       const hasItemEffect = hasDAE(this) && theItem?.effects.some(ef => ef.transfer !== true);
       const itemSelfEffects = theItem?.effects.filter(ef => (ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) && !ef.transfer) ?? [];
@@ -1345,7 +1344,6 @@ export class Workflow {
               }
             }
 
-
             await globalThis.DAE.doEffects(theItem, true, [token], {
               damageTotal: totalDamage,
               critical: this.isCritical,
@@ -1376,15 +1374,15 @@ export class Workflow {
             if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemTargetEffects)) {
               const targetHasEffect = token.actor.effects.find(ef => ef.name === theItem.name);
               if (this.item?.flags.midiProperties?.toggleEffect && targetHasEffect) {
-                //@ts-expect-error game.dfreds
-                await game.dfreds?.effectInterface?.toggleEffect(theItem.name, { uuid: token.actor.uuid, origin, metadata: macroData });
+                await CEToggleEffect({effectName: theItem.name, uuid: token.actor.uuid, origin });
               } else {
                 // Check stacking status
                 let removeExisting = (["none", "noneName"].includes(ceEffect.flags?.dae?.stackable ?? "none"));
-                //@ts-expect-error game.dfreds
-                if (removeExisting && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, token.actor.uuid)) {
-                  //@ts-expect-error game.dfreds
-                  await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: token.actor.uuid, origin, metadata: macroData });
+                const hasExisting = await CEHasEffectApplied({ effectName: theItem.name, uuid: token.actor.uuid })
+                if (removeExisting && hasExisting) {
+                  await CERemoveEffect({ effectName: theItem.name, uuid: token.actor.uuid, origin });
+                  //@ ts-expect-error game.dfreds
+                  // wait game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: token.actor.uuid, origin, metadata: macroData });
                 }
                 const effectData = foundry.utils.mergeObject(ceEffect.toObject(), metaData);
                 if (isInCombat(token.actor) && effectData.duration.seconds <= 60) {
@@ -1392,8 +1390,9 @@ export class Workflow {
                   delete effectData.duration.seconds;
                 }
                 effectData.origin = origin;
-                //@ts-expect-error game.dfreds
-                const effects = await game.dfreds?.effectInterface?.addEffectWith({ effectData, uuid: token.actor.uuid, origin, metadata: macroData });
+                const effects = await CEAddEffectWith({ effectData, effectName: theItem.name, uuid: token.actor.uuid, origin, overlay: false });
+                //@ ts-expect-error game.dfreds
+                // const effects = await game.dfreds?.effectInterface?.addEffectWith({ effectData, uuid: token.actor.uuid, origin, metadata: macroData });
                 if (this.chatCard.getFlag("dnd5e", "use.concentrationId")) {
                   origin = this.actor.effects.get(this.chatCard.getFlag("dnd5e", "use.concentrationId"));
                   if (!effects) {
@@ -1460,21 +1459,26 @@ export class Workflow {
         if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemSelfEffects)) {
           const actorHasEffect = this.actor.effects.find(ef => ef.name === theItem.name);
           if (this.item?.flags.midiProperties?.toggleEffect && actorHasEffect) {
-            //@ts-expect-error game.dfreds
-            await game.dfreds?.effectInterface?.toggleEffect(theItem.name, { uuid: this.actor.uuid, origin, metadata: macroData });
+            CEToggleEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin });
+            //@ ts-expect-error game.dfreds
+            // await game.dfreds?.effectInterface?.toggleEffect(theItem.name, { uuid: this.actor.uuid, origin, metadata: macroData });
           } else {
+ 
             // Check stacking status
-            //@ts-expect-error
-            if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, this.actor.uuid)) {
-              //@ts-expect-error
-              await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin, metadata: macroData });
+            //@ ts-expect-error
+            // if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, this.actor.uuid)) {
+            if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && await CEHasEffectApplied({ effectName: theItem.name, uuid: this.actor.uuid })) {
+                await CERemoveEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin });
+              //@ ts-expect-error
+              // await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin, metadata: macroData });
             }
             const effectData = foundry.utils.mergeObject(ceSelfEffectToApply.toObject(), metaData);
             effectData.origin = origin;
-            // await tempCEaddEffectWith({ effectData, uuid: this.actor.uuid, origin: theItem?.uuid, metadata: macroData });
 
-            //@ts-expect-error game.dfreds
-            const effects = await game.dfreds?.effectInterface?.addEffectWith({ effectData, uuid: this.actor.uuid, origin, metadata: macroData });
+            const effects = await CEAddEffectWith({ effectData, effectName: theItem.name, uuid: this.actor.uuid, origin, overlay: false });
+
+            //@ ts-expect-error game.dfreds
+            // const effects = await game.dfreds?.effectInterface?.addEffectWith({ effectData, uuid: this.actor.uuid, origin, metadata: macroData });
             if (this.chatCard.getFlag("dnd5e", "use.concentrationId")) {
               origin = this.actor.effects.get(this.chatCard.getFlag("dnd5e", "use.concentrationId"));
               if (!effects) {

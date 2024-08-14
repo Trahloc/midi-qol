@@ -89,6 +89,20 @@ export class ConfigPanel extends FormApplication {
           if (!installedModules.get("epic-rolls-5e")) playerRollSavesOptions[key] = `${playerRollSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Epic Rolls" })}`;
       }
     };
+    
+   let statusEffectList = CONFIG.statusEffects.map((se) => {
+      //@ts-expect-error
+       let name = i18n(se.name ?? se.label); 
+       if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; 
+       return { id: se.id, name: name } });
+
+    //@ts-expect-error
+    const ceInterface = game.dfreds?.effectInterface;
+    //@ts-expect-error
+    if (ceInterface && foundry.utils.isNewerVersion(game.modules.get("dfreds-convenient-effects")?.version, "6.9")) {
+      statusEffectList = statusEffectList.concat(ceInterface.findEffects().map(ae => ({id: `z${ae.flags["dfreds-convenient-effects"].ceEffectId}`, name: `${ae.name} (CE)`})));
+    }
+    let StatusEffectOptions = statusEffectList.reduce((acc, {id, name}) => { acc[id] = name; return acc }, { "none": "None" });
     let data = {
       QuickSettingsBlurb: geti18nOptions("QuickSettingsBlurb"),
       configSettings,
@@ -149,8 +163,7 @@ export class ConfigPanel extends FormApplication {
       RollSavesBlindOptions: foundry.utils.mergeObject({ "all": "All", "death": i18n("DND5E.DeathSave") }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
       RollChecksBlindOptions: foundry.utils.mergeObject({ "all": "All" }, Object.keys(GameSystemConfig.abilities).reduce((acc, s) => { acc[s] = GameSystemConfig.abilities[s].label; return acc }, {})),
       midiPropertiesTabOptions: CONST.USER_ROLE_NAMES,
-      //@ts-expect-error
-      StatusEffectOptions: CONFIG.statusEffects.reduce((acc, se) => { let name = i18n(se.name ?? se.label); if (se.id.startsWith("Convenient Effect")) name = `${name} (CE)`; acc[se.id] = name; return acc }, { "none": "None" }),
+      StatusEffectOptions,
       SaveDROrderOptions: geti18nOptions("SaveDROrderOptions"),
       ColorOptions: colorList.reduce((acc, c) => { acc[c] = c; return acc }, { "Delete": "Delete" }),
       DoConcentrationCheckOptions: geti18nOptions("DoConcentrationCheckOptions"),
