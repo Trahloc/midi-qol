@@ -1098,6 +1098,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         drAll += dr;
       drAllActives.push("DR.midi.all");
     }
+    
     for (let actType of Object.keys(GameSystemConfig.itemActionTypes)) {
       if (!options.ignore?.modification?.has(actType)) {
         if (foundry.utils.getProperty(actor, `system.traits.dm.midi.${actType}`) && damages && damages[0]?.properties?.has(actType)) {
@@ -1112,10 +1113,11 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             drAll = dr;
           else if (!checkRule("maxDRValue"))
             drAll += dr;
-          drAllActives.push(`${actType}`);
+          if (dr < 0) drAllActives.push(`DR.midi.${actType}`);
         }
       }
     }
+
     for (let special of Object.keys(actor.system.traits.dm?.midi ?? {})) {
       let dr;
       let drRoll;
@@ -1129,7 +1131,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             total += isMagical ? damage.value : 0;
             return total;
           }, 0);
-          drAllActives.push(i18n("Magical"));
+          if (selectedDamage > 0) drAllActives.push(i18n("midi-qol.Magical"));
           break;
         case "non-magical":
           selectedDamage = damages.reduce((total, damage) => {
@@ -1137,7 +1139,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             total += isNonMagical ? damage.value : 0;
             return total;
           }, 0);
-          drAllActives.push(i18n("Non Magical"))
+          if (selectedDamage > 0) drAllActives.push(i18n("midi-qol.NonMagical"))
           break;
         case "non-magical-physical":
           selectedDamage = damages.reduce((total, damage) => {
@@ -1146,7 +1148,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             total += !GameSystemConfig.healingTypes[damage.type] && isNonMagical ? damage.value : 0;
             return total;
           }, 0);
-          drAllActives.push(i18n("Non Magical Physical"));
+          if (selectedDamage > 0) drAllActives.push(i18n("midi-qol.NonMagicalPhysical"));
           break;
 
         case "non-silver-physical":
@@ -1156,7 +1158,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             total += isNonSilver ? damage.value : 0;
             return total;
           }, 0);
-          drAllActives.push(i18n("Non Silver Physical"));
+          if (selectedDamage > 0) drAllActives.push(i18n("midi-qol.NonSilverPhysical"));
           break;
         case "non-adamant-physical":
           selectedDamage = damages.reduce((total, damage) => {
@@ -1165,8 +1167,9 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             total += isNonSilver ? damage.value : 0;
             return total;
           }, 0);
-          drAllActives.push(i18n("Non Adamant Physical"));
+          if (selectedDamage > 0) drAllActives.push(i18n("midi-qol.NonAdamantinePhysical"));
           break;
+
         case "non-physical":
           selectedDamage = damages.reduce((total, damage) => {
             //@ts-expect-error
@@ -1174,7 +1177,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             total += isNonPhysical ? damage.value : 0;
             return total;
           }, 0);
-          drAllActives.push(i18n("Non Physical"));
+          if (selectedDamage > 0) drAllActives.push(i18n("midi-qol.NonPhysical"));
           break;
 
         case "spell":
@@ -1183,7 +1186,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             total += isSpell ? damage.value : 0;
             return total;
           }, 0);
-          drAllActives.push(i18n("Spell"));
+          if (selectedDamage > 0) drAllActives.push(i18n("midi-qol.SpellDamage"));
           break;
         case "non-spell":
           selectedDamage = damages.reduce((total, damage) => {
@@ -1191,7 +1194,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             total += isSpell ? 0 : damage.value;
             return total;
           }, 0);
-          drAllActives.push(i18n("Non Spell"));
+          if (selectedDamage > 0) drAllActives.push(i18n("midi-qol.NonSpellDamage"));
           break;
         default: dr = 0; selectedDamage = 0; break;
       }

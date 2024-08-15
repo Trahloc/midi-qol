@@ -842,7 +842,7 @@ async function prepareDamageListItems(data: {
           return acc;
         }, []);
       if (di.allActives?.length > 0) allMods = allMods.concat(di.allActives);
-      let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
+      let mods = (allMods.length > 0) ? `| ${allMods.join("<br>")}` : "";
         return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{ ...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes }[di.type === "" ? "none" : di.type]?.label ?? "none"} ${mods}`
       });
       const toolTipHeader: string[] = [];

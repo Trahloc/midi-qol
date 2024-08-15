@@ -225,7 +225,6 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
       saveMultiplier = 0;
     }
 
-
     allDamages[token.document.uuid] = {
       uuid: token.document.uuid,
       tokenDamages: { combinedDamage: [] },
@@ -5657,6 +5656,7 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
     //@ts-expect-error
     const oldDiagonals = canvas?.grid?.diagonals;
     const oldGetOffset = canvas?.grid?.constructor.prototype.getOffset;
+    let distances;
     if (isGridless && options.gridSpaces && configSettings.griddedGridless && canvas?.grid) {
       //@ts-expect-error
       canvas.grid.constructor.prototype._measurePath = foundry.grid.SquareGrid.prototype._measurePath;
@@ -5665,13 +5665,23 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
       //@ts-expect-error
       canvas.grid.diagonals = safeGetGameSetting("core", "gridDiagonals");
     }
-    //@ts-expect-error
-    let distances = segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]))
-    if (canvas?.grid) {
-      if (oldMeasurePath) canvas.grid.constructor.prototype._measurePath = oldMeasurePath;
+    try {
       //@ts-expect-error
-      if (oldDiagonals) canvas.grid.diagonals = oldDiagonals;
-      if (oldGetOffset) canvas.grid.constructor.prototype.getOffset = oldGetOffset
+      distances = segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]))
+    }
+    catch (err) {
+      throw (err);
+    } finally {
+      if (canvas?.grid) {
+        if (oldMeasurePath) canvas.grid.constructor.prototype._measurePath = oldMeasurePath;
+        //@ts-expect-error
+        if (oldDiagonals) canvas.grid.diagonals = oldDiagonals;
+        if (oldGetOffset) canvas.grid.constructor.prototype.getOffset = oldGetOffset
+      }
+    }
+    if (options.gridSpaces ) {
+      //@ts-expect-error
+      return distances.map(d => d.spaces === 0 ? d.distance : d.spaces * canvas?.grid.distance);
     }
     return distances = distances.map(d => d.distance);
   } else {

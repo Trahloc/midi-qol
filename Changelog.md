@@ -9,7 +9,25 @@
 
 ### 11.6.1
 * Fix for optional conditions with numeric value and non-custom settings
-* 
+* Some clean up of system.traits.dm.mid.XXXX - so that only active Damage Reduction is applied
+* There is a slight change in the way damage reduction (modification in dnd5e terms).
+* Any traits.system.dm.xxxx (i.e slashing/piercing etc) are applied to incoming damage. These are always per damage type and are always applied by midi.
+* After those damage modificatons are applied the midi specific ones are applied. These can only be set via an active effect, there is no UI to set them. The midi specific damage modification is applied as a single modifictaion to the total damage represented as a NO-TYPE damage item added to the damage rolls with, usually, a negative value. (Use the midi tooltip from the midi damage card to see the breakdown). This appears as DR in the dnd5e damage applicaton buttons.
+* The possible values are 
+  system.traits.dm.midi.all: Applies to all remaining damage in the attack
+  system.traits.dm.midi.abil/ench/other/heal/spell/summ/util/mwak/msak/rwak/rsak: These look at the action type of the item and apply accordingly
+  system.traits.dm.midi:
+    non-adamantine-physical: applies if the damaage is physical not the weapon is not adamantine
+    non-magical-physical: applies if the damage is physical and the item causing the damage is not magicial
+    non-silver-physical: applies if the damage is physical the item causing the weapon is not silvered
+    non-physical: applies if the damage is not physical
+    physical: applies if the damage is physical. This item **only** respects the actor modification bypasses.
+    magical: applies if the item is magical
+    non-magical: applies if the item is not magical
+    spell: applies to spell damage
+    non-spell: applies to non spell damage
+* the system.traits.dm.mid application respect the midi setting to only apply the highest damage modification or to let them accumulate.
+
 
 ### 11.6.0
 * This release **only** supports using dnd5e damage application - which is significantly better than midi's native damage application.
