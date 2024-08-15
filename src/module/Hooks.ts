@@ -65,6 +65,7 @@ export let readyHooks = async () => {
   Hooks.on("deleteMeasuredTemplate", checkDeleteTemplate);
 
   // Handle updates to the characters HP
+  // Handle updates to the characters HP
   // Handle concentration checks
   Hooks.on("updateActor", async (actor, update, options, user) => {
     if (user !== game.user?.id) return;
@@ -294,7 +295,6 @@ export function initHooks() {
 
   Hooks.on("midi-qol.RollComplete", async (workflow) => {
     const wfuuid = workflow.uuid;
-
     if (failedSaveOverTimeEffectsToDelete[wfuuid]) {
       if (workflow.saves.size === 1 || !workflow.hasSave) {
         let effect = MQfromUuidSync(failedSaveOverTimeEffectsToDelete[wfuuid].uuid);

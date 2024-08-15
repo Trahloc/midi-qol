@@ -272,7 +272,6 @@ export function averageDice(roll: Roll) {
   roll._formula = roll.constructor.getFormula(roll.terms);
   return roll;
 }
-
 function configureDamage(wrapped) {
   let useDefaultCritical = getCriticalDamage() === "default";
   useDefaultCritical ||= (getCriticalDamage() === "explodeCharacter" && this.data.actorType !== "character");

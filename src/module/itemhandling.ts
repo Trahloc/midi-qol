@@ -1080,6 +1080,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
         actionFlavor = game.i18n.localize(this.system.actionType === "heal" ? "N5E.Healing" : "N5E.DamageRoll");
         break;
       case "dnd5e":
+      case "dnd5e":
       default:
         actionFlavor = game.i18n.localize(this.system.actionType === "heal" ? "DND5E.Healing" : "DND5E.DamageRoll");
     }

@@ -1374,7 +1374,7 @@ export class Workflow {
             if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemTargetEffects)) {
               const targetHasEffect = token.actor.effects.find(ef => ef.name === theItem.name);
               if (this.item?.flags.midiProperties?.toggleEffect && targetHasEffect) {
-                await CEToggleEffect({effectName: theItem.name, uuid: token.actor.uuid, origin });
+                await CEToggleEffect({ effectName: theItem.name, uuid: token.actor.uuid, origin });
               } else {
                 // Check stacking status
                 let removeExisting = (["none", "noneName"].includes(ceEffect.flags?.dae?.stackable ?? "none"));
@@ -1463,12 +1463,12 @@ export class Workflow {
             //@ ts-expect-error game.dfreds
             // await game.dfreds?.effectInterface?.toggleEffect(theItem.name, { uuid: this.actor.uuid, origin, metadata: macroData });
           } else {
- 
+
             // Check stacking status
             //@ ts-expect-error
             // if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, this.actor.uuid)) {
             if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && await CEHasEffectApplied({ effectName: theItem.name, uuid: this.actor.uuid })) {
-                await CERemoveEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin });
+              await CERemoveEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin });
               //@ ts-expect-error
               // await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin, metadata: macroData });
             }
@@ -1497,6 +1497,7 @@ export class Workflow {
         }
       }
     }
+
     if (debugCallTiming) log(`applyActiveEffects elapsed ${Date.now() - applyDynamicEffectsStartTime}ms`)
     return this.WorkflowState_RollFinished;
   }

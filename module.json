@@ -114,7 +114,7 @@
     "allowBugReporter": true
   },
   "url": "https://gitlab.com/tposney/midi-qol",
-  "manifest": "https://gitlab.com/tposney/midi-qol/raw/dnd33/package/module.json",
-  "download": "https://gitlab.com/tposney/midi-qol/raw/dnd33/package/midi-qol-v{{version}}.zip",
-  "changelog": "https://gitlab.com/tposney/midi-qol/raw/dnd33/Changelog.md"
+  "manifest": "https://gitlab.com/tposney/midi-qol/raw/master/package/module.json",
+  "download": "https://gitlab.com/tposney/midi-qol/raw/master/package/midi-qol-v{{version}}.zip",
+  "changelog": "https://gitlab.com/tposney/midi-qol/raw/master/Changelog.md"
 }

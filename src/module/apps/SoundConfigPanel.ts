@@ -126,7 +126,6 @@ export class SoundConfigPanel extends FormApplication {
     settings.version = "0.9.48";
     await game.settings.set("midi-qol", "MidiSoundSettings", settings);
   }
-
   activateListeners(html) {
     super.activateListeners(html);
     html.find(".sound-control").click(this._onSoundControl.bind(this));
