@@ -7,6 +7,10 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.6.1
+* Fix for optional conditions with numeric value and non-custom settings
+* 
+
 ### 11.6.0
 * This release **only** supports using dnd5e damage application - which is significantly better than midi's native damage application.
 * Eventually you will need to migrate all of the flags.midi-qol.DR and flags.midi-qol.dr settings to the corresponding dnd5e settings. If you check the warnings you will be shown what to change.
