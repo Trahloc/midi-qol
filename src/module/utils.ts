@@ -4875,7 +4875,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
       AsyncFunction = (async function () { }).constructor;
     const evl = AsyncFunction("sandbox", src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user.targets.first(), combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user.targets?.first().document.uuid, combat: game.combat });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4910,7 +4910,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     }
     const evl = new Function('sandbox', src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game?.user?.targets.first(), combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game?.user?.targets.first()?.document.uuid, combat: game.combat });
 
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
@@ -5170,7 +5170,7 @@ export function getWoundedStatus(): any | undefined {
 
 export function getUnconsciousStatus(): any | undefined {
   //@ts-expect-error
-  const dfreds = game.dfred?.effectInterface;
+  const dfreds = game.dfreds?.effectInterface;
   let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiUnconsciousCondition);
   if (condition || !dfreds) return condition;
   return dfreds.findEffect({ effectId: configSettings.midiUnconsciousCondition?.replace("zce-", "ce-") });

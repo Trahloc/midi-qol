@@ -7,6 +7,10 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.5.3
+* Fix for fetching unconscious condition - thanks @Elwin
+* Fix for multiple advantage/disadvantage conditions sometimes throwing an error.
+
 ### 11.5.2
 * Update for gridless distance measuring.
 
