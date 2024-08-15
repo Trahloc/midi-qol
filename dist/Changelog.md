@@ -7,6 +7,11 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.5.2
+* Update for gridless distance measuring.
+
+### 11.5.1 
+* just updates the module.json to point to master
 ### 11.5.0.1
 * Fix for dfreds-convenient-effects not installed. Thanks @thatlonelybugbear
 

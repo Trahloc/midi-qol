@@ -3227,8 +3227,8 @@ export function hasCondition(tokenRef: Token | TokenDocument | string | undefine
     // If we are looking for a status effect then we don't need to check dfreds since dfreds status effects include the system status effect id
     if (Object.keys(GameSystemConfig.statusEffects).includes(condition.toLocaleLowerCase())) return 0;
     const localCondition = i18n(`midi-qol.${condition}`);
-    if  (CEHasEffectApplied({effectName: localCondition, uuid: (td.actor?.uuid ?? "")})) return 1;
-    if  (CEHasEffectApplied({effectName: condition, uuid: (td.actor?.uuid ?? "")})) return 1;
+    if (CEHasEffectApplied({ effectName: localCondition, uuid: (td.actor?.uuid ?? "") })) return 1;
+    if (CEHasEffectApplied({ effectName: condition, uuid: (td.actor?.uuid ?? "") })) return 1;
   }
   return 0;
 }
@@ -5165,39 +5165,39 @@ export function getWoundedStatus(): any | undefined {
   const dfreds = game.dfreds?.effectInterface;
   let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiWoundedCondition);
   if (condition || !dfreds) return condition;
-  return dfreds.findEffect({effectId: configSettings.midiWoundedCondition?.replace("zce-", "ce-")});
+  return dfreds.findEffect({ effectId: configSettings.midiWoundedCondition?.replace("zce-", "ce-") });
 }
 
 export function getUnconsciousStatus(): any | undefined {
-      //@ts-expect-error
-      const dfreds = game.dfred?.effectInterface;
-      let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiUnconsciousCondition);
-      if (condition || !dfreds) return condition;
-      return dfreds.findEffect({effectId: configSettings.midiUnconsciousCondition?.replace("zce-", "ce-")});
+  //@ts-expect-error
+  const dfreds = game.dfred?.effectInterface;
+  let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiUnconsciousCondition);
+  if (condition || !dfreds) return condition;
+  return dfreds.findEffect({ effectId: configSettings.midiUnconsciousCondition?.replace("zce-", "ce-") });
   // return CONFIG.statusEffects.find(efData => efData.id === configSettings.midiUnconsciousCondition);
 }
 
 export function getDeadStatus(): any | undefined {
-    //@ts-expect-error
-    const dfreds = game.dfreds?.effectInterface;
-    let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiDeadCondition);
-    if (condition || !dfreds) return condition;
-    return dfreds.findEffect({effectId: configSettings.midiDeadCondition?.replace("zce-", "ce-")});
+  //@ts-expect-error
+  const dfreds = game.dfreds?.effectInterface;
+  let condition = CONFIG.statusEffects.find(efData => efData.id === configSettings.midiDeadCondition);
+  if (condition || !dfreds) return condition;
+  return dfreds.findEffect({ effectId: configSettings.midiDeadCondition?.replace("zce-", "ce-") });
   // return CONFIG.statusEffects.find(efData => efData.id === configSettings.midiDeadCondition);
 }
 
 export async function ConvenientEffectsHasEffect(effectName: string, actor: Actor, ignoreInactive: boolean = true) {
   if (ignoreInactive) {
-    return await CEHasEffectApplied({effectName, uuid: actor.uuid})
+    return await CEHasEffectApplied({ effectName, uuid: actor.uuid })
     //@ ts-expect-error .dfreds
     // return game.dfreds?.effectInterface?.hasEffectApplied(effectName, actor.uuid);
   } else {
     //@ts-expect-error
-    const effect =  actor.appliedEffects.find(ef => ef.name === effectName);
+    const effect = actor.appliedEffects.find(ef => ef.name === effectName);
     //@ts-expect-error
     if (foundry.utils.isNewerVersion(game.modules.get("dfreds-convenient-effects")?.version, "6.9")) {
       return !!isConvenientEffect(effect)
-    } return !!effect ;
+    } return !!effect;
   }
 }
 
@@ -5536,7 +5536,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
     if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
       const CEFlanked = getFlankedEffect();
       //@ts-expect-error
-      const hasFlanked = token.actor && CEFlanked && CEHasEffectApplied({effectName: CEFlanked.name, uuid: token.actor.uuid});
+      const hasFlanked = token.actor && CEFlanked && CEHasEffectApplied({ effectName: CEFlanked.name, uuid: token.actor.uuid });
       if (hasFlanked) continue;
     }
     // Loop through each square covered by attacker and ally
@@ -5551,7 +5551,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
       if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
         const CEFlanked = getFlankedEffect();
         //@ts-expect-error
-        const hasFlanked = CEFlanked && CEHasEffectApplied({effectName: CEFlanked.name, uuid: ally.actor.uuid});
+        const hasFlanked = CEFlanked && CEHasEffectApplied({ effectName: CEFlanked.name, uuid: ally.actor.uuid });
         if (hasFlanked) continue;
       }
       const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
@@ -5666,7 +5666,7 @@ export function getFlankingEffect(): ActiveEffect | undefined {
     if (!CEFlanking && dfreds.effectInterface?.findEffectByName)
       CEFlanking = dfreds.effectInterface?.findEffectByName("Flanking");
     if (!CEFlanking && dfreds.effectInterface?.findEffect)
-      CEFlanking = dfreds.effectInterface?.findEffect({effectName: "Flanking"});
+      CEFlanking = dfreds.effectInterface?.findEffect({ effectName: "Flanking" });
     return CEFlanking;
   }
   return undefined;
@@ -5680,7 +5680,7 @@ export function getFlankedEffect(): ActiveEffect | undefined {
     if (!CEFlanked && dfreds.effectInterface.findEffectByName)
       CEFlanked = dfreds?.effectInterface.findEffectByName("Flanked");
     if (!CEFlanked && dfreds.effectInterface?.findEffect)
-      CEFlanked = dfreds?.effectInterface.findEffect({effectName: "Flanked"});
+      CEFlanked = dfreds?.effectInterface.findEffect({ effectName: "Flanked" });
     return CEFlanked;
   }
   return undefined;
@@ -5718,9 +5718,9 @@ export async function markFlanking(token, target): Promise<boolean> {
       if (!CEFlanking) return needsFlanking;
       //@ ts-expect-error
       // const hasFlanking = token.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanking.name, token.actor.uuid)
-      const hasFlanking = CEHasEffectApplied({effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid});
+      const hasFlanking = CEHasEffectApplied({ effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid });
       if (needsFlanking && !hasFlanking && token.actor) {
-        await CEAddEffectWith({ effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid, overlay: false }); 
+        await CEAddEffectWith({ effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid, overlay: false });
         //@ ts-expect-error
         // await game.dfreds.effectInterface?.addEffect({ effectName: CEFlanking.name, uuid: token.actor.uuid });
       } else if (!needsFlanking && hasFlanking && token.actor) {
@@ -5740,7 +5740,7 @@ export async function markFlanking(token, target): Promise<boolean> {
       const needsFlanked = await computeFlankedStatus(target);
       //@ ts-expect-error
       // const hasFlanked = target.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, target.actor.uuid);
-      const hasFlanked = CEHasEffectApplied({effectName: CEFlanked.name ?? "Flanked", uuid: target.actor.uuid});
+      const hasFlanked = CEHasEffectApplied({ effectName: CEFlanked.name ?? "Flanked", uuid: target.actor.uuid });
       if (needsFlanked && !hasFlanked && target.actor) {
         await CEAddEffectWith({ effectName: CEFlanked.name ?? "Flanked", uuid: target.actor.uuid, overlay: false });
         //@ ts-expect-error
@@ -6404,6 +6404,7 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
     //@ts-expect-error
     const oldDiagonals = canvas?.grid?.diagonals;
     const oldGetOffset = canvas?.grid?.constructor.prototype.getOffset;
+    let distances;
     if (isGridless && options.gridSpaces && configSettings.griddedGridless && canvas?.grid) {
       //@ts-expect-error
       canvas.grid.constructor.prototype._measurePath = foundry.grid.SquareGrid.prototype._measurePath;
@@ -6412,13 +6413,23 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
       //@ts-expect-error
       canvas.grid.diagonals = safeGetGameSetting("core", "gridDiagonals");
     }
-    //@ts-expect-error
-    let distances = segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]))
-    if (canvas?.grid) {
-      if (oldMeasurePath) canvas.grid.constructor.prototype._measurePath = oldMeasurePath;
+    try {
       //@ts-expect-error
-      if (oldDiagonals) canvas.grid.diagonals = oldDiagonals;
-      if (oldGetOffset) canvas.grid.constructor.prototype.getOffset = oldGetOffset
+      distances = segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]))
+    }
+    catch (err) {
+      throw (err);
+    } finally {
+      if (canvas?.grid) {
+        if (oldMeasurePath) canvas.grid.constructor.prototype._measurePath = oldMeasurePath;
+        //@ts-expect-error
+        if (oldDiagonals) canvas.grid.diagonals = oldDiagonals;
+        if (oldGetOffset) canvas.grid.constructor.prototype.getOffset = oldGetOffset
+      }
+    }
+    if (options.gridSpaces ) {
+      //@ts-expect-error
+      return distances.map(d => d.spaces === 0 ? d.distance : d.spaces * canvas?.grid.distance);
     }
     return distances = distances.map(d => d.distance);
   } else {
@@ -6887,10 +6898,10 @@ export function getCEEffectByName(name: string): any | undefined {
   if (installedModules.get("dfreds-convenient-effects") && foundry.utils.isNewerVersion("6.9.9", game.modules.get("dfreds-convenient-effects")?.version)) {
     return dfreds.effects?.all.find(e => e.name === name);
   } else {
-    return dfreds.effectInterface.findEffect({effectName: name})
+    return dfreds.effectInterface.findEffect({ effectName: name })
   }
 }
-export async function CEAddEffectWith(options: {uuid: string, effectName?: string, effectId?: string, origin?: any, effectData?: any, overlay: boolean}) {
+export async function CEAddEffectWith(options: { uuid: string, effectName?: string, effectId?: string, origin?: any, effectData?: any, overlay: boolean }) {
   //@ts-expect-error
   const dfredsInterface = game.dfreds?.effectInterface;
   let { uuid, effectName, origin, effectData, overlay, effectId } = options;
@@ -6902,26 +6913,26 @@ export async function CEAddEffectWith(options: {uuid: string, effectName?: strin
     const effect = getCEEffectByName(effectName ?? "")
     if (!effect) return undefined;
     const newEffectData = foundry.utils.mergeObject(effect.toObject(), effectData ?? {}, { inplace: false, insertKeys: true, insertValues: true, overwrite: true });
-    return dfredsInterface.addEffectWith({uuid, effect, origin, effectData: newEffectData, overlay});
+    return dfredsInterface.addEffectWith({ uuid, effect, origin, effectData: newEffectData, overlay });
   } else {
     if (!effectId) {
       effectId = getCEEffectByName(effectName ?? "")?.id;
     }
     if (!effectId) return undefined;
-    return dfredsInterface.addEffect({uuid, effectId, origin, effectData, overlay});
+    return dfredsInterface.addEffect({ uuid, effectId, origin, effectData, overlay });
   }
 }
 
-export async function CERemoveEffect(options: {effectName: string, uuid: string, effectId?: string, origin?: string}) {
+export async function CERemoveEffect(options: { effectName: string, uuid: string, effectId?: string, origin?: string }) {
   //@ts-expect-error
   const dfredsInterface = game.dfreds?.effectInterface;
   if (!dfredsInterface) return undefined;
   const { uuid, effectId, origin, effectName } = options;
   if (!uuid || (!effectName && !effectId)) return undefined;
-  return dfredsInterface.removeEffect({uuid, effectName, effectId, origin});
+  return dfredsInterface.removeEffect({ uuid, effectName, effectId, origin });
 }
 
-export async function CEToggleEffect(options: {effectName?: string, uuid: string, effectId?: string, origin?: string, overlay?: boolean}) {
+export async function CEToggleEffect(options: { effectName?: string, uuid: string, effectId?: string, origin?: string, overlay?: boolean }) {
   //@ts-expect-error
   const dfredsInterface = game.dfreds?.effectInterface;
   if (!dfredsInterface) return undefined;
@@ -6929,13 +6940,13 @@ export async function CEToggleEffect(options: {effectName?: string, uuid: string
   //@ts-expect-error
   const dfredsVersion = game.modules.get("dfreds-convenient-effects")?.version;
   if (foundry.utils.isNewerVersion("6.9.9", dfredsVersion)) {
-    return dfredsInterface.toggleEffect(effectName, {uuid, origin, overlay});
+    return dfredsInterface.toggleEffect(effectName, { uuid, origin, overlay });
   } else {
-    return dfredsInterface.toggleEffect({uuids: [uuid], effectName, effectId, origin, overlay});
+    return dfredsInterface.toggleEffect({ uuids: [uuid], effectName, effectId, origin, overlay });
   }
 }
 
-export function CEHasEffectApplied(options: {effectName: string, uuid: string, effectId?: string, origin?: string}): boolean {
+export function CEHasEffectApplied(options: { effectName: string, uuid: string, effectId?: string, origin?: string }): boolean {
   if (!installedModules.get("dfreds-convenient-effects")) return false;
   //@ts-expect-error
   const dfredsInterface = game.dfreds?.effectInterface;
@@ -6946,7 +6957,7 @@ export function CEHasEffectApplied(options: {effectName: string, uuid: string, e
   if (foundry.utils.isNewerVersion("6.9.9", game.modules.get("dfreds-convenient-effects")?.version)) {
     return dfredsInterface.hasEffectApplied(effectName, uuid);
   } else {
-    return dfredsInterface.hasEffectApplied({uuid, effectName, effectId, origin});
+    return dfredsInterface.hasEffectApplied({ uuid, effectName, effectId, origin });
   }
 }
 
