@@ -2,20 +2,14 @@
   "id": "midi-qol",
   "title": "Midi QOL",
   "description": "Automates rolling weapon/spell attacks and applying damage",
-<<<<<<< HEAD
 
-  "version": "11.5.0.1",
+  "version": "11.5.1",
   "authors": [
     { "name": "tposney",
     "discord": "tposney#1462",
     "ko-fi": "https://ko-fi.com/tposney"
     }
   ],
-=======
-  "system": ["dnd5e", "sw5e", "n5e"],
-  "version": "0.9.83",
-  "authors": [{"name": "tposney"}],
->>>>>>> 392ee383d15619c1b58fb2fe73ac112d38f4078f
   "socket": true,
   "scripts": [],
   "esmodules": ["src/midi-qol.js"],
@@ -120,12 +114,7 @@
     "allowBugReporter": true
   },
   "url": "https://gitlab.com/tposney/midi-qol",
-<<<<<<< HEAD
-  "manifest": "https://gitlab.com/tposney/midi-qol/raw/dnd33/package/module.json",
-  "download": "https://gitlab.com/tposney/midi-qol/raw/dnd33/package/midi-qol-v11.5.0.1.zip",
-  "changelog": "https://gitlab.com/tposney/midi-qol/raw/dnd33/Changelog.md"
-=======
   "manifest": "https://gitlab.com/tposney/midi-qol/raw/master/package/module.json",
-  "download": "https://gitlab.com/tposney/midi-qol/raw/master/package/midi-qol-v0.9.83.zip"
->>>>>>> 392ee383d15619c1b58fb2fe73ac112d38f4078f
+  "download": "https://gitlab.com/tposney/midi-qol/raw/master/package/midi-qol-v11.5.1.zip",
+  "changelog": "https://gitlab.com/tposney/midi-qol/raw/master/Changelog.md"
 }
