@@ -1,50 +1,60 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 
-* 11.6.0 
-  - will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date August 12. You are actively encouraged to both try v3 damage calculation/application and report bugs
-  - will remove concentration-data from midi-qol, all use will swtich to dependents. Currently midi-only supports backwards compatible concentration-data. 
 * 12.0.0 
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
 ### 11.6.1
-* Fix for optional conditions with numeric value and non-custom settings
-* Some clean up of system.traits.dm.mid.XXXX - so that only active Damage Reduction is applied
-* There is a slight change in the way damage reduction (modification in dnd5e terms).
-* Any traits.system.dm.xxxx (i.e slashing/piercing etc) are applied to incoming damage. These are always per damage type and are always applied by midi.
-* After those damage modificatons are applied the midi specific ones are applied. These can only be set via an active effect, there is no UI to set them. The midi specific damage modification is applied as a single modifictaion to the total damage represented as a NO-TYPE damage item added to the damage rolls with, usually, a negative value. (Use the midi tooltip from the midi damage card to see the breakdown). This appears as DR in the dnd5e damage applicaton buttons.
-* The possible values are 
-  system.traits.dm.midi.all: Applies to all remaining damage in the attack
-  system.traits.dm.midi.abil/ench/other/heal/spell/summ/util/mwak/msak/rwak/rsak: These look at the action type of the item and apply accordingly
-  system.traits.dm.midi:
-    non-adamantine-physical: applies if the damaage is physical not the weapon is not adamantine
-    non-magical-physical: applies if the damage is physical and the item causing the damage is not magicial
-    non-silver-physical: applies if the damage is physical the item causing the weapon is not silvered
-    non-physical: applies if the damage is not physical
-    physical: applies if the damage is physical. This item **only** respects the actor modification bypasses.
-    magical: applies if the item is magical
-    non-magical: applies if the item is not magical
-    spell: applies to spell damage
-    non-spell: applies to non spell damage
-* the system.traits.dm.mid application respect the midi setting to only apply the highest damage modification or to let them accumulate.
+Some bug fixes:
+* Fix for optional conditions with numeric value and non-custom settings - thanks @michael
+* Fix for fetching unconscious condition - thanks @Elwin
+* Fix for multiple advantage/disadvantage conditions sometimes throwing an error.
+* Update for gridless distance measuring.
 
+* This release **only** supports using dnd5e damage application - which is significantly better than midi's native damage application. Most things are unchanged when comparing between the two. 
+  - The most obvious differences are that the apply damage buttons on the chat card are now the dnd5e v3 buttons, which are greatly superior to what midi provided.
+  - The second obvious difference is that the midi flags flags.midi-qol.DR have migrated to system.traits.dm.xxx and system.traits.dm.midi.yyy. Also **the sign has changed** so system.traits.dm.slashing override -5 will reduce incoming slahsing damage by 5, +5 will increase the damage done.
+  - lastly the tooltip on the midi damage card has been enhanced to give a detailed list of all the damage applied and what resistance/modifications were applied.
 
-### 11.6.0
-* This release **only** supports using dnd5e damage application - which is significantly better than midi's native damage application.
-* Eventually you will need to migrate all of the flags.midi-qol.DR and flags.midi-qol.dr settings to the corresponding dnd5e settings. If you check the warnings you will be shown what to change.
+* Eventually you will need to migrate all of the flags.midi-qol.DR and flags.midi-qol.dr settings to the corresponding dnd5e settings. Midi will automatically map existing flags to the new structure to give you time to migrate
+
+* **Damage Reduction** There is a slight change in the way damage reduction (modification in dnd5e terms) since dnd5e supports damage modifications itself. Midi now uses the dnd5e damage modification and adds some extra features.
+  - Any traits.system.dm.xxxx (i.e slashing/piercing etc) are applied to incoming damage. These are always per damage type and are always applied by midi - the calculation is wholly handled by dnd5e.
+  - After those damage modifications are applied the midi specific ones are applied. The midi specific damage modifications are calculated and added as an extra damage entry (with a negative sign) to account for the reduction. So if damage of 8 points slashing and 8 points poison was applied and the target had 3 points of poison modification (system.traits.dm.poison -3) and 7 points of all modification (system.traits.dm.midi.all -7), the display would appear as 8 points of slashing, 5 points of poison (due to the poison specfic modifcation) and -7 points of DR for a total of 6 points of damage.
+  The system.traits.dm.mid can **only** be set via an active effect.
+  - The possible values for damage modification (reduction) are: 
+    -system.traits.dm.midi.all: Applies to all remaining damage in the attack
+    - system.traits.dm.midi.abil/ench/other/heal/spell/summ/util/mwak/msak/rwak/rsak: These look at the action type of the item and apply accordingly
+    - system.traits.dm.midi...
+      physical: applies if the damage is physical. This type **only** respects the actor modification bypasses.
+      non-adamantine-physical: applies if the damage is physical and the weapon is not adamantine
+      non-magical-physical: applies if the damage is physical and the item causing the damage is not magical
+      non-silver-physical: applies if the damage is physical the item causing the weapon is not silvered
+      non-physical: applies if the damage is not physical
+      magical: applies if the item is magical
+      non-magical: applies if the item is not magical
+      spell: applies to spell damage
+      non-spell: applies to non spell damage
+  * When applying system.traits.dm.midi modifications, the midi setting to only apply the highest damage modification or to let them accumulate applies, but **not** to the system.traits.dm.slashing etc.
+
+**Damage Resistance etc**
 * Due to popular demand (well at least form Moto Moto) I added back the custom dr/di/dv/da settings that were previously deprecated.
-  - spell: Applies if the item applying the damage is a spell.
-  - not-spell: Applies if the item applying the damage is not a spell.
-  - magic: Applies if the item has the magic property  
-  - non-magic: Applies if the item applying the damage does not have the magical property
-  - physical: applies if the damage type is physical. This is a simpler way to specify damage resistance etc, to all physical types than ticking all of the various physical damage types. This setting **only** respects any bypasses set on the actor.
-  - non-magical-physical: Applies if the damage type is physical and the item applying the damage does not have the magical property.
-  - non-silver-physical: Applies to physical damage if the item applying the damage does not have the silvered property.
-  - non-adamant-physical: Applies to physical damage if the item applying the damage does not have the adamantine property.
-  - You can combine these (as only one will apply) so not-spell, not-magic will apply if the item is not a spell or does not have the magical property.
-  - If you want to specify damage resistance to physical damage that is not magical or silvered, specify physical in the custom field and set the bypasses to silvered and magical.
-  - These can be applied via an active effect or by entering **exactly** the custom type above into the custom field, which is a semi colon separated list.
-  - Currently does not support dnd5e downgrade, it is all or nothing for the protection, downgrade = not applied.
+  * The existing midi behaviour for system.traits.dr/di/dv.da continues, but now is implemented using the dnd5e calculations
+* Midi also provides some extra features for damage resistance/immunity/vulnerability and adds damage absorption.
+  - damage absorption turns damage of the appropriate type into healing.
+  - dnd5e does the calculation for system.traits.dr/di/dv.type and midi does not change that.
+  - Midi also supports some custom values (system.traits.dr/dv/di.custom) which may make things easier     
+    - spell: Applies if the item applying the damage is a spell.
+    - not-spell: Applies if the item applying the damage is not a spell.
+    - magic: Applies if the item has the magic property  
+    - non-magic: Applies if the item applying the damage does not have the magical property
+    - physical: applies if the damage type is physical. This is a simpler way to specify damage resistance etc, to all physical types compared to ticking all of the various physical damage types and remembering to update if you add an extra physical damage type. This setting **only** respects any bypasses set on the actor.
+    - non-magical-physical: Applies if the damage type is physical and the item applying the damage does not have the magical property.
+    - non-silver-physical: Applies to physical damage if the item applying the damage does not have the silvered property.
+    - non-adamant-physical: Applies to physical damage if the item applying the damage does not have the adamantine property.
+    - If you specify overlapping resistances, e.g. non-spell and non-magical, resistance will only be applied once.
+  - These can be applied via an active effect (sytem.traits.dr.custom etc) or by entering **exactly** the custom type above into the custom field, which is a semi colon separated list.
+  - Currently these does not support dnd5e downgrade, it is all or nothing for the protection, downgrade = not applied.
 
 ### 11.5.0
 * Requires dnd5e v3.3+

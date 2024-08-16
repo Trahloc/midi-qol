@@ -4132,7 +4132,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
       AsyncFunction = (async function () { }).constructor;
     const evl = AsyncFunction("sandbox", src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user.targets.first(), combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat});
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4167,7 +4167,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     }
     const evl = new Function('sandbox', src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game?.user?.targets.first(), combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat });
 
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
@@ -4273,8 +4273,14 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.hasDamage = data.workflow.item.hasDamage;
     }
     rollData.CONFIG = CONFIG;
-    rollData.CONST = CONST;
-
+    rollData.CONST = {};
+    let exclusions: string[] = [];
+    //@ts-expect-error
+    if (game.release.generation > 11) {
+      exclusions = ["DOCUMENT_TYPES"];
+    }
+    Object.keys(CONST).forEach(key => !exclusions.includes[key] && (rollData.CONST[key] = CONST[key]));
+    //Only here to avoid deprecation warnings - remove when we get to v14
   } catch (err) {
     const message = `midi-qol | createConditionData`;
     TroubleShooter.recordError(err, message);

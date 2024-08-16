@@ -195,16 +195,20 @@ Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
   specials[`flags.${MODULE_ID}.onUseMacroName`] = [new StringField(), CONST.ACTIVE_EFFECT_MODES.CUSTOM];
   specials[`flags.${MODULE_ID}.optional.NAME.macroToCall`] = [new StringField(), CONST.ACTIVE_EFFECT_MODES.CUSTOM];
   if (configSettings.v3DamageApplication) {
-    specials[`system.traits.dm.midi.all`] = [new StringField(), -1]
-    specials[`system.traits.dm.midi.magical`] = [new StringField(), -1]
-    specials[`system.traits.dm.midi.non-magical`] = [new StringField(), -1]
-    specials[`system.traits.dm.midi.non-magical-physical`] = [new StringField(), -1]
-    specials[`system.traits.dm.midi.non-silver-physical`] = [new StringField(), -1]
-    specials[`system.traits.dm.midi.non-adamant-physical`] = [new StringField(), -1]
-    specials[`system.traits.dm.midi.non-physical`] = [new StringField(), -1]
-    specials[`system.traits.dm.midi.spell`] = [new StringField(), -1]
-    specials[`system.traits.dm.midi.non-spell`] = [new StringField(), -1]
-    specials[`system.traits.dm.midi.final`] = [new StringField(), -1];
+    for (let type of ["dm", "da", "di", "dv", "dr"]) {
+      specials[`system.traits.${type}.midi.all`] = [new StringField(), -1];
+      specials[`system.traits.${type}.midi.magical`] = [new StringField(), -1];
+      specials[`system.traits.${type}.midi.non-magical`] = [new StringField(), -1];
+      specials[`system.traits.${type}.midi.non-magical-physical`] = [new StringField(), -1];
+      specials[`system.traits.${type}.midi.non-silver-physical`] = [new StringField(), -1];
+      specials[`system.traits.${type}.midi.non-adamant-physical`] = [new StringField(), -1];
+      specials[`system.traits.${type}.midi.non-physical`] = [new StringField(), -1];
+      specials[`system.traits.${type}.midi.physical`] = [new StringField(), -1];
+      specials[`system.traits.${type}.midi.spell`] = [new StringField(), -1];
+      specials[`system.traits.${type}.midi.non-spell`] = [new StringField(), -1];
+    }
+
+    // specials[`system.traits.dm.midi.final`] = [new StringField(), -1];
     specials[`system.traits.idi.value`] = [new StringField(), -1];
     specials[`system.traits.idr.value`] = [new StringField(), -1];
     specials[`system.traits.idv.value`] = [new StringField(), -1];
@@ -242,7 +246,7 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
     fieldMappings[`flags.${MODULE_ID}.DR.non-spell`] = `system.traits.dm.midi.non-spell`;
     fieldMappings[`flags.${MODULE_ID}.DR.spell`] = `system.traits.dm.midi.spell`;
 
-    fieldMappings[`flags.${MODULE_ID}.DR.final`] = `system.traits.dm.midi.final`;
+    // fieldMappings[`flags.${MODULE_ID}.DR.final`] = `system.traits.dm.midi.final`;
     fieldMappings[`flags.${MODULE_ID}.concentrationSaveBonus`] = "system.attributes.concentration.bonuses.save";
   }
   fieldMappings[`flags.${MODULE_ID}.fail.critical.all`] = `flags.${MODULE_ID}.grants.noCritical.all`;
@@ -317,34 +321,38 @@ function addConfigOptions() {
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
     config.customDamageResistanceTypes = {
       "spell": i18n("midi-qol.SpellDamage"),
-      "not-spell": i18n("midi-qol.NonSpellDamage"),
-      "magic": i18n("midi-qol.Magical"),
-      "not-magic": i18n("midi-qol.NonMagical"),
+      "non-spell": i18n("midi-qol.NonSpellDamage"),
+      "magical": i18n("midi-qol.Magical"),
+      "non-magical": i18n("midi-qol.NonMagical"),
       "physical": i18n("midi-qol.Physical"),
-      "mon-magical-physical": i18n("midi-qol.NonMagicalPhysical"),
+      "non-magical-physical": i18n("midi-qol.NonMagicalPhysical"),
       "non-silver-physical": i18n("midi-qol.NonSilverPhysical"),
       "non-adamant-physical": i18n("midi-qol.NonAdamantinePhysical"),
     };
 
 
     config.damageResistanceTypes = config.damageResistanceTypes ?? {};
-    if (!configSettings.v3DamageApplication) {
-      config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
-      config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
-      config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
-    }
+    config.damageResistanceTypes["silver"] = i18n("midi-qol.NonSilverPhysical");
+    config.damageResistanceTypes["adamant"] = i18n("midi-qol.NonAdamantinePhysical");
+    config.damageResistanceTypes["physical"] = i18n("midi-qol.NonMagicalPhysical");
     config.damageResistanceTypes["spell"] = i18n("midi-qol.spell-damage");
     config.damageResistanceTypes["nonmagic"] = i18n("midi-qol.NonMagical");
     config.damageResistanceTypes["magic"] = i18n("midi-qol.Magical");
     config.damageResistanceTypes["healing"] = config.healingTypes?.healing?.label;
     config.damageResistanceTypes["temphp"] = config.healingTypes?.temphp?.label;
 
-    //@ts-expect-error
-    game.system.config.traits.di.configKey = "damageTypes";
-    //@ts-expect-error
-    game.system.config.traits.dr.configKey = "damageTypes";
-    //@ts-expect-error
-    game.system.config.traits.dv.configKey = "damageTypes";
+    config.traits.di.configKey = "damageTypes";
+    config.traits.dr.configKey = "damageTypes";
+    config.traits.dv.configKey = "damageTypes";
+    if (!config.traits.da && game.system.id === "dnd5e") {
+      config.traits.da = {
+        labels: {title: "Damage Absorption", localization: "midi-qol.DamageAbsorption"},
+        icon: "systems/dnd5e/icons/svg/damageresistances.svg",
+        configKey: "damageTypes"
+      }
+    } else if (config.traits.da) {
+      config.traits.da.configKey = "damageTypes"
+    }
     const dnd5eReaction = `${SystemString}.Reaction`;
     config.abilityActivationTypes["reactionpreattack"] = `${i18n(dnd5eReaction)} ${i18n("midi-qol.reactionPreAttack")}`;
     config.abilityActivationTypes["reactiondamage"] = `${i18n(dnd5eReaction)} ${i18n("midi-qol.reactionDamaged")}`;

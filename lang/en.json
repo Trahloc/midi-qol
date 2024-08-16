@@ -798,7 +798,7 @@
   "midi-qol.ShowFastForward.Hint": "Show Fast Forward indicator on attack and damage buttons",
   "midi-qol.MeasuredTemplate": "Template",
   "midi-qol.AutoRemoveTemplate.Name": "Auto remove placed template on spell expiry",
-  "midi-qol.AutoRemoveSummonedCreature.Name": "Auto remove summoned creatures on item expriy/concentration removal (for dnd5e summons items)",
+  "midi-qol.AutoRemoveSummonedCreature.Name": "Auto remove summoned creatures on item exriry/concentration removal (for dnd5e summons items)",
   "midi-qol.AttackPerTarget.Name": "Roll a separate attack per target",
   "midi-qol.SkillAbilityCheckAdvantage.Name": "Ability Check Advantage gives Skill Advantage",
   "midi-qol.SkillAbilityCheckAdvantage.Hint": "If an actor has advantage/disadvantage on ability checks, skills based on that ability also have advantage/disadvantage",
