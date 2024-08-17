@@ -307,16 +307,11 @@ export function setupv3DamageDetails(allDamages, selector, token: Token) {
   //@ts-expect-error
   const as = token.actor?.system;
   if (!as || !as.attributes.hp) return;
-  let effectiveTemp = as.attributes.hp.temp ?? 0;
-  if (temp < 0) {
-    // healing temp hp
-    effectiveTemp = Math.max(as.attributes.hp.temp ?? 0, -temp);
-  } else
-    effectiveTemp = Math.max(0, (as.attributes.hp.temp ?? 0) - temp);
+  let effectiveTemp = as.attributes.hp.temp ?? 0; // deicde if to add additional temp hp now or later.
   damages.tokenUuid = token.document.uuid;
   damages.tokenId = token.id;
   damages.oldHP = as.attributes.hp.value;
-  damages.newHP = as.attributes?.hp?.value;
+  damages.newHP = as.attributes.hp.value;
   damages.oldTempHP = as.attributes.hp.temp ?? 0;
   damages.newTempHP = as.attributes.hp.temp ?? 0;
   const deltaTemp = amount > 0 ? Math.min(effectiveTemp, amount) : 0;
@@ -324,7 +319,7 @@ export function setupv3DamageDetails(allDamages, selector, token: Token) {
   const deltaHP = Math.clamp(amount - deltaTemp, -as.attributes.hp.damage, as.attributes.hp.value);
   damages.newHP -= deltaHP;
   damages.hpDamage = deltaHP;
-  damages.newTemp = Math.max(0, effectiveTemp - deltaTemp);
+  damages.newTemp = Math.max(0, effectiveTemp - deltaTemp, temp);
   damages.tempDamage = damages.oldTempHP - damages.newTemp;
   damages.wasHit = damages.isHit;
   damages.appliedDamage = deltaHP;

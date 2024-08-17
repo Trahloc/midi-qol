@@ -442,14 +442,21 @@ async function registerTests() {
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
             await completeItemUse(actor.items.getName("MODTest"), {}, { advantage: true, workflowOptions }); // does 10 + 10 to undead
+            const effects2 = target2.actor.effects.contents.filter(ef => (ef.name) === "MODTest");
+            const effects3 = target3.actor.effects.contents.filter(ef => (ef.name) === "MODTest");
+            if (effects2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", effects2.map(ae => ae.id))
+            if (effects3.length) await target3.actor.deleteEmbeddedDocuments("ActiveEffect", effects3.map(ae => ae.id))
+            await busyWait(0.1);
             const condition2 = target2.actor.effects.contents.filter(ef => (ef.name) === "Frightened");
             const condition3 = target3.actor.effects.contents.filter(ef => (ef.name) === "Frightened");
             if (condition2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", condition2.map(ae => ae.id))
             if (condition3.length) await target3.actor.deleteEmbeddedDocuments("ActiveEffect", condition3.map(ae => ae.id))
             assert.equal(target2hp - 10, target2?.actor?.system.attributes.hp.value, "non undead takes 10 hp");
             assert.equal(target3hp - 40, target3?.actor?.system.attributes.hp.value, "undead takes 20 hp"); // 20hp + vulnerability
-            assert.equal(condition2.length, 0, "Frightened not applied to non undead");
-            assert.equal(condition3.length, 1, "Frightened applied to undead");
+            assert.equal(effects2.length, 0, "Frightened not applied to non undead");
+            assert.equal(effects3.length, 1, "Frightened applied to undead");
+            assert.equal(condition2.length, 0, "Frightened not removed from non undead");
+            assert.equal(condition3.length, 0, "Frightened not removed from undead");
           });
           it("applies condition/other damage - no activation", async function () {
             await resetActors();
@@ -460,14 +467,21 @@ async function registerTests() {
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
             await completeItemUse(actor.items.getName("MODTestNoActivation"), {}, { workflowOptions }); // does 10 + 10 to undead
+            const effects2 = target2.actor.effects.contents.filter(ef => (ef.name) === "MODTestNoActivation");
+            const effects3 = target3.actor.effects.contents.filter(ef => (ef.name) === "MODTestNoActivation");
+            if (effects2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", effects2.map(ae => ae.id))
+            if (effects3.length) await target3.actor.deleteEmbeddedDocuments("ActiveEffect", effects3.map(ae => ae.id))
+            await busyWait(0.1);
             const condition2 = target2.actor.effects.contents.filter(ef => (ef.name) === "Frightened");
             const condition3 = target3.actor.effects.contents.filter(ef => (ef.name) === "Frightened");
             if (condition2.length) await target2.actor.deleteEmbeddedDocuments("ActiveEffect", condition2.map(ae => ae.id))
             if (condition3.length) await target3.actor.deleteEmbeddedDocuments("ActiveEffect", condition3.map(ae => ae.id))
             assert.equal(target2hp - 20, target2?.actor?.system.attributes.hp.value, "non undead takes 10 hp");
             assert.equal(target3hp - 40, target3?.actor?.system.attributes.hp.value, "undead takes 20 hp"); // 20hp + vulnerability
-            assert.equal(condition2.length, 1, "Frghtened applied to non undead");
-            assert.equal(condition3.length, 1, "Frightened applied to undead");
+            assert.equal(effects2.length, 1, "Frightened not applied to non undead");
+            assert.equal(effects3.length, 1, "Frightened applied to undead");
+            assert.equal(condition2.length, 0, "Frghtened applied to non undead");
+            assert.equal(condition3.length, 0, "Frightened applied to undead");
           });
         });
         describe("Macro Roll Tests", async function () {

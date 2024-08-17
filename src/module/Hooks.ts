@@ -960,12 +960,10 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
     }
 
     const totalDamage = damages.reduce((a, b) => {
-      if (options.invertHealing !== false && b.type === "temphp") {
-        b.multiplier = (b.multiplier ?? 1) * -1;
-        b.value = b.value * -1;
-      }
-      if (b.type === "midi-none") b.value = 0;
-      return a + (["temphp", "midi-none"].includes(b.type) ? 0 : b.value)
+      let value = b.value;
+      if (options.invertHealing !== false && b.type === "healing") value = b.value * -1;
+      if (b.type === "midi-none") value = 0;
+      return a + (["temphp", "midi-none"].includes(b.type) ? 0 : value)
     }
       , 0);
     foundry.utils.setProperty(options, "midi.totalDamage", totalDamage);

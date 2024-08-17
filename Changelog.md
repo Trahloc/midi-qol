@@ -4,6 +4,9 @@
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
 
+### 11.6.2
+* Fix for temp hp calculation and dnd5e damage apply buttons
+
 ### 11.6.1
 Some bug fixes:
 * Fix for optional conditions with numeric value and non-custom settings - thanks @michael
