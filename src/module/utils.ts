@@ -1775,7 +1775,6 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
       closestPoint = foundry.utils.closestPointToSegment(t1.center, w.object.edge.a, w.object.edge.b);
     }
     distance = midiMeasureDistances([{ ray: new Ray(t1.center, closestPoint) }], { gridSpaces: true });
-
     if (configSettings.optionalRules.distanceIncludesHeight) {
       if (!w.flags?.["wall-height"]) heightDifference = 0;
       else {
@@ -1957,6 +1956,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       }
       // check the range
       const distance = getDistance(token, target, configSettings.optionalRules.wallsBlockRange && !foundry.utils.getProperty(item, "flags.midiProperties.ignoreTotalCover"));
+      console.error("returned distance is ", distance)
 
       if ((longRange !== 0 && distance > longRange) || (distance > range && longRange === 0)) {
         log(`${target.name} is too far ${distance} from your character you cannot hit`)
@@ -4127,7 +4127,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
       AsyncFunction = (async function () { }).constructor;
     const evl = AsyncFunction("sandbox", src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat});
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -5653,38 +5653,67 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
   //@ts-expect-error
   if (game.release.generation > 11) {
     let isGridless = canvas?.grid?.constructor.name === "GridlessGrid";
-    const oldMeasurePath = canvas?.grid?.constructor.prototype._measurePath;
-    //@ts-expect-error
-    const oldDiagonals = canvas?.grid?.diagonals;
-    const oldGetOffset = canvas?.grid?.constructor.prototype.getOffset;
-    let distances;
-    if (isGridless && options.gridSpaces && configSettings.griddedGridless && canvas?.grid) {
+    if (!isGridless || !options.gridSpaces || !configSettings.griddedGridless || !canvas?.grid) {
       //@ts-expect-error
-      canvas.grid.constructor.prototype._measurePath = foundry.grid.SquareGrid.prototype._measurePath;
-      //@ts-expect-error
-      canvas.grid.constructor.prototype.getOffset = foundry.grid.SquareGrid.prototype.getOffset;
-      //@ts-expect-error
-      canvas.grid.diagonals = safeGetGameSetting("core", "gridDiagonals");
+      return segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B])).map(d => d.distance);;
     }
-    try {
-      //@ts-expect-error
-      distances = segments.map(s => canvas?.grid?.measurePath([s.ray.A, s.ray.B]))
-    }
-    catch (err) {
-      throw (err);
-    } finally {
-      if (canvas?.grid) {
-        if (oldMeasurePath) canvas.grid.constructor.prototype._measurePath = oldMeasurePath;
+    if (!canvas?.grid) return 0;
+    const diagonals = safeGetGameSetting("core", "gridDiagonals");
+    const canvasGridProxy = new Proxy(canvas.grid, {
+      get: function (target, prop, receiver) {
         //@ts-expect-error
-        if (oldDiagonals) canvas.grid.diagonals = oldDiagonals;
-        if (oldGetOffset) canvas.grid.constructor.prototype.getOffset = oldGetOffset
+        if (foundry.grid.SquareGrid.prototype[prop] instanceof Function) {
+          //@ts-expect-error
+          return foundry.grid.SquareGrid.prototype[prop].bind(canvasGridProxy);
+        } else if (prop === "diagonals") {
+          return diagonals;
+        } else if (prop === "isSquare") return true;
+        else if (prop === "isGridless") return false;
+        else if (prop === "isHex") return false;
+        return Reflect.get(target, prop);
       }
+    });
+    //@ts-expect-error
+    const GridDiagonals = CONST.GRID_DIAGONALS;
+    // First snap the poins to the nearest center point for equidistant/1,2,1/2,1,2
+    // I expected this would happen automatically in the proxy call - but didn't and not sure why.
+    if ([GridDiagonals.APPROXIMATE, GridDiagonals.EQUIDISTANT, GridDiagonals.ALTERNATING_1, GridDiagonals.ALTERNATING_2].includes(diagonals)) {
+      segments = segments.map(s => {
+        const gridPosA = canvasGridProxy.getOffset(s.ray.A);
+        const aCenter = canvasGridProxy.getCenterPoint(gridPosA);
+        const gridPosB = canvasGridProxy.getOffset(s.ray.B);
+        const bCenter = canvasGridProxy.getCenterPoint(gridPosB);
+        return { ray: new Ray(aCenter, bCenter) };
+      });
     }
-    if (options.gridSpaces ) {
-      //@ts-expect-error
-      return distances.map(d => d.spaces === 0 ? d.distance : d.spaces * canvas?.grid.distance);
-    }
-    return distances = distances.map(d => d.distance);
+    //@ ts-expect-error
+    let distances = segments.map(s => canvasGridProxy.measurePath([s.ray.A, s.ray.B]));
+    console.error(distances);
+    return distances = distances.map(d => {
+      let distance = d.distance;
+      let fudgeFactor = configSettings.gridlessFudge ?? 0;
+      switch (diagonals) {
+        case GridDiagonals.EQUIDISTANT:
+        case GridDiagonals.ALTERNATING_1:
+        case GridDiagonals.ALTERNATING_2:
+          // already fudged by snapping so no extra adjustment
+          break;
+          case GridDiagonals.EXACT:
+          case GridDiagonals.RECTILINEAR:
+            if (d.diagonals > 0)
+              distance = d.distance - (Math.SQRT2 * fudgeFactor);
+            else distance = d.distance - fudgeFactor;
+            break;
+        case GridDiagonals.APPROXIMATE:
+          if (d.diagonals > 0)
+            distance = d.distance - fudgeFactor;
+          break;
+        case GridDiagonals.ILLEGAL:
+          default:
+            distance = d.distance;
+      }
+      return distance;
+    });
   } else {
     let isGridless;
     isGridless = canvas?.grid?.grid?.constructor.name === "BaseGrid";
