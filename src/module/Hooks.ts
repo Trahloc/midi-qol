@@ -1206,9 +1206,26 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
   }
   return true;
 });
+function recalculateDamage (actor, amount, updates, options) {
+  const hpMax = Math.floor(actor?.system?.attributes?.hp?.max ?? 0);
+  const hpTemp = updates["system.attributes.hp.temp"] ?? 0;
+  const startHP = actor?.system?.attributes?.hp?.value ?? 0;
+  const updatedHP = updates["system.attributes.hp.value"] ?? startHP;
+  // How much damage was applied to the actor's hp - after temp hp was applied
+  const appliedDamage = Math.max(0, startHP - (updates["system.attributes.hp.value"] ?? startHP)); 
+  // how much temp damage appled to the new hpTemp value
+  const newAppliedTemp = Math.min(hpTemp, appliedDamage, hpMax - updatedHP);
+  const newHpTemp = hpTemp - newAppliedTemp;
+  const newHpValue = Math.max(0, updatedHP + newAppliedTemp);
+
+  updates['system.attributes.hp.temp'] = newHpTemp
+  updates['system.attributes.hp.value'] = newHpValue
+}
 
 Hooks.on("dnd5e.preApplyDamage", (actor, amount, updates, options) => {
   if (!configSettings.v3DamageApplication) return true;
+  if (updates["system.attributes.hp.temp"]) updates["system.attributes.hp.temp"] = Math.floor(updates["system.attributes.hp.temp"]);
+  recalculateDamage(actor, amount, updates, options);
   const vitalityResource = checkRule("vitalityResource");
   if (foundry.utils.getProperty(updates, "system.attributes.hp.value") === 0 && typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource) !== undefined) {
     // actor is reduced to zero so update vitaility resource

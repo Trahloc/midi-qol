@@ -758,7 +758,7 @@ async function prepareDamageListItems(data: {
   let promises: Promise<any>[] = [];
 
   for (let damageItem of damageList) {
-    let { tokenId, tokenUuid, actorId, actorUuid, oldHP, oldTempHP, tempDamage, hpDamage, vitalityDamage, totalDamage, appliedDamage, sceneId, oldVitality, newVitality, wasHit } = damageItem;
+    let { tokenId, tokenUuid, actorId, actorUuid, oldHP, oldTempHP, tempDamage, newTempHP, hpDamage, vitalityDamage, totalDamage, appliedDamage, sceneId, oldVitality, newVitality, wasHit } = damageItem;
     if (doHits && !wasHit) continue;
     if (!doHits && wasHit) continue;
     let tokenDocument;
@@ -776,7 +776,7 @@ async function prepareDamageListItems(data: {
     }
     if (!showNPC && !actor.hasPlayerOwner) continue;
     let newHP = Math.max(0, oldHP - hpDamage);
-    let newTempHP = Math.max(0, oldTempHP - tempDamage);
+    // let newTempHP = Math.max(0, oldTempHP - tempDamage);
     if (createPromises && doHits && (["yes", "yesCard", "yesCardNPC", "yesCardMisses"].includes(data.autoApplyDamage) || data.forceApply)) {
       if ((hpDamage || tempDamage || newVitality !== oldVitality) && (data.autoApplyDamage !== "yesCardNPC" || actor.type !== "character")) {
         const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem }, data.updateContext ?? {}, { inplace: false });
@@ -790,7 +790,7 @@ async function prepareDamageListItems(data: {
           }
           updateContext.damageItem = damageItem;
           updates["flags.dae.damageApplied"] = hpDamage + tempDamage + (vitalityDamage ?? 0);
-          if (Hooks.call("dnd5e.preApplyDamage", actor, hpDamage /*+ tempDamage */ + (vitalityDamage ?? 0), updates, updateContext))
+          if (Hooks.call("dnd5e.preApplyDamage", actor, hpDamage + tempDamage + (vitalityDamage ?? 0), updates, updateContext))
             promises.push(actor.update(updates, updateContext));
         }
       }
@@ -996,29 +996,6 @@ async function createGMReverseDamageCard(
   return chatCardUuid;
 }
 
-async function doClick(event: { stopPropagation: () => void; }, actorUuid: any, totalDamage: any, mult: any, data: any) {
-  let actor = fromActorUuid(actorUuid);
-  log(`Applying ${totalDamage} mult ${mult} HP to ${actor.name}`);
-  await actor.applyDamage(totalDamage, foundry.utils.mergeObject({ multiplier: mult, ignore: true }, data.updateContext));
-  event.stopPropagation();
-}
-
-async function doMidiClick(ev: any, actorUuid: any, newTempHP: any, newHP: any, newVitality: number, mult: number, data: any) {
-  let actor = fromActorUuid(actorUuid);
-  log(`Setting HP to ${newTempHP} and ${newHP}`);
-  let updateContext = foundry.utils.mergeObject({ dhp: (newHP - actor.system.attributes.hp.value) }, data.updateContext);
-  if (actor.isOwner) {
-    const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-    const vitalityResource = checkRule("vitalityResource");
-    if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
-      update[vitalityResource.trim()] = newVitality;
-      const vitality = foundry.utils.getProperty(actor, vitalityResource.trim()) ?? 0;
-      updateContext["dvital"] = newVitality - vitality;
-    }
-    await actor?.update(update, updateContext);
-  }
-}
-
 export let processUndoDamageCard = (message, html, data) => {
   if (!message.flags?.midiqol?.undoDamage) return true;
   let button = html.find("#all-reverse");
@@ -1061,14 +1038,7 @@ export let processUndoDamageCard = (message, html, data) => {
         reverseButton.children()[0].classList.remove("midi-qol-disable-damage-button");
         reverseButton.children()[0].classList.add("midi-qol-enable-damage-button");
         log(`Setting HP to ${newTempHP} and ${newHP}`);
-        const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem }, { inplace: false });
-        const vitalityResource = checkRule("vitalityResource");
-        if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
-          update[vitalityResource.trim()] = newVitality;
-          context["dvital"] = oldVitality - newVitality;
-        }
-        if (actor.isOwner) await actor.update(update, context);
+        if (actor.isOwner) await actor.applyDamage(damageItem.damageDetail, { multiplier: 1, ignore: false });
         ev.stopPropagation();
       }
     })();
@@ -1116,34 +1086,13 @@ export let processUndoDamageCard = (message, html, data) => {
         log(`Setting HP to ${newTempHP} and ${newHP}`, data.updateContext);
         if (mults[multiplierString]) {
           multiplier = mults[multiplierString]
-          await actor.applyDamage(totalDamage, { multiplier, ignore: true });
+          await actor.applyDamage(damageItem.damageDetail, { multiplier, ignore: false });
         } else {
-          const update = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
-          const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: newHP - actor.system.attributes.hp.value, damageItem }, { inplace: false });
-          const vitalityResource = checkRule("vitalityResource");
-          if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
-            update[vitalityResource.trim()] = newVitality;
-            context["dvital"] = oldVitality - newVitality;
-          }
-          if (actor.isOwner) await actor.update(update, context);
+          if (actor.isOwner) await actor.applyDamage(damageItem.damageDetail, { multiplier: 1, ignore: false });
         }
         ev.stopPropagation();
       })();
     });
-    /* I don't think this is a good idea - damage application should be triggered by the tick
-        let select = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`);
-        select.change((ev: any) => {
-          let multiplier = html.find(`#dmg-multiplier-${actorUuid.replaceAll(".", "")}`).val();
-          button = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
-          const mults = { "-1": -1, "x1": 1, "x0.25": 0.25, "x0.5": 0.5, "x2": 2 };
-          if (multiplier === "calc")
-            // button.click(async (ev: any) => await doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data));
-            doMidiClick(ev, actorUuid, newTempHP, newHP, newVitality, 1, data);
-          else if (mults[multiplier])
-            // button.click(async (ev: any) => await doClick(ev, actorUuid, totalDamage, mults[multiplier], data));
-            doClick(ev, actorUuid, totalDamage, mults[multiplier], data);
-        });
-        */
   })
 
   return true;

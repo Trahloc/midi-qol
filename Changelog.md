@@ -1,16 +1,18 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 
 * 12.0.0 
- - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
- - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
+ - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
 ### 11.6.3
-* I've rewritten gridless handling in midi-qol. The fudge factor has returned (form some settings) and is an amount midi reduces the evaluated distance by so that tokens can still hit when "near" to a target without using a micrometer to make sure they are next to the token.
+* I've rewritten gridless handling in midi-qol. The fudge factor has returned (for some settings) and is an amount midi reduces the evaluated distance by so that tokens can still hit when "near" to a target without using a micrometer to make sure they are next to the token.
   - For EQUIDISTANT(1), APPROXIMATE (1.5), ALTERNATING_1 (1/2/1) and ALTERNATING_2 (2/1/2) the attacking and target token are snapped to the nearest grid position and then the distance is measured using the square grid measurement.
-    - For APPROXIMATE **only** the fudge factor is subtracted from the returned distance if there is at least one diagonal in the distance measure.
+    - For APPROXIMATE **only** the fudge factor is subtracted from the returned distance if there is at least one diagonal in the distance measure, since otherwise you can't hit from a diagonal corner.
 - For EXACT(1) and RECTILINEAR the tokens are **not** snapped to the nearest grid position.
     - For EXACT if there is a diagonal in the measurement Math.SQRT2 * fudgeFactor is subtracted from the measured distance, otherwise fudgeFactor is subtracted from the measured distance.
     - For RECTILINEAR if there is a diagonal in the measurement than 2 * fudgeFactor is subtracted from the measured distance, other wise fudgeFactor is subtracted.
+
+* Another change to damage handling. Midi follows the dn5e mechanism of applying tempHP **after** damage calculation. So if an attack does 20 hp damage and 15 points of temphp healing, 20 points of damage is applied and then 15 points of temp healing is applied.
+* Midi now calls (and use the results of) dnd5e.preDamageApplication.
 
 ### 11.6.2
 * Fix for temp hp calculation and dnd5e damage apply buttons

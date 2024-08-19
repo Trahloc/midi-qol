@@ -319,8 +319,8 @@ export function setupv3DamageDetails(allDamages, selector, token: Token) {
   const deltaHP = Math.clamp(amount - deltaTemp, -as.attributes.hp.damage, as.attributes.hp.value);
   damages.newHP -= deltaHP;
   damages.hpDamage = deltaHP;
-  damages.newTemp = Math.max(0, effectiveTemp - deltaTemp, temp);
-  damages.tempDamage = damages.oldTempHP - damages.newTemp;
+  damages.newTempHP = Math.floor(Math.max(0, effectiveTemp - deltaTemp, temp));
+  damages.tempDamage = deltaTemp;
   damages.wasHit = damages.isHit;
   damages.appliedDamage = deltaHP;
   damages.details = [];
@@ -1956,7 +1956,6 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       }
       // check the range
       const distance = getDistance(token, target, configSettings.optionalRules.wallsBlockRange && !foundry.utils.getProperty(item, "flags.midiProperties.ignoreTotalCover"));
-      console.error("returned distance is ", distance)
 
       if ((longRange !== 0 && distance > longRange) || (distance > range && longRange === 0)) {
         log(`${target.name} is too far ${distance} from your character you cannot hit`)
