@@ -165,7 +165,7 @@
   "midi-qol.WorkflowSettings": "Configurações de Fluxo",
   "midi-qol.CheckSaveText.Name": "Procurar Descrição",
   "midi-qol.CheckSaveText.Hint": "Procura descrições no item para salvaguardas do tipo 'metade do dano' e se estiver presente, a magia causa metade do dano em salvaguardas. Se desativado, Midi QOL assumirá que salvaguardas causam o modificador de dano padrão.",
-  "midi-qol.Save": "Configurações de Salvaguarda",
+  "midi-qol.Save": "Salvar Configurações",
   "midi-qol.saving-throws": "Salvaguardas",
   "midi-qol.saving-throw": "Salvaguarda",
   "midi-qol.ability-check": "Teste de Atributo",
