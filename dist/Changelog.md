@@ -2,6 +2,20 @@
 
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
+### 11.6.4
+* Changes to dependent handling to remove a race condition when deleting dependents.
+* Fix for the midi-qol.preTargeting hook not aborting the workflow.
+* Added createDamageDetail to globalThis.MidiQOL.
+
+* More changes to damage application - targeted at macro writes.
+  - added createDamageDetail to MidiQOL global.
+  - Midi now calls dnd5e.preApplyDamage with values that match what dnd5e does - should resolve the problem with Custom 5e.
+  - Eventually midi will move to only processing dnd5e damages when applying damage. This is only relevant to macro writers that change the amount of damage done.
+    - With this release midi will still process changes performed by update ditem.hpDamage. If that does not match the damage from ditem.damageDetail (which is the rolled damage after immunity/modification is applied) midi will report an error, but use ditem.hpDamage
+    - There is a new config setting (settable by program/hand only) configSettings.useDamageDetail (defaults to false) that when true will only accept the damage in ditem.damageDetail and still report discrepancies. Useful for macro writers to check if there are any changes needed.
+    - As well as ditem.damageDetail there is ditem.rawDamageDetail which is the damage rolled before immunities/damage modification was applied.
+    - some fields names in workflow.damageList have changed.
+    - workflow now supports workflow.damageDetail and workflow.rawDamageDetail etc. Where damageDetail is updated after the damage is calculated against the actor, rawDamageDetail is always the rolled damage.
 
 ### 11.6.3
 * I've rewritten gridless handling in midi-qol. The fudge factor has returned (for some settings) and is an amount midi reduces the evaluated distance by so that tokens can still hit when "near" to a target without using a micrometer to make sure they are next to the token.

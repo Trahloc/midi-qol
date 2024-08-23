@@ -1334,7 +1334,7 @@ export function readyPatching() {
     for (let classString of classStrings) {
       const docClass = eval(classString)
       if (!docClass) continue;
-      if (!docClass.prototype.addDependent) libWrapper.register(MODULE_ID, `${classString}.prototype._onDelete`, _onDelete, "WRAPPER");
+      if (!docClass.prototype.addDependent) libWrapper.register(MODULE_ID, `${classString}.prototype._onDelete`, _onDeleteGeneric, "WRAPPER");
       if (!docClass.prototype.addDependent) docClass.prototype.addDependent = addDependent;
       if (!docClass.prototype.getDependents) docClass.prototype.getDependents = getDependents;
       if (!docClass.prototype.setDependents) docClass.prototype.setDependents = setDependents;
@@ -1342,7 +1342,7 @@ export function readyPatching() {
       if (!docClass.prototype.clearDependents) docClass.prototype.clearDependents = clearDependents;
       if (!docClass.prototype.deleteAllDependents) docClass.prototype.deleteAllDependents = deleteAllDependents;
     }
-
+    libWrapper.register(MODULE_ID, "CONFIG.ActiveEffect.documentClass.prototype._onDelete", _onDeleteActiveEffect, "WRAPPER");
   }
 }
 
@@ -1356,17 +1356,20 @@ function setDependents(dependents) {
   const id = game.system.id ?? MODULE_ID;
   return this.setFlag(id, "dependents", dependents);
 }
-function clearDependents() {
+async function clearDependents() {
   const id = game.system.id ?? MODULE_ID;
-  return this.unsetFlag(id, "dependents");
+  if (!this.getFlag(id, "dependents")) return;
+  return await this.unsetFlag(id, "dependents");
 }
 
 async function deleteAllDependents() {
   if (!game.user?.isGM) return;
-  for (let dep of this.getDependents()) {
+  const dependents = this.getDependents();
+  await this.clearDependents();
+  for (let dep of dependents) {
     await dep.delete();
   }
-  return this.clearDependents();
+  return
 }
 
 async function addDependents(...dependents) {
@@ -1398,10 +1401,29 @@ function _getDependents() {
   }, []);
 }
 
-async function _onDelete(wrapped, options, userId) {
-  wrapped(options, userId);
+async function _onDeleteGeneric(wrapped, options, userId) {
   //@ts-expect-error
-  if (game.user === game.users?.activeGM) this.getDependents().forEach(d => d.delete());
+  if (game.user === game.users?.activeGM) {
+    for (let dependent of this.getDependents())
+      await dependent.delete();
+  }
+  await this.clearDependents();
+  return wrapped(options, userId);
+}
+
+async function _onDeleteActiveEffect(wrapped, ...args) {
+  let [options, userId] = args;
+  const dependents = this.getDependents();
+  if (dependents.length > 0) {
+    for (let dep of dependents) {
+      //@ts-expect-error
+      if (fromUuidSync(dep.uuid))
+        await dep.delete();
+    }
+    // Since the effect has already been deleted we can't do any updates to it.
+    foundry.utils.setProperty(this, "flags.dnd5e.dependents", [])
+  }
+  return await wrapped(options, userId);
 }
 
 function createConcentrationEffectData(wrapped, item, data: any = {}) {

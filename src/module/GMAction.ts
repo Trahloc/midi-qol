@@ -758,7 +758,7 @@ async function prepareDamageListItems(data: {
   let promises: Promise<any>[] = [];
 
   for (let damageItem of damageList) {
-    let { tokenId, tokenUuid, actorId, actorUuid, oldHP, oldTempHP, tempDamage, newTempHP, hpDamage, vitalityDamage, totalDamage, appliedDamage, sceneId, oldVitality, newVitality, wasHit } = damageItem;
+    let { tokenId, tokenUuid, actorId, actorUuid, oldHP, oldTempHP, oldVitality, newHP, newTempHP, newVitality, hpDamage, tempDamage, vitalityDamage, totalDamage, sceneId, wasHit } = damageItem;
     if (doHits && !wasHit) continue;
     if (!doHits && wasHit) continue;
     let tokenDocument;
@@ -774,28 +774,58 @@ async function prepareDamageListItems(data: {
       if (debugEnabled > 0) warn(`GMAction: reverse damage card could not find actor to update HP tokenUuid ${tokenUuid} actorUuid ${actorUuid}`);
       continue;
     }
+    const applyDamage = (["yes", "yesCard", "yesCardNPC", "yesCardMisses"].includes(data.autoApplyDamage) || data.forceApply);
     if (!showNPC && !actor.hasPlayerOwner) continue;
-    let newHP = Math.max(0, oldHP - hpDamage);
     // let newTempHP = Math.max(0, oldTempHP - tempDamage);
-    if (createPromises && doHits && (["yes", "yesCard", "yesCardNPC", "yesCardMisses"].includes(data.autoApplyDamage) || data.forceApply)) {
+    if (createPromises && doHits && applyDamage) {
       if ((hpDamage || tempDamage || newVitality !== oldVitality) && (data.autoApplyDamage !== "yesCardNPC" || actor.type !== "character")) {
-        const updateContext = foundry.utils.mergeObject({ dhp: -appliedDamage, damageItem }, data.updateContext ?? {}, { inplace: false });
         if (actor.isOwner) {
-          const updates = { "system.attributes.hp.temp": newTempHP, "system.attributes.hp.value": newHP };
+          // const hpDamage = damageItem.damageDetail.reduce((acc, di) => acc + (di.type !== "temphp" ? di.value : 0), 0);
+          const hp = actor.system.attributes.hp;
+          let { amount, temp } = damageItem.damageDetail.reduce((acc, d) => {
+            if ( d.type === "temphp" ) acc.temp += d.value;
+            else acc.amount += d.value;
+            return acc;
+          }, { amount: 0, temp: 0 });
+          totalDamage = damageItem.rawDamageDetail.reduce((acc, d) => acc + d.type !== "temphp" ? d.value : 0, 0);
+          amount = amount > 0 ? Math.floor(amount) : Math.ceil(amount);
+          if (amount !== hpDamage) {
+            error(`amount ${amount} !== hpDamage ${hpDamage}`);
+            if (!configSettings.useDamageDetail) amount = hpDamage;
+          }
+          let deltaTemp = amount > 0 ? Math.min(hp.temp, amount) : 0;
+          if (deltaTemp !== tempDamage) {
+            error(`deltaTemp ${tempDamage} !==  ${deltaTemp}`);
+            if (!configSettings.useDamageDetail) deltaTemp = tempDamage;
+          }
+
+          //@ts-expect-error
+          let deltaHP = Math.clamp(amount - deltaTemp, -hp.damage, hp.value);
+          const updates = {
+            "system.attributes.hp.temp": hp.temp - deltaTemp,
+            "system.attributes.hp.value": hp.value - deltaHP
+          };
+      
+          if ( temp > updates["system.attributes.hp.temp"] ) updates["system.attributes.hp.temp"] = temp;
+          damageItem.newTempHP = updates["system.attributes.hp.temp"];
+          damageItem.newHP = updates["system.attributes.hp.value"];
+          damageItem.hpDamage = deltaHP;
+          damageItem.tempDamage = deltaTemp;
+
           if (oldVitality !== newVitality) {
             vitalityDamage = oldVitality - newVitality;
             const vitalityResource = checkRule("vitalityResource");
             if (typeof vitalityResource === "string")
               updates[vitalityResource.trim()] = newVitality;
           }
-          updateContext.damageItem = damageItem;
-          updates["flags.dae.damageApplied"] = hpDamage + tempDamage + (vitalityDamage ?? 0);
-          if (Hooks.call("dnd5e.preApplyDamage", actor, hpDamage + tempDamage + (vitalityDamage ?? 0), updates, updateContext))
+          const updateContext = { dhp: -deltaHP, damageDetail: damageItem.rawDamageDetail, calcOptions: damageItem.calcDamageOptions };
+          if (Hooks.call("dnd5e.preApplyDamage", actor, amount, updates, updateContext)) {
             promises.push(actor.update(updates, updateContext));
+          }
         }
       }
     }
-    tokenIdList.push({ tokenId, tokenUuid, actorUuid, actorId, oldTempHP: oldTempHP, oldHP, totalDamage: Math.abs(totalDamage), newHP, newTempHP, damageItem, oldVitality, newVitality, updateContext: data.updateContext });
+    tokenIdList.push({ tokenId, tokenUuid, actorUuid, actorId, oldTempHP: oldTempHP, oldHP, totalDamage: Math.abs(totalDamage), newHP, newTempHP, damageDetail: damageItem.rawDamageDetail, oldVitality, newVitality, calcOptions: damageItem.calcDamageOptions, updateContext: data.updateContext });
 
     let img = tokenDocument?.texture.src || actor.img;
     if (configSettings.usePlayerPortrait && actor.type === "character")
@@ -819,11 +849,10 @@ async function prepareDamageListItems(data: {
       totalDamage: Math.abs(totalDamage),
       halfDamage: Math.abs(Math.floor(totalDamage / 2)),
       doubleDamage: Math.abs(totalDamage * 2),
-      appliedDamage,
       playerViewTotalDamage: hpDamage + tempDamage,
-      absDamage: Math.abs(appliedDamage),
+      absDamage: Math.abs(hpDamage),
       tokenName: (tokenDocument?.name && configSettings.useTokenNames) ? tokenDocument.name : actor.name,
-      dmgSign: appliedDamage < 0 ? "+" : "-", // negative damage is added to hit points
+      dmgSign: hpDamage < 0 ? "+" : "-",
       newHP,
       newTempHP,
       oldTempHP,
@@ -834,50 +863,29 @@ async function prepareDamageListItems(data: {
       iconPrefix: (data.autoApplyDamage === "yesCardNPC" && actor.type === "character") ? "*" : "",
       updateContext: data.updateContext,
     };
-    if (configSettings.v3DamageApplication) {
-      const tooltipList = damageItem.damageDetail?.map(di => {
-        let allMods: string[] = Object.keys(di.active ?? {}).reduce((acc: string[], k) => {
-          if (["saved", "semiSuperSaver", "superSaver"].includes(k)) return acc;
-          if (di.active[k] && k !== "multiplier") acc.push(k);
-          return acc;
-        }, []);
+    const tooltipList = damageItem.damageDetail?.map(di => {
+      let allMods: string[] = Object.keys(di.active ?? {}).reduce((acc: string[], k) => {
+        if (["saved", "semiSuperSaver", "superSaver"].includes(k)) return acc;
+        if (di.active[k] && k !== "multiplier") acc.push(k);
+        return acc;
+      }, []);
       if (di.allActives?.length > 0) allMods = allMods.concat(di.allActives);
       let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
-        return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{ ...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes }[di.type === "" ? "none" : di.type]?.label ?? "none"} ${mods}`
-      });
-      const toolTipHeader: string[] = [];
-      if (damageItem.damageDetail) {
-        if (newHP !== oldHP) toolTipHeader.push(`HP: ${oldHP} -> ${newHP}`);
-        if ((newTempHP ?? 0) !== (oldTempHP ?? 0)) toolTipHeader.push(`TempHP: ${oldTempHP} -> ${newTempHP}`);
-        if ((newVitality ?? 0) !== (oldVitality ?? 0)) toolTipHeader.push(`Vitality: ${oldVitality} -> ${newVitality}`);
-        if (damageItem.superSaver) toolTipHeader.push("Super Saved");
-        else if (damageItem.semiSuperSaver) toolTipHeader.push("Semi Super Saved");
-        else if (damageItem.saved) toolTipHeader.push("Saved");
-        if (damageItem.uncannyDodge) toolTipHeader.push("Uncanny Dodge");
-        if (damageItem.details?.length > 0) toolTipHeader.push(...damageItem.details);
-      }
-      listItem.tooltip = [...(toolTipHeader ?? []), ...(tooltipList ?? [])].join("<br>");
-    } else {
-      ["di", "dv", "dr"].forEach(trait => {
-        const traits = actor?.system.traits[trait]
-        if (traits.value instanceof Array && (traits?.custom || traits?.value.length > 0)) {
-          //@ts-expect-error CONFIG.DND5E
-          listItem[trait] = (`${traitList[trait]}: ${traits.value.map(t => CONFIG.DND5E.damageResistanceTypes[t]).join(",").concat(" " + traits?.custom)}`);
-        } else if (traits.value instanceof Set && (traits?.custom || traits?.value.size > 0)) {
-          const tl = traits.value.reduce((acc, v) => { acc.push(v); return acc }, [])
-          listItem[trait] = (`${traitList[trait]}: ${tl.join(",").concat(" " + traits?.custom)}`);
-        }
-      });
-      //@ts-ignore
-      const actorFlags: any = actor.flags;
-      const DRFlags = actorFlags[MODULE_ID] ? actorFlags[MODULE_ID].DR : undefined;
-      if (DRFlags) {
-        listItem["DR"] = "DR: ";
-        for (let key of Object.keys(DRFlags)) {
-          listItem["DR"] += `${key}:${DRFlags[key]} `;
-        }
-      }
+      return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{ ...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes }[di.type === "" ? "none" : di.type]?.label ?? "none"} ${mods}`
+    });
+    const toolTipHeader: string[] = [];
+    if (damageItem.damageDetail) {
+      if (newHP !== oldHP) toolTipHeader.push(`HP: ${oldHP} -> ${newHP}`);
+      if ((newTempHP ?? 0) !== (oldTempHP ?? 0)) toolTipHeader.push(`TempHP: ${oldTempHP} -> ${newTempHP}`);
+      if ((newVitality ?? 0) !== (oldVitality ?? 0)) toolTipHeader.push(`Vitality: ${oldVitality} -> ${newVitality}`);
+      if (damageItem.superSaver) toolTipHeader.push("Super Saved");
+      else if (damageItem.semiSuperSaver) toolTipHeader.push("Semi Super Saved");
+      else if (damageItem.saved) toolTipHeader.push("Saved");
+      if (damageItem.uncannyDodge) toolTipHeader.push("Uncanny Dodge");
+      if (damageItem.details?.length > 0) toolTipHeader.push(...damageItem.details);
     }
+    listItem.tooltip = [...(toolTipHeader ?? []), ...(tooltipList ?? [])].join("<br>");
+
     //@ts-ignore listItem
     templateData.damageList.push(listItem);
   }
@@ -892,7 +900,7 @@ async function createPlayerDamageCard(data: { damageList: any; autoApplyDamage: 
   if (configSettings.playerCardDamageDifferent) {
     shouldShow = false;
     for (let damageItem of data.damageList) {
-      if (damageItem.totalDamage !== damageItem.appliedDamage) shouldShow = true;
+      if (damageItem.totalDamage !== damageItem.hpDamage) shouldShow = true;
     }
   }
   if (!shouldShow) return;
@@ -901,7 +909,7 @@ async function createPlayerDamageCard(data: { damageList: any; autoApplyDamage: 
   let playerButtons = ["playerbuttons", "npcplayerbuttons"].includes(configSettings.playerDamageCard);
   const damageList = data.damageList;
   //@ts-ignore
-  let actor: CONFIG.Actor.documentClass; // { update: (arg0: { "system.attributes.hp.temp": any; "system.attributes.hp.value": number; "flags.dae.damageApplied": any; damageItem: any[] }) => Promise<any>; img: any; type: string; name: any; data: { data: { traits: { [x: string]: any; }; }; }; };
+  let actor: CONFIG.Actor.documentClass;
   const startTime = Date.now();
   let tokenIdList: any[] = [];
   let templateData = {
@@ -951,7 +959,7 @@ async function createGMReverseDamageCard(
   data: { damageList: any; autoApplyDamage: string; flagTags: any, updateContext: any, forceApply: boolean },
   doHits: boolean = true): Promise<string | undefined> {
   const damageList = data.damageList;
-  let actor: { update: (arg0: { "system.attributes.hp.temp": any; "system.attributes.hp.value": number; "flags.dae.damageApplied": any; damageItem: any[] }) => Promise<any>; img: any; type: string; name: any; data: { data: { traits: { [x: string]: any; }; }; }; };
+  let actor: { update: (arg0: { "system.attributes.hp.temp": any; "system.attributes.hp.value": number; damageItem: any[] }) => Promise<any>; img: any; type: string; name: any; data: { data: { traits: { [x: string]: any; }; }; }; };
   const startTime = Date.now();
   let promises: Array<Promise<any>>;;
   let tokenIdList: any[] = [];
@@ -1001,7 +1009,7 @@ export let processUndoDamageCard = (message, html, data) => {
   let button = html.find("#all-reverse");
   button.click((ev: { stopPropagation: () => void; }) => {
     (async () => {
-      for (let { actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, oldVitality, newVitality, damageItem } of message.flags.midiqol.undoDamage) {
+      for (let { actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, oldVitality, newVitality, damageDetail, calcOptions } of message.flags.midiqol.undoDamage) {
         //message.flags.midiqol.undoDamage.forEach(async ({ actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, damageItem }) => {
         if (!actorUuid) continue;
         const applyButton = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
@@ -1013,7 +1021,7 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = fromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, actor);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, { inplace: false });
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageDetail }, { inplace: false });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
@@ -1028,7 +1036,7 @@ export let processUndoDamageCard = (message, html, data) => {
   button = html.find("#all-apply");
   button.click((ev: { stopPropagation: () => void; }) => {
     (async () => {
-      for (let { actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, damageItem, oldVitality, newVitality } of message.flags.midiqol.undoDamage) {
+      for (let { actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, damageDetail, calcOptions, oldVitality, newVitality } of message.flags.midiqol.undoDamage) {
         if (!actorUuid) continue;
         let actor = fromActorUuid(actorUuid);
         const applyButton = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
@@ -1038,13 +1046,13 @@ export let processUndoDamageCard = (message, html, data) => {
         reverseButton.children()[0].classList.remove("midi-qol-disable-damage-button");
         reverseButton.children()[0].classList.add("midi-qol-enable-damage-button");
         log(`Setting HP to ${newTempHP} and ${newHP}`);
-        if (actor.isOwner) await actor.applyDamage(damageItem.damageDetail, { multiplier: 1, ignore: false });
+        if (actor.isOwner) await actor.applyDamage(damageDetail, calcOptions);
         ev.stopPropagation();
       }
     })();
   })
 
-  message.flags.midiqol.undoDamage.forEach(({ actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, oldVitality, newVitality, damageItem }) => {
+  message.flags.midiqol.undoDamage.forEach(({ actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, oldVitality, newVitality, damageDetail, calcOptions }) => {
     if (!actorUuid) return;
     // ids should not have "." in the or it's id.class
     let button = html.find(`#reverse-${actorUuid.replaceAll(".", "")}`);
@@ -1059,13 +1067,13 @@ export let processUndoDamageCard = (message, html, data) => {
         let actor = fromActorUuid(actorUuid);
         log(`Setting HP back to ${oldTempHP} and ${oldHP}`, data.updateContext);
         const update = { "system.attributes.hp.temp": oldTempHP ?? 0, "system.attributes.hp.value": oldHP ?? 0 };
-        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageItem }, { inplace: false });
+        const context = foundry.utils.mergeObject(message.flags.midiqol.updateContext ?? {}, { dhp: (oldHP ?? 0) - (actor.system.attributes.hp.value ?? 0), damageDetail }, { inplace: false });
         const vitalityResource = checkRule("vitalityResource");
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
           context["dvital"] = newVitality - oldVitality;
         }
-        if (actor.isOwner) await actor.update(update, context);
+        if (actor.isOwner) await actor.update(update, calcOptions);
         ev.stopPropagation();
       })();
     });
@@ -1086,9 +1094,9 @@ export let processUndoDamageCard = (message, html, data) => {
         log(`Setting HP to ${newTempHP} and ${newHP}`, data.updateContext);
         if (mults[multiplierString]) {
           multiplier = mults[multiplierString]
-          await actor.applyDamage(damageItem.damageDetail, { multiplier, ignore: false });
+          await actor.applyDamage(damageDetail, mergeObject(calcOptions, {multiplier: calcOptions.multiplier * multiplier}, {inplace: false}));
         } else {
-          if (actor.isOwner) await actor.applyDamage(damageItem.damageDetail, { multiplier: 1, ignore: false });
+          if (actor.isOwner) await actor.applyDamage(damageDetail, calcOptions);
         }
         ev.stopPropagation();
       })();

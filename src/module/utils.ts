@@ -67,10 +67,9 @@ export function createDamageDetail({ roll, item, defaultType = MQdefaultDamageTy
     return r;
   })
 
-  //TODO work out if/how to segregate damage detail by damage properites.
   //@ts-expect-error
-  const aggregatedRolls: CONFIG.Dice.DamageRoll[] = game.system.dice.aggregateDamageRolls(rolls/*, {respectProperties: true}*/);
-  const detail = aggregatedRolls.map(roll => ({ damage: roll.total, type: roll.options.type, formula: roll.formula, properties: new Set(roll.options.properties ?? []) }));
+  const aggregatedRolls: CONFIG.Dice.DamageRoll[] = game.system.dice.aggregateDamageRolls(rolls, { respectProperties: true });
+  const detail = aggregatedRolls.map(roll => ({ damage: roll.total, value: roll.total, type: roll.options.type, formula: roll.formula, properties: new Set(roll.options.properties ?? []) }));
   return detail;
 }
 
@@ -227,7 +226,7 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
 
     allDamages[token.document.uuid] = {
       uuid: token.document.uuid,
-      tokenDamages: { combinedDamage: [] },
+      damageDetails: { combinedDamage: [] },
       isHit,
       saved,
       superSaver,
@@ -239,7 +238,7 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
       sceneId: canvas?.scene?.id
     };
 
-    const calcOptions = {
+    const calcDamageOptions = {
       invertHealing: true,
       multiplier: 1,
       midi: {
@@ -249,12 +248,12 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
         isHit: true,
         superSaver,
         semiSuperSaver,
-        token,
-        sourceActor: actor,
+        // tokenUuid: token?.document.uuid,
+        sourceActorUuid: actor?.uuid,
         uncannyDodge: foundry.utils.getProperty(actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack,
         // some options for ripper's module
         save: saved,
-        target: token,
+        targetUuid: token?.document.uuid,
         fumbleSave: false,
         criticalSave: false,
         isCritical: false,
@@ -262,14 +261,17 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
       }
     };
     if (configSettings.saveDROrder === "DRSavedr") {
-      calcOptions.midi.saveMultiplier = saveMultiplier;
+      calcDamageOptions.midi.saveMultiplier = saveMultiplier;
     } else {
-      calcOptions.midi.saveMultiplier = 1;
-      calcOptions.multiplier = saveMultiplier;
+      calcDamageOptions.midi.saveMultiplier = 1;
+      calcDamageOptions.multiplier = saveMultiplier;
     }
     //@ts-expect-error
-    allDamages[token.document.uuid].tokenDamages["combinedDamage"] = foundry.utils.duplicate(actor.calculateDamage(damageDetail, calcOptions));
-    allDamages[token.document.uuid].damageDetail = allDamages[token.document.uuid].tokenDamages["combinedDamage"];
+    allDamages[token.document.uuid].damageDetails["combinedDamage"] = foundry.utils.duplicate(actor.calculateDamage(damageDetail, calcDamageOptions));
+    allDamages[token.document.uuid].damageDetail = allDamages[token.document.uuid].damageDetails["combinedDamage"];
+    allDamages[token.document.uuid].calcDamgeOptions = calcDamageOptions;
+    allDamages[token.document.uuid].rawDamageDetail = damageDetail;
+    allDamages[token.document.uuid].damageDetails[`rawcombinedDamage`] = damageDetail;
     setupv3DamageDetails(allDamages, "combinedDamage", token);
   }
   const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
@@ -297,39 +299,42 @@ export interface applyDamageDetails {
 }
 
 export function setupv3DamageDetails(allDamages, selector, token: Token) {
-  const damages = allDamages[token.document.uuid];
-  let { amount, temp } = damages.tokenDamages[selector].reduce((acc, d) => {
+  const tokenDamge = allDamages[token.document.uuid];
+  let { amount, temp } = tokenDamge.damageDetails[selector].reduce((acc, d) => {
     if (d.type === "temphp") acc.temp += d.value;
     else acc.amount += d.value;
     return acc;
   }, { amount: 0, temp: 0 });
   amount = amount > 0 ? Math.floor(amount) : Math.ceil(amount);
+  let totalDamage = tokenDamge.damageDetails[`raw${selector}`].reduce((acc, d) => acc + (d.type === "temphp" ? 0 : d.value), 0);
   //@ts-expect-error
   const as = token.actor?.system;
   if (!as || !as.attributes.hp) return;
-  let effectiveTemp = as.attributes.hp.temp ?? 0; // deicde if to add additional temp hp now or later.
-  damages.tokenUuid = token.document.uuid;
-  damages.tokenId = token.id;
-  damages.oldHP = as.attributes.hp.value;
-  damages.newHP = as.attributes.hp.value;
-  damages.oldTempHP = as.attributes.hp.temp ?? 0;
-  damages.newTempHP = as.attributes.hp.temp ?? 0;
+  let effectiveTemp = as.attributes.hp.temp ?? 0;
+  tokenDamge.useDamageDetail = configSettings.useDamageDetail;
+  tokenDamge.tokenUuid = token.document.uuid;
+  tokenDamge.tokenId = token.id;
+  tokenDamge.oldHP = as.attributes.hp.value;
+  tokenDamge.newHP = as.attributes.hp.value;
+  tokenDamge.oldTempHP = as.attributes.hp.temp ?? 0;
+  tokenDamge.newTempHP = as.attributes.hp.temp ?? 0;
   const deltaTemp = amount > 0 ? Math.min(effectiveTemp, amount) : 0;
   //@ts-expect-error
   const deltaHP = Math.clamp(amount - deltaTemp, -as.attributes.hp.damage, as.attributes.hp.value);
-  damages.newHP -= deltaHP;
-  damages.hpDamage = deltaHP;
-  damages.newTempHP = Math.floor(Math.max(0, effectiveTemp - deltaTemp, temp));
-  damages.tempDamage = deltaTemp;
-  damages.wasHit = damages.isHit;
-  damages.appliedDamage = deltaHP;
-  damages.details = [];
+  tokenDamge.newHP -= deltaHP;
+  tokenDamge.hpDamage = deltaHP;
+  tokenDamge.newTempHP = Math.floor(Math.max(0, effectiveTemp - deltaTemp, temp));
+  // damages.tempDamage = deltaTemp;
+  tokenDamge.tempDamage = tokenDamge.oldTempHP - tokenDamge.newTempHP;
+  tokenDamge.totalDamage;
+  tokenDamge.details = [];
+  tokenDamge.wasHit = tokenDamge.isHit;
 }
 
 export async function processDamageRoll(workflow: Workflow, defaultDamageType: string) {
   if (debugEnabled > 0) warn("processDamageRoll |", workflow)
   // proceed if adding chat damage buttons or applying damage for our selves
-  let appliedDamage: any[] = [];
+  let hpDamage: any[] = [];
   const actor = workflow.actor;
   let item = workflow.saveItem;
 
@@ -348,44 +353,14 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
     await expireMyEffects.bind(workflow)(effectsToExpire);
   }
 
-  if (debugEnabled > 0) warn("processDamageRoll | damage details pre merge are ", workflow.damageDetail, workflow.bonusDamageDetail);
+  if (debugEnabled > 0) warn("processDamageRoll | damage details pre merge are ", workflow.rawDamageDetail, workflow.rawBonusDamageDetail);
   let totalDamage = 0;
 
-  if (workflow.saveItem?.hasSave &&
-    (foundry.utils.getProperty(workflow.saveItem, "flags.midiProperties.saveDamage") ?? "default") !==
-    (foundry.utils.getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default")) {
-    // need to keep bonus damage and base damage separate
-    let merged = (workflow.bonusDamageDetail ?? []).reduce((acc, item) => {
-      acc[item.type] = (acc[item.type] ?? 0) + item.damage;
-      return acc;
-    }, {});
-    workflow.bonusDamageDetail = Object.keys(merged).map((key) => { return { damage: Math.max(0, merged[key]), type: key } });
+  const baseNoDamage = workflow.rawDamageDetail.length === 0 || (workflow.rawDamageDetail.length === 1 && workflow.rawDamageDetail[0] === "midi-none");
+  const bonusNoDamage = workflow.rawBonusDamageDetail.length === 0 || (workflow.rawBonusDamageDetail.length === 1 && workflow.rawBonusDamageDetail[0] === "midi-none");
+  const otherNoDamage = workflow.rawOtherDamageDetail.length === 0 || (workflow.rawOtherDamageDetail.length === 1 && workflow.rawOtherDamageDetail[0] === "midi-none");
+  if (baseNoDamage && bonusNoDamage && otherNoDamage) return;
 
-    const baseNoDamage = workflow.damageDetail.length === 0 || (workflow.damageDetail.length === 1 && workflow.damageDetail[0] === "midi-none");
-    const bonusNoDamage = workflow.bonusDamageDetail.length === 0 || (workflow.bonusDamageDetail.length === 1 && workflow.bonusDamageDetail[0] === "midi-none");
-    const otherNoDamage = workflow.otherDamageDetail.length === 0 || (workflow.otherDamageDetail.length === 1 && workflow.otherDamageDetail[0] === "midi-none");
-    if (baseNoDamage && bonusNoDamage && otherNoDamage) return;
-    const baseTotalDamage = workflow.damageDetail.reduce((acc, value) => acc + value.damage, 0);
-    const bonusTotalDamage = workflow.bonusDamageDetail.reduce((acc, value) => acc + value.damage, 0);
-    workflow.bonusDamageTotal = bonusTotalDamage;
-  } else { // merge bonus damage and base damage together.
-    let merged = workflow.damageDetail.concat(workflow.bonusDamageDetail ?? []).reduce((acc, item) => {
-      acc[item.type] = (acc[item.type] ?? 0) + item.damage;
-      return acc;
-    }, {});
-    if ((Object.keys(merged).length === 1 && Object.keys(merged)[0] === "midi-none")
-      && (workflow.otherDamageDetail.length === 0
-        || (workflow.otherDamageDetail.length === 1 && workflow.otherDamageDetail[0] === "midi-none"))
-    ) return;
-
-    //TODO come back and decide if -ve damage per type should be allowed, no in the case of 1d4 -2, yes? in the case of -1d4[fire]
-    const newDetail = Object.keys(merged).map((key) => { return { damage: Math.max(0, merged[key]), type: key } });
-    totalDamage = newDetail.reduce((acc, value) => acc + value.damage, 0);
-    workflow.damageDetail = newDetail;
-    workflow.damageTotal = totalDamage;
-    workflow.bonusDamageDetail = undefined;
-    workflow.bonusDamageTotal = undefined;
-  }
   let baseDamageSaves: Set<Token | TokenDocument> = new Set();
   let bonusDamageSaves: Set<Token | TokenDocument> = new Set();
   // If we are not doing default save damage then pass through the workflow saves
@@ -398,14 +373,14 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
     bonusDamageSaves = workflow.saves;
   // if default save damage then we do full full damage if other damage is being rolled.
   else if ((foundry.utils.getProperty(workflow.saveItem, "flags.midiProperties.bonusSaveDamage") ?? "default") === "default"
-    && itemOtherFormula(workflow.saveItem) === "") baseDamageSaves = workflow.saves ?? new Set()
+    && itemOtherFormula(workflow.saveItem) === "") bonusDamageSaves = workflow.saves ?? new Set()
 
-  const allDamages = {};
+  const damagePerToken = {};
   workflow.damageList = [];
   totalDamage = 0;
-  totalDamage = workflow.damageRolls?.reduce((acc, roll) => acc + (roll.total ?? 0), 0) ?? 0;
-  if (workflow.otherDamageRoll) totalDamage += workflow.otherDamageRoll.total ?? 0;
-  if (workflow.bonusDamageRolls?.length > 0) totalDamage += workflow.bonusDamageRolls.reduce((acc, roll) => acc + (roll.total ?? 0), 0);
+  totalDamage = workflow.rawDamageDetail?.reduce((acc, di) => acc + (di.type === "temphp" ? 0 : di.value), 0) ?? 0;
+  if (workflow.rawOtherDamageDetail) totalDamage += workflow.rawOtherDamageDetail.reduce((acc, di) => acc + (di.type === "temphp" ? 0 : di.value), 0) ?? 0;
+  if (workflow.rawBonusDamageDetail) totalDamage += workflow.rawBonusDamageDetail.reduce((acc, di) => acc + (di.type === "temphp" ? 0 : di.value), 0) ?? 0;
 
   for (let tokenRef of theTargets) {
     const token = getToken(tokenRef);
@@ -414,9 +389,9 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
     if (!tokenDocument) continue;
     let challengeModeScale = 1;
 
-    allDamages[tokenDocument?.uuid] = {
-      uuid: getTokenDocument(token)?.uuid,
-      tokenDamages: { combinedDamage: [], defaultDamage: [], otherDamage: [], bonusDamage: [] },
+    damagePerToken[tokenDocument?.uuid] = {
+      targetUuid: getTokenDocument(token)?.uuid,
+      damageDetails: { combinedDamage: [], rawcombinedDamage: [], defaultDamage: [], rawdefaultDamage: workflow.rawDamageDetail, otherDamage: [], rawdtherDamage: workflow.rawOtherDamageDetail, bonusDamage: [], rawbonusDamage: workflow.rawBonusDamageDetail },
       isHit: hitTargets.has(token),
       saved: workflow.saves.has(token),
       superSaver: workflow.superSavers.has(token),
@@ -427,18 +402,18 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       totalDamage,
       sceneId: canvas?.scene?.id,
     };
-    let options: any = {};
+    let calcDamageOptions: any = {};
     if (["scale", "scaleNoAR"].includes(checkRule("challengeModeArmor")) && workflow.attackRoll && workflow.hitTargetsEC?.has(token)) {
       //scale the damage detail for a glancing blow - only for the first damage list? or all?
       const scale = workflow.challengeModeScale[tokenDocument?.uuid ?? "dummy"] ?? 1;
       challengeModeScale = scale;
     }
-    allDamages[tokenDocument.uuid].challengeModeScale = challengeModeScale;
+    damagePerToken[tokenDocument.uuid].challengeModeScale = challengeModeScale;
     if (totalDamage !== 0 && (workflow.hitTargets.has(token) || workflow.hitTargetsEC.has(token) || workflow.saveItem.hasSave)) {
       const isHealing = ("heal" === workflow.item?.system.actionType);
-      await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? [workflow.otherDamageRoll], !isHealing ? "reactiondamage" : "reactionheal", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.damageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
+      await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? [workflow.otherDamageRoll], !isHealing ? "reactiondamage" : "reactionheal", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.rawDamageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
     }
-    const tokenDamages = allDamages[tokenDocument.uuid].tokenDamages;
+    const damageDetails = damagePerToken[tokenDocument.uuid].damageDetails;
 
     for (let [rolls, saves, type] of [[workflow.damageRolls, baseDamageSaves, "defaultDamage"], [(workflow.otherDamageMatches?.has(token) ?? true) ? [workflow.otherDamageRoll] : [], workflow.saves, "otherDamage"], [workflow.bonusDamageRolls, bonusDamageSaves, "bonusDamage"]]) {
       if (rolls?.length > 0 && rolls[0]) {
@@ -461,7 +436,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         }
 
         // const allTargetElts = document.querySelectorAll(`[data-message-id="${workflow.chatCard?.id}"]`)?.[0]?.getElementsByTagName("damage-application");
-        options = {
+        calcDamageOptions = {
           invertHealing: true,
           multiplier: challengeModeScale,
           midi: {
@@ -471,11 +446,19 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
             isHit: hitTargets.has(token),
             superSaver: workflow.superSavers?.has(token),
             semiSuperSaver: workflow.semiSuperSavers?.has(token),
-            token,
-            sourceActor: workflow.actor,
+            // tokenUuid: token?.document.uuid,
+            sourceActorUuid: workflow.actor.uuid,
             uncannyDodge: foundry.utils.getProperty(token.actor, `flags.${MODULE_ID}.uncanny-dodge`) && item?.hasAttack,
-            applyDamage: true
-
+            applyDamage: true,
+            // some options for ripper's modules
+            save: workflow.saves.has(token),
+            fumbleSave: workflow.fumbleSaves.has(token),
+            criticalSave: workflow.criticalSaves.has(token),
+            isCritical: workflow.isCritical,
+            isFumble: workflow.isFumble,
+            superSavers: workflow.superSavers,
+            semiSuperSavers: workflow.semiSuperSavers,
+            targetUuid: token?.document.uuid,
           }
         };
 
@@ -485,58 +468,37 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
           for (let key of ["idi", "idr", "idv", "ida"]) {
             const property = foundry.utils.getProperty(workflow.item, `flags.midiProperties.${key}`);
             if (property) {
-              if (!options.ignore?.[categories[key]]) foundry.utils.setProperty(options, `ignore.${categories[key]}`, new Set())
+              if (!calcDamageOptions.ignore?.[categories[key]]) foundry.utils.setProperty(calcDamageOptions, `ignore.${categories[key]}`, new Set())
               for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
-                options.ignore[categories[key]].add(dt);
+                calcDamageOptions.ignore[categories[key]].add(dt);
               }
             }
           }
         }
-        // Setup some other options for ripper's modules
-        options = foundry.utils.mergeObject(options, {
-          midi: {
-            save: workflow.saves.has(token),
-            fumbleSave: workflow.fumbleSaves.has(token),
-            criticalSave: workflow.criticalSaves.has(token),
-            isCritical: workflow.isCritical,
-            isFumble: workflow.isFumble,
-            target: token,
-            superSavers: workflow.superSavers,
-            semiSuperSavers: workflow.semiSuperSavers,
-          }
-        }, { insertKeys: true, insertValues: true });
         //@ts-expect-error
-        let returnDamages = foundry.utils.duplicate(token.actor.calculateDamage(damages, options));
+        let returnDamages = foundry.utils.duplicate(token.actor.calculateDamage(damages, calcDamageOptions));
         if (configSettings.singleConcentrationRoll || type !== "otherDamage") {
-          tokenDamages[type] = returnDamages;
-          tokenDamages["combinedDamage"] = tokenDamages["combinedDamage"].concat(returnDamages);
+          damageDetails[type] = returnDamages;
+          damageDetails["combinedDamage"] = damageDetails["combinedDamage"].concat(returnDamages);
+          damageDetails[`rawcombinedDamage`] = damageDetails[`rawcombinedDamage`].concat(damages);
+          damageDetails[`calcDamageOptions.${type}`] = calcDamageOptions;
+          damageDetails["calcDamageOptions.combinedDamage"] = calcDamageOptions;
         } else if (!configSettings.singleConcentrationRoll && type === "otherDamage") {
-          tokenDamages["otherDamage"] = returnDamages;
+          damageDetails["otherDamage"] = returnDamages;
+          damageDetails[`rawotherDamage`] = damages;
         }
       }
     }
   }
-  workflow.v3Damages = allDamages;
-  /*
-      let baseDamageRolls: Roll[] = workflow.damageRolls ?? [];
-      let otherDamageRolls: Roll[] = [];
-  
-      if (configSettings.singleConcentrationRoll) {
-        if (workflow.otherDamageRoll) baseDamageRolls = baseDamageRolls.concat(workflow.otherDamageRoll);
-        if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
-        otherDamageRolls = [];
-      } else {
-        if (workflow.bonusDamageRolls?.length > 0) baseDamageRolls = baseDamageRolls.concat(workflow.bonusDamageRolls);
-        if (workflow.otherDamageRoll) otherDamageRolls = [workflow.otherDamageRoll];
-      }
-  */
-  workflow.damageList = Object.values(allDamages);
+  workflow.damageList = Object.values(damagePerToken);
   const toCheck = ["combinedDamage"];
   if (!configSettings.singleConcentrationRoll && workflow.otherDamageRoll) toCheck.push("otherDamage");
   let chatCardUuids: string[] = [];
   for (let selector of toCheck) {
     workflow.damageList.forEach(damageEntry => {
-      damageEntry.damageDetail = damageEntry.tokenDamages[selector];
+      damageEntry.damageDetail = damageEntry.damageDetails[selector];
+      damageEntry.rawDamageDetail = damageEntry.damageDetails[`raw${selector}`];
+      damageEntry.calcDamageOptions = damageEntry.damageDetails[`calcDamageOptions.${selector}`];
     });
 
     for (let tokenRef of theTargets) {
@@ -544,13 +506,12 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       const tokenDocument = getTokenDocument(tokenRef);
       if (!token?.actor) continue;
       if (!tokenDocument) continue;
-      const tokenDamages = allDamages[tokenDocument.uuid];
-      setupv3DamageDetails(allDamages, selector, token);
-      await workflow?.callv3DamageHooks(tokenDamages, token);
-      tokenDamages.tokenDamages[selector] = tokenDamages.damageDetail;
+      const damageDetails = damagePerToken[tokenDocument.uuid];
+      setupv3DamageDetails(damagePerToken, selector, token);
+      await workflow?.callv3DamageHooks(damageDetails, token);
+      damageDetails.damageDetails[selector] = damageDetails.damageDetail;
       // setupv3DamageDetails(allDamages, selector, token);
     }
-    const options = { hitTargets, existingDamage: [], workflow, updateContext: undefined, forceApply: false, noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false };
     const cardIds: string[] = await timedAwaitExecuteAsGM("createReverseDamageCard", {
       autoApplyDamage: configSettings.autoApplyDamage,
       sender: game.user?.name,
@@ -560,8 +521,8 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       chatCardId: workflow.itemCardId,
       chatCardUuid: workflow.itemCardUuid,
       flagTags: workflow.flagTags,
-      updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
-      forceApply: options.forceApply,
+      updateContext: { noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false },
+      forceApply: false
     });
     if (cardIds) chatCardUuids.push(...cardIds);
   }
@@ -573,9 +534,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
     }
   }
-
-
-  if (debugEnabled > 1) debug("process damage roll: ", configSettings.autoApplyDamage, workflow.damageDetail, workflow.damageTotal, theTargets, item, workflow.saves)
+  if (debugEnabled > 1) debug(`process damage roll complete for ${workflow.item.name} `, workflow.damageList)
 }
 
 export let getSaveMultiplierForItem = (item: Item, itemDamageType) => {
@@ -617,8 +576,9 @@ export let getSaveMultiplierForItem = (item: Item, itemDamageType) => {
   if (!configSettings.checkSaveText)
     return configSettings.defaultSaveMult;
   //@ts-expect-error item.system v10
-  let description = TextEditor.decodeHTML((item.system.description?.value || "")).toLocaleLowerCase();
-
+  let description = TextEditor.decodeHTML(item.system?.description.value).toLocaleLowerCase();
+  //@ts-expect-error
+  if (description.length === 0) description = item.system.description.chat.toLocaleLowerCase();
   let noDamageText = i18n("midi-qol.noDamage").toLocaleLowerCase().trim();
   if (!noDamageText || noDamageText === "") noDamageText = "midi-qol.noDamage";
   let noDamageTextAlt = i18n("midi-qol.noDamageAlt").toLocaleLowerCase().trim();
@@ -1447,43 +1407,51 @@ export function untargetAllTokens(...args) {
   }
 }
 
-export function checkDefeated(tokenRef: Actor | Token | TokenDocument | string): 0 | 1 {
-  const tokenDoc = getTokenDocument(tokenRef);
-  //@ts-expect-error specialStatusEffects
-  return hasCondition(tokenDoc, CONFIG.specialStatusEffects.DEFEATED)
-    || hasCondition(tokenDoc, configSettings.midiDeadCondition);
+export function checkDefeated(actorRef: Actor | Token | TokenDocument | string): 0 | 1 {
+  const actor = getActor(actorRef);
+  if (!actor) return 0;
+
+  //@ts-expect-error
+  return hasCondition(actor, CONFIG.specialStatusEffects.DEFEATED)
+    || hasCondition(actor, configSettings.midiDeadCondition);
 }
 
-export function checkIncapacitated(tokenRef: Actor | Token | TokenDocument | string, logResult: boolean = true): string | false {
-  const tokenDoc = getTokenDocument(tokenRef);
-  if (!tokenDoc) return false;
-  if (tokenDoc.actor) {
-    const vitalityResource = checkRule("vitalityResource");
-    if (typeof vitalityResource === "string" && foundry.utils.getProperty(tokenDoc.actor, vitalityResource.trim()) !== undefined) {
-      const vitality = foundry.utils.getProperty(tokenDoc.actor, vitalityResource.trim()) ?? 0;
-      //@ts-expect-error .system
-      if (vitality <= 0 && tokenDoc?.actor?.system.attributes?.hp?.value <= 0) {
-        if (logResult) log(`${tokenDoc.actor.name} is dead and therefore incapacitated`);
-        return "dead";
-      }
-    } else
-      //@ts-expect-error .system
-      if (tokenDoc.actor?.system.attributes?.hp?.value <= 0) {
-        if (logResult) log(`${tokenDoc.actor.name} is incapacitated`)
-        return "dead";
-      }
+export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | string | undefined | null, logResult: boolean = true): string | false {
+  const actor = getActor(actorRef);
+  if (!actor) return false;
+  //@ts-expect-error
+  if (actor.system.traits?.ci?.value.has("incapacitated")) return false;
+  const vitalityResource = checkRule("vitalityResource");
+  if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
+    const vitality = foundry.utils.getProperty(actor, vitalityResource.trim()) ?? 0;
+    //@ts-expect-error .system
+    if (vitality <= 0 && actor?.system.attributes?.hp?.value <= 0) {
+      if (logResult) log(`${actor.name} is dead and therefore incapacitated`);
+      return "dead";
+    }
+  } else {
+    //@ts-expect-error
+    if (!actor.system?.attributes?.hp?.value) {
+      (debug("No hp attribute for ", actor));
+    }
+    //@ts-expect-error .system
+    if (actor?.system?.attributes?.hp?.value <= 0) {
+      if (logResult) log(`${actor.name} is incapacitated`)
+      return "dead";
+    }
   }
-  if (configSettings.midiUnconsciousCondition && hasCondition(tokenDoc, configSettings.midiUnconsciousCondition)) {
-    if (logResult) log(`${tokenDoc.name} is ${getStatusName(configSettings.midiUnconsciousCondition)} and therefore incapacitated`)
+
+  if (configSettings.midiUnconsciousCondition && hasCondition(actor, configSettings.midiUnconsciousCondition)) {
+    if (logResult) log(`${actor.name} is ${getStatusName(configSettings.midiUnconsciousCondition)} and therefore incapacitated`)
     return configSettings.midiUnconsciousCondition;
   }
-  if (configSettings.midiDeadCondition && hasCondition(tokenDoc, configSettings.midiDeadCondition)) {
-    if (logResult) log(`${tokenDoc.name} is ${getStatusName(configSettings.midiDeadCondition)} and therefore incapacitated`)
+  if (configSettings.midiDeadCondition && hasCondition(actor, configSettings.midiDeadCondition)) {
+    if (logResult) log(`${actor.name} is ${getStatusName(configSettings.midiDeadCondition)} and therefore incapacitated`)
     return configSettings.midiDeadCondition;
   }
-  const incapCondition = globalThis.MidiQOL.incapacitatedConditions.find(cond => hasCondition(tokenDoc, cond));
+  const incapCondition = (globalThis.MidiQOL.incapacitatedConditions ?? ["incapacitated"]).find(cond => hasCondition(actor, cond));
   if (incapCondition) {
-    if (logResult) log(`${tokenDoc.name} has condition ${getStatusName(incapCondition)} so incapacitated`)
+    if (logResult) log(`${actor.name} has condition ${getStatusName(incapCondition)} so incapacitated`)
     return incapCondition;
   }
   return false;
@@ -1946,7 +1914,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       if (target === token) continue;
       // check if target is burrowing
       if (configSettings.optionalRules.wallsBlockRange !== 'none'
-        && globalThis.MidiQOL.WallsBlockConditions.some(status => hasCondition(target, status))) {
+        && globalThis.MidiQOL.WallsBlockConditions.some(status => hasCondition(target.actor, status))) {
         return {
           result: "fail",
           reason: `${actor.name}'s has one or more of ${globalThis.MidiQOL.WallsBlockConditions} so can't be targeted`,
@@ -2387,7 +2355,7 @@ export function findNearby(disposition: number | string | null | Array<string | 
       if (!isTargetable(t)) return false;
       //@ts-expect-error .height .width v10
       if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
-      if (!options.includeIncapacitated && checkIncapacitated(t, debugEnabled > 0)) return false;
+      if (!options.includeIncapacitated && checkIncapacitated(t.actor, debugEnabled > 0)) return false;
       let inRange = false;
       if (t.actor &&
         (t.id !== token.id || options?.includeToken) && // not the token
@@ -2417,75 +2385,79 @@ export function checkNearby(disposition: number | null | string, tokenRef: Token
   return findNearby(disposition, tokenRef, distance, options).length !== 0;
 }
 
-export function hasCondition(tokenRef: Token | TokenDocument | string | undefined, condition: string): 0 | 1 {
-  const td = getTokenDocument(tokenRef)
-  if (!td) return 0;
+export function hasCondition(actorRef: Actor | Token | TokenDocument | string | undefined | null, condition: string): 0 | 1 {
+  let actor = getActor(actorRef);
+  if (!actor) return 0;
   //@ts-expect-error
-  if (td.actor.statuses.has(condition)) return 1;
+  if (actor.system.traits.ci.value.has(condition)) return 0;
+  //@ts-expect-error
+  if (actor.statuses.has(condition)) return 1;
   //@ts-expect-error specialStatusEffects
   const specials = CONFIG.specialStatusEffects;
   switch (condition?.toLocaleLowerCase()) {
     case "blind":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.BLIND)) return 1;
+      if (actor.statuses.has(specials.BLIND)) return 1;
       break;
     case "burrow":
     case "burrowing":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.BURROW)) return 1;
+      if (actor.statuses.has(specials.BURROW)) return 1;
       break;
     case "dead":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.DEFEATED)) return 1;
+      if (actor.statuses.has(specials.DEFEATED)) return 1;
       break
     case "deaf":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.DEAF)) return 1;
+      if (actor.statuses.has(specials.DEAF)) return 1;
       break;
     case "disease":
     case "diseased":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.DISEASE)) return 1;
+      if (actor.statuses.has(specials.DISEASE)) return 1;
       break;
     case "fly":
     case "flying":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.FLY)) return 1;
+      if (actor.statuses.has(specials.FLY)) return 1;
       break;
     case "hidden":
     case "hiding":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect("hidden") || td.hasStatusEffect("hiding")) return 1;
+      if (actor.statuses.has("hidden") || actor.statuses.has("hiding")) return 1;
       break;
     case "inaudible":
     case "silent":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.INAUDIBLE)) return 1;
+      if (actor.statuses.has(specials.INAUDIBLE)) return 1;
       break;
     case "invisible":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.INVISIBLE)) return 1;
+      if (actor.statuses.has(specials.INVISIBLE)) return 1;
       break;
     case "poison":
     case "poisoned":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.POISON)) return 1;
+      if (actor.statuses.has(specials.POISON)) return 1;
       break;
   }
   //@ts-expect-error hasStatusEffect
-  if (td.hasStatusEffect(condition.toLocaleLowerCase()) || td.hasStatusEffect(condition)) return 1;
+  if (actor.statuses.has(condition.toLocaleLowerCase()) || actor.statuses.has(condition)) return 1;
 
-  //@ts-expect-error
+  /*
+  //@ts-expect-error only check actor statuses from now on
   const clt = game.clt;
-  if (installedModules.get("condition-lab-triggler") && condition === "invisible" && clt.hasCondition("Invisible", [td.object], { warn: false })) return 1;
-  if (installedModules.get("condition-lab-triggler") && condition === "hidden" && clt.hasCondition("Hidden", [td.object], { warn: false })) return 1;
+  // if (installedModules.get("condition-lab-triggler") && condition === "invisible" && clt.hasCondition("Invisible", [td.object], { warn: false })) return 1;
+  // if (installedModules.get("condition-lab-triggler") && condition === "hidden" && clt.hasCondition("Hidden", [td.object], { warn: false })) return 1;
   if (installedModules.get("dfreds-convenient-effects")) {
     // If we are looking for a status effect then we don't need to check dfreds since dfreds status effects include the system status effect id
     if (Object.keys(GameSystemConfig.statusEffects).includes(condition.toLocaleLowerCase())) return 0;
     const localCondition = i18n(`midi-qol.${condition}`);
-    if (CEHasEffectApplied({ effectName: localCondition, uuid: (td.actor?.uuid ?? "") })) return 1;
-    if (CEHasEffectApplied({ effectName: condition, uuid: (td.actor?.uuid ?? "") })) return 1;
+    if (CEHasEffectApplied({ effectName: localCondition, uuid: (actor?.uuid ?? "") })) return 1;
+    if (CEHasEffectApplied({ effectName: condition, uuid: (actor?.uuid ?? "") })) return 1;
   }
+  */
   return 0;
 }
 
@@ -3557,7 +3529,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     if (checkRule("incapacitated")) {
       try {
         enableNotifications(false);
-        if (checkIncapacitated(target, debugEnabled > 0)) return noResult;
+        if (checkIncapacitated(target.actor, debugEnabled > 0)) return noResult;
       } finally {
         enableNotifications(true);
       }
@@ -4195,7 +4167,7 @@ export function evalActivationCondition(workflow: Workflow, condition: string | 
 }
 
 export function typeOrRace(entity: Token | Actor | TokenDocument | string): string {
-  const actor: Actor | null = getActor(entity);
+  const actor: Actor | null | undefined = getActor(entity);
   //@ts-expect-error .system
   const systemData = actor?.system;
   if (!systemData) return "";
@@ -4205,7 +4177,7 @@ export function typeOrRace(entity: Token | Actor | TokenDocument | string): stri
 }
 
 export function raceOrType(entity: Token | Actor | TokenDocument | string): string {
-  const actor: Actor | null = getActor(entity);
+  const actor: Actor | null | undefined = getActor(entity);
   //@ts-expect-error .system
   const systemData = actor?.system;
   if (!systemData) return "";
@@ -4287,7 +4259,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
 
 export async function evalAllConditionsAsync(actorRef: Token | TokenDocument | Actor | string, flag: string, conditionData, errorReturn: any = false): Promise<any> {
   if (!flag) return errorReturn;
-  let actor: Actor | null = getActor(actorRef);
+  let actor: Actor | null | undefined = getActor(actorRef);
   if (!actor) return errorReturn;
   //@ts-expect-error .applyActiveEffects
   const effects = actor.appliedEffects.filter(ef => ef.changes.some(change => change.key === flag));
@@ -4321,7 +4293,7 @@ export async function evalAllConditionsAsync(actorRef: Token | TokenDocument | A
 
 export function evalAllConditions(actorRef: Token | TokenDocument | Actor | string, flag: string, conditionData, errorReturn: any = false): any {
   if (!flag) return errorReturn;
-  let actor: Actor | null = getActor(actorRef);
+  let actor: Actor | null | undefined = getActor(actorRef);
   if (!actor) return errorReturn;
   //@ts-expect-error .applyActiveEffects
   const effects = actor.appliedEffects.filter(ef => ef.changes.some(change => change.key === flag));
@@ -4799,7 +4771,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
       const actor: any = ally.actor;
       if (actor?.system.attributes?.hp?.value <= 0) continue;
       if (!heightIntersects(target.document, ally.document)) continue;
-      if (hasCondition(ally, "incapacitated")) continue;
+      if (hasCondition(actor, "incapacitated")) continue;
       if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
         const CEFlanked = getFlankedEffect();
         //@ts-expect-error
@@ -4882,8 +4854,8 @@ export function computeFlankingStatus(token, target): boolean {
     if (ally.document.uuid === token.document.uuid) continue;
     if (!heightIntersects(ally.document, target.document)) continue;
     const actor: any = ally.actor;
-    if (checkIncapacitated(ally, debugEnabled > 0)) continue;
-    if (hasCondition(ally, "incapacitated")) continue;
+    if (checkIncapacitated(ally.actor, debugEnabled > 0)) continue;
+    if (hasCondition(actor, "incapacitated")) continue;
     const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
     const allyStartY = ally.document.height >= 1 ? 0.5 : ally.document.height / 2;
     var x, x1, y, y1, d, r;
@@ -5396,7 +5368,7 @@ export function isTargetable(target: any /*Token*/): boolean {
 }
 
 export function hasWallBlockingCondition(target: any /*Token*/): boolean {
-  return globalThis.MidiQOL.WallsBlockConditions.some(cond => hasCondition(target, cond));
+  return globalThis.MidiQOL.WallsBlockConditions.some(cond => hasCondition(target.actor, cond));
 }
 
 function contestedRollFlavor(baseFlavor: string | undefined, rollType: string, ability: string): string {
@@ -5524,7 +5496,8 @@ function displayContestedResults(chatCardUuid: string | undefined, resultContent
   }
 }
 
-export function getActor(actorRef: Actor | Token | TokenDocument | string): Actor | null {
+export function getActor(actorRef: Actor | Token | TokenDocument | string | null | undefined): Actor | undefined | null {
+  if (!actorRef) return null;
   if (actorRef instanceof Actor) return actorRef;
   if (actorRef instanceof Token) return actorRef.actor;
   if (actorRef instanceof TokenDocument) return actorRef.actor;
@@ -5552,7 +5525,7 @@ export function getTokenDocument(tokenRef: Actor | Token | TokenDocument | strin
   return undefined;
 }
 
-export function getToken(tokenRef: Actor | Token | TokenDocument | string | undefined): Token | undefined {
+export function getToken(tokenRef: Actor | Token | TokenDocument | string | undefined | null): Token | undefined {
   if (!tokenRef) return undefined;
   if (tokenRef instanceof Token) return tokenRef;
   //@ts-expect-error return cast
@@ -5687,7 +5660,6 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
     }
     //@ ts-expect-error
     let distances = segments.map(s => canvasGridProxy.measurePath([s.ray.A, s.ray.B]));
-    console.error(distances);
     return distances = distances.map(d => {
       let distance = d.distance;
       let fudgeFactor = configSettings.gridlessFudge ?? 0;
@@ -5697,19 +5669,19 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
         case GridDiagonals.ALTERNATING_2:
           // already fudged by snapping so no extra adjustment
           break;
-          case GridDiagonals.EXACT:
-          case GridDiagonals.RECTILINEAR:
-            if (d.diagonals > 0)
-              distance = d.distance - (Math.SQRT2 * fudgeFactor);
-            else distance = d.distance - fudgeFactor;
-            break;
+        case GridDiagonals.EXACT:
+        case GridDiagonals.RECTILINEAR:
+          if (d.diagonals > 0)
+            distance = d.distance - (Math.SQRT2 * fudgeFactor);
+          else distance = d.distance - fudgeFactor;
+          break;
         case GridDiagonals.APPROXIMATE:
           if (d.diagonals > 0)
             distance = d.distance - fudgeFactor;
           break;
         case GridDiagonals.ILLEGAL:
-          default:
-            distance = d.distance;
+        default:
+          distance = d.distance;
       }
       return distance;
     });
@@ -5972,9 +5944,13 @@ export function canSee(tokenEntity, targetEntity) {
   return canSense(tokenEntity, targetEntity, sightDetectionModes);
 }
 
-export function sumRolls(rolls: Array<Roll> | undefined = []): number {
+export function sumRolls(rolls: Array<Roll> | undefined = [], ignoreTemp?: boolean): number {
   if (!rolls) return 0;
-  return rolls.reduce((total, b) => total + (b?.total ?? 0), 0);
+  return rolls.reduce((total, roll) => {
+    //@ts-expect-error
+    if (roll.options.type === "temphp" && ignoreTemp) return total;
+    return total + (roll?.total ?? 0);
+    }, 0);
 }
 
 const updatesCache = {};

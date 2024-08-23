@@ -1,7 +1,7 @@
-import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MQdefaultDamageType, MODULE_ID } from "../midi-qol.js";
-import { DamageOnlyWorkflow, DummyWorkflow, TrapWorkflow, Workflow } from "./workflow.js";
+import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MODULE_ID } from "../midi-qol.js";
+import { DummyWorkflow, Workflow } from "./workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getConcentrationEffect, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, createDamageDetail, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, itemRequiresConcentration, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee, createConditionData, evalCondition, MQfromUuidSync, getFlankingEffect, CERemoveEffect } from "./utils.js";
+import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee, createConditionData, evalCondition, MQfromUuidSync, getFlankingEffect, CERemoveEffect } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -316,7 +316,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     // Call preTargeting hook/onUse macro. Create a dummy workflow if one does not already exist for the item
     let tempWorkflow = new DummyWorkflow(this.parent, this, speaker, game?.user?.targets ?? new Set(), {});
     tempWorkflow.options = options;
-    let cancelWorkflow = (await asyncHooksCall("midi-qol.preTargeting", tempWorkflow) === false || await asyncHooksCall(`midi-qol.preTargeting.${this.uuid}`, { item: this })) === false;
+    let cancelWorkflow = await asyncHooksCall("midi-qol.preTargeting", tempWorkflow) === false || await asyncHooksCall(`midi-qol.preTargeting.${this.uuid}`, { item: this }) === false;
     if (configSettings.allowUseMacro) {
       const results = await tempWorkflow.callMacros(this, tempWorkflow.onUseMacros?.getMacros("preTargeting"), "OnUse", "preTargeting");
       cancelWorkflow ||= results.some(i => i === false);
@@ -1121,7 +1121,6 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
 
     if (this.system.actionType === "heal" && !Object.keys(GameSystemConfig.healingTypes).includes(workflow.defaultDamageType ?? "")) workflow.defaultDamageType = "healing";
 
-    workflow.damageDetail = createDamageDetail({ roll: result, item: this, defaultType: workflow.defaultDamageType });
     await workflow.setDamageRolls(result);
     if (workflow.workflowOptions?.damageRollDSN !== false) {
       let promises = result.map(r => displayDSNForRoll(r, "damageRoll"));
@@ -1224,7 +1223,6 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
           if (otherMagicalDamage && !otherProperties.includes("mgc")) otherProperties.push("mgc");
           otherProperties.push(workflow?.otherDamageItem?.system.actionType)
           await workflow.setOtherDamageRoll(otherResult);
-          workflow.otherDamageDetail = createDamageDetail({ roll: otherResult, item: null, defaultType: workflow.otherDamageItem.system.damage?.parts[0]?.[1] ?? workflow.defaultDamageType ?? MQdefaultDamageType });
           if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
           if (!configSettings.mergeCard) {
             foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "other");
@@ -1587,7 +1585,7 @@ export function isAoETargetable(targetToken, options: { selfToken?: Token | Toke
   if (!isTargetable(targetToken)) return false;
   const autoTarget = options.autoTarget ?? configSettings.autoTarget;
   const selfToken = getToken(options.selfToken);
-  if (["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapacitated"].includes(autoTarget) && checkIncapacitated(targetToken, false)) return false;
+  if (["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapacitated"].includes(autoTarget) && checkIncapacitated(targetToken.actor, false)) return false;
   if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(autoTarget) && checkDefeated(targetToken)) return false;
   if (targetToken === selfToken) return !options.ignoreSelf;
   //@ts-expect-error .disposition

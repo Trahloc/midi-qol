@@ -165,7 +165,7 @@ export class RollStats {
     this.currentStats = game.settings.get("midi-qol", "RollStats");
   }
 
-  public addDamage(appliedDamage: number, totalDamage: number, numTargets: number, item) {
+  public addDamage(hpDamage: number, totalDamage: number, numTargets: number, item) {
     const actorStats = this.getEntityStats(item?.actor?.id, game.actors);
     if (!actorStats) return;
     let playerStats;
@@ -185,7 +185,7 @@ export class RollStats {
         itemStats = this.getitemStats(item, game.user.id, game.users).session;
       [session, lifetime, itemStats].forEach(stats => {
         stats.numDamageRolls += 1;
-        stats.damageApplied += appliedDamage;
+        stats.damageApplied += hpDamage;
         stats.damageTotal += (totalDamage * numTargets);
         if (item && !item.hasAttack) { // no attack so count each use as an attack
           stats.numAttacks += 1;
