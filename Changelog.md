@@ -2,6 +2,10 @@
 
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
+
+### 11.6.4.2
+* Re-enabled magic items spells as reactions.
+
 ### 11.6.4.1
 * Fix for removing template's (etc) dependents.
 * Fix for items that just do tempHP healing.

@@ -1353,7 +1353,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
         targetsToUse = new Set(game.user?.targets);
       }
       let hookName = `midi-qol.postCleanup.${item?.uuid}`;
-      if (!(theItem instanceof CONFIG.Item.documentClass)) {
+      if (!(item instanceof CONFIG.Item.documentClass)) {
         // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
         hookName = "midi-qol.postCleanup";
       }
@@ -1365,8 +1365,8 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
         resolve(workflow);
       });
 
-      if (theItem.magicItem) {
-        theItem.magicItem.magicItemActor.roll(theItem.magicItem.id, theItem.id);
+      if (item.magicItem) {
+        item.magicItem.magicItemActor.roll(item.magicItem.id, theItem.id);
       } else {
         options.targetsToUse = targetsToUse
         theItem.use(config, options).then(result => { if (!result) resolve(result) });
@@ -2535,7 +2535,6 @@ export async function removeTokenConditionEffect(token: Token, condition: string
   if (hasEffect) await expireEffects(token.actor, [hasEffect], { "expiry-reason": `midi-qol:removeTokenCondition:${condition}` });
 }
 
-// this = {actoaddStatusEffectChangebonusDialog(r, item, myExpiredEffects}
 export async function expireMyEffects(effectsToExpire: string[]) {
   const expireHit = effectsToExpire.includes("1Hit") && !this.effectsAlreadyExpired.includes("1Hit");
   let expireAnyAction = effectsToExpire.includes("1Action") && !this.effectsAlreadyExpired.includes("1Action");
