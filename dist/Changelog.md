@@ -2,6 +2,10 @@
 
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
+### 11.6.4.1
+* Fix for removing template's (etc) dependents.
+* Fix for items that just do tempHP healing.
+
 ### 11.6.4
 * Changes to dependent handling to remove a race condition when deleting dependents.
 * Fix for the midi-qol.preTargeting hook not aborting the workflow.

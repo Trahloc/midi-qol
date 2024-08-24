@@ -1334,7 +1334,7 @@ export function readyPatching() {
     for (let classString of classStrings) {
       const docClass = eval(classString)
       if (!docClass) continue;
-      if (!docClass.prototype.addDependent) libWrapper.register(MODULE_ID, `${classString}.prototype._onDelete`, _onDeleteGeneric, "WRAPPER");
+      if (!docClass.prototype.addDependent) libWrapper.register(MODULE_ID, `${classString}.prototype._onDelete`, _onDelete, "WRAPPER");
       if (!docClass.prototype.addDependent) docClass.prototype.addDependent = addDependent;
       if (!docClass.prototype.getDependents) docClass.prototype.getDependents = getDependents;
       if (!docClass.prototype.setDependents) docClass.prototype.setDependents = setDependents;
@@ -1342,7 +1342,7 @@ export function readyPatching() {
       if (!docClass.prototype.clearDependents) docClass.prototype.clearDependents = clearDependents;
       if (!docClass.prototype.deleteAllDependents) docClass.prototype.deleteAllDependents = deleteAllDependents;
     }
-    libWrapper.register(MODULE_ID, "CONFIG.ActiveEffect.documentClass.prototype._onDelete", _onDeleteActiveEffect, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.ActiveEffect.documentClass.prototype._onDelete", _onDelete, "WRAPPER");
   }
 }
 
@@ -1401,27 +1401,19 @@ function _getDependents() {
   }, []);
 }
 
-async function _onDeleteGeneric(wrapped, options, userId) {
-  //@ts-expect-error
-  if (game.user === game.users?.activeGM) {
-    for (let dependent of this.getDependents())
-      await dependent.delete();
-  }
-  await this.clearDependents();
-  return wrapped(options, userId);
-}
-
-async function _onDeleteActiveEffect(wrapped, ...args) {
+async function _onDelete(wrapped, ...args) {
   let [options, userId] = args;
+  if (!this.getDependents) return wrapped(...args);
   const dependents = this.getDependents();
   if (dependents.length > 0) {
     for (let dep of dependents) {
       //@ts-expect-error
-      if (fromUuidSync(dep.uuid))
-        await dep.delete();
+      if (fromUuidSync(dep.uuid)) {
+        await dep.delete(options);
+      }
+      // Since the effect will have been already deleted we can't do any updates to it.
+      foundry.utils.setProperty(this, `flags.${game.system.id}.dependents`, [])
     }
-    // Since the effect has already been deleted we can't do any updates to it.
-    foundry.utils.setProperty(this, "flags.dnd5e.dependents", [])
   }
   return await wrapped(options, userId);
 }

@@ -778,7 +778,7 @@ async function prepareDamageListItems(data: {
     if (!showNPC && !actor.hasPlayerOwner) continue;
     // let newTempHP = Math.max(0, oldTempHP - tempDamage);
     if (createPromises && doHits && applyDamage) {
-      if ((hpDamage || tempDamage || newVitality !== oldVitality) && (data.autoApplyDamage !== "yesCardNPC" || actor.type !== "character")) {
+      if (data.autoApplyDamage !== "yesCardNPC" || actor.type !== "character") {
         if (actor.isOwner) {
           // const hpDamage = damageItem.damageDetail.reduce((acc, di) => acc + (di.type !== "temphp" ? di.value : 0), 0);
           const hp = actor.system.attributes.hp;
@@ -790,14 +790,11 @@ async function prepareDamageListItems(data: {
           totalDamage = damageItem.rawDamageDetail.reduce((acc, d) => acc + d.type !== "temphp" ? d.value : 0, 0);
           amount = amount > 0 ? Math.floor(amount) : Math.ceil(amount);
           if (amount !== hpDamage) {
-            error(`amount ${amount} !== hpDamage ${hpDamage}`);
+            error(`damage detail amount ${amount} !== hpDamage ${hpDamage}`, configSettings.useDamageDetail ? "ignoring hpDamage" : "using hpDamage");
             if (!configSettings.useDamageDetail) amount = hpDamage;
           }
           let deltaTemp = amount > 0 ? Math.min(hp.temp, amount) : 0;
-          if (deltaTemp !== tempDamage) {
-            error(`deltaTemp ${tempDamage} !==  ${deltaTemp}`);
-            if (!configSettings.useDamageDetail) deltaTemp = tempDamage;
-          }
+          // Since tempDamage represents the final change in tempHP - we can use it for calcs and it is ignored.
 
           //@ts-expect-error
           let deltaHP = Math.clamp(amount - deltaTemp, -hp.damage, hp.value);
