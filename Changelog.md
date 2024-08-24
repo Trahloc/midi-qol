@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.4.3
+* Fix for error thrown when deleting dependents (e.g. templates etc) if there is a non-gm logged in.
+
 ### 11.6.4.2
 * Re-enabled magic items spells as reactions.
 

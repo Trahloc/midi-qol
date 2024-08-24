@@ -1403,16 +1403,19 @@ function _getDependents() {
 
 async function _onDelete(wrapped, ...args) {
   let [options, userId] = args;
-  if (!this.getDependents) return wrapped(...args);
-  const dependents = this.getDependents();
-  if (dependents.length > 0) {
-    for (let dep of dependents) {
-      //@ts-expect-error
-      if (fromUuidSync(dep.uuid)) {
-        await dep.delete(options);
+  //@ts-expect-error
+  if (game.user === game.users?.activeGM) {
+    if (!this.getDependents) return wrapped(...args);
+    const dependents = this.getDependents();
+    if (dependents.length > 0) {
+      for (let dep of dependents) {
+        //@ts-expect-error
+        if (fromUuidSync(dep.uuid)) {
+          await dep.delete(options);
+        }
+        // Since the effect will have been already deleted we can't do any updates to it.
+        foundry.utils.setProperty(this, `flags.${game.system.id}.dependents`, [])
       }
-      // Since the effect will have been already deleted we can't do any updates to it.
-      foundry.utils.setProperty(this, `flags.${game.system.id}.dependents`, [])
     }
   }
   return await wrapped(options, userId);
