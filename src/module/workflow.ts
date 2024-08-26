@@ -1208,7 +1208,7 @@ export class Workflow {
     // If a damage card is going to be created don't call the isDamaged macro - wait for the damage card calculations to do a better job
     if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true && !configSettings.autoApplyDamage.includes("Card"))
       await this.triggerTargetMacros(["isDamaged"], this.hitTargets);
-    if (debugEnabled > 1) debug("all rolls complete ", duplicate(duplicate(this.rawDamageDetail)))
+    if (debugEnabled > 1) debug("all rolls complete ", duplicate(this.rawDamageDetail));
     return this.WorkflowState_ApplyDynamicEffects;
   }
 
@@ -3905,13 +3905,13 @@ export class Workflow {
         });
       }
     }
-
     // Call the preDamageApplication hook which can change the damage
     if (configSettings.allowUseMacro && this.item?.flags) {
       await this.callMacros(this.item, this.onUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication");
       if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preDamageApplication"), "OnUse", "preDamageApplication", damages);
     }
     Object.assign(damages, this.damageItem);
+
   }
 
   processDefenceRoll(message, html, data) {
@@ -4623,7 +4623,7 @@ export class Workflow {
     //@ts-expect-error
     if (!roll instanceof Roll) {
       warn("setOtherDamageRoll: roll is not a roll", roll);
-      this.otherDamgeRoll = undefined;
+      this.otherDamageRoll = undefined;
       this.rawOtherDamageDetail = [];
       return;
     }

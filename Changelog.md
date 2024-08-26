@@ -3,6 +3,13 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.5
+* Fix for incorrect total damage display on the apply damage chat card. Cosmetic only.
+* Fix for double counting temphp when applying damage.
+* Fix for ignoring damage resistance bypasses.
+* damage type "no-damage" again does no damage to the target.
+* clean up the player damage card being show with the new damage application details.
+
 ### 11.6.4.3
 * Fix for error thrown when deleting dependents (e.g. templates etc) if there is a non-gm logged in.
 

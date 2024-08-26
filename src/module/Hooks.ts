@@ -901,6 +901,7 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
         || options.ignore?.[category] === true
         || options.ignore?.[category]?.has?.(type);
     };
+    
     const mo = options.midi;
     if (mo?.noCalc) return true;
     if (mo) {
@@ -1002,13 +1003,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         || ((category === "immunity") && downgrade(type) && !skipDowngrade)
         || ((category === "resistance") && downgrade(type))
     };
-    /*        "spell": i18n("midi-qol.spell-damage"),
-    "nonmagic": i18n("midi-qol.NonMagical"),
-    "magic": i18n("midi-qol.Magical"),
-    "physical": i18n("midi-qol.NonMagicalPhysical"),
-    "silver": i18n("midi-qol.NonSilverPhysical"),
-    "adamant": i18n("midi-qol.NonAdamantinePhysical"),
-    */
+
     let customs: string[] = [];
     const categories = { "di": "immunity", "dr": "resistance", "dv": "vulnerability", "da": "absorption" };
     const traitMultipliers = { "dr": configSettings.damageResistanceMultiplier, "di": configSettings.damageImmunityMultiplier, "da": -1, "dv": configSettings.damageVulnerabilityMultiplier };
@@ -1022,6 +1017,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         let bypassesPresent;
         for (let damage of damages) {
           if (damage.active[categories[trait]]) continue; // only one dr/di/dv allowed
+          if (damage.type === "midi-non") {}
           if (GameSystemConfig.healingTypes[damage.type]) continue;
           if (ignore(categories[trait], damage.type, false)) continue;
           if (ignore(custom, damage.type, false) || damage.active[custom]) continue;
@@ -1200,6 +1196,13 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         damages.push({ type: "none", value: drAll, active: { DR: true, multiplier: 1 }, allActives: drAllActives, properties: new Set() });
       }
       Hooks.callAll("midi-qol.dnd5eCalculateDamage", actor, damages, options);
+      while (damages.find((di, idx) => {
+        if (di.type === "midi-none") {
+          damages.splice(idx, 1);
+          return true;
+        }
+        return false;
+      }));
     }
   } catch (err) {
     console.error(err);

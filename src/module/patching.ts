@@ -1282,8 +1282,8 @@ function itemSheetDefaultOptions(wrapped) {
   }
   return options;
 }
-
 export function readyPatching() {
+
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     libWrapper.register(MODULE_ID, `game.${game.system.id}.canvas.AbilityTemplate.prototype.refresh`, midiATRefresh, "WRAPPER");
     libWrapper.register(MODULE_ID, "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");

@@ -2,7 +2,7 @@ import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamag
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
-import { socketlibSocket, timedAwaitExecuteAsGM, untimedExecuteAsGM, updateEffects } from "./GMAction.js";
+import { prepareDamagelistToJSON, socketlibSocket, timedAwaitExecuteAsGM, untimedExecuteAsGM, updateEffects } from "./GMAction.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
 import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
 
@@ -267,7 +267,7 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
       calcDamageOptions.multiplier = saveMultiplier;
     }
     //@ts-expect-error
-    allDamages[token.document.uuid].damageDetails["combinedDamage"] = foundry.utils.duplicate(actor.calculateDamage(damageDetail, calcDamageOptions));
+    allDamages[token.document.uuid].damageDetails["combinedDamage"] = foundry.utils.deepClone(actor.calculateDamage(damageDetail, calcDamageOptions));
     allDamages[token.document.uuid].damageDetail = allDamages[token.document.uuid].damageDetails["combinedDamage"];
     allDamages[token.document.uuid].calcDamgeOptions = calcDamageOptions;
     allDamages[token.document.uuid].rawDamageDetail = damageDetail;
@@ -279,7 +279,7 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
     sender: game.user?.name,
     actorId: workflow.actor?.id,
     charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
-    damageList: Object.values(allDamages),
+    damageList: prepareDamagelistToJSON(Object.values(allDamages)),
     chatCardId: workflow.itemCardId,
     chatCardUuid: workflow.itemCardUuid,
     flagTags: workflow.flagTags,
@@ -299,36 +299,36 @@ export interface applyDamageDetails {
 }
 
 export function setupv3DamageDetails(allDamages, selector, token: Token) {
-  const tokenDamge = allDamages[token.document.uuid];
-  let { amount, temp } = tokenDamge.damageDetails[selector].reduce((acc, d) => {
+  const tokenDamage = allDamages[token.document.uuid];
+  let { amount, temp } = tokenDamage.damageDetails[selector].reduce((acc, d) => {
     if (d.type === "temphp") acc.temp += d.value;
-    else acc.amount += d.value;
+    else if (d.type !== "midi-none") acc.amount += d.value;
     return acc;
   }, { amount: 0, temp: 0 });
   amount = amount > 0 ? Math.floor(amount) : Math.ceil(amount);
-  let totalDamage = tokenDamge.damageDetails[`raw${selector}`].reduce((acc, d) => acc + (d.type === "temphp" ? 0 : d.value), 0);
+  let totalDamage = tokenDamage.damageDetails[`raw${selector}`].reduce((acc, d) => acc + (["temphp", "midi-none"].includes(d.type) ? 0 : d.value), 0);
   //@ts-expect-error
   const as = token.actor?.system;
   if (!as || !as.attributes.hp) return;
   let effectiveTemp = as.attributes.hp.temp ?? 0;
-  tokenDamge.useDamageDetail = configSettings.useDamageDetail;
-  tokenDamge.tokenUuid = token.document.uuid;
-  tokenDamge.tokenId = token.id;
-  tokenDamge.oldHP = as.attributes.hp.value;
-  tokenDamge.newHP = as.attributes.hp.value;
-  tokenDamge.oldTempHP = as.attributes.hp.temp ?? 0;
-  tokenDamge.newTempHP = as.attributes.hp.temp ?? 0;
+  tokenDamage.useDamageDetail = configSettings.useDamageDetail;
+  tokenDamage.tokenUuid = token.document.uuid;
+  tokenDamage.tokenId = token.id;
+  tokenDamage.oldHP = as.attributes.hp.value;
+  tokenDamage.newHP = as.attributes.hp.value;
+  tokenDamage.oldTempHP = as.attributes.hp.temp ?? 0;
+  tokenDamage.newTempHP = as.attributes.hp.temp ?? 0;
   const deltaTemp = amount > 0 ? Math.min(effectiveTemp, amount) : 0;
   //@ts-expect-error
   const deltaHP = Math.clamp(amount - deltaTemp, -as.attributes.hp.damage, as.attributes.hp.value);
-  tokenDamge.newHP -= deltaHP;
-  tokenDamge.hpDamage = deltaHP;
-  tokenDamge.newTempHP = Math.floor(Math.max(0, effectiveTemp - deltaTemp, temp));
+  tokenDamage.newHP -= deltaHP;
+  tokenDamage.hpDamage = deltaHP;
+  tokenDamage.newTempHP = Math.floor(Math.max(0, effectiveTemp - deltaTemp, temp));
   // damages.tempDamage = deltaTemp;
-  tokenDamge.tempDamage = tokenDamge.oldTempHP - tokenDamge.newTempHP;
-  tokenDamge.totalDamage;
-  tokenDamge.details = [];
-  tokenDamge.wasHit = tokenDamge.isHit;
+  tokenDamage.tempDamage = tokenDamage.oldTempHP - tokenDamage.newTempHP;
+  tokenDamage.totalDamage;
+  tokenDamage.details = [];
+  tokenDamage.wasHit = tokenDamage.isHit;
 }
 
 export async function processDamageRoll(workflow: Workflow, defaultDamageType: string) {
@@ -391,7 +391,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
     damagePerToken[tokenDocument?.uuid] = {
       targetUuid: getTokenDocument(token)?.uuid,
-      damageDetails: { combinedDamage: [], rawcombinedDamage: [], defaultDamage: [], rawdefaultDamage: workflow.rawDamageDetail, otherDamage: [], rawdtherDamage: workflow.rawOtherDamageDetail, bonusDamage: [], rawbonusDamage: workflow.rawBonusDamageDetail },
+      damageDetails: { combinedDamage: [], rawcombinedDamage: [], defaultDamage: [], rawdefaultDamage: workflow.rawDamageDetail, otherDamage: [], rawotherDamage: workflow.rawOtherDamageDetail, bonusDamage: [], rawbonusDamage: workflow.rawBonusDamageDetail },
       isHit: hitTargets.has(token),
       saved: workflow.saves.has(token),
       superSaver: workflow.superSavers.has(token),
@@ -476,7 +476,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
           }
         }
         //@ts-expect-error
-        let returnDamages = foundry.utils.duplicate(token.actor.calculateDamage(damages, calcDamageOptions));
+        let returnDamages = foundry.utils.deepClone(token.actor.calculateDamage(damages, calcDamageOptions));
         if (configSettings.singleConcentrationRoll || type !== "otherDamage") {
           damageDetails[type] = returnDamages;
           damageDetails["combinedDamage"] = damageDetails["combinedDamage"].concat(returnDamages);
@@ -517,7 +517,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       sender: game.user?.name,
       actorId: workflow.actor?.id,
       charName: workflow.token?.name ?? workflow.actor?.name ?? game?.user?.name,
-      damageList: workflow.damageList,
+      damageList: prepareDamagelistToJSON(workflow.damageList),
       chatCardId: workflow.itemCardId,
       chatCardUuid: workflow.itemCardUuid,
       flagTags: workflow.flagTags,
@@ -2445,19 +2445,7 @@ export function hasCondition(actorRef: Actor | Token | TokenDocument | string | 
   //@ts-expect-error hasStatusEffect
   if (actor.statuses.has(condition.toLocaleLowerCase()) || actor.statuses.has(condition)) return 1;
 
-  /*
-  //@ts-expect-error only check actor statuses from now on
-  const clt = game.clt;
-  // if (installedModules.get("condition-lab-triggler") && condition === "invisible" && clt.hasCondition("Invisible", [td.object], { warn: false })) return 1;
-  // if (installedModules.get("condition-lab-triggler") && condition === "hidden" && clt.hasCondition("Hidden", [td.object], { warn: false })) return 1;
-  if (installedModules.get("dfreds-convenient-effects")) {
-    // If we are looking for a status effect then we don't need to check dfreds since dfreds status effects include the system status effect id
-    if (Object.keys(GameSystemConfig.statusEffects).includes(condition.toLocaleLowerCase())) return 0;
-    const localCondition = i18n(`midi-qol.${condition}`);
-    if (CEHasEffectApplied({ effectName: localCondition, uuid: (actor?.uuid ?? "") })) return 1;
-    if (CEHasEffectApplied({ effectName: condition, uuid: (actor?.uuid ?? "") })) return 1;
-  }
-  */
+
   return 0;
 }
 
@@ -3044,7 +3032,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       if (this instanceof Workflow || this.workflow) {
         workflow = this.workflow ?? this;
       } else {
-        const itemUuidOrName = button.value.split(".").slice(1).join(".");
+        const itemUuidOrName = macroToCall.split(".").slice(1).join(".");
         let item = MQfromUuidSync(itemUuidOrName);
         if (!item && this.actor) item = this.actor.items.getName(itemUuidOrName);
         if (!item && this instanceof Actor) item = this.items.getName(itemUuidOrName);
@@ -3058,15 +3046,11 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll, bonus: (!specificMacro ? button.value : undefined) });
       if (typeof result === "string")
         button.value = result;
-      else {
-        if (result instanceof Roll) {
-          newRoll = result;
-          resultApplied = true;
-        }
-        if (specificMacro) {
-          newRoll = roll;
-          resultApplied = true;
-        }
+      else if (typeof result === "number")
+        button.value = `${result}`;
+      else if (result instanceof Roll) {
+        newRoll = result;
+        resultApplied = true;
       }
       if (result === undefined && debugEnabled > 0) console.warn(`midi-qol | bonusDialog | macro ${button.value} return undefined`)
     }
@@ -5949,7 +5933,7 @@ export function sumRolls(rolls: Array<Roll> | undefined = [], ignoreTemp?: boole
     //@ts-expect-error
     if (roll.options.type === "temphp" && ignoreTemp) return total;
     return total + (roll?.total ?? 0);
-    }, 0);
+  }, 0);
 }
 
 const updatesCache = {};
