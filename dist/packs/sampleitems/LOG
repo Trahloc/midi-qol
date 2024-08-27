@@ -1,14 +1,12 @@
-2024/07/23-22:59:02.967037 7fcd1ffff640 Recovering log #704
-2024/07/23-22:59:02.975315 7fcd1ffff640 Delete type=0 #704
-2024/07/23-22:59:02.975336 7fcd1ffff640 Delete type=3 #702
-2024/07/24-00:18:22.880095 7fca7ebff640 Level-0 table #710: started
-2024/07/24-00:18:22.883024 7fca7ebff640 Level-0 table #710: 6823 bytes OK
-2024/07/24-00:18:22.886393 7fca7ebff640 Delete type=0 #708
-2024/07/24-00:18:22.889925 7fca7ebff640 Manual compaction at level-0 from '!folders!03xh8o98NV0wViRp' @ 72057594037927935 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at '!items!MknoVt9yjoEc2xDB' @ 788 : 1
-2024/07/24-00:18:22.889931 7fca7ebff640 Compacting 1@0 + 1@1 files
-2024/07/24-00:18:22.896790 7fca7ebff640 Generated table #711@0: 193 keys, 316011 bytes
-2024/07/24-00:18:22.896806 7fca7ebff640 Compacted 1@0 + 1@1 files => 316011 bytes
-2024/07/24-00:18:22.899915 7fca7ebff640 compacted to: files[ 0 1 0 0 0 0 0 ]
-2024/07/24-00:18:22.899971 7fca7ebff640 Delete type=2 #706
-2024/07/24-00:18:22.900067 7fca7ebff640 Delete type=2 #710
-2024/07/24-00:18:22.900174 7fca7ebff640 Manual compaction at level-0 from '!items!MknoVt9yjoEc2xDB' @ 788 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at (end)
+2024/08/27-01:13:18.405725 7f810b7fe640 Delete type=3 #1
+2024/08/27-16:58:12.816370 7f8109bff640 Level-0 table #727: started
+2024/08/27-16:58:12.820066 7f8109bff640 Level-0 table #727: 85118 bytes OK
+2024/08/27-16:58:12.823310 7f8109bff640 Delete type=0 #725
+2024/08/27-16:58:12.823538 7f8109bff640 Manual compaction at level-0 from '!folders!03xh8o98NV0wViRp' @ 72057594037927935 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at '!items.effects!xRhnoia1B1Ef4NWR.9eOiLd1FGoDJ9eLu' @ 798 : 1
+2024/08/27-16:58:12.823543 7f8109bff640 Compacting 2@0 + 0@1 files
+2024/08/27-16:58:12.829397 7f8109bff640 Generated table #728@0: 177 keys, 287753 bytes
+2024/08/27-16:58:12.829409 7f8109bff640 Compacted 2@0 + 0@1 files => 287753 bytes
+2024/08/27-16:58:12.832855 7f8109bff640 compacted to: files[ 0 1 0 0 0 0 0 ]
+2024/08/27-16:58:12.832972 7f8109bff640 Delete type=2 #727
+2024/08/27-16:58:12.833089 7f8109bff640 Delete type=2 #722
+2024/08/27-16:58:12.833283 7f8109bff640 Manual compaction at level-0 from '!items.effects!xRhnoia1B1Ef4NWR.9eOiLd1FGoDJ9eLu' @ 798 : 1 .. '!items.effects!ztjXiC2pJRxFo1Wz.DOSPzye2onyMPsWo' @ 0 : 0; will stop at (end)

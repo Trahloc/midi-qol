@@ -1622,13 +1622,16 @@ async function _preCreateActiveEffect(wrapped, data, options, user): Promise<voi
   try {
     if (!configSettings.concentrationIncapacitatedConditionCheck) return;
     const parent: any = this.parent;
-    const checkConcentration = configSettings.concentrationAutomation || !safeGetGameSetting("dnd5e", "disableConcentration");
+    const checkConcentration = configSettings.removeConcentration || !safeGetGameSetting("dnd5e", "disableConcentration");
     if (!checkConcentration || options.noConcentrationCheck) return;
     if (!(parent instanceof CONFIG.Actor.documentClass)) return;
     if (globalThis.MidiQOL.incapacitatedConditions.some(condition => this.statuses.has(condition))) {
       if (debugEnabled > 0) warn(`on createActiveEffect ${this.name} ${this.id} removing concentration for ${parent.name}`)
+      //@ts-expect-error - there is a separate check for hp.value <= in Hooks.ts so don't duplicate removal
+      if (parent.system.attributes?.hp?.value > 0) { 
       //@ts-expect-error
       parent.endConcentration();
+      }
     }
   } catch (err) {
     const message = "midi-qol | error in preCreateActiveEffect";

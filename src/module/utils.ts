@@ -5486,7 +5486,7 @@ export function getActor(actorRef: Actor | Token | TokenDocument | string | null
   if (actorRef instanceof TokenDocument) return actorRef.actor;
   let entity: any = actorRef;
   //@ts-expect-error
-  if (typeof actorRef === "string") entity = foundry.utils.fromUuidSync(actorRef);
+  if (typeof actorRef === "string") entity = fromUuidSync(actorRef);
   if (entity instanceof Actor) return entity;
   if (entity instanceof TokenDocument) return entity.actor;
   if (entity instanceof Item && entity.parent instanceof Actor) return entity.parent;

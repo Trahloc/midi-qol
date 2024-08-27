@@ -77,8 +77,6 @@ export let readyHooks = async () => {
         await checkWounded(actor, update, options, user);
         await zeroHPExpiry(actor, update, options, user);
       }
-      // if (globalThis.DAE?.actionQueue && !globalThis.DAE.actionQueue.remaining) await globalThis.DAE.actionQueue.add(hpUpdateFunc);
-      // else await hpUpdateFunc();
       await hpUpdateFunc();
       if (actor.system.attributes.hp.value <= 0 && configSettings.removeConcentration) {
         await actor.endConcentration();
