@@ -3,8 +3,11 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.6.1
+* Fix for non-damage spells failing to complete.
+
 ### 11.6.6
-* Fix for effect does not exist error when auto removing concentration, the actor goes to 0 hp, and incapcitated is applied.
+* Fix for effect does not exist error when auto removing concentration, the actor goes to 0 hp, and incapacitated is applied.
 * Fix for hasCondtion failing when passed a string actorUuid.
 * Updated Hunter's Mark item to illustrate a good way to roll bonus damage, damage type, critical and flavor are all set so that the roll will do the right type and amount of damage and the item name will appear in the chat card.
 * Updated Mace of Disruption to show the preferred way to add extra damage for a roll. This checks that the target failed the save, has <= 25 hp remaining, is a fiend or undead and if so adds just enough damage to take the target hp to 0. It also adds a descriptive line so you can see why there was extra damage.

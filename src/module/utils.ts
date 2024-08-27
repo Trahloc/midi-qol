@@ -356,9 +356,9 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   if (debugEnabled > 0) warn("processDamageRoll | damage details pre merge are ", workflow.rawDamageDetail, workflow.rawBonusDamageDetail);
   let totalDamage = 0;
 
-  const baseNoDamage = workflow.rawDamageDetail.length === 0 || (workflow.rawDamageDetail.length === 1 && workflow.rawDamageDetail[0] === "midi-none");
-  const bonusNoDamage = workflow.rawBonusDamageDetail.length === 0 || (workflow.rawBonusDamageDetail.length === 1 && workflow.rawBonusDamageDetail[0] === "midi-none");
-  const otherNoDamage = workflow.rawOtherDamageDetail.length === 0 || (workflow.rawOtherDamageDetail.length === 1 && workflow.rawOtherDamageDetail[0] === "midi-none");
+  const baseNoDamage = workflow.rawDamageDetail?.length === 0 || (workflow.rawDamageDetail.length === 1 && workflow?.rawDamageDetail[0] === "midi-none");
+  const bonusNoDamage = workflow.rawBonusDamageDetail?.length === 0 || (workflow.rawBonusDamageDetail?.length === 1 && workflow.rawBonusDamageDetail[0] === "midi-none");
+  const otherNoDamage = workflow.rawOtherDamageDetail?.length === 0 || (workflow.rawOtherDamageDetail?.length === 1 && workflow.rawOtherDamageDetail[0] === "midi-none");
   if (baseNoDamage && bonusNoDamage && otherNoDamage) return;
 
   let baseDamageSaves: Set<Token | TokenDocument> = new Set();

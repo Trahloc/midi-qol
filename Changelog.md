@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.6.1
+* Fix for non-damage spells failing to complete.
+
 ### 11.6.6
 * Fix for effect does not exist error when auto removing concentration, the actor goes to 0 hp, and incapacitated is applied.
 * Fix for hasCondtion failing when passed a string actorUuid.
