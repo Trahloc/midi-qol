@@ -1796,8 +1796,8 @@ export class Workflow {
     const token: Token | undefined = this.attackingToken ?? canvas?.tokens?.get(this.tokenId);
     if (checkRule("invisAdvantage") && checkRule("invisAdvantage") !== "none" && target) {
       // if we are using a proxy token to attack use that for hidden invisible
-      const invisibleToken = token ? hasCondition(token, "invisible") : false;
-      const invisibleTarget = hasCondition(target, "invisible");
+      const invisibleToken = token ? hasCondition(token.actor, "invisible") : false;
+      const invisibleTarget = hasCondition(target.actor, "invisible");
       const tokenCanSense = this.tokenCanSense?.has(target);
       const targetCanSense = this.targetsCanSense?.has(token);
       const invisAdvantage = (checkRule("invisAdvantage") === "RAW") ? invisibleToken || !targetCanSense : !targetCanSense;
@@ -1854,8 +1854,8 @@ export class Workflow {
       }
 
       if (checkRule("hiddenAdvantage") === "effect") {
-        const hiddenToken = token ? hasCondition(token, "hidden") : false;
-        const hiddenTarget = hasCondition(target, "hidden");
+        const hiddenToken = token ? hasCondition(token.actor, "hidden") : false;
+        const hiddenTarget = hasCondition(target.actor, "hidden");
         if (hiddenToken) {
           this.attackAdvAttribution.add("ADV:hidden");
           this.advReminderAttackAdvAttribution.add("ADV:Hidden");

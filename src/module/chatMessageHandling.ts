@@ -559,7 +559,7 @@ export async function onChatCardAction(event) {
   button.disabled = false;
 }
 
-export function ddbglPendingFired(data) {
+export async function ddbglPendingFired(data) {
   let { sceneId, tokenId, actorId, itemId, actionType } = data;
   if (!itemId || !["attack", "damage", "heal"].includes(actionType)) {
     error("DDB Game Log - no item/action for pending roll"); return
@@ -588,7 +588,9 @@ export function ddbglPendingFired(data) {
   }
 
   let workflow: Workflow | undefined = DDBGameLogWorkflow.get(item.uuid);
-  if (actionType === "attack") workflow = undefined;
+  if (actionType === "attack") {
+    if (DDBGameLogWorkflow.get(item.uuid)) await Workflow.removeWorkflow(item.uuid);
+  }
   //@ts-expect-error .hasAttack
   if (["damage", "heal"].includes(actionType) && item.hasAttack && !workflow) {
     warn(` ddb-game-log damage roll without workflow being started ${actor.name} using ${item.name}`);

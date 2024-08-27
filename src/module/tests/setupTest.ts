@@ -641,6 +641,7 @@ async function registerTests() {
         describe("overTime effects", async function () {
           it("test overtime effect run and removed on combat update", async function () {
             this.timeout(20000);
+            resetActors();
             let scene = canvas?.scene;
             const cls = getDocumentClass("Combat");
             const combat = await cls.create({ scene: scene?.id, active: true }, { render: true });

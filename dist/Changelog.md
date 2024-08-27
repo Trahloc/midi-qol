@@ -6,6 +6,11 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready. 
  - The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
+ 
+### 11.5.5
+* Small change for ddb gamelow integration thanks @carolingian
+* update pt-br.json thanks @kharmans
+* Fix for checking incapacitated during initialisation throwing an error
 
 ### 11.5.4
 * Fix for eval condition throwing an error when no targets selected.

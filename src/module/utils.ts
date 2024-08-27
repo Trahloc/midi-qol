@@ -2190,43 +2190,44 @@ export function untargetAllTokens(...args) {
   }
 }
 
-export function checkDefeated(tokenRef: Actor | Token | TokenDocument | string): 0 | 1 {
-  const tokenDoc = getTokenDocument(tokenRef);
+export function checkDefeated(actorRef: Actor | Token | TokenDocument | string): 0 | 1 {
+  const actor = getActor(actorRef);
+  if (!actor) return 0;
   //@ts-expect-error specialStatusEffects
-  return hasCondition(tokenDoc, CONFIG.specialStatusEffects.DEFEATED)
-    || hasCondition(tokenDoc, configSettings.midiDeadCondition);
+  return hasCondition(actor, CONFIG.specialStatusEffects.DEFEATED)
+    || hasCondition(actor, configSettings.midiDeadCondition);
 }
 
-export function checkIncapacitated(tokenRef: Actor | Token | TokenDocument | string, logResult: boolean = true): string | false {
-  const tokenDoc = getTokenDocument(tokenRef);
-  if (!tokenDoc) return false;
-  if (tokenDoc.actor) {
-    const vitalityResource = checkRule("vitalityResource");
-    if (typeof vitalityResource === "string" && foundry.utils.getProperty(tokenDoc.actor, vitalityResource.trim()) !== undefined) {
-      const vitality = foundry.utils.getProperty(tokenDoc.actor, vitalityResource.trim()) ?? 0;
-      //@ts-expect-error .system
-      if (vitality <= 0 && tokenDoc?.actor?.system.attributes?.hp?.value <= 0) {
-        if (logResult) log(`${tokenDoc.actor.name} is dead and therefore incapacitated`);
-        return "dead";
-      }
-    } else
-      //@ts-expect-error .system
-      if (tokenDoc.actor?.system.attributes?.hp?.value <= 0) {
-        if (logResult) log(`${tokenDoc.actor.name} is incapacitated`)
-        return "dead";
-      }
-  }
-  if (configSettings.midiUnconsciousCondition && hasCondition(tokenDoc, configSettings.midiUnconsciousCondition)) {
-    if (logResult) log(`${tokenDoc.name} is ${getStatusName(configSettings.midiUnconsciousCondition)} and therefore incapacitated`)
+export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | string, logResult: boolean = true): string | false {
+  const actor = getActor(actorRef);
+  if (!actor) return false;
+
+  const vitalityResource = checkRule("vitalityResource");
+  if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
+    const vitality = foundry.utils.getProperty(actor, vitalityResource.trim()) ?? 0;
+    //@ts-expect-error .system
+    if (vitality <= 0 && actor?.system.attributes?.hp?.value <= 0) {
+      if (logResult) log(`${actor.name} is dead and therefore incapacitated`);
+      return "dead";
+    }
+  } else
+    //@ts-expect-error .system
+    if (actor?.system.attributes?.hp?.value <= 0) {
+      if (logResult) log(`${actor.name} is incapacitated`)
+      return "dead";
+    }
+
+  if (configSettings.midiUnconsciousCondition && hasCondition(actor, configSettings.midiUnconsciousCondition)) {
+    if (logResult) log(`${name} is ${getStatusName(configSettings.midiUnconsciousCondition)} and therefore incapacitated`)
     return configSettings.midiUnconsciousCondition;
   }
-  if (configSettings.midiDeadCondition && hasCondition(tokenDoc, configSettings.midiDeadCondition)) {
-    if (logResult) log(`${tokenDoc.name} is ${getStatusName(configSettings.midiDeadCondition)} and therefore incapacitated`)
+  if (configSettings.midiDeadCondition && hasCondition(actor, configSettings.midiDeadCondition)) {
+    if (logResult) log(`${name} is ${getStatusName(configSettings.midiDeadCondition)} and therefore incapacitated`)
     return configSettings.midiDeadCondition;
   }
-  const incapCondition = globalThis.MidiQOL.incapacitatedConditions.find(cond => hasCondition(tokenDoc, cond));
+  const incapCondition = (globalThis.MidiQOL?.incapacitatedConditions ?? ["incapacitated"]).find(cond => hasCondition(actor, cond));
   if (incapCondition) {
-    if (logResult) log(`${tokenDoc.name} has condition ${getStatusName(incapCondition)} so incapacitated`)
+    if (logResult) log(`${actor.name} has condition ${getStatusName(incapCondition)} so incapacitated`)
     return incapCondition;
   }
   return false;
@@ -2690,7 +2691,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
       if (target === token) continue;
       // check if target is burrowing
       if (configSettings.optionalRules.wallsBlockRange !== 'none'
-        && globalThis.MidiQOL.WallsBlockConditions.some(status => hasCondition(target, status))) {
+        && globalThis.MidiQOL.WallsBlockConditions.some(status => hasCondition(target.actor, status))) {
         return {
           result: "fail",
           reason: `${actor.name}'s has one or more of ${globalThis.MidiQOL.WallsBlockConditions} so can't be targeted`,
@@ -3161,75 +3162,66 @@ export function checkNearby(disposition: number | null | string, tokenRef: Token
   return findNearby(disposition, tokenRef, distance, options).length !== 0;
 }
 
-export function hasCondition(tokenRef: Token | TokenDocument | string | undefined, condition: string): 0 | 1 {
-  const td = getTokenDocument(tokenRef)
-  if (!td) return 0;
+export function hasCondition(actorRef: Actor | Token | TokenDocument | string | undefined | null, condition: string): 0 | 1 {
+  if (!actorRef) return 0;
+  let actor = getActor(actorRef);
+  if (!actor) return 0;
   //@ts-expect-error
-  if (td.actor.statuses.has(condition)) return 1;
+  if (actor.system.traits.ci.value.has(condition)) return 0;
+  //@ts-expect-error
+  if (actor.statuses.has(condition)) return 1;
   //@ts-expect-error specialStatusEffects
   const specials = CONFIG.specialStatusEffects;
   switch (condition?.toLocaleLowerCase()) {
     case "blind":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.BLIND)) return 1;
+      if (actor.statuses.has(specials.BLIND)) return 1;
       break;
     case "burrow":
     case "burrowing":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.BURROW)) return 1;
+      if (actor.statuses.has(specials.BURROW)) return 1;
       break;
     case "dead":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.DEFEATED)) return 1;
+      if (actor.statuses.has(specials.DEFEATED)) return 1;
       break
     case "deaf":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.DEAF)) return 1;
+      if (actor.statuses.has(specials.DEAF)) return 1;
       break;
     case "disease":
     case "diseased":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.DISEASE)) return 1;
+      if (actor.statuses.has(specials.DISEASE)) return 1;
       break;
     case "fly":
     case "flying":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.FLY)) return 1;
+      if (actor.statuses.has(specials.FLY)) return 1;
       break;
     case "hidden":
     case "hiding":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect("hidden") || td.hasStatusEffect("hiding")) return 1;
+      if (actor.statuses.has("hidden") || actor.statuses.has("hiding")) return 1;
       break;
     case "inaudible":
     case "silent":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.INAUDIBLE)) return 1;
+      if (actor.statuses.has(specials.INAUDIBLE)) return 1;
       break;
     case "invisible":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.INVISIBLE)) return 1;
+      if (actor.statuses.has(specials.INVISIBLE)) return 1;
       break;
     case "poison":
     case "poisoned":
       //@ts-expect-error hasStatusEffect
-      if (td.hasStatusEffect(specials.POISON)) return 1;
+      if (actor.statuses.has(specials.POISON)) return 1;
       break;
   }
   //@ts-expect-error hasStatusEffect
-  if (td.hasStatusEffect(condition.toLocaleLowerCase()) || td.hasStatusEffect(condition)) return 1;
-
-  //@ts-expect-error
-  const clt = game.clt;
-  if (installedModules.get("condition-lab-triggler") && condition === "invisible" && clt.hasCondition("Invisible", [td.object], { warn: false })) return 1;
-  if (installedModules.get("condition-lab-triggler") && condition === "hidden" && clt.hasCondition("Hidden", [td.object], { warn: false })) return 1;
-  if (installedModules.get("dfreds-convenient-effects")) {
-    // If we are looking for a status effect then we don't need to check dfreds since dfreds status effects include the system status effect id
-    if (Object.keys(GameSystemConfig.statusEffects).includes(condition.toLocaleLowerCase())) return 0;
-    const localCondition = i18n(`midi-qol.${condition}`);
-    if (CEHasEffectApplied({ effectName: localCondition, uuid: (td.actor?.uuid ?? "") })) return 1;
-    if (CEHasEffectApplied({ effectName: condition, uuid: (td.actor?.uuid ?? "") })) return 1;
-  }
+  if (actor.statuses.has(condition.toLocaleLowerCase()) || actor.statuses.has(condition)) return 1;
   return 0;
 }
 
@@ -4306,7 +4298,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     if (checkRule("incapacitated")) {
       try {
         enableNotifications(false);
-        if (checkIncapacitated(target, debugEnabled > 0)) return noResult;
+        if (checkIncapacitated(target.actor, debugEnabled > 0)) return noResult;
       } finally {
         enableNotifications(true);
       }
@@ -5547,7 +5539,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
       const actor: any = ally.actor;
       if (actor?.system.attributes?.hp?.value <= 0) continue;
       if (!heightIntersects(target.document, ally.document)) continue;
-      if (hasCondition(ally, "incapacitated")) continue;
+      if (hasCondition(ally.actor, "incapacitated")) continue;
       if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
         const CEFlanked = getFlankedEffect();
         //@ts-expect-error
@@ -5630,8 +5622,8 @@ export function computeFlankingStatus(token, target): boolean {
     if (ally.document.uuid === token.document.uuid) continue;
     if (!heightIntersects(ally.document, target.document)) continue;
     const actor: any = ally.actor;
-    if (checkIncapacitated(ally, debugEnabled > 0)) continue;
-    if (hasCondition(ally, "incapacitated")) continue;
+    if (checkIncapacitated(actor, debugEnabled > 0)) continue;
+    if (hasCondition(ally.actor, "incapacitated")) continue;
     const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
     const allyStartY = ally.document.height >= 1 ? 0.5 : ally.document.height / 2;
     var x, x1, y, y1, d, r;
@@ -6144,7 +6136,7 @@ export function isTargetable(target: any /*Token*/): boolean {
 }
 
 export function hasWallBlockingCondition(target: any /*Token*/): boolean {
-  return globalThis.MidiQOL.WallsBlockConditions.some(cond => hasCondition(target, cond));
+  return globalThis.MidiQOL.WallsBlockConditions.some(cond => hasCondition(target.actor, cond));
 }
 
 function contestedRollFlavor(baseFlavor: string | undefined, rollType: string, ability: string): string {
@@ -6427,7 +6419,7 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
         if (oldGetOffset) canvas.grid.constructor.prototype.getOffset = oldGetOffset
       }
     }
-    if (options.gridSpaces ) {
+    if (options.gridSpaces) {
       //@ts-expect-error
       return distances.map(d => d.spaces === 0 ? d.distance : d.spaces * canvas?.grid.distance);
     }
