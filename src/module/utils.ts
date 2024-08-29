@@ -4614,6 +4614,7 @@ export async function asyncHooksCall(hook, ...args): Promise<boolean | undefined
 }
 function hookCall(entry, args) {
   const { hook, id, fn, once } = entry;
+  
   if (once) Hooks.off(hook, id);
   try {
     return entry.fn(...args);

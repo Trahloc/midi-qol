@@ -3,6 +3,15 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.7
+* Fix for not displaying correct total damage in apply damage card.
+* Add removeBonusActionUsed and removeActionUsed to MidiQOL.
+* Added Hammer of Thunderbolts, requires effectMacro. As far as I can tell this is a complete implementation of Hammer of Thunderbolts.
+  - If the item is equipped and attuned and you have equipped (and attuned) gauntlets of ogre power and equipped (and attuned) a belt of giant strenth
+    - the strength bonus will be applied +4
+    - a new item hammer of thunderbolts thrown will be added to the player inventory that does the whole thrown hammer effect/damage.
+  - Warning there is a bug in foundry that if you have a belt of giant strength equipped and attuned plues gauntlets of ogre power equippped and attuned the actors strength will become undefined. Suggested fix, set the gauntlets of ogre power's effect to be override 19 with a priority of 1.
+
 ### 11.6.6.1
 * Fix for non-damage spells failing to complete.
 
@@ -2540,7 +2549,7 @@ game.settings.set("midi-qol", "MidiSoundSettings", game.settings.get("midi-qol",
   - CE + advantage, grants advantage + whatever the CE "Flanking" effect has.
   - CE Flanked. The flanked target gets the CE "Flanked" condition, rather than the attacker getting flanking. Checking to see if a token is flanked is done whenever the token is targeted or an attack is rolled.
   - CE Flanked No Conga. Flanked tokens cannot contribute to flanking other tokens, meaning the flanking conga line can't form.
-* Support for new item flag, Toggle Effect, each use of the item will toggle any associated active effects/convenient effects. One use to turn on, next use turns off. This can be a viable alternative to passive effects where you click to enable and click again to remove. Should also simply a range of effects currently done as macro.execute/macro.itemMacro where the on/off cases just enable/remove effects. For active effects (as opposed to convenient effects) toggling requires DAE 0.10.01.
+* Support for new item flag, Toggle Effect, each use of the item will toggle any associated active effects/convenient effects. One use to turn on, next use turns off. This can be a viable alternative to passive effects where you click to enable and click again to remove. Should also simplifyy a range of effects currently done as macro.execute/macro.itemMacro where the on/off cases just enable/remove effects. For active effects (as opposed to convenient effects) toggling requires DAE 0.10.01.
 * Added a player's version of the GM's damage card. Can be configured separately to GM card to show/not show damage done to NPCs, and show/not show damage done to players (with the option to provide apply damage buttons that the players can use themselves - instead of the DM applying damage). If players try to apply damage to a token they don't own an error (non fatal) will be thrown.
   - Showing the damage applied to NPCs will show the damage resistances of the target in the target tool-tip. But since players will see the modified damage done, it's not that much extra information.
 * Added option to "apply item effects" apply the effects but do not display apply effects buttons. In case players have twitchy fingers and hit the apply effects button when they shouldn't.

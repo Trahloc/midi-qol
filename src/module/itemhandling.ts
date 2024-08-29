@@ -1670,7 +1670,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
 
   let item = workflow.item;
   let targeting = getAutoTarget(item);
-  if ((game.user?.targets.size === 0 || user !== game.user?.id || installedModules.get("levelsvolumetrictemplates")) && targeting !== "none") {
+  if ((game.user?.targets.size === 0 || workflow.workflowOptions.forceTemplateTargeting || user !== game.user?.id || installedModules.get("levelsvolumetrictemplates")) && targeting !== "none") {
     let mTemplate: MeasuredTemplate = MQfromUuidSync(templateDocument.uuid)?.object;
     if (templateDocument?.object && !installedModules.get("levelsvolumetrictemplates")) {
       if (!mTemplate.shape) {

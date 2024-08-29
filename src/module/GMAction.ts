@@ -791,8 +791,7 @@ async function prepareDamageListItems(data: {
         else if (d.type !== "midi-none") acc.rawAmount += d.value;
         return acc;
       }, { rawAmount: 0, rawTemp: 0 });
-      damageItem.rawTotalDamage = rawAmount;
-      totalDamage = damageItem.damageDetail.reduce((acc, d) => acc + (!["temphp", "midi-none"].includes(d.type) ? d.value : 0), 0);
+      damageItem.totalDamage = damageItem.damageDetail.reduce((acc, d) => acc + (!["temphp", "midi-none"].includes(d.type) ? d.value : 0), 0);
       amount = amount > 0 ? Math.floor(amount) : Math.ceil(amount);
 
       let deltaTemp = amount > 0 ? Math.min(hp.temp, amount) : 0;
@@ -814,6 +813,7 @@ async function prepareDamageListItems(data: {
       damageItem.newHP = updates["system.attributes.hp.value"];
       damageItem.hpDamage = deltaHP;
       damageItem.tempDamage = deltaTemp;
+      damageItem.rawTotalDamage = rawAmount;
 
       if (oldVitality !== newVitality) {
         vitalityDamage = oldVitality - newVitality;
@@ -830,7 +830,19 @@ async function prepareDamageListItems(data: {
         }
       }
     }
-    tokenIdList.push({ tokenId, tokenUuid, actorUuid, actorId, oldTempHP: oldTempHP, oldHP, totalDamage: Math.abs(totalDamage), rawAmount: damageItem.rawTotalDamage, newHP: damageItem.newHP, newTempHP: damageItem.newTempHP, damageDetail: damageItem.rawDamageDetail, oldVitality, newVitality, calcOptions: damageItem.calcDamageOptions, updateContext: data.updateContext });
+    tokenIdList.push({ tokenId, tokenUuid, actorUuid, actorId, 
+      oldTempHP: damageItem.oldTempHP, 
+      oldHP: damageItem.oldHP, 
+      totalDamage: Math.abs(damageItem.totalDamage), 
+      rawAmount: damageItem.rawTotalDamage, 
+      newHP: damageItem.newHP, 
+      newTempHP: damageItem.newTempHP, 
+      damageDetail: damageItem.rawDamageDetail, 
+      oldVitality: damageItem.oldVitality, 
+      newVitality: damageItem.newVitality, 
+      calcOptions: damageItem.calcDamageOptions, 
+      updateContext: data.updateContext
+    });
 
     let img = tokenDocument?.texture.src || actor.img;
     if (configSettings.usePlayerPortrait && actor.type === "character")
@@ -849,17 +861,18 @@ async function prepareDamageListItems(data: {
       tokenUuid,
       tokenImg: img,
       hpDamage,
-      abshpDamage: Math.abs(hpDamage),
-      tempDamage: newTempHP - oldTempHP,
-      totalDamage: Math.abs(totalDamage),
-      halfDamage: Math.abs(Math.floor(totalDamage / 2)),
-      doubleDamage: Math.abs(totalDamage * 2),
-      playerViewTotalDamage: hpDamage + tempDamage,
-      absDamage: Math.abs(hpDamage),
+      abshpDamage: Math.abs(damageItem.hpDamage),
+      tempDamage: damageItem.newTempHP - damageItem.oldTempHP,
+      totalDamage: Math.abs(damageItem.totalDamage),
+      rawTotalDamage: damageItem.rawTotalDamage,
+      halfDamage: Math.abs(Math.floor(damageItem.totalDamage / 2)),
+      doubleDamage: Math.abs(damageItem.totalDamage * 2),
+      playerViewTotalDamage: damageItem.hpDamage + damageItem.tempDamage,
+      absDamage: Math.abs(damageItem.hpDamage),
       tokenName: (tokenDocument?.name && configSettings.useTokenNames) ? tokenDocument.name : actor.name,
-      dmgSign: hpDamage < 0 ? "+" : "-",
+      dmgSign: damageItem.hpDamage < 0 ? "+" : "-",
       damageItem,
-      oldVitality,
+      oldVitality: damageItem.oldVitality,
       newVitality: damageItem.newVitality,
       buttonId: tokenUuid,
       iconPrefix: (data.autoApplyDamage === "yesCardNPC" && actor.type === "character") ? "*" : "",
@@ -1022,7 +1035,6 @@ export let processUndoDamageCard = (message, html, data) => {
     (async () => {
       for (let { actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, oldVitality, newVitality, damageDetail, calcOptions } of message.flags.midiqol.undoDamage) {
         recoverDamageDetailFromJSON(damageDetail);
-        //message.flags.midiqol.undoDamage.forEach(async ({ actorUuid, oldTempHP, oldHP, totalDamage, newHP, newTempHP, damageItem }) => {
         if (!actorUuid) continue;
         const applyButton = html.find(`#apply-${actorUuid.replaceAll(".", "")}`);
         applyButton.children()[0].classList.add("midi-qol-enable-damage-button");

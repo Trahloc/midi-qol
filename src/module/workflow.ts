@@ -3329,7 +3329,8 @@ export class Workflow {
         if (saveDetails.advantage && !saveDetails.disadvantage) this.advantageSaves.add(target);
         else if (saveDetails.disadvantage && !saveDetails.advantage) this.disadvantageSaves.add(target);
         var player = playerFor(target);
-        if (!player || !player.active) player = ChatMessage.getWhisperRecipients("GM").find(u => u.active);
+        //@ts-expect-error
+        if (!player || !player.active) player = game.users?.actveGM;
         let promptPlayer = !player?.isGM && !(["none", "noneDialog"].includes(configSettings.playerRollSaves));
         let showRollDialog = !player?.isGM && "noneDialog" === configSettings.playerRollSaves;
         if (simulate) promptPlayer = false;
