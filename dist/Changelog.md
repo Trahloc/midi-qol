@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.8
+* Make Hammer of Thunderbolts RAW
+
 ### 11.6.7
 * Fix for not displaying correct total damage in apply damage card.
 * Add removeBonusActionUsed and removeActionUsed to MidiQOL.
