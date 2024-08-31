@@ -825,8 +825,11 @@ async function prepareDamageListItems(data: {
       }
       const updateContext = { dhp: -deltaHP, damageDetail: damageItem.rawDamageDetail, calcOptions: damageItem.calcDamageOptions };
       if (createPromises && doHits && (data.autoApplyDamage.includes("yes") || data.forceApply)) {
-        if (Hooks.call("dnd5e.preApplyDamage", actor, amount, updates, updateContext)) {
-          promises.push(actor.update(updates, updateContext));
+        //recover the options used when calculating the damage
+        const options = {...updateContext.calcOptions};
+        if (Hooks.call("dnd5e.preApplyDamage", actor, amount, updates, updateContext.calcOptions) !== false) {
+          await actor.update(updates, updateContext);
+          Hooks.call("dnd5e.applyDamage", actor, amount, updateContext.calcOptions); 
         }
       }
     }

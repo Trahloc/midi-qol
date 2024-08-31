@@ -419,6 +419,7 @@ export class Workflow {
       Hooks.off("preCreateMeasuredTemplate", workflow.preCreateTemplateHookId);
     }
     if (workflow.postSummonHookId) Hooks.off("dnd5e.postSummon", workflow.postSummonHookId);
+    if (debugEnabled > 0) warn(`removeWorkflow deleting ${id}`, Workflow._workflows[id]);
     delete Workflow._workflows[id];
     // Remove buttons
     if (workflow.itemCardUuid) {
@@ -556,21 +557,22 @@ export class Workflow {
         }
         const name = this.nameForState(newState);
         if (this.currentAction !== newState) {
-          if (await this.callHooksForAction("post", this.currentAction) === false && !isAborting) {
-            console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by post ${this.nameForState(this.currentAction)} Hook`)
-            newState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
-            continue;
-          }
-          await this.callOnUseMacrosForAction("post", this.currentAction);
-          if (debugEnabled > 0) warn(`${this.workflowName} finished ${currentName}`);
-          if (debugEnabled > 0) warn(`${this.workflowName} transition ${this.nameForState(this.currentAction)} -> ${name}`);
+          if (!isAborting) {
+            if (await this.callHooksForAction("post", this.currentAction) === false && !isAborting) {
+              console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by post ${this.nameForState(this.currentAction)} Hook`)
+              newState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
+              continue;
+            }
+            await this.callOnUseMacrosForAction("post", this.currentAction);
+            if (debugEnabled > 0) warn(`${this.workflowName} finished ${currentName}`);
+            if (debugEnabled > 0) warn(`${this.workflowName} transition ${this.nameForState(this.currentAction)} -> ${name}`);
 
-          if (this.aborted && !isAborting) {
-            console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(this.currentAction)} macro pass`)
-            newState = this.WorkflowState_Abort;
-            continue;
+            if (this.aborted) {
+              console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(this.currentAction)} macro pass`)
+              newState = this.WorkflowState_Abort;
+              continue;
+            }
           }
-
           if (await this.callHooksForAction("pre", newState) === false && !isAborting) {
             console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(newState)} Hook`)
             newState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
@@ -1310,22 +1312,22 @@ export class Workflow {
             let damageListItem;
             let hpDamage;
             let totalDamage;
-              const tokenDamages = this.damageList?.find(di => di.targetUuid === token.document.uuid);
-              if (tokenDamages) {
-                totalDamage = tokenDamages.totalDamage;
-                hpDamage = tokenDamages.hpDamage;
-                damageComponents = [tokenDamages.damageDetails["combinedDamage"], configSettings.singleConcentrationRoll ? [] : (tokenDamages.tokenDamages["otherDamage"] ?? [])]
-                  .reduce((summary, damages) => {
-                    let damagesSummary = damages.reduce((damageComponents, damageEntry) => {
-                      damageComponents[damageEntry.type] = damageEntry.value + (damageComponents[damageEntry.type] ?? 0);
-                      return damageComponents;
-                    }, {});
-                    Object.keys(damagesSummary).forEach(key => {
-                      summary[key] = damagesSummary[key] + (summary[key] ?? 0);
-                    });
-                    return summary;
+            const tokenDamages = this.damageList?.find(di => di.targetUuid === token.document.uuid);
+            if (tokenDamages) {
+              totalDamage = tokenDamages.totalDamage;
+              hpDamage = tokenDamages.hpDamage;
+              damageComponents = [tokenDamages.damageDetails["combinedDamage"], configSettings.singleConcentrationRoll ? [] : (tokenDamages.tokenDamages["otherDamage"] ?? [])]
+                .reduce((summary, damages) => {
+                  let damagesSummary = damages.reduce((damageComponents, damageEntry) => {
+                    damageComponents[damageEntry.type] = damageEntry.value + (damageComponents[damageEntry.type] ?? 0);
+                    return damageComponents;
                   }, {});
-              }
+                  Object.keys(damagesSummary).forEach(key => {
+                    summary[key] = damagesSummary[key] + (summary[key] ?? 0);
+                  });
+                  return summary;
+                }, {});
+            }
 
             await globalThis.DAE.doEffects(theItem, true, [token], {
               damageTotal: totalDamage,
@@ -1357,7 +1359,7 @@ export class Workflow {
             if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasItemTargetEffects)) {
               const targetHasEffect = token.actor.effects.find(ef => ef.name === theItem.name);
               if (this.item?.flags.midiProperties?.toggleEffect && targetHasEffect) {
-                await CEToggleEffect({effectName: theItem.name, uuid: token.actor.uuid, origin });
+                await CEToggleEffect({ effectName: theItem.name, uuid: token.actor.uuid, origin });
               } else {
                 // Check stacking status
                 let removeExisting = (["none", "noneName"].includes(ceEffect.flags?.dae?.stackable ?? "none"));
@@ -1446,12 +1448,12 @@ export class Workflow {
             //@ ts-expect-error game.dfreds
             // await game.dfreds?.effectInterface?.toggleEffect(theItem.name, { uuid: this.actor.uuid, origin, metadata: macroData });
           } else {
- 
+
             // Check stacking status
             //@ ts-expect-error
             // if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, this.actor.uuid)) {
             if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && await CEHasEffectApplied({ effectName: theItem.name, uuid: this.actor.uuid })) {
-                await CERemoveEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin });
+              await CERemoveEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin });
               //@ ts-expect-error
               // await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin, metadata: macroData });
             }
@@ -2864,6 +2866,7 @@ export class Workflow {
     if (!configSettings.mergeCard) return;
     this.hitDisplayData = {};
     this.targetsDisplayed = true;
+    if (this.item.type === "feat" && ["ench", "class", undefined].includes(this.item.system.actionType)) return;
     for (let target of this.targets) {
       const targetToken = getToken(target);
       if (!targetToken) continue;
@@ -4925,11 +4928,11 @@ export class TrapWorkflow extends Workflow {
     let defaultDamageType;
     defaultDamageType = this.item?.system.damage?.parts[0]?.[1] ?? this.defaultDamageType;
     this.rawDamageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: defaultDamageType });
-    if (this.bonusDamageRolls) 
+    if (this.bonusDamageRolls)
       this.rawBonusDamageDetail = createDamageDetail({ roll: this.bonusDamageRolls, item: this.item, defaultType: defaultDamageType });
     else
       this.rawBonusDamageDetail = [];
-    if (this.otherDamageRoll) 
+    if (this.otherDamageRoll)
       this.rawOtherDamageDetail = createDamageDetail({ roll: this.otherDamageRoll, item: this.item, defaultType: defaultDamageType });
     else
       this.rawOtherDamageDetail = [];

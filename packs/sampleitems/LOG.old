@@ -1,4 +1,3 @@
-2024/08/29-23:05:30.384907 7f3f67fff640 Log #755: 0 ops saved to Table #756 OK
-2024/08/29-23:05:30.384977 7f3f67fff640 Archiving /home/timp/foundry-data/foundryv12/Data/modules/midi-qol/packs/sampleitems/000755.log: OK
-2024/08/29-23:05:30.385613 7f3f67fff640 Table #752: 183 entries OK
-2024/08/29-23:05:30.388517 7f3f67fff640 **** Repaired leveldb /home/timp/foundry-data/foundryv12/Data/modules/midi-qol/packs/sampleitems; recovered 1 files; 298523 bytes. Some data may have been lost. ****
+2024/08/31-15:16:29.166067 7fb9affff640 Recovering log #767
+2024/08/31-15:16:29.174578 7fb9affff640 Delete type=0 #767
+2024/08/31-15:16:29.174608 7fb9affff640 Delete type=3 #766

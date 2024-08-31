@@ -3,14 +3,18 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.9
+* Change to not call post action hook twice when aborting.
+* Preserve options used between dnd5e.precalculdateDamage/dnd5e.calculateDamage and midi's calls to dnd5e.preApplyDamage/dnd5e.applyDamage
+
 ### 11.6.8
-* Make Hammer of Thunderbolts RAW
+* Make Hammer of Thunderbolts RAW - belt/gauntlets do not need to be attuned.
 
 ### 11.6.7
 * Fix for not displaying correct total damage in apply damage card.
 * Add removeBonusActionUsed and removeActionUsed to MidiQOL.
 * Added Hammer of Thunderbolts, requires effectMacro. As far as I can tell this is a complete implementation of Hammer of Thunderbolts.
-  - If the item is equipped and attuned and you have equipped (and attuned) gauntlets of ogre power and equipped (and attuned) a belt of giant strenth
+  - If the item is equipped and attuned and you have equipped (and attuned) gauntlets of ogre power and equipped (and attuned) a belt of giant strength
     - the strength bonus will be applied +4
     - a new item hammer of thunderbolts thrown will be added to the player inventory that does the whole thrown hammer effect/damage.
   - Warning there is a bug in foundry that if you have a belt of giant strength equipped and attuned plues gauntlets of ogre power equippped and attuned the actors strength will become undefined. Suggested fix, set the gauntlets of ogre power's effect to be override 19 with a priority of 1.

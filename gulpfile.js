@@ -1,3 +1,5 @@
+let foundryvttCli;
+import("@foundryvtt/foundryvtt-cli").then((cli) => {foundryvttCli = cli});
 const gulp = require("gulp");
 const path = require("path");
 var fs = require("fs");
@@ -147,6 +149,7 @@ function outputConfigFiles(output = null) {
  */
 function compressDistribution() {
   return gulp.series(
+    plog(foundryvttCli),
     // Copy files to folder with module's name
     () => gulp.src(DIST + GLOB).pipe(gulp.dest(DIST + `${PACKAGE.name}/${PACKAGE.name}`)),
     // Compress the new folder into a ZIP and save it to the `bundle` folder
@@ -159,6 +162,8 @@ function compressDistribution() {
     () => gulp.src(DIST + "/module.json").pipe(gulp.dest(BUNDLE)),
     // Cleanup by deleting the intermediate module named folder
     pdel(DIST + PACKAGE.name),
+    async () => { await foundryvttCli.extractPack("packs/sampleitems", "pack-src/sampleitems");
+  }
   );
 }
 
