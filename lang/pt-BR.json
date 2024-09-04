@@ -806,6 +806,8 @@
   "midi-qol.InitPromptTitle": "Rolagem de Iniciativa",
   "midi-qol.HighlightSuccess.Name": "Cores para Acerto/Erro/Salvaguarda Exibidas",
   "midi-qol.HighlightSuccess.Hint": "Ao exibir acertos/erros, acertos/sucessos estarão em verde e erros/falhas estarão em vermelho.",
+  "midi-qol.HighLightCriticalAttackOnly.Name": "Destaque Apenas para Acertos/Erros Críticos",
+  "midi-qol.HighLightCriticalAttackOnly.Hint": "Substitui o destaque de acertos e erros do D&D5e, destacando apenas jogadas de acertos/erros críticos",
   "midi-qol.OptionalRuleVitality.Name": "(Regra da Casa) Vitalidade",
   "midi-qol.OptionalRuleVitality.Hint": "Quando configurado a um recurso, dano aplicado a um alvo com 0 PV aplica dano ao recurso de vitalidade. Se o recurso chegar a 0, o alvo morre.",
   "midi-qol.AutoRerollInitiative.Name": "Re-rolar Iniciativa",
