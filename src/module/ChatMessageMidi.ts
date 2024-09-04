@@ -1,7 +1,9 @@
+import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 import { GameSystemConfig, MQDamageRollTypes, debugEnabled, i18n, log, warn } from "../midi-qol.js";
+//import { chatDamageButtons } from "./chatMessageHandling.js";
 import { setDamageRollMinTerms } from "./itemhandling.js";
 import { addChatDamageButtons, configSettings, safeGetGameSetting } from "./settings.js";
-import { getDamageType } from "./utils.js";
+import { getDamageType, getToken } from "./utils.js";
 
 export function defineChatMessageMidiClass(baseClass: any) {
   return class ChatMessageMidi extends baseClass /*globalThis.dnd5e.documents.ChatMessage5e*/ {
@@ -10,6 +12,14 @@ export function defineChatMessageMidiClass(baseClass: any) {
       if (debugEnabled > 1) log("Chat message midi constructor", ...args)
     }
 
+    get isRoll() {
+      if (this.flags?.dnd5e?.roll?.type === "midi") return false
+      return super.isRoll;
+    }
+
+    get hasRolls() {
+      return super.isRoll;
+    }
     // midi has it's own target handling so don't display the attack targets here
     _enrichAttackTargets(html) {
       return;
@@ -17,13 +27,37 @@ export function defineChatMessageMidiClass(baseClass: any) {
     get canSelectTargets() {
       if (this.flags.dnd5e?.roll?.type !== "midi")
         return super.canSelectTargets;
-      return this.isRoll && this.isContentVisible;
+      return super.isRoll && this.isContentVisible;
     }
 
     get canApplyDamage() {
       const type = this.flags.dnd5e?.roll?.type;
       if (type !== "midi") return super.canApplyDamage;
-      return this.isRoll && this.isContentVisible && !!canvas?.tokens?.controlled.length;
+      return super.isRoll && this.flags?.["midi-qol"].damageDetail?.length > 0 && this.isContentVisible && !!canvas?.tokens?.controlled.length;
+    }
+
+    /**
+   * Select the hit or missed targets.
+   * @param {HTMLElement} li    The chat entry which contains the roll data.
+   * @param {string} type       The type of selection ('hit' or 'miss').
+   */
+    selectTargets(li, type) {
+      if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") return super.selectTargets(li, type);
+      if (!canvas?.ready) return;
+      const lis = li.closest("[data-message-id]").querySelectorAll(`.evaluation li.target.${type}`);
+      let targetUuids = this.getFlag("midi-qol", "targetUuids") || [];
+      let hitTargetUuids = this.getFlag("midi-qol", "hitTargetUuids") || [];
+      let uuids;
+      if (type === "hit") uuids = hitTargetUuids
+      else uuids = targetUuids.filter(uuid => !hitTargetUuids.includes(uuid));
+      canvas.tokens?.releaseAll();
+      uuids.forEach(uuid => {
+        const token = getToken(uuid);
+        if (!token?.actor || !game.user) return;
+        if (token?.isVisible && token.actor.testUserPermission(game.user, "OWNER")) {
+          token.control({ releaseOthers: false });
+        }
+      });
     }
 
     /**
@@ -37,7 +71,8 @@ export function defineChatMessageMidiClass(baseClass: any) {
     applyChatCardDamage(li, multiplier) {
       const type = this.flags.dnd5e?.roll?.type;
       if (type !== "midi") return super.applyChatCardDamage(li, multiplier);
-      const rollsToCheck = this.rolls.filter(r => MQDamageRollTypes.includes(foundry.utils.getProperty(r, "options.midi-qol.rollType")));      //@ts-expect-error
+      const rollsToCheck = this.rolls.filter(r => MQDamageRollTypes.includes(foundry.utils.getProperty(r, "options.midi-qol.rollType")));
+      //@ts-expect-error
       const damages = game.system.dice.aggregateDamageRolls(rollsToCheck, { respectProperties: true }).map(roll => ({
         value: roll.total,
         type: roll.options.type,
@@ -50,7 +85,17 @@ export function defineChatMessageMidiClass(baseClass: any) {
         }));
       }
     }
+    applyChatCardTemp(li) {
+      if (!canvas?.tokens) return;
+      const rollsToCheck = this.rolls.filter(r => MQDamageRollTypes.includes(foundry.utils.getProperty(r, "options.midi-qol.rollType")));
+      const total = rollsToCheck.reduce((acc, roll) => acc + roll.total, 0);
 
+      return Promise.all(canvas.tokens.controlled.map(t => {
+        //@ts-expect-error
+        return t.actor?.applyTempHP(total);
+      }));
+    }
+  
     collectRolls(rollsToAccumulate: Roll[], multiRolls: boolean = false): any[] {
       let returns: any[] = [];
       let rolls: Roll[] = [];
@@ -201,61 +246,23 @@ export function defineChatMessageMidiClass(baseClass: any) {
     }
 
     _highlightCriticalSuccessFailure(html) {
-      if (this.getFlag("dnd5e", "roll.type") !== "midi") return super._highlightCriticalSuccessFailure(html);
-      if ( !this.isContentVisible || !this.rolls.length ) return;
-
-      const originatingMessage = game.messages?.get(this.getFlag("dnd5e", "originatingMessage")) ?? this;
-      //@ts-expect-error
-      const displayChallenge = originatingMessage?.shouldDisplayChallenge;
-      const displayAttackResult = game.user?.isGM || (safeGetGameSetting("dnd5e", "attackRollVisibility") !== "none");
-  
-      /**
-       * Create an icon to indicate success or failure.
-       * @param {string} cls  The icon class.
-       * @returns {HTMLElement}
-       */
-      function makeIcon(cls) {
-        const icon = document.createElement("i");
-        icon.classList.add("fas", cls);
-        icon.setAttribute("inert", "");
-        return icon;
-      }
-  
-      // Highlight rolls where the first part is a d20 roll
-      for ( let [index, d20Roll] of this.rolls.entries() ) {
-  
-        const d0 = d20Roll.dice[0];
-        if ( (d0?.faces !== 20) || (d0?.values.length !== 1) ) continue;
-  
-        //@ts-expect-error
-        d20Roll = game.system.dice.D20Roll.fromRoll(d20Roll);
-        const d = d20Roll.dice[0];
-  
-        const isModifiedRoll = ("success" in d.results[0]) || d.options.marginSuccess || d.options.marginFailure;
-        if ( isModifiedRoll ) continue;
-  
-        // Highlight successes and failures
-        const total = html.find(".dice-total")[index];
-        if ( !total ) continue;
-        // Only attack rolls and death saves can crit or fumble.
-        const canCrit = ["attack", "death"].includes(this.getFlag("dnd5e", "roll.type")) || ["attack"].includes(foundry.utils.getProperty(d20Roll, "options.midi-qol.rollType"))  ;
-        const isAttack = (this.getFlag("dnd5e", "roll.type") === "attack") || ["attack"].includes(foundry.utils.getProperty(d20Roll, "options.midi-qol.rollType"));
-        const showResult = isAttack ? displayAttackResult : displayChallenge;
-        if ( d.options.target && showResult ) {
-          if ( d20Roll.total >= d.options.target ) total.classList.add("success");
-          else total.classList.add("failure");
+      // if (this.getFlag("dnd5e", "roll.type") !== "midi") return super._highlightCriticalSuccessFailure(html);
+      super._highlightCriticalSuccessFailure(html);
+      if (!configSettings.highlightSuccess || configSettings.highLightCriticalAttackOnly) {
+        for (let [index, d20Roll] of this.rolls.entries()) {
+          const total = html.find(".dice-total")[index];
+          if (total && configSettings.highLightCriticalAttackOnly) {
+            if (total.classList.contains("success")) total.classList.remove("success");
+            if (total.classList.contains("failure")) total.classList.remove("failure");
+          } else if (total && !configSettings.highlightSuccess) {
+            if (total.classList.contains("success")) total.classList.remove("success");
+            if (total.classList.contains("failure")) total.classList.remove("failure");
+            if (total.classList.contains("critical")) total.classList.remove("critical");
+            if (total.classList.contains("fumble")) total.classList.remove("fumble");
+          }
         }
-        if ( canCrit && d20Roll.isCritical ) total.classList.add("critical");
-        if ( canCrit && d20Roll.isFumble ) total.classList.add("fumble");
-  
-        const icons = document.createElement("div");
-        icons.classList.add("icons");
-        if ( total.classList.contains("critical") ) icons.append(makeIcon("fa-check-double"));
-        else if ( total.classList.contains("fumble") ) icons.append(makeIcon("fa-xmark"), makeIcon("fa-xmark"));
-        else if ( total.classList.contains("success") ) icons.append(makeIcon("fa-check"));
-        else if ( total.classList.contains("failure") ) icons.append(makeIcon("fa-xmark"));
-        if ( icons.children.length ) total.append(icons);
       }
+      return;
     }
 
     enrichAttackRolls(html) {

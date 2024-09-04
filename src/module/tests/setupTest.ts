@@ -1,6 +1,6 @@
 import { MODULE_ID, error } from "../../midi-qol.js";
 import { applySettings } from "../apps/ConfigPanel.js";
-import { Socket } from "../lib/sockset.js";
+import { FormBuilder } from "../lib/FormBuilder.js";
 import { configSettings } from "../settings.js";
 import { CEHasEffectApplied, CERemoveEffect, applyTokenDamage, completeItemUse, findNearby } from "../utils.js";
 import { TrapWorkflow } from "../workflow.js";
@@ -948,18 +948,11 @@ async function registerTests() {
     )
   }
 }
+/*
+export async function testFormBuilder() {
 
-async function testFormBuilder() {
-  if (!globalThis.Portal) {
-    error("Portal not installed");
-    return;
-  }
-  const formBuilder = new globalThis.Portal.FormBuilder();
-  // Test new socket library
-  Socket.register("test", (data) => { console.error("socket test", data) })
-  //@ts-expect-error
-  Socket.test({ test: "test" }, "gms")
-
+  const formBuilder = new FormBuilder();
+ 
   // Play code tp test Portal.formBuilder
   formBuilder.title("RPG Character Creation Form")
     // Character Info Tab
@@ -1034,3 +1027,4 @@ async function testFormBuilder() {
 
   console.log(data);
 }
+*/

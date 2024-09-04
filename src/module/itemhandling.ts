@@ -998,6 +998,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
 
     //@ts-expect-error .critical
     if (options?.critical !== undefined) workflow.isCritical = options?.critical;
+
     const wrappedRollStart = Date.now();
     workflow.damageRollCount += 1;
     let result: Array<Roll>;
@@ -1019,6 +1020,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
         event: undefined,
         options: damageRollOptions
       };
+
 
       result = await wrapped(damageRollData);
 
@@ -1201,7 +1203,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
                 [otherResult, otherResult2] = [otherResult2, otherResult];
               }
               // display roll not being used
-              if (workflow.workflowOptions?.damageRollDSN !== false) await displayDSNForRoll(otherResult2, "damageRoll");
+              if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult2, "damageRoll");
               await otherResult2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
             }
           }

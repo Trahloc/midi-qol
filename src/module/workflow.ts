@@ -437,6 +437,7 @@ export class Workflow {
       }
     }
   }
+
   public static get stateTable(): ({ name: string, value: WorkflowState } | {}) {
     const table = {};
     Reflect.ownKeys(this.prototype).filter(k => k.toString().startsWith("WorkflowState_")).forEach(k => table[k.toString()] = this.prototype[k.toString()]);
@@ -3171,10 +3172,10 @@ export class Workflow {
   get chatRolls(): Roll[] {
     let messageRolls: Roll[] = [];
     if (this.attackRoll) messageRolls.push(this.attackRoll);
-    if (this.saveRolls) messageRolls.push(...this.saveRolls);
     if (this.damageRolls) messageRolls.push(...this.damageRolls);
     if (this.bonusDamageRolls) messageRolls.push(...this.bonusDamageRolls);
     if (this.otherDamageRoll) messageRolls.push(this.otherDamageRoll);
+    if (this.saveRolls) messageRolls.push(...this.saveRolls);
     return messageRolls;
   }
 
@@ -3255,7 +3256,8 @@ export class Workflow {
           isMagicSave: boolean | undefined,
           isConcentrationCheck: boolean | undefined,
           rollDC: number,
-          saveItemUuid: string
+          saveItemUuid: string, 
+          workflowOptions: object
         } = {
           advantage: undefined,
           disadvantage: undefined,
@@ -3263,7 +3265,8 @@ export class Workflow {
           isFriendly: undefined,
           isConcentrationCheck: undefined,
           rollDC: rollDC,
-          saveItemUuid: ""
+          saveItemUuid: "",
+          workflowOptions: this.workflowOptions
         };
         const targetDocument = getTokenDocument(target);
         //@ts-expect-error
@@ -3300,7 +3303,8 @@ export class Workflow {
         const settingsOptions = await procAbilityAdvantage(target.actor, rollType, this.saveItem.system.save.ability, { workflow: this });
         if (settingsOptions.advantage) saveDetails.advantage = true;
         if (settingsOptions.disadvantage) saveDetails.disadvantage = true;
-        saveDetails.isConcentrationCheck = this.saveItem.flags[MODULE_ID]?.isConcentrationCheck
+        saveDetails.isConcentrationCheck = this.saveItem.flags[MODULE_ID]?.isConcentrationCheck;
+        /*
         if (saveDetails.isConcentrationCheck) {
           let concAdv = saveDetails.advantage;
           let concDisadv = saveDetails.disadvantage;
@@ -3317,6 +3321,7 @@ export class Workflow {
             saveDetails.disadvantage = true;
           }
         }
+        */
         // Check grants save fields
         if (await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.grants.advantage.all`, conditionData)
           || await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.grants.advantage.${flagRollType}.all`, conditionData)
@@ -3398,7 +3403,9 @@ export class Workflow {
             disadvantage: saveDetails.disadvantage, // seems that monks ignores this again - set alt/ctrl key
             ctrlKey: saveDetails.disadvantage === true,
             fastForward: false,
-            isMagicSave
+            isMagicSave,
+            isConcentrationCheck: saveDetails.isConcentrationCheck,
+            workflowOptions: saveDetails.workflowOptions
           })
         } else if ((!player?.isGM && playerEpicRolls) || (player?.isGM && gmRER)) {
           promises.push(new Promise((resolve) => {
@@ -3422,7 +3429,8 @@ export class Workflow {
             // ctrlKey: disadvantage === true,
             fastForward: false,
             isMagicSave,
-            isconcentrationCheck: saveDetails.isConcentrationCheck // Not sure if epic rolls will pick this up
+            isconcentrationCheck: saveDetails.isConcentrationCheck, // Not sure if epic rolls will pick this up
+            workflowOptions: saveDetails.workflowOptions
           })
         } else if (player?.active && (playerLetme || gmLetme || playerChat)) {
           if (debugEnabled > 0) warn(`checkSaves | Player ${player?.name} controls actor ${target.actor.name} - requesting ${this.saveItem.system.save.ability} save`);
@@ -3450,7 +3458,7 @@ export class Workflow {
                       ability: this.saveItem.system.save.ability,
                       showRoll,
                       options: {
-                        messageData: { user: playerId }, target: saveDetails.rollDC, chatMessage: showRoll, mapKeys: false, advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, fastForward: true, saveItemUuid: this.saveItem.uuid, isConcentrationCheck: saveDetails.isConcentrationCheck
+                        messageData: { user: playerId }, target: saveDetails.rollDC, chatMessage: showRoll, mapKeys: false, advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, fastForward: true, saveItemUuid: this.saveItem.uuid, isConcentrationCheck: saveDetails.isConcentrationCheck, workflowOptions: saveDetails.workflowOptions
                       }
                     });
                   } else {
@@ -3487,7 +3495,8 @@ export class Workflow {
               fastForward: simulate || !showRollDialog,
               isMagicSave,
               saveItemUuid: this.saveItem.uuid,
-              isConcentrationCheck: saveDetails.isConcentrationCheck
+              isConcentrationCheck: saveDetails.isConcentrationCheck,
+              workflowOptions: saveDetails.workflowOptions
             },
           }));
         }
@@ -3517,7 +3526,9 @@ export class Workflow {
         silent: true,
         rollMode: whisper ? "selfroll" : "roll", // should be "publicroll" but monks does not check it
         isMagicSave,
-        saveItemUuid: this.saveItem.uuid
+        saveItemUuid: this.saveItem.uuid,
+        isConcentrationCheck: this.saveItem.flags[MODULE_ID]?.isConcentrationCheck,
+        workflowOptions: this.workflowOptions  
       }
       const requestDataPlayer: any = {
         tokenData: monkRequestsPlayer,
@@ -3559,6 +3570,8 @@ export class Workflow {
             disadvantage: request.disadvantage,
             uuid: request.actorUuid
           })),
+          isConcentrationCheck: this.saveItem.flags[MODULE_ID]?.isConcentrationCheck,
+          workflowOptions: this.workflowOptions
         }
       };
       //@ts-expect-error
@@ -4575,7 +4588,8 @@ export class Workflow {
       foundry.utils.setProperty(rolls[i], "options.properties", (rolls[i].options?.properties ?? []).concat(baseRollProperties));
     }
     this.damageRolls = rolls;
-    this.damageTotal = sumRolls(this.damageRolls, true)
+    this.damageTotal = sumRolls(this.damageRolls, "positive")
+    this.healingAdjustedDamageTotal = sumRolls(this.damageRolls, "negativeIgnoreTemp")
     this.damageRollHTML = "";
     for (let roll of this.damageRolls) {
       foundry.utils.setProperty(roll, `options.${MODULE_ID}.rollType`, "defaultDamage");
@@ -4606,7 +4620,8 @@ export class Workflow {
       if (!rolls[i]._evaluated) rolls[i] = await rolls[i].evaluate({ async: true });
     }
     this.bonusDamageRolls = rolls;
-    this.bonusDamageTotal = sumRolls(this.bonusDamageRolls, true)
+    this.bonusDamageTotal = sumRolls(this.bonusDamageRolls, "positive");
+    this.healingAdjustedBonusDamageTotal = sumRolls(this.bonusDamageRolls, "negativeIgnoreTemp");
     this.bonusDamageRollHTML = "";
     for (let roll of this.bonusDamageRolls) {
       foundry.utils.setProperty(roll, `options.${MODULE_ID}.rollType`, "bonusDamage");
@@ -4614,9 +4629,7 @@ export class Workflow {
     }
     this.rawBonusDamageDetail = createDamageDetail({ roll: this.bonusDamageRolls, item: this.item, defaultType: this.defaultDamageType });
     this.bonusDamageDetail = createDamageDetail({ roll: this.bonusDamageRolls, item: this.item, defaultType: this.defaultDamageType });
-
     return;
-
   }
 
   async setBonusDamageRoll(roll: Roll) {

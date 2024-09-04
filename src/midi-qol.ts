@@ -568,7 +568,6 @@ Hooks.once('ready', function () {
 
 import { setupMidiTests } from './module/tests/setupTest.js';
 import { TargetConfirmationConfig } from './module/apps/TargetConfirmationConfig.js';
-import { Socket } from './module/lib/sockset.js';
 import { defineChatMessageMidiClass } from './module/ChatMessageMidi.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();

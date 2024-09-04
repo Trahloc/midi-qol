@@ -199,7 +199,7 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
   // Check the custom immunities
 }
 export async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves,
-  options: any = { label: "defaultDamage", existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
+  options: any = { label: "defaultDamage", existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateOptions: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]> {
   let allDamages: any = {};
   damageDetail = damageDetail.map(de => ({ ...de, value: (de.value ?? de.damage) }))
   let workflow: any = options.workflow ?? {};
@@ -269,7 +269,7 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
     //@ts-expect-error
     allDamages[token.document.uuid].damageDetails["combinedDamage"] = foundry.utils.deepClone(actor.calculateDamage(damageDetail, calcDamageOptions));
     allDamages[token.document.uuid].damageDetail = allDamages[token.document.uuid].damageDetails["combinedDamage"];
-    allDamages[token.document.uuid].calcDamgeOptions = calcDamageOptions;
+    allDamages[token.document.uuid].calcDamageOptions = calcDamageOptions;
     allDamages[token.document.uuid].rawDamageDetail = damageDetail;
     allDamages[token.document.uuid].damageDetails[`rawcombinedDamage`] = damageDetail;
     setupv3DamageDetails(allDamages, "combinedDamage", token);
@@ -283,7 +283,7 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
     chatCardId: workflow.itemCardId,
     chatCardUuid: workflow.itemCardUuid,
     flagTags: workflow.flagTags,
-    updateContext: foundry.utils.mergeObject(options?.updateContext ?? {}, { noConcentrationCheck: options?.noConcentrationCheck }),
+    updateOptions: { noConcentrationCheck: options?.noConcentrationCheck },
     forceApply: options.forceApply,
   });
   return cardIds;
@@ -307,6 +307,7 @@ export function setupv3DamageDetails(allDamages, selector, token: Token) {
   }, { amount: 0, temp: 0 });
   amount = amount > 0 ? Math.floor(amount) : Math.ceil(amount);
   let totalDamage = tokenDamage.damageDetails[`raw${selector}`].reduce((acc, d) => acc + (["temphp", "midi-none"].includes(d.type) ? 0 : d.value), 0);
+  let healingAdjustedTotalDamage = tokenDamage.damageDetails[`raw${selector}`].reduce((acc, d) => acc + (["temphp", "midi-none"].includes(d.type) ? 0 : (d.type === "healing" ? -d.value : d.value)), 0);
   //@ts-expect-error
   const as = token.actor?.system;
   if (!as || !as.attributes.hp) return;
@@ -326,7 +327,8 @@ export function setupv3DamageDetails(allDamages, selector, token: Token) {
   tokenDamage.newTempHP = Math.floor(Math.max(0, effectiveTemp - deltaTemp, temp));
   // damages.tempDamage = deltaTemp;
   tokenDamage.tempDamage = tokenDamage.oldTempHP - tokenDamage.newTempHP;
-  tokenDamage.totalDamage;
+  tokenDamage.totalDamage = totalDamage;
+  tokenDamage.healingAdjustedTotalDamage = healingAdjustedTotalDamage;
   tokenDamage.details = [];
   tokenDamage.wasHit = tokenDamage.isHit;
 }
@@ -521,7 +523,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       chatCardId: workflow.itemCardId,
       chatCardUuid: workflow.itemCardUuid,
       flagTags: workflow.flagTags,
-      updateContext: { noConcentrationCheck: item?.flags?.midiProperties?.noConcentrationCheck ?? false },
+      updateOptions: { noConcentrationCheck: workflow?.workflowOptions?.noConcentrationCheck ?? false },
       forceApply: false
     });
     if (cardIds) chatCardUuids.push(...cardIds);
@@ -1136,7 +1138,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         if (theItem) itemData = theItem.toObject();
       }
 
-      itemData.img = effect.icon ?? effect.img; // v12 icon -> img
+      itemData.img = effect.img ?? effect.icon; // v12 icon -> img
       foundry.utils.setProperty(itemData, "system.save.dc", saveDC);
       foundry.utils.setProperty(itemData, "system.save.scaling", "flat");
       itemData.type = "equipment";
@@ -5854,7 +5856,7 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
         const img = document.createElement('IMG');
         const eff = MQfromUuidSync(n.dataset.button);
         //@ts-expect-error
-        img.src = eff.icon;
+        img.src = eff.img ?? eff.icon;
         const effNameSpan = document.createElement('span');
         effNameSpan.textContent = eff.name;
         n.innerHTML = '';
@@ -5928,11 +5930,17 @@ export function canSee(tokenEntity, targetEntity) {
   return canSense(tokenEntity, targetEntity, sightDetectionModes);
 }
 
-export function sumRolls(rolls: Array<Roll> | undefined = [], ignoreTemp?: boolean): number {
+export function sumRolls(rolls: Array<Roll> | undefined = [], countHealing?: "ignore" | "negative" | "positive" | "negativeIgnoreTemp" | "positiveIgnoreTemp"): number {
   if (!rolls) return 0;
+  if (countHealing === undefined) countHealing = "positive";
   return rolls.reduce((total, roll) => {
     //@ts-expect-error
-    if (roll.options.type === "temphp" && ignoreTemp) return total;
+    const type = roll.options.type;
+    if (type === "midi-none") return total;
+    if (["temphp"].includes(type) && countHealing === "negativeIgnoreTemp") return total;
+    if (["temphp"].includes(type) && countHealing === "positiveIgnoreTemp") return total;
+    if (["temphp", "healing"].includes(type) && countHealing === "ignore") return total;
+    if (["temphp", "healing"].includes(type) && countHealing?.startsWith("negative")) return total - (roll?.total ?? 0);
     return total + (roll?.total ?? 0);
   }, 0);
 }

@@ -1,7 +1,7 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, doConcentrationCheck, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -468,8 +468,10 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
         messageData["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
     });
 
-    if (options.isConcentrationCheck && Hooks.call("dnd5e.preRollConcentration", this, options) === false) return;
-    result = await wrapped(abilityId, procOptions);
+    if (options.isConcentrationCheck) {
+      procOptions.isConcentrationCheck = false; // stop an infinite loop
+      result = await this.rollConcentration(procOptions)
+    } else  result = await wrapped(abilityId, procOptions);
     if (success === false) {
       result = new Roll("-1[auto fail]");
       // V12 - since the roll is -1 evaluateSync will work
@@ -478,12 +480,11 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       else result = await result.evaluate()
     }
     if (!result) return result;
-    if (options.isConcentrationCheck) Hooks.callAll("dnd5e.rollConcentration", this, result);
 
     const flavor = result.options?.flavor;
     let maxFlags = foundry.utils.getProperty(this, "flags.midi-qol.max.ability") ?? {};
     let maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId])) ?? false;
-    if (options.isConcentrationCheck)
+    if (options.isConcentrationCheck) 
       maxValue = maxFlags.save?.concentration ?? maxValue;
     if (maxValue && Number.isNumeric(maxValue)) {
       result = setRollMaxDiceTerm(result, Number(maxValue));
@@ -543,10 +544,8 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
     game.settings.set("core", "rollMode", saveRollMode);
 
-
     await expireRollEffect.bind(this)(rollType, abilityId, success);
     if (options.isConcentrationCheck) expireRollEffect.bind(this)("isConcentrationSave", success);
-
     return result;
   } catch (err) {
     const message = `doAbilityRoll error ${this.name} ${abilityId} ${rollType} ${this.uuid}`;
@@ -1435,7 +1434,6 @@ export async function challengeConcentration(wrapped, { dc = 10, ability = null 
   const isConcentrating = this.concentration.effects.size > 0;
   if (!isConcentrating) return null;
   if (["chat"].includes(configSettings.doConcentrationCheck)) {
-    const isConcentrating = this.concentration.effects.size > 0;
     const dataset = {
       action: "concentration",
       dc,

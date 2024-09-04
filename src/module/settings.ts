@@ -131,6 +131,7 @@ class ConfigSettings {
   midiPropertiesTabRole: number = CONST.USER_ROLES.PLAYER;
   confirmAttackDamage: string = "none";
   highlightSuccess: boolean = false;
+  highLightCriticalAttackOnly: boolean = false;
   optionalRulesEnabled: boolean = false;
   paranoidGM: boolean = false;
   playerRollSaves: string = "none";
@@ -434,6 +435,7 @@ export let fetchParams = () => {
   if (configSettings.showDSN === undefined) configSettings.showDSN = true;
   if (configSettings.showFastForward === undefined) configSettings.showFastForward = true;
   if (configSettings.highlightSuccess === undefined) configSettings.highlightSuccess = false;
+  if (configSettings.highLightCriticalAttackOnly === undefined) configSettings.highLightCriticalAttackOnly = false;
   configSettings.optionalRules = foundry.utils.mergeObject({ // eventually split this into mechanics and rules
     actionSpecialDurationImmediate: false,
     activeDefence: false,

@@ -1,7 +1,7 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID, getStaticID } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuidSync, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating, getCEEffectByName } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuidSync, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating, getCEEffectByName, setRollMaxDiceTerm, setRollMinDiceTerm } from "./utils.js";
 import { activateMacroListeners, getCurrentSourceMacros } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preUpdateItemActorOnUseMacro, zeroHPExpiry, deathSaveHook } from "./patching.js";
@@ -85,13 +85,30 @@ export let readyHooks = async () => {
     }
   });
 
+  Hooks.on("preUpdateActor", (actor, changes, options, userId) => {
+    try {
+      if (userId !== game.user?.id) return true;
+      if (changes.system?.attributes?.hp?.value === undefined) return true;
+      const hp = actor.system.attributes?.hp?.value;
+      const newHP = changes.system.attributes.hp.value;
+      if (newHP >= hp) return true;
+      if (configSettings.doConcentrationCheck === "item" && !options.noConcentrationCheck && isConcentrating(actor)) {
+        doConcentrationCheck(actor, actor.getConcentrationDC(hp - newHP));
+      }
+    } catch (err) {
+      console.error("Error in preUpdateActor", err);
+    } finally {
+      return true;
+    }
+  })
+  /* dnd5e.damageActor won't pass through the options of the update so can't use it for disable concentratnChecks
   Hooks.on("dnd5e.damageActor", (actor, changes, data, userId) => {
     if (configSettings.doConcentrationCheck === "item" && userId === game.userId && isConcentrating(actor) && changes.total < 0) {
       if (changes.hp < 0 || (configSettings.tempHPDamageConcentrationCheck && changes.temp < 0))
         doConcentrationCheck(actor, actor.getConcentrationDC(-changes.total))
     }
   });
-
+*/
   Hooks.on("renderActorArmorConfig", (app, html, data) => {
     if (!["none", undefined, false].includes(checkRule("challengeModeArmor"))) {
       const ac = data.ac;
@@ -899,7 +916,7 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
         || options.ignore?.[category] === true
         || options.ignore?.[category]?.has?.(type);
     };
-    
+
     const mo = options.midi;
     if (mo?.noCalc) return true;
     if (mo) {
@@ -961,8 +978,8 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
     const totalDamage = damages.reduce((a, b) => {
       let value = b.value;
       if (options.invertHealing !== false && b.type === "healing") value = b.value * -1;
-      if (b.type === "midi-none") value = 0;
-      return a + (["temphp", "midi-none"].includes(b.type) ? 0 : value)
+      if (["temphp", "midi-none"].includes(b.type)) value = 0;
+      return a + value;
     }
       , 0);
     foundry.utils.setProperty(options, "midi.totalDamage", totalDamage);
@@ -1015,7 +1032,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         let bypassesPresent;
         for (let damage of damages) {
           if (damage.active[categories[trait]]) continue; // only one dr/di/dv allowed
-          if (damage.type === "midi-non") {}
+          if (damage.type === "midi-non") { }
           if (GameSystemConfig.healingTypes[damage.type]) continue;
           if (ignore(categories[trait], damage.type, false)) continue;
           if (ignore(custom, damage.type, false) || damage.active[custom]) continue;
@@ -1208,13 +1225,13 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
   return true;
 });
 
-function recalculateDamage (actor, amount, updates, options) {
+function recalculateDamage(actor, amount, updates, options) {
   const hpMax = Math.floor(actor?.system?.attributes?.hp?.max ?? 0);
   const hpTemp = updates["system.attributes.hp.temp"] ?? 0;
   const startHP = actor?.system?.attributes?.hp?.value ?? 0;
   const updatedHP = updates["system.attributes.hp.value"] ?? startHP;
   // How much damage was applied to the actor's hp - after temp hp was applied
-  const hpDamage = Math.max(0, startHP - (updates["system.attributes.hp.value"] ?? startHP)); 
+  const hpDamage = Math.max(0, startHP - (updates["system.attributes.hp.value"] ?? startHP));
   // how much temp damage appled to the new hpTemp value
   const newAppliedTemp = Math.min(hpTemp, hpDamage, hpMax - updatedHP);
   const newHpTemp = hpTemp - newAppliedTemp;
@@ -1245,31 +1262,33 @@ Hooks.on("dnd5e.preApplyDamage", (actor, amount, updates, options) => {
 Hooks.on("dnd5e.preRollConcentration", (actor, options) => {
   // insert advantage and disadvantage
   // insert midi bonuses.
-  const concAdvFlag = foundry.utils.getProperty(actor, "flags.midi-qol.advantage.concentration");
-  const concDisadvFlag = foundry.utils.getProperty(actor, "flags.midi-qol.disadvantage.concentration");
+  if (options.workflowOptions?.noConcentrationCheck) return false;
+  const concAdvFlag = foundry.utils.getProperty(actor, `flags.${MODULE_ID}.advantage.concentration`);
+  const concDisadvFlag = foundry.utils.getProperty(actor, `flags.${MODULE_ID}.disadvantage.concentration`);
   let concAdv = options.advantage;
   let concDisadv = options.disadvantage;
   if (concAdvFlag || concDisadvFlag) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
-    if (concAdvFlag && evalAllConditions(actor, "flags.midi-qol.advantage.concentration", conditionData)) {
+    if (concAdvFlag && evalAllConditions(actor, `flags.${MODULE_ID}.advantage.concentration`, conditionData)) {
       concAdv = true;
     }
-    if (concDisadvFlag && evalAllConditions(actor, "flags.midi-qol.disadvantage.concentration", conditionData)) {
+    if (concDisadvFlag && evalAllConditions(actor, `flags.${MODULE_ID}.disadvantage.concentration`, conditionData)) {
       concDisadv = true;
     }
   }
+  const conc = actor.system.attributes?.concentration;
+  //@ts-expect-error
+  const config = game.system.config;
+  //@ts-expect-error
+  const modes = CONFIG.Dice.D20Roll.ADV_MODE;
+  concAdv = concAdv || (conc.roll.mode === modes.ADVANTAGE);
+  concDisadv = concDisadv || (conc.roll.mode === modes.DISADVANTAGE);
+
   if (concAdv && !concDisadv) {
     options.advantage = true;
   } else if (!concAdv && concDisadv) {
     options.disadvantage = true;
   }
-  if (options.chatMessage !== false) {
-    Hooks.once("dnd5e.preRollAbilitySave", (actor, rollData, abilityId) => {
-      foundry.utils.setProperty(actor, "flags.midi-qol.concentrationRollData", rollData);
-    })
-    options.chatMessage = false;
-  }
-
   return true;
 })
 
@@ -1278,28 +1297,16 @@ Hooks.on("dnd5e.rollConcentration", (actor, roll) => {
   const simplifyBonus = game.system.utils.simplifyBonus;
   if (foundry.utils.getProperty(actor, "flags.midi-qol.min.ability.save.concentration") && simplifyBonus) {
     const minRoll = simplifyBonus(foundry.utils.getProperty(actor, "flags.midi-qol.min.ability.save.concentration"), actor.getRollData());
-    const diceTerm = roll.terms[0];
-    if (diceTerm.total < minRoll) {
-      diceTerm.results.forEach(r => { if (r.result < minRoll) r.result = minRoll });
-      roll._total = roll._evaluateTotal();
-    }
+    if (Number(minRoll)) setRollMinDiceTerm(roll, Number(minRoll));
   }
   if (foundry.utils.getProperty(actor, "flags.midi-qol.max.ability.save.concentration") && simplifyBonus) {
     const maxRoll = simplifyBonus(foundry.utils.getProperty(actor, "flags.midi-qol.max.ability.save.concentration"), actor.getRollData());
-    const diceTerm = roll.terms[0];
-    if (diceTerm.total > maxRoll) {
-      diceTerm.results.forEach(r => { if (r.result > maxRoll) r.result = maxRoll });
-      roll._total = roll._evaluateTotal();
-    }
+    if (Number(maxRoll)) setRollMaxDiceTerm(roll, Number(maxRoll));
   }
   if (!Number.isNaN(roll.options.targetValue)) {
     roll.options.success = roll.total >= Number(roll.options.targetValue);
   }
   if (checkRule("criticalSaves") && roll.isCritical) roll.options.success = true;
   // triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets, options: any = {}) {
-
-  const rollData = foundry.utils.getProperty(actor, "flags.midi-qol.concentrationRollData");
-  foundry.utils.setProperty(actor, "flags.midi-qol.concentrationRollData", undefined);
-  if (rollData) roll.toMessage(rollData.messageData);
   if (configSettings.removeConcentration && roll.options.success === false) actor.endConcentration();
 });

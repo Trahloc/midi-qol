@@ -4,6 +4,7 @@ import { nsaFlag, coloredBorders, configSettings, forceHideRoll, safeGetGameSett
 import { playerFor, playerForActor, doOverTimeEffect, isInCombat, MQfromUuidSync } from "./utils.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 export const MAESTRO_MODULE_NAME = "maestro";
 export const MODULE_LABEL = "Maestro";
 
@@ -174,7 +175,14 @@ export let hideStuffHandler = (message, html, data) => {
     html.hide();
     return;
   }
-
+  // message.shouldDisplayChallenge returns true for message owners, which is not quite what we want.
+  let shouldDisplayChallenge = true;
+  if (game.user?.isGM) shouldDisplayChallenge = true;
+  else switch (safeGetGameSetting("dnd5e", "challengeVisibility")) {
+    case "all": shouldDisplayChallenge = true; break;
+    case "player": shouldDisplayChallenge = !game.user?.isGM; break;
+    default: shouldDisplayChallenge = false; break;
+  }
   // If force hide rolls and your are not the author/target of a whisper roll hide it.
   if (forceHideRoll
     && !game.user?.isGM
@@ -207,6 +215,18 @@ export let hideStuffHandler = (message, html, data) => {
       }
     }
     html.find(".midi-qol-target-npc-Player").hide();
+    if (!configSettings.highlightSuccess) {
+      html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("success");
+      html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("failure");
+      html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("critical");
+      html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("fumble");
+    }
+    if (!configSettings.highlightSuccess || !shouldDisplayChallenge) {
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("success");
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("failure");
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("critical");
+      html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("fumble");
+    }
 
     //@ts-expect-error
     ui.chat.scrollBottom
@@ -239,14 +259,7 @@ export let hideStuffHandler = (message, html, data) => {
       }
     }
 
-    // message.shouldDisplayChallenge returns true for message owners, which is not quite what we want.
-    let shouldDisplayChallenge = true;
-    if (game.user?.isGM) shouldDisplayChallenge = true;
-    else switch (safeGetGameSetting("dnd5e", "challengeVisibility")) {
-      case "all": shouldDisplayChallenge = true; break;
-      case "player": shouldDisplayChallenge = !game.user?.isGM; break;
-      default: shouldDisplayChallenge = false; break;
-    }
+
     // Hide the save dc if required
     if (!configSettings.displaySaveDC || !shouldDisplayChallenge) {
       html.find(".midi-qol-saveDC").remove();
@@ -254,13 +267,13 @@ export let hideStuffHandler = (message, html, data) => {
         html.find(".midi-qol-npc-save-total").remove();
       }
     }
-    if (!shouldDisplayChallenge) {
+    if (!shouldDisplayChallenge)
       html.find(".midi-qol-saves-display .midi-qol-save-symbol").remove();
+    if (!configSettings.highlightSuccess || !shouldDisplayChallenge) {
       html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("success");
       html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("failure");
       html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("critical");
       html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("fumble");
-      
     }
     if (safeGetGameSetting("dnd5e", "attackRollVisibility")) {
       const visibility = safeGetGameSetting("dnd5e", "attackRollVisibility");
@@ -276,6 +289,12 @@ export let hideStuffHandler = (message, html, data) => {
         html.find(".midi-qol-npc-ac").remove();
       } else if (visibility === "hideAC" || !configSettings.displayHitResultNumeric) {
         html.find(".midi-qol-npc-ac").remove();
+        if (!configSettings.highlightSuccess) {
+          html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("success");
+          html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("failure");
+          html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("critical");
+          html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("fumble");
+        }
       }
     } else {
       if (!shouldDisplayChallenge) {
@@ -285,6 +304,12 @@ export let hideStuffHandler = (message, html, data) => {
       }
       if (!configSettings.displayHitResultNumeric || !shouldDisplayChallenge) {
         html.find(".midi-qol-npc-ac").remove();
+      }
+      if (!configSettings.highlightSuccess) {
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("success");
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("failure");
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("critical");
+        html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("fumble");
       }
     }
     if (message.user?.id !== game.user?.id || configSettings.confirmAttackDamage === "gmOnly") {
@@ -464,7 +489,11 @@ export function ddbglPendingFired(data) {
   }
 
   let workflow: Workflow | undefined = DDBGameLogWorkflow.get(item.uuid);
-  if (actionType === "attack") workflow = undefined;
+  if (actionType === "attack") {
+    if (DDBGameLogWorkflow.get(item.uuid)) Workflow.removeWorkflow(item.uuid);
+    workflow = undefined;
+  }
+
   //@ts-expect-error .hasAttack
   if (["damage", "heal"].includes(actionType) && item.hasAttack && !workflow) {
     warn(` ddb-game-log damage roll without workflow being started ${actor.name} using ${item.name}`);

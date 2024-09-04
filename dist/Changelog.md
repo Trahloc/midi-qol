@@ -3,8 +3,19 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.10
+* **Breaking** Midi 11.7 will remove the option for the non-merge card. There are simply too many things that are difficult to support correctly in the non-merge card case.
+* Fix for saving throws dice tooltip showing the wrong modifier to the save.
+* Reinstated behaviour of color hit/miss save display miscellaneous setting to apply to attack results and save results. This applies after the dnd5e settings to display attack/challenge are processed. I expect most people to set this on.
+* Added Only Highlight critical attack/fumble attack rolls - default false. When set attack rolls are only colored on critical/fumble not hit/miss. (overrides dnd5e settings). I expect old school enthusiasts to have this on, the rest off.
+* Fix for workflowOptions.damageRollDSN and workflowOptions.otherDamageRollDSN not working. These settings only work for the merge card.
+* Support select hit targets and select missed targets from chat card context menu.
+* Fix for Apply Temporary HP in chat card context menu.
+* Fix for concentration, all options (chat/chat+roll/midi item) now support flags.midi-qol concentraton settings and system concentration setting (adv/save bonus etc).
+* Re-implement support for workflow.workflowOptions.noConcentrationCheck when rolling the midi concentration check item. Not supported for chat message concentration options.
+
 ### 11.6.9
-* Change to not call post action hook twice when aborting.
+* Change to not call post action hooks when aborting.
 * Preserve options used between dnd5e.precalculdateDamage/dnd5e.calculateDamage and midi's calls to dnd5e.preApplyDamage/dnd5e.applyDamage
 
 ### 11.6.8

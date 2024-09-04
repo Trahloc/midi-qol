@@ -553,7 +553,7 @@
   "midi-qol.DoConcentrationCheck.Name": "Force a concentration save when damage taken",
   "midi-qol.DoConcentrationCheckOptions": {
     "none": "Never",
-    "chatOnly": "Chat Message Only",
+    "chatOnly": "Chat Message Only (dnd5e default behaviour)",
     "chat": "Chat Message + Auto Roll",
     "item": "Roll Concentration Item"
   },
@@ -806,6 +806,8 @@
   "midi-qol.InitPromptTitle": "Initiative Roll",
   "midi-qol.HighlightSuccess.Name": "Color code Hit/Miss/Save Display",
   "midi-qol.HighlightSuccess.Hint": "When displaying hits/misses, hits/saves are in green and misses/failed saves in red",
+  "midi-qol.HighLightCriticalAttackOnly.Name": "Only highlight critical/fumble hits",
+  "midi-qol.HighLightCriticalAttackOnly.Hint": "Override dnd5e highlighting attacks hits and misses and only highlight critical/fumble attack rolls",  
   "midi-qol.OptionalRuleVitality.Name": "(House Rule) Vitality pool",
   "midi-qol.OptionalRuleVitality.Hint": "when set to a resource damage applied to a target with 0 HP does damage to the vitality resource. If that reaches 0 the target is dead",
   "midi-qol.AutoRerollInitiative.Name": "Auto reroll initiative",
