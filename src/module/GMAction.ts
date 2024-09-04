@@ -1071,7 +1071,7 @@ export let processUndoDamageCard = (message, html, data) => {
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = newVitality;
         }
-        if (actor.isOwner) await actor.update(update, updateOptions);
+        if (actor.isOwner) await actor.update(update, updateOptions ?? {});
         ev.stopPropagation();
       }
     })();
@@ -1097,7 +1097,7 @@ export let processUndoDamageCard = (message, html, data) => {
         if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
           update[vitalityResource.trim()] = oldVitality;
         }
-        if (actor.isOwner) await actor.update(update, updateOptions);
+        if (actor.isOwner) await actor.update(update, updateOptions ?? {});
         ev.stopPropagation();
       })();
     });
@@ -1114,7 +1114,7 @@ export let processUndoDamageCard = (message, html, data) => {
       const mults = { "-1": -1, "x1": 1, "x0.25": 0.25, "x0.5": 0.5, "x2": 2 };
       let multiplier = 1;
       (async () => {
-        const calcOptions = foundry.utils.mergeObject(calcDamageOptions, updateOptions, { inplace: false });
+        const calcOptions = foundry.utils.mergeObject(calcDamageOptions ?? {}, updateOptions ?? {}, { inplace: false });
         let actor = fromActorUuid(actorUuid);
         log(`Setting HP to ${newTempHP} and ${newHP}`);
         if (mults[multiplierString]) {
@@ -1127,7 +1127,7 @@ export let processUndoDamageCard = (message, html, data) => {
           if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
             update[vitalityResource.trim()] = newVitality;
           }
-          if (actor.isOwner) await actor.update(update, updateOptions);
+          if (actor.isOwner) await actor.update(update, updateOptions ?? {});
           ev.stopPropagation();
         }
       })();
@@ -1238,9 +1238,11 @@ export function recoverDamageListFromJSON(damageList: any[]): any[] {
   return newDL;
 }
 export function recoverDamageDetailFromJSON(damageDetail: any[]) {
-  for (let damageLine of damageDetail) {
-    if (damageLine.properties instanceof Array) {
-      damageLine.properties = new Set(damageLine.properties);
+  if (damageDetail instanceof Array) {
+    for (let damageLine of damageDetail) {
+      if (damageLine.properties instanceof Array) {
+        damageLine.properties = new Set(damageLine.properties);
+      }
     }
   }
 }

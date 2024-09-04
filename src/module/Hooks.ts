@@ -1032,7 +1032,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         let bypassesPresent;
         for (let damage of damages) {
           if (damage.active[categories[trait]]) continue; // only one dr/di/dv allowed
-          if (damage.type === "midi-non") { }
+          if (damage.type === "midi-none") continue;
           if (GameSystemConfig.healingTypes[damage.type]) continue;
           if (ignore(categories[trait], damage.type, false)) continue;
           if (ignore(custom, damage.type, false) || damage.active[custom]) continue;

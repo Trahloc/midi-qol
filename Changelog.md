@@ -3,6 +3,10 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.10.1
+* Fix for typo "midi-non" in Hooks
+* Fix for error thrown with pre 11.6.10 midi undo damage card.
+
 ### 11.6.10
 * **Breaking** Midi 11.7 will remove the option for the non-merge card. There are simply too many things that are difficult to support correctly in the non-merge card case.
 * Fix for saving throws dice tooltip showing the wrong modifier to the save.
