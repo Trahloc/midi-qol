@@ -1338,6 +1338,10 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
     theItem = await fromUuid(magicItemUuid);
   } else theItem = item;
   options = foundry.utils.mergeObject(options, { workflowOptions: { forceCompletion: true } })
+  // prepare item data for socketed events
+  theItem?.prepareData();
+	theItem?.prepareFinalAttributes();
+	theItem?.applyActiveEffects();
   // delete any existing workflow - complete item use always is fresh.
   if (Workflow.getWorkflow(theItem.uuid)) await Workflow.removeWorkflow(theItem.uuid);
   let localRoll = (!options.asUser && game.user?.isGM) || !options.checkGMStatus || options.asUser === game.user?.id;
