@@ -219,6 +219,7 @@ Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
 Hooks.on("dae.addFieldMappings", (fieldMappings) => {
   registerSettings();
   fetchParams();
+
   if (configSettings.v3DamageApplication) {
     //@ts-expect-error
     for (let key of Object.keys(game.system.config.damageTypes ?? {})) {

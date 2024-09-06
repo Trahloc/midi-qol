@@ -3,6 +3,8 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.11
+* Fix for max stack depth exceeded when applying 0 damage to a target. (A combo of core/SimpleCalendar/Midi behaviour - but it's easiest to fix in midi).
 ### 11.6.10.1
 * Fix for typo "midi-non" in Hooks
 * Fix for error thrown with pre 11.6.10 midi undo damage card.

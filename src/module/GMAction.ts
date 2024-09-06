@@ -826,7 +826,8 @@ async function prepareDamageListItems(data: {
       if (createPromises && doHits && (data.autoApplyDamage.includes("yes") || data.forceApply)) {
         //recover the options used when calculating the damage
         if (Hooks.call("dnd5e.preApplyDamage", actor, amount, updates, damageItem.calcDamageOptions ?? {}) !== false) {
-          await actor.update(updates, foundry.utils.mergeObject(damageItem.calcDamageOptions, data.updateOptions ?? {}));
+          // The actopr update - when no changes are made will update the passed options with a target
+          await actor.update(updates, foundry.utils.mergeObject(damageItem.calcDamageOptions, data.updateOptions ?? {}, {inplace: false}));
           Hooks.call("dnd5e.applyDamage", actor, amount, damageItem.calcDamageOptions ?? {});
         }
       }

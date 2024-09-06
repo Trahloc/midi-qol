@@ -2446,8 +2446,6 @@ export function hasCondition(actorRef: Actor | Token | TokenDocument | string | 
   }
   //@ts-expect-error hasStatusEffect
   if (actor.statuses.has(condition.toLocaleLowerCase()) || actor.statuses.has(condition)) return 1;
-
-
   return 0;
 }
 
