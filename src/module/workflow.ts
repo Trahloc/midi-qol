@@ -2817,7 +2817,7 @@ export class Workflow {
           img: t?.actor?.img,
           uuid: t?.actor?.uuid,
           //@ts-expect-error
-          ac: t?.actor?.system.attributes.ac.value,
+          ac: t?.actor?.system?.attributes?.ac?.value ?? 0,
         }
       })
       newFlags = foundry.utils.mergeObject(newFlags, {

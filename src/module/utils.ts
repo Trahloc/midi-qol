@@ -2391,7 +2391,9 @@ export function hasCondition(actorRef: Actor | Token | TokenDocument | string | 
   let actor = getActor(actorRef);
   if (!actor) return 0;
   //@ts-expect-error
-  if (actor.system.traits.ci.value.has(condition)) return 0;
+  if (!actor.system.traits || !actor.statuses) return 0;
+  //@ts-expect-error
+  if (actor.system.traits.ci?.value.has(condition)) return 0;
   //@ts-expect-error
   if (actor.statuses.has(condition)) return 1;
   //@ts-expect-error specialStatusEffects
@@ -5331,6 +5333,7 @@ export function getCriticalDamage() {
 
 export function isTargetable(target: any /*Token*/): boolean {
   if (!target.actor) return false;
+  if (target.actor.type === "group") return false;
   if (foundry.utils.getProperty(target.actor, `flags.${MODULE_ID}.neverTarget`)) return false;
 
   const targetDocument = getTokenDocument(target);
