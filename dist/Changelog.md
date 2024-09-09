@@ -3,8 +3,16 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
- ### 11.6.13
- * Updated full auto wuick setting to be more usable.
+### 11.6.14
+* Fix for token can see target checks
+
+### 11.6.13
+ * Updated full auto quick setting to be more usable.
+ * Fix for error being throw when not using single concentration check.
+ * Fix for completeItemUse not completely setting up the item to be rolled when passing the request to the GM.
+ * Fix for completeItemUse not returning when the workflow is aborted - will now return the aborted workflow.
+ * Fix for some edge cases when checking if a token can see another - thanks @thatlonelybugbear
+ * Updated Sneak Attack feature to inherit the weapon properties, like magical attack etc, to fix an error when monsters have resistance to non-magical (for example) weapons.
 
  ### 11.6.12
  * Fix to make group actors untargetable for spells/weapons.

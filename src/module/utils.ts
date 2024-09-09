@@ -5124,12 +5124,15 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
     if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
   }
 
-  const basic = tokenDetectionModes.find(m => m.id === DetectionModeCONST.BASIC_MODE_ID);
+  const lightPerception = tokenDetectionModes.find(m => m.id === modes.lightPerception.id);
   if (["lightPerception", "all"].some(mode => validModes.has(mode))) {
-    const result = modes.lightPerception.testVisibility(token.vision, basic, config);
+    // const result = modes.lightPerception.testVisibility(token.vision, basic, config);
+    const result = modes.lightPerception.testVisibility(token.vision, lightPerception, config);
     if (result === true)
       matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
   }
+
+  const basic = tokenDetectionModes.find(m => m.id === DetectionModeCONST.BASIC_MODE_ID);
   if (["basicSight", "all"].some(mode => validModes.has(mode))) {
     const result = modes.basicSight.testVisibility(token.vision, basic, config);
     if (result === true)
