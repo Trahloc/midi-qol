@@ -227,7 +227,7 @@
       "_key": "!items.effects!WLcIm4HtiuGvXcgY.jx21UtSu2eCTp0GP"
     }
   ],
-  "folder": null,
+  "folder": "96CGI19mRB2OZ6Xa",
   "flags": {
     "ddbimporter": {
       "dndbeyond": {
@@ -379,7 +379,7 @@
     "systemId": "dnd5e",
     "systemVersion": "3.3.1",
     "createdTime": 1724915761225,
-    "modifiedTime": 1724917316032,
+    "modifiedTime": 1725855119946,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "ownership": {
@@ -387,6 +387,6 @@
     "Zl1BOUaPLwDEujaL": 3
   },
   "_id": "WLcIm4HtiuGvXcgY",
-  "sort": 0,
+  "sort": 25000,
   "_key": "!items!WLcIm4HtiuGvXcgY"
 }

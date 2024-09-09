@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+ ### 11.6.13
+ * Updated full auto wuick setting to be more usable.
+
  ### 11.6.12
  * Fix to make group actors untargetable for spells/weapons.
 

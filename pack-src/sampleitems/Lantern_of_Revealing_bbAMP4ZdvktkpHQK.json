@@ -160,7 +160,11 @@
       "autoSaveFriendly": false,
       "offHandWeapon": false,
       "noConcentrationCheck": false,
-      "ignoreTotalCover": false
+      "ignoreTotalCover": false,
+      "idr": false,
+      "idi": false,
+      "idv": false,
+      "ida": false
     },
     "magicitems": {
       "enabled": false,
@@ -174,7 +178,8 @@
       "recharge": "0",
       "rechargeType": "t1",
       "rechargeUnit": "r1",
-      "sorting": "l"
+      "sorting": "l",
+      "default": ""
     },
     "itemacro": {
       "macro": {
@@ -205,10 +210,10 @@
   "_stats": {
     "systemId": "dnd5e",
     "systemVersion": "3.2.1",
-    "coreVersion": "12.327",
+    "coreVersion": "12.331",
     "createdTime": 1661787233482,
-    "modifiedTime": 1719459021714,
-    "lastModifiedBy": "STcmc1QZ0hx024Tl",
+    "modifiedTime": 1725633054764,
+    "lastModifiedBy": "ZDFhNjE2NDMyYTY1",
     "compendiumSource": "Compendium.dnd5e.items.7FLs8qIGdOFnz9oL",
     "duplicateSource": null
   },

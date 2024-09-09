@@ -558,11 +558,10 @@ export class Workflow {
         }
         const name = this.nameForState(newState);
         if (this.currentAction !== newState) {
-          if (!isAborting) {
+          if (!isAborting || this.currentAction === this.WorkflowState_Completed) {
             if (await this.callHooksForAction("post", this.currentAction) === false && !isAborting) {
               console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by post ${this.nameForState(this.currentAction)} Hook`)
               newState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
-              continue;
             }
             await this.callOnUseMacrosForAction("post", this.currentAction);
             if (debugEnabled > 0) warn(`${this.workflowName} finished ${currentName}`);
@@ -1317,7 +1316,7 @@ export class Workflow {
             if (tokenDamages) {
               totalDamage = tokenDamages.totalDamage;
               hpDamage = tokenDamages.hpDamage;
-              damageComponents = [tokenDamages.damageDetails["combinedDamage"], configSettings.singleConcentrationRoll ? [] : (tokenDamages.tokenDamages["otherDamage"] ?? [])]
+              damageComponents = [tokenDamages.damageDetails["combinedDamage"], configSettings.singleConcentrationRoll ? [] : (tokenDamages.damageDetails["otherDamage"] ?? [])]
                 .reduce((summary, damages) => {
                   let damagesSummary = damages.reduce((damageComponents, damageEntry) => {
                     damageComponents[damageEntry.type] = damageEntry.value + (damageComponents[damageEntry.type] ?? 0);
@@ -2817,7 +2816,7 @@ export class Workflow {
           img: t?.actor?.img,
           uuid: t?.actor?.uuid,
           //@ts-expect-error
-          ac: t?.actor?.system?.attributes?.ac?.value ?? 0,
+          ac: t?.actor?.system?.attributes.ac.value,
         }
       })
       newFlags = foundry.utils.mergeObject(newFlags, {

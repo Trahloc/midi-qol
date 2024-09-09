@@ -11,10 +11,17 @@
           "macroRepeat": "none",
           "transfer": false,
           "specialDuration": [
-            "DamageDealt"
+            "DamageDealt",
+            "turnEnd"
           ],
           "selfTarget": false,
-          "durationExpression": ""
+          "durationExpression": "",
+          "enableCondition": "",
+          "disableCondition": "",
+          "disableIncapacitated": false,
+          "selfTargetAlways": false,
+          "dontApply": false,
+          "showIcon": false
         },
         "ActiveAuras": {
           "isAura": false,
@@ -32,7 +39,7 @@
           "time": "None"
         },
         "core": {
-          "statusId": ""
+          "overlay": false
         },
         "dnd5e-helpers": {
           "rest-effect": "Ignore"
@@ -69,12 +76,12 @@
       "description": "",
       "statuses": [],
       "_stats": {
-        "coreVersion": "12.327",
+        "coreVersion": "12.331",
         "systemId": null,
         "systemVersion": null,
         "createdTime": null,
-        "modifiedTime": null,
-        "lastModifiedBy": null,
+        "modifiedTime": 1725598762616,
+        "lastModifiedBy": "Zl1BOUaPLwDEujaL",
         "compendiumSource": null,
         "duplicateSource": null
       },
@@ -314,7 +321,21 @@
       "offHandWeapon": false,
       "ignoreTotalCover": false,
       "confirmTargets": "default",
-      "noConcentrationCheck": false
+      "noConcentrationCheck": false,
+      "idr": false,
+      "idi": false,
+      "idv": false,
+      "ida": false
+    },
+    "walledtemplates": {
+      "wallsBlock": "globalDefault",
+      "wallRestriction": "globalDefault",
+      "hideBorder": "globalDefault",
+      "hideHighlighting": "globalDefault",
+      "showOnHover": "globalDefault",
+      "noAutotarget": false,
+      "addTokenSize": false,
+      "attachToken": "na"
     }
   },
   "system": {
@@ -402,10 +423,10 @@
   "_stats": {
     "systemId": "dnd5e",
     "systemVersion": "3.2.1",
-    "coreVersion": "12.327",
+    "coreVersion": "12.331",
     "createdTime": 1661995926181,
-    "modifiedTime": 1719459742397,
-    "lastModifiedBy": "STcmc1QZ0hx024Tl",
+    "modifiedTime": 1725598577252,
+    "lastModifiedBy": "Zl1BOUaPLwDEujaL",
     "compendiumSource": null,
     "duplicateSource": null
   },

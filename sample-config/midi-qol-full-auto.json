@@ -23,7 +23,7 @@
     "autoCheckSaves": "all",
     "hideRollDetails": "none",
     "displaySaveDC": true,
-    "checkSaveText": false,
+    "checkSaveText": true,
     "autoRollDamage": "onHit",
     "autoApplyDamage": "yesCard",
     "damageImmunities": "immunityPhysical",
@@ -39,13 +39,13 @@
     "useTokenNames": true,
     "fullAuto": false,
     "allowUseMacro": true,
-    "rollOtherDamage": "condition",
+    "rollOtherDamage": "ifSave",
     "removeButtons": "all",
     "gmRemoveButtons": "all",
     "concentrationAutomation": false,
     "singleConcentrationRoll": true,
     "optionalRules": {
-      "actionSpecialDurationImmediate": false,
+      "actionSpecialDurationImmediate": true,
       "activeDefence": false,
       "activeDefenceShow": "selfroll",
       "challengeModeArmor": "none",
@@ -57,7 +57,7 @@
       "criticalNat20": false,
       "criticalSaves": false,
       "distanceIncludesHeight": true,
-      "incapacitated": true,
+      "incapacitated": false,
       "invisAdvantage": "RAW",
       "hiddenAdvantage": "none",
       "maxDRValue": true,
@@ -68,6 +68,7 @@
       "removeHiddenInvis": true,
       "wallsBlockRange": "center",
       "mergeCardMulti": false,
+      "mergeCardMultiDamage": false,
       "enableddbGL": false,
       "enforceReactions": "all",
       "recordAOO": "all",
@@ -82,13 +83,13 @@
     "playerStatsOnly": true,
     "removeConcentration": true,
     "usePlayerPortrait": false,
-    "doReactions": "all",
-    "gmDoReactions": "all",
+    "doReactions": "allMI",
+    "gmDoReactions": "allMI",
     "reactionTimeout": 30,
     "requiresTargets": "combat",
     "showReactionAttackRoll": "all",
     "autoCEEffects": "cepri",
-    "rollOtherSpellDamage": "none",
+    "rollOtherSpellDamage": "ifSave",
     "promptDamageRoll": false,
     "gmHide3dDice": false,
     "ghostRolls": false,
@@ -113,23 +114,17 @@
     "fumbleSound": "sounds/dice.wav",
     "criticalSound": "sounds/dice.wav",
     "diceSound": "sounds/dice.wav",
-    "rollChecksBlind": [
-      "none"
-    ],
-    "rollSavesBlind": [
-      "none"
-    ],
-    "rollSkillsBlind": [
-      "none"
-    ],
+    "rollChecksBlind": [],
+    "rollSavesBlind": [],
+    "rollSkillsBlind": [],
     "displaySaveAdvantage": true,
-    "recordAOO": "none",
-    "enforceReactions": "none",
-    "enforceBonusActions": "none",
+    "recordAOO": "all",
+    "enforceReactions": "displayOnly",
+    "enforceBonusActions": "displayOnly",
     "playerDamageCard": "none",
     "playerCardDamageDifferent": true,
     "displayHitResultNumeric": false,
-    "rollAlternate": "off",
+    "rollAlternate": "adv",
     "allowActorUseMacro": true,
     "skillAbilityCheckAdvantage": true,
     "keyMapping": {
@@ -143,7 +138,7 @@
     "tempHPDamageConcentrationCheck": false,
     "showDSN": true,
     "showFastForward": true,
-    "highlightSuccess": false,
+    "highlightSuccess": true,
     "confirmAttackDamage": "none",
     "requireMagical": "off",
     "itemRollStartWorkflow": false,
@@ -154,11 +149,10 @@
     "hidePlayerDamageCard": true,
     "attackPerTarget": false,
     "autoRemoveTemplate": true,
-    "removeConcentrationEffects": "effects",
+    "removeConcentrationEffects": "effectsTemplates",
     "undoWorkflow": false,
-    "enforceSingleWeaponTarget": false,
+    "enforceSingleWeaponTarget": true,
     "quickSettings": true,
-    "averageNPCDamage": false,
     "midiWoundedCondition": "none",
     "midiDeadCondition": "none",
     "midiUnconsciousCondition": "none",
@@ -166,8 +160,21 @@
     "gridlessFudge": 0,
     "concentrationIncapacitatedConditionCheck": true,
     "mergeCardMulti": false,
-    "autoCompleteWorkflow": false,
-    "useCustomSounds": false
+    "autoCompleteWorkflow": true,
+    "useCustomSounds": false,
+    "effectActivation": false,
+    "addFakeDice": false,
+    "highLightCriticalAttackOnly": false,
+    "autoRemoveInstantaneousTemplate": true,
+    "doConcentrationCheck": "chat",
+    "undoChatColor": "Delete",
+    "averageDamage": "none",
+    "midiFieldsTab": true,
+    "v3DamageApplication": true,
+    "useDamageDetail": false,
+    "collapsibleTargets": true,
+    "autoRemoveSummonedCreature": true,
+    "midiPropertiesTabRole": "0"
   },
   "midiSoundSettings": {
     "any": {},
@@ -180,12 +187,13 @@
   "coloredBorders": "None",
   "addChatDamageButtons": "none",
   "autoFastForwardAbilityRolls": true,
-  "autoRemoveTargets": "dead",
+  "autoRemoveTargets": "none",
   "forceHideRoll": true,
   "enableWorkflow": true,
   "dragDropTargeting": false,
+  "DebounceInterval": 0,
   "targetConfirmation": {
-    "enabled": false,
+    "enabled": true,
     "always": false,
     "noneTargeted": false,
     "hasAttack": false,
@@ -197,15 +205,17 @@
     "inCover": false,
     "mixedDispositiion": false,
     "gridPosition": {
-      "x": 0,
-      "y": 0
-    }
+      "x": 1,
+      "y": -1
+    },
+    "all": true
   },
   "flags": {
     "exportSource": {
       "system": "dnd5e",
-      "coreVersion": "11.315",
-      "systemVersion": "2.4.1"
+      "coreVersion": "12.331",
+      "systemVersion": "3.3.1",
+      "midiVersion": "11.6.12"
     }
   }
 }

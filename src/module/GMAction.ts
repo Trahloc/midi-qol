@@ -477,6 +477,12 @@ async function _completeItemUse(data: {
   if (actor.actor) actor = actor.actor;
   //@ts-ignore v10
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor, keepId: true });
+    // prepare item data for socketed events
+    ownedItem.prepareData();
+    //@ts-expect-error
+    ownedItem.prepareFinalAttributes();
+    //@ts-expect-error
+    ownedItem.applyActiveEffects();
   const workflow = await completeItemUse(ownedItem, config, options);
   if (data.options?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
   else return true;

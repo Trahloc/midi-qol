@@ -211,7 +211,8 @@
       "recharge": "0",
       "rechargeType": "t1",
       "rechargeUnit": "r1",
-      "sorting": "l"
+      "sorting": "l",
+      "default": ""
     },
     "cf": {
       "id": "temp_mxc6kjqa6kp"
@@ -230,7 +231,11 @@
       "magiceffect": false,
       "noConcentrationCheck": false,
       "toggleEffect": false,
-      "ignoreTotalCover": false
+      "ignoreTotalCover": false,
+      "idr": false,
+      "idi": false,
+      "idv": false,
+      "ida": false
     },
     "midi-qol": {
       "rollAttackPerTarget": "default",
@@ -268,10 +273,10 @@
   "_stats": {
     "systemId": "dnd5e",
     "systemVersion": "3.2.1",
-    "coreVersion": "12.328",
+    "coreVersion": "12.331",
     "createdTime": 1661787233698,
-    "modifiedTime": 1719637953210,
-    "lastModifiedBy": "STcmc1QZ0hx024Tl",
+    "modifiedTime": 1725632310998,
+    "lastModifiedBy": "ZDFhNjE2NDMyYTY1",
     "compendiumSource": "Compendium.dnd5e.items.XGAWqtmhK6SYBL6A",
     "duplicateSource": null
   },

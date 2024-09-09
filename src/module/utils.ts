@@ -1338,10 +1338,6 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
     theItem = await fromUuid(magicItemUuid);
   } else theItem = item;
   options = foundry.utils.mergeObject(options, { workflowOptions: { forceCompletion: true } })
-  // prepare item data for socketed events
-  theItem?.prepareData();
-	theItem?.prepareFinalAttributes();
-	theItem?.applyActiveEffects();
   // delete any existing workflow - complete item use always is fresh.
   if (Workflow.getWorkflow(theItem.uuid)) await Workflow.removeWorkflow(theItem.uuid);
   let localRoll = (!options.asUser && game.user?.isGM) || !options.checkGMStatus || options.asUser === game.user?.id;
@@ -1358,14 +1354,30 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
       } else if (options.targetUuids === undefined && !options.ignoreUserTargets) {
         targetsToUse = new Set(game.user?.targets);
       }
-      let hookName = `midi-qol.postCleanup.${item?.uuid}`;
+
+      let abortHookName = `midi-qol.preAbort.${item?.uuid}`;
       if (!(item instanceof CONFIG.Item.documentClass)) {
         // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
-        hookName = "midi-qol.postCleanup";
+        abortHookName = "midi-qol.preAbort";
       }
-      Hooks.once(hookName, (workflow) => {
-        if (debugEnabled > 0) warn(`completeItemUse hook fired: ${workflow.workflowName} ${hookName}`)
-        if (!workflow.aborted && saveTargets && game.user && !options.ignoreUserTargets) {
+      const abortHookId = Hooks.once(abortHookName, (workflow) => {
+        Hooks.off(completeHookName, completeHookId);
+        if (debugEnabled > 0) warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`)
+        if (saveTargets && game.user && !options.ignoreUserTargets) {
+          game.user?.updateTokenTargets(saveTargets);
+        }
+        resolve(workflow);
+      });
+
+      let completeHookName = `midi-qol.postCleanup.${item?.uuid}`;
+      if (!(item instanceof CONFIG.Item.documentClass)) {
+        // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
+        completeHookName = "midi-qol.postCleanup";
+      }
+      const completeHookId = Hooks.once(completeHookName, (workflow) => {
+        Hooks.off(abortHookName, abortHookId);
+        if (debugEnabled > 0) warn(`completeItemUse complete hook fired: ${workflow.workflowName} ${completeHookName}`)
+        if (saveTargets && game.user && !options.ignoreUserTargets) {
           game.user?.updateTokenTargets(saveTargets);
         }
         resolve(workflow);
@@ -4620,7 +4632,7 @@ export async function asyncHooksCall(hook, ...args): Promise<boolean | undefined
 }
 function hookCall(entry, args) {
   const { hook, id, fn, once } = entry;
-  
+
   if (once) Hooks.off(hook, id);
   try {
     return entry.fn(...args);
@@ -5113,13 +5125,16 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   }
 
   const basic = tokenDetectionModes.find(m => m.id === DetectionModeCONST.BASIC_MODE_ID);
-  if (basic /*&& token.vision.active*/) {
-    if (["basicSight", "lightPerception", "all"].some(mode => validModes.has(mode))) {
-      const result = modes.basicSight.testVisibility(token.vision, basic, config);
-      if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
-    }
+  if (["lightPerception", "all"].some(mode => validModes.has(mode))) {
+    const result = modes.lightPerception.testVisibility(token.vision, basic, config);
+    if (result === true)
+      matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
   }
-
+  if (["basicSight", "all"].some(mode => validModes.has(mode))) {
+    const result = modes.basicSight.testVisibility(token.vision, basic, config);
+    if (result === true)
+      matchedModes.add(detectionModes.basicSight?.id ?? DetectionModeCONST.BASIC_MODE_ID);
+  }
   for (const detectionMode of tokenDetectionModes) {
     if (detectionMode.id === DetectionModeCONST.BASIC_MODE_ID) continue;
     if (!detectionMode.enabled) continue;

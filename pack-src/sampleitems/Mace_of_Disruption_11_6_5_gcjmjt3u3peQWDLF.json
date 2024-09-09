@@ -188,7 +188,7 @@
       "_key": "!items.effects!gcjmjt3u3peQWDLF.a9mFBJjGO0O0a3tJ"
     }
   ],
-  "folder": null,
+  "folder": "96CGI19mRB2OZ6Xa",
   "ownership": {
     "default": 0,
     "STcmc1QZ0hx024Tl": 3,
@@ -381,10 +381,10 @@
     "systemId": "dnd5e",
     "systemVersion": "3.3.1",
     "createdTime": 1724738869915,
-    "modifiedTime": 1724739110483,
+    "modifiedTime": 1725855139307,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "_id": "gcjmjt3u3peQWDLF",
-  "sort": 200000,
+  "sort": 2600000,
   "_key": "!items!gcjmjt3u3peQWDLF"
 }
