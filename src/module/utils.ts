@@ -5125,7 +5125,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   }
 
   const lightPerception = tokenDetectionModes.find(m => m.id === modes.lightPerception.id);
-  if (["lightPerception", "all"].some(mode => validModes.has(mode))) {
+  if (lightPerception && ["lightPerception", "all"].some(mode => validModes.has(mode))) {
     // const result = modes.lightPerception.testVisibility(token.vision, basic, config);
     const result = lightPerception ? modes.lightPerception.testVisibility(token.vision, lightPerception, config) : false;
     if (result === true)
@@ -5133,7 +5133,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   }
 
   const basic = tokenDetectionModes.find(m => m.id === DetectionModeCONST.BASIC_MODE_ID);
-  if (["basicSight", "all"].some(mode => validModes.has(mode))) {
+  if (basic && ["basicSight", "all"].some(mode => validModes.has(mode))) {
     const result = modes.basicSight.testVisibility(token.vision, basic, config);
     if (result === true)
       matchedModes.add(detectionModes.basicSight?.id ?? DetectionModeCONST.BASIC_MODE_ID);
