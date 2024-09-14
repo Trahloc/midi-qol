@@ -135,7 +135,7 @@ export class MidiSounds {
       await packObject?.getIndex({ fields: ["system.armor.type", "system.toolType", "system.weaponType", "img"] });
 
       const weaponTypes = Object.keys(GameSystemConfig.weaponTypes);
-      const sheetClass = config.Item.sheetClasses.weapon[`${game.system.id}.ItemSheet5e`].cls;
+      const sheetClass = config.Item.sheetClasses.weapon[`${game.system.id}.ItemSheet5e2`].cls;
       for (let wt of weaponTypes) {
         const baseTypes = await MidiSounds.getItemBaseTypes("weapon", wt);
         MidiSounds.weaponBaseTypes = foundry.utils.mergeObject(MidiSounds.weaponBaseTypes, baseTypes)

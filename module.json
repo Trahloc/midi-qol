@@ -21,7 +21,7 @@
         "type": "system",
         "compatibility": {
           "minimum": "3.3.0",
-          "maximum": "3.3.99"
+          "maximum": "4.9.99"
         }
       },
       {
@@ -105,7 +105,7 @@
     }
   ],
   "compatibility": {
-    "minimum": "11.302",
+    "minimum": "12.0",
     "verified": "12.999",
     "maximum": "12.999"
   },

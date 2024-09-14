@@ -1,4 +1,4 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect, isdndv4 } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
@@ -6240,4 +6240,16 @@ export function isConvenientEffect(effect): boolean {
   } else {
     return !!(effect?.flags?.["dfreds-convenient-effects"]?.isConvenient);
   }
+}
+
+export function getDefaultDamageType(item) {
+  let defaultDamageType;
+  if (isdndv4) {
+    const activity = item.system.activities.get("dnd5eactivity000");
+      defaultDamageType = activity?.damage?.parts[0]?.types.first() ?? this.defaultDamageType;
+  } 
+  else 
+      defaultDamageType = item?.system.damage;
+  console.error("Default damage type is ", defaultDamageType);
+  return defaultDamageType
 }

@@ -41,6 +41,7 @@ export const NumberField = foundry.data.fields.NumberField;
 export const StringField = foundry.data.fields.StringField;
 //@ts-expect-error
 export const SchemaField = foundry.data.fields.SchemaField;
+export var isdndv4 = false;
 
 declare global {
   interface LenientGlobalVariableTypes {
@@ -261,6 +262,8 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
 /* ------------------------------------ */
 Hooks.once('setup', function () {
   // Do anything after initialization but before
+  //@ts-expect-error
+  isdndv4 = game.system.id === "dnd5e" && foundry.utils.isNewerVersion(game.system.version, "3.3.99");
   // ready
   setupSocket();
   fetchParams();

@@ -1270,6 +1270,9 @@ export function preRollDamageHook(item, rollConfig) {
   return true;
 }
 
+export function preActivityConsumptionHook(activity, usageConfig, messageConfig, updates) {
+  console.error("preActivityConsumptionHook", activity, usageConfig, messageConfig, updates);
+}
 export function preItemUsageConsumptionHook(item, config, options): boolean {
   /* Spell level can be fetched in preItemUsageConsumption */
   if (!game.settings.get(MODULE_ID, "EnableWorkflow")) return true;
