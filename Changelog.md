@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.15
+* Fix for rolling other damage with single concentration check false throwing an error and not applying other damage.
+
 ### 11.6.14
 * Fix for token can see target checks
 

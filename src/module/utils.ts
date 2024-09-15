@@ -488,6 +488,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         } else if (!configSettings.singleConcentrationRoll && type === "otherDamage") {
           damageDetails["otherDamage"] = returnDamages;
           damageDetails[`rawotherDamage`] = damages;
+          damageDetails['calcDamageOptions.otherDamage'] = calcDamageOptions;
         }
       }
     }
@@ -5323,19 +5324,21 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
           //@ts-expect-error
           else term.options.flavor = displayRoll.options.type;
         });
+        const promises: Promise<any>[] = [];
         if (ghostRoll) {
-          const promises: Promise<any>[] = [];
           promises.push(dice3d?.showForRoll(displayRoll, game.user, true, ChatMessage.getWhisperRecipients("GM"), !game.user?.isGM));
           if (game.settings.get("dice-so-nice", "showGhostDice")) {
             //@ts-expect-error
             displayRoll.ghost = true;
             promises.push(dice3d?.showForRoll(displayRoll, game.user, true, game.users?.players.map(u => u.id), game.user?.isGM));
           }
-          await Promise.allSettled(promises);
-        } else
-          await dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, rollMode === "blindroll" && !game.user?.isGM)
+        } else {
+          promises.push(dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, rollMode === "blindroll" && !game.user?.isGM))
+        }
+        await Promise.allSettled(promises);
       }
     }
+
     //mark all dice as shown - so that toMessage does not trigger additional display on other clients
     DSNMarkDiceDisplayed(roll);
   }

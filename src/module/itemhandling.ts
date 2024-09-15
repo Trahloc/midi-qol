@@ -1124,10 +1124,13 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     if (this.system.actionType === "heal" && !Object.keys(GameSystemConfig.healingTypes).includes(workflow.defaultDamageType ?? "")) workflow.defaultDamageType = "healing";
 
     await workflow.setDamageRolls(result);
+    await displayDSNForRoll(result, "damageRoll");
+    /*
     if (workflow.workflowOptions?.damageRollDSN !== false) {
       let promises = result.map(r => displayDSNForRoll(r, "damageRoll"));
       await Promise.all(promises);
     }
+    */
     result = await processDamageRollBonusFlags.bind(workflow)();
     if (result instanceof Array) await workflow.setDamageRolls(result);
     else await workflow.setDamageRolls[result];
