@@ -1,9 +1,5 @@
 node_modules
 foundryconfig.json
 packBackup
-dist/module
-dist/templates
-dist/packs
-dist/**/*.js
-dist/**/*.json
+dist
 *.code-workspace
