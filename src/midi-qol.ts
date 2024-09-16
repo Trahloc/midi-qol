@@ -17,6 +17,8 @@ import { addUndoChatMessage, getUndoQueue, removeMostRecentWorkflow, showUndoQue
 import { showUndoWorkflowApp } from './module/apps/UndoWorkflow.js';
 import { TroubleShooter } from './module/apps/TroubleShooter.js';
 import { TargetConfirmationDialog } from './module/apps/TargetConfirmation.js';
+import { defineMidiAttackActivityClass } from './module/AttackActivity.js';
+
 
 export let debugEnabled = 0;
 export let debugCallTiming: any = false;
@@ -142,6 +144,9 @@ Hooks.once('init', async function () {
   //@ts-expect-error
   if (game.release.generation < 12) Math.clamp = Math.clamped;
   log('Initializing midi-qol');
+  //@ts-expect-error
+  game.system.config.activityTypes.attack.documentClass = defineMidiAttackActivityClass(game.system.config.activityTypes.attack.documentClass);
+
   //@ts-expect-error
   const systemVersion = game.system.version;
   Hooks.once('dfreds-convenient-effects.ready()', () => {

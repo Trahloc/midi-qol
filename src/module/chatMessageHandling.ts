@@ -175,6 +175,7 @@ export let hideStuffHandler = (message, html, data) => {
     html.hide();
     return;
   }
+  const authorId = message.author?.id;
   // message.shouldDisplayChallenge returns true for message owners, which is not quite what we want.
   let shouldDisplayChallenge = true;
   if (game.user?.isGM) shouldDisplayChallenge = true;
@@ -192,7 +193,7 @@ export let hideStuffHandler = (message, html, data) => {
     return;
   }
 
-  if (game.user?.id !== message.user?.id) {
+  if (game.user?.id !== authorId) {
     html.find(".midi-qol-attack-buttons").hide();
     html.find(".midi-qol-damage-buttons").hide();
     html.find(".midi-qol-otherDamage-button").hide();
@@ -312,7 +313,7 @@ export let hideStuffHandler = (message, html, data) => {
         html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("fumble");
       }
     }
-    if (message.user?.id !== game.user?.id || configSettings.confirmAttackDamage === "gmOnly") {
+    if (authorId !== game.user?.id || configSettings.confirmAttackDamage === "gmOnly") {
       html.find(".midi-qol-confirm-damage-roll-complete-hit").hide();
       html.find(".midi-qol-confirm-damage-roll-complete-miss").hide();
       html.find(".midi-qol-confirm-damage-roll-complete-critical").hide();
@@ -358,6 +359,8 @@ export async function onChatCardAction(event) {
   const action = button.dataset.action;
   let targets = game.user?.targets;
 
+  //@ts-expect-error
+  const authorId = message?.author?.id;
   // Validate permission to proceed with the roll
   if (!(game.user?.isGM || message?.isAuthor)) return;
   if (!["confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
@@ -382,7 +385,7 @@ export async function onChatCardAction(event) {
       if (!actor || !item) return;
       if ((targets?.size ?? 0) === 0) return;
       button.disabled = false;
-      if (game.user?.id !== message.user?.id) {
+      if (game.user?.id !== authorId) {
         // applying effects on behalf of another user;
         if (!game.user?.isGM) {
           ui.notifications?.warn("Only the GM can apply effects for other players")
@@ -392,7 +395,7 @@ export async function onChatCardAction(event) {
           ui.notifications?.warn(i18n("midi-qol.noTokens"));
           return;
         }
-        const result = (await socketlibSocket.executeAsUser("applyEffects", message.user?.id, {
+        const result = (await socketlibSocket.executeAsUser("applyEffects", authorId, {
           workflowId: item.uuid,
           targets: Array.from(game.user.targets).map(t => t.document.uuid)
         }));
@@ -416,11 +419,11 @@ export async function onChatCardAction(event) {
     case "confirm-damage-roll-complete-hit":
     case "confirm-damage-roll-complete-miss":
     case "confirm-damage-roll-cancel":
-      if (message.user?.id) {
+      if (authorId) {
         if (!game.user?.isGM && configSettings.confirmAttackDamage === "gmOnly") {
           return;
         }
-        const user = game.users?.get(message.user?.id);
+        const user = game.users?.get(authorId);
         if (user?.active) {
           let actionToCall = {
             "confirm-damage-roll-complete": "confirmDamageRollComplete",
@@ -428,7 +431,7 @@ export async function onChatCardAction(event) {
             "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss",
             "confirm-damage-roll-cancel": "cancelWorkflow"
           }[action];
-          socketlibSocket.executeAsUser(actionToCall, message.user?.id, { workflowId, itemCardId: message.id, itemCardUuid: message.uuid }).then(result => {
+          socketlibSocket.executeAsUser(actionToCall, authorId, { workflowId, itemCardId: message.id, itemCardUuid: message.uuid }).then(result => {
             if (typeof result === "string") ui.notifications?.warn(result);
           });
         } else {
