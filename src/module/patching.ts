@@ -1498,9 +1498,9 @@ function _getUsageConfig(wrapped): any {
 }
 
 export let itemPatching = () => {
-  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.use", doItemUse, "MIXED");
-  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
-  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
+  // libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.use", doItemUse, "MIXED");
+  // libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
+  // libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
   libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     if (!isdndv4) libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");

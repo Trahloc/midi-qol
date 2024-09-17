@@ -1296,6 +1296,7 @@ function blockRoll(item, workflow) {
 
 // Override default display card method. Can't use a hook since a template is rendefed async
 export async function wrappedDisplayCard(wrapped, options) {
+  console.error("wrappedDisplayCard", options);
   try {
     let { systemCard, workflowId, minimalCard, createMessage, workflow } = options ?? {};
     // let workflow = options.workflow; // Only DamageOnlyWorkflow passes this in

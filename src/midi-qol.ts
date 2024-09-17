@@ -17,7 +17,7 @@ import { addUndoChatMessage, getUndoQueue, removeMostRecentWorkflow, showUndoQue
 import { showUndoWorkflowApp } from './module/apps/UndoWorkflow.js';
 import { TroubleShooter } from './module/apps/TroubleShooter.js';
 import { TargetConfirmationDialog } from './module/apps/TargetConfirmation.js';
-import { defineMidiAttackActivityClass } from './module/AttackActivity.js';
+import { defineMidiAttackActivityClass } from './module/activities/AttackActivity.js';
 
 
 export let debugEnabled = 0;
