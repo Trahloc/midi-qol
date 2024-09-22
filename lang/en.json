@@ -442,7 +442,7 @@
   "midi-qol.Hits": "Hits",
   "midi-qol.Misses": "Misses",
   "midi-qol.Saves": "Saves",
-  "midi-qol.SavesBase": "If target saves, the item damage:",
+  "midi-qol.SavesBase": "If target saves, the item does:",
   "midi-qol.SavesBonus": "If target saves, Bonus Damage macros do:",
   "midi-qol.SavesOther": "If target saves, Other Formula does:",
   "midi-qol.Damage": "Damage",
