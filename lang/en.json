@@ -619,7 +619,7 @@
   "midi-qol.SpellDamage": "Spell Damage",
   "midi-qol.NonSpellDamage": "Non-Spell Damage",
   "midi-qol.ConditionHeader": "Activation Conditions",
-  "midi-qol.EffectActivationCondition.Name": "Effect application allowed if true",
+  "midi-qol.EffectActivationCondition.Name": "Effects will be applied if true",
   "midi-qol.EffectActivation": "Use System Activation for Effect application (Deprecated)",
   "midi-qol.ItemActivationCondition.Name": "Item use allowed if true",
   "midi-qol.ReactionActivationCondition.Name": "Reaction will be triggered if true",
