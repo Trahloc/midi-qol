@@ -205,9 +205,11 @@ async function cancelWorkflow(data: { workflowId: string, itemCardId: string }) 
   return undefined;
 }
 
-async function confirmDamageRollComplete(data: { workflowId: string, itemCardId: string }) {
-  const workflow = Workflow.getWorkflow(data.workflowId);
-  if (!workflow || workflow.itemCardId !== data.itemCardId) {
+async function confirmDamageRollComplete(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
+  //@ts-expect-error
+  const activity = fromUuidSync(data.activityUuid);
+  const workflow = activity.activityWorkflow
+  if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     */
     Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
@@ -227,9 +229,11 @@ async function confirmDamageRollComplete(data: { workflowId: string, itemCardId:
   return workflow.performState(workflow.WorkflowState_RollConfirmed)
 }
 
-async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCardId: string }) {
-  const workflow = Workflow.getWorkflow(data.workflowId);
-  if (!workflow || workflow.itemCardId !== data.itemCardId) {
+async function confirmDamageRollCompleteHit(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
+  //@ts-expect-error
+  const activity = fromUuidSync(data.activityUuid);
+  const workflow = activity.activityWorkflow;
+  if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
     await Workflow.removeItemCardConfirmRollButton(data.itemCardId);
@@ -260,13 +264,15 @@ async function confirmDamageRollCompleteHit(data: { workflowId: string, itemCard
       workflow.hitDisplayData[hitDataKey].hitStyle = "color: green;";
     }
   }
-  await workflow.displayHits(workflow.whisperAttackCard, configSettings.mergeCard && workflow.itemCardId, true);
+  await workflow.displayHits(workflow.whisperAttackCard, true);
   return await workflow.performState(workflow.WorkflowState_RollConfirmed);
 }
 
-async function confirmDamageRollCompleteMiss(data: { workflowId: string, itemCardId: string }) {
-  const workflow = Workflow.getWorkflow(data.workflowId);
-  if (!workflow || workflow.itemCardId !== data.itemCardId) {
+async function confirmDamageRollCompleteMiss(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
+  //@ts-expect-error
+  const activity = fromUuidSync(data.activityUuid);
+  const workflow = activity.activityWorkflow
+  if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
@@ -281,7 +287,7 @@ async function confirmDamageRollCompleteMiss(data: { workflowId: string, itemCar
       }
       workflow.hitDisplayData[hitDataKey].hitResultNumeric = "--";
     }
-    await workflow.displayHits(workflow.whisperAttackCard, configSettings.mergeCard && workflow.itemCardId, true);
+    await workflow.displayHits(workflow.whisperAttackCard, true);
   }
   // Make sure this needs to be awaited
   return workflow.performState(workflow.WorkflowState_RollConfirmed).then(() => Workflow.removeWorkflow(workflow.id));

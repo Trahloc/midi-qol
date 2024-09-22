@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 12.4.0
+* Removed support for non-merge card case.
+
 ### 11.6.14
 * Fix for token can see target checks
 

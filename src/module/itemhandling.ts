@@ -12,8 +12,17 @@ import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 // import { ChatMessageMidi } from "./ChatMessageMidi.js";
 
+function activityRequiresPostTemplateConfiramtion(activity): boolean {
+  const isRangeTargeting = ["ft", "m"].includes(activity.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+  if (activity.item.hasAreaTarget) {
+    return true;
+  } else if (isRangeTargeting) {
+    return true;
+  }
+  return false;
+}
 function itemRequiresPostTemplateConfiramtion(item): boolean {
-  const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
+  const isRangeTargeting = ["ft", "m"].includes(item.system.range?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
   if (item.hasAreaTarget) {
     return true;
   } else if (isRangeTargeting) {
@@ -123,10 +132,10 @@ export function requiresTargetConfirmation(item, options): boolean {
   return false;
 }
 
-export async function preTemplateTargets(item, options, pressedKeys): Promise<boolean> {
-  if (itemRequiresPostTemplateConfiramtion(item)) return true;
-  if (requiresTargetConfirmation(item, options))
-    return await resolveTargetConfirmation(item, options, pressedKeys) === true;
+export async function preTemplateTargets(activity, options, pressedKeys): Promise<boolean> {
+  if (activityRequiresPostTemplateConfiramtion(activity)) return true;
+  if (requiresTargetConfirmation(activity.item, options))
+    return await resolveTargetConfirmation(activity, options, pressedKeys) === true;
   return true;
 }
 
@@ -1132,18 +1141,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     if (result instanceof Array) await workflow.setDamageRolls(result);
     else await workflow.setDamageRolls[result];
     let card;
-    if (!configSettings.mergeCard) {
-      messageData = foundry.utils.mergeObject(messageData, {
-        "flags.dnd5e": {
-          targets: workflow._formatAttackTargets(),
-          roll: { type: "damage", itemId: this.id, itemUuid: this.uuid },
-          originatingMessage: workflow.chatCard.id
-        }
-      })
-      const message = await this.attackRoll?.toMessage(foundry.utils.expandObject(messageData));
-      card = await DamageRoll.toMessage(result, messageData, { rollMode: game.settings.get("core", "rollMode") });
-      // card = await result.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
-    }
+
     if (workflow && configSettings.undoWorkflow) {
       // Assumes workflow.undoData.chatCardUuids has been initialised
       if (workflow.undoData && card) {
@@ -1191,8 +1189,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
             speaker,
             itemId: this.id
           };
-          if (configSettings.mergeCard)
-            foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
+          foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
           if (
             (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kh`)) ||
             (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kl`))) {
@@ -1226,11 +1223,6 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
           otherProperties.push(workflow?.otherDamageItem?.system.actionType)
           await workflow.setOtherDamageRoll(otherResult);
           if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
-          if (!configSettings.mergeCard) {
-            foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "other");
-            foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.itemId`, this.id);
-            await otherResult?.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") })
-          }
         }
       }
     }
@@ -1254,8 +1246,11 @@ export function setDamageRollMinTerms(rolls: Array<Roll> | undefined) {
     for (let roll of rolls) {
       for (let term of roll.terms) {
         // I don't like the default display and it does not look good for dice so nice - fiddle the results for maximised rolls
-        if (term instanceof Die && term.modifiers.includes(`min${term.faces}`)) {
+        //@ts-expect-error
+        if (term instanceof foundry.dice.terms.Die && term.modifiers.includes(`min${term.faces}`)) {
+          //@ts-expect-error
           for (let result of term.results) {
+            //@ts-expect-error
             result.result = term.faces;
           }
         }
@@ -1353,7 +1348,7 @@ export async function wrappedDisplayCard(wrapped, options) {
       showProperties: workflow.workflowType === "BaseWorkflow",
       hasEffects,
       effects: this.effects,
-      isMerge: configSettings.mergeCard,
+      isMerge: true,
       mergeCardMulti: configSettings.mergeCardMulti && (this.hasAttack || this.hasDamage),
       confirmAttackDamage: configSettings.confirmAttackDamage !== "none" && (this.hasAttack || this.hasDamage),
       RequiredMaterials: i18n(`${SystemString}.RequiredMaterials`),
@@ -1418,12 +1413,8 @@ export async function wrappedDisplayCard(wrapped, options) {
     ChatMessage.applyRollMode(chatData, options.rollMode ?? game.settings.get("core", "rollMode"));
     let card;
     if (createMessage == false) card = chatData;
-    if (configSettings.mergeCard) {
-      card = await CONFIG.ChatMessage.documentClass.create(chatData)
-    } else {
-      //@ts-expect-error
-      card = createMessage !== false ? await game.system.documents.ChatMessage5e.create(chatData) : chatData;
-    }
+    card = await CONFIG.ChatMessage.documentClass.create(chatData)
+
     Hooks.callAll("dnd5e.displayCard", this, card);
     return card;
   } catch (err) {

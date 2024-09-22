@@ -1,7 +1,8 @@
-<div class="dnd5e2 chat-card midi-chat-card activation-card " data-actor-id="{{ actor.id }}" data-item-id="{{ item.id }}"
-  data-actor-uuid="{{ actor.uuid }}" data-item-uuid="{{ item.uuid }}" {{#if tokenId}}data-token-id="{{tokenId}}"
-  data-token-uuid={{tokenUuid}}{{/if}} {{#if isSpell}}data-spell-level="{{ item.system.level }}" {{/if}} {{#if
-  isPower}}data-power-level="{{item.system.level}}" {{/if}}>
+<div class="dnd5e2 chat-card midi-chat-card activation-card " data-actor-id="{{ actor.id }}"
+  data-item-id="{{ item.id }}" data-actor-uuid="{{ actor.uuid }}" data-item-uuid="{{ item.uuid }}" {{#if
+  tokenId}}data-token-id="{{tokenId}}" data-token-uuid={{tokenUuid}}{{/if}} {{#if
+  isSpell}}data-spell-level="{{ item.system.level }}" {{/if}} {{#if isPower}}data-power-level="{{item.system.level}}"
+  {{/if}}>
 
   {{!-- Collapsible Item Details --}}
   <section class="card-header description collapsible">
@@ -39,13 +40,13 @@
     <div class="midi-qol-attack-buttons flexrow 5">
       <button data-action="attack-dis" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Disadvantage'}}"><i
           class="fas fa-caret-down"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
-      <button data-action="attack" style="flex: 3 1 0">{{ localize "DND5E.Attack" }}</button>
+      <button data-action="rollAttack" style="flex: 3 1 0">{{ localize "DND5E.Attack" }}</button>
       <button data-action="attack-adv" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Advantage'}}"><i
           class="fas fa-caret-up"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
     </div>
     {{else}}
     <div class="midi-qol-attack-buttons">
-      <button data-action="attack">{{ localize "DND5E.Attack" }}</button>
+      <button data-action="rollAttack">{{ localize "DND5E.Attack" }}</button>
     </div>
     {{/if}}
     {{/if}}
@@ -62,7 +63,7 @@
     </div>
     {{else}}
     <div class="midi-qol-damage-buttons">
-      <button data-action="damage">{{ dmgBtnText }}</button>
+      <button data-action="rollDamage">{{ dmgBtnText }}</button>
     </div>
     {{/if}}
     {{/if}}
@@ -71,7 +72,6 @@
     {{#if isVersatile}}
     <button class="midi-qol-versatile-damage-button" data-action="versatile">{{ versaBtnText }}</button>
     {{/if}}
-
 
     {{!-- Saving Throw --}}
 
@@ -173,7 +173,7 @@
   </div>
   {{/if}}
   {{!-- Midi results --}}
-  {{#if isMerge}}
+
   <div class="midi-results">
     {{#if condensed}}
     <div class="flexrow 2">
@@ -209,7 +209,6 @@
     </div>
 
   </div>
-  {{/if}}
 
   {{!-- Reactions --}}
   {{#if (and data.activation.condition (eq data.activation.type "reaction"))}}
@@ -222,15 +221,10 @@
   {{/if}}
 
   {{!-- Item Properties --}}
-  {{#if data.hasProperties}}
+  {{#if properties}}
   <ul class="card-footer pills unlist">
-    {{#each data.tags}}
-    <li class="pill pill-sm">
-      <span class="label">{{ this }}</span>
-    </li>
-    {{/each}}
-    {{#each data.properties}}
-    <li class="pill pill-sm">
+    {{#each properties}}
+    <li class="pill transparent">
       <span class="label">{{ this }}</span>
     </li>
     {{/each}}

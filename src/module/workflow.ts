@@ -1,4 +1,4 @@
-import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID, MQDamageRollTypes, isdndv4 } from "../midi-qol.js";
+import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID, MQDamageRollTypes, isdndv4, NumericTerm } from "../midi-qol.js";
 import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templateTokens } from "./itemhandling.js";
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
@@ -890,29 +890,11 @@ export class Workflow {
 
     await this.processAttackRoll();
     this.needsAttackAdvantageCheck = true;
-    // if (this.workflowOptions.attackRollDSN && this.attackRoll) await displayDSNForRoll(this.attackRoll, "attackRoll");
-    if (!configSettings.mergeCard) { // non merge card is not displayed yet - display it now that the attack roll is completed
-      const messageData = foundry.utils.expandObject({
-        "flags.dnd5e": {
-          targets: this._formatAttackTargets(),
-          roll: { type: "attack", itemId: this.item.id, itemUuid: this.item.uuid },
-          originatingMessage: this.chatCard.id
-        },
-        speaker: getSpeaker(this.actor)
-      })
-      const message = await this.attackRoll?.toMessage(messageData);
-      if (configSettings.undoWorkflow) {
-        // Assumes workflow.undoData.chatCardUuids has been initialised
-        if (this.undoData && message) {
-          this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([message.uuid]);
-          untimedExecuteAsGM("updateUndoChatCardUuids", this.undoData);
-        }
-      }
-    }
+
     if (configSettings.autoCheckHit !== "none") {
-      await this.displayAttackRoll(configSettings.mergeCard, { GMOnlyAttackRoll: true });
+      await this.displayAttackRoll({ GMOnlyAttackRoll: true });
       await this.checkHits();
-      await this.displayAttackRoll(configSettings.mergeCard);
+      await this.displayAttackRoll();
 
       const rollMode = game.settings.get("core", "rollMode");
       this.whisperAttackCard = configSettings.autoCheckHit === "whisper" || rollMode === "blindroll" || rollMode === "gmroll";
@@ -921,9 +903,9 @@ export class Workflow {
         await asyncHooksCallAll(`midi-qol.hitsChecked.${this.item?.uuid}`, this);
       if (this.aborted)
         return this.WorkflowState_Abort;
-      await this.displayHits(this.whisperAttackCard, configSettings.mergeCard);
+      await this.displayHits(this.whisperAttackCard);
     } else {
-      await this.displayAttackRoll(configSettings.mergeCard);
+      await this.displayAttackRoll();
     }
     if (checkRule("removeHiddenInvis")) await removeHidden.bind(this)();
     if (checkRule("removeHiddenInvis")) await removeInvisible.bind(this)();
@@ -1007,7 +989,7 @@ export class Workflow {
           let otherRollResult = new Roll(this.otherDamageFormula, otherRollData, {});
           otherRollResult = await otherRollResult.evaluate();
           await this.setOtherDamageRoll(otherRollResult);
-          await this.displayDamageRolls(configSettings.mergeCard);
+          await this.displayDamageRolls();
         }
       }
       return this.WorkflowState_WaitForSaves;
@@ -1056,7 +1038,7 @@ export class Workflow {
   async WorkflowState_ConfirmRoll(context: any = {}): Promise<WorkflowState> {
     if (context.attackRoll) return this.WorkflowState_AttackRollComplete;
     if (configSettings.confirmAttackDamage !== "none" && (this.item.hasAttack || this.item.hasDamage)) {
-      await this.displayDamageRolls(configSettings.mergeCard);
+      await this.displayDamageRolls();
       return this.WorkflowState_Suspend; // wait for the confirm button
     }
     return this.WorkflowState_DamageRollStarted;
@@ -1111,7 +1093,7 @@ export class Workflow {
     if (this.hitTargets?.size || this.hitTtargetsEC?.size) expireMyEffects.bind(this)(["1Hit"]);
     expireMyEffects.bind(this)(["1Action", "1Attack", "1Spell"]);
     await this.expireTargetEffects(["isAttacked"]);
-    await this.displayDamageRolls(configSettings.mergeCard);
+    await this.displayDamageRolls();
     if (this.isFumble) {
       this.failedSaves = new Set();
       this.hitTargetss = new Set();
@@ -1171,7 +1153,7 @@ export class Workflow {
       await asyncHooksCallAll("midi-qol.postCheckSaves", this);
       if (this.item) await asyncHooksCallAll(`midi-qol.postCheckSaves.${this.item?.uuid}`, this);
       if (this.aborted) return this.WorkflowState_Abort;
-      await this.displaySaves(configSettings.autoCheckSaves === "whisper", configSettings.mergeCard);
+      await this.displaySaves(configSettings.autoCheckSaves === "whisper");
     } else {// has saves but we are not checking so do nothing with the damage
       await this.expireTargetEffects(["isAttacked"])
       this.applicationTargets = this.failedSaves;
@@ -1575,7 +1557,7 @@ export class Workflow {
           isHit: true
         };
       }
-      await this.displayHits(chatMessage.whisper.length > 0, configSettings.mergeCard, true);
+      await this.displayHits(chatMessage.whisper.length > 0, true);
     }
     let content = chatMessage?.content && foundry.utils.duplicate(chatMessage?.content);
     if (content && getRemoveAttackButtons(this.item) && chatMessage && configSettings.confirmAttackDamage === "none") {
@@ -2657,110 +2639,108 @@ export class Workflow {
     }
   }
 
-  async displayAttackRoll(doMerge, displayOptions: any = {}) {
+  async displayAttackRoll(displayOptions: any = {}) {
     const chatMessage = this.chatCard;
     let content = chatMessage && foundry.utils.duplicate(chatMessage.content);
     const flags = chatMessage?.flags || {};
     let newFlags = {};
-    if (doMerge) {
-      if (game.user?.isGM && this.useActiveDefence) {
-        const searchRe = /<div class="midi-qol-attack-roll">[\s\S]*?<div class="end-midi-qol-attack-roll">/;
-        let DCString = "DC";
-        if (game.system.id === "dnd5e") {
-          DCString = i18n(`${this.systemString}.AbbreviationDC`);
-        } else if (i18n("SW5E.AbbreviationDC") !== "SW5E.AbbreviationDC") {
-          DCString = i18n("SW5E.AbbreviationDC");
-        }
-        const attackString = `<label class="midi-qol-saveDC">${DCString} ${this.activeDefenceDC}</label> ${i18n("midi-qol.ActiveDefenceString")}`;
-        const replaceString = `<div class="midi-qol-attack-roll"> <div style="text-align:center"> ${attackString} </div><div class="end-midi-qol-attack-roll">`;
-        content = content.replace(searchRe, replaceString);
-        const targetUuids = Array.from(this.targets).map(t => getTokenDocument(t)?.uuid);
-        newFlags = foundry.utils.mergeObject(flags, {
-          "midi-qol":
-          {
-            displayId: this.displayId,
-            isCritical: this.isCritical,
-            isFumble: this.isFumble,
-            isHit: this.hitTargets.size > 0,
-            isHitEC: this.hitTargetsEC.size > 0,
-            targetUuids: Array.from(this.targets).map(t => getTokenDocument(t)?.uuid),
-            hitTargetUuids: Array.from(this.hitTargets).map(t => getTokenDocument(t)?.uuid),
-            hitECTargetUuids: Array.from(this.hitTargetsEC).map(t => getTokenDocument(t)?.uuid)
-          }
-        }, { overwrite: true, inplace: false });
+    if (game.user?.isGM && this.useActiveDefence) {
+      const searchRe = /<div class="midi-qol-attack-roll">[\s\S]*?<div class="end-midi-qol-attack-roll">/;
+      let DCString = "DC";
+      if (game.system.id === "dnd5e") {
+        DCString = i18n(`${this.systemString}.AbbreviationDC`);
+      } else if (i18n("SW5E.AbbreviationDC") !== "SW5E.AbbreviationDC") {
+        DCString = i18n("SW5E.AbbreviationDC");
       }
-      else if (doMerge && chatMessage) { // display the attack roll
-        //let searchRe = /<div class="midi-qol-attack-roll">.*?<\/div>/;
-        let searchRe = /<div class="midi-qol-attack-roll">[\s\S]*?<div class="end-midi-qol-attack-roll">/
-        let options: any = this.attackRoll?.terms[0].options;
-        //@ts-expect-error advantageMode - advantageMode is set when the roll is actually done, options.advantage/disadvantage are what are passed into the roll
-        const advantageMode = this.attackRoll?.options?.advantageMode;
-        if (advantageMode !== undefined) {
-          this.advantage = advantageMode === 1;
-          this.disadvantage = advantageMode === -1;
-        } else {
-          this.advantage = options.advantage;
-          this.disadvantage = options.disadvantage;
+      const attackString = `<label class="midi-qol-saveDC">${DCString} ${this.activeDefenceDC}</label> ${i18n("midi-qol.ActiveDefenceString")}`;
+      const replaceString = `<div class="midi-qol-attack-roll"> <div style="text-align:center"> ${attackString} </div><div class="end-midi-qol-attack-roll">`;
+      content = content.replace(searchRe, replaceString);
+      const targetUuids = Array.from(this.targets).map(t => getTokenDocument(t)?.uuid);
+      newFlags = foundry.utils.mergeObject(flags, {
+        "midi-qol":
+        {
+          displayId: this.displayId,
+          isCritical: this.isCritical,
+          isFumble: this.isFumble,
+          isHit: this.hitTargets.size > 0,
+          isHitEC: this.hitTargetsEC.size > 0,
+          targetUuids: Array.from(this.targets).map(t => getTokenDocument(t)?.uuid),
+          hitTargetUuids: Array.from(this.hitTargets).map(t => getTokenDocument(t)?.uuid),
+          hitECTargetUuids: Array.from(this.hitTargetsEC).map(t => getTokenDocument(t)?.uuid)
         }
-        // const attackString = this.advantage ? i18n(`${this.systemString}.Advantage`) : this.disadvantage ? i18n(`${this.systemString}.Disadvantage`) : i18n(`${this.systemString}.Attack`)
-
-        let attackString = this.advantage ? i18n(`${this.systemString}.Advantage`) : this.disadvantage ? i18n(`${this.systemString}.Disadvantage`) : i18n(`${this.systemString}.Attack`)
-        if (configSettings.addFakeDice) // addFakeDice => roll 2d20 always - don't show advantage/disadvantage or players will know the 2nd d20 is fake
-          attackString = i18n(`${this.systemString}.Attack`);
-
-        let replaceString = `<div class="midi-qol-attack-roll"><div style="text-align:center" >${attackString}</div>${this.attackRollHTML}<div class="end-midi-qol-attack-roll">`
-
-        content = content.replace(searchRe, replaceString);
-        if (this.attackRollCount > 1) {
-          const attackButtonRe = /<button data-action="attack" style="flex:3 1 0">(\[\d*\] )*([^<]+)<\/button>/;
-          const match = content.match(attackButtonRe);
-          content = content.replace(attackButtonRe, `<button data-action="attack" style="flex:3 1 0">[${this.attackRollCount}] $2</button>`);
-          const confirmButtonRe = /<button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">(\[[\d ]*\])*([^<]+)<\/button>/;
-          content = content.replace(confirmButtonRe, `<button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">[${this.attackRollCount} ${this.damageRollCount + 1}] $2</button>`);
-        }
-
-        if (this.attackRoll?.dice.length) {
-          const d: any = this.attackRoll.dice[0]; // should be a dice term but DiceTerm.options not defined
-          const isD20 = (d.faces === 20);
-          if (isD20) {
-            if (this.isCritical) {
-              content = content.replace('dice-total', 'dice-total critical');
-            } else if (this.isFumble) {
-              content = content.replace('dice-total', 'dice-total fumble');
-            } else if (d.options.target) {
-              if ((this.attackRoll?.total || 0) >= d.options.target) content = content.replace('dice-total', 'dice-total success');
-              else content = content.replace('dice-total', 'dice-total failure');
-            }
-            this.d20AttackRoll = d.total;
-          }
-        }
-        if (debugEnabled > 0) warn("displayAttackRoll |", this.attackCardData, this.attackRoll)
-        newFlags = foundry.utils.mergeObject(flags, {
-          "midi-qol":
-          {
-            type: MESSAGETYPES.ATTACK,
-            roll: this.attackRoll?.roll,
-            displayId: this.displayId,
-            isCritical: this.isCritical,
-            isFumble: this.isFumble,
-            isHit: this.hitTargets.size > 0,
-            isHitEC: this.hitTargetsEC.size > 0,
-            d20AttackRoll: this.d20AttackRoll,
-            GMOnlyAttackRoll: displayOptions.GMOnlyAttackRoll ?? false,
-            targetUuids: Array.from(this.targets).map(t => getTokenDocument(t)?.uuid),
-            hitTargetUuids: Array.from(this.hitTargets).map(t => getTokenDocument(t)?.uuid),
-            hitECTargetUuids: Array.from(this.hitTargetsEC).map(t => getTokenDocument(t)?.uuid)
-          }
-        }, { overwrite: true, inplace: false }
-        )
+      }, { overwrite: true, inplace: false });
+    } else if (chatMessage) { // display the attack roll
+      //let searchRe = /<div class="midi-qol-attack-roll">.*?<\/div>/;
+      let searchRe = /<div class="midi-qol-attack-roll">[\s\S]*?<div class="end-midi-qol-attack-roll">/
+      let options: any = this.attackRoll?.terms[0].options;
+      //@ts-expect-error advantageMode - advantageMode is set when the roll is actually done, options.advantage/disadvantage are what are passed into the roll
+      const advantageMode = this.attackRoll?.options?.advantageMode;
+      if (advantageMode !== undefined) {
+        this.advantage = advantageMode === 1;
+        this.disadvantage = advantageMode === -1;
+      } else {
+        this.advantage = options.advantage;
+        this.disadvantage = options.disadvantage;
       }
-      // for active defence, this.attackRoll is undefined, thus create the array like this to prevent errors further on
-      const rolls = [...(this.attackRoll ? [this.attackRoll] : []), ...(this.extraRolls ?? [])];
-      await debouncedUpdate(chatMessage, { content, flags: newFlags, rolls: rolls }, false && true);
+      // const attackString = this.advantage ? i18n(`${this.systemString}.Advantage`) : this.disadvantage ? i18n(`${this.systemString}.Disadvantage`) : i18n(`${this.systemString}.Attack`)
+
+      let attackString = this.advantage ? i18n(`${this.systemString}.Advantage`) : this.disadvantage ? i18n(`${this.systemString}.Disadvantage`) : i18n(`${this.systemString}.Attack`)
+      if (configSettings.addFakeDice) // addFakeDice => roll 2d20 always - don't show advantage/disadvantage or players will know the 2nd d20 is fake
+        attackString = i18n(`${this.systemString}.Attack`);
+
+      let replaceString = `<div class="midi-qol-attack-roll"><div style="text-align:center" >${attackString}</div>${this.attackRollHTML}<div class="end-midi-qol-attack-roll">`
+
+      content = content.replace(searchRe, replaceString);
+      if (this.attackRollCount > 1) {
+        const attackButtonRe = /<button data-action="attack" style="flex:3 1 0">(\[\d*\] )*([^<]+)<\/button>/;
+        const match = content.match(attackButtonRe);
+        content = content.replace(attackButtonRe, `<button data-action="attack" style="flex:3 1 0">[${this.attackRollCount}] $2</button>`);
+        const confirmButtonRe = /<button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">(\[[\d ]*\])*([^<]+)<\/button>/;
+        content = content.replace(confirmButtonRe, `<button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">[${this.attackRollCount} ${this.damageRollCount + 1}] $2</button>`);
+      }
+
+      if (this.attackRoll?.dice.length) {
+        const d: any = this.attackRoll.dice[0]; // should be a dice term but DiceTerm.options not defined
+        const isD20 = (d.faces === 20);
+        if (isD20) {
+          if (this.isCritical) {
+            content = content.replace('dice-total', 'dice-total critical');
+          } else if (this.isFumble) {
+            content = content.replace('dice-total', 'dice-total fumble');
+          } else if (d.options.target) {
+            if ((this.attackRoll?.total || 0) >= d.options.target) content = content.replace('dice-total', 'dice-total success');
+            else content = content.replace('dice-total', 'dice-total failure');
+          }
+          this.d20AttackRoll = d.total;
+        }
+      }
+      if (debugEnabled > 0) warn("displayAttackRoll |", this.attackCardData, this.attackRoll)
+      newFlags = foundry.utils.mergeObject(flags, {
+        "midi-qol":
+        {
+          type: MESSAGETYPES.ATTACK,
+          roll: this.attackRoll?.roll,
+          displayId: this.displayId,
+          isCritical: this.isCritical,
+          isFumble: this.isFumble,
+          isHit: this.hitTargets.size > 0,
+          isHitEC: this.hitTargetsEC.size > 0,
+          d20AttackRoll: this.d20AttackRoll,
+          GMOnlyAttackRoll: displayOptions.GMOnlyAttackRoll ?? false,
+          targetUuids: Array.from(this.targets).map(t => getTokenDocument(t)?.uuid),
+          hitTargetUuids: Array.from(this.hitTargets).map(t => getTokenDocument(t)?.uuid),
+          hitECTargetUuids: Array.from(this.hitTargetsEC).map(t => getTokenDocument(t)?.uuid)
+        }
+      }, { overwrite: true, inplace: false }
+      )
     }
+    // for active defence, this.attackRoll is undefined, thus create the array like this to prevent errors further on
+    const rolls = [...(this.attackRoll ? [this.attackRoll] : []), ...(this.extraRolls ?? [])];
+    await debouncedUpdate(chatMessage, { content, flags: newFlags, rolls: rolls }, false && true);
+
   }
 
-  async displayDamageRolls(doMerge) {
+  async displayDamageRolls() {
     const chatMessage = this.chatCard;
     let content = (chatMessage && foundry.utils.duplicate(chatMessage.content)) ?? "";
     if ((getRemoveDamageButtons(this.item) && configSettings.confirmAttackDamage === "none") || this.workflowType === "TrapWorkflow") {
@@ -2772,7 +2752,7 @@ export class Workflow {
       content = content?.replace(versatileRe, "")
     }
     var newFlags = chatMessage?.flags || {};
-    if (doMerge && chatMessage) {
+    if (chatMessage) {
       if (this.damageRollHTML) {
         if (!this.useOther) {
           const searchRe = /<div class="midi-qol-damage-roll">[\s\S]*?<div class="end-midi-qol-damage-roll">/;
@@ -2837,15 +2817,7 @@ export class Workflow {
         }
       }, { overwrite: true, inplace: false });
     }
-    if (!doMerge && this.bonusDamageRolls) {
-      const messageData = {
-        flavor: this.bonusDamageFlavor,
-        speaker: this.speaker
-      }
-      foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
-      if (game.system.id === "sw5e") foundry.utils.setProperty(messageData, "flags.sw5e.roll.type", "midi");
-      this.bonusDamageRoll?.toMessage(messageData); // TODO see if this can deal with an array of rolls
-    }
+
     if (this.damageRollCount > 1) {
       const damageButtonRe = /<button data-action="damage" style="flex:3 1 0">(\[\d*\] )*([^<]+)<\/button>/;
       content = content.replace(damageButtonRe, `<button data-action="damage" style="flex:3 1 0">[${this.damageRollCount}] $2</button>`);
@@ -2856,14 +2828,13 @@ export class Workflow {
       content = content.replace(damageButtonRe, `<button data-action="damage" style="flex:3 1 0">$2</button>`);
     }
 
-    const result = await debouncedUpdate(chatMessage, { "content": content, flags: newFlags, rolls: doMerge ? this.chatRolls : [] }, false);
+    const result = await debouncedUpdate(chatMessage, { "content": content, flags: newFlags, rolls: this.chatRolls }, false);
     // await chatMessage?.update({ "content": content, flags: newFlags, rolls: (messageRolls) });
     return result
 
   }
 
   async displayTargets(whisper = false) {
-    if (!configSettings.mergeCard) return;
     this.hitDisplayData = {};
     this.targetsDisplayed = true;
     if (this.item.type === "feat" && ["ench", "class", undefined].includes(this.item.system.actionType)) return;
@@ -2893,26 +2864,26 @@ export class Workflow {
         isHit: this.hitTargets.has(targetToken)
       };
     }
-    await this.displayHits(whisper, configSettings.mergeCard && this.itemCardUuid, false);
+    await this.displayHits(whisper, false);
   }
 
-  async displayHits(whisper = false, doMerge, showHits = true) {
+  async displayHits(whisper = false, showHits = true) {
     this.targetsDisplayed = true;
     const templateData = {
       attackType: this.item?.name ?? "",
       attackTotal: this.attackTotal,
-      oneCard: configSettings.mergeCard,
+      oneCard: true,
       collapsibleTargets: configSettings.collapsibleTargets,
       showHits,
       hits: this.hitDisplayData,
       isGM: game.user?.isGM,
       displayHitResultNumeric: configSettings.displayHitResultNumeric && !this.isFumble && !this.isCritical
     };
-    if (debugEnabled > 0) warn("displayHits |", templateData, whisper, doMerge);
+    if (debugEnabled > 0) warn("displayHits |", templateData, whisper);
     const hitContent = await renderTemplate("modules/midi-qol/templates/hits.html", templateData) || "No Targets";
     const chatMessage = this.chatCard;
 
-    if (doMerge && chatMessage) {
+    if (chatMessage) {
       var content = chatMessage && foundry.utils.duplicate(chatMessage.content);
       var searchString;
       var replaceString;
@@ -2934,64 +2905,10 @@ export class Workflow {
         update.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
       }
       await debouncedUpdate(chatMessage, update);
-    } else {
-      let speaker = foundry.utils.duplicate(this.speaker);
-      let user: User | undefined | null = game.user;
-      if (this.item) {
-        speaker = ChatMessage.getSpeaker({ actor: this.item.actor });
-        user = playerForActor(this.item.actor);
-      }
-      if (!user) return;
-      speaker.alias = (configSettings.useTokenNames && speaker.token) ? canvas?.tokens?.get(speaker.token)?.name : speaker.alias;
-      speaker.scene = canvas?.scene?.id
-      if ((validTargetTokens(game.user?.targets ?? new Set())).size > 0) {
-        let chatData: any = {
-          speaker,
-          // user: user.id,
-          messageData: {
-            speaker,
-            user: user.id
-          },
-          content: hitContent || "No Targets",
-        };
-        //@ts-expect-error
-        if (game.release.generation < 12) {
-          chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
-        } else {
-          //@ts-expect-error
-          chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
-        }
-        const rollMode = game.settings.get("core", "rollMode");
-        if (whisper || !(["roll", "publicroll"].includes(rollMode))) {
-          chatData.whisper = ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id);
-          if (!game.user?.isGM && rollMode !== "blindroll" && !whisper) chatData.whisper.push(game.user?.id); // message is going to be created by GM add self
-          chatData.messageData.user = ChatMessage.getWhisperRecipients("GM").find(u => u.active)?.id;
-          if (rollMode === "blindroll") {
-            chatData["blind"] = true;
-          }
-          if (debugEnabled > 1) debug("Trying to whisper message", chatData)
-        }
-        if (showHits) {
-          if (!whisper) foundry.utils.setProperty(chatData, `flags.${MODULE_ID}.hideTag`, "midi-qol-hits-display")
-        }
-        if (this.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", this.flagTags);
-        let result;
-        if (!game.user?.isGM)
-          result = await timedAwaitExecuteAsGM("createChatMessage", { chatData });
-        else
-          result = await ChatMessage.create(chatData);
-        if (configSettings.undoWorkflow) {
-          // Assumes workflow.undoData.chatCardUuids has been initialised
-          if (this.undoData && result) {
-            this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([result.uuid]);
-            untimedExecuteAsGM("updateUndoChatCardUuids", this.undoData);
-          }
-        }
-      }
     }
   }
 
-  async displaySaves(whisper, doMerge) {
+  async displaySaves(whisper) {
     let chatData: any = {};
     let fullDamage: string[] = [];
     let noDamage: string[] = [];
@@ -3052,7 +2969,7 @@ export class Workflow {
       // TODO force roll damage
     }
     let chatMessage = this.chatCard;
-    if (doMerge && chatMessage) {
+    if (chatMessage) {
       templateData.saveDisplayFlavor = this.saveDisplayFlavor;
       const saveContent = await renderTemplate("modules/midi-qol/templates/saves.html", templateData);
       chatMessage = this.chatCard;
@@ -3119,53 +3036,7 @@ export class Workflow {
         }
         await debouncedUpdate(chatMessage, update, true);
       }
-    } else {
-      const saveContent = await renderTemplate("modules/midi-qol/templates/saves.html", templateData);
-      //@ts-expect-error .activeGM
-      const gmUser = game.users?.activeGM;
-      //@ts-expect-error _getSpeakerFromuser
-      let speaker = ChatMessage._getSpeakerFromUser({ user: gmUser });
-      speaker.scene = canvas?.scene?.id ?? "";
-      chatData = {
-        messageData: {
-          user: game.user?.id, //gmUser - save results will come from the user now, not the GM
-          speaker
-        },
-        content: `<div data-item-id="${this.item.id}"></div> ${saveContent}`,
-        flavor: `<h4>${this.saveDisplayFlavor}</h4>`,
-      };
-      setProperty(chatData, `flags.${MODULE_ID}.type`, MESSAGETYPES.SAVES);
-
-      //@ts-expect-error
-      if (game.release.generation < 12) {
-        chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
-      } else {
-        //@ts-expect-error
-        chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
-      }
-      const rollMode = game.settings.get("core", "rollMode");
-      if (configSettings.autoCheckSaves === "whisper" || whisper || !(["roll", "publicroll"].includes(rollMode))) {
-        chatData.whisper = ChatMessage.getWhisperRecipients("GM").filter(u => u.active).map(u => u.id);
-        chatData.messageData.user = game.user?.id; // ChatMessage.getWhisperRecipients("GM").find(u => u.active);
-        if (rollMode === "blindroll") {
-          chatData["blind"] = true;
-        }
-
-        if (debugEnabled > 1) debug("Trying to whisper message", chatData)
-      }
-      if (this.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? {}, this.flagTags);
-      chatData.rolls = this.saveRolls;
-      // await ChatMessage.create(chatData);
-      // Non GMS don't have permission to create the message so hand it off to a gm client
-      const result = await timedAwaitExecuteAsGM("createChatMessage", { chatData });
-      if (configSettings.undoWorkflow) {
-        // Assumes workflow.undoData.chatCardUuids has been initialised
-        if (this.undoData && result) {
-          this.undoData.chatCardUuids = this.undoData.chatCardUuids.concat([result.uuid]);
-          untimedExecuteAsGM("updateUndoChatCardUuids", this.undoData);
-        }
-      }
-    };
+    }
   }
 
   get chatRolls(): Roll[] {
@@ -3255,7 +3126,7 @@ export class Workflow {
           isMagicSave: boolean | undefined,
           isConcentrationCheck: boolean | undefined,
           rollDC: number,
-          saveItemUuid: string, 
+          saveItemUuid: string,
           workflowOptions: object
         } = {
           advantage: undefined,
@@ -3527,7 +3398,7 @@ export class Workflow {
         isMagicSave,
         saveItemUuid: this.saveItem.uuid,
         isConcentrationCheck: this.saveItem.flags[MODULE_ID]?.isConcentrationCheck,
-        workflowOptions: this.workflowOptions  
+        workflowOptions: this.workflowOptions
       }
       const requestDataPlayer: any = {
         tokenData: monkRequestsPlayer,
@@ -4592,11 +4463,10 @@ export class Workflow {
     this.damageRollHTML = "";
     for (let roll of this.damageRolls) {
       foundry.utils.setProperty(roll, `options.${MODULE_ID}.rollType`, "defaultDamage");
-      if (configSettings.mergeCard) foundry.utils.setProperty(roll, "options.flavor", "");
-
+      foundry.utils.setProperty(roll, "options.flavor", "");
       this.damageRollHTML += await midiRenderDamageRoll(roll);
     }
-    if (configSettings.mergeCard) this.flavor = `${i18nSystem("Damage")}`;
+    this.flavor = `${i18nSystem("Damage")}`;
     this.rawDamageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: this.defaultDamageType });
     this.damageDetail = createDamageDetail({ roll: this.damageRolls, item: this.item, defaultType: this.defaultDamageType });
     return;
@@ -4748,7 +4618,7 @@ export class DamageOnlyWorkflow extends Workflow {
     }
     // Since this could to be the same item don't roll the on use macro, since this could loop forever
     const whisperCard = configSettings.autoCheckHit === "whisper" || game.settings.get("core", "rollMode") === "blindroll";
-    await this.displayHits(whisperCard, configSettings.mergeCard && (this.itemCardId || this.itemCardUuid));
+    await this.displayHits(whisperCard);
     if (this.actor) { // Hacky process bonus flags
       // TODO come back and fix this for dnd3
       const newRolls = await processDamageRollBonusFlags.bind(this)();
@@ -4758,7 +4628,7 @@ export class DamageOnlyWorkflow extends Workflow {
     // Need to pretend there was an attack roll so that hits can be registered and the correct string created
     // TODO separate the checkHit()/create hit display Data and displayHits() into 3 separate functions so we don't have to pretend there was a hit to get the display
 
-    if (configSettings.mergeCard && (this.itemCardId || this.itemCardUuid)) {
+    if (this.itemCardId || this.itemCardUuid) {
       this.damageRollHTML = await midiRenderDamageRoll(this.damageRoll);
       this.damageCardData = {
         flavor: "damage flavor",
@@ -4766,7 +4636,7 @@ export class DamageOnlyWorkflow extends Workflow {
         roll: this.damageRolls ?? null,
         speaker: this.speaker
       }
-      await this.displayDamageRolls(configSettings.mergeCard && (this.itemCardId || this.itemCardUuid))
+      await this.displayDamageRolls()
     } else {
       await this.damageRoll?.toMessage({ flavor: this.flavor });
     }
@@ -4880,10 +4750,10 @@ export class TrapWorkflow extends Workflow {
   async WorkflowState_AttackRollComplete(context: any = {}): Promise<WorkflowState> {
     const attackRollCompleteStartTime = Date.now();
     await this.processAttackRoll();
-    await this.displayAttackRoll(configSettings.mergeCard);
+    await this.displayAttackRoll();
     await this.checkHits(this.options);
     const whisperCard = configSettings.autoCheckHit === "whisper" || game.settings.get("core", "rollMode") === "blindroll";
-    await this.displayHits(whisperCard, configSettings.mergeCard);
+    await this.displayHits(whisperCard);
     if (debugCallTiming) log(`AttackRollComplete elapsed time ${Date.now() - attackRollCompleteStartTime}ms`)
     return this.WorkflowState_WaitForSaves;
   }
@@ -4909,7 +4779,7 @@ export class TrapWorkflow extends Workflow {
     }
     //@ts-expect-error .events not defined
     if (debugEnabled > 1) debug("Check Saves: renderChat message hooks length ", Hooks.events["renderChatMessage"]?.length);
-    await this.displaySaves(configSettings.autoCheckSaves === "whisper", configSettings.mergeCard);
+    await this.displaySaves(configSettings.autoCheckSaves === "whisper");
     return this.WorkflowState_SavesComplete;
   }
   async WorkflowState_SavesComplete(context: any = {}): Promise<WorkflowState> {
@@ -4948,7 +4818,7 @@ export class TrapWorkflow extends Workflow {
     else
       this.rawOtherDamageDetail = [];
     // apply damage to targets plus saves plus immunities
-    await this.displayDamageRolls(configSettings.mergeCard)
+    await this.displayDamageRolls()
     if (this.isFumble) {
       return this.WorkflowState_ApplyDynamicEffects
     }
@@ -5031,7 +4901,7 @@ export class DDBGameLogWorkflow extends Workflow {
     if (debugEnabled > 1) debug(this.attackRollHTML)
     if (configSettings.autoCheckHit !== "none" && this.item.hasAttack) {
       await this.checkHits(this.options);
-      await this.displayHits(configSettings.autoCheckHit === "whisper", configSettings.mergeCard);
+      await this.displayHits(configSettings.autoCheckHit === "whisper");
     }
     await asyncHooksCallAll("midi-qol.AttackRollComplete", this);
     if (this.item) await asyncHooksCallAll(`midi-qol.AttackRollComplete.${this.item.uuid}`, this);

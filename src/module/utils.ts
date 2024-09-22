@@ -66,12 +66,34 @@ export function createDamageDetail({ roll, item, defaultType = MQdefaultDamageTy
     if (!r.options.type) r.options.type = defaultType;
     return r;
   })
+  //@ts-expect-error
+  const aggregatedRolls: CONFIG.Dice.DamageRoll[] = game.system.dice.aggregateDamageRolls(rolls, { respectProperties: true });
+  const detail = aggregatedRolls.map(roll => ({ damage: roll.total, value: roll.total, type: roll.options.type, formula: roll.formula, properties: new Set(roll.options.properties ?? []) }));
+  return detail;
+}
+
+export function createDamageDetailV4({ roll, activity, defaultType = MQdefaultDamageType }): { damage: unknown; type: string; }[] {
+  let damageParts = {};
+  let rolls = roll;
+  //@ts-expect-error
+  const DamageRoll = CONFIG.Dice.DamageRoll;
+  if (rolls instanceof Roll) {
+    rolls = [rolls];
+  }
+  if (activity?.damage?.parts[0]) {
+    defaultType = activity.damage.parts[0].types.first()
+  }
+  rolls = foundry.utils.deepClone(rolls).map(r => {
+    if (!r.options.type) r.options.type = defaultType;
+    return r;
+  })
 
   //@ts-expect-error
   const aggregatedRolls: CONFIG.Dice.DamageRoll[] = game.system.dice.aggregateDamageRolls(rolls, { respectProperties: true });
   const detail = aggregatedRolls.map(roll => ({ damage: roll.total, value: roll.total, type: roll.options.type, formula: roll.formula, properties: new Set(roll.options.properties ?? []) }));
   return detail;
 }
+
 
 export function getTokenForActor(actor): Token {
   if (actor.token) return actor.token.object; //actor.token is a token document.
@@ -338,7 +360,8 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   // proceed if adding chat damage buttons or applying damage for our selves
   let hpDamage: any[] = [];
   const actor = workflow.actor;
-  let item = workflow.saveItem;
+  let activity = workflow.activity;
+  let item = activity.item;
 
   // const re = /.*\((.*)\)/;
   // const defaultDamageType = message.flavor && message.flavor.match(re);
@@ -347,10 +370,11 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
 
   let hitTargets: Set<Token | TokenDocument> = new Set([...workflow.hitTargets, ...workflow.hitTargetsEC]);
   let theTargets = new Set(workflow.targets);
-  if (item?.system.target?.type === "self") theTargets = getTokenForActorAsSet(actor) || theTargets;
+  // TODO becomes activity.target.affects.type === "self"
+  if (activity.target.affects.type  === "self") theTargets = getTokenForActorAsSet(actor) || theTargets;
   let effectsToExpire: string[] = [];
-  if (hitTargets.size > 0 && item?.hasAttack) effectsToExpire.push("1Hit");
-  if (hitTargets.size > 0 && item?.hasDamage) effectsToExpire.push("DamageDealt");
+  if (hitTargets.size > 0 && activity.attack) effectsToExpire.push("1Hit");
+  if (hitTargets.size > 0 && activity.damage) effectsToExpire.push("DamageDealt");
   if (effectsToExpire.length > 0) {
     await expireMyEffects.bind(workflow)(effectsToExpire);
   }
@@ -412,7 +436,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
     }
     damagePerToken[tokenDocument.uuid].challengeModeScale = challengeModeScale;
     if (totalDamage !== 0 && (workflow.hitTargets.has(token) || workflow.hitTargetsEC.has(token) || workflow.saveItem.hasSave)) {
-      const isHealing = ("heal" === workflow.item?.system.actionType);
+      const isHealing = ("heal" === workflow.activity.actionType);
       await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? [workflow.otherDamageRoll], !isHealing ? "reactiondamage" : "reactionheal", { item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.rawDamageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
     }
     const damageDetails = damagePerToken[tokenDocument.uuid].damageDetails;
@@ -2041,8 +2065,9 @@ export const FULL_COVER = 999;
 export const THREE_QUARTERS_COVER = 5;
 export const HALF_COVER = 2;
 
-export function computeCoverBonus(attacker: Token | TokenDocument, target: Token | TokenDocument, item: any = undefined) {
+export function computeCoverBonus(attacker: Token | TokenDocument, target: Token | TokenDocument, activity: any = undefined) {
   let existingCoverBonus = foundry.utils.getProperty(target, `actor.flags.${MODULE_ID}.acBonus`) ?? 0;
+  let item = activity?.item;
   if (!attacker) return existingCoverBonus;
   let coverBonus = 0;
   try {
@@ -3001,7 +3026,7 @@ async function displayBeforeAfterRolls(data: { originalRoll: Roll, newRoll: Roll
 }
 
 export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, roll: Roll, rollType: string, options: any = {}): Promise<Roll | undefined> {
-  const showDiceSoNice = dice3dEnabled(); // && configSettings.mergeCard;
+  const showDiceSoNice = dice3dEnabled();
   let timeoutId;
   if (!roll) return undefined;
   let newRoll = roll;
@@ -4575,7 +4600,7 @@ export async function asyncHooksCallAll(hook, ...args): Promise<boolean | undefi
     console.log(args);
   }
   // console.warn(`DEBUG | midi-qol async Calling ${hook} hook with args:`, ...args);
-
+console.error(args[0].chatCard?.rolls);
   //@ts-expect-error
   const hookEvents = Hooks.events[hook];
   if (debugEnabled > 1) debug("asyncHooksCall", hook, "hookEvents:", hookEvents, args)
@@ -5124,7 +5149,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
     if (result === true) matchedModes.add(detectionModes.lightPerception?.id ?? DetectionModeCONST.BASIC_MODE_ID);
   }
 
-  const lightPerception = tokenDetectionModes.find(m => m.id === modes.lightPerception.id);
+  const lightPerception = tokenDetectionModes.find(m => m.id === modes.lightPerception?.id);
   if (lightPerception && ["lightPerception", "all"].some(mode => validModes.has(mode))) {
     // const result = modes.lightPerception.testVisibility(token.vision, basic, config);
     const result = lightPerception ? modes.lightPerception.testVisibility(token.vision, lightPerception, config) : false;
@@ -5323,6 +5348,7 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
           //@ts-expect-error
           else term.options.flavor = displayRoll.options.type;
         });
+        //TODO incorporate change from 11.6.15 into this
         if (ghostRoll) {
           const promises: Promise<any>[] = [];
           promises.push(dice3d?.showForRoll(displayRoll, game.user, true, ChatMessage.getWhisperRecipients("GM"), !game.user?.isGM));
@@ -5493,7 +5519,7 @@ export async function contestedRoll(data: {
 
 function displayContestedResults(chatCardUuid: string | undefined, resultContent: string, speaker, flavor: string | undefined) {
   let itemCard = getCachedDocument(chatCardUuid) ?? MQfromUuidSync(chatCardUuid);
-  if (itemCard && configSettings.mergeCard) {
+  if (itemCard) {
     let content = foundry.utils.duplicate(itemCard.content ?? "")
     const searchRE = /<div class="midi-qol-saves-display">[\s\S]*?<div class="end-midi-qol-saves-display">/;
     const replaceString = `<div class="midi-qol-saves-display">${resultContent}<div class="end-midi-qol-saves-display">`;
@@ -5761,6 +5787,8 @@ export function hasAutoPlaceTemplate(item) {
 }
 
 export function itemOtherFormula(item): string {
+  console.log("itemOtherFormula", item);
+  return "";
   const isVersatle = item?.isVersatile && item?.system.properties?.has("ver");
   if ((item?.system.formula ?? "") !== "") return item.system.formula;
   if (item?.type === "weapon" && !isVersatle) return item.system.damage.versatile ?? "";
@@ -5979,9 +6007,11 @@ export async function _updateAction(document) {
 }
 
 export async function debouncedUpdate(document, updates, immediate = false) {
-  if (!DebounceInterval || !configSettings.mergeCard) {
+  if (!DebounceInterval) {
     if (debugEnabled > 0) console.warn("debouncedUpdate | performing update", immediate);
-    return await document.update(updates);
+    const result = await document.update(updates);
+    console.error(result, result?.rolls);
+    return result;
   }
   if (debugEnabled > 0) {
     if (updatesCache[document.uuid]) {
@@ -5989,7 +6019,11 @@ export async function debouncedUpdate(document, updates, immediate = false) {
     } else warn("debouncedUpdate | cache empty");
   }
   updatesCache[document.uuid] = foundry.utils.mergeObject((updatesCache[document.uuid] ?? {}), updates, { overwrite: true })
-  if (immediate) return await _updateAction(document);
+  if (immediate) {
+    const result = await _updateAction(document);
+    console.error("immediate", result, result?.rolls);
+    return result;
+  }
   return await _debouncedUpdateAction(document);
 }
 export function getUpdatesCache(uuid: string | undefined | null) {
@@ -6246,10 +6280,10 @@ export function getDefaultDamageType(item) {
   let defaultDamageType;
   if (isdndv4) {
     const activity = item.system.activities.get("dnd5eactivity000");
-      defaultDamageType = activity?.damage?.parts[0]?.types.first() ?? this.defaultDamageType;
-  } 
-  else 
-      defaultDamageType = item?.system.damage;
+    defaultDamageType = activity?.damage?.parts[0]?.types.first() ?? this.defaultDamageType;
+  }
+  else
+    defaultDamageType = item?.system.damage;
   console.error("Default damage type is ", defaultDamageType);
   return defaultDamageType
 }

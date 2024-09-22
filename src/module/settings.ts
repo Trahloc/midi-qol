@@ -123,7 +123,6 @@ class ConfigSettings {
   itemUseSound: string = "";
   keepRollStats: boolean = false;
   keyMapping = defaultKeyMapping;
-  mergeCard: boolean = false;
   mergeCardCondensed: boolean = false;
   mergeCardMulti: boolean = false;
   mergeCardMultiDamage: boolean = false;

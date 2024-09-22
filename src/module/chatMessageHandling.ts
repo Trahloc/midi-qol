@@ -11,7 +11,7 @@ export const MODULE_LABEL = "Maestro";
 export let colorChatMessageHandler = (message, html, data) => {
   if (coloredBorders === "none") return true;
   let actorId = message.speaker.actor;
-  let userId = message.user;
+  let userId = message.author;
   let actor = game.actors?.get(actorId);
   let user = game.users?.get(userId);
 
@@ -209,11 +209,7 @@ export let hideStuffHandler = (message, html, data) => {
     if (configSettings.hidePlayerDamageCard && $(html).find(".midi-qol-player-damage-card").length) html.hide();
 
     if ($(html).find(".midi-qol-hits-display").length) {
-      if (configSettings.mergeCard) {
-        $(html).find(".midi-qol-hits-display").show();
-      } else {
-        html.show();
-      }
+      $(html).find(".midi-qol-hits-display").show();
     }
     html.find(".midi-qol-target-npc-Player").hide();
     if (!configSettings.highlightSuccess) {
@@ -246,18 +242,10 @@ export let hideStuffHandler = (message, html, data) => {
       //TODO this should probably just check formula
     }
     if (configSettings.autoCheckHit === "whisper" || message.blind || safeGetGameSetting("dnd5e", "attackRollVisibility") === "none") {
-      if (configSettings.mergeCard) {
-        html.find(".midi-qol-hits-display").hide();
-      } else if (html.find(".midi-qol-single-hit-card").length === 1 && data.whisper) {
-        html.hide();
-      }
+      html.find(".midi-qol-hits-display").hide();
     }
     if ((configSettings.autoCheckSaves === "whisper" || message.blind)) {
-      if (configSettings.mergeCard) {
-        html.find(".midi-qol-saves-display").hide();
-      } else if (html.find(".midi-qol-saves-display").length === 1 && data.whisper) {
-        html.hide();
-      }
+      html.find(".midi-qol-saves-display").hide();
     }
 
 
@@ -363,22 +351,16 @@ export async function onChatCardAction(event) {
   const authorId = message?.author?.id;
   // Validate permission to proceed with the roll
   if (!(game.user?.isGM || message?.isAuthor)) return;
-  if (!["confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
+  if (!["damage", "attack", "confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
   if (!message?.user) return;
-
-  var actor, item;
-  // Recover the actor for the chat card
+  const activityUuid = foundry.utils.getProperty(message, "flags.dnd5e.activity.uuid");
   //@ts-expect-error
-  actor = await CONFIG.Item.documentClass._getChatCardActor(card);
+  const activity = fromUuidSync(activityUuid);
+  const item = activity?.item;
+  const actor = item.actor;
+
   if (!actor) return;
-
-  // Get the Item from stored flag data or by the item ID on the Actor
-  const storedData = message?.getFlag(game.system.id, "itemData");
-  //@ts-expect-error
-  item = storedData ? new CONFIG.Item.documentClass(storedData, { parent: actor }) : actor.items.get(card.dataset.itemId);
-
   const spellLevel = parseInt(card.dataset.spellLevel) || null;
-  const workflowId = foundry.utils.getProperty(message, "flags.midi-qol.workflowId");
 
   switch (action) {
     case "applyEffects":
@@ -431,7 +413,7 @@ export async function onChatCardAction(event) {
             "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss",
             "confirm-damage-roll-cancel": "cancelWorkflow"
           }[action];
-          socketlibSocket.executeAsUser(actionToCall, authorId, { workflowId, itemCardId: message.id, itemCardUuid: message.uuid }).then(result => {
+          socketlibSocket.executeAsUser(actionToCall, authorId, { activityUuid, itemCardId: message.id, itemCardUuid: message.uuid }).then(result => {
             if (typeof result === "string") ui.notifications?.warn(result);
           });
         } else {
@@ -442,21 +424,23 @@ export async function onChatCardAction(event) {
       break;
     case "attack-adv":
     case "attack-dis":
-      await item.rollAttack({
+    case "attack":
+      await activity.rollAttack({
         event,
         spellLevel,
         advantage: action === "attack-adv",
         disadvantage: action === "attack-dis",
         fastForward: true
-      })
+      },
+        { configure: false })
       break;
     case "damage-critical":
     case "damage-nocritical":
-      await item.rollDamage({
+    case "damage":
+      await activity.rollDamage({
         event,
-        spellLevel,
-        options: { critical: action === 'damage-critical' }
-      })
+        rollOptions: { spellLevel, critical: action === 'damage-critical' }
+      }, {}, {})
     default:
       break;
   }

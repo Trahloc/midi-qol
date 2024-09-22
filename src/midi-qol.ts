@@ -111,6 +111,8 @@ export let SystemString;
 export let systemConcentrationId;
 export let midiReactionEffect;
 export let midiBonusActionEffect;
+//@ts-expect-error
+export const NumericTerm = foundry.dice.terms.NumericTerm;
 
 export const MESSAGETYPES = {
   HITS: 1,

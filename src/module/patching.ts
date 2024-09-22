@@ -1,4 +1,4 @@
-import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID, isdndv4 } from "../midi-qol.js";
+import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID, isdndv4, NumericTerm } from "../midi-qol.js";
 import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect } from "./utils.js";
@@ -254,6 +254,8 @@ function multiply(modifier: string) {
 }
 
 export function addDiceTermModifiers() {
+  //@ts-expect-error
+  const DiceTerm = foundry.dice.terms.Die;
   Die.MODIFIERS["mx"] = "multiply";
   foundry.utils.setProperty(Die.prototype, "multiply", multiply);
 }
@@ -274,6 +276,13 @@ export function averageDice(roll: Roll) {
 }
 
 function configureDamage(wrapped) {
+  //@ts-expect-error
+  const OperatorTerm = foundry.dice.terms.OperatorTerm
+  //@ts-expect-error
+  const DiceTerm = foundry.dice.terms.DiceTerm;
+  //@ts-expect-error
+  const Die = foundry.dice.terms.Die;
+  console.error("Configure Damage called")
   let useDefaultCritical = getCriticalDamage() === "default";
   useDefaultCritical ||= (getCriticalDamage() === "explodeCharacter" && this.data.actorType !== "character");
   useDefaultCritical ||= (getCriticalDamage() === "explodeNPC" && this.data.actorType !== "npc");
@@ -313,7 +322,6 @@ function configureDamage(wrapped) {
         if (term instanceof DiceTerm) term.modifiers.push(`min${term.faces}`);
         if (term instanceof DiceTerm) {
           bonusTerms.push(new OperatorTerm({ operator: "+" }));
-          //@ts-ignore
           const newTerm = new Die({ number: term.number + cb, faces: term.faces })
           newTerm.modifiers.push(`x${term.faces}`);
           newTerm.options = term.options;
@@ -360,7 +368,6 @@ function configureDamage(wrapped) {
       case "explodeNPC":
         if (term instanceof DiceTerm) {
           bonusTerms.push(new OperatorTerm({ operator: "+" }));
-          //@ts-ignore
           const newTerm = new Die({ number: term.number + cb, faces: term.faces })
           newTerm.modifiers.push(`x${term.faces}`);
           newTerm.options = term.options;
@@ -372,7 +379,6 @@ function configureDamage(wrapped) {
         if (term instanceof DiceTerm) term.modifiers.push(`min${term.faces}`);
         if (term instanceof DiceTerm) {
           bonusTerms.push(new OperatorTerm({ operator: "+" }));
-          //@ts-ignore
           const newTerm = new Die({ number: term.number, faces: term.faces })
           newTerm.options = term.options;
           // foundry.utils.setProperty(newTerm.options, "sourceTerm", term);
