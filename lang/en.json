@@ -623,7 +623,7 @@
   "midi-qol.EffectActivation": "Use System Activation for Effect application (Deprecated)",
   "midi-qol.ItemActivationCondition.Name": "Item use allowed if true",
   "midi-qol.ReactionActivationCondition.Name": "Reaction will be triggered if true",
-  "midi-qol.OtherActivationCondition.Name": "Other Damage will be applied if true",
+  "midi-qol.OtherActivationCondition.Name": "Other Formula will be rolled if true",
   "midi-qol.HPUpdated": "HP Updated",
   "midi-qol.HPNPCUpdated": "NPC HP Updated",
   "midi-qol.HPNotUpdated": "HP Not Updated",
