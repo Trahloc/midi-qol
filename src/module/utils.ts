@@ -6244,3 +6244,14 @@ export function isConvenientEffect(effect): boolean {
     return !!(effect?.flags?.["dfreds-convenient-effects"]?.isConvenient);
   }
 }
+
+export function getSaveRollModeFor(abilityId) {
+  if (configSettings.rollChecksBlind.includes("all") || configSettings.rollChecksBlind.includes(abilityId))
+    return "blindroll";
+  return configSettings.autoCheckSaves !== "allShow" ? "gmroll" : "public";
+}
+export function getCheckRollModeFor(abilityId) {
+  if (configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes(abilityId))
+    return "blindroll";
+  return configSettings.autoCheckSaves !== "allShow" ? "gmroll" : "public";
+}

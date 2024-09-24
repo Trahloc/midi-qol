@@ -3,6 +3,10 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.17
+* Fix for aborted tool check rolls throwing an error.
+* Added helper functions, MidiQOL.getSaveRollModeFor, MidiQOL.getSaveRollModeFor which return the roll mode that mid would use when rolling a save for a player.
+
 ### 11.6.16
 * Fix for error when checking canSense
 

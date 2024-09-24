@@ -1544,7 +1544,8 @@ export async function rollToolCheck(wrapped, options: any = {}) {
   let result = await wrapped(options);
   let rollMode = result.options.rollMode ?? game.settings.get("core", "rollMode");
   await displayDSNForRoll(result, "toolCheck", rollMode);
-  result = await bonusCheck(this.actor, result, "check", this.system.ability ?? "")
+  result = await bonusCheck(this.actor, result, "check", this.system.ability ?? "");
+  if (!result) return result;
   if (chatMessage !== false && result) {
     const title = `${this.name} - ${game.i18n.localize("DND5E.ToolCheck")}`;
     const args: any = { "speaker": getSpeaker(this.actor), title, flavor: title };
