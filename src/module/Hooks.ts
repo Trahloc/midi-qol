@@ -1049,7 +1049,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             case "non-silver-pysical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("sil")) continue;
               break;
-            case "non-adamant-physical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("adm")) continue; break
+            case "non-adamant-physical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("ada")) continue; break
             default: if (!damage.properties.has(custom)) continue; break;
           }
           damage.active[custom] = true;
@@ -1143,7 +1143,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           case "non-adamant-physical":
             selectedDamage = damages.reduce((total, damage) => {
               //@ts-expect-error
-              const isAdamant = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("adm");
+              const isAdamant = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("ada");
               return total + (isAdamant ? damage.value : 0);
             }, 0);
             if (selectedDamage > 0) drActive = i18n("midi-qol.NonAdamantinePhysical");
