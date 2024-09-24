@@ -5,7 +5,8 @@
 
 ### 11.6.17
 * Fix for aborted tool check rolls throwing an error.
-* Added helper functions, MidiQOL.getSaveRollModeFor, MidiQOL.getSaveRollModeFor which return the roll mode that mid would use when rolling a save for a player.
+* Added helper functions, MidiQOL.getSaveRollModeFor(ability), MidiQOL.getCheckRollModeFor(ability) which return the roll mode that mid would use when rolling a save for a player.
+* Merge requests from @thatlonelybugbear included - thanks
 
 ### 11.6.16
 * Fix for error when checking canSense
