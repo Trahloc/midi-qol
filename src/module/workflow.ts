@@ -226,8 +226,8 @@ export class Workflow {
     }
     this.speaker = speaker;
     if (this.speaker.scene) this.speaker.scene = canvas?.scene?.id;
-    this.targets = new Set(targets);
-    if (this.item?.system.target?.type === "self") this.targets = new Set([this.token]);
+    this.targets = new Set(targets ? targets : []);
+    if (this.item?.system.target?.type === "self") this.targets = new Set(this.token ? [this.token] : []);
     this.saves = new Set();
     this.superSavers = new Set();
     this.semiSuperSavers = new Set();
