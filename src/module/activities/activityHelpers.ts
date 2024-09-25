@@ -1,12 +1,12 @@
 import { debugEnabled, log, error, warn, i18n, SystemString, debug, MODULE_ID, GameSystemConfig } from "../../midi-qol.js";
-import { ActivityWorkflow } from "../ActivityWorkflow.js";
+import { ActivityWorkflow, DummyWorkflow } from "../ActivityWorkflow.js";
 import { untimedExecuteAsGM } from "../GMAction.js";
 import { mapSpeedKeys } from "../MidiKeyManager.js";
 import { TroubleShooter } from "../apps/TroubleShooter.js";
 import { preTemplateTargets, shouldRollOtherDamage } from "../itemhandling.js";
 import { defaultRollOptions } from "../patching.js";
-import { configSettings } from "../settings.js";
-import { tokenForActor, getRemoveAttackButtons, getAutoRollAttack, itemHasDamage, getAutoRollDamage, getRemoveDamageButtons, itemIsVersatile, hasDAE, getFlankingEffect, CERemoveEffect, validTargetTokens, asyncHooksCall, getSpeaker, evalActivationCondition, sumRolls, displayDSNForRoll, processDamageRollBonusFlags, getDamageType } from "../utils.js";
+import { checkMechanic, configSettings } from "../settings.js";
+import { tokenForActor, getRemoveAttackButtons, getAutoRollAttack, itemHasDamage, getAutoRollDamage, getRemoveDamageButtons, itemIsVersatile, hasDAE, getFlankingEffect, CERemoveEffect, validTargetTokens, asyncHooksCall, getSpeaker, evalActivationCondition, sumRolls, displayDSNForRoll, processDamageRollBonusFlags, getDamageType, activityHasAreaTarget, checkIncapacitated, getStatusName, isInCombat } from "../utils.js";
 
 export async function midiUsageChatContext(activity, context) {
   let systemCard = false;
@@ -17,9 +17,9 @@ export async function midiUsageChatContext(activity, context) {
   if (debugEnabled > 0) warn("show item card ", this, activity.actor, activity.actor.token, systemCard, activity.activityWorkflow);
   let token = tokenForActor(activity.item.actor);
   let needAttackButton = !getRemoveAttackButtons(activity.item) || configSettings.mergeCardMulti || configSettings.confirmAttackDamage !== "none" ||
-    (!activity.activityWorkflow?.someAutoRollEventKeySet() && !getAutoRollAttack(activity.activityWorkflow) && !activity.activityWorkflow?.rollOptions.autoRollAttack);
+    (!activity.activityWorkflow?.someAutoRollEventKeySet() && !getAutoRollAttack(activity.activityWorkflow) && !activity.activityWorkflow?.midiOptions.autoRollAttack);
   const needDamagebutton = itemHasDamage(activity.item) && (
-    (["none", "saveOnly"].includes(getAutoRollDamage(activity.activityWorkflow)) || activity.activityWorkflow?.rollOptions?.rollToggle)
+    (["none", "saveOnly"].includes(getAutoRollDamage(activity.activityWorkflow)) || activity.activityWorkflow?.midiOptions?.rollToggle)
     || configSettings.confirmAttackDamage !== "none"
     || !getRemoveDamageButtons(activity.item)
     || systemCard
@@ -31,9 +31,9 @@ export async function midiUsageChatContext(activity, context) {
     || !configSettings.itemTypeList?.includes(activity.item.type);
   const hasEffects = !["applyNoButton", "applyRemove"].includes(configSettings.autoItemEffects) && hasDAE(activity.activityWorkflow) && activity.activityWorkflow.workflowType === "BaseWorkflow" && activity.effects.find(ae => !ae.transfer && !foundry.utils.getProperty(ae, "flags.dae.dontApply"));
   let dmgBtnText = (activity.actionType === "heal") ? i18n(`${SystemString}.Healing`) : i18n(`${SystemString}.Damage`);
-  if (activity.activityWorkflow?.rollOptions.fastForwardDamage && configSettings.showFastForward) dmgBtnText += ` ${i18n("midi-qol.fastForward")}`;
+  if (activity.activityWorkflow?.midiOptions.fastForwardDamage && configSettings.showFastForward) dmgBtnText += ` ${i18n("midi-qol.fastForward")}`;
   let versaBtnText = i18n(`${SystemString}.Versatile`);
-  if (activity.activityWorkflow?.rollOptions.fastForwardDamage && configSettings.showFastForward) versaBtnText += ` ${i18n("midi-qol.fastForward")}`;
+  if (activity.activityWorkflow?.midiOptions.fastForwardDamage && configSettings.showFastForward) versaBtnText += ` ${i18n("midi-qol.fastForward")}`;
 
   let midiContextData = {
     // actor: activity.item.actor,
@@ -53,7 +53,7 @@ export async function midiUsageChatContext(activity, context) {
     isSpell: activity.item.type === "spell",
     isPower: activity.item.type === "power",
     hasSave: !minimalCard && activity.item.hasSave && (systemCard || configSettings.autoCheckSaves === "none"),
-    hasAreaTarget: !minimalCard && activity.item.hasAreaTarget,
+    hasAreaTarget: !minimalCard && activityHasAreaTarget(activity),
     hasAttackRoll: !minimalCard && activity.item.hasAttack,
     configSettings,
     hideItemDetails,
@@ -83,7 +83,7 @@ export async function confirmWorkflow(existingWorkflow: ActivityWorkflow): Promi
     if (configSettings.autoCompleteWorkflow) {
       existingWorkflow.aborted = true;
       await existingWorkflow.performState(existingWorkflow.WorkflowState_Cleanup);
-      await ActivityWorkflow.removeWorkflow(this.uuid);
+      await ActivityWorkflow.removeWorkflow(existingWorkflow.uuid);
     } else if (existingWorkflow.currentAction === existingWorkflow.WorkflowState_WaitForDamageRoll && existingWorkflow.hitTargets.size === 0) {
       existingWorkflow.aborted = true;
       await existingWorkflow.performState(existingWorkflow.WorkflowState_Cleanup);
@@ -126,8 +126,50 @@ export async function removeFlanking(actor: Actor): Promise<void> {
   let CEFlanking = getFlankingEffect();
   if (CEFlanking && CEFlanking.name) await CERemoveEffect({ effectName: CEFlanking.name, uuid: actor.uuid });
 }
-export async function confirmCanProceed(attackActivity: any): Promise<boolean> {
-  console.error("MidiQOL | AttackActivity | confirmCanProceed | Called", attackActivity);
+export async function confirmCanProceed(activity: any, config, dialog, message): Promise<boolean> {
+  console.error("MidiQOL | confirmCanProceed | Called", activity);
+  if (!config.midiOptions.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated")) {
+    const condition = checkIncapacitated(activity.actor, true);
+    if (condition) {
+      ui.notifications?.warn(`${activity.actor.name} is ${getStatusName(condition)} and is incapacitated`)
+      return false;
+    }
+  }
+  let isEmanationTargeting = ["radius", "squaredRadius"].includes(activity.target?.template?.type);
+  let isAoETargeting = !isEmanationTargeting && activity.target?.template?.type !== "";
+  let selfTarget = activity.target?.type === "self";
+  const inCombat = isInCombat(activity.actor);
+  const requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && inCombat);
+  let speaker = getSpeaker(activity.actor);
+
+  // Call preTargeting hook/onUse macro. Create a dummy workflow if one does not already exist for the item
+  let tempWorkflow = new DummyWorkflow(activity.actor, activity, speaker, game?.user?.targets ?? new Set(), {});
+  tempWorkflow.options = config.midiOptions;
+  let cancelWorkflow = await asyncHooksCall("midi-qol.preTargeting", tempWorkflow) === false 
+    || await asyncHooksCall(`midi-qol.preTargeting.${activity.item.uuid}`, {activity,  item: activity.item }) === false
+    || await asyncHooksCall(`midi-qol.preTargeting.${activity.uuid}`, {activity,  item: activity.item }) === false;
+  if (configSettings.allowUseMacro) {
+    const results = await tempWorkflow.callMacros(this, tempWorkflow.onUseMacros?.getMacros("preTargeting"), "OnUse", "preTargeting");
+    cancelWorkflow ||= results.some(i => i === false);
+  }
+  if (cancelWorkflow) return false;
+  isEmanationTargeting = ["radius", "squaredRadius"].includes(activity.target?.template?.type);
+
+  let targetConfirmationHasRun = false; // Work out interaction with attack per target
+  if ((!targetConfirmationHasRun && ((activity.target?.type ?? "") !== "") || configSettings.enforceSingleWeaponTarget)) {
+    // TODO verify pressed keys below
+    if (!(await preTemplateTargets(activity, config.midiOptions, config.midiOptions.pressedKeys)))
+      return false;
+    if ((activity.targets?.size ?? 0) === 0 && game.user?.targets) activity.targets = game.user?.targets;
+  }
+  let shouldAllowRoll = !requiresTargets // we don't care about targets
+  || (activity.targets.size > 0) // there are some target selected
+  || (activity.target?.type ?? "") === "" // no target required
+  || selfTarget
+  || isAoETargeting // area effect spell and we will auto target
+  || isEmanationTargeting // range target and will autotarget
+  || (!activity.item.hasAttack && !itemHasDamage(activity) && !activity.hasSave); // does not do anything - need to chck dynamic effects
+
   return true;
 }
 
@@ -135,13 +177,13 @@ export async function confirmTargets(attackActivity: any): Promise<void> {
   attackActivity.targets = game.user?.targets;
 }
 
-export async function setupTargets(activity: any, usage, dialog, message): Promise<boolean> {
+export async function setupTargets(activity: any, config, dialog, message): Promise<boolean> {
   if (((activity.target?.affects.type ?? "") !== "") || configSettings.enforceSingleWeaponTarget) {
     //    if (!(await preTemplateTargets(this, {options}, pressedKeys)))
-    if (!(await preTemplateTargets(activity, { workflowOptions: usage.rollOptions }, {})))
+    if (!(await preTemplateTargets(activity, { workflowOptions: config.midiOptions }, {})))
       return false;
-    //@ts-expect-error
-    if ((options.targetsToUse?.size ?? 0) === 0 && game.user?.targets) targetsToUse = game.user?.targets;
+    // TODO clean this up
+    // if ((dialog.targets?.size ?? 0) === 0 && game.user?.targets) dialog.targets = game.user?.targets;
   }
   // Setup targets.
   let selfTarget = activity.target?.type === "self";
@@ -173,12 +215,12 @@ export async function configureAttackRoll(activity, config): Promise<boolean> {
 
   //@ts-ignore
   if (CONFIG.debug.keybindings && workflow) {
-    log("itemhandling doAttackRoll: workflow.rolloptions", workflow.rollOptions);
+    log("itemhandling doAttackRoll: workflow.rollOptions", workflow.rollOptions);
     log("item handling newOptions", mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow.rollOptions?.rollToggle));
   }
   if (debugEnabled > 1) debug("Entering configure attack roll", config.event, workflow, config.rolllOptions);
 
-  // workflow.systemCard = config.rollOptions.systemCard;
+  // workflow.systemCard = config.midiOptions.systemCard;
   if (workflow.workflowType === "BaseWorkflow") {
     if (workflow.attackRoll && workflow.currentAction === workflow.WorkflowState_Completed) {
       // we are re-rolling the attack.
@@ -197,7 +239,7 @@ export async function configureAttackRoll(activity, config): Promise<boolean> {
     }
   }
 
-  if (config.rollOptions.resetAdvantage) {
+  if (config.midiOptions.resetAdvantage) {
     workflow.advantage = false;
     workflow.disadvantage = false;
     workflow.rollOptions = foundry.utils.deepClone(defaultRollOptions);
@@ -216,14 +258,16 @@ export async function configureAttackRoll(activity, config): Promise<boolean> {
 
   // Compute advantage
   await workflow.checkAttackAdvantage();
-  if (await asyncHooksCall("midi-qol.preAttackRoll", workflow) === false || await asyncHooksCall(`midi-qol.preAttackRoll.${activity.uuid}`, workflow) === false) {
+  if (await asyncHooksCall("midi-qol.preAttackRoll", workflow) === false 
+  || await asyncHooksCall(`midi-qol.preAttackRoll.${activity.item.uuid}`, workflow) === false
+  || await asyncHooksCall(`midi-qol.preAttackRoll.${activity.uuid}`, workflow) === false) {
     console.warn("midi-qol | attack roll blocked by preAttackRoll hook");
     return false;
   }
 
   // Active defence resolves by triggering saving throws and returns early
   if (game.user?.isGM && workflow.useActiveDefence) {
-    delete config.rollOptions.event; // for dnd 3.0
+    delete config.midiOptions.event; // for dnd 3.0
     // TODO wqorkfout what to do with active defeinse 
     /*
     let result: Roll = await wrapped(foundry.utils.mergeObject(options, {
@@ -240,7 +284,7 @@ export async function configureAttackRoll(activity, config): Promise<boolean> {
   }
 
   // Advantage is true if any of the sources of advantage are true;
-  let advantage = config.rollOptions.advantage
+  let advantage = config.midiOptions.advantage
     || workflow.options.advantage
     || workflow?.advantage
     || workflow?.rollOptions.advantage
@@ -257,7 +301,7 @@ export async function configureAttackRoll(activity, config): Promise<boolean> {
     workflow.advReminderAttackAdvAttribution.add(`ADV:Flanking`);
   }
 
-  let disadvantage = config.rollOptions.disadvantage
+  let disadvantage = config.midiOptions.disadvantage
     || workflow.options.disadvantage
     || workflow?.disadvantage
     || workflow?.workflowOptions?.disadvantage
@@ -281,31 +325,35 @@ export async function configureAttackRoll(activity, config): Promise<boolean> {
 
   // create an options object to pass to the roll.
   // advantage/disadvantage are already set (in options)
-  config.rollOptions = foundry.utils.mergeObject(config.rollOptions, {
-    chatMessage: (["TrapWorkflow", "Workflow"].includes(workflow.workflowType)) ? false : config.rollOptions.chatMessage,
-    fastForward: workflow.workflowOptions?.fastForwardAttack ?? workflow.rollOptions.fastForwardAttack ?? config.RollOptions.fastForward,
+  config.midiOptions = foundry.utils.mergeObject(config.midiOptions, {
+    chatMessage: (["TrapWorkflow", "Workflow"].includes(workflow.workflowType)) ? false : config.midiOptions.chatMessage,
+    fastForward: workflow.workflowOptions?.fastForwardAttack ?? workflow.rollOptions.fastForwardAttack ?? config.midiOptions.fastForward,
     messageData: {
       speaker: getSpeaker(activity.actor)
     }
   },
     { insertKeys: true, overwrite: true });
-  if (workflow.rollOptions.rollToggle) config.rollOptions.fastForward = !config.rollOptions.fastForward;
-  if (advantage) config.rollOptions.advantage = true; // advantage passed to the roll takes precedence
-  if (disadvantage) config.rollOptions.disadvantage = true; // disadvantage passed to the roll takes precedence
+  if (workflow.rollOptions.rollToggle) config.midiOptions.fastForward = !config.midiOptions.fastForward;
+  if (advantage) config.midiOptions.advantage = true; // advantage passed to the roll takes precedence
+  if (disadvantage) config.midiOptions.disadvantage = true; // disadvantage passed to the roll takes precedence
 
   // Setup labels for advantage reminder
   const advantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("ADV:")).map(s => s.replace("ADV:", ""));;
-  if (advantageLabels.length > 0) foundry.utils.setProperty(config.rollOptions, "dialogOptions.adv-reminder.advantageLabels", advantageLabels);
+  if (advantageLabels.length > 0) foundry.utils.setProperty(config.midiOptions, "dialogOptions.adv-reminder.advantageLabels", advantageLabels);
   const disadvantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("DIS:")).map(s => s.replace("DIS:", ""));
-  if (disadvantageLabels.length > 0) foundry.utils.setProperty(config.rollOptions, "dialogOptions.adv-reminder.disadvantageLabels", disadvantageLabels);
+  if (disadvantageLabels.length > 0) foundry.utils.setProperty(config.midiOptions, "dialogOptions.adv-reminder.disadvantageLabels", disadvantageLabels);
 
   // It seems that sometimes the option is true/false but when passed to the roll the critical threshold needs to be a number
-  if (config.rollOptions.critical === true || config.rollOptions.critical === false)
-    config.rollOptions.critical = activity.criticalThreshold;
-  if (config.rollOptions.fumble === true || config.rollOptions.fumble === false)
-    delete config.rollOptions.fumble;
+  if (config.midiOptions.critical === true || config.midiOptions.critical === false)
+    config.midiOptions.critical = activity.criticalThreshold;
+  if (config.midiOptions.fumble === true || config.midiOptions.fumble === false)
+    delete config.midiOptions.fumble;
 
-  config.rollOptions.chatMessage = false;
+  config.midiOptions.chatMessage = false;
+  // This will have to become an actvitity option
+  if (getProperty(activity.item, "flags.midiProperties.offHandWeapon")) config.attackMode = "offHand";  
+  if (config.midiOptions.versatile) config.attackMode = "twoHanded";
+
   delete config.event; // for dnd5e stop the event being passed to the roll or errors will happend
   return true;
 }
@@ -317,14 +365,18 @@ export function configureDamageRoll(activity, config): void {
     const pressedKeys = globalThis.MidiKeyManager.pressedKeys; // record the key state if needed
     let workflow = activity.activityWorkflow;
 
-    if (workflow && config.rollOptions.systemCard) workflow.systemCard = true;
-    if (workflow && !workflow.shouldRollDamage) // if we did not auto roll then process any keys
-      workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys(pressedKeys, "damage", workflow.rollOptions?.rollToggle), { insertKeys: true, insertValues: true, overwrite: true });
+    if (workflow && config.midiOptions.systemCard) workflow.systemCard = true;
+    if (workflow) {
+      if (!workflow.shouldRollDamage) // if we did not auto roll then process any keys
+        workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys(pressedKeys, "damage", workflow.rollOptions?.rollToggle), { insertKeys: true, insertValues: true, overwrite: true });
+      else
+        workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys({}, "damage", workflow.rollOptions?.rollToggle), { insertKeys: true, insertValues: true, overwrite: true });
 
+    }
     //@ts-expect-error
     if (CONFIG.debug.keybindings) {
-      log("itemhandling: workflow.rolloptions", workflow?.rollOption);
-      log("item handling newOptions", mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow?.rollOptions?.rollToggle));
+      log("itemhandling: workflow.rollOptions", workflow?.rollOptions);
+      log("item handling newOptions", mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow?.midiOptions?.rollToggle));
     }
 
     if (workflow?.workflowType === "TrapWorkflow") workflow.rollOptions.fastForward = true;
@@ -349,34 +401,18 @@ export function configureDamageRoll(activity, config): void {
     workflow.processDamageEventOptions();
 
     // Allow overrides form the caller
-    if (config.rollOptions.spellLevel) workflow.rollOptions.spellLevel = config.rollOptions.spellLevel;
-    if (config.rollOptions.powerLevel) workflow.rollOptions.spellLevel = config.rollOptions.powerLevel;
-    if (workflow.isVersatile || config.rollOptions.versatile) workflow.rollOptions.versatile = true;
+    if (config.midiOptions.spellLevel) workflow.rollOptions.spellLevel = config.midiOptions.spellLevel;
+    if (config.midiOptions.powerLevel) workflow.rollOptions.spellLevel = config.midiOptions.powerLevel;
+    if (workflow.isVersatile || config.midiOptions.versatile) workflow.rollOptions.versatile = true;
     if (debugEnabled > 0) warn("rolling damage  ", activity.name, activity);
 
-    if (config.rollOptions?.critical !== undefined) workflow.isCritical = config.rollOptions?.critical;
-    config.rollOptions.fastForwardDamage = config.rollOptions.fastForwardDamage ?? workflow.workflowOptions?.fastForwardDamage ?? workflow.rollOptions.fastForwardDamage;
+    if (config.midiOptions?.critical !== undefined) workflow.isCritical = config.midiOptions?.critical;
+    config.midiOptions.fastForwardDamage = config.midiOptions.fastForwardDamage ?? workflow.workflowOptions?.fastForwardDamage ?? workflow.rollOptions.fastForwardDamage;
 
     workflow.damageRollCount += 1;
     let result: Array<Roll>;
     let result2: Array<Roll>;
-    if (!workflow.rollOptions.other) {
-      const damageRollOptions = foundry.utils.mergeObject(config.rollOptions, {
-        fastForward: workflow.workflowOptions?.fastForwardDamage ?? workflow.rollOptions.fastForwardDamage,
-        returnMultiple: true,
-      },
-        { overwrite: true, insertKeys: true, insertValues: true });
 
-      const damageRollData = {
-        critical: workflow.workflowOptions?.critical || (workflow.rollOptions.critical || workflow.isCritical || config.rollOptions.critical),
-        spellLevel: workflow.rollOptions.spellLevel ?? workflow.spellLevel,
-        powerLevel: workflow.rollOptions.spellLevel ?? workflow.spellLevel,
-        attackMode: workflow.rollOptions.versatile ? "towHanded" : "oneHanded",
-        // dnd3 event: {},
-        event: undefined,
-        options: damageRollOptions
-      };
-    }
   } catch (err) {
     console.error(err);
   }
@@ -389,6 +425,7 @@ export async function postProcessDamageRoll(activity, config, result): Promise<v
   try {
     let workflow: ActivityWorkflow = activity.activityWorkflow;
     if (foundry.utils.getProperty(activity.actor, `parent.flags.${MODULE_ID}.damage.advantage`)) {
+      // TODO see if this is still possible
       // result2 = await wrapped(damageRollData)
     }
     let magicalDamage = workflow.item?.system.properties?.has("mgc") || workflow.item?.flags?.midiProperties?.magicdam;
@@ -504,19 +541,19 @@ export async function postProcessDamageRoll(activity, config, result): Promise<v
 
     workflow.shouldRollOtherDamage = await shouldRollOtherDamage.bind(workflow.otherDamageItem)(workflow, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
     if (workflow.shouldRollOtherDamage) {
-      const otherRollOptions: any = {};
+      const othermidiOptions: any = {};
       if (game.settings.get(MODULE_ID, "CriticalDamage") === "default") {
-        otherRollOptions.powerfulCritical = game.settings.get(game.system.id, "criticalDamageMaxDice");
-        otherRollOptions.multiplyNumeric = game.settings.get(game.system.id, "criticalDamageModifiers");
+        othermidiOptions.powerfulCritical = game.settings.get(game.system.id, "criticalDamageMaxDice");
+        othermidiOptions.multiplyNumeric = game.settings.get(game.system.id, "criticalDamageModifiers");
       }
-      otherRollOptions.critical = (workflow.otherDamageItem?.flags.midiProperties?.critOther ?? false) && (workflow.isCritical || workflow.rollOptions.critical);
+      othermidiOptions.critical = (workflow.otherDamageItem?.flags.midiProperties?.critOther ?? false) && (workflow.isCritical || workflow.rollOptions.critical);
       if ((workflow.otherDamageFormula ?? "") !== "") { // other damage formula swaps in versatile if needed
         let otherRollData = workflow.otherDamageItem?.getRollData();
-        otherRollData.spellLevel = config.rollOptions.spellLevel ?? workflow.spellLevel;
+        otherRollData.spellLevel = config.midiOptions.spellLevel ?? workflow.spellLevel;
         foundry.utils.setProperty(otherRollData, "item.level", otherRollData.spellLevel);
-        let otherRollResult = new DamageRoll(workflow.otherDamageFormula, otherRollData, otherRollOptions);
+        let otherRollResult = new DamageRoll(workflow.otherDamageFormula, otherRollData, othermidiOptions);
         otherRollResult = Roll.fromTerms(otherRollResult.terms); // coerce it back to a roll
-        // let otherRollResult = new Roll.fromRoll((workflow.otherDamageFormula, otherRollData, otherRollOptions);
+        // let otherRollResult = new Roll.fromRoll((workflow.otherDamageFormula, otherRollData, othermidiOptions);
         otherResult = await otherRollResult?.evaluate({ maximize: needsMaxDamage, minimize: needsMinDamage });
         if (otherResult?.total !== undefined) {
           switch (game.system.id) {

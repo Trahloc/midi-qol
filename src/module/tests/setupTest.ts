@@ -3,7 +3,7 @@ import { applySettings } from "../apps/ConfigPanel.js";
 import { FormBuilder } from "../lib/FormBuilder.js";
 import { configSettings } from "../settings.js";
 import { CEHasEffectApplied, CERemoveEffect, applyTokenDamage, completeItemUse, findNearby } from "../utils.js";
-import { TrapWorkflow } from "../workflow.js";
+import { TrapWorkflow } from "../ActivityWorkflow.js";
 
 const actor1Name = "actor1";
 const actor2Name = "actor2";
@@ -122,7 +122,8 @@ async function registerTests() {
                 foundry.utils.setProperty(spell, "system.preparation", { mode: 'innate', prepared: 'true' });
                 const trapItem = new Item.implementation(spell, { parent: targetActor });
                 const templateLocation = targetToken.center;
-                const workflow: TrapWorkflow = new TrapWorkflow(targetActor, trapItem, undefined, templateLocation);
+                //@ts-expect-error
+                const workflow: TrapWorkflow = new TrapWorkflow(targetActor, trapItem.system.activities.contents[0], undefined, templateLocation);
                 assert.ok(trapWorkflowMacro, "TrapWorkflowTest macro not found");
                 assert.ok(!!workflow && workflow instanceof TrapWorkflow);
                 await busyWait(1);
@@ -429,6 +430,7 @@ async function registerTests() {
             //@ts-ignore .flags v10
             delete actor.flags[MODULE_ID].advantage.all;
             const newHp = target?.actor?.system.attributes.hp.value;
+            console.error(newHp, oldHp)
             //@ts-ignore
             assert.equal(newHp, oldHp - 10 - actor.system.abilities.str.mod);
             return true;

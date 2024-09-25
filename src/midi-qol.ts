@@ -5,8 +5,8 @@ import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, re
 import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Hooks.js';
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
-import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, DDBGameLogWorkflow, UserWorkflow } from './module/workflow.js';
-import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, fromActorUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility, MQfromUuidSync, actorFromUuid, createDamageDetail, removeActionUsed, removeBonusActionUsed } from './module/utils.js';
+import { TrapWorkflow, DamageOnlyWorkflow, ActivityWorkflow, DummyWorkflow, DDBGameLogWorkflow, UserWorkflow } from './module/ActivityWorkflow.js';
+import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, fromActorUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility, MQfromUuidSync, actorFromUuid, createDamageDetail, removeActionUsed, removeBonusActionUsed, getCheckRollModeFor, getSaveRollModeFor, completeActivityUse } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -111,6 +111,7 @@ export let SystemString;
 export let systemConcentrationId;
 export let midiReactionEffect;
 export let midiBonusActionEffect;
+
 //@ts-expect-error
 export const NumericTerm = foundry.dice.terms.NumericTerm;
 
@@ -146,8 +147,15 @@ Hooks.once('init', async function () {
   //@ts-expect-error
   if (game.release.generation < 12) Math.clamp = Math.clamped;
   log('Initializing midi-qol');
+
   //@ts-expect-error
-  game.system.config.activityTypes.attack.documentClass = defineMidiAttackActivityClass(game.system.config.activityTypes.attack.documentClass);
+  const midiAttackActivity = defineMidiAttackActivityClass(game.system.config.activityTypes.attack.documentClass);
+  //@ts-expect-error
+  game.system.config.activityTypes.attack.documentClass = midiAttackActivity;
+  //@ts-expect-error
+  game.system.config.activityTypes["midiAttack"] = {documentClass: midiAttackActivity};
+  //@ts-expect-error
+  game.system.config.activityTypes.save.documentClass = defineMidiSaveActivityClass(game.system.config.activityTypes.save.documentClass);
 
   //@ts-expect-error
   const systemVersion = game.system.version;
@@ -449,7 +457,7 @@ Hooks.once('ready', function () {
     "isDamaged": "Target is damaged by an attack",
     "all": "All"
   }
-  for (let key of Object.keys(Workflow.stateTable)) {
+  for (let key of Object.keys(ActivityWorkflow.stateTable)) {
     const camelKey = `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
     if (MQOnUseOptions[`pre${camelKey}`] === undefined) {
       MQOnUseOptions[`pre${camelKey}`] = `Before state ${camelKey}`;
@@ -580,6 +588,7 @@ Hooks.once('ready', function () {
 import { setupMidiTests } from './module/tests/setupTest.js';
 import { TargetConfirmationConfig } from './module/apps/TargetConfirmationConfig.js';
 import { defineChatMessageMidiClass } from './module/ChatMessageMidi.js';
+import { defineMidiSaveActivityClass } from './module/activities/SaveActivity.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -600,7 +609,8 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     checkNearby: function checkNearby(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
     checkRange: function checkRange(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
     checkRule: function checkRule(rule: string): boolean,
-    completeItemUse: async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false }),
+    completeItemUse: async function completeItemUse(item, config: any = {}, options: any, dialog, message),
+    completeActivityUse: async function completeActivityUse(activity: Activity, config: any = {}, options: any = { checkGMstatus: false }),
     computeCoverBonus: function computeCoverBonus(attacker: Token | TokenDocument, target: Token | TokenDocument, item: any = undefined): number,
     computeDistance: function computeDistance(t1: Token, t2: Token, wallBlocking = false),
     configSettings: function configSettings(): any,
@@ -628,6 +638,8 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     getConcentrationEffect: function getConcentrationEffect(actor: Actor): ActiveEffect | undefined,
     geti18nOptions: function geti18nOptions(key: string): any,
     geti18nTranslations: function geti18nTranslations(): any,
+    getSaveRollModeFor: function getSaveRollModeFor(abilityId: string): string,
+    getCheckRollModeFor: function getSaveRollModeFor(abilityId: string): string,
     getTokenForActor: function getTokenForActor(actor: Actor): Token | undefined,
     getTokenForActorAsSet: function getTokenForActorAsSet(actor: Actor): Set<Token>,
     getTokenPlayerName: function getTokenPlayerName(token: Token | TokenDocument | string): string,
@@ -699,7 +711,7 @@ function setupMidiQOLApi() {
   ];
 
   let humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "drow", "dwarf", "dwarven", "halfling", "gnome", "tiefling", "orc", "dragonborn", "half-orc"];
-  const Workflows = { "Workflow": Workflow, "DamageOnlyWorkflow": DamageOnlyWorkflow, "TrapWorkflow": TrapWorkflow, "DummyWorkflow": DummyWorkflow, "DDBGameLogWorkflow": DDBGameLogWorkflow };
+  const Workflows = { "Workflow": ActivityWorkflow, "DamageOnlyWorkflow": DamageOnlyWorkflow, "TrapWorkflow": TrapWorkflow, "DummyWorkflow": DummyWorkflow, "DDBGameLogWorkflow": DDBGameLogWorkflow };
   //@ts-ignore
   globalThis.MidiQOL = foundry.utils.mergeObject(globalThis.MidiQOL ?? {}, {
     addConcentration,
@@ -717,6 +729,7 @@ function setupMidiQOLApi() {
     checkRule,
     completeItemRoll,
     completeItemUse,
+    completeActivityUse,
     computeCoverBonus,
     computeDistance: getDistanceSimple,
     ConfigPanel,
@@ -746,6 +759,8 @@ function setupMidiQOLApi() {
     getDistance: getDistanceSimpleOld,
     geti18nOptions,
     geti18nTranslations,
+    getSaveRollModeFor,
+    getCheckRollModeFor,
     getTokenPlayerName,
     getTokenForActor,
     getTokenForActorAsSet,
@@ -802,9 +817,10 @@ function setupMidiQOLApi() {
     validRollAbility,
     WallsBlockConditions,
     warn,
-    Workflow,
+    Workflow: ActivityWorkflow,
+    ActivityWorkflow,
     UserWorkflow,
-    workflowClass: Workflow,
+    workflowClass: ActivityWorkflow,
     Workflows,
     moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }, animate: boolean = true) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;

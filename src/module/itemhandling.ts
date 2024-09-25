@@ -139,11 +139,11 @@ export async function preTemplateTargets(activity, options, pressedKeys): Promis
   return true;
 }
 
-export async function postTemplateConfirmTargets(item, options, pressedKeys, workflow): Promise<boolean> {
-  if (!itemRequiresPostTemplateConfiramtion(item)) return true;
-  if (requiresTargetConfirmation(item, options)) {
+export async function postTemplateConfirmTargets(activity, options, pressedKeys, workflow): Promise<boolean> {
+  if (!itemRequiresPostTemplateConfiramtion(activity.item)) return true;
+  if (requiresTargetConfirmation(activity.item, options)) {
     let result = true;
-    result = await resolveTargetConfirmation(item, options, pressedKeys);
+    result = await resolveTargetConfirmation(activity, options, pressedKeys);
     if (result && game.user?.targets) workflow.targets = new Set(game.user.targets)
     return result === true;
   }
@@ -762,7 +762,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
       for (let targetToken of workflow.targets) {
         promises.push(new Promise(async resolve => {
           //@ts-expect-error targetToken Type
-          const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: foundry.utils.mergeObject(workflow.workflowOptions, { sourceActorUuid: this.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
+          const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: foundry.utils.mergeObject(workflow.workflowOptions, {activity: workflow.activity, sourceActorUuid: this.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
           if (result?.name) {
             //@ts-expect-error _initialize()
             targetToken.actor?._initialize();
@@ -1133,10 +1133,8 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     if (this.system.actionType === "heal" && !Object.keys(GameSystemConfig.healingTypes).includes(workflow.defaultDamageType ?? "")) workflow.defaultDamageType = "healing";
 
     await workflow.setDamageRolls(result);
-    if (workflow.workflowOptions?.damageRollDSN !== false) {
-      let promises = result.map(r => displayDSNForRoll(r, "damageRoll"));
-      await Promise.all(promises);
-    }
+    await displayDSNForRoll(result, "damageRoll");
+
     result = await processDamageRollBonusFlags.bind(workflow)();
     if (result instanceof Array) await workflow.setDamageRolls(result);
     else await workflow.setDamageRolls[result];
@@ -1425,28 +1423,28 @@ export async function wrappedDisplayCard(wrapped, options) {
   }
 }
 
-export async function resolveTargetConfirmation(item, options: any = {}, pressedKeys?: any): Promise<boolean> {
+export async function resolveTargetConfirmation(activity, options: any = {}, pressedKeys?: any): Promise<boolean> {
   const savedSettings = { control: ui.controls?.control?.name, tool: ui.controls?.tool };
   const savedActiveLayer = canvas?.activeLayer;
   await canvas?.tokens?.activate();
   ui.controls?.initialize({ tool: "target", control: "token" })
 
-  const wasMaximized = !(item.actor.sheet?._minimized);
+  const wasMaximized = !(activity.actor.sheet?._minimized);
   // Hide the sheet that originated the preview
-  if (wasMaximized) await item.actor.sheet.minimize();
+  if (wasMaximized) await activity.actor.sheet.minimize();
 
   let targets = new Promise((resolve, reject) => {
     // no timeout since there is a dialog to close
     // create target dialog which updates the target display
     options = foundry.utils.mergeObject(options, { callback: resolve, pressedKeys });
-    let targetConfirmation = new TargetConfirmationDialog(item.actor, item, game.user, options).render(true);
+    let targetConfirmation = new TargetConfirmationDialog(activity.actor, activity.item, game.user, options).render(true);
   });
   let shouldContinue = await targets;
   if (savedActiveLayer) await savedActiveLayer.activate();
   if (savedSettings.control && savedSettings.tool)
     //@ts-ignore savedSettings.tool is really a string
     ui.controls?.initialize(savedSettings);
-  if (wasMaximized) await item.actor.sheet.maximize();
+  if (wasMaximized) await activity.actor.sheet.maximize();
   return shouldContinue ? true : false;
 }
 

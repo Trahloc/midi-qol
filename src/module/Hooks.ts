@@ -175,6 +175,7 @@ export let readyHooks = async () => {
 }
 
 function registerBaBonusHooks() {
+  //TODO migrate all of these to v2 once babonus is dnd5e 4.0 ready
   if (!game.modules.get("babonus")?.active) return;
   // Midi sets fastForward to true for most of these rolls - based on roll settings
   // need to handle the cases where there is an optional babonus defined and disable fastforward.
@@ -304,7 +305,7 @@ export function initHooks() {
   });
 
   Hooks.on("deleteChatMessage", (message, options, user) => {
-    if (message.user.id !== game.user?.id) return;
+    if (message.author.id !== game.user?.id) return;
     const workflowId = foundry.utils.getProperty(message, "flags.midi-qol.workflowId");
     if (workflowId && Workflow.getWorkflow(workflowId)) Workflow.removeWorkflow(workflowId)
   });
@@ -611,7 +612,7 @@ export function initHooks() {
         });
       }
       //@ts-expect-error
-      if (foundry.utils.isNewerVersion(game.system.version, "2.2") && game.system.id === "dnd5e") {
+      if (false && foundry.utils.isNewerVersion(game.system.version, "2.2") && game.system.id === "dnd5e") {
         if (["creature", "ally", "enemy"].includes(item.system.target?.type) && !item.hasAreaTarget) { // stop gap for dnd5e2.2 hiding this field sometimes
           const targetElement = html.find('select[name="system.target.type"]');
           const targetUnitHTML = `
@@ -1052,7 +1053,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             case "non-silver-pysical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("sil")) continue;
               break;
-            case "non-adamant-physical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("adm")) continue; break
+            case "non-adamant-physical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("ada")) continue; break
             default: if (!damage.properties.has(custom)) continue; break;
           }
           damage.active[custom] = true;
@@ -1146,7 +1147,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           case "non-adamant-physical":
             selectedDamage = damages.reduce((total, damage) => {
               //@ts-expect-error
-              const isAdamant = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("adm");
+              const isAdamant = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("ada");
               return total + (isAdamant ? damage.value : 0);
             }, 0);
             if (selectedDamage > 0) drActive = i18n("midi-qol.NonAdamantinePhysical");

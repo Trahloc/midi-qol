@@ -3824,10 +3824,10 @@ export class Workflow {
     if (!game.user?.isGM || !checkRule("activeDefenceShowGM")) {
       switch (message.flags?.lmrtfy?.data?.mode) {
         case "blindroll": if (!game.user?.isGM) html.hide(); break;
-        case "gmroll": if (!game.user?.isGM && message.user !== game.user?.id) html.hide(); break;
-        case "selfroll": if (game.user?.id !== message.user) html.hide(); break;
+        case "gmroll": if (!game.user?.isGM && message.author !== game.user?.id) html.hide(); break;
+        case "selfroll": if (game.user?.id !== message.author) html.hide(); break;
         default:
-          if (game.user?.id !== message.user
+          if (game.user?.id !== message.author
             && !["allShow"].includes(configSettings.autoCheckSaves)) html.hide();
       }
     }
@@ -3862,7 +3862,7 @@ export class Workflow {
       }
       handler(message.rolls[0])
     }
-    if (game.user?.id !== message.user.id && !isLMRTFY && !["allShow"].includes(configSettings.autoCheckSaves)) {
+    if (game.user?.id !== message.author.id && !isLMRTFY && !["allShow"].includes(configSettings.autoCheckSaves)) {
       setTimeout(() => html.remove(), 100);
     }
     return true;
@@ -4529,7 +4529,7 @@ export class Workflow {
 export class UserWorkflow extends Workflow {
 }
 
-export class DamageOnlyWorkflow extends Workflow {
+export class OldDamageOnlyWorkflow extends Workflow {
   //@ts-expect-error dnd5e v10
   constructor(actor: globalThis.dnd5e.documents.Actor5e, token: Token, damageTotal: number, damageType: string, targets: [Token], roll: Roll,
     options: { flavor: string, itemCardId: string, itemCardUuid: string, damageList: [], useOther: boolean, itemData: any, isCritical: boolean, item?: Item }) {
@@ -4651,7 +4651,7 @@ export class DamageOnlyWorkflow extends Workflow {
 
 }
 
-export class TrapWorkflow extends Workflow {
+export class OldTrapWorkflow extends Workflow {
   templateLocation: { x: number, y: number, direction?: number, removeDelay?: number } | undefined;
   saveTargets: any;
 

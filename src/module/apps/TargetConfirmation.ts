@@ -1,6 +1,6 @@
 import { i18n, error, i18nFormat } from "../../midi-qol.js";
 import { checkMechanic, checkRule, configSettings, targetConfirmation } from "../settings.js";
-import { FULL_COVER, HALF_COVER, THREE_QUARTERS_COVER, checkRange, computeCoverBonus, computeFlankingStatus, getIconFreeLink, getLinkText, getToken, isTargetable, markFlanking, tokenForActor } from "../utils.js";
+import { FULL_COVER, HALF_COVER, THREE_QUARTERS_COVER, activityHasAreaTarget, checkRange, computeCoverBonus, computeFlankingStatus, getIconFreeLink, getLinkText, getToken, isTargetable, markFlanking, tokenForActor } from "../utils.js";
 import { getAutoRollAttack, getTokenPlayerName, isAutoFastAttack } from "../utils.js";
 import { TroubleShooter } from "./TroubleShooter.js";
 
@@ -10,7 +10,7 @@ export class TargetConfirmationDialog extends Application {
     //@ts-ignore
     actor: CONFIG.Actor.documentClass,
     //@ts-ignore
-    item: CONFIG.Item.documentClass,
+    activity: CONFIG.Item.documentClass,
     user: User | null,
     targets: Token[],
     options: any
@@ -18,9 +18,9 @@ export class TargetConfirmationDialog extends Application {
   hookId: number;
 
   //@ts-ignore .Actor, .Item
-  constructor(actor: CONFIG.Actor.documentClass, item: CONFIG.Item.documentClass, user, options: any = {}) {
+  constructor(actor: CONFIG.Actor.documentClass, activity, user, options: any = {}) {
     super(options);
-    this.data = { actor, item, user, targets: [], options }
+    this.data = { actor, activity, user, targets: [], options }
 
     // Handle alt/ctrl etc keypresses when completing the dialog
     this.callback = function (value) {
@@ -31,7 +31,7 @@ export class TargetConfirmationDialog extends Application {
       return options.callback ? options.callback(value) : value;
     }
     if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking")) && game.user?.targets) {
-      const actor = this.data.item.actor;
+      const actor = this.data.activity.actor;
       const token = tokenForActor(actor);
       if (token)
         for (let target of game.user?.targets)
@@ -91,7 +91,7 @@ export class TargetConfirmationDialog extends Application {
       if (VideoHelper.hasVideoExtension(img)) {
         img = await game.video.createThumbnail(img, { width: 50, height: 50 });
       }
-      const actor = this.data.item.actor;
+      const actor = this.data.activity.actor;
       const token = tokenForActor(actor);
       let details: string[] = [];
       if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking"))) {
@@ -99,8 +99,8 @@ export class TargetConfirmationDialog extends Application {
       }
 
       let attackerToken = token;
-      if (token && checkMechanic("checkRange") !== "none" && (["mwak", "msak", "mpak", "rwak", "rsak", "rpak"].includes(this.data.item.system.actionType))) {
-        const { result, attackingToken } = checkRange(this.data.item, token, new Set([target]), false);
+      if (token && checkMechanic("checkRange") !== "none" && (["mwak", "msak", "mpak", "rwak", "rsak", "rpak"].includes(this.data.activity.actionType))) {
+        const { result, attackingToken } = checkRange(this.data.activity.item, token, new Set([target]), false);
         if (attackingToken) attackerToken = attackingToken;
         switch (result) {
           case "normal":
@@ -116,9 +116,10 @@ export class TargetConfirmationDialog extends Application {
       }
       // TODO look at doing save cover bonus calculations here - need the template
       if (typeof configSettings.optionalRules.coverCalculation === "string" && configSettings.optionalRules.coverCalculation !== "none") {
-        const isRangeTargeting = ["ft", "m"].includes(this.data.item?.system.target?.units) && ["creature", "ally", "enemy"].includes(this.data.item?.system.target?.type);
-        if (!this.data.item?.hasAreaTarget && !isRangeTargeting) {
-          const targetCover = attackerToken ? computeCoverBonus(attackerToken, target, this.data.item) : 0;
+        // TODO confirm this is right for auto template targeting.
+        const isRangeTargeting = ["ft", "m"].includes(this.data.activity.range?.units) && ["creature", "ally", "enemy"].includes(this.data.activity.affects.type);
+        if (!activityHasAreaTarget(this.data.activity) && !isRangeTargeting) {
+          const targetCover = attackerToken ? computeCoverBonus(attackerToken, target, this.data.activity.item) : 0;
           switch (targetCover) {
             case HALF_COVER:
               details.push(`${i18n("DND5E.CoverHalf")} ${i18n("DND5E.Cover")}`);
@@ -164,9 +165,9 @@ export class TargetConfirmationDialog extends Application {
         uuid: target.document.uuid
       });
     }
-    if (this.data.item.system.target) {
-      if (this.data.item.system.target.type === "creature" && this.data.item.system.target.units === "" && this.data.item.system.target.value)
-        data.blurb = i18nFormat("midi-qol.TargetConfirmation.Blurb", { targetCount: this.data.item.system.target.value })
+    if (this.data.activity.target) {
+      if (this.data.activity.target.affects.type === "creature")
+        data.blurb = i18nFormat("midi-qol.TargetConfirmation.Blurb", { targetCount: this.data.activity.target.affects.count ?? "any" })
 
       else data.blurb = i18n("midi-qol.TargetConfirmation.BlurbAny");
     }

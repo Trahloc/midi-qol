@@ -21,6 +21,7 @@ export let setupSocket = () => {
   socketlibSocket.register("bonusCheck", _bonusCheck);
   socketlibSocket.register("chooseReactions", localDoReactions);
   socketlibSocket.register("completeItemUse", _completeItemUse);
+  socketlibSocket.register("completeActivityUse", _completeActivityUse);
   socketlibSocket.register("confirmDamageRollComplete", confirmDamageRollComplete);
   socketlibSocket.register("confirmDamageRollCompleteHit", confirmDamageRollCompleteHit);
   socketlibSocket.register("confirmDamageRollCompleteMiss", confirmDamageRollCompleteMiss);
@@ -474,6 +475,18 @@ export async function _applyEffects(data: { workflowId: string, targets: string[
   return result;
 }
 
+async function _completeActivityUse(data: {
+  activityUuid: string, actorUuid: string, config: any, options: any, targetUuids: string[], workflowData: boolean
+}) {
+  if (!game.user) return null;
+  let { activityUuid, actorUuid, config, options } = data;
+  let actor: any = await fromUuid(actorUuid);
+  if (actor.actor) actor = actor.actor;
+
+  const workflow = await completeItemUse(activityUuid, config, options);
+  if (data.options?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
+  else return true;
+}
 async function _completeItemUse(data: {
   itemData: any, actorUuid: string, config: any, options: any, targetUuids: string[], workflowData: boolean
 }) {
@@ -629,12 +642,12 @@ async function _addDependent(data: { concentrationEffectUuid: string, dependentU
   return concentrationEffect.addDependent(dependent);
 }
 
-async function localDoReactions(data: { tokenUuid: string; reactionItemList: ReactionItemReference[], triggerTokenUuid: string, reactionFlavor: string; triggerType: string; options: any }) {
+async function localDoReactions(data: { tokenUuid: string; reactionActivityList: ReactionItemReference[], triggerTokenUuid: string, reactionFlavor: string; triggerType: string; options: any }) {
   if (data.options.itemUuid) {
     data.options.item = MQfromUuidSync(data.options.itemUuid);
   }
   // reactonItemUuidList can't used since magic items don't have a uuid, so must always look them up locally.
-  const result = await promptReactions(data.tokenUuid, data.reactionItemList, data.triggerTokenUuid, data.reactionFlavor, data.triggerType, data.options)
+  const result = await promptReactions(data.tokenUuid, data.reactionActivityList, data.triggerTokenUuid, data.reactionFlavor, data.triggerType, data.options)
   return result;
 }
 
