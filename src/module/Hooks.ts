@@ -162,7 +162,7 @@ export let readyHooks = async () => {
 
   if (isdndv4)
     Hooks.on("dnd5e.preactivityConsumption", preActivityConsumptionHook);
-  else 
+  else
     Hooks.on("dnd5e.preItemUsageConsumption", preItemUsageConsumptionHook);
 
   //@ts-expect-error
@@ -482,7 +482,7 @@ export function initHooks() {
       },
       {
         label: i18n("midi-qol.buttons.damage"),
-        enabled: (params) => params.item.hasDamage,
+        enabled: (params) => params.item.activities.find(a => a.damage?.parts?.length),
         execute: (params) => {
           if (debugEnabled > 1) log('Clicked damage', params);
           params.item.rollDamage({ event: params.event, versatile: false, systemCard: true })
@@ -903,7 +903,18 @@ export const itemJSONData = {
     },
   }
 }
+Hooks.on("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
+  console.error("dnd5e.preRollDamage", rollConfig, dialogConfig, messageConfig)
+  if (rollConfig.subject.actor && rollConfig.subject.isSpell) {
+    const actorSpellBonus = foundry.utils.getProperty(rollConfig.subject.actor, "system.bonuses.spell.all.damage");
+    if (actorSpellBonus) rollConfig.rolls[0].parts.push(actorSpellBonus);
+  }
+  return true;
+});
+
+/*
 Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
+  return true;
   if ((item.parent instanceof Actor && item.type === "spell")) {
     const actor = item.parent;
     const actorSpellBonus = foundry.utils.getProperty(actor, "system.bonuses.spell.all.damage");
@@ -911,7 +922,7 @@ Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
   }
   return preRollDamageHook(item, rollConfig)
 });
-
+*/
 Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
   try {

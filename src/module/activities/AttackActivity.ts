@@ -1,21 +1,41 @@
-import { debugEnabled, warn, i18n, SystemString, log, debug, MODULE_ID, GameSystemConfig, debugCallTiming } from "../../midi-qol.js";
+import { debugEnabled, warn, i18n, SystemString, log, debug, MODULE_ID, GameSystemConfig, debugCallTiming, SchemaField, StringField, NumberField, BooleanField } from "../../midi-qol.js";
 import { ActivityWorkflow } from "../ActivityWorkflow.js";
 import { configSettings } from "../settings.js";
 import { addAdvAttribution, asyncHooksCall, displayDSNForRoll, evalActivationCondition, getAutoRollAttack, getAutoRollDamage, getCachedDocument, getDamageType, getFlankingEffect, getRemoveAttackButtons, getRemoveDamageButtons, getSpeaker, getTokenForActorAsSet, hasDAE, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, sumRolls, tokenForActor, validTargetTokens } from "../utils.js";
 import { configureAttackRoll, configureDamageRoll, confirmCanProceed, confirmTargets, confirmWorkflow, midiUsageChatContext, postProcessDamageRoll, removeFlanking, setupTargets } from "./activityHelpers.js";
 
-var MidiAttackSheet;
-Hooks.once("init", () => {
+export var MidiAttackSheet;
+export var MidiAttackActivity;
+export function setupAttackActivity() {
   //@ts-expect-error
-  MidiAttackSheet = class MidiAttackSaveSheet extends game.system.applications.activity.AttackSheet {
+  MidiAttackSheet = defineMidiAttackSheetClass(game.system.applications.activity.AttackSheet);
+  MidiAttackActivity = defineMidiAttackActivityClass(GameSystemConfig.activityTypes.attack.documentClass);
+  if (configSettings.replaceDefaultActivities) {
+    GameSystemConfig.activityTypes["dnd5eAttack"] = GameSystemConfig.activityTypes.attack;
+    GameSystemConfig.activityTypes["midiAttack"] = {documentClass: MidiAttackActivity};
+    GameSystemConfig.activityTypes.attack = {documentClass: MidiAttackActivity};
+  } else {
+    GameSystemConfig.activityTypes["midiAttack"] = {documentClass: MidiAttackActivity};
+  }
+}
+
+export function defineMidiAttackSheetClass(baseClass: any) {
+  return class MidiAttackActivitySheet extends baseClass {
     static PARTS = {
       ...super.PARTS,
+      identity: {
+        template: "systems/dnd5e/templates/activity/attack-identity.hbs",
+        templates: [
+          ...super.PARTS.identity.templates,
+          "systems/dnd5e/templates/activity/parts/attack-identity.hbs"
+        ]
+      },
       effect: {
-        template: "systems/dnd5e/templates/activity/attack-effect.hbs",
+        template: "modules/midi-qol/templates/activity/attack-effect.hbs",
         templates: [
           ...super.PARTS.effect.templates,
           "systems/dnd5e/templates/activity/parts/attack-damage.hbs",
-          "systems/dnd5e/templates/activity/parts/attack-details.hbs",
+          "modules/midi-qol/templates/activity/parts/attack-details.hbs",
           "systems/dnd5e/templates/activity/parts/damage-part.hbs",
           "systems/dnd5e/templates/activity/parts/damage-parts.hbs"
         ]
@@ -23,29 +43,50 @@ Hooks.once("init", () => {
     }
 
     async _prepareEffectContext(context) {
-      context = super._prepareEffectContext(context);
-      console.error(context);
+      context = await super._prepareEffectContext(context);
+      console.error(context, this.item)
+      context.attackModeOptions = this.item.system.attackModes;
       return context;
     }
 
-    async _prepareIdentityContext(context) {
-      context = super._prepareIdentityContext(context);
-      console.error(context);
-      return context;
-    }
+    _prepareSubmitData(event, formData) {
+      console.error("preparesumbitdata", formData)
+      const attackMode = formData["flags.attack.attackMode"];
+      if (attackMode) {
+        formData["flags.attack.attackMode"] = attackMode;
+      }
+    let submitData = super._prepareSubmitData(event, formData);
+    return submitData;
   }
-});
 
+  }
+}
 export function defineMidiAttackActivityClass(baseClass: any) {
-  return class MidiAttackSaveActivity extends baseClass {
+  return class MidiAttackActivity extends baseClass {
     static defineSchema() {
       const schema = {
         ...super.defineSchema(),
         //@ts-expect-error
         flags: new foundry.data.fields.ObjectField(),
-      }
-      //@ts-expect-error
-      schema.attack["attackMode"] = new foundry.data.fields.StringField({ default: "onehanded" });
+        attack: new SchemaField({
+          ability: new StringField(),
+          //@ts-expect-error
+          bonus: new game.system.dataModels.fields.FormulaField(),
+          critical: new SchemaField({
+            threshold: new NumberField({ integer: true, positive: true })
+          }),
+          flat: new BooleanField(),
+          type: new SchemaField({
+            value: new StringField(),
+            classification: new StringField()
+          }),
+          attackMode: new StringField({ name: "attackMode", label: "Attack Mode", initial: "oneHanded", choices: ["oneHanded", "twoHanded", "thrown", "offhand", "thrown-offhand"] })
+      
+      })
+    };
+    console.error(schema)
+      //@ ts-expect-error
+      // schema.attack.fields["attackMode"] = new foundry.data.fields.StringField({ name: "attackMode", parent: schema.attack, label: "Attack Mode", initial: "oneHanded", choices: ["oneHanded", "twoHanded", "thrown", "offhand", "thrown-offhand"] });
       return schema;
     }
 
@@ -60,7 +101,7 @@ export function defineMidiAttackActivityClass(baseClass: any) {
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
         sheetClass: MidiAttackSheet,
-        title: i18n("midi." + super.metadata.title),
+        title: "midi-qol.ATTACK.Title.one",
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },

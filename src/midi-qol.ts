@@ -17,7 +17,7 @@ import { addUndoChatMessage, getUndoQueue, removeMostRecentWorkflow, showUndoQue
 import { showUndoWorkflowApp } from './module/apps/UndoWorkflow.js';
 import { TroubleShooter } from './module/apps/TroubleShooter.js';
 import { TargetConfirmationDialog } from './module/apps/TargetConfirmation.js';
-import { defineMidiAttackActivityClass } from './module/activities/AttackActivity.js';
+import { setupAttackActivity } from './module/activities/AttackActivity.js';
 
 
 export let debugEnabled = 0;
@@ -142,21 +142,20 @@ Hooks.once("init", () => {
   CONFIG.ChatMessage.documentClass = defineChatMessageMidiClass(CONFIG.ChatMessage.documentClass);
 });
 
+function setupActvities() {
+  setupAttackActivity();
+  setupSaveActivity();
+  setupAttackAndSaveActivity();
+}
 
+export var MidiAttackActivity;
 Hooks.once('init', async function () {
+  //@ts-expect-error
+  GameSystemConfig = game.system.config;
   //@ts-expect-error
   if (game.release.generation < 12) Math.clamp = Math.clamped;
   log('Initializing midi-qol');
-
-  //@ts-expect-error
-  const midiAttackActivity = defineMidiAttackActivityClass(game.system.config.activityTypes.attack.documentClass);
-  //@ts-expect-error
-  game.system.config.activityTypes.attack.documentClass = midiAttackActivity;
-  //@ts-expect-error
-  game.system.config.activityTypes["midiAttack"] = {documentClass: midiAttackActivity};
-  //@ts-expect-error
-  game.system.config.activityTypes.save.documentClass = defineMidiSaveActivityClass(game.system.config.activityTypes.save.documentClass);
-
+  setupActvities();
   //@ts-expect-error
   const systemVersion = game.system.version;
   Hooks.once('dfreds-convenient-effects.ready()', () => {
@@ -167,8 +166,6 @@ Hooks.once('init', async function () {
   //@ts-expect-error
   if (game.release.generation < 12 && !Math.clamp) Math.clamp = Math.clamped;
 
-  //@ts-expect-error
-  GameSystemConfig = game.system.config;
   GameSystemConfig.damageTypes["none"] = { label: i18n("midi-qol.noType"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
   GameSystemConfig.damageTypes["midi-none"] = { label: i18n("midi-qol.midi-none"), icon: `systems/${game.system.id}/icons/svg/trait-damage-immunities.svg` };
   SystemString = game.system.id.toUpperCase();
@@ -588,7 +585,8 @@ Hooks.once('ready', function () {
 import { setupMidiTests } from './module/tests/setupTest.js';
 import { TargetConfirmationConfig } from './module/apps/TargetConfirmationConfig.js';
 import { defineChatMessageMidiClass } from './module/ChatMessageMidi.js';
-import { defineMidiSaveActivityClass } from './module/activities/SaveActivity.js';
+import { setupSaveActivity } from './module/activities/SaveActivity.js';
+import { setupAttackAndSaveActivity } from './module/activities/AttackAndSaveActivity.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });

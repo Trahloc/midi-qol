@@ -181,6 +181,7 @@ class ConfigSettings {
   weaponUseSound: string = "";
   weaponUseSoundRanged: string = "";
   rollAlternate: string = "off";
+  replaceDefaultActivities: boolean = true;
   optionalRules: any = {
     invisAdvantage: "RAW",
     hiddenAdvantage: "none",
@@ -346,6 +347,8 @@ export let fetchParams = () => {
   const promptDamageRoll = configSettings.promptDamageRoll ?? false;
   //@ts-ignore
   configSettings = game.settings.get("midi-qol", "ConfigSettings");
+  //TODO create a config.html for this
+  if (configSettings.replaceDefaultActivities === undefined) configSettings.replaceDefaultActivities = true;
   if (configSettings.saveDROrder === undefined) configSettings.saveDROrder = "DRSavedr";
   if (!configSettings.fumbleSound) configSettings.fumbleSound = CONFIG.sounds["dice"];
   if (!configSettings.criticalSound) configSettings.criticalSound = CONFIG.sounds["dice"];

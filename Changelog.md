@@ -6,6 +6,9 @@
 ### 12.4.0
 * Removed support for non-merge card case.
 
+### 11.6.18
+* Fix for targets being incorrectly set when initialising workflow if no token is attached to a workflow.
+
 ### 11.6.16
 * Fix for error when checking canSense when casting spells/features
 

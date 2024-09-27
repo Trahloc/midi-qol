@@ -1,20 +1,39 @@
-import { debugEnabled, warn } from "../../midi-qol.js";
+import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { ActivityWorkflow } from "../ActivityWorkflow.js";
+import { configSettings } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
 import { configureDamageRoll, confirmCanProceed, confirmTargets, confirmWorkflow, midiUsageChatContext, postProcessDamageRoll, setupTargets } from "./activityHelpers.js";
 
+export var MidiSaveActivity;
+
+export function setupSaveActivity() {
+  //@ts-expect-error
+  const GameSystemConfig = game.system.config;
+  MidiSaveActivity = defineMidiSaveActivityClass(GameSystemConfig.activityTypes.save.documentClass);
+  if (configSettings.replaceDefaultActivities) {
+    GameSystemConfig.activityTypes["dnd5eSave"] = GameSystemConfig.activityTypes.save;
+    GameSystemConfig.activityTypes.save = {documentClass: MidiSaveActivity};
+    GameSystemConfig.activityTypes["midiSave"] = {documentClass: MidiSaveActivity};
+  } else {
+    GameSystemConfig.activityTypes["midiSave"] = {documentClass: MidiSaveActivity};
+  }
+}
+
 export function defineMidiSaveActivityClass(baseClass: any) {
-  return class MidiAttackActivity extends baseClass {
+  return class MidiSaveActivity extends baseClass {
     targetsToUse: Set<Token>;
     _activityWorkflow: ActivityWorkflow;
     get activityWorkflow() { return this._activityWorkflow; }
     set activityWorkflow(value) { this._activityWorkflow = value; }
-    static metaData = foundry.utils.mergeObject(super.metadata, {
-      usage: { chatCard: "modules/midi-qol/templates/activity-card.hbs" },
-    })
-    get actionType() {
-      return "save";
-    }
+    static metadata =
+    foundry.utils.mergeObject(
+      foundry.utils.mergeObject({}, super.metadata), {
+      title: "midi-qol.SAVE.Title.one",
+      usage: {
+        chatCard: "modules/midi-qol/templates/activity-card.hbs",
+      },
+    }, {overwrite: true})
+
 
     async use(config, dialog, message) {
       if (!this.item.isEmbedded) return;
@@ -49,11 +68,12 @@ export function defineMidiSaveActivityClass(baseClass: any) {
       this.activityWorkflow.performState(this.activityWorkflow.WorkflowState_Start, {});
       return results;
     }
+
     async rollDamage(config, dialog, message: any = {}) {
       console.error("MidiQOL | SaveActivity | rollDamage | Called", config, dialog, message);
-      if (await asyncHooksCall("midi-qol.preDamageRoll", this.activityWorkflow) === false 
-      || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.activityWorkflow) === false
-      || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.activityWorkflow) === false) {
+      if (await asyncHooksCall("midi-qol.preDamageRoll", this.activityWorkflow) === false
+        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.activityWorkflow) === false
+        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.activityWorkflow) === false) {
         console.warn("midi-qol | Damage roll blocked via pre-hook");
         return;
       }
@@ -97,11 +117,11 @@ export function defineMidiSaveActivityClass(baseClass: any) {
       }
       return rollConfig;
     }
-    
+
     async _usageChatContext(message) {
       const context = await super._usageChatContext(message);
       return midiUsageChatContext(this, context);
     }
   }
-  
+
 }

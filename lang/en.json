@@ -942,10 +942,16 @@
   "midi-qol.CollapsibleTargets.Hint": "The Hit/Miss target display in the chat card are collapsible",
   "midi-qol.AutoRemoveInstantaneousTemplate.Name": "Auto remove instantaneous templates",
   "midi-qol.AutoRemoveInstantaneousTemplate.Hint": "Templates placed by an item with duration instantaneous are removed at the end of the item roll",
-  "midi.DND5E.ATTACK": {
+  "midi-qol.ATTACK": {
     "Title": {
       "one": "Midi Attack",
       "other": "Midi Attacks"
+    }
+  },
+  "midi-qol.SAVE": {
+    "Title": {
+      "one": "Midi Save",
+      "other": "Midi Saves"
     }
   }
 }
