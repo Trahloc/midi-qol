@@ -1200,15 +1200,17 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           }
         }
       }
-      const totalDamage = damages.reduce((a, b) => a + b.value, 0);
-      if (totalDamage > 0 && totalDamage < actor.system.attributes.hp.dt) {
-        // total damage is less than the damage threshold so no damage
-        drAll = -totalDamage;
-      } else if (Math.sign(totalDamage) !== Math.sign(drAll + totalDamage)) {
-        drAll = -totalDamage;
-      }
       if (drAll) {
-        damages.push({ type: "none", value: drAll, active: { DR: true, multiplier: 1 }, allActives: drAllActives, properties: new Set() });
+        const totalDamage = damages.reduce((a, b) => a + b.value, 0);
+        if (totalDamage > 0 && totalDamage < actor.system.attributes.hp.dt) {
+          // total damage is less than the damage threshold so no damage
+          drAll = -totalDamage;
+        } else if (Math.sign(totalDamage) !== Math.sign(drAll + totalDamage)) {
+          drAll = -totalDamage;
+        }
+        if (drAll) {
+          damages.push({ type: "none", value: drAll, active: { DR: true, multiplier: 1 }, allActives: drAllActives, properties: new Set() });
+        }
       }
       Hooks.callAll("midi-qol.dnd5eCalculateDamage", actor, damages, options);
       while (damages.find((di, idx) => {

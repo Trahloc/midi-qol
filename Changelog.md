@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.19.1
+* Fix for bug introduced in 11.6.19
+
 ### 11.6.19
 * Fix for not applying system.traits.dr.midi.xxx when "Only use the most effective Damage Reduction" is set to on.
 
