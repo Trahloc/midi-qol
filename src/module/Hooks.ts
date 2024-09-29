@@ -909,6 +909,7 @@ Hooks.on("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
     const actorSpellBonus = foundry.utils.getProperty(rollConfig.subject.actor, "system.bonuses.spell.all.damage");
     if (actorSpellBonus) rollConfig.rolls[0].parts.push(actorSpellBonus);
   }
+  // return preRollDamageHook(item, rollConfig)
   return true;
 });
 

@@ -1,4 +1,5 @@
-import { ArrayField, MidiAttackActivity, SchemaField, StringField, i18n } from "../../midi-qol.js";
+import { ArrayField, SchemaField, StringField, i18n } from "../../midi-qol.js";
+import { MidiAttackActivity, MidiAttackSheet } from "./AttackActivity.js";
 
 export var MidiAttackAndSaveActivity;
 export var MidiAttackAndSaveSheet;
@@ -6,9 +7,8 @@ export var MidiAttackAndSaveSheet;
 export function setupAttackAndSaveActivity() {
   //@ts-expect-error
   const GameSystemConfig = game.system.config;
-  //@ts-expect-error
-  MidiAttackAndSaveSheet = game.system.applications.activity.AttackSheet;
-  MidiAttackAndSaveActivity = defineMidiAttackAndSaveActivityClass(GameSystemConfig.activityTypes.attack.documentClass);
+  MidiAttackAndSaveSheet = defineMidiAttackAndSaveActivitySheetClass(MidiAttackSheet);
+  MidiAttackAndSaveActivity = defineMidiAttackAndSaveActivityClass(MidiAttackActivity);
   GameSystemConfig.activityTypes["midiAttackAndSave"] = {documentClass: MidiAttackAndSaveActivity};
   //@ ts-expect-error
   // game.system.documents["AttackAndSave"] = MidiAttackAndSaveActivity;
@@ -19,15 +19,17 @@ export function defineMidiAttackAndSaveActivitySheetClass(baseClass: any) {
     static PARTS = {
       ...super.PARTS,
       effect: {
-        template: "systems/dnd5e/templates/activity/attack-effect.hbs",
+        template: "modules/midi-qol/templates/activity/attackAndSave-effect.hbs",
         templates: [
           ...super.PARTS.effect.templates,
+/*
           "systems/dnd5e/templates/activity/parts/attack-damage.hbs",
           "systems/dnd5e/templates/activity/parts/attack-details.hbs",
           "systems/dnd5e/templates/activity/parts/damage-part.hbs",
           "systems/dnd5e/templates/activity/parts/damage-parts.hbs",
-          "systems/dnd5e/templates/activity/parts/save-damage.hbs",
+*/
           "systems/dnd5e/templates/activity/parts/save-details.hbs",
+          "systems/dnd5e/templates/activity/parts/save-damage.hbs",
         ]
       }
     }

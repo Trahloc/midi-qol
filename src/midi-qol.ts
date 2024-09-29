@@ -148,7 +148,6 @@ function setupActvities() {
   setupAttackAndSaveActivity();
 }
 
-export var MidiAttackActivity;
 Hooks.once('init', async function () {
   //@ts-expect-error
   GameSystemConfig = game.system.config;
