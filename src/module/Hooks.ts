@@ -1080,7 +1080,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
 
     let drAllActives: string[] = [];
     // Insert DR.ALL as a -ve damage value maxed at the total damage.
-    let drAll = 0;
+    let drAll;
     if (options.ignore !== true && !options.ignore?.DR?.has("none") && !options.ignore?.DR?.has("all")) {
       // think about how to do custom dm.const specials = [...(actor.system.traits.dm.custom ?? []).split(";"), ...Object.keys(actor.system.traits.dm?.midi ?? {})];
       const specials = Object.keys(actor.system.traits.dm?.midi ?? {});
@@ -1191,12 +1191,12 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           if (Math.sign(selectedDamage + dr) !== Math.sign(selectedDamage)) {
             dr = -selectedDamage
           }
-          if (checkRule("maxDRValue") && dr < drAll) {
+          if (checkRule("maxDRValue") && (dr < drAll || drAll === undefined)) {
             drAll = dr;
             drAllActives = [drActive];
           } else if (!checkRule("maxDRValue")) {
             drAllActives.push(drActive);
-            drAll += dr;
+            drAll = (drAll ?? 0) + dr;
           }
         }
       }

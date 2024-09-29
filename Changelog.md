@@ -3,6 +3,12 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.19
+* Fix for not applying system.traits.dr.midi.xxx when "Only use the most effective Damage Reduction" is set to on.
+
+### 11.6.18
+* Fix for targets being incorrectly set when initialising workflow if no token is attached to a workflow.
+
 ### 11.6.17
 * Fix for aborted tool check rolls throwing an error.
 * Added helper functions, MidiQOL.getSaveRollModeFor(ability), MidiQOL.getCheckRollModeFor(ability) which return the roll mode that mid would use when rolling a save for a player.
