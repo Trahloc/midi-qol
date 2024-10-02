@@ -1,5 +1,5 @@
 import { geti18nOptions, i18n } from "../../midi-qol.js";
-import { Workflow } from "../workflow.js";
+import { Workflow } from "../Workflow.js";
 import { getCurrentMacros, getCurrentSourceMacros, OnUseMacros } from "./Item.js";
 
 export class ActorOnUseMacrosConfig extends FormApplication {

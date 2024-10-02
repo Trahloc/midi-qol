@@ -1,5 +1,5 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MODULE_ID } from "../midi-qol.js";
-import { DummyWorkflow, Workflow } from "./workflow.js";
+import { DummyWorkflow, Workflow } from "./Workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
 import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee, createConditionData, evalCondition, MQfromUuidSync, getFlankingEffect, CERemoveEffect } from "./utils.js";
 import { installedModules } from "./setupModules.js";
@@ -150,6 +150,7 @@ export async function postTemplateConfirmTargets(activity, options, pressedKeys,
   return true;
 }
 
+/*
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   if (debugEnabled > 0) {
     warn("doItemUse called with", this.name, config, options, game.user?.targets);
@@ -168,7 +169,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           previousWorkflow.aborted = true;
           await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
         } else {
-          //@ts-expect-error
+          //@ ts-expect-error
           switch (await Dialog.wait({
             title: game.i18n.format("midi-qol.WaitingForPreviousWorkflow", { name: this.name }),
             default: "cancel",
@@ -288,7 +289,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       game.user?.targets?.clear();
       const targetids = (options.targetUuids ?? []).map(uuid => {
         const targetDocument = MQfromUuidSync(uuid);
-        //@ts-expect-error .object
+        //@ ts-expect-error .object
         return targetDocument instanceof TokenDocument ? targetDocument.object.id : ""
       });
       game.user?.updateTokenTargets(targetids);
@@ -342,7 +343,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if ((!targetConfirmationHasRun && ((this.system.target?.type ?? "") !== "") || configSettings.enforceSingleWeaponTarget)) {
       if (!(await preTemplateTargets(this, options, pressedKeys)))
         return null;
-      //@ts-expect-error
+      //@ ts-expect-error
       if ((options.targetsToUse?.size ?? 0) === 0 && game.user?.targets) targetsToUse = game.user?.targets;
     }
 
@@ -546,10 +547,10 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const target = getToken(tokenRef);
       if (!target) continue;
       if (
-        //@ts-expect-error - sight not enabled but we are treating it as if it is
+        //@ ts-expect-error - sight not enabled but we are treating it as if it is
         (!target.document.sight.enabled && configSettings.optionalRules.invisVision)
         || (target.document.actor?.type === "npc")
-        //@ts-expect-error - sight enabled but not the owner of the token
+        //@t s-expect-error - sight enabled but not the owner of the token
         || (!target.isOwner && target.document.sight.enabled)
         || (!target.vision || !target.vision?.los)) {
         initializeVision(target);
@@ -562,7 +563,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         const target = getToken(tokenRef);
         if (!target || !target.vision?.los) continue;
         const sourceId = target.sourceId;
-        //@ts-expect-error
+        //@ ts-expect-error
         canvas?.effects?.visionSources.set(sourceId, target.vision);
       }
     }
@@ -638,13 +639,13 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (workflow) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.workflowId`, workflow.id);
       foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.itemUuid`, this.uuid);
 
-      //@ts-expect-error .canvas
+      // @ts-expect-error .canvas
       let template = game.system.canvas.AbilityTemplate.fromItem(item, templateOptions);
       const templateData = template.document.toObject();
       if (this.item) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.itemUuid`, this.item.uuid);
       if (this.actor) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.actorUuid`, this.actor.uuid);
       if (!foundry.utils.getProperty(templateData, `flags.${game.system.id}.origin`)) foundry.utils.setProperty(templateData, `flags.${game.system.id}.origin`, this.item?.uuid);
-      //@ts-expect-error
+      // @ts-expect-error
       const templateDocuments: MeasuredTemplateDocument[] | undefined = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
 
       if (templateDocuments && templateDocuments.length > 0) {
@@ -655,7 +656,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         workflow.template = td;
         workflow.templateId = td?.object?.id;
         if (tokenToUse && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
-          //@ts-expect-error .object
+          // @ts-expect-error .object
           await token.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
           if (workflow && !foundry.utils.getProperty(workflow, "item.flags.walledtemplates.noAutotarget"))
             selectTargets.bind(workflow)(td);
@@ -687,6 +688,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     throw err;
   }
 }
+*/
 
 // export async function doAttackRoll(wrapped, options = { event: { shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }, versatile: false, resetAdvantage: false, chatMessage: undefined, createWorkflow: true, fastForward: false, advantage: false, disadvantage: false, dialogOptions: {}, isDummy: false }) {
 // workflow.advantage/disadvantage/fastforwrd set by settings and conditions
@@ -764,7 +766,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
           //@ts-expect-error targetToken Type
           const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: foundry.utils.mergeObject(workflow.workflowOptions, {activity: workflow.activity, sourceActorUuid: this.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
           if (result?.name) {
-            //@ts-expect-error _initialize()
+            //@ts-expect-error
             targetToken.actor?._initialize();
             // targetToken.actor?.prepareData(); // allow for any items applied to the actor - like shield spell
           }

@@ -4,23 +4,23 @@ import { configSettings } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
 import { configureDamageRoll, confirmCanProceed, confirmTargets, confirmWorkflow, midiUsageChatContext, postProcessDamageRoll, setupTargets } from "./activityHelpers.js";
 
-export var MidiSaveActivity;
+export var MidiUtilityActivity;
 
-export function setupSaveActivity() {
-  if (debugEnabled > 0) warn("MidiQOL | SaveActivity | setupSaveActivity | Called");
+export function setupUtilityActivity() {
+  if (debugEnabled > 0) warn("MidiQOL | UtilityActivity | setupUtilityActivity | Called");
   //@ts-expect-error
   const GameSystemConfig = game.system.config;
-  MidiSaveActivity = defineMidiSaveActivityClass(GameSystemConfig.activityTypes.save.documentClass);
+  MidiUtilityActivity = defineMidiUtilityActivityClass(GameSystemConfig.activityTypes.utility.documentClass);
   if (configSettings.replaceDefaultActivities) {
-    GameSystemConfig.activityTypes["dnd5eSave"] = GameSystemConfig.activityTypes.save;
-    GameSystemConfig.activityTypes.save = { documentClass: MidiSaveActivity };
+    GameSystemConfig.activityTypes["dnd5eUtility"] = GameSystemConfig.activityTypes.utility;
+    GameSystemConfig.activityTypes.utility = { documentClass: MidiUtilityActivity };
   } else {
-    GameSystemConfig.activityTypes["midiSave"] = { documentClass: MidiSaveActivity };
+    GameSystemConfig.activityTypes["midiUtility"] = { documentClass: MidiUtilityActivity };
   }
 }
 
-export function defineMidiSaveActivityClass(baseClass: any) {
-  return class MidiSaveActivity extends baseClass {
+export function defineMidiUtilityActivityClass(baseClass: any) {
+  return class MidiUtilityActivity extends baseClass {
     targetsToUse: Set<Token>;
     _activityWorkflow: Workflow;
     get activityWorkflow() { return this._activityWorkflow; }
@@ -28,7 +28,7 @@ export function defineMidiSaveActivityClass(baseClass: any) {
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
-        title: "midi-qol.SAVE.Title.one",
+        title: "midi-qol.Utility.Title.one",
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
@@ -40,7 +40,7 @@ export function defineMidiSaveActivityClass(baseClass: any) {
       if (!this.item.isOwner) {
         ui.notifications?.error("DND5E.DocumentUseWarn", { localize: true });
       }
-      if (debugEnabled > 0) warn("MidiQOL | SaveActivity | use | Called", config, dialog, message);
+      if (debugEnabled > 0) warn("MidiQOL | UtilityActivity | use | Called", config, dialog, message);
       if (config.systemCard) return super.use(config, dialog, message);
       let previousWorkflow = Workflow.getWorkflow(this.uuid);
       if (previousWorkflow) {
@@ -55,7 +55,7 @@ export function defineMidiSaveActivityClass(baseClass: any) {
       setupTargets(this, config, dialog, message);
       if (!confirmCanProceed(this, config, dialog, message)) return;
       confirmTargets(this);
-      console.error("MidiQOL | SaveActivity | use | Called", config, dialog, message);
+      console.error("MidiQOL | UtilityActivity | use | Called", config, dialog, message);
       if (!this.activityWorkflow) {
         this.activityWorkflow = new Workflow(this.item.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, {});
       }
@@ -69,12 +69,12 @@ export function defineMidiSaveActivityClass(baseClass: any) {
       return results;
     }
 
-    async rollDamage(config, dialog, message: any = {}) {
+    async rollFormula(config, dialog, message: any = {}) {
       console.error("MidiQOL | SaveActivity | rollDamage | Called", config, dialog, message);
-      if (await asyncHooksCall("midi-qol.preDamageRoll", this.activityWorkflow) === false
-        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.activityWorkflow) === false
-        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.activityWorkflow) === false) {
-        console.warn("midi-qol | Damage roll blocked via pre-hook");
+      if (await asyncHooksCall("midi-qol.preFormulaRoll", this.activityWorkflow) === false
+        || await asyncHooksCall(`midi-qol.preFormulaRoll.${this.item.uuid}`, this.activityWorkflow) === false
+        || await asyncHooksCall(`midi-qol.preFormulaRoll.${this.uuid}`, this.activityWorkflow) === false) {
+        console.warn("midi-qol | UtiliatyActivity | Formula roll blocked via pre-hook");
         return;
       }
       Hooks.once("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
@@ -84,12 +84,12 @@ export function defineMidiSaveActivityClass(baseClass: any) {
       })
 
       message.create = false;
-      let result = await super.rollDamage(config, this.dialog, message);
-      result = await postProcessDamageRoll(this, config, result);
+      let result = await super.rollFormula(config, this.dialog, message);
+      // result = await postProcessUtilityRoll(this, config, result);
       if (config.midiOptions.updateWorkflow !== false) {
-        await this.activityWorkflow.setDamageRolls(result);
+        this.activityWorkflow.utilityRolls = result;
         if (this.activityWorkflow.suspended)
-          this.activityWorkflow.unSuspend.bind(this.activityWorkflow)({ damageRoll: result, otherDamageRoll: this.activityWorkflow.otherDamageRoll });
+          this.activityWorkflow.unSuspend.bind(this.activityWorkflow)({ utilityRoll: result, otherDamageRoll: this.activityWorkflow.otherDamageRoll });
       }
       return result;
     }
@@ -112,6 +112,8 @@ export function defineMidiSaveActivityClass(baseClass: any) {
 
     getDamageConfig(config: any = {}) {
       const attackRoll: Roll | undefined = this.activityWorkflow.attackRoll;
+      //@ts-expect-error
+      if (attackRoll) config.attackMode = attackRoll.options.attackMode;
       const rollConfig = super.getDamageConfig(config);
       configureDamageRoll(this, rollConfig);
       for (let roll of rollConfig.rolls) {

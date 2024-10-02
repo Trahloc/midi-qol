@@ -3,7 +3,7 @@ import { applySettings } from "../apps/ConfigPanel.js";
 import { FormBuilder } from "../lib/FormBuilder.js";
 import { configSettings } from "../settings.js";
 import { CEHasEffectApplied, CERemoveEffect, applyTokenDamage, completeItemUse, findNearby } from "../utils.js";
-import { TrapWorkflow } from "../ActivityWorkflow.js";
+import { TrapWorkflow } from "../Workflow.js";
 
 const actor1Name = "actor1";
 const actor2Name = "actor2";

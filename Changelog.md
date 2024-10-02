@@ -5,6 +5,24 @@
 
 ### 12.4.0
 * Removed support for non-merge card case.
+* Midi now uses activities to handle automation. 
+* Midi implements "Midi Attack", "Midi Save", "Midi Utility".
+  - The default midi behaviour is to replace the core activities with the midi versions. Midi then takes over the initiation and configuration of use, rollAttack, rollDamage etc rolls.
+  - The attack acivity adds the ability to specify a save activity that midi will use to roll "other damage" for things like spider bite and so on.
+  - There is a config setting to have midi check that if the only activities on an item and a Midi Attack and Midi Save, midi will automatically merge those and treat the item as if the Midi Save activity is linked to the Midi Attack.
+* Midi Attack activites with effects will always apply the effects if the target is hit.
+* Midi Save activities with effects will apply the effect if the target fails to save or the effect is marked as always apply. If the Save activity is linked to an attack activity then the target must be hit as well for the effects to be applied.
+
+* getSaveMultiplierForItem is now deprecated since all save activities specify the save multiplier to use for the save.
+* The midi properties for save multipliers on the midi tab have been removed.
+
+* None of the midi properties have been migrated to be activity properties, so they remain on the item. This includes activation, other damage and reaction conditions. Eventually they will migrate to the activity rather than the item.
+
+### 11.6.19.1
+* Fix for bug introduced in 11.6.19
+
+### 11.6.19
+* Fix for not applying system.traits.dr.midi.xxx when "Only use the most effective Damage Reduction" is set to on.
 
 ### 11.6.18
 * Fix for targets being incorrectly set when initialising workflow if no token is attached to a workflow.

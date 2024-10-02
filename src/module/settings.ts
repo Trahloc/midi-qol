@@ -6,6 +6,7 @@ import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configureDamageRollDialog } from "./patching.js";
 import { TargetConfirmationConfig } from "./apps/TargetConfirmationConfig.js";
 import { _updateAction } from "./utils.js";
+import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 
 export var itemRollButtons: boolean;
 export var criticalDamage: string;
@@ -70,6 +71,7 @@ class ConfigSettings {
   autoCheckSaves: string = "none";
   autoFastForward: string = "off";
   autoItemEffects: string;
+  autoMergeActivitySave: boolean = false;
   autoRemoveSummonedCreature: boolean = false;
   autoRemoveTemplate: boolean;
   autoRemoveInstantaneousTemplate: boolean;
@@ -405,7 +407,7 @@ export let fetchParams = () => {
   //@ts-ignore
   if (configSettings.autoItemEffects === false) configSettings.autoItemEffects = "off";
   //@ts-ignore
-  if (configSettings.autoItemEffects === true) configSettings.autoItemEffects = "applyRemove";
+  if (configSettings.autoMergeActivitySave === undefined) configSettings.autoMergeActivitySave = true;
   if (configSettings.playerDamageCard === undefined) configSettings.playerDamageCard = "none";
   if (configSettings.playerCardDamageDifferent === undefined) configSettings.playerCardDamageDifferent = true;
   if (configSettings.displayHitResultNumeric === undefined) configSettings.displayHitResultNumeric = false;

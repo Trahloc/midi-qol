@@ -1,0 +1,14 @@
+<fieldset>
+    <legend>
+        <span>{{ localize "DND5E.SAVE.FIELDS.damage.label" }}</span>
+        <button type="button" class="unbutton control-button" data-action="addSaveDamagePart"
+                data-tooltip="DND5E.DAMAGE.Part.Action.Create"
+                aria-label="{{ localize "DND5E.DAMAGE.Part.Action.Create" }}">
+            <i class="fas fa-plus" inert></i>
+        </button>
+    </legend>
+    {{ formField fields.saveDamage.fields.onSave value=source.saveDamage.onSave options=onSaveOptions }}
+    {{ formField fields.saveDamage.fields.includeBase value=source.saveDamage.includeBase }} 
+
+   <!-- {{> "systems/dnd5e/templates/activity/parts/damage-parts.hbs" }} -->
+</fieldset>

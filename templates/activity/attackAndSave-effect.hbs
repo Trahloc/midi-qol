@@ -1,7 +1,9 @@
 <section class="tab activity-{{ tab.id }} {{ tab.cssClass }}" data-tab="{{ tab.id }}" data-group="{{ tab.group }}">
     {{> "modules/midi-qol/templates/activity/parts/attack-details.hbs" }}
     {{> "systems/dnd5e/templates/activity/parts/attack-damage.hbs" }}
-    {{> "systems/dnd5e/templates/activity/parts/save-details.hbs" }}
-    {{> "systems/dnd5e/templates/activity/parts/save-damage.hbs" }}
+    Save Activity
+    {{formField fields.saveActivityUuid value=source.saveActivityUuid options=saveActivityOptions}}
+    Other Activity
+    {{formField fields.otherActivityUuid value=source.otherActivityUuid options=otherActivityOptions}}
     {{> "systems/dnd5e/templates/activity/parts/activity-effects.hbs" }}
 </section>

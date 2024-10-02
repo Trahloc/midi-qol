@@ -1,5 +1,5 @@
 import { debug, warn, i18n, error, debugEnabled, i18nFormat, MODULE_ID } from "../midi-qol.js";
-import { DDBGameLogWorkflow, Workflow } from "./workflow.js";
+import { DDBGameLogWorkflow, Workflow } from "./Workflow.js";
 import { nsaFlag, coloredBorders, configSettings, forceHideRoll, safeGetGameSetting } from "./settings.js";
 import { playerFor, playerForActor, doOverTimeEffect, isInCombat, MQfromUuidSync } from "./utils.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
@@ -427,20 +427,22 @@ export async function onChatCardAction(event) {
     case "attack":
       await activity.rollAttack({
         event,
-        spellLevel,
-        advantage: action === "attack-adv",
-        disadvantage: action === "attack-dis",
-        fastForward: true
+        midiOptions: {
+          spellLevel,
+          advantage: action === "attack-adv",
+          disadvantage: action === "attack-dis",
+          fastForward: true
+        }
       },
-        { configure: false })
+        { configure: action !== "attack" }, {});
       break;
     case "damage-critical":
     case "damage-nocritical":
     case "damage":
       await activity.rollDamage({
         event,
-        rollOptions: { spellLevel, critical: action === 'damage-critical' }
-      }, {}, {})
+        midiOptions: { spellLevel, critical: action === 'damage-critical' }
+      }, {configure: false}, {})
     default:
       break;
   }

@@ -7,7 +7,7 @@ import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./s
 import { checkWounded, checkDeleteTemplate, preUpdateItemActorOnUseMacro, zeroHPExpiry, deathSaveHook } from "./patching.js";
 import { preActivityConsumptionHook, preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
-import { Workflow } from "./workflow.js";
+import { Workflow } from "./Workflow.js";
 import { ActorOnUseMacrosConfig } from "./apps/ActorOnUseMacroConfig.js";
 import { installedModules } from "./setupModules.js";
 
@@ -361,7 +361,6 @@ export function initHooks() {
       hasOtherDamage: ![undefined, ""].includes(item.system.formula) || (item.system.damage?.versatile && !item.system.properties?.has("ver")),
       showHeader: !configSettings.midiFieldsTab,
       midiPropertyLabels: midiProps,
-      SaveDamageOptions: geti18nOptions("SaveDamageOptions"),
       ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions"),
       AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
       AutoTargetOptions: autoTargetOptions,
@@ -397,36 +396,12 @@ export function initHooks() {
           && foundry.utils.getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
           foundry.utils.setProperty(item, `flags.midiProperties.${prop}`, true);
         } else if (foundry.utils.getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
-          if (["saveDamage", "confirmTargets", "otherSaveDamage", "bonusSaveDamage"].includes(prop)) {
+            if (["confirmTargets"].includes(prop)) {
             foundry.utils.setProperty(data, `flags.midiProperties.${prop}`, "default");
           } else foundry.utils.setProperty(data, `flags.midiProperties.${prop}`, false);
         }
       }
       if (!foundry.utils.getProperty(data, "flags.midi-qol.rollAttackPerTarget")) foundry.utils.setProperty(data, "flags.midi-qol.rollAttackPerTarget", "default");
-      if (item.system.formula !== "" || (item.system.damage?.versatile && !item.system.properties?.has("ver"))) {
-        if (data.flags.midiProperties?.fulldam !== undefined && !data.flags.midiProperties["otherSaveDamage"]) {
-          if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["otherSaveDamage"] = "fulldam";
-        }
-        if (data.flags.midiProperties?.halfdam !== undefined && !data.flags.midiProperties["otherSaveDamage"]) {
-          if (data.flags.midiProperties?.halfdam) data.flags.midiProperties["otherSaveDamage"] = "halfdam";
-        }
-        if (data.flags.midiProperties?.nodam !== undefined && !data.flags.midiProperties["otherSaveDamage"]) {
-          if (data.flags.midiProperties?.nodam) data.flags.midiProperties["otherSaveDamage"] = "nodam";
-        }
-      } else {
-        // Migrate existing saving throw damage multipliers to the new saveDamage
-        if (data.flags.midiProperties?.fulldam !== undefined && !data.flags.midiProperties["saveDamage"]) {
-          if (data.flags.midiProperties?.fulldam) data.flags.midiProperties["saveDamage"] = "fulldam";
-        }
-        if (data.flags.midiProperties?.halfdam !== undefined && !data.flags.midiProperties["saveDamage"]) {
-          if (data.flags.midiProperties?.halfdam) data.flags.midiProperties["saveDamage"] = "halfdam";
-        }
-        if (data.flags.midiProperties?.nodam !== undefined && !data.flags.midiProperties["saveDamage"]) {
-          if (data.flags.midiProperties?.nodam) data.flags.midiProperties["saveDamage"] = "nodam";
-        }
-      }
-      if (data.flags.midiProperties["saveDamage"] === undefined)
-        data.flags.midiProperties["saveDamage"] = "default";
       if (data.flags.midiProperties["confirmTargets"] === true)
         data.flags.midiProperties["confirmTargets"] = "always";
       else if (data.flags.midiProperties["confirmTargets"] === false)
@@ -1096,7 +1071,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
 
     let drAllActives: string[] = [];
     // Insert DR.ALL as a -ve damage value maxed at the total damage.
-    let drAll = 0;
+    let drAll;
     if (options.ignore !== true && !options.ignore?.DR?.has("none") && !options.ignore?.DR?.has("all")) {
       // think about how to do custom dm.const specials = [...(actor.system.traits.dm.custom ?? []).split(";"), ...Object.keys(actor.system.traits.dm?.midi ?? {})];
       const specials = Object.keys(actor.system.traits.dm?.midi ?? {});
@@ -1207,16 +1182,22 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           if (Math.sign(selectedDamage + dr) !== Math.sign(selectedDamage)) {
             dr = -selectedDamage
           }
-          if (checkRule("maxDRValue") && dr < drAll) {
+          if (checkRule("maxDRValue") && (dr < drAll || drAll === undefined)) {
             drAll = dr;
             drAllActives = [drActive];
           } else if (!checkRule("maxDRValue")) {
             drAllActives.push(drActive);
-            drAll += dr;
+            drAll = (drAll ?? 0) + dr;
           }
         }
       }
-      const totalDamage = damages.reduce((a, b) => a + b.value, 0);
+      let { totalDamage, temp } = damages.reduce((acc, d) => {
+        if (d.type === "temphp") acc.temp += d.value;
+        else if (d.type !== "midi-none") acc.amount += d.value;
+        return acc;
+      }, { totalDamage: 0, temp: 0 });
+      // const totalDamage = damages.reduce((a, b) => a + b.value, 0);
+      if (!drAll) drAll = 0;
       if (totalDamage > 0 && totalDamage < actor.system.attributes.hp.dt) {
         // total damage is less than the damage threshold so no damage
         drAll = -totalDamage;

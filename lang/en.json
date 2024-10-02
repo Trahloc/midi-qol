@@ -953,5 +953,17 @@
       "one": "Midi Save",
       "other": "Midi Saves"
     }
+  },
+  "midi-qol.Utility": {
+    "Title": {
+      "one": "Midi Utility",
+      "other": "Midi Utility"
+    }
+  },
+  "midi-qol.Summon": {
+    "Title": {
+      "one": "Midi Summon",
+      "other": "Midi Summons"
+    }
   }
 }

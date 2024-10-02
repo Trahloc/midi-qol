@@ -1,5 +1,5 @@
 import { debugEnabled, log, error, warn, i18n, SystemString, debug, MODULE_ID, GameSystemConfig } from "../../midi-qol.js";
-import { ActivityWorkflow, DummyWorkflow } from "../ActivityWorkflow.js";
+import { Workflow, DummyWorkflow } from "../Workflow.js";
 import { untimedExecuteAsGM } from "../GMAction.js";
 import { mapSpeedKeys } from "../MidiKeyManager.js";
 import { TroubleShooter } from "../apps/TroubleShooter.js";
@@ -76,14 +76,14 @@ export async function midiUsageChatContext(activity, context) {
   return foundry.utils.mergeObject(context, midiContextData)
 }
 
-export async function confirmWorkflow(existingWorkflow: ActivityWorkflow): Promise<boolean> {
+export async function confirmWorkflow(existingWorkflow: Workflow): Promise<boolean> {
   console.error("MidiQOL | AttackActivity | confirmWorkflow | Called", existingWorkflow);
   const validStates = [existingWorkflow.WorkflowState_Completed, existingWorkflow.WorkflowState_Start, existingWorkflow.WorkflowState_RollFinished]
   if (!(validStates.includes(existingWorkflow.currentAction))) {// && configSettings.confirmAttackDamage !== "none") {
     if (configSettings.autoCompleteWorkflow) {
       existingWorkflow.aborted = true;
       await existingWorkflow.performState(existingWorkflow.WorkflowState_Cleanup);
-      await ActivityWorkflow.removeWorkflow(existingWorkflow.uuid);
+      await Workflow.removeWorkflow(existingWorkflow.uuid);
     } else if (existingWorkflow.currentAction === existingWorkflow.WorkflowState_WaitForDamageRoll && existingWorkflow.hitTargets.size === 0) {
       existingWorkflow.aborted = true;
       await existingWorkflow.performState(existingWorkflow.WorkflowState_Cleanup);
@@ -104,15 +104,15 @@ export async function confirmWorkflow(existingWorkflow: ActivityWorkflow): Promi
       }, { width: 700 })) {
         case "complete":
           await existingWorkflow.performState(existingWorkflow.WorkflowState_Cleanup);
-          await ActivityWorkflow.removeWorkflow(existingWorkflow.uuid);
+          await Workflow.removeWorkflow(existingWorkflow.uuid);
           break;
         case "discard":
           await existingWorkflow.performState(existingWorkflow.WorkflowState_Abort);
-          ActivityWorkflow.removeWorkflow(existingWorkflow.uuid);
+          Workflow.removeWorkflow(existingWorkflow.uuid);
           break;
         case "undo":
           await existingWorkflow.performState(existingWorkflow.WorkflowState_Cancel);
-          ActivityWorkflow.removeWorkflow(existingWorkflow.id);
+          Workflow.removeWorkflow(existingWorkflow.id);
           break;
         case "cancel":
         default:
@@ -207,7 +207,7 @@ export async function setupTargets(activity: any, config, dialog, message): Prom
 export async function configureAttackRoll(activity, config): Promise<boolean> {
   if (debugEnabled > 0) warn("configureAttackRoll", activity, config);
   if (!activity?.activityWorkflow) return false;
-  let workflow: ActivityWorkflow = activity.activityWorkflow;
+  let workflow: Workflow = activity.activityWorkflow;
 
   if (workflow && !workflow.reactionQueried) {
     workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow.rollOptions?.rollToggle), { overwrite: true, insertValues: true, insertKeys: true });
@@ -226,8 +226,8 @@ export async function configureAttackRoll(activity, config): Promise<boolean> {
       // we are re-rolling the attack.
       await workflow.setDamageRolls(undefined)
       if (workflow.itemCardUuid) {
-        await ActivityWorkflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid);
-        await ActivityWorkflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
+        await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid);
+        await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
       }
 
       if (workflow.damageRollCount > 0) { // re-rolling damage counts as new damage
@@ -423,7 +423,7 @@ export async function postProcessDamageRoll(activity, config, result): Promise<v
   //@ts-expect-error
   const DamageRoll = CONFIG.Dice.DamageRoll;
   try {
-    let workflow: ActivityWorkflow = activity.activityWorkflow;
+    let workflow: Workflow = activity.activityWorkflow;
     if (foundry.utils.getProperty(activity.actor, `parent.flags.${MODULE_ID}.damage.advantage`)) {
       // TODO see if this is still possible
       // result2 = await wrapped(damageRollData)
@@ -518,107 +518,12 @@ export async function postProcessDamageRoll(activity, config, result): Promise<v
 
     if (activity.actionType === "heal" && !Object.keys(GameSystemConfig.healingTypes).includes(workflow.defaultDamageType ?? "")) workflow.defaultDamageType = "healing";
 
-    await workflow.setDamageRolls(result);
     if (false && workflow.workflowOptions?.damageRollDSN !== false) {
       let promises = result.map(r => displayDSNForRoll(r, "damageRoll"));
       await Promise.all(promises);
     }
-    result = await processDamageRollBonusFlags.bind(workflow)();
-    if (result instanceof Array) await workflow.setDamageRolls(result);
-    else await workflow.setDamageRolls[result];
-    let card;
-
-    if (workflow && configSettings.undoWorkflow) {
-      // Assumes workflow.undoData.chatCardUuids has been initialised
-      if (workflow.undoData && card) {
-        workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat([card.uuid]);
-        untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
-      }
-    }
-    // await workflow.setDamageRolls(result);
-    let otherResult: Roll | undefined = undefined;
-    let otherResult2: Roll | undefined = undefined;
-
-    workflow.shouldRollOtherDamage = await shouldRollOtherDamage.bind(workflow.otherDamageItem)(workflow, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
-    if (workflow.shouldRollOtherDamage) {
-      const othermidiOptions: any = {};
-      if (game.settings.get(MODULE_ID, "CriticalDamage") === "default") {
-        othermidiOptions.powerfulCritical = game.settings.get(game.system.id, "criticalDamageMaxDice");
-        othermidiOptions.multiplyNumeric = game.settings.get(game.system.id, "criticalDamageModifiers");
-      }
-      othermidiOptions.critical = (workflow.otherDamageItem?.flags.midiProperties?.critOther ?? false) && (workflow.isCritical || workflow.rollOptions.critical);
-      if ((workflow.otherDamageFormula ?? "") !== "") { // other damage formula swaps in versatile if needed
-        let otherRollData = workflow.otherDamageItem?.getRollData();
-        otherRollData.spellLevel = config.midiOptions.spellLevel ?? workflow.spellLevel;
-        foundry.utils.setProperty(otherRollData, "item.level", otherRollData.spellLevel);
-        let otherRollResult = new DamageRoll(workflow.otherDamageFormula, otherRollData, othermidiOptions);
-        otherRollResult = Roll.fromTerms(otherRollResult.terms); // coerce it back to a roll
-        // let otherRollResult = new Roll.fromRoll((workflow.otherDamageFormula, otherRollData, othermidiOptions);
-        otherResult = await otherRollResult?.evaluate({ maximize: needsMaxDamage, minimize: needsMinDamage });
-        if (otherResult?.total !== undefined) {
-          switch (game.system.id) {
-            case "sw5e":
-              actionFlavor = game.i18n.localize(activity.actionType === "heal" ? "SW5E.Healing" : "SW5E.OtherFormula");
-              break;
-            case "n5e":
-              actionFlavor = game.i18n.localize(activity.actionType === "heal" ? "N5E.Healing" : "N5E.OtherFormula");
-              break;
-            case "dnd5e":
-            default:
-              actionFlavor = game.i18n.localize(activity.actionType === "heal" ? "DND5E.Healing" : "DND5E.OtherFormula");
-          }
-          const title = `${activity.name} - ${actionFlavor}`;
-
-          const messageData = {
-            title,
-            flavor: title,
-            speaker,
-            itemId: activity.item.id
-          };
-          foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
-          if (
-            (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kh`)) ||
-            (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kl`))) {
-            otherResult2 = await otherResult.reroll({ async: true });
-            if (otherResult2?.total !== undefined && otherResult?.total !== undefined) {
-              if ((foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kh`) && (otherResult2?.total > otherResult?.total)) ||
-                (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kl`) && (otherResult2?.total < otherResult?.total))) {
-                [otherResult, otherResult2] = [otherResult2, otherResult];
-              }
-              // display roll not being used
-              if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult2, "damageRoll");
-              await otherResult2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
-            }
-          }
-
-          setDamageRollMinTerms([otherResult]);
-          for (let term of otherResult.terms) {
-            if (term.options?.flavor) {
-              term.options.flavor = getDamageType(term.options.flavor);
-            }
-          }
-          let otherMagicalDamage = workflow.otherDamageItem?.system.properties?.has("mgc") || workflow.otherDamageItem?.flags?.midiProperties?.magicdam;
-          otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "off" && workflow.otherDamageItem?.system.attackBonus > 0);
-          otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "off" && workflow.otherDamageItem?.type !== "weapon");
-          otherMagicalDamage = otherMagicalDamage || (configSettings.requireMagical === "nonspell" && workflow.otherDamageItem?.type === "spell");
-
-          if (!foundry.utils.getProperty(otherResult, "options.properties")) foundry.utils.setProperty(otherResult, "options.properties", []);
-          const otherProperties: string[] = foundry.utils.getProperty(otherResult, "options.properties");
-          if (workflow?.item.type === "spell") otherProperties.push("spell");
-          if (otherMagicalDamage && !otherProperties.includes("mgc")) otherProperties.push("mgc");
-          otherProperties.push(workflow?.otherDamageItem?.system.actionType)
-          await workflow.setOtherDamageRoll(otherResult);
-          if (workflow.workflowOptions?.otherDamageRollDSN !== false) await displayDSNForRoll(otherResult, "damageRoll");
-        }
-      }
-
-      workflow.bonusDamageRolls = null;
-      workflow.bonusDamageHTML = null;
-
-      if (workflow.suspended) workflow.unSuspend.bind(workflow)({ damageRoll: result, otherDamageRoll: workflow.otherDamageRoll });
-      // workflow.performState(workflow.WorkflowState_ConfirmRoll);
-      return result;
-    }
+    result = await processDamageRollBonusFlags.bind(workflow)(result);
+    return result;
   } catch (err) {
     const message = `doDamageRoll error for item ${activity?.name} ${activity.uuid}`;
     TroubleShooter.recordError(err, message);
@@ -641,7 +546,7 @@ export function setDamageRollMinTerms(rolls: Array<Roll> | undefined) {
   }
 }
 
-export async function doActivityReactions(activity, workflow: ActivityWorkflow) {
+export async function doActivityReactions(activity, workflow: Workflow) {
   return true;
   const promises: Promise<any>[] = [];
   if (!foundry.utils.getProperty(activity, `flags.${MODULE_ID}.noProvokeReaction`)) {

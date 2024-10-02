@@ -1,11 +1,13 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID, isdndv4, NumericTerm } from "../midi-qol.js";
-import { doAttackRoll, doDamageRoll, templateTokens, doItemUse, wrappedDisplayCard } from "./itemhandling.js";
+import { templateTokens, wrappedDisplayCard } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
+import { MidiAttackActivity } from "./activities/AttackActivity.js";
+import { MidiSaveActivity } from "./activities/SaveActivity.js";
 let libWrapper;
 
 var d20Roll;
@@ -276,6 +278,7 @@ export function averageDice(roll: Roll) {
 }
 
 function configureDamage(wrapped) {
+  if (this.options.configured) return;
   //@ts-expect-error
   const OperatorTerm = foundry.dice.terms.OperatorTerm
   //@ts-expect-error
@@ -1503,10 +1506,8 @@ function _getUsageConfig(wrapped): any {
 }
 
 export let itemPatching = () => {
-  // libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.use", doItemUse, "MIXED");
-  // libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollAttack", doAttackRoll, "MIXED");
-  // libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollDamage", doDamageRoll, "MIXED");
-  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.use", doItemUse, "MIXED");
+  // libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     if (!isdndv4) libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
       libWrapper.register(MODULE_ID, "CONFIG.Dice.DamageRoll.prototype.configureDamage", configureDamage, "MIXED");
@@ -1719,6 +1720,17 @@ export async function _preDeleteCombat(wrapped, ...args) {
   } finally {
     return wrapped(...args)
   }
+}
+
+export async function doItemUse(wrapped, config: any ={}, dialog: any ={}, message: any ={}) {
+  if ( this.pack ) return;
+
+  if (config.legacy !== false) return wrapped(config, dialog, message);
+  const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id));
+  const attackActivity = activities?.find(a => a instanceof MidiAttackActivity);
+  const otherActivities = activities?.filter(a => a !== attackActivity && !(a instanceof MidiSaveActivity));
+  if (otherActivities?.length > 0) return wrapped(config, dialog, message);
+  return attackActivity.use(config, dialog, message);
 }
 
 class CustomizeDamageFormula {

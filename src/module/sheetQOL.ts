@@ -3,7 +3,7 @@ import { i18n, debug, log, warn, debugEnabled } from "../midi-qol.js";
 import { showItemInfo } from "./itemhandling.js";
 import { itemHasDamage, itemIsVersatile } from "./utils.js";
 import { ActorOnUseMacrosConfig } from "./apps/ActorOnUseMacroConfig.js";
-import { Workflow } from "./workflow.js";
+import { Workflow } from "./Workflow.js";
 
 
 const knownSheets = {
