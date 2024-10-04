@@ -1,5 +1,9 @@
 <section class="tab activity-{{ tab.id }} {{ tab.cssClass }}" data-tab="{{ tab.id }}" data-group="{{ tab.group }}">
     {{> "modules/midi-qol/templates/activity/parts/attack-details.hbs" }}
+    {{ formField fields.attackMode value=source.attackMode options=attackModeOptions }}
+    {{#if hasAmmunition}}
+    {{ formField fields.ammunition value=source.ammunition options=ammunitionOptions }}
+    {{/if}}
     {{> "systems/dnd5e/templates/activity/parts/attack-damage.hbs" }}
     Save Activity
     {{formField fields.saveActivityUuid value=source.saveActivityUuid options=saveActivityOptions}}

@@ -22,9 +22,9 @@ export function setupSummonActivity() {
 export function defineMidiSummonActivityClass(baseClass: any) {
   return class MidiSummonActivity extends baseClass {
     targetsToUse: Set<Token>;
-    _activityWorkflow: Workflow;
-    get activityWorkflow() { return this._activityWorkflow; }
-    set activityWorkflow(value) { this._activityWorkflow = value; }
+    _workflow: Workflow;
+    get workflow() { return this._workflow; }
+    set workflow(value) { this._workflow = value; }
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
@@ -41,19 +41,26 @@ export function defineMidiSummonActivityClass(baseClass: any) {
       }
       if (debugEnabled > 0) warn("MidiQOL | SummonActivity | use | Called", config, dialog, message);
       if (config.systemCard) return super.use(config, dialog, message);
+      if (!config.midiOptions) config.midiOptions = {};
+      if (!config.midiOptions.workflowOptions) config.midiOptions.workflowOptions = {};
       let previousWorkflow = Workflow.getWorkflow(this.uuid);
       if (previousWorkflow) {
         if (!(await confirmWorkflow(previousWorkflow))) return;
       }
-
+      // setupTargets(this, config, dialog, message); - no targets
+      // confirmTargets(this); - no targets
       // come back and see about re-rolling etc.
-      this.activityWorkflow = new Workflow(this.item.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, {});
-
+      if (true || !this.workflow) {
+        this.workflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
+      }
+      if (!await confirmCanProceed(this, config, dialog, message)) return;
       setProperty(message, "data.flags.midi-qol.messageType", "summon");
       const results = await super.use(config, dialog, message);
-      this.activityWorkflow.itemCardUuid = results.message.uuid;
-      await baseClass.metadata.usage.actions.placeSummons.call(this);
-      this.activityWorkflow.performState(this.activityWorkflow.WorkflowState_Start, {});
+      this.workflow.itemCardUuid = results.message.uuid;
+      if (this.item.type !== "spell") {
+        await baseClass.metadata.usage.actions.placeSummons.call(this);
+      }
+      this.workflow.performState(this.workflow.WorkflowState_Start, {});
       return results;
     }
 

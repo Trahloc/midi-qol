@@ -209,7 +209,7 @@ async function cancelWorkflow(data: { workflowId: string, itemCardId: string }) 
 async function confirmDamageRollComplete(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
   //@ts-expect-error
   const activity = fromUuidSync(data.activityUuid);
-  const workflow = activity.activityWorkflow
+  const workflow = activity.workflow
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     */
@@ -233,7 +233,7 @@ async function confirmDamageRollComplete(data: { activityUuid: string, itemCardI
 async function confirmDamageRollCompleteHit(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
   //@ts-expect-error
   const activity = fromUuidSync(data.activityUuid);
-  const workflow = activity.activityWorkflow;
+  const workflow = activity.workflow;
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
@@ -272,7 +272,7 @@ async function confirmDamageRollCompleteHit(data: { activityUuid: string, itemCa
 async function confirmDamageRollCompleteMiss(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
   //@ts-expect-error
   const activity = fromUuidSync(data.activityUuid);
-  const workflow = activity.activityWorkflow
+  const workflow = activity.workflow
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;

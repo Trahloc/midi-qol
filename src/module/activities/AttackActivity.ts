@@ -46,6 +46,15 @@ export function defineMidiAttackSheetClass(baseClass: any) {
       context = await super._prepareEffectContext(context);
       console.error(context, this.item)
       context.attackModeOptions = this.item.system.attackModes;
+      context.hasAmmunition = this.item.system.properties.has("amm");
+      context.ammunitionOptions = this.activity.actor.items
+        .filter(i => (i.type === "consumable") && (i.system.type?.value === "ammo")
+          && (!this.item.system.ammunition?.type || (i.system.type.subtype === this.item.system.ammunition.type)))
+        .map(i => ({
+          value: i.id, label: `${i.name} (${i.system.quantity})`, item: i,
+          disabled: !i.system.quantity, selected: i.id === this.activity.attack.ammunition
+        }))
+        .sort((lhs, rhs) => lhs.label.localeCompare(rhs.label, game.i18n.lang));
       context.otherActivityOptions = this.item.system.activities.filter(a =>
         a.damage || a.roll?.formula).reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.uuid }); return ret }, [{ label: "", value: "" }]);
       context.saveActivityOptions = this.item.system.activities.filter(a =>
@@ -58,7 +67,7 @@ export function defineMidiAttackSheetClass(baseClass: any) {
           //@ts-expect-error
           ...Object.entries(GameSystemConfig.damageScalingModes).map(([value, config]) => ({ value, label: config.label }))
         ];
-        const types = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));  
+        const types = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));
         context.damageParts = context.activity.damage.parts.map((data, index) => {
           if (data.base) indexOffset--;
           const part = {
@@ -99,36 +108,22 @@ export function defineMidiAttackActivityClass(baseClass: any) {
         ...super.defineSchema(),
         //@ts-expect-error
         flags: new foundry.data.fields.ObjectField(),
-        attack: new SchemaField({
-          ability: new StringField(),
-          //@ts-expect-error
-          bonus: new game.system.dataModels.fields.FormulaField(),
-          critical: new SchemaField({
-            threshold: new NumberField({ integer: true, positive: true })
-          }),
-          flat: new BooleanField(),
-          type: new SchemaField({
-            value: new StringField(),
-            classification: new StringField()
-          }),
-          attackMode: new StringField({ name: "attackMode", label: "Attack Mode", initial: "oneHanded", choices: ["oneHanded", "twoHanded", "thrown", "offhand", "thrown-offhand"] })
-        }),
+        attackMode: new StringField({ name: "attackMode", label: "Attack Mode", initial: "oneHanded" }),
+        ammunition: new StringField({ name: "ammunition", label: "Ammunition", initial: "" }),
         saveActivityUuid: new StringField(),
         otherActivityUuid: new StringField()
       };
       console.error(schema)
-      //@ ts-expect-error
-      // schema.attack.fields["attackMode"] = new foundry.data.fields.StringField({ name: "attackMode", parent: schema.attack, label: "Attack Mode", initial: "oneHanded", choices: ["oneHanded", "twoHanded", "thrown", "offhand", "thrown-offhand"] });
       return schema;
     }
 
     targetsToUse: Set<Token>;
 
-    _activityWorkflow: Workflow;
+    _workflow: Workflow;
     _otherActivity: any;
     _saveActivity: any;
-    get activityWorkflow() { return this._activityWorkflow; }
-    set activityWorkflow(value) { this._activityWorkflow = value; }
+    get workflow() { return this._workflow; }
+    set workflow(value) { this._workflow = value; }
 
 
     static metadata =
@@ -169,33 +164,25 @@ export function defineMidiAttackActivityClass(baseClass: any) {
         if (!(await confirmWorkflow(previousWorkflow))) return;
       }
       removeFlanking(this.item.parent)
-      const pressedKeys = foundry.utils.duplicate(globalThis.MidiKeyManager.pressedKeys);
-      let tokenToUse;
-      let targetConfirmationHasRun = false;
-
       if (!config.midiOptions) config.midiOptions = {};
       if (!config.midiOptions.workflowOptions) config.midiOptions.workflowOptions = {};
       setupTargets(this, config, dialog, message);
-      if (!confirmCanProceed(this, config, dialog, message)) return;
       confirmTargets(this);
-      console.error("MidiQOL | AttackActivity | use | Called", config, dialog, message);
-      if (!this.activityWorkflow) {
-        this.activityWorkflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
-      }
       // come back and see about re-rolling etc.
-      this.activityWorkflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
-
-      setProperty(message, "data.flags.midi-qol.messageType", "attack");
+      if (true || !this.workflow) {
+        this.workflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
+      }
+      if (!await confirmCanProceed(this, config, dialog, message)) return;
+      foundry.utils.setProperty(message, "data.flags.midi-qol.messageType", "attack");
       const results = await super.use(config, dialog, message);
-      this.activityWorkflow.itemCardUuid = results.message.uuid;
-      this.activityWorkflow.performState(this.activityWorkflow.WorkflowState_Start, {});
-      return results;
+      this.workflow.itemCardUuid = results.message.uuid;
+      await this.workflow.performState(this.workflow.WorkflowState_Start, {});
     }
 
     async rollAttack(config, dialog, message) {
       if (debugEnabled > 0) warn("MidiQOL | AttackActivity | rollAttack | Called", config, dialog, message);
       let returnValue = await configureAttackRoll(this, config);
-      if (this.activityWorkflow.aborted || !returnValue) return [];
+      if (this.workflow.aborted || !returnValue) return [];
       // Can't tell rollAttack to fastforward, so we have to do it here
       Hooks.once("dnd5e.preRollAttackV2", (rollConfig, dialogConfig, messageConfig) => {
         for (let roll of rollConfig.rolls) {
@@ -210,23 +197,24 @@ export function defineMidiAttackActivityClass(baseClass: any) {
       message ??= {};
       message.create = config.midiOptions.chatMessage;
       if (config.midiOptions.fastForwardAttack) dialog.configure = false;
-      config.attackMode = this.attack.attackMode ?? "oneHanded";
+      config.attackMode = this.attackMode ?? "oneHanded";
+      config.ammunition = this.ammunition;
       const rolls = await super.rollAttack(config, dialog, message);
-      for (let roll of rolls) {
-        if (config.attackMode) roll.options.attackMode = config.attackMode;
-      }
-      await this.activityWorkflow.setAttackRoll(rolls[0]);
-      rolls[0] = await processAttackRollBonusFlags.bind(this.activityWorkflow)();
-      if (["formulaadv", "adv"].includes(configSettings.rollAlternate)) addAdvAttribution(rolls[0], this.activityWorkflow.attackAdvAttribution);
-      await this.activityWorkflow.setAttackRoll(rolls[0]);
-      if (this.activityWorkflow.suspended) this.activityWorkflow.unSuspend.bind(this.activityWorkflow)({ attackRoll: rolls[0] })
+      this.workflow.attackMode = config.attackMode;
+      this.workflow.ammunition = config.ammunition;
+      await this.workflow.setAttackRoll(rolls[0]);
+      rolls[0] = await processAttackRollBonusFlags.bind(this.workflow)();
+      if (["formulaadv", "adv"].includes(configSettings.rollAlternate)) addAdvAttribution(rolls[0], this.workflow.attackAdvAttribution);
+      await this.workflow.setAttackRoll(rolls[0]);
+      console.error("MidiQOL | AttackActivity | rollAttack | setAttackRolls completed ", rolls);
+      console.error("attack roll is suspended", this.workflow.suspended);
+      if (this.workflow.suspended) this.workflow.unSuspend.bind(this.workflow)({ attackRoll: rolls[0] })
       return rolls;
     }
 
     getDamageConfig(config: any = {}) {
-      const attackRoll: Roll | undefined = this.activityWorkflow?.attackRoll;
-      //@ts-expect-error
-      if (attackRoll) config.attackMode = attackRoll.options.attackMode;
+      config.attackMode = this.workflow.attackMode;
+      config.ammunition = this.actor.items.get(this.workflow.ammunition);
       const rollConfig = super.getDamageConfig(config);
       configureDamageRoll(this, rollConfig);
       for (let roll of rollConfig.rolls) {
@@ -239,9 +227,9 @@ export function defineMidiAttackActivityClass(baseClass: any) {
     async rollDamage(config, dialog, message: any = {}) {
       if (!config.midiOptions) config.midiOptions = {};
       console.error("MidiQOL | AttackActivity | rollDamage | Called", config, dialog, message);
-      if (await asyncHooksCall("midi-qol.preDamageRoll", this.activityWorkflow) === false
-        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.activityWorkflow) === false
-        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.activityWorkflow) === false) {
+      if (await asyncHooksCall("midi-qol.preDamageRoll", this.workflow) === false
+        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.workflow) === false
+        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.workflow) === false) {
         console.warn("midi-qol | Damage roll blocked via pre-hook");
         return;
       }
@@ -254,9 +242,9 @@ export function defineMidiAttackActivityClass(baseClass: any) {
       message.create = false;
       let result = await super.rollDamage(config, this.dialog, message);
       result = await postProcessDamageRoll(this, config, result);
-      if (config.midiOptions.updateWorkflow !== false) await this.activityWorkflow.setDamageRolls(result);
+      if (config.midiOptions.updateWorkflow !== false) await this.workflow.setDamageRolls(result);
       if (this.otherActivity) {
-        this.otherActivity.activityWorkflow = this.activityWorkflow;
+        this.otherActivity.workflow = this.workflow;
         // Check conditions & flags
         const otherConfig = foundry.utils.deepClone(config);
         if (!foundry.utils.getProperty(this.item, "flags.midiProperties.critOther")) otherConfig.midiOptions.isCritical = false;
@@ -271,9 +259,9 @@ export function defineMidiAttackActivityClass(baseClass: any) {
           otherResult = new game.system.dice.DamageRoll(otherResult.formula, {}, {});
         }
         if (otherResult instanceof Array) otherResult = otherResult[0]; // TODO deal with arrays of rolls
-        if (otherResult && config.midiOptions.updateWorkflow !== false) await this.activityWorkflow.setOtherDamageRoll(otherResult);
+        if (otherResult && config.midiOptions.updateWorkflow !== false) await this.workflow.setOtherDamageRoll(otherResult);
       }
-      if (config.midiOptions.updateWorkflow !== false && this.activityWorkflow.suspended) this.activityWorkflow.unSuspend.bind(this.activityWorkflow)({ damageRoll: result, otherDamageRoll: this.activityWorkflow.otherDamageRoll });
+      if (config.midiOptions.updateWorkflow !== false && this.workflow.suspended) this.workflow.unSuspend.bind(this.workflow)({ damageRoll: result, otherDamageRoll: this.workflow.otherDamageRoll });
       return result;
     }
 

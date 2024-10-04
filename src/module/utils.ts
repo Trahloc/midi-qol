@@ -1966,7 +1966,7 @@ let pointWarn = foundry.utils.debounce(() => {
   ui.notifications?.warn("4 Point LOS check selected but dnd5e-helpers not installed")
 }, 100)
 
-export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, targetsRef: Set<Token | TokenDocument | string> | undefined, showWarning: boolean = true): { result: string, attackingToken?: Token, range?: number | undefined, longRange?: number | undefined } {
+export function checkRange(itemIn, tokenRef: Token | TokenDocument | string | undefined, targetsRef: Set<Token | TokenDocument | string> | undefined, showWarning: boolean = true): { result: string, attackingToken?: Token, range?: number | undefined, longRange?: number | undefined } {
   if (!canvas || !canvas.scene) return { result: "normal" };
   const checkRangeFunction = (item, token, targets): { result: string, reason?: string, range?: number | undefined, longRange?: number | undefined } => {
     if (!canvas || !canvas.scene) return {
@@ -2120,7 +2120,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
   const tokenIn = getToken(tokenRef);
   //@ts-expect-error .map
   const targetsIn = targetsRef?.map(t => getToken(t));
-  if (!tokenIn || tokenIn === null || !targetsIn) return { result: "fail", attackingToken: undefined };
+  if (!tokenIn || !targetsIn) return { result: "fail", attackingToken: undefined };
   let attackingToken = tokenIn;
   if (!canvas || !canvas.tokens || !tokenIn || !targetsIn) return {
     result: "fail",
@@ -3043,7 +3043,7 @@ class RollModifyDialog extends Application {
 
 export async function processAttackRollBonusFlags() { // bound to workflow
   let attackBonus = "attack.all";
-  if (this.item && this.item.hasAttack) attackBonus = `attack.${this.item.system.actionType}`;
+  if (this.activity && this.activity.hasAttack) attackBonus = `attack.${this.activity.actionType}`;
   const optionalFlags = foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional`) ?? {};
   // If the attack roll is a fumble only select flags that allow the roll to be rerolled.
   let bonusFlags = Object.keys(optionalFlags)
@@ -3067,7 +3067,7 @@ export async function processAttackRollBonusFlags() { // bound to workflow
     const isMiss = this.isFumble || this.attackRoll.total < targetAC;
     if (isMiss) {
       attackBonus = "attack.fail.all"
-      if (this.item && this.item.hasAttack) attackBonus = `attack.fail.${this.item.system.actionType}`;
+      if (this.activity && this.activity.hasAttack) attackBonus = `attack.fail.${this.activity.actionType}`;
       let bonusFlags = Object.keys(optionalFlags)
         .filter(flag => {
           const hasAttackFlag = foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional.${flag}.attack.fail.all`)
@@ -3089,7 +3089,7 @@ export async function processAttackRollBonusFlags() { // bound to workflow
 
 export async function processDamageRollBonusFlags(damageRolls): Promise<Roll[]> { // bound to a workflow
   let damageBonus = "damage.all";
-  if (this.item) damageBonus = `damage.${this.item.system.actionType}`;
+  if (this.activity) damageBonus = `damage.${this.activity.actionType}`;
   const optionalFlags = foundry.utils.getProperty(this.actor ?? {}, `flags.${MODULE_ID}.optional`) ?? {};
   const bonusFlags = Object.keys(optionalFlags)
     .filter(flag => {
@@ -3263,7 +3263,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       default:
         if (typeof button.value === "string" && button.value.startsWith("replace ")) {
           const rollParts = button.value.split(" ");
-          newRoll = new Roll(rollParts.slice(1).join(" "), (this.item ?? this.actor).getRollData());
+          newRoll = new Roll(rollParts.slice(1).join(" "), (this.activity ?? this.actor).getRollData());
           newRoll = await newRoll.evaluate();
           if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType, rollMode);
         } else if (flagSelector.startsWith("damage.") && foundry.utils.getProperty(this.actor ?? this, `${button.key}.criticalDamage`)) {
@@ -3276,7 +3276,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           //@ts-expect-error D20Roll
           newRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
           let rollData: any = {}
-          if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
+          if (this instanceof Workflow) rollData = this.activity?.getRollData() ?? this.actor?.getRollData() ?? {};
           else rollData = this.actor?.getRollData() ?? {}; // 
           const tempRoll = new DamageRoll(`${button.value}`, rollData, rollOptions);
           await tempRoll.evaluate();
@@ -3287,7 +3287,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           //@ts-expect-error
           newRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
           let rollData: any = {}
-          if (this instanceof Workflow) rollData = this.item?.getRollData() ?? this.actor?.getRollData() ?? {};
+          if (this instanceof Workflow) rollData = this.activity?.getRollData() ?? this.actor?.getRollData() ?? {};
           else rollData = this.actor?.getRollData() ?? this;
           const tempRoll = await (new Roll(button.value, rollData)).roll();
           if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
@@ -4330,15 +4330,15 @@ export function effectActivationConditionToUse(workflow: Workflow) {
   return foundry.utils.getProperty(this, `flags.${MODULE_ID}.effectCondition`);
 }
 
-export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any }) {
+export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any }) {
   const actor = data.workflow?.actor ?? data.actor;
   let item;
   if (data.item) {
     if (data.item instanceof Item) item = data.item;
     else if (typeof data.item === "string") item = MQfromUuidSync(data.item);
   }
-  if (!item) item = data.workflow?.item;
-  let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
+  if (!item) item = data.activity?.item ?? data.workflow?.activity?.item ?? data.workflow?.item;
+  let rollData = data.activity?.getRollData() ?? item?.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
   rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
   try {
@@ -4370,14 +4370,17 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     if (data.workflow) {
       rollData.w = data.workflow;
       rollData.workflow = data.workflow;
-      rollData.otherDamageItem = data.workflow.otherDamageItem?.getRollData().item;
+      rollData.activity = data.workflow.activity;
+      rollData.otherDamageActivity = data.workflow?.saveActivity;
       rollData.hasSave = data.workflow.hasSave;
-      rollData.saveItem = data.workflow.saveItem?.getRollData().item;
       rollData.item = data.workflow.item?.getRollData().item;
       rollData.otherDamageFormula = data.workflow.otherDamageFormula;
       rollData.shouldRollDamage = data.workflow.shouldRollDamage;
-      rollData.hasAttack = data.workflow.item.hasAttack;
-      rollData.hasDamage = data.workflow.item.hasDamage;
+      rollData.hasAttack = data.workflow.actvity.attack;
+      rollData.hasDamage = activityHasDamage(data.workflow.activity);
+    } 
+    if (data.activity) {
+      rollData.activity = data.activity;
     }
     rollData.CONFIG = CONFIG;
     rollData.CONST = {};
@@ -6390,7 +6393,7 @@ export function isConvenientEffect(effect): boolean {
 
 export function getActivityDefaultDamageType(activity): string {
   let defaultDamageType: string = activity?.damage?.parts[0]?.types.first();
-  if (activity.activityWorkflow) defaultDamageType = activity.activityWorkflow.defaultDamageType;
+  if (activity.workflow) defaultDamageType = activity.workflow.defaultDamageType;
   if (!defaultDamageType) defaultDamageType = MQdefaultDamageType;
   return defaultDamageType
 }

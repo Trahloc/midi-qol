@@ -22,9 +22,9 @@ export function setupSaveActivity() {
 export function defineMidiSaveActivityClass(baseClass: any) {
   return class MidiSaveActivity extends baseClass {
     targetsToUse: Set<Token>;
-    _activityWorkflow: Workflow;
-    get activityWorkflow() { return this._activityWorkflow; }
-    set activityWorkflow(value) { this._activityWorkflow = value; }
+    _workflow: Workflow;
+    get workflow() { return this._workflow; }
+    set workflow(value) { this._workflow = value; }
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
@@ -53,27 +53,27 @@ export function defineMidiSaveActivityClass(baseClass: any) {
       if (!config.midiOptions) config.midiOptions = {};
       if (!config.midiOptions.workflowOptions) config.midiOptions.workflowOptions = {};
       setupTargets(this, config, dialog, message);
-      if (!confirmCanProceed(this, config, dialog, message)) return;
       confirmTargets(this);
-      console.error("MidiQOL | SaveActivity | use | Called", config, dialog, message);
-      if (!this.activityWorkflow) {
-        this.activityWorkflow = new Workflow(this.item.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, {});
-      }
       // come back and see about re-rolling etc.
-      this.activityWorkflow = new Workflow(this.item.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, {});
+      if (true || !this.workflow) {
+        this.workflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
+      }
+      if (!await confirmCanProceed(this, config, dialog, message)) return;
+
+      console.error("MidiQOL | SaveActivity | use | Called", config, dialog, message);
 
       setProperty(message, "data.flags.midi-qol.messageType", "save");
       const results = await super.use(config, dialog, message);
-      this.activityWorkflow.itemCardUuid = results.message.uuid;
-      this.activityWorkflow.performState(this.activityWorkflow.WorkflowState_Start, {});
+      this.workflow.itemCardUuid = results.message.uuid;
+      this.workflow.performState(this.workflow.WorkflowState_Start, {});
       return results;
     }
 
     async rollDamage(config, dialog, message: any = {}) {
       console.error("MidiQOL | SaveActivity | rollDamage | Called", config, dialog, message);
-      if (await asyncHooksCall("midi-qol.preDamageRoll", this.activityWorkflow) === false
-        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.activityWorkflow) === false
-        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.activityWorkflow) === false) {
+      if (await asyncHooksCall("midi-qol.preDamageRoll", this.workflow) === false
+        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.workflow) === false
+        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.workflow) === false) {
         console.warn("midi-qol | Damage roll blocked via pre-hook");
         return;
       }
@@ -87,9 +87,9 @@ export function defineMidiSaveActivityClass(baseClass: any) {
       let result = await super.rollDamage(config, this.dialog, message);
       result = await postProcessDamageRoll(this, config, result);
       if (config.midiOptions.updateWorkflow !== false) {
-        await this.activityWorkflow.setDamageRolls(result);
-        if (this.activityWorkflow.suspended)
-          this.activityWorkflow.unSuspend.bind(this.activityWorkflow)({ damageRoll: result, otherDamageRoll: this.activityWorkflow.otherDamageRoll });
+        await this.workflow.setDamageRolls(result);
+        if (this.workflow.suspended)
+          this.workflow.unSuspend.bind(this.workflow)({ damageRoll: result, otherDamageRoll: this.workflow.otherDamageRoll });
       }
       return result;
     }
@@ -111,7 +111,7 @@ export function defineMidiSaveActivityClass(baseClass: any) {
     }
 
     getDamageConfig(config: any = {}) {
-      const attackRoll: Roll | undefined = this.activityWorkflow.attackRoll;
+      const attackRoll: Roll | undefined = this.workflow.attackRoll;
       const rollConfig = super.getDamageConfig(config);
       configureDamageRoll(this, rollConfig);
       for (let roll of rollConfig.rolls) {

@@ -6,24 +6,22 @@ import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
 import { defaultRollOptions } from "./patching.js";
-import { saveUndoData } from "./undo.js";
 import { untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
-import { busyWait } from "./tests/setupTest.js";
 // import { ChatMessageMidi } from "./ChatMessageMidi.js";
 
 function activityRequiresPostTemplateConfiramtion(activity): boolean {
-  const isRangeTargeting = ["ft", "m"].includes(activity.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
-  if (activity.item.hasAreaTarget) {
+  const isRangeTargeting = ["ft", "m"].includes(activity.item.system.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+  if (activity.target.template?.type) {
     return true;
   } else if (isRangeTargeting) {
     return true;
   }
   return false;
 }
-function itemRequiresPostTemplateConfiramtion(item): boolean {
-  const isRangeTargeting = ["ft", "m"].includes(item.system.range?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
-  if (item.hasAreaTarget) {
+function itemRequiresPostTemplateConfiramtion(activity): boolean {
+  const isRangeTargeting = ["ft", "m"].includes(activity.item.system.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+  if (activity.target.template?.type) { 
     return true;
   } else if (isRangeTargeting) {
     return true;
@@ -31,47 +29,47 @@ function itemRequiresPostTemplateConfiramtion(item): boolean {
   return false;
 }
 
-export function requiresTargetConfirmation(item, options): boolean {
+export function requiresTargetConfirmation(activity, options): boolean {
   if (options.workflowOptions?.targetConfirmation === "none") return false;
   if (options.workflowOptions?.targetConfirmation === "always") return true;
   // check lateTargeting as well - legacy.
   // For old version of dnd5e-scriptlets
   if (options.workflowdialogOptions?.lateTargeting === "none") return false;
   if (options.workflowdialogOptions?.lateTargeting === "always") return true;
-  if (item.system.target?.type === "self") return false;
+  if (activity.target?.affects.type === "self") return false;
   if (options.workflowOptions?.attackPerTarget === true) return false;
-  if (item?.flags?.midiProperties?.confirmTargets === "always") return true;
-  if (item?.flags?.midiProperties?.confirmTargets === "never") return false;
+  if (activity.item?.flags?.midiProperties?.confirmTargets === "always") return true;
+  if (activity.item?.flags?.midiProperties?.confirmTargets === "never") return false;
   let numTargets = game.user?.targets?.size ?? 0;
-  if (numTargets === 0 && configSettings.enforceSingleWeaponTarget && item.type === "weapon")
+  if (numTargets === 0 && configSettings.enforceSingleWeaponTarget && activity.item.type === "weapon")
     numTargets = 1;
-  const token = tokenForActor(item.actor);
+  const token = tokenForActor(activity.actor);
   if (targetConfirmation.enabled) {
     if (targetConfirmation.all &&
-      ((item.system.target?.type ?? "") !== "" || item.system.range?.value || item.hasAttack) && numTargets > 0) {
+      ((activity.target?.affects.type ?? "") !== "" || activity.item.system.range?.value || activity.attack) && numTargets > 0) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.all");
       return true;
     }
-    if (item.hasAttack && targetConfirmation.hasAttack) {
+    if (activity.attack && targetConfirmation.hasAttack) {
       if (debugEnabled > 0) warn("target confirmation triggered by targetCofirnmation.hasAttack");
       return true;
     }
-    if (item.system.target?.type === "creature" && targetConfirmation.hasCreatureTarget) {
+    if (activity.target?.affects.type === "creature" && targetConfirmation.hasCreatureTarget) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.hasCreatureTarget");
       return true;
     }
-    if (targetConfirmation.noneTargeted && ((item.system.target?.type ?? "") !== "" || item.hasAttack) && numTargets === 0) {
+    if (targetConfirmation.noneTargeted && ((activity.target?.affects.type ?? "") !== "" || activity.attack) && numTargets === 0) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.noneTargeted");
       return true;
     }
-    if (targetConfirmation.allies && token && numTargets > 0 && item.system.target?.type !== "self") {
+    if (targetConfirmation.allies && token && numTargets > 0 && activity.target?.affects.type !== "self") {
       //@ts-expect-error find disposition
       if (game.user?.targets.some(t => t.document.disposition == token.document.disposition)) {
         if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.allies");
         return true;
       }
     }
-    if (targetConfirmation.targetSelf && item.system.target?.type !== "self") {
+    if (targetConfirmation.targetSelf && activity.target?.affects.type !== "self") {
       let tokenToUse = token;
       /*
       if (tokenToUse && game.user?.targets) {
@@ -98,10 +96,10 @@ export function requiresTargetConfirmation(item, options): boolean {
       }
     }
     if (targetConfirmation.longRange && game?.user?.targets && numTargets > 0 &&
-      (["ft", "m"].includes(item.system.range?.units) || item.system.range.type === "touch")) {
+      (["ft", "m"].includes(activity.item.system.range?.units) || activity.item.system.range.type === "touch")) {
       if (token) {
         for (let target of game.user.targets) {
-          const { result, attackingToken } = checkRange(item, token, new Set([target]))
+          const { result, attackingToken } = checkRange(activity.item, token, new Set([target]))
           if (result !== "normal") {
             if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.longRange");
             return true;
@@ -110,18 +108,18 @@ export function requiresTargetConfirmation(item, options): boolean {
       }
     }
     if (targetConfirmation.inCover && numTargets > 0 && token && game.user?.targets) {
-      const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
-      if (!item.hasAreaTarget && !isRangeTargeting) {
+      const isRangeTargeting = ["ft", "m"].includes(activity.target?.affects.count) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+      if (!activity.target?.template?.type && !isRangeTargeting) {
         for (let target of game.user?.targets) {
-          if (computeCoverBonus(token, target, item) > 0) {
+          if (computeCoverBonus(token, target, activity.item) > 0) {
             if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.inCover");
             return true;
           }
         }
       }
     }
-    const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
-    if (item.hasAreaTarget && (targetConfirmation.hasAoE)) {
+    const isRangeTargeting = ["ft", "m"].includes(activity.target?.affects.count) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+    if (activity.target?.template?.type && (targetConfirmation.hasAoE)) {
       if (debugEnabled > 0) warn("target confirmation triggered by targetConfirmation.hasAoE")
       return true;
     } else if (isRangeTargeting && (targetConfirmation.hasRangedAoE)) {
@@ -140,8 +138,8 @@ export async function preTemplateTargets(activity, options, pressedKeys): Promis
 }
 
 export async function postTemplateConfirmTargets(activity, options, pressedKeys, workflow): Promise<boolean> {
-  if (!itemRequiresPostTemplateConfiramtion(activity.item)) return true;
-  if (requiresTargetConfirmation(activity.item, options)) {
+  if (!itemRequiresPostTemplateConfiramtion(activity)) return true;
+  if (requiresTargetConfirmation(activity, options)) {
     let result = true;
     result = await resolveTargetConfirmation(activity, options, pressedKeys);
     if (result && game.user?.targets) workflow.targets = new Set(game.user.targets)
