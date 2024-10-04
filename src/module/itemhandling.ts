@@ -30,6 +30,7 @@ function itemRequiresPostTemplateConfiramtion(activity): boolean {
 }
 
 export function requiresTargetConfirmation(activity, options): boolean {
+  if (!activity.item) debugger;
   if (options.workflowOptions?.targetConfirmation === "none") return false;
   if (options.workflowOptions?.targetConfirmation === "always") return true;
   // check lateTargeting as well - legacy.
@@ -132,7 +133,7 @@ export function requiresTargetConfirmation(activity, options): boolean {
 
 export async function preTemplateTargets(activity, options, pressedKeys): Promise<boolean> {
   if (activityRequiresPostTemplateConfiramtion(activity)) return true;
-  if (requiresTargetConfirmation(activity.item, options))
+  if (requiresTargetConfirmation(activity, options))
     return await resolveTargetConfirmation(activity, options, pressedKeys) === true;
   return true;
 }

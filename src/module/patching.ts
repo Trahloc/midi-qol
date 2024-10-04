@@ -1729,7 +1729,7 @@ export async function doItemUse(wrapped, config: any ={}, dialog: any ={}, messa
   const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id));
   const attackActivity = activities?.find(a => a instanceof MidiAttackActivity);
   const otherActivities = activities?.filter(a => a !== attackActivity && !(a instanceof MidiSaveActivity));
-  if (otherActivities?.length > 0) return wrapped(config, dialog, message);
+  if (!attackActivity || otherActivities?.length > 0) return wrapped(config, dialog, message);
   return attackActivity.use(config, dialog, message);
 }
 

@@ -1376,7 +1376,7 @@ export async function completeActivityUse(activity, config: any = {}, options: a
   config.midiOptions = options;
   config.midiOptions.workflowOptions = { forceCompletion: true };
   // delete any existing workflow - complete item use always is fresh.
-  if (Workflow.getWorkflow(activity.uuid)) await Workflow.removeWorkflow(theItem.uuid);
+  if (Workflow.getWorkflow(activity.uuid)) await Workflow.removeWorkflow(activity.uuid);
   let localRoll = (!config.midiOptions.asUser && game.user?.isGM) || !config.midiOptions.checkGMStatus || config.midiOptions.asUser === game.user?.id;
   if (localRoll) {
     return new Promise((resolve) => {
@@ -1400,27 +1400,24 @@ export async function completeActivityUse(activity, config: any = {}, options: a
       const abortHookId = Hooks.once(abortHookName, (workflow) => {
         Hooks.off(completeHookName, completeHookId);
         if (debugEnabled > 0) warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`)
-        if (saveTargets && game.user && !options.ignoreUserTargets) {
-          console.error("resetting targets to ", saveTargets)
-          game.user?.updateTokenTargets(saveTargets);
-        }
+        console.warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`);
+        game.user?.updateTokenTargets(saveTargets);
         resolve(workflow);
       });
 
       let completeHookName = `midi-qol.postCleanup.${activity.uuid}`;
-      if (!(activity.item instanceof CONFIG.Item.documentClass)) {
+      if (!(activity)) {
         // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
         completeHookName = "midi-qol.postCleanup";
       }
       const completeHookId = Hooks.once(completeHookName, (workflow) => {
         Hooks.off(abortHookName, abortHookId);
         if (debugEnabled > 0) warn(`completeActivityUse complete hook fired: ${workflow.workflowName} ${completeHookName}`)
-        if (saveTargets && game.user && !options.ignoreUserTargets) {
-          game.user?.updateTokenTargets(saveTargets);
-        }
+        game.user?.updateTokenTargets(saveTargets);
+        console.warn(`completeActivityUse complete hook fired: ${workflow.workflowName} ${completeHookName}`); 
         resolve(workflow);
       });
-      config.midiOptions.targetsToUse = targetsToUse
+      config.midiOptions.targetsToUse = targetsToUse;
       return activity.use(config, dialog, message).then(result => { if (!result) resolve(result) });
     });
   } else {
@@ -1452,12 +1449,12 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
     return undefined;
   }
   //@ts-expect-error
-  const actitity = item.system.activities.contents[0];
-  if (!actitity) {
+  const activity = item.system.activities.contents[0];
+  if (!activity) {
     error(`item ${item.name} ${item.uuid} does not have an activity`);
     return undefined;
   }
-  return completeActivityUse(actitity, config, options, dialog, message);
+  return await completeActivityUse(activity, config, options, dialog, message);
 }
 
 export async function completeItemUseOld(item, config: any = {}, options: any = { checkGMstatus: false, targetUuids: undefined, asUser: undefined }) {
@@ -1496,9 +1493,7 @@ export async function completeItemUseOld(item, config: any = {}, options: any = 
       const abortHookId = Hooks.once(abortHookName, (workflow) => {
         Hooks.off(completeHookName, completeHookId);
         if (debugEnabled > 0) warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`)
-        if (saveTargets && game.user && !options.ignoreUserTargets) {
-          game.user?.updateTokenTargets(saveTargets);
-        }
+        game.user?.updateTokenTargets(saveTargets);
         resolve(workflow);
       });
 
@@ -1510,9 +1505,7 @@ export async function completeItemUseOld(item, config: any = {}, options: any = 
       const completeHookId = Hooks.once(completeHookName, (workflow) => {
         Hooks.off(abortHookName, abortHookId);
         if (debugEnabled > 0) warn(`completeItemUse complete hook fired: ${workflow.workflowName} ${completeHookName}`)
-        if (saveTargets && game.user && !options.ignoreUserTargets) {
-          game.user?.updateTokenTargets(saveTargets);
-        }
+        game.user?.updateTokenTargets(saveTargets);
         resolve(workflow);
       });
 
@@ -3309,6 +3302,9 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
 
     await removeEffectGranting(this.actor, button.key);
     roll = newRoll;
+    const optionalsUsed = foundry.utils.getProperty(roll, `flags.${MODULE_ID}.optionalsUsed`) ?? [];
+    optionalsUsed.push(`${button.key}.${flagSelector}`);
+    foundry.utils.setProperty(roll, `flags.${MODULE_ID}.optionalsUsed`, optionalsUsed);
     if (dialog) {
       validFlags = validFlags.filter(bf => bf !== button.key);
       if (validFlags.length === 0) {
@@ -4376,9 +4372,9 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.item = data.workflow.item?.getRollData().item;
       rollData.otherDamageFormula = data.workflow.otherDamageFormula;
       rollData.shouldRollDamage = data.workflow.shouldRollDamage;
-      rollData.hasAttack = data.workflow.actvity.attack;
+      rollData.hasAttack = data.workflow.activity.attack;
       rollData.hasDamage = activityHasDamage(data.workflow.activity);
-    } 
+    }
     if (data.activity) {
       rollData.activity = data.activity;
     }

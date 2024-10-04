@@ -1193,7 +1193,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
       }
       let { totalDamage, temp } = damages.reduce((acc, d) => {
         if (d.type === "temphp") acc.temp += d.value;
-        else if (d.type !== "midi-none") acc.amount += d.value;
+        else if (d.type !== "midi-none") acc.totalDamage += d.value;
         return acc;
       }, { totalDamage: 0, temp: 0 });
       // const totalDamage = damages.reduce((a, b) => a + b.value, 0);

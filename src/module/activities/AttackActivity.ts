@@ -44,7 +44,6 @@ export function defineMidiAttackSheetClass(baseClass: any) {
 
     async _prepareEffectContext(context) {
       context = await super._prepareEffectContext(context);
-      console.error(context, this.item)
       context.attackModeOptions = this.item.system.attackModes;
       context.hasAmmunition = this.item.system.properties.has("amm");
       context.ammunitionOptions = this.activity.actor.items
@@ -85,16 +84,13 @@ export function defineMidiAttackSheetClass(baseClass: any) {
           return this._prepareDamagePartContext(context, part);
         })
       }
-      console.error(context);
+      if (debugEnabled > 0) {
+        warn(("prepareEffectContext | context"), context);
+      }
       return context;
     }
 
     _prepareSubmitData(event, formData) {
-      console.error("preparesumbitdata", formData)
-      const attackMode = formData["flags.attack.attackMode"];
-      if (attackMode) {
-        formData["flags.attack.attackMode"] = attackMode;
-      }
       let submitData = super._prepareSubmitData(event, formData);
       return submitData;
     }
@@ -113,7 +109,6 @@ export function defineMidiAttackActivityClass(baseClass: any) {
         saveActivityUuid: new StringField(),
         otherActivityUuid: new StringField()
       };
-      console.error(schema)
       return schema;
     }
 
@@ -163,11 +158,11 @@ export function defineMidiAttackActivityClass(baseClass: any) {
       if (previousWorkflow) {
         if (!(await confirmWorkflow(previousWorkflow))) return;
       }
-      removeFlanking(this.item.parent)
+      await removeFlanking(this.item.parent)
       if (!config.midiOptions) config.midiOptions = {};
       if (!config.midiOptions.workflowOptions) config.midiOptions.workflowOptions = {};
-      setupTargets(this, config, dialog, message);
-      confirmTargets(this);
+      await setupTargets(this, config, dialog, message);
+      await confirmTargets(this);
       // come back and see about re-rolling etc.
       if (true || !this.workflow) {
         this.workflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
@@ -177,6 +172,7 @@ export function defineMidiAttackActivityClass(baseClass: any) {
       const results = await super.use(config, dialog, message);
       this.workflow.itemCardUuid = results.message.uuid;
       await this.workflow.performState(this.workflow.WorkflowState_Start, {});
+      return results;
     }
 
     async rollAttack(config, dialog, message) {
@@ -206,8 +202,10 @@ export function defineMidiAttackActivityClass(baseClass: any) {
       rolls[0] = await processAttackRollBonusFlags.bind(this.workflow)();
       if (["formulaadv", "adv"].includes(configSettings.rollAlternate)) addAdvAttribution(rolls[0], this.workflow.attackAdvAttribution);
       await this.workflow.setAttackRoll(rolls[0]);
-      console.error("MidiQOL | AttackActivity | rollAttack | setAttackRolls completed ", rolls);
-      console.error("attack roll is suspended", this.workflow.suspended);
+      if (debugEnabled > 0) {
+        warn("AttackActivity | rollAttack | setAttackRolls completed ", rolls);
+        warn(`Attack Activity | workflow is suspended ${this.workflow.suspended}`);
+      }
       if (this.workflow.suspended) this.workflow.unSuspend.bind(this.workflow)({ attackRoll: rolls[0] })
       return rolls;
     }
@@ -226,7 +224,9 @@ export function defineMidiAttackActivityClass(baseClass: any) {
 
     async rollDamage(config, dialog, message: any = {}) {
       if (!config.midiOptions) config.midiOptions = {};
-      console.error("MidiQOL | AttackActivity | rollDamage | Called", config, dialog, message);
+      if (debugEnabled > 0) {
+        warn("AttackActivity | rollDamage | Called", config, dialog, message);
+      }
       if (await asyncHooksCall("midi-qol.preDamageRoll", this.workflow) === false
         || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.workflow) === false
         || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.workflow) === false) {

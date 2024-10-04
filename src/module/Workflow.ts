@@ -194,6 +194,7 @@ export class Workflow {
     this.actor = actor;
     this.item = activity.item;
     this.activity = activity;
+    activity.workflow = this;
     if (this.workflowType === "BaseWorkflow") {
       const existing = Workflow.getWorkflow(activity.uuid);
       if (existing) {
@@ -2773,6 +2774,7 @@ export class Workflow {
 
   async displayDamageRolls() {
     const chatMessage = this.chatCard;
+    if (!chatMessage) debugger;
     let content = (chatMessage && foundry.utils.duplicate(chatMessage.content)) ?? "";
     if ((getRemoveDamageButtons(this.item) && configSettings.confirmAttackDamage === "none") || this.workflowType === "TrapWorkflow") {
       const versatileRe = /<button data-action="versatile">[^<]*<\/button>/
@@ -3066,6 +3068,7 @@ export class Workflow {
    */
   async checkSaves(whisper = false, simulate = false) {
     this.saveRolls = [];
+    this.tokenSaves = {};
     if (debugEnabled > 1) debug(`checkSaves: whisper ${whisper}  hit targets ${this.hitTargets}`)
     if (this.hitTargets.size <= 0 && this.hitTargetsEC.size <= 0) {
       this.saveDisplayFlavor = `<span>${i18n("midi-qol.noSaveTargets")}</span>`
@@ -3713,6 +3716,7 @@ export class Workflow {
       }
       const rollHTML = await midiRenderRoll(saveRoll);
       this.saveRolls.push(saveRoll);
+      this.tokenSaves[getTokenDocument(target)?.uuid ?? "none"] = saveRoll;
       this.saveDisplayData.push({
         gmName: getTokenName(target),
         playerName: getTokenPlayerName(target),
@@ -4722,12 +4726,13 @@ export class TrapWorkflow extends Workflow {
     this.saveTargets = validTargetTokens(game.user?.targets);
     this.effectsAlreadyExpired = [];
     this.onUseMacroCalled = false;
-    const itemCard = await (this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true }));
+/*    const itemCard = await (this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true }));
     if (itemCard) {
       this.itemCardUuid = itemCard.uuid;
       this.itemCardId = itemCard.id
     }
-
+    */
+    this.activity.use({configure: false}, {}, {})
     // this.itemCardId = (await showItemCard.bind(this.item)(false, this, true))?.id;
     //@ts-expect-error TODO this is just wrong fix
     if (debugEnabled > 1) debug(" workflow.none ", state, this.item, getAutoTarget(this.item), activityHasAreaTarget(this.activity), this.targets);
@@ -5036,7 +5041,6 @@ export class DummyWorkflow extends Workflow {
     this.initSaveResults();
     await this.checkSaves(true, true);
     for (let result of this.saveResults) {
-      // const result = this.saveResults[0];
       result.saveAdvantage = result.options.advantageMode === 1;
       result.saveDisadvantage = result.options.advantageMode === -1;
       result.saveRoll = await new Roll(result.formula).roll({ async: true });
@@ -5045,7 +5049,6 @@ export class DummyWorkflow extends Workflow {
       result.expectedSaveRoll = ((maxroll || 0) + (minroll || 0)) / 2;
       if (result.saveAdvantage) result.expectedSaveRoll += 3.325;
       if (result.saveDisadvantage) result.expectedSaveRoll -= 3.325;
-      // this.simulatedSaveResults.push(result);
     }
     return this;
   }

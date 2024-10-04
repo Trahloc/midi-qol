@@ -18,6 +18,17 @@
 
 * None of the midi properties have been migrated to be activity properties, so they remain on the item. This includes activation, other damage and reaction conditions. Eventually they will migrate to the activity rather than the item.
 
+### 11.6.20
+* The Fix sticky keys setting should now really fix sticky keys (thanks @kgar).
+* Fox for some edge cases of complete item use not resetting targets.
+
+For Macro writers
+* Fix for addRollTo not preserving roll options.
+* Rolls that benefit from an optional bonus will have flags.midi-qol.optionsUsed (an array of strings) updated to list the optional bonuses applied.
+  - workflow.attackRoll and workflow.damageRolls[0] will have the annotated roll.
+  - Added workflow.tokenSaves which is an object keyed by token uuid containing the save roll
+  - rolls returned by actor.rollAbilitySave, item.rollAttack etc will have the flags set.
+
 ### 11.6.19.1
 * Fix for bug introduced in 11.6.19
 

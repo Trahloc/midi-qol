@@ -129,7 +129,8 @@ export async function removeFlanking(actor: Actor): Promise<void> {
   if (CEFlanking && CEFlanking.name) await CERemoveEffect({ effectName: CEFlanking.name, uuid: actor.uuid });
 }
 export async function confirmCanProceed(activity: any, config, dialog, message): Promise<boolean> {
-  console.error("MidiQOL | confirmCanProceed | Called", activity);
+  if (debugEnabled > 0) 
+    warn("MidiQOL | confirmCanProceed | Called", activity);
   const workflow = activity.workflow;
   try {
     if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated")) {
@@ -236,29 +237,29 @@ export async function confirmCanProceed(activity: any, config, dialog, message):
       const needsSomatic = activity.item.system.properties.has("somatic");
       const needsMaterial = activity.item.system.properties.has("material");
       //TODO Consider how to disable this check for DamageOnly workflows and trap workflows
-      const conditionData = createConditionData({ actor: activity.actor, item: this });
+      const conditionData = createConditionData({ actor: activity.actor, activity });
       const notSpell = await evalCondition(midiFlags?.fail?.spell?.all, conditionData, { errorReturn: false, async: true });
       if (notSpell) {
         ui.notifications?.warn("You are unable to cast the spell");
         return false;
       }
       let notVerbal = await evalCondition(midiFlags?.fail?.spell?.verbal, conditionData, { errorReturn: false, async: true });
-      if (!notVerbal && needsVerbal) {
+      if (notVerbal && needsVerbal) {
         ui.notifications?.warn("You make no sound and the spell fails");
         return false;
       }
       notVerbal = notVerbal || await evalCondition(midiFlags?.fail?.spell?.vocal, conditionData, { errorReturn: false, async: true });
-      if (!notVerbal && needsVerbal) {
+      if (notVerbal && needsVerbal) {
         ui.notifications?.warn("You make no sound and the spell fails");
         return false;
       }
       const notSomatic = await evalCondition(midiFlags?.fail?.spell?.somatic, conditionData, { errorReturn: false, async: true });
-      if (!notSomatic && needsSomatic) {
+      if (notSomatic && needsSomatic) {
         ui.notifications?.warn("You can't make the gestures and the spell fails");
         return false;
       }
       const notMaterial = await evalCondition(midiFlags?.fail?.spell?.material, conditionData, { errorReturn: false, async: true });
-      if (!notMaterial && needsMaterial) {
+      if (notMaterial && needsMaterial) {
         ui.notifications?.warn("You can't use the material component and the spell fails");
         return false;
       }
@@ -327,15 +328,9 @@ export async function confirmCanProceed(activity: any, config, dialog, message):
       // return;
     }
     if (configSettings.allowUseMacro) {
-      const results = await workflow.callMacros(this, workflow.onUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
+      const results = await workflow.callMacros(workflow.item, workflow.onUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
       if (workflow.aborted || results.some(i => i === false)) {
         console.warn("midi-qol | item roll blocked by preItemRoll macro");
-        workflow.aborted = true;
-        return workflow.performState(workflow.WorkflowState_Abort)
-      }
-      const ammoResults = await workflow.callMacros(workflow.ammo, workflow.ammoOnUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
-      if (workflow.aborted || ammoResults.some(i => i === false)) {
-        console.warn(`midi-qol | item ${workflow.ammo.name ?? ""} roll blocked by preItemRoll macro`);
         workflow.aborted = true;
         return workflow.performState(workflow.WorkflowState_Abort)
       }
@@ -737,7 +732,9 @@ export function configureDamageRoll(activity, config): void {
     let result2: Array<Roll>;
 
   } catch (err) {
-    console.error(err);
+    const message = "Configure Damage Roll error";
+    TroubleShooter.recordError(err, message);
+    console.error(message, err);
   }
 }
 

@@ -53,8 +53,8 @@ export function defineMidiUtilityActivityClass(baseClass: any) {
       if (!config.midiOptions) config.midiOptions = {};
       if (!config.midiOptions.workflowOptions) config.midiOptions.workflowOptions = {};
       // come back and see about re-rolling etc.
-      setupTargets(this, config, dialog, message);
-      confirmTargets(this);
+      await setupTargets(this, config, dialog, message);
+      await confirmTargets(this);
       // come back and see about re-rolling etc.
       if (true || !this.workflow) {
         this.workflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
@@ -69,7 +69,8 @@ export function defineMidiUtilityActivityClass(baseClass: any) {
     }
 
     async rollFormula(config, dialog, message: any = {}) {
-      console.error("MidiQOL | UtilityActivity | rollDamage | Called", config, dialog, message);
+      if (debugEnabled > 0)
+        warn("UtilityActivity | rollFormula | Called", config, dialog, message);
       if (await asyncHooksCall("midi-qol.preFormulaRoll", this.workflow) === false
         || await asyncHooksCall(`midi-qol.preFormulaRoll.${this.item.uuid}`, this.workflow) === false
         || await asyncHooksCall(`midi-qol.preFormulaRoll.${this.uuid}`, this.workflow) === false) {

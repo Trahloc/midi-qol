@@ -52,16 +52,15 @@ export function defineMidiSaveActivityClass(baseClass: any) {
 
       if (!config.midiOptions) config.midiOptions = {};
       if (!config.midiOptions.workflowOptions) config.midiOptions.workflowOptions = {};
-      setupTargets(this, config, dialog, message);
-      confirmTargets(this);
+      await setupTargets(this, config, dialog, message);
+      await confirmTargets(this);
       // come back and see about re-rolling etc.
-      if (true || !this.workflow) {
+      if (!this.workflow) {
         this.workflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
       }
       if (!await confirmCanProceed(this, config, dialog, message)) return;
 
-      console.error("MidiQOL | SaveActivity | use | Called", config, dialog, message);
-
+      
       setProperty(message, "data.flags.midi-qol.messageType", "save");
       const results = await super.use(config, dialog, message);
       this.workflow.itemCardUuid = results.message.uuid;
@@ -70,7 +69,8 @@ export function defineMidiSaveActivityClass(baseClass: any) {
     }
 
     async rollDamage(config, dialog, message: any = {}) {
-      console.error("MidiQOL | SaveActivity | rollDamage | Called", config, dialog, message);
+      if (debugEnabled > 0)
+        warn("SaveActivity | rollDamage | Called", config, dialog, message);
       if (await asyncHooksCall("midi-qol.preDamageRoll", this.workflow) === false
         || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.workflow) === false
         || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.workflow) === false) {
