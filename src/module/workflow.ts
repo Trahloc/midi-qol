@@ -3184,6 +3184,7 @@ export class Workflow {
   async checkSaves(whisper = false, simulate = false) {
 
     this.saveRolls = [];
+    this.tokenSaves = {};
     if (debugEnabled > 1) debug(`checkSaves: whisper ${whisper}  hit targets ${this.hitTargets}`)
     if (this.hitTargets.size <= 0 && this.hitTargetsEC.size <= 0) {
       this.saveDisplayFlavor = `<span>${i18n("midi-qol.noSaveTargets")}</span>`
@@ -3833,6 +3834,7 @@ export class Workflow {
       }
       const rollHTML = await midiRenderRoll(saveRoll);
       this.saveRolls.push(saveRoll);
+      this.tokenSaves[getTokenDocument(target)?.uuid ?? "none"] = saveRoll;
       this.saveDisplayData.push({
         gmName: getTokenName(target),
         playerName: getTokenPlayerName(target),
@@ -5122,7 +5124,6 @@ export class DummyWorkflow extends Workflow {
     this.initSaveResults();
     await this.checkSaves(true, true);
     for (let result of this.saveResults) {
-      // const result = this.saveResults[0];
       result.saveAdvantage = result.options.advantageMode === 1;
       result.saveDisadvantage = result.options.advantageMode === -1;
       result.saveRoll = await new Roll(result.formula).roll({ async: true });
@@ -5131,7 +5132,6 @@ export class DummyWorkflow extends Workflow {
       result.expectedSaveRoll = ((maxroll || 0) + (minroll || 0)) / 2;
       if (result.saveAdvantage) result.expectedSaveRoll += 3.325;
       if (result.saveDisadvantage) result.expectedSaveRoll -= 3.325;
-      // this.simulatedSaveResults.push(result);
     }
     return this;
   }

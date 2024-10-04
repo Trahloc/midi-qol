@@ -34,7 +34,7 @@ export class MidiKeyManager {
     autoRollDamage: undefined
   };
 
-  resetKeyState() {
+  public resetKeyState() {
     this._adv = false;
     this._dis = false;
     this._vers = false;
@@ -46,8 +46,36 @@ export class MidiKeyManager {
   }
   constructor() {
     this.resetKeyState();
+    Hooks.once("ready", () => {
+      window.addEventListener("keydown", event => this._handleKeyboardEvent(event, false));
+      window.addEventListener("keyup", event => this._handleKeyboardEvent(event, true));
+    });
   }
 
+  _handleKeyboardEvent(event: KeyboardEvent, up: boolean) {
+    if (!configSettings.fixStickyKeys) return;
+    if (event.isComposing) return; // Ignore IME composition
+    if (!event.key && !event.code) return; // Some browsers fire keyup and keydown events when autocompleting values.
+    let context = {
+      event: event,
+      key: event.code,
+      isShift: event.shiftKey,
+      isControl: event.ctrlKey || event.metaKey,
+      isAlt: event.altKey,
+      hasModifier: event.shiftKey || event.ctrlKey || event.metaKey || event.altKey,
+      modifiers: [],
+      up: up,
+      repeat: event.repeat
+    };
+    //@ts-expect-error
+    const actions = KeyboardManager._getMatchingActions(context);
+    for (let action of actions) {
+      if (action.action.startsWith("midi-qol")) {
+        //@ts-expect-error
+        KeyboardManager._executeKeybind(action, context);
+      }
+    }
+  }
   getstate(): Options {
     const state: Options = {
       advantage: this._rollToggle ? false : this._adv,

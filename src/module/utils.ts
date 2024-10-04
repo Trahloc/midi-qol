@@ -1346,7 +1346,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
     return new Promise((resolve) => {
       let saveTargets = Array.from(game.user?.targets ?? []).map(t => { return t.id });
       if (options.targetUuids?.length > 0 && game.user && theItem.system.target.type !== "self") {
-        if (!options.ignoreUserTargets) game.user.updateTokenTargets([]);
+        if (options.ignoreUserTargets) game.user.updateTokenTargets([]);
         for (let targetUuid of options.targetUuids) {
           const theTarget = MQfromUuidSync(targetUuid);
           if (theTarget && !options.ignoreUserTargets) theTarget.object.setTarget(true, { user: game.user, releaseOthers: false, groupSelection: true });
@@ -1364,9 +1364,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
       const abortHookId = Hooks.once(abortHookName, (workflow) => {
         Hooks.off(completeHookName, completeHookId);
         if (debugEnabled > 0) warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`)
-        if (saveTargets && game.user && !options.ignoreUserTargets) {
-          game.user?.updateTokenTargets(saveTargets);
-        }
+        game.user?.updateTokenTargets(saveTargets);
         resolve(workflow);
       });
 
@@ -1378,9 +1376,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
       const completeHookId = Hooks.once(completeHookName, (workflow) => {
         Hooks.off(abortHookName, abortHookId);
         if (debugEnabled > 0) warn(`completeItemUse complete hook fired: ${workflow.workflowName} ${completeHookName}`)
-        if (saveTargets && game.user && !options.ignoreUserTargets) {
-          game.user?.updateTokenTargets(saveTargets);
-        }
+        game.user?.updateTokenTargets(saveTargets);
         resolve(workflow);
       });
 
@@ -3146,6 +3142,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           setRollOperatorEvaluated(tempRoll);
           if (showDiceSoNice) await displayDSNForRoll(tempRoll, rollType, rollMode);
           newRoll = addRollTo(roll, tempRoll);
+
         } else {
           //@ts-expect-error
           newRoll = CONFIG.Dice.D20Roll.fromRoll(roll);
@@ -3172,6 +3169,9 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
 
     await removeEffectGranting(this.actor, button.key);
     roll = newRoll;
+    const optionalsUsed = foundry.utils.getProperty(roll, `flags.${MODULE_ID}.optionalsUsed`) ?? [];
+    optionalsUsed.push(`${button.key}.${flagSelector}`);
+    foundry.utils.setProperty(roll, `flags.${MODULE_ID}.optionalsUsed`, optionalsUsed);
     if (dialog) {
       validFlags = validFlags.filter(bf => bf !== button.key);
       if (validFlags.length === 0) {
@@ -5794,6 +5794,7 @@ export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
     terms = terms.concat(bonusRoll.terms);
   }
   let newRoll = Roll.fromTerms(terms)
+  newRoll.options = roll.options;
   return newRoll;
 }
 
