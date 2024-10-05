@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.20.1
+* Fix for type in processDamageRoll
+
 ### 11.6.20
 * The Fix sticky keys setting should now really fix sticky keys (thanks @kgar).
 * Fox for some edge cases of complete item use not resetting targets.

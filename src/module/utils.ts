@@ -433,7 +433,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         if (workflow.superSavers.has(token) && getSaveMultiplierForItem(item, type) === 0.5) {
           saveMultiplier = saves.has(token) ? 0 : 0.5;
         }
-        if (workflow.semiSuperSavers.has(token) && this.saves.has(token)) {
+        if (workflow.semiSuperSavers.has(token) && saves.has(token)) {
           saveMultiplier = 0;
         }
 
