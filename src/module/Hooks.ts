@@ -1078,23 +1078,32 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
       };
     }
 
+    function selectDamages(damages, selectDamage: (damage) => boolean) {
+      return damages.reduce((total, damage) => {
+        // if (!GameSystemConfig.damageTypes[damage.type]) return total;
+        if (["none", "midi-none"].includes(damage.type)) return total;
+        return total + (selectDamage(damage) ? damage.value : 0);
+      }, 0);
+
+    }
     let drAllActives: string[] = [];
     // Insert DR.ALL as a -ve damage value maxed at the total damage.
-    let drAll;
+    let dmAll;
     if (options.ignore !== true && !options.ignore?.DR?.has("none") && !options.ignore?.DR?.has("all")) {
       // think about how to do custom dm.const specials = [...(actor.system.traits.dm.custom ?? []).split(";"), ...Object.keys(actor.system.traits.dm?.midi ?? {})];
       const specials = Object.keys(actor.system.traits.dm?.midi ?? {});
       for (let special of specials) {
-        let dr;
-        let drRoll;
+        let dm;
+        let dmRoll;
         let selectedDamage;
-        let drActive;
-        drRoll = new Roll(`${actor.system.traits.dm.midi[special]}`, actor.getRollData())
-        dr = doSyncRoll(drRoll, `traits.dm.midi.${special}`)?.total ?? 0;;
+        let oldDamage
+        let dmActive;
+        dmRoll = new Roll(`${actor.system.traits.dm.midi[special]}`, actor.getRollData())
+        dm = doSyncRoll(dmRoll, `traits.dm.midi.${special}`)?.total ?? 0;;
         switch (special) {
           case "all":
-            selectedDamage = damages.reduce((total, damage) => { return total + damage.value }, 0);
-            if (selectedDamage > 0) drActive = i18n("All");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type]);
+            if (selectedDamage > 0) dmActive = i18n("All");
             break;
 
           case "mwak":
@@ -1102,115 +1111,83 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           case "msak":
           case "rsak":
             if (options.ignore?.modification?.has(special)) continue;
-            selectedDamage = damages.reduce((total, damage) => {
-              const isAttackType = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has(special);
-              return total + (isAttackType ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n(special);
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && damage.properties.has(special));
+            if (selectedDamage > 0) dmActive = i18n(special);
             break;
 
           case "magical":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isMagical = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("mgc");
-              return total + (isMagical ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.Magical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("mgc"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.Magical");
             break;
           case "non-magical":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isNonMagical = !GameSystemConfig.healingTypes[damage.type] && !damage.properties.has("mgc");
-              return (total + isNonMagical ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonMagical")
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && !damage.properties.has("mgc"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonMagical")
             break;
           case "non-magical-physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isNonMagical = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mgc");
-              return total + (!GameSystemConfig.healingTypes[damage.type] && isNonMagical ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonMagicalPhysical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mgc"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonMagicalPhysical");
             break;
 
           case "non-silver-physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isNonSilver = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("sil");
-              return total + (isNonSilver ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonSilverPhysical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("sil"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonSilverPhysical");
             break;
+
           case "non-adamant-physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isAdamant = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("ada");
-              return total + (isAdamant ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonAdamantinePhysical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("ada"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonAdamantinePhysical");
             break;
 
           case "non-physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isNonPhysical = !GameSystemConfig.healingTypes[damage.type] && !game.system.config.damageTypes[damage.type]?.isPhysical;
-              return total + (isNonPhysical ? damage.value : 0);;
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonPhysical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && !GameSystemConfig.damageTypes[damage.type]?.isPhysical);
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonPhysical");
             break;
 
           case "physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isPhysical = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical;
-              const bypasses = actor.system.traits.dm.bypasses;
-              const isBypassed = bypasses.intersection(damage.properties).size > 0;
-              return total + (isPhysical && !isBypassed ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.Physical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && GameSystemConfig.damageTypes[damage.type]?.isPhysical);
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.Physical");
             break;
 
           case "spell":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
-              return total + (isSpell ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.SpellDamage");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.SpellDamage");
             break;
 
           case "non-spell":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
-              return total + (isSpell ? 0 : damage.value);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonSpellDamage");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && !damage.properties.has("spell"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonSpellDamage");
             break;
 
-          default: dr = 0; selectedDamage = 0; break;
+          default: dm = 0; selectedDamage = 0; break;
         }
-        if (dr) {
-          if (Math.sign(selectedDamage + dr) !== Math.sign(selectedDamage)) {
-            dr = -selectedDamage
+        if (dm) {
+          if (Math.sign(selectedDamage + dm) !== Math.sign(selectedDamage)) {
+            dm = -selectedDamage
           }
-          if (checkRule("maxDRValue") && (dr < drAll || drAll === undefined)) {
-            drAll = dr;
-            drAllActives = [drActive];
+          if (checkRule("maxDRValue") && (dm < dmAll || dmAll === undefined)) {
+            dmAll = dm;
+            drAllActives = [dmActive];
           } else if (!checkRule("maxDRValue")) {
-            drAllActives.push(drActive);
-            drAll = (drAll ?? 0) + dr;
+            drAllActives.push(dmActive);
+            dmAll = (dmAll ?? 0) + dm;
           }
         }
       }
-      if (drAll) {
-        const totalDamage = damages.reduce((a, b) => a + b.value, 0);
-        if (totalDamage > 0 && totalDamage < actor.system.attributes.hp.dt) {
-          // total damage is less than the damage threshold so no damage
-          drAll = -totalDamage;
-        } else if (Math.sign(totalDamage) !== Math.sign(drAll + totalDamage)) {
-          drAll = -totalDamage;
-        }
-        if (drAll) {
-          damages.push({ type: "none", value: drAll, active: { DR: true, multiplier: 1 }, allActives: drAllActives, properties: new Set() });
-        }
+      let { totalDamage, temp } = damages.reduce((acc, d) => {
+        if (d.type === "temphp") acc.temp += d.value;
+        else if (d.type !== "midi-none") acc.totalDamage += d.value;
+        return acc;
+      }, { totalDamage: 0, temp: 0 });
+      // const totalDamage = damages.reduce((a, b) => a + b.value, 0);
+      if (!dmAll) dmAll = 0;
+      if (totalDamage > 0 && totalDamage < actor.system.attributes.hp.dt) {
+        // total damage is less than the damage threshold so no damage
+        dmAll = -totalDamage;
+      } else if (Math.sign(totalDamage) !== Math.sign(dmAll + totalDamage)) {
+        dmAll = -totalDamage;
+      }
+      if (dmAll) {
+        damages.push({ type: "none", value: dmAll, active: { DR: true, multiplier: 1 }, allActives: drAllActives, properties: new Set() });
       }
       Hooks.callAll("midi-qol.dnd5eCalculateDamage", actor, damages, options);
       while (damages.find((di, idx) => {
