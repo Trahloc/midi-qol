@@ -422,7 +422,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
       challengeModeScale = scale;
     }
     damagePerToken[tokenDocument.uuid].challengeModeScale = challengeModeScale;
-    if (totalDamage !== 0 && (workflow.hitTargets.has(token) || workflow.hitTargetsEC.has(token) || workflow.saveItem.hasSave)) {
+    if (totalDamage !== 0 && (workflow.hitTargets.has(token) || workflow.hitTargetsEC.has(token) || workflow.hasSave)) {
       const isHealing = ("heal" === workflow.activity.actionType);
       await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? [workflow.otherDamageRoll], !isHealing ? "reactiondamage" : "reactionheal", { activity: workflow.activity, item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.rawDamageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
     }
@@ -1980,7 +1980,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string | un
 
     let actor = token.actor;
     // look at undefined versus !
-    if (!item.system.range.value && !item.system.range.long && item.system.range.units !== "touch") return {
+    if (!(item.system.range.value ?? item.system.range.reach) && !item.system.range.long && item.system.range.units !== "touch") return {
       result: "normal",
       reason: "no range specified"
     };
@@ -1996,7 +1996,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string | un
     };
 
     const attackType = item.system.actionType;
-    let range = (item.system.range?.value ?? 0);
+    let range = (item.system.range?.value ?? item.system.range?.reach ?? 0);
     let longRange = (item.system.range?.long ?? 0);
     if (item.parent?.system) {
       let conditionData;
@@ -4321,11 +4321,6 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
   if (systemData.details.race) return (systemData.details?.race?.name ?? systemData.details?.race)?.toLocaleLowerCase() ?? "";
   return systemData.details.type?.value?.toLocaleLowerCase() ?? "";
 }
-
-export function effectActivationConditionToUse(workflow: Workflow) {
-  return foundry.utils.getProperty(this, `flags.${MODULE_ID}.effectCondition`);
-}
-
 export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any }) {
   const actor = data.workflow?.actor ?? data.actor;
   let item;
@@ -5947,7 +5942,7 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
       warn(`chooseEffect | no effects found for ${item.name}`);
     return false;
   }
-  let targets = workflow.applicationTargets;
+  let targets = workflow.effectTargets;
   let origin = item?.uuid;
   if (workflow?.chatCard.getFlag("dnd5e", "use.concentrationId")) {
     origin = workflow.actor.effects.get(workflow.chatCard.getFlag("dnd5e", "use.concentrationId"))?.uuid ?? item?.uuid;

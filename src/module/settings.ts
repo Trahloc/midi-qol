@@ -152,8 +152,6 @@ class ConfigSettings {
   requiresTargets: string = "none";
   rollNPCLinkedSaves: string = "auto";
   rollNPCSaves: string = "auto";
-  rollOtherDamage: string | boolean = "none";
-  rollOtherSpellDamage: string | boolean = "none";
   rollChecksBlind: string[] = [];
   rollSavesBlind: string[] = [];
   rollSkillsBlind: string[] = [];
@@ -361,20 +359,6 @@ export let fetchParams = () => {
   if (configSettings.convenientEffectsReaction === undefined) configSettings.convenientEffectsReaction = "Reaction"; //TODO come back when it is configurable in midi and set it to ""
   if (typeof configSettings.rangeTarget !== "string") configSettings.rangeTarget = "none";
   if (!configSettings.showReactionAttackRoll === undefined) configSettings.showReactionAttackRoll = "all";
-  // deal with change of type of rollOtherDamage
-  if (configSettings.rollOtherDamage === false) configSettings.rollOtherDamage = "none";
-  if (configSettings.rollOtherDamage === true) configSettings.rollOtherDamage = "ifSave";
-  if (configSettings.rollOtherDamage === undefined) configSettings.rollOtherDamage = "none";
-  if (configSettings.rollOtherSpellDamage === "activation") {
-    ui.notifications?.error("midi-qol | rollOtherSpellDamage is set to activation, this is no longer supported, setting to none");
-    configSettings.rollOtherSpellDamage = "none";
-  }
-  if (configSettings.rollOtherSpellDamage === "activation") {
-    ui.notifications?.error("midi-qol | rollOtherSpellDamage is set to activation, this is no longer supported, setting to none");
-    configSettings.rollOtherSpellDamage = "none";
-  }
-  configSettings.effectActivation = false;
-  if (!configSettings.rollOtherSpellDamage) configSettings.rollOtherSpellDamage = "none";
   if (!configSettings.rollChecksBlind) configSettings.rollChecksBlind = [];
   configSettings.rollChecksBlind = configSettings.rollChecksBlind.filter((item) => item !== "none");
   //@ts-expect-error type mismatch - this is for legacy true setting

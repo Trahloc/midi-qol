@@ -351,7 +351,7 @@ export async function onChatCardAction(event) {
   const authorId = message?.author?.id;
   // Validate permission to proceed with the roll
   if (!(game.user?.isGM || message?.isAuthor)) return;
-  if (!["damage", "attack", "confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
+  if (!["damage", "attack", "rollAttack", "rollDamage", "confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
   if (!message?.user) return;
   const activityUuid = foundry.utils.getProperty(message, "flags.dnd5e.activity.uuid");
   //@ts-expect-error
@@ -385,8 +385,8 @@ export async function onChatCardAction(event) {
         let workflow = Workflow.getWorkflow(item.uuid);
         if (workflow) {
           workflow.forceApplyEffects = true; // don't overwrite the application targets
-          workflow.applicationTargets = game.user?.targets;
-          if (workflow.applicationTargets.size > 0) workflow.performState(workflow.WorkflowState_ApplyDynamicEffects)
+          workflow.effectTargets = game.user?.targets;
+          if (workflow.effectTargets.size > 0) workflow.performState(workflow.WorkflowState_ApplyDynamicEffects)
         } else {
           ui.notifications?.warn(i18nFormat("midi-qol.NoWorkflow", { itemName: item.name }));
         }
@@ -425,6 +425,7 @@ export async function onChatCardAction(event) {
     case "attack-adv":
     case "attack-dis":
     case "attack":
+    case "rollAttack":
       await activity.rollAttack({
         event,
         midiOptions: {
@@ -439,6 +440,7 @@ export async function onChatCardAction(event) {
     case "damage-critical":
     case "damage-nocritical":
     case "damage":
+    case "rollDamage":
       await activity.rollDamage({
         event,
         midiOptions: { spellLevel, critical: action === 'damage-critical' }

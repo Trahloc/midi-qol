@@ -22,13 +22,13 @@ export function setupSummonActivity() {
 export function defineMidiSummonActivityClass(baseClass: any) {
   return class MidiSummonActivity extends baseClass {
     targetsToUse: Set<Token>;
-    _workflow: Workflow;
+    _workflow: Workflow | undefined;
     get workflow() { return this._workflow; }
     set workflow(value) { this._workflow = value; }
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
-        title: "midi-qol.Summon.Title.one",
+        title: "midi-qol.SUMMON.Title.one",
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
@@ -60,7 +60,7 @@ export function defineMidiSummonActivityClass(baseClass: any) {
       if (this.item.type !== "spell") {
         await baseClass.metadata.usage.actions.placeSummons.call(this);
       }
-      this.workflow.performState(this.workflow.WorkflowState_Start, {});
+      this.workflow?.performState(this.workflow.WorkflowState_Start.bind(this.workflow), {});
       return results;
     }
 
@@ -84,7 +84,10 @@ export function defineMidiSummonActivityClass(baseClass: any) {
       return midiUsageChatContext(this, context);
     }
 
-    get summonActivity() {
+    get otherActivity() {
+      return undefined;
+    }
+    get saveActivity() {
       return undefined;
     }
   }

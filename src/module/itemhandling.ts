@@ -1152,7 +1152,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     let otherResult: Roll | undefined = undefined;
     let otherResult2: Roll | undefined = undefined;
 
-    workflow.shouldRollOtherDamage = await shouldRollOtherDamage.bind(workflow.otherDamageItem)(workflow, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
+    workflow.shouldRollOtherDamage = await shouldRollOtherDamage.bind(workflow.otherDamageItem)(workflow, "invalid", "invalid");
     if (workflow.shouldRollOtherDamage) {
       const otherRollOptions: any = {};
       if (game.settings.get(MODULE_ID, "CriticalDamage") === "default") {

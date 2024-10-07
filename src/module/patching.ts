@@ -8,6 +8,7 @@ import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { MidiAttackActivity } from "./activities/AttackActivity.js";
 import { MidiSaveActivity } from "./activities/SaveActivity.js";
+import { MidiDamageActivity } from "./activities/DamageActivity.js";
 let libWrapper;
 
 var d20Roll;
@@ -1728,7 +1729,7 @@ export async function doItemUse(wrapped, config: any ={}, dialog: any ={}, messa
   if (config.legacy !== false) return wrapped(config, dialog, message);
   const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id));
   const attackActivity = activities?.find(a => a instanceof MidiAttackActivity);
-  const otherActivities = activities?.filter(a => a !== attackActivity && !(a instanceof MidiSaveActivity));
+  const otherActivities = activities?.filter(a => a !== attackActivity && !(a instanceof MidiSaveActivity || a instanceof MidiDamageActivity));
   if (!attackActivity || otherActivities?.length > 0) return wrapped(config, dialog, message);
   return attackActivity.use(config, dialog, message);
 }

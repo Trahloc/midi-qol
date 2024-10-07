@@ -147,6 +147,7 @@ function setupActvities() {
   setupSaveActivity();
   setupUtilityActivity();
   setupSummonActivity();
+  setupDamageActivity();
 }
 
 Hooks.once('init', async function () {
@@ -588,6 +589,7 @@ import { defineChatMessageMidiClass } from './module/ChatMessageMidi.js';
 import { setupSaveActivity } from './module/activities/SaveActivity.js';
 import { setupUtilityActivity } from './module/activities/UtilityActivity.js';
 import { setupSummonActivity } from './module/activities/SummonActivity.js';
+import { setupDamageActivity } from './module/activities/DamageActivity.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });

@@ -3,7 +3,7 @@ import { postTemplateConfirmTargets, selectTargets, shouldRollOtherDamage, templ
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, getAutoTarget, hasAutoPlaceTemplate, effectActivationConditionToUse, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasDamage, activityHasAreaTarget, getsaveMultiplierForActivity } from "./utils.js"
+import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, getSaveMultiplierForItem, requestPCSave, applyTokenDamage, checkRange, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, playerForActor, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, getSpeaker, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, getAutoTarget, hasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasDamage, activityHasAreaTarget, getsaveMultiplierForActivity } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -139,23 +139,30 @@ export class Workflow {
   get workflowType() { return "BaseWorkflow" };
 
   get hasSave(): boolean {
-    return this.activity.saveSaveActivity !== undefined;
-    if (this.ammo?.hasSave) return true;
-    if (this.item?.hasSave) return true;
-    if (configSettings.rollOtherDamage && this.shouldRollOtherDamage) return this.otherDamageItem?.hasSave;
-    return false;
+    return this.activity.save || this.activity.saveActivity?.save;
   }
 
+  /*
   get saveItem() {
     if (this.ammo?.hasSave) return this.ammo;
     if (this.item?.hasSave) return this.item;
     if (configSettings.rollOtherDamage && this.otherDamageItem?.hasSave) return this.otherDamageItem;
     return this.item;
   }
+  */
 
-  get otherDamageItem() {
-    if (this.ammo && (this.ammo?.system.formula ?? "") !== "") return this.ammo;
-    return this.item;
+  get otherActivity() {
+    return this.activity.otherActivity;
+  }
+
+  get effectActivationCondition() {
+    if (this.activity.effectCondition) return this.activity.effectCondition;
+    return foundry.utils.getProperty(this, `flags.${MODULE_ID}.effectCondition`);
+  }
+
+  get otherEffectActivationCondition() {
+    if (this.otherActivity?.effectCondition) return this.otherActivity.effectCondition;
+    return foundry.utils.getProperty(this, `flags.${MODULE_ID}.otherCondition`);
   }
 
   get otherDamageFormula() {
@@ -991,14 +998,16 @@ export class Workflow {
     if (checkMechanic("actionSpecialDurationImmediate") && this.hitTargets.size)
       expireMyEffects.bind(this)(["1Hit"]);
 
+    /* Other damage is now handled by the base activity damageRoll
     if (!activityHasDamage(this.activity) && !activityHasDamage(this.activity)) {
       // no damage roll - if the roll type is other/utility then roll otherDamage if there is any.
       if (["other", "util"].includes(this.item.system.actionType) && this.item.system.formula) {
-        const otherCondition = foundry.utils.getProperty(this.otherDamageItem, `flags.${MODULE_ID}.otherCondition`) ?? "";
+        const otherCondition = foundry.utils.getProperty(this.item, `flags.${MODULE_ID}.otherCondition`) ?? "";
         let shouldRoll = true;
         if (otherCondition !== "")
           //@ts-expect-error
           shouldRoll = await evalActivationCondition(this, otherCondition, this.targets.first(), { async: true, errorReturn: false });
+        // Now handled in 
         if (shouldRoll) {
           let otherRollData = this.otherDamageItem?.getRollData();
           otherRollData.spellLevel = this.rollOptions.spellLevel ?? this.spellLevel ?? this.otherDamageItem.system.level;
@@ -1011,7 +1020,7 @@ export class Workflow {
       }
       return this.WorkflowState_WaitForSaves;
     }
-
+    */
     if (configSettings.allowUseMacro && this.options.noOnUseMacro !== true) {
       await this.callMacros(this.item, this.onUseMacros?.getMacros("preDamageRoll"), "OnUse", "preDamageRoll");
       if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preDamageRoll"), "OnUse", "preDamageRoll");
@@ -1174,7 +1183,7 @@ export class Workflow {
       await this.displaySaves(configSettings.autoCheckSaves === "whisper");
     } else {// has saves but we are not checking so do nothing with the damage
       await this.expireTargetEffects(["isAttacked"])
-      this.applicationTargets = this.failedSaves;
+      this.effectTargets = this.failedSaves;
       return this.WorkflowState_RollFinished;
     }
     return this.WorkflowState_SavesComplete;
@@ -1218,33 +1227,59 @@ export class Workflow {
     const applyDynamicEffectsStartTime = Date.now();
 
     this.activationMatches = new Set();
+    this.otherActivationMatches = new Set();
     this.activationFails = new Set();
+    this.otherActivationFails = new Set();
 
     for (let token of this.targets) {
-      const activationCondition = effectActivationConditionToUse.bind(this.item)(this);
-      if (activationCondition) {
-        if (await evalActivationCondition(this, activationCondition, token, { async: true, errorReturn: true })) {
+      const effectCondition = this.effectActivationCondition;
+      const otherEffectCondition = this.otherEffectActivationCondition
+      if (effectCondition) {
+        if (await evalActivationCondition(this, effectCondition, token, { async: true, errorReturn: true })) {
           this.activationMatches.add(token);
         } else
           this.activationFails.add(token);
       } else this.activationMatches.add(token)
+
+      if (otherEffectCondition) {
+        if (await evalActivationCondition(this, otherEffectCondition, token, { async: true, errorReturn: true })) {
+          this.otherActivationMatches.add(token);
+        } else
+          this.otherActivationFails.add(token);
+      } else this.otherActivationMatches.add(token)
     }
     expireMyEffects.bind(this)(["1Action", "1Spell"]);
 
-    this.applicationTargets = new Set();
-    if (this.forceApplyEffects)
-      this.applicationTargets = this.targets;
-    else if ((foundry.utils.getProperty(this.item, `flags.${MODULE_ID}.effectCondition`) ?? "") !== "")
-      this.applicationTargets = this.activationMatches;
-    else if (this.activity.save && this.activity.attack) {
-      this.applicationTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
-      this.applicationTargets = new Set([...this.applicationTargets].filter(t => this.failedSaves.has(t)));
-    } else if (this.activity.save) this.applicationTargets = this.failedSaves;
+    this.effectTargets = new Set();
+    this.otherEffectTargets = new Set();
+    if (this.forceApplyEffects) {
+      // Assume this.effectTargets is already set
+    } else if (this.activity.save && this.activity.attack) {
+      this.effectTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
+      // check saves when selecting the effects to apply - deal with always apply effects
+      // this.effectTargets = new Set([...this.effectTargets].filter(t => this.failedSaves.has(t)));
+    } else if (this.activity.save) this.effectTargets = this.failedSaves;
     else if (this.activity.attack) {
-      this.applicationTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
+      this.effectTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
     } else
-      this.applicationTargets = this.targets;
-    let anyActivationTrue = this.applicationTargets.size > 0;
+      this.effectTargets = this.targets;
+    this.effectTargets = this.effectTargets.filter(t => this.activationMatches.has(t));
+
+    if (this.forceApplyEffects) {
+      // Assume this.otherEffectTargets is already set
+    } else if ((foundry.utils.getProperty(this.item, `flags.${MODULE_ID}.effectCondition`) ?? "") !== "")
+      this.otherEffectTargets = this.otherActivationMatches;
+    else if (this.otherActivity?.save && this.activity.attack) {
+      this.otherEffectTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
+      // check saves when selecting the effects to apply - deal with always apply effects
+      // this.otherEffectTargets = new Set([...this.otherEffectTargets].filter(t => this.failedSaves.has(t)));
+    } else if (this.otherActivity?.save) this.otherEffectTargets = this.failedSaves;
+    else if (this.activity.attack) {
+      this.otherEffectTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
+    } else
+      this.otherEffectTargets = this.targets;
+    this.otherEffectTargets = this.otherEffectTargets.filter(t => this.otherActivationMatches.has(t));
+    let anyActivationTrue = this.effectTargets.size > 0 || this.otherEffectTargets.size > 0;
     // Do special expiries
     const specialExpiries = [
       "isAttacked",
@@ -1279,14 +1314,16 @@ export class Workflow {
     let ceEffect = getCEEffectByName(this.activity.name);
     if (!ceEffect) ceEffect = getCEEffectByName(this.activity.item.name);
 
-    const allApplicableEffects = [...(this.activity.applicableEffects ?? []), ...(this.activity.saveActivity?.applicableEffects ?? [])];
-
+    const activityEffects = (this.activity.applicableEffects ?? []).filter(ef => !ef.transfer);
+    const otherActivityEffects = (this.activity.saveActivity?.applicableEffects ?? []).filter(ef => !ef.transfer);
     const ceTargetEffect = ceEffect && !(ceEffect?.flags?.dae?.selfTarget || ceEffect?.flags?.dae?.selfTargetAlways);
-    const hasActivityEffect = hasDAE(this) && (allApplicableEffects.some(ef => ef.transfer !== true) || this.activity?.saveActivity?.applicableEffects.some(ef => ef.transfer !== true));
-    const activitySelfEffects = allApplicableEffects.filter(ef => (ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) && !ef.transfer) ?? [];
-    const activityTargetEffects = allApplicableEffects?.filter(ef => !ef.flags?.dae?.selfTargetAlways && !ef.flags?.dae?.selfTarget && ef.transfer !== true) ?? [];
-    const hasActivityTargetEffects = hasActivityEffect && activityTargetEffects?.length > 0;
-    const hasActivitySelfEffects = hasActivityEffect && activitySelfEffects?.length > 0;
+    const ceSelfEffect = ceEffect && (ceEffect?.flags?.dae?.selfTarget || ceEffect?.flags?.dae?.selfTargetAlways);
+    const hasActivityEffects = hasDAE(this) && activityEffects.length > 0;
+    const hasOtherActivityEffects = hasDAE(this) && otherActivityEffects.length > 0;
+    const activitySelfEffects = activityEffects.filter(ef => ef.flags?.dae?.selfTarget && !ef.transfer) ?? [];
+    const activitySelfAllEffect = activityEffects.filter(ef => ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) ?? [];
+    const otherActivitySelfEffects = otherActivityEffects.filter(ef => ef.flags?.dae?.selfTarget) ?? [];
+    const otherActivitySelfAllEffects = otherActivityEffects.filter(ef => ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) ?? [];
 
     let selfEffectsToApply = "none";
     const metaData = {
@@ -1302,44 +1339,44 @@ export class Workflow {
     if (this.chatCard.getFlag("dnd5e", "use.concentrationId")) {
       origin = this.actor.effects.get(this.chatCard.getFlag("dnd5e", "use.concentrationId"))?.uuid ?? this.item.uuid;
     }
+    let damageComponents = {};
+    let damageListItem;
+    let hpDamage;
+    let totalDamage;
+    for (let token of this.targets) {
 
-    if (hasActivityTargetEffects || ceTargetEffect) {
-      console.error("About to debug", this.applicationTargets);
-      for (let token of this.applicationTargets) {
-        console.error(this.activationFails.has(token), !this.forceApplyEffects)
-        if (this.activationFails.has(token) && !this.forceApplyEffects) continue;
+      const tokenDamages = this.damageList?.find(di => di.targetUuid === getTokenDocument(token)?.uuid);
+      if (tokenDamages) {
+        totalDamage = tokenDamages.totalDamage;
+        hpDamage = tokenDamages.hpDamage;
+        damageComponents = [tokenDamages.damageDetails["combinedDamage"], configSettings.singleConcentrationRoll ? [] : (tokenDamages.damageDetails["otherDamage"] ?? [])]
+          .reduce((summary, damages) => {
+            let damagesSummary = damages.reduce((damageComponents, damageEntry) => {
+              damageComponents[damageEntry.type] = damageEntry.value + (damageComponents[damageEntry.type] ?? 0);
+              return damageComponents;
+            }, {});
+            Object.keys(damagesSummary).forEach(key => {
+              summary[key] = damagesSummary[key] + (summary[key] ?? 0);
+            });
+            return summary;
+          }, {});
+      }
 
-        if (hasActivityTargetEffects && (!ceTargetEffect || ["none", "both", "itempri"].includes(useCE))) {
-          let damageComponents = {};
-          let damageListItem;
-          let hpDamage;
-          let totalDamage;
-          const tokenDamages = this.damageList?.find(di => di.targetUuid === token.document.uuid);
-          if (tokenDamages) {
-            totalDamage = tokenDamages.totalDamage;
-            hpDamage = tokenDamages.hpDamage;
-            damageComponents = [tokenDamages.damageDetails["combinedDamage"], configSettings.singleConcentrationRoll ? [] : (tokenDamages.damageDetails["otherDamage"] ?? [])]
-              .reduce((summary, damages) => {
-                let damagesSummary = damages.reduce((damageComponents, damageEntry) => {
-                  damageComponents[damageEntry.type] = damageEntry.value + (damageComponents[damageEntry.type] ?? 0);
-                  return damageComponents;
-                }, {});
-                Object.keys(damagesSummary).forEach(key => {
-                  summary[key] = damagesSummary[key] + (summary[key] ?? 0);
-                });
-                return summary;
-              }, {});
+      // Check for activity effects or ce effects
+      if (this.forceApplyEffects || this.effectTargets.has(token)) {
+        if (hasActivityEffects && (!ceTargetEffect || ["none", "both", "itempri"].includes(useCE))) {
+          let selectedEffects = activityEffects;
+          if (!this.forceApplyEffects) {
+            selectedEffects = activityEffects.filter(ef =>
+              this.effectTargets.has(token) && (
+                !this.activity?.save
+                || this.failedSaves.has(token)
+                || this.activity?.effects.some(effectDetail => effectDetail.onSave == true && effectDetail._id === ef.id)
+              )
+            );
           }
-
-
-          // TODO the sense of onSave seems the wrong way round
-          // false means only apply when token saved
-          // true mean apply even if the token saved
-          const activityEffectsData = this.activity.effects.concat(this.activity.saveActivity?.effects ?? []);
-          const effectsToApplyUuids = activityEffectsData.filter(ef => !ef.effect.transfer && (ef.onSave === undefined || ef.onSave || this.failedSaves.has(token))).filter(ef => ef).map(ef => ef.effect?.uuid);
-
-          console.error("Applying ", effectsToApplyUuids, " to ", token);
-
+          const effectsToApplyUuids = selectedEffects.map(ef => ef.uuid);
+          console.error("Applying activity target effects", effectsToApplyUuids, " to ", token);
           await globalThis.DAE.doActivityEffects(this.activity, true, [token], effectsToApplyUuids, {
             damageTotal: totalDamage,
             critical: this.isCritical,
@@ -1365,9 +1402,8 @@ export class Workflow {
             }
           })
         }
-
         if (ceTargetEffect && this.activity.item && token.actor) {
-          if (ceEffect && ["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasActivityTargetEffects)) {
+          if (ceEffect && ["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasActivityEffects)) {
             const targetHasEffect = token.actor.effects.find(ef => ef.name === ceEffect.name);
             if (this.item?.flags.midiProperties?.toggleEffect && targetHasEffect) {
               await CEToggleEffect({ effectName: ceEffect.name, uuid: token.actor.uuid, origin });
@@ -1392,6 +1428,7 @@ export class Workflow {
               if (this.chatCard.getFlag("dnd5e", "use.concentrationId")) {
                 origin = this.actor.effects.get(this.chatCard.getFlag("dnd5e", "use.concentrationId"));
                 if (!effects) {
+                  //@ts-expect-error
                   for (let effect of token.actor.effects.filter(ef => ef.origin === origin.uuid)) {
                     if (!(origin.getFlag("dnd5e", "dependents") ?? []).some(d => d.uuid === effect.uuid))
                       origin.addDependent(effect);
@@ -1406,74 +1443,133 @@ export class Workflow {
             }
           }
         }
-        if (!this.forceApplyEffects && configSettings.autoItemEffects !== "applyLeave") await this.removeEffectsButton();
       }
-      // Perhaps this should use this.applicationTargets
-      if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) await this.triggerTargetMacros(["postTargetEffectApplication"], this.targets);
-    }
-    let ceSelfEffectToApply = ceEffect?.flags?.dae?.selfTargetAlways ? ceEffect : undefined;
-    selfEffectsToApply = "selfEffectsAlways"; // by default on do self effect always effects
-    if (this.applicationTargets.size > 0 && anyActivationTrue) { // someone had an effect applied so we will do all self effects
-      ceSelfEffectToApply = ceEffect && ceEffect?.flags?.dae?.selfTarget;
-      selfEffectsToApply = "selfEffectsAll";
-    }
-
-    if (selfEffectsToApply !== "none" && hasActivitySelfEffects && (!ceSelfEffectToApply || ["none", "both", "itempri"].includes(useCE))) {
-      const selfToken = tokenForActor(this.actor);
-      if (!selfToken) {
-        const message = `midi-qol: There is no token for the actor ${this.actor.name} to apply self effects to`;
-        ui.notifications?.error(message);
-        TroubleShooter.recordError(new Error(message));
-      } else {
-
-        await globalThis.DAE.doEffects(this.activity, true, [tokenForActor(this.actor)],
-          {
-            toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
-            whisper: false,
-            spellLevel: this.spellLevel,
+      if (this.forceApplyEffects || this.otherEffectTargets.has(token)) {
+        if (hasOtherActivityEffects) {
+          let selectedEffects = otherActivityEffects;
+          if (!this.forceApplyEffects) {
+            selectedEffects = otherActivityEffects.filter(ef =>
+              this.otherActivationMatches.has(token) && this.otherEffectTargets.has(token) && (
+                !this.otherActivity?.save
+                || this.failedSaves.has(token)
+                || this.saveActivity?.effects.some(effectDetail => effectDetail.onSave == true && effectDetail._id === ef.id)
+              )
+            );
+          }
+          const effectsToApplyUuids = selectedEffects.map(ef => ef.uuid);
+          console.error("Applying other activity target effects", effectsToApplyUuids, " to ", token);
+          await globalThis.DAE.doActivityEffects(this.activity.saveActivity, true, [token], effectsToApplyUuids, {
+            damageTotal: totalDamage,
             critical: this.isCritical,
             fumble: this.isFumble,
             itemCardId: this.itemCardId,
             itemCardUuid: this.itemCardUuid,
-            tokenId: this.tokenId,
-            tokenUuid: this.tokenUuid,
-            actorId: this.actor?.id,
-            actorUuid: this.actor?.uuid,
-            workflowOptions: this.workflowOptions,
-            selfEffects: selfEffectsToApply,
             metaData,
             origin,
-            damageTotal: (this.damageTotal ?? 0) + (this.otherDamageTotal ?? 0) + (this.bonusDamageTotal ?? 0),
+            spellLevel: this.spellLevel,
+            toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
+            tokenId: this.tokenId,
+            tokenUuid: this.tokenUuid,
+            actorUuid: this.actor.uuid,
+            whisper: false,
+            workflowOptions: this.workflowOptions,
             context: {
-              damage: (this.damageTotal ?? 0),  // this is curently ignored see damageTotal above
+              damageComponents,
+              damageApplied: hpDamage,
+              damage: totalDamage,  // this is curently ignored see damageTotal above
               otherDamage: this.otherDamageTotal ?? 0,
               bonusDamage: this.bonusDamageTotal ?? 0
             }
           })
+        }
       }
     }
-    if (selfEffectsToApply !== "none" && ceSelfEffectToApply && this.activity && this.actor) {
-      if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !hasActivitySelfEffects)) {
+    // Perhaps this should use this.effectTargets
+    if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) await this.triggerTargetMacros(["postTargetEffectApplication"], this.targets);
+
+    //Now do self effects
+    let selfEffects: any[] = [];
+    if (this.effectTargets.size > 0) selfEffects = activitySelfAllEffect;
+    else selfEffects = activitySelfEffects;
+
+    const selfToken = tokenForActor(this.actor);
+    if (selfEffects.length > 0 && selfToken) {
+      await globalThis.DAE.doActivityEffects(this.activity, true, [selfToken], selfEffects.map(ef => ef.uuid), {
+        damageTotal: totalDamage,
+        critical: this.isCritical,
+        fumble: this.isFumble,
+        itemCardId: this.itemCardId,
+        itemCardUuid: this.itemCardUuid,
+        metaData,
+        origin,
+        spellLevel: this.spellLevel,
+        toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
+        tokenId: this.tokenId,
+        tokenUuid: this.tokenUuid,
+        actorUuid: this.actor.uuid,
+        whisper: false,
+        workflowOptions: this.workflowOptions,
+        context: {
+          damageComponents,
+          damageApplied: hpDamage,
+          damage: totalDamage,  // this is curently ignored see damageTotal above
+          otherDamage: this.otherDamageTotal ?? 0,
+          bonusDamage: this.bonusDamageTotal ?? 0
+        }
+      })
+
+    }
+
+    let otherSelfEffects: any[] = [];
+    if (this.otherEffectTargets.size > 0) otherSelfEffects = otherActivitySelfAllEffects;
+    else otherSelfEffects = otherActivitySelfEffects;
+
+    if (otherSelfEffects.length > 0 && selfToken) {
+      await globalThis.DAE.doActivityEffects(this.activity, true, [selfToken], otherSelfEffects.map(ef => ef.uuid), {
+        damageTotal: totalDamage,
+        critical: this.isCritical,
+        fumble: this.isFumble,
+        itemCardId: this.itemCardId,
+        itemCardUuid: this.itemCardUuid,
+        metaData,
+        origin,
+        spellLevel: this.spellLevel,
+        toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
+        tokenId: this.tokenId,
+        tokenUuid: this.tokenUuid,
+        actorUuid: this.actor.uuid,
+        whisper: false,
+        workflowOptions: this.workflowOptions,
+        context: {
+          damageComponents,
+          damageApplied: hpDamage,
+          damage: totalDamage,  // this is curently ignored see damageTotal above
+          otherDamage: this.otherDamageTotal ?? 0,
+          bonusDamage: this.bonusDamageTotal ?? 0
+        }
+      })
+
+    }
+
+    if (ceSelfEffect && (this.effectTargets.size > 0 || ceSelfEffect.flags?.dae?.selfTargetAlways)) {
+      if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !selfEffects.length)) {
         const actorHasEffect = this.actor.effects.find(ef => ef.name === this.activity.name);
         if (this.item?.flags.midiProperties?.toggleEffect && actorHasEffect) {
           CEToggleEffect({ effectName: this.activity.name, uuid: this.actor.uuid, origin });
           //@ ts-expect-error game.dfreds
           // await game.dfreds?.effectInterface?.toggleEffect(theItem.name, { uuid: this.actor.uuid, origin, metadata: macroData });
         } else {
-
           // Check stacking status
           //@ ts-expect-error
           // if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && game.dfreds.effectInterface?.hasEffectApplied(theItem.name, this.actor.uuid)) {
-          if ((ceSelfEffectToApply.flags?.dae?.stackable ?? "none") === "none" && await CEHasEffectApplied({ effectName: this.activity.name, uuid: this.actor.uuid })) {
+          if ((ceSelfEffect.flags?.dae?.stackable ?? "none") === "none" && await CEHasEffectApplied({ effectName: this.activity.name, uuid: this.actor.uuid })) {
             await CERemoveEffect({ effectName: this.activity.name, uuid: this.actor.uuid, origin });
             //@ ts-expect-error
             // await game.dfreds.effectInterface?.removeEffect({ effectName: theItem.name, uuid: this.actor.uuid, origin, metadata: macroData });
           }
-          const effectData = foundry.utils.mergeObject(ceSelfEffectToApply.toObject(), metaData);
+          const effectData = foundry.utils.mergeObject(ceSelfEffect.toObject(), metaData);
           effectData.origin = origin;
-
           const effects = await CEAddEffectWith({ effectData, effectName: this.activity.name, uuid: this.actor.uuid, origin, overlay: false });
-
           //@ ts-expect-error game.dfreds
           // const effects = await game.dfreds?.effectInterface?.addEffectWith({ effectData, uuid: this.actor.uuid, origin, metadata: macroData });
           if (this.chatCard.getFlag("dnd5e", "use.concentrationId")) {
@@ -1493,7 +1589,6 @@ export class Workflow {
         }
       }
     }
-
     if (debugCallTiming) log(`applyActiveEffects elapsed ${Date.now() - applyDynamicEffectsStartTime}ms`)
     return this.WorkflowState_RollFinished;
   }
@@ -1561,9 +1656,9 @@ export class Workflow {
     await this.expireTargetEffects(specialExpiries)
     const rollFinishedStartTime = Date.now();
     const chatMessage = this.chatCard;
-    if (!this.targetsDisplayed && this.targets.size > 0 && chatMessage && (this.activity.damage || this.applicationTargets.size > 0)) {
+    if (!this.targetsDisplayed && this.targets.size > 0 && chatMessage && (this.activity.damage || this.effectTargets.size > 0)) {
       this.hitDisplayData = {};
-      const theTargets = this.applicationTargets.size > 0 ? this.applicationTargets : this.targets;
+      const theTargets = this.effectTargets.size > 0 ? this.effectTargets : this.targets;
       for (let targetToken of theTargets) {
         const targettokenUuid = targetToken.actor?.uuid;
         if (!targettokenUuid) continue;
@@ -2798,7 +2893,7 @@ export class Workflow {
         }
         if (this.otherDamageHTML) {
           let otherFlavor = this.otherDamageRoll.options?.flavor ?? this.otherFlavor;
-          if (this.otherDamageItem.name !== this.item.name)`${this.otherFlavor} (${this.otherDamageItem.name})`
+          if (this.otherActivity.name !== this.item.name)`${this.otherFlavor} (${this.otherActivity.name})`
           const otherSearchRe = /<div class="midi-qol-other-damage-roll">[\s\S]*?<div class="end-midi-qol-other-damage-roll">/;
           const otherReplaceString = `<div class="midi-qol-other-damage-roll"><div style="text-align:center" >${otherFlavor}${this.otherDamageHTML || ""}</div><div class="end-midi-qol-other-damage-roll">`
           content = content.replace(otherSearchRe, otherReplaceString);
@@ -2952,29 +3047,29 @@ export class Workflow {
     let halfDamageText = "";
     // TODO display bonus damage if required
     this.targetsDisplayed = true;
-      if (this.activity.save && this.activity.damage.parts.length > 0) {
-        switch (getsaveMultiplierForActivity(this.activity)) {
-          case 0:
-            noDamage.push("Default &#48;")
-            break;
-          case 1:
-            fullDamage.push("Default &#49;")
-            break;
-          default:
-            halfDamage.push("Default &frac12;");
-        }
-      } else if (!this.activity.save && this.saveActivity?.save && this.saveActivity?.damage.parts.length > 0) {
-        switch (getsaveMultiplierForActivity(this.saveActivity)) {
-          case 0:
-            noDamage.push("Other &#48;")
-            break;
-          case 1:
-            fullDamage.push("Other &#49;")
-            break;
-          default:
-            halfDamage.push("Other &frac12;");
-        }
+    if (this.activity.save && this.activity.damage.parts.length > 0) {
+      switch (getsaveMultiplierForActivity(this.activity)) {
+        case 0:
+          noDamage.push("Default &#48;")
+          break;
+        case 1:
+          fullDamage.push("Default &#49;")
+          break;
+        default:
+          halfDamage.push("Default &frac12;");
       }
+    } else if (!this.activity.save && this.saveActivity?.save && this.saveActivity?.damage.parts.length > 0) {
+      switch (getsaveMultiplierForActivity(this.saveActivity)) {
+        case 0:
+          noDamage.push("Other &#48;")
+          break;
+        case 1:
+          fullDamage.push("Other &#49;")
+          break;
+        default:
+          halfDamage.push("Other &frac12;");
+      }
+    }
 
     if (fullDamage.length > 0) fullDamageText = i18nFormat("midi-qol.fullDamageText", { damageType: fullDamage.join(", ") });
     if (noDamage.length > 0) noDamageText = i18nFormat("midi-qol.noDamageText", { damageType: noDamage.join(", ") });
@@ -3187,24 +3282,8 @@ export class Workflow {
         if (settingsOptions.advantage) saveDetails.advantage = true;
         if (settingsOptions.disadvantage) saveDetails.disadvantage = true;
         saveDetails.isConcentrationCheck = this.item.flags?.[MODULE_ID]?.isConcentrationCheck;
-        /*
-        if (saveDetails.isConcentrationCheck) {
-          let concAdv = saveDetails.advantage;
-          let concDisadv = saveDetails.disadvantage;
-          if (foundry.utils.getProperty(target.actor, `flags.${MODULE_ID}.advantage.concentration`) && await evalAllConditionsAsync(target.actor, "flags.midi-qol.advantage.concentration", conditionData)) {
-            concAdv = true;
-          }
-          if (foundry.utils.getProperty(target.actor, `flags.${MODULE_ID}.disadvantage.concentration`) && await evalAllConditionsAsync(target.actor, "flags.midi-qol.disadvantage.concentration", conditionData)) {
-            concDisadv = true;
-          }
+        // The rollAbilitycheck function eventually calss actor.rollConcentration so all the falgs are set.
 
-          if (concAdv && !concDisadv) {
-            saveDetails.advantage = true;
-          } else if (!concAdv && concDisadv) {
-            saveDetails.disadvantage = true;
-          }
-        }
-        */
         // Check grants save fields
         if (await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.grants.advantage.all`, conditionData)
           || await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.grants.advantage.${flagRollType}.all`, conditionData)
@@ -4691,7 +4770,7 @@ export class DamageOnlyWorkflow extends Workflow {
     }
     this.hitTargets = new Set(this.targets);
     this.hitTargetsEC = new Set();
-    this.applicationTargets = new Set(this.targets);
+    this.effectTargets = new Set(this.targets);
     // TODO change this to the new apply token damage call - sigh
     this.damageList = await applyTokenDamage(this.rawDamageDetail, this.damageTotal, this.targets, this.item, new Set(), { existingDamage: this.damageList, superSavers: new Set(), semiSuperSavers: new Set(), workflow: this, updateContext: undefined, forceApply: false })
     super.WorkflowState_RollFinished().then(() => { Workflow.removeWorkflow(this.id) });
@@ -4726,13 +4805,13 @@ export class TrapWorkflow extends Workflow {
     this.saveTargets = validTargetTokens(game.user?.targets);
     this.effectsAlreadyExpired = [];
     this.onUseMacroCalled = false;
-/*    const itemCard = await (this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true }));
-    if (itemCard) {
-      this.itemCardUuid = itemCard.uuid;
-      this.itemCardId = itemCard.id
-    }
-    */
-    this.activity.use({configure: false}, {}, {})
+    /*    const itemCard = await (this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true }));
+        if (itemCard) {
+          this.itemCardUuid = itemCard.uuid;
+          this.itemCardId = itemCard.id
+        }
+        */
+    this.activity.use({ configure: false }, {}, {})
     // this.itemCardId = (await showItemCard.bind(this.item)(false, this, true))?.id;
     //@ts-expect-error TODO this is just wrong fix
     if (debugEnabled > 1) debug(" workflow.none ", state, this.item, getAutoTarget(this.item), activityHasAreaTarget(this.activity), this.targets);
@@ -4911,10 +4990,12 @@ export class DDBGameLogWorkflow extends Workflow {
     this.needsDamage = this.item.hasDamage;
     this.attackRolled = !item.hasAttack;
     if (configSettings.undoWorkflow) this.undoData = { actor: actor.id, item: item.id, targets: Array.from(targets).map(t => t.id), options: options };
+    /*
     if (this.item.system.formula) {
       shouldRollOtherDamage.bind(this.otherDamageItem)(this, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage)
         .then(result => this.needsOtherDamage = result);
     }
+    */
     // this.needsOtherDamage = this.item.system.formula && shouldRollOtherDamage.bind(this.otherDamageItem)(this, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
     this.kickStart = true;
     this.flagTags = { "ddb-game-log": { "midi-generated": true } };

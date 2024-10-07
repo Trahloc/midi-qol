@@ -905,6 +905,7 @@ async function prepareDamageListItems(data: {
       buttonId: tokenUuid,
       iconPrefix: (data.autoApplyDamage === "yesCardNPC" && actor.type === "character") ? "*" : "",
     };
+    
     const tooltipList = damageItem.damageDetail?.map(di => {
       let allMods: string[] = Object.keys(di.active ?? {}).reduce((acc: string[], k) => {
         if (["saved", "semiSuperSaver", "superSaver"].includes(k)) return acc;
@@ -914,7 +915,7 @@ async function prepareDamageListItems(data: {
       if (di.allActives?.length > 0) allMods = allMods.concat(di.allActives);
       let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
       return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{ ...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes }[di.type === "" ? "none" : di.type]?.label ?? "none"} ${mods}`
-    });
+    }).map(s => s.replaceAll(",,", ",").replaceAll(",,", ","));
     const toolTipHeader: string[] = [];
     if (damageItem.damageDetail) {
       if (newHP !== oldHP) toolTipHeader.push(`HP: ${damageItem.oldHP} -> ${damageItem.newHP}`);

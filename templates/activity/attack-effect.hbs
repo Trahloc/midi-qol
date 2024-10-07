@@ -1,13 +1,8 @@
 <section class="tab activity-{{ tab.id }} {{ tab.cssClass }}" data-tab="{{ tab.id }}" data-group="{{ tab.group }}">
-    {{> "modules/midi-qol/templates/activity/parts/attack-details.hbs" }}
-    {{ formField fields.attackMode value=source.attackMode options=attackModeOptions }}
-    {{#if hasAmmunition}}
-    {{ formField fields.ammunition value=source.ammunition options=ammunitionOptions }}
-    {{/if}}
+    {{> "systems/dnd5e/templates/activity/parts/attack-details.hbs" }}
+    {{> "modules/midi-qol/templates/activity/parts/use-condition.hbs" }}
     {{> "systems/dnd5e/templates/activity/parts/attack-damage.hbs" }}
-    Save Activity
-    {{formField fields.saveActivityUuid value=source.saveActivityUuid options=saveActivityOptions}}
-    Other Activity
-    {{formField fields.otherActivityUuid value=source.otherActivityUuid options=otherActivityOptions}}
+    {{> "modules/midi-qol/templates/activity/parts/attack-extras.hbs" }}
+    {{ formField fields.effectConditionText value=source.effectConditionText }}
     {{> "systems/dnd5e/templates/activity/parts/activity-effects.hbs" }}
 </section>

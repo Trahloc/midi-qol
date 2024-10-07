@@ -149,7 +149,7 @@ export function defineChatMessageMidiClass(baseClass: any) {
         const roll = document.createElement("div");
         roll.classList.add("dice-roll");
         let tooltipContents = ""
-        if (!hideDetails) tooltipContents = breakdown.reduce((str, {type, otal, constant, dice }) => {
+        if (!hideDetails) tooltipContents = breakdown.reduce((str, {type, total, constant, dice }) => {
           const config = GameSystemConfig.damageTypes[type] ?? GameSystemConfig.healingTypes[type];
           return `${str}
               <section class="tooltip-part">

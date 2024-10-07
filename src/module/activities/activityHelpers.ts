@@ -128,16 +128,29 @@ export async function removeFlanking(actor: Actor): Promise<void> {
   let CEFlanking = getFlankingEffect();
   if (CEFlanking && CEFlanking.name) await CERemoveEffect({ effectName: CEFlanking.name, uuid: actor.uuid });
 }
+
+function removeActivityWorkflow(activity: any) {
+  if (activity.workflow) Workflow.removeWorkflow(activity.workflow.uuid);
+  activity.workflow = undefined;
+  return false;
+}
+
 export async function confirmCanProceed(activity: any, config, dialog, message): Promise<boolean> {
   if (debugEnabled > 0) 
     warn("MidiQOL | confirmCanProceed | Called", activity);
   const workflow = activity.workflow;
   try {
+    if (activity.useCondition) {
+      if (!(await evalActivationCondition(activity.workflow, activity.useCondition, activity.targets.first(), { async: true }))) {
+        ui.notifications?.warn("You are unable to use the item");
+        return removeActivityWorkflow(activity);
+      }      
+    }
     if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated")) {
       const condition = checkIncapacitated(activity.actor, true);
       if (condition) {
         ui.notifications?.warn(`${activity.actor.name} is ${getStatusName(condition)} and is incapacitated`)
-        return false;
+        return removeActivityWorkflow(activity);
       }
     }
     let isEmanationTargeting = ["radius", "squaredRadius"].includes(activity.target?.template?.type);
@@ -155,14 +168,15 @@ export async function confirmCanProceed(activity: any, config, dialog, message):
       const results = await workflow.callMacros(activity.item, workflow.onUseMacros?.getMacros("preTargeting"), "OnUse", "preTargeting");
       cancelWorkflow ||= results.some(i => i === false);
     }
-    if (cancelWorkflow) return false;
+    if (cancelWorkflow) return removeActivityWorkflow(activity);
+
     isEmanationTargeting = ["radius", "squaredRadius"].includes(activity.target?.template?.type);
 
     let targetConfirmationHasRun = false; // Work out interaction with attack per target
     if ((!targetConfirmationHasRun && ((activity.target?.affects.type ?? "") !== "") || configSettings.enforceSingleWeaponTarget)) {
       // TODO verify pressed keys below
       if (!(await preTemplateTargets(activity, config.midiOptions, config.midiOptions.pressedKeys)))
-        return false;
+        return removeActivityWorkflow(activity);
       if ((activity.targets?.size ?? 0) === 0 && game.user?.targets) activity.targets = game.user?.targets;
     }
     let shouldAllowRoll = !requiresTargets // we don't care about targets
@@ -184,14 +198,14 @@ export async function confirmCanProceed(activity: any, config, dialog, message):
       if (requiresTargets && activity.targets.size !== 1) {
         ui.notifications?.warn(i18nFormat("midi-qol.wrongNumberTargets", { allowedTargets }));
         if (debugEnabled > 0) warn(`${game.user?.name} ${i18nFormat(`midi-qol.${MODULE_ID}.wrongNumberTargets`, { allowedTargets })}`)
-        return false;
+        return removeActivityWorkflow(activity);
       }
     }
 
     if (requiresTargets && !isEmanationTargeting && !isAoETargeting && activity.target?.affects.type === "creature" && activity.targets.size === 0) {
       ui.notifications?.warn(i18n("midi-qol.noTargets"));
       if (debugEnabled > 0) warn(`${game.user?.name} attempted to roll with no targets selected`)
-      return false;
+      return removeActivityWorkflow(activity);
     }
 
     let AoO = false;
@@ -217,7 +231,7 @@ export async function confirmCanProceed(activity: any, config, dialog, message):
     if ((game.system.id === "dnd5e" || game.system.id === "n5e") && requiresTargets && activity.targets.size > allowedTargets) {
       ui.notifications?.warn(i18nFormat("midi-qol.wrongNumberTargets", { allowedTargets }));
       if (debugEnabled > 0) warn(`${game.user?.name} ${i18nFormat(`midi-qol.${MODULE_ID}.wrongNumberTargets`, { allowedTargets })}`)
-      return false;
+      return removeActivityWorkflow(activity);
     }
     let tokenToUse: Token | undefined;
     if (speaker.token) tokenToUse = canvas?.tokens?.get(speaker.token);
@@ -225,7 +239,7 @@ export async function confirmCanProceed(activity: any, config, dialog, message):
     if (checkMechanic("checkRange") !== "none" && !isAoETargeting && !isEmanationTargeting && !AoO && speaker.token) {
       if (tokenToUse && activity.targets.size > 0) {
         if (rangeDetails.result === "fail")
-          return false;
+        return removeActivityWorkflow(activity);
         else {
           tokenToUse = rangeDetails.attackingToken;
         }
@@ -241,31 +255,31 @@ export async function confirmCanProceed(activity: any, config, dialog, message):
       const notSpell = await evalCondition(midiFlags?.fail?.spell?.all, conditionData, { errorReturn: false, async: true });
       if (notSpell) {
         ui.notifications?.warn("You are unable to cast the spell");
-        return false;
+        return removeActivityWorkflow(activity);
       }
       let notVerbal = await evalCondition(midiFlags?.fail?.spell?.verbal, conditionData, { errorReturn: false, async: true });
       if (notVerbal && needsVerbal) {
         ui.notifications?.warn("You make no sound and the spell fails");
-        return false;
+        return removeActivityWorkflow(activity);
       }
       notVerbal = notVerbal || await evalCondition(midiFlags?.fail?.spell?.vocal, conditionData, { errorReturn: false, async: true });
       if (notVerbal && needsVerbal) {
         ui.notifications?.warn("You make no sound and the spell fails");
-        return false;
+        return removeActivityWorkflow(activity);
       }
       const notSomatic = await evalCondition(midiFlags?.fail?.spell?.somatic, conditionData, { errorReturn: false, async: true });
       if (notSomatic && needsSomatic) {
         ui.notifications?.warn("You can't make the gestures and the spell fails");
-        return false;
+        return removeActivityWorkflow(activity);
       }
       const notMaterial = await evalCondition(midiFlags?.fail?.spell?.material, conditionData, { errorReturn: false, async: true });
       if (notMaterial && needsMaterial) {
         ui.notifications?.warn("You can't use the material component and the spell fails");
-        return false;
+        return removeActivityWorkflow(activity);
       }
     }
     if (!shouldAllowRoll) {
-      return false;
+      return removeActivityWorkflow(activity);
     }
     /*
     let workflow: Workflow;
@@ -302,7 +316,7 @@ export async function confirmCanProceed(activity: any, config, dialog, message):
       });
       if (!shouldRoll) {
         await workflow.performState(workflow.WorkflowState_Abort);
-        return false; // user aborted roll TODO should the workflow be deleted?
+        return removeActivityWorkflow(activity); // user aborted roll TODO should the workflow be deleted?
       }
     }
 
@@ -316,23 +330,26 @@ export async function confirmCanProceed(activity: any, config, dialog, message):
         content: i18n("midi-qol.EnforceBonusActions.Content"),
         yes: () => { shouldRoll = true },
       });
-      if (!shouldRoll) return workflow.performState(workflow.WorkflowState_Abort); // user aborted roll TODO should the workflow be deleted?
+      if (!shouldRoll) {
+        await workflow.performState(workflow.WorkflowState_Abort); // user aborted roll TODO should the workflow be deleted?
+        return removeActivityWorkflow(activity);
+      }
     }
 
     const hookAbort = await asyncHooksCall("midi-qol.preItemRoll", workflow) === false || await asyncHooksCall(`midi-qol.preItemRoll.${activity.uuid}`, workflow) === false;
     if (hookAbort || workflow.aborted) {
       console.warn("midi-qol | attack roll blocked by preItemRoll hook");
       workflow.aborted = true;
-      return workflow.performState(workflow.WorkflowState_Abort)
-      // Workflow.removeWorkflow(workflow.id);
-      // return;
+      await workflow.performState(workflow.WorkflowState_Abort)
+      return removeActivityWorkflow(activity);
     }
     if (configSettings.allowUseMacro) {
       const results = await workflow.callMacros(workflow.item, workflow.onUseMacros?.getMacros("preItemRoll"), "OnUse", "preItemRoll");
       if (workflow.aborted || results.some(i => i === false)) {
         console.warn("midi-qol | item roll blocked by preItemRoll macro");
         workflow.aborted = true;
-        return workflow.performState(workflow.WorkflowState_Abort)
+        await workflow.performState(workflow.WorkflowState_Abort)
+        return removeActivityWorkflow(activity);
       }
     }
 
@@ -670,8 +687,6 @@ export async function configureAttackRoll(activity, config): Promise<boolean> {
   // This will have to become an actvitity option
   if (getProperty(activity.item, "flags.midiProperties.offHandWeapon")) config.attackMode = "offHand";
   if (config.midiOptions.versatile) config.attackMode = "twoHanded";
-
-  delete config.event; // for dnd5e stop the event being passed to the roll or errors will happend
   return true;
 }
 

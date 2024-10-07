@@ -10,6 +10,7 @@ import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./Workflow.js";
 import { ActorOnUseMacrosConfig } from "./apps/ActorOnUseMacroConfig.js";
 import { installedModules } from "./setupModules.js";
+import { setTokenSourceMapRange } from "typescript";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -170,62 +171,6 @@ export let readyHooks = async () => {
     registerBaBonusHooks();
 
   Hooks.on("dnd5e.rollDeathSave", deathSaveHook);
-  // Concentration Check is rolled as an item roll so we need an item.
-  itemJSONData.name = concentrationCheckItemName;
-}
-
-function registerBaBonusHooks() {
-  //TODO migrate all of these to v2 once babonus is dnd5e 4.0 ready
-  if (!game.modules.get("babonus")?.active) return;
-  // Midi sets fastForward to true for most of these rolls - based on roll settings
-  // need to handle the cases where there is an optional babonus defined and disable fastforward.
-
-  Hooks.on("babonus.filterBonuses", (bonuses, object, details, hookType) => {
-    foundry.utils.setProperty(object, "flags.midi-qol.babonusOptional", bonuses.filter(bonus => bonus.optional));
-  });
-
-  Hooks.on("dnd5e.preRollAttack", (item, rollConfig) => {
-    rollConfig.fastForward &&= !foundry.utils.getProperty(item, "flags.midi-qol.babonusOptional")?.length;
-    rollConfig.fastForward &&= !rollConfig.dialogOptions?.babonus?.optionals?.length; // V11 only
-    return true;
-  });
-
-
-  Hooks.on("dnd5e.preRollAbilitySave", (actor, rollData, abilityId) => {
-    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
-    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
-    return true;
-  })
-
-  Hooks.on("dnd5e.preRollAbilityTest", (actor, rollData, abilityId) => {
-    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
-    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
-    return true;
-  });
-
-  Hooks.on("dnd5e.preRollToolCheck", (actor, rollData, toolId) => {
-    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
-    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
-    return true;
-  });
-
-  Hooks.on("dnd5e.preRollSkill", (actor, rollData, skillId) => {
-    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
-    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
-    return true;
-  })
-
-  Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
-    rollConfig.fastForward &&= !foundry.utils.getProperty(item, "flags.midi-qol.babonusOptional")?.length;
-    rollConfig.fastForward &&= !rollConfig.dialogOptions?.babonus?.optionals?.length; // V11 only
-    return true;
-  });
-
-  Hooks.on("dnd5e.preRollDeathSave", (actor, rollData, abilityId) => {
-    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.babonusOptional")?.length;
-    rollData.fastForward &&= !rollData.dialogOptions?.babonus?.optionals?.length; // V11 only
-    return true;
-  });
 
   Hooks.on("updateCombat", (combat: Combat, update, options, userId) => {
     //@ts-expect-error
@@ -236,6 +181,60 @@ function registerBaBonusHooks() {
     if (combat.combatants?.size > 0) {
       combat.rollInitiative(combatantIds, { updateTurn: true }).then(() => combat.update({ turn: 0 }));
     }
+  });
+  // Concentration Check is rolled as an item roll so we need an item.
+  itemJSONData.name = concentrationCheckItemName;
+}
+
+function registerBaBonusHooks() {
+  //TODO migrate all of these to v2 once babonus is dnd5e 4.0 ready
+  if (!game.modules.get("babonus")?.active) return;
+  // Midi sets fastForward to true for most of these rolls - based on roll settings
+  // need to handle the cases where there is an optional babonus defined and disable fastforward.
+
+  Hooks.on("babonus.filterBonuses", (bonuses, subjects, details, hookType) => {
+    if (!(subjects.actor || !subjects.item)) return;
+      const subject = subjects.item ?? subjects.actor;
+      const hasOptionalBonus = bonuses?.some(bonus => bonus.optional);
+      foundry.utils.setProperty(subject, "flags.midi-qol.hasBabonusOptionalBonus", hasOptionalBonus);
+  });
+
+  Hooks.on("dnd5e.preRollAttackV2", (rollConfig, dialogConfig, messageConfig) => {
+    const forceConfigure = foundry.utils.getProperty(rollConfig.subject.item, "flags.midi-qol.hasBabonusOptionalBonus");
+    if (forceConfigure) dialogConfig.configure = true;
+    return true;
+  });
+
+
+  Hooks.on("dnd5e.preRollAbilitySave", (actor, rollData, abilityId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.hasBabonusOptionalBonus");
+    return true;
+  })
+
+  Hooks.on("dnd5e.preRollAbilityTest", (actor, rollData, abilityId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.hasBabonusOptionalBonus");
+    return true;
+  });
+
+  Hooks.on("dnd5e.preRollToolCheck", (actor, rollData, toolId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.hasBabonusOptionalBonus");
+    return true;
+  });
+
+  Hooks.on("dnd5e.preRollSkill", (actor, rollData, skillId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.hasBabonusOptionalBonus");
+    return true;
+  })
+
+  Hooks.on("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, nessageConfig) => {
+    const forceConfigure = foundry.utils.getProperty(rollConfig.subject.item, "flags.midi-qol.hasBabonusOptionalBonus");
+    if (forceConfigure) dialogConfig.configure = true;
+    return true;
+  });
+
+  Hooks.on("dnd5e.preRollDeathSave", (actor, rollData, abilityId) => {
+    rollData.fastForward &&= !foundry.utils.getProperty(actor, "flags.midi-qol.hasBabonusOptionalBonus");
+    return true;
   });
 }
 export async function restManager(actor, result) {
@@ -396,7 +395,7 @@ export function initHooks() {
           && foundry.utils.getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
           foundry.utils.setProperty(item, `flags.midiProperties.${prop}`, true);
         } else if (foundry.utils.getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
-            if (["confirmTargets"].includes(prop)) {
+          if (["confirmTargets"].includes(prop)) {
             foundry.utils.setProperty(data, `flags.midiProperties.${prop}`, "default");
           } else foundry.utils.setProperty(data, `flags.midiProperties.${prop}`, false);
         }
@@ -879,7 +878,6 @@ export const itemJSONData = {
   }
 }
 Hooks.on("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
-  console.error("dnd5e.preRollDamage", rollConfig, dialogConfig, messageConfig)
   if (rollConfig.subject.actor && rollConfig.subject.isSpell) {
     const actorSpellBonus = foundry.utils.getProperty(rollConfig.subject.actor, "system.bonuses.spell.all.damage");
     if (actorSpellBonus) rollConfig.rolls[0].parts.push(actorSpellBonus);
@@ -1069,23 +1067,32 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
       };
     }
 
+    function selectDamages(damages, selectDamage: (damage) => boolean) {
+      return damages.reduce((total, damage) => {
+        // if (!GameSystemConfig.damageTypes[damage.type]) return total;
+        if (["none", "midi-none"].includes(damage.type)) return total;
+        return total + (selectDamage(damage) ? damage.value : 0);
+      }, 0);
+
+    }
     let drAllActives: string[] = [];
     // Insert DR.ALL as a -ve damage value maxed at the total damage.
-    let drAll;
+    let dmAll;
     if (options.ignore !== true && !options.ignore?.DR?.has("none") && !options.ignore?.DR?.has("all")) {
       // think about how to do custom dm.const specials = [...(actor.system.traits.dm.custom ?? []).split(";"), ...Object.keys(actor.system.traits.dm?.midi ?? {})];
       const specials = Object.keys(actor.system.traits.dm?.midi ?? {});
       for (let special of specials) {
-        let dr;
-        let drRoll;
+        let dm;
+        let dmRoll;
         let selectedDamage;
-        let drActive;
-        drRoll = new Roll(`${actor.system.traits.dm.midi[special]}`, actor.getRollData())
-        dr = doSyncRoll(drRoll, `traits.dm.midi.${special}`)?.total ?? 0;;
+        let oldDamage
+        let dmActive;
+        dmRoll = new Roll(`${actor.system.traits.dm.midi[special]}`, actor.getRollData())
+        dm = doSyncRoll(dmRoll, `traits.dm.midi.${special}`)?.total ?? 0;;
         switch (special) {
           case "all":
-            selectedDamage = damages.reduce((total, damage) => { return total + damage.value }, 0);
-            if (selectedDamage > 0) drActive = i18n("All");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type]);
+            if (selectedDamage > 0) dmActive = i18n("All");
             break;
 
           case "mwak":
@@ -1093,101 +1100,65 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           case "msak":
           case "rsak":
             if (options.ignore?.modification?.has(special)) continue;
-            selectedDamage = damages.reduce((total, damage) => {
-              const isAttackType = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has(special);
-              return total + (isAttackType ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n(special);
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && damage.properties.has(special));
+            if (selectedDamage > 0) dmActive = i18n(special);
             break;
 
           case "magical":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isMagical = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("mgc");
-              return total + (isMagical ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.Magical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("mgc"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.Magical");
             break;
           case "non-magical":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isNonMagical = !GameSystemConfig.healingTypes[damage.type] && !damage.properties.has("mgc");
-              return (total + isNonMagical ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonMagical")
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && !damage.properties.has("mgc"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonMagical")
             break;
           case "non-magical-physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isNonMagical = game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mgc");
-              return total + (!GameSystemConfig.healingTypes[damage.type] && isNonMagical ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonMagicalPhysical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("mgc"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonMagicalPhysical");
             break;
 
           case "non-silver-physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isNonSilver = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("sil");
-              return total + (isNonSilver ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonSilverPhysical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("sil"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonSilverPhysical");
             break;
+
           case "non-adamant-physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isAdamant = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical && !damage.properties.has("ada");
-              return total + (isAdamant ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonAdamantinePhysical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && GameSystemConfig.damageTypes[damage.type]?.isPhysical && !damage.properties.has("ada"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonAdamantinePhysical");
             break;
 
           case "non-physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isNonPhysical = !GameSystemConfig.healingTypes[damage.type] && !game.system.config.damageTypes[damage.type]?.isPhysical;
-              return total + (isNonPhysical ? damage.value : 0);;
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonPhysical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && !GameSystemConfig.damageTypes[damage.type]?.isPhysical);
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonPhysical");
             break;
 
           case "physical":
-            selectedDamage = damages.reduce((total, damage) => {
-              //@ts-expect-error
-              const isPhysical = !GameSystemConfig.healingTypes[damage.type] && game.system.config.damageTypes[damage.type]?.isPhysical;
-              const bypasses = actor.system.traits.dm.bypasses;
-              const isBypassed = bypasses.intersection(damage.properties).size > 0;
-              return total + (isPhysical && !isBypassed ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.Physical");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && GameSystemConfig.damageTypes[damage.type]?.isPhysical);
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.Physical");
             break;
 
           case "spell":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
-              return total + (isSpell ? damage.value : 0);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.SpellDamage");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.SpellDamage");
             break;
 
           case "non-spell":
-            selectedDamage = damages.reduce((total, damage) => {
-              const isSpell = !GameSystemConfig.healingTypes[damage.type] && damage.properties.has("spell");
-              return total + (isSpell ? 0 : damage.value);
-            }, 0);
-            if (selectedDamage > 0) drActive = i18n("midi-qol.NonSpellDamage");
+            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && !damage.properties.has("spell"));
+            if (selectedDamage > 0) dmActive = i18n("midi-qol.NonSpellDamage");
             break;
 
-          default: dr = 0; selectedDamage = 0; break;
+          default: dm = 0; selectedDamage = 0; break;
         }
-        if (dr) {
-          if (Math.sign(selectedDamage + dr) !== Math.sign(selectedDamage)) {
-            dr = -selectedDamage
+        if (dm) {
+          if (Math.sign(selectedDamage + dm) !== Math.sign(selectedDamage)) {
+            dm = -selectedDamage
           }
-          if (checkRule("maxDRValue") && (dr < drAll || drAll === undefined)) {
-            drAll = dr;
-            drAllActives = [drActive];
+          if (checkRule("maxDRValue") && (dm < dmAll || dmAll === undefined)) {
+            dmAll = dm;
+            drAllActives = [dmActive];
           } else if (!checkRule("maxDRValue")) {
-            drAllActives.push(drActive);
-            drAll = (drAll ?? 0) + dr;
+            drAllActives.push(dmActive);
+            dmAll = (dmAll ?? 0) + dm;
           }
         }
       }
@@ -1197,15 +1168,15 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         return acc;
       }, { totalDamage: 0, temp: 0 });
       // const totalDamage = damages.reduce((a, b) => a + b.value, 0);
-      if (!drAll) drAll = 0;
+      if (!dmAll) dmAll = 0;
       if (totalDamage > 0 && totalDamage < actor.system.attributes.hp.dt) {
         // total damage is less than the damage threshold so no damage
-        drAll = -totalDamage;
-      } else if (Math.sign(totalDamage) !== Math.sign(drAll + totalDamage)) {
-        drAll = -totalDamage;
+        dmAll = -totalDamage;
+      } else if (Math.sign(totalDamage) !== Math.sign(dmAll + totalDamage)) {
+        dmAll = -totalDamage;
       }
-      if (drAll) {
-        damages.push({ type: "none", value: drAll, active: { DR: true, multiplier: 1 }, allActives: drAllActives, properties: new Set() });
+      if (dmAll) {
+        damages.push({ type: "none", value: dmAll, active: { DR: true, multiplier: 1 }, allActives: drAllActives, properties: new Set() });
       }
       Hooks.callAll("midi-qol.dnd5eCalculateDamage", actor, damages, options);
       while (damages.find((di, idx) => {
