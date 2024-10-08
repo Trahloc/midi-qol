@@ -337,13 +337,13 @@ export async function removeEffectUuids(data: { actorUuid: string; effects: stri
   // else return removeFunc();
   return removeFunc();
 }
-export async function createEffects(data: { actorUuid: string, effects: any[] }) {
+export async function createEffects(data: { actorUuid: string, effects: any[], options: object }) {
   const createEffectsFunc = async () => {
     const actor = fromActorUuid(data.actorUuid);
     for (let effect of data.effects) { // override default foundry behaviour of blank being transfer
       if (effect.transfer === undefined) effect.transfer = false;
     }
-    return actor?.createEmbeddedDocuments("ActiveEffect", data.effects)
+    return actor?.createEmbeddedDocuments("ActiveEffect", data.effects, data.options)
   };
   return await createEffectsFunc();
   /* This seems to cause a deadlock 
