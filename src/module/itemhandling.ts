@@ -628,7 +628,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (workflow?.tokenId) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.tokenId`, workflow.tokenId);
       if (workflow) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.workflowId`, workflow.id);
       foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.itemUuid`, this.uuid);
-
+      if (installedModules.get("walledtemplates")) foundry.utils.mergeObject(templateOptions.flags, {walledtemplates: item.flags.walledtemplates});
       //@ts-expect-error .canvas
       let template = game.system.canvas.AbilityTemplate.fromItem(item, templateOptions);
       const templateData = template.document.toObject();
@@ -647,7 +647,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         workflow.templateId = td?.object?.id;
         if (tokenToUse && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
           //@ts-expect-error .object
-          await token.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
+          await tokenToUse.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
           if (workflow && !foundry.utils.getProperty(workflow, "item.flags.walledtemplates.noAutotarget"))
             selectTargets.bind(workflow)(td);
 
