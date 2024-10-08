@@ -3,7 +3,7 @@ import { applySettings } from "../apps/ConfigPanel.js";
 import { FormBuilder } from "../lib/FormBuilder.js";
 import { configSettings } from "../settings.js";
 import { CEHasEffectApplied, CERemoveEffect, applyTokenDamage, completeItemUse, findNearby } from "../utils.js";
-import { TrapWorkflow } from "../ActivityWorkflow.js";
+import { TrapWorkflow } from "../Workflow.js";
 
 const actor1Name = "actor1";
 const actor2Name = "actor2";
@@ -792,7 +792,9 @@ async function registerTests() {
 
             const oldHp = foundry.utils.getProperty(target, "actor.system.attributes.hp.value");
             game.user?.updateTokenTargets([target?.id ?? ""]);
+            console.error("about to complete Item use");
             await completeItemUse(actor.items.getName("AppliesDamage"), {}, { workflowOptions });
+            console.warn("completeItemUse completed");
             game.user?.updateTokenTargets([]);
             const newHp = foundry.utils.getProperty(target, "actor.system.attributes.hp.value");
             assert.equal(newHp, oldHp - foundry.utils.getProperty(actor, "system.abilities.str.mod"));

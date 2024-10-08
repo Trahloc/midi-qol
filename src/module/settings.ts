@@ -6,6 +6,7 @@ import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configureDamageRollDialog } from "./patching.js";
 import { TargetConfirmationConfig } from "./apps/TargetConfirmationConfig.js";
 import { _updateAction } from "./utils.js";
+import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 
 export var itemRollButtons: boolean;
 export var criticalDamage: string;
@@ -70,6 +71,7 @@ class ConfigSettings {
   autoCheckSaves: string = "none";
   autoFastForward: string = "off";
   autoItemEffects: string;
+  autoMergeActivitySave: boolean = false;
   autoRemoveSummonedCreature: boolean = false;
   autoRemoveTemplate: boolean;
   autoRemoveInstantaneousTemplate: boolean;
@@ -150,8 +152,6 @@ class ConfigSettings {
   requiresTargets: string = "none";
   rollNPCLinkedSaves: string = "auto";
   rollNPCSaves: string = "auto";
-  rollOtherDamage: string | boolean = "none";
-  rollOtherSpellDamage: string | boolean = "none";
   rollChecksBlind: string[] = [];
   rollSavesBlind: string[] = [];
   rollSkillsBlind: string[] = [];
@@ -359,20 +359,6 @@ export let fetchParams = () => {
   if (configSettings.convenientEffectsReaction === undefined) configSettings.convenientEffectsReaction = "Reaction"; //TODO come back when it is configurable in midi and set it to ""
   if (typeof configSettings.rangeTarget !== "string") configSettings.rangeTarget = "none";
   if (!configSettings.showReactionAttackRoll === undefined) configSettings.showReactionAttackRoll = "all";
-  // deal with change of type of rollOtherDamage
-  if (configSettings.rollOtherDamage === false) configSettings.rollOtherDamage = "none";
-  if (configSettings.rollOtherDamage === true) configSettings.rollOtherDamage = "ifSave";
-  if (configSettings.rollOtherDamage === undefined) configSettings.rollOtherDamage = "none";
-  if (configSettings.rollOtherSpellDamage === "activation") {
-    ui.notifications?.error("midi-qol | rollOtherSpellDamage is set to activation, this is no longer supported, setting to none");
-    configSettings.rollOtherSpellDamage = "none";
-  }
-  if (configSettings.rollOtherSpellDamage === "activation") {
-    ui.notifications?.error("midi-qol | rollOtherSpellDamage is set to activation, this is no longer supported, setting to none");
-    configSettings.rollOtherSpellDamage = "none";
-  }
-  configSettings.effectActivation = false;
-  if (!configSettings.rollOtherSpellDamage) configSettings.rollOtherSpellDamage = "none";
   if (!configSettings.rollChecksBlind) configSettings.rollChecksBlind = [];
   configSettings.rollChecksBlind = configSettings.rollChecksBlind.filter((item) => item !== "none");
   //@ts-expect-error type mismatch - this is for legacy true setting
@@ -405,7 +391,7 @@ export let fetchParams = () => {
   //@ts-ignore
   if (configSettings.autoItemEffects === false) configSettings.autoItemEffects = "off";
   //@ts-ignore
-  if (configSettings.autoItemEffects === true) configSettings.autoItemEffects = "applyRemove";
+  if (configSettings.autoMergeActivitySave === undefined) configSettings.autoMergeActivitySave = true;
   if (configSettings.playerDamageCard === undefined) configSettings.playerDamageCard = "none";
   if (configSettings.playerCardDamageDifferent === undefined) configSettings.playerCardDamageDifferent = true;
   if (configSettings.displayHitResultNumeric === undefined) configSettings.displayHitResultNumeric = false;

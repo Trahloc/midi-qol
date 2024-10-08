@@ -1,29 +1,27 @@
 import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MODULE_ID } from "../midi-qol.js";
-import { DummyWorkflow, Workflow } from "./workflow.js";
+import { DummyWorkflow, Workflow } from "./Workflow.js";
 import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
 import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee, createConditionData, evalCondition, MQfromUuidSync, getFlankingEffect, CERemoveEffect } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
 import { defaultRollOptions } from "./patching.js";
-import { saveUndoData } from "./undo.js";
 import { untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
-import { busyWait } from "./tests/setupTest.js";
 // import { ChatMessageMidi } from "./ChatMessageMidi.js";
 
 function activityRequiresPostTemplateConfiramtion(activity): boolean {
-  const isRangeTargeting = ["ft", "m"].includes(activity.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
-  if (activity.item.hasAreaTarget) {
+  const isRangeTargeting = ["ft", "m"].includes(activity.item.system.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+  if (activity.target.template?.type) {
     return true;
   } else if (isRangeTargeting) {
     return true;
   }
   return false;
 }
-function itemRequiresPostTemplateConfiramtion(item): boolean {
-  const isRangeTargeting = ["ft", "m"].includes(item.system.range?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
-  if (item.hasAreaTarget) {
+function itemRequiresPostTemplateConfiramtion(activity): boolean {
+  const isRangeTargeting = ["ft", "m"].includes(activity.item.system.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+  if (activity.target.template?.type) { 
     return true;
   } else if (isRangeTargeting) {
     return true;
@@ -31,47 +29,48 @@ function itemRequiresPostTemplateConfiramtion(item): boolean {
   return false;
 }
 
-export function requiresTargetConfirmation(item, options): boolean {
+export function requiresTargetConfirmation(activity, options): boolean {
+  if (!activity.item) debugger;
   if (options.workflowOptions?.targetConfirmation === "none") return false;
   if (options.workflowOptions?.targetConfirmation === "always") return true;
   // check lateTargeting as well - legacy.
   // For old version of dnd5e-scriptlets
   if (options.workflowdialogOptions?.lateTargeting === "none") return false;
   if (options.workflowdialogOptions?.lateTargeting === "always") return true;
-  if (item.system.target?.type === "self") return false;
+  if (activity.target?.affects.type === "self") return false;
   if (options.workflowOptions?.attackPerTarget === true) return false;
-  if (item?.flags?.midiProperties?.confirmTargets === "always") return true;
-  if (item?.flags?.midiProperties?.confirmTargets === "never") return false;
+  if (activity.item?.flags?.midiProperties?.confirmTargets === "always") return true;
+  if (activity.item?.flags?.midiProperties?.confirmTargets === "never") return false;
   let numTargets = game.user?.targets?.size ?? 0;
-  if (numTargets === 0 && configSettings.enforceSingleWeaponTarget && item.type === "weapon")
+  if (numTargets === 0 && configSettings.enforceSingleWeaponTarget && activity.item.type === "weapon")
     numTargets = 1;
-  const token = tokenForActor(item.actor);
+  const token = tokenForActor(activity.actor);
   if (targetConfirmation.enabled) {
     if (targetConfirmation.all &&
-      ((item.system.target?.type ?? "") !== "" || item.system.range?.value || item.hasAttack) && numTargets > 0) {
+      ((activity.target?.affects.type ?? "") !== "" || activity.item.system.range?.value || activity.attack) && numTargets > 0) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.all");
       return true;
     }
-    if (item.hasAttack && targetConfirmation.hasAttack) {
+    if (activity.attack && targetConfirmation.hasAttack) {
       if (debugEnabled > 0) warn("target confirmation triggered by targetCofirnmation.hasAttack");
       return true;
     }
-    if (item.system.target?.type === "creature" && targetConfirmation.hasCreatureTarget) {
+    if (activity.target?.affects.type === "creature" && targetConfirmation.hasCreatureTarget) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.hasCreatureTarget");
       return true;
     }
-    if (targetConfirmation.noneTargeted && ((item.system.target?.type ?? "") !== "" || item.hasAttack) && numTargets === 0) {
+    if (targetConfirmation.noneTargeted && ((activity.target?.affects.type ?? "") !== "" || activity.attack) && numTargets === 0) {
       if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.noneTargeted");
       return true;
     }
-    if (targetConfirmation.allies && token && numTargets > 0 && item.system.target?.type !== "self") {
+    if (targetConfirmation.allies && token && numTargets > 0 && activity.target?.affects.type !== "self") {
       //@ts-expect-error find disposition
       if (game.user?.targets.some(t => t.document.disposition == token.document.disposition)) {
         if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.allies");
         return true;
       }
     }
-    if (targetConfirmation.targetSelf && item.system.target?.type !== "self") {
+    if (targetConfirmation.targetSelf && activity.target?.affects.type !== "self") {
       let tokenToUse = token;
       /*
       if (tokenToUse && game.user?.targets) {
@@ -98,10 +97,10 @@ export function requiresTargetConfirmation(item, options): boolean {
       }
     }
     if (targetConfirmation.longRange && game?.user?.targets && numTargets > 0 &&
-      (["ft", "m"].includes(item.system.range?.units) || item.system.range.type === "touch")) {
+      (["ft", "m"].includes(activity.item.system.range?.units) || activity.item.system.range.type === "touch")) {
       if (token) {
         for (let target of game.user.targets) {
-          const { result, attackingToken } = checkRange(item, token, new Set([target]))
+          const { result, attackingToken } = checkRange(activity.item, token, new Set([target]))
           if (result !== "normal") {
             if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.longRange");
             return true;
@@ -110,18 +109,18 @@ export function requiresTargetConfirmation(item, options): boolean {
       }
     }
     if (targetConfirmation.inCover && numTargets > 0 && token && game.user?.targets) {
-      const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
-      if (!item.hasAreaTarget && !isRangeTargeting) {
+      const isRangeTargeting = ["ft", "m"].includes(activity.target?.affects.count) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+      if (!activity.target?.template?.type && !isRangeTargeting) {
         for (let target of game.user?.targets) {
-          if (computeCoverBonus(token, target, item) > 0) {
+          if (computeCoverBonus(token, target, activity.item) > 0) {
             if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.inCover");
             return true;
           }
         }
       }
     }
-    const isRangeTargeting = ["ft", "m"].includes(item.system.target?.units) && ["creature", "ally", "enemy"].includes(item.system.target?.type);
-    if (item.hasAreaTarget && (targetConfirmation.hasAoE)) {
+    const isRangeTargeting = ["ft", "m"].includes(activity.target?.affects.count) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+    if (activity.target?.template?.type && (targetConfirmation.hasAoE)) {
       if (debugEnabled > 0) warn("target confirmation triggered by targetConfirmation.hasAoE")
       return true;
     } else if (isRangeTargeting && (targetConfirmation.hasRangedAoE)) {
@@ -134,14 +133,14 @@ export function requiresTargetConfirmation(item, options): boolean {
 
 export async function preTemplateTargets(activity, options, pressedKeys): Promise<boolean> {
   if (activityRequiresPostTemplateConfiramtion(activity)) return true;
-  if (requiresTargetConfirmation(activity.item, options))
+  if (requiresTargetConfirmation(activity, options))
     return await resolveTargetConfirmation(activity, options, pressedKeys) === true;
   return true;
 }
 
 export async function postTemplateConfirmTargets(activity, options, pressedKeys, workflow): Promise<boolean> {
-  if (!itemRequiresPostTemplateConfiramtion(activity.item)) return true;
-  if (requiresTargetConfirmation(activity.item, options)) {
+  if (!itemRequiresPostTemplateConfiramtion(activity)) return true;
+  if (requiresTargetConfirmation(activity, options)) {
     let result = true;
     result = await resolveTargetConfirmation(activity, options, pressedKeys);
     if (result && game.user?.targets) workflow.targets = new Set(game.user.targets)
@@ -150,6 +149,7 @@ export async function postTemplateConfirmTargets(activity, options, pressedKeys,
   return true;
 }
 
+/*
 export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
   if (debugEnabled > 0) {
     warn("doItemUse called with", this.name, config, options, game.user?.targets);
@@ -168,7 +168,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
           previousWorkflow.aborted = true;
           await previousWorkflow.performState(previousWorkflow.WorkflowState_Cleanup);
         } else {
-          //@ts-expect-error
+          //@ ts-expect-error
           switch (await Dialog.wait({
             title: game.i18n.format("midi-qol.WaitingForPreviousWorkflow", { name: this.name }),
             default: "cancel",
@@ -288,7 +288,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       game.user?.targets?.clear();
       const targetids = (options.targetUuids ?? []).map(uuid => {
         const targetDocument = MQfromUuidSync(uuid);
-        //@ts-expect-error .object
+        //@ ts-expect-error .object
         return targetDocument instanceof TokenDocument ? targetDocument.object.id : ""
       });
       game.user?.updateTokenTargets(targetids);
@@ -342,7 +342,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     if ((!targetConfirmationHasRun && ((this.system.target?.type ?? "") !== "") || configSettings.enforceSingleWeaponTarget)) {
       if (!(await preTemplateTargets(this, options, pressedKeys)))
         return null;
-      //@ts-expect-error
+      //@ ts-expect-error
       if ((options.targetsToUse?.size ?? 0) === 0 && game.user?.targets) targetsToUse = game.user?.targets;
     }
 
@@ -546,10 +546,10 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       const target = getToken(tokenRef);
       if (!target) continue;
       if (
-        //@ts-expect-error - sight not enabled but we are treating it as if it is
+        //@ ts-expect-error - sight not enabled but we are treating it as if it is
         (!target.document.sight.enabled && configSettings.optionalRules.invisVision)
         || (target.document.actor?.type === "npc")
-        //@ts-expect-error - sight enabled but not the owner of the token
+        //@t s-expect-error - sight enabled but not the owner of the token
         || (!target.isOwner && target.document.sight.enabled)
         || (!target.vision || !target.vision?.los)) {
         initializeVision(target);
@@ -562,7 +562,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         const target = getToken(tokenRef);
         if (!target || !target.vision?.los) continue;
         const sourceId = target.sourceId;
-        //@ts-expect-error
+        //@ ts-expect-error
         canvas?.effects?.visionSources.set(sourceId, target.vision);
       }
     }
@@ -638,13 +638,13 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
       if (workflow) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.workflowId`, workflow.id);
       foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.itemUuid`, this.uuid);
 
-      //@ts-expect-error .canvas
+      // @ts-expect-error .canvas
       let template = game.system.canvas.AbilityTemplate.fromItem(item, templateOptions);
       const templateData = template.document.toObject();
       if (this.item) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.itemUuid`, this.item.uuid);
       if (this.actor) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.actorUuid`, this.actor.uuid);
       if (!foundry.utils.getProperty(templateData, `flags.${game.system.id}.origin`)) foundry.utils.setProperty(templateData, `flags.${game.system.id}.origin`, this.item?.uuid);
-      //@ts-expect-error
+      // @ts-expect-error
       const templateDocuments: MeasuredTemplateDocument[] | undefined = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
 
       if (templateDocuments && templateDocuments.length > 0) {
@@ -655,7 +655,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         workflow.template = td;
         workflow.templateId = td?.object?.id;
         if (tokenToUse && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
-          //@ts-expect-error .object
+          // @ts-expect-error .object
           await token.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
           if (workflow && !foundry.utils.getProperty(workflow, "item.flags.walledtemplates.noAutotarget"))
             selectTargets.bind(workflow)(td);
@@ -687,6 +687,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     throw err;
   }
 }
+*/
 
 // export async function doAttackRoll(wrapped, options = { event: { shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }, versatile: false, resetAdvantage: false, chatMessage: undefined, createWorkflow: true, fastForward: false, advantage: false, disadvantage: false, dialogOptions: {}, isDummy: false }) {
 // workflow.advantage/disadvantage/fastforwrd set by settings and conditions
@@ -764,7 +765,7 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
           //@ts-expect-error targetToken Type
           const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: foundry.utils.mergeObject(workflow.workflowOptions, {activity: workflow.activity, sourceActorUuid: this.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
           if (result?.name) {
-            //@ts-expect-error _initialize()
+            //@ts-expect-error
             targetToken.actor?._initialize();
             // targetToken.actor?.prepareData(); // allow for any items applied to the actor - like shield spell
           }
@@ -1151,7 +1152,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     let otherResult: Roll | undefined = undefined;
     let otherResult2: Roll | undefined = undefined;
 
-    workflow.shouldRollOtherDamage = await shouldRollOtherDamage.bind(workflow.otherDamageItem)(workflow, configSettings.rollOtherDamage, configSettings.rollOtherSpellDamage);
+    workflow.shouldRollOtherDamage = await shouldRollOtherDamage.bind(workflow.otherDamageItem)(workflow, "invalid", "invalid");
     if (workflow.shouldRollOtherDamage) {
       const otherRollOptions: any = {};
       if (game.settings.get(MODULE_ID, "CriticalDamage") === "default") {

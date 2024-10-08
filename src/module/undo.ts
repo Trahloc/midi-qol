@@ -5,7 +5,7 @@ import { configSettings } from "./settings.js";
 import { installedModules } from "./setupModules.js";
 import { busyWait } from "./tests/setupTest.js";
 import { MQfromUuidSync, getConcentrationEffect, isReactionItem } from "./utils.js";
-import { Workflow } from "./workflow.js";
+import { Workflow } from "./Workflow.js";
 
 var dae;
 Hooks.once("DAE.setupComplete", () => {

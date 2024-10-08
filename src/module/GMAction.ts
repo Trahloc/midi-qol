@@ -2,7 +2,7 @@ import { checkRule, configSettings, safeGetGameSetting } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
 import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, fromActorUuid, MQfromUuidSync, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects, CERemoveEffect, CEAddEffectWith, getActor } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
-import { Workflow } from "./workflow.js";
+import { Workflow } from "./Workflow.js";
 import { bonusCheck } from "./patching.js";
 import { queueUndoData, startUndoWorkflow, updateUndoChatCardUuids, _removeMostRecentWorkflow, _undoMostRecentWorkflow, undoTillWorkflow, _queueUndoDataDirect, updateUndoChatCardUuidsById } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
@@ -209,7 +209,7 @@ async function cancelWorkflow(data: { workflowId: string, itemCardId: string }) 
 async function confirmDamageRollComplete(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
   //@ts-expect-error
   const activity = fromUuidSync(data.activityUuid);
-  const workflow = activity.activityWorkflow
+  const workflow = activity.workflow
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     */
@@ -233,7 +233,7 @@ async function confirmDamageRollComplete(data: { activityUuid: string, itemCardI
 async function confirmDamageRollCompleteHit(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
   //@ts-expect-error
   const activity = fromUuidSync(data.activityUuid);
-  const workflow = activity.activityWorkflow;
+  const workflow = activity.workflow;
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
@@ -272,7 +272,7 @@ async function confirmDamageRollCompleteHit(data: { activityUuid: string, itemCa
 async function confirmDamageRollCompleteMiss(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
   //@ts-expect-error
   const activity = fromUuidSync(data.activityUuid);
-  const workflow = activity.activityWorkflow
+  const workflow = activity.workflow
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
@@ -905,6 +905,7 @@ async function prepareDamageListItems(data: {
       buttonId: tokenUuid,
       iconPrefix: (data.autoApplyDamage === "yesCardNPC" && actor.type === "character") ? "*" : "",
     };
+    
     const tooltipList = damageItem.damageDetail?.map(di => {
       let allMods: string[] = Object.keys(di.active ?? {}).reduce((acc: string[], k) => {
         if (["saved", "semiSuperSaver", "superSaver"].includes(k)) return acc;
@@ -914,7 +915,7 @@ async function prepareDamageListItems(data: {
       if (di.allActives?.length > 0) allMods = allMods.concat(di.allActives);
       let mods = (allMods.length > 0) ? `| ${allMods.join(",")}` : "";
       return `${di.value > 0 ? Math.floor(di.value) : Math.ceil(di.value)} ${{ ...GameSystemConfig.damageTypes, ...GameSystemConfig.healingTypes }[di.type === "" ? "none" : di.type]?.label ?? "none"} ${mods}`
-    });
+    }).map(s => s.replaceAll(",,", ",").replaceAll(",,", ","));
     const toolTipHeader: string[] = [];
     if (damageItem.damageDetail) {
       if (newHP !== oldHP) toolTipHeader.push(`HP: ${damageItem.oldHP} -> ${damageItem.newHP}`);

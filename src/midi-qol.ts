@@ -5,7 +5,7 @@ import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, re
 import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Hooks.js';
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
-import { TrapWorkflow, DamageOnlyWorkflow, ActivityWorkflow, DummyWorkflow, DDBGameLogWorkflow, UserWorkflow } from './module/ActivityWorkflow.js';
+import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, DDBGameLogWorkflow, UserWorkflow } from './module/Workflow.js';
 import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, fromActorUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility, MQfromUuidSync, actorFromUuid, createDamageDetail, removeActionUsed, removeBonusActionUsed, getCheckRollModeFor, getSaveRollModeFor, completeActivityUse } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
@@ -145,7 +145,9 @@ Hooks.once("init", () => {
 function setupActvities() {
   setupAttackActivity();
   setupSaveActivity();
-  setupAttackAndSaveActivity();
+  setupUtilityActivity();
+  setupSummonActivity();
+  setupDamageActivity();
 }
 
 Hooks.once('init', async function () {
@@ -453,7 +455,7 @@ Hooks.once('ready', function () {
     "isDamaged": "Target is damaged by an attack",
     "all": "All"
   }
-  for (let key of Object.keys(ActivityWorkflow.stateTable)) {
+  for (let key of Object.keys(Workflow.stateTable)) {
     const camelKey = `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
     if (MQOnUseOptions[`pre${camelKey}`] === undefined) {
       MQOnUseOptions[`pre${camelKey}`] = `Before state ${camelKey}`;
@@ -585,7 +587,9 @@ import { setupMidiTests } from './module/tests/setupTest.js';
 import { TargetConfirmationConfig } from './module/apps/TargetConfirmationConfig.js';
 import { defineChatMessageMidiClass } from './module/ChatMessageMidi.js';
 import { setupSaveActivity } from './module/activities/SaveActivity.js';
-import { setupAttackAndSaveActivity } from './module/activities/AttackAndSaveActivity.js';
+import { setupUtilityActivity } from './module/activities/UtilityActivity.js';
+import { setupSummonActivity } from './module/activities/SummonActivity.js';
+import { setupDamageActivity } from './module/activities/DamageActivity.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -708,7 +712,7 @@ function setupMidiQOLApi() {
   ];
 
   let humanoid = ["human", "humanoid", "elven", "elf", "half-elf", "drow", "dwarf", "dwarven", "halfling", "gnome", "tiefling", "orc", "dragonborn", "half-orc"];
-  const Workflows = { "Workflow": ActivityWorkflow, "DamageOnlyWorkflow": DamageOnlyWorkflow, "TrapWorkflow": TrapWorkflow, "DummyWorkflow": DummyWorkflow, "DDBGameLogWorkflow": DDBGameLogWorkflow };
+  const Workflows = { "Workflow": Workflow, "DamageOnlyWorkflow": DamageOnlyWorkflow, "TrapWorkflow": TrapWorkflow, "DummyWorkflow": DummyWorkflow, "DDBGameLogWorkflow": DDBGameLogWorkflow };
   //@ts-ignore
   globalThis.MidiQOL = foundry.utils.mergeObject(globalThis.MidiQOL ?? {}, {
     addConcentration,
@@ -814,10 +818,9 @@ function setupMidiQOLApi() {
     validRollAbility,
     WallsBlockConditions,
     warn,
-    Workflow: ActivityWorkflow,
-    ActivityWorkflow,
+    Workflow,
     UserWorkflow,
-    workflowClass: ActivityWorkflow,
+    workflowClass: Workflow,
     Workflows,
     moveToken: async (tokenRef: Token | TokenDocument | string, newCenter: { x: number, y: number }, animate: boolean = true) => {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;

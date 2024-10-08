@@ -88,29 +88,6 @@
   </div>
   {{/if}}
 
-  {{#if (and item.hasSave item.hasDamage)}}
-  <div class="form-group">
-    <label>{{ localize "midi-qol.SavesBase"}}</label>
-    <select name="flags.midiProperties.saveDamage" data-dtype="String">
-      {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.saveDamage}} </select>
-  </div>
-  {{/if}}
-  {{#if (and item.hasSave item.hasDamage)}}
-  <div class="form-group">
-    <label>{{ localize "midi-qol.SavesBonus"}}</label>
-    <select name="flags.midiProperties.bonusSaveDamage" data-dtype="String">
-      {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.bonusSaveDamage}} </select>
-  </div>
-  {{/if}}
-
-  {{#if (and item.hasSave hasOtherDamage)}}
-  <div class="form-group">
-    <label>{{ localize "midi-qol.SavesOther"}}</label>
-    <select name="flags.midiProperties.otherSaveDamage" data-dtype="String">
-      {{selectOptions SaveDamageOptions selected=item.flags.midiProperties.otherSaveDamage}} </select>
-  </div>
-  {{/if}}
-
   <div class="form-group stacked weapon-properties">
     {{#each flags.midiProperties as |value key|}}
     {{#unless (or (eq key "saveDamage") (eq key "bonusSaveDamage") (eq key

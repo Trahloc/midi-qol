@@ -948,10 +948,33 @@
       "other": "Midi Attacks"
     }
   },
+  "midi-qol.DAMAGE": {
+    "Title": {
+      "one": "Midi Damage",
+      "other": "Midi Damage"
+    }
+  },
   "midi-qol.SAVE": {
     "Title": {
       "one": "Midi Save",
       "other": "Midi Saves"
     }
+  },
+  "midi-qol.UTILITY": {
+    "Title": {
+      "one": "Midi Utility",
+      "other": "Midi Utility"
+    }
+  },
+  "midi-qol.SUMMON": {
+    "Title": {
+      "one": "Midi Summon",
+      "other": "Midi Summons"
+    }
+  },
+  "midi-qol.fields": {
+    "use-condition": "Midi Activity Allow Use Condition",
+    "attack-extras": "Midi Attack Fields",
+    "effects-conditon": "Midi Effect application condition"
   }
 }
