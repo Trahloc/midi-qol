@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.22
+* A merge from @thatlonelybugbear
+
 ### 11.6.21
 * Some cleanup of traits.dm.midi.xxxx. Midi won't include damage types none or midi-none when applying dm.midi.xxx.
 
