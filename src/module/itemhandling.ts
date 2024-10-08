@@ -647,7 +647,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
         workflow.templateId = td?.object?.id;
         if (tokenToUse && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
           //@ts-expect-error .object
-          await token.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
+          await tokenToUse.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
           if (workflow && !foundry.utils.getProperty(workflow, "item.flags.walledtemplates.noAutotarget"))
             selectTargets.bind(workflow)(td);
 
