@@ -144,9 +144,6 @@ export function defineMidiDamageActivityClass(baseClass: any) {
       return midiUsageChatContext(this, context);
     }
 
-    get saveActivity() {
-      return undefined;
-    }
     get otherActivity() {
       return undefined;
     }
@@ -159,6 +156,10 @@ export function defineMidiDamageActivityClass(baseClass: any) {
     get effectCondition() {
       if (this.effectConditionText && this.effectConditionText !== "") return this.effectConditionText;
       return foundry.utils.getProperty(this.item, "flags.midiProperties.effectCondition") ?? "";
+    }
+
+    get hasDamage() {
+      return this.damage.parts.length > 0;
     }
   }
 }

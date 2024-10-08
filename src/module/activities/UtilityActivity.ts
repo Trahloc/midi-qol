@@ -148,9 +148,6 @@ export function defineMidiUtilityActivityClass(baseClass: any) {
     get otherActivity() {
       return undefined;
     }
-    get saveActivity() {
-      return undefined;
-    }
   }
 
 }

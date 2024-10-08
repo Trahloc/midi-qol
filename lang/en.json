@@ -972,6 +972,12 @@
       "other": "Midi Summons"
     }
   },
+  "midi-qol.CHECK": {
+    "Title": {
+      "one": "Midi Check",
+      "other": "Midi Checks"
+    }
+  },
   "midi-qol.fields": {
     "use-condition": "Midi Activity Allow Use Condition",
     "attack-extras": "Midi Attack Fields",

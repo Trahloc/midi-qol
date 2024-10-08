@@ -441,9 +441,9 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         if (workflow.activity.save && type !== "otherDamage") {
           activity = workflow.activity
           saves = workflow.saves;
-        } else if (workflow.activity.saveActivity?.save && type === "otherDamage") {
+        } else if ((workflow.activity.otherActivity?.save || workflow.activity.otherActivity?.check) && type === "otherDamage") {
           saves = workflow.saves;
-          activity = workflow.activity.saveActivity;
+          activity = workflow.activity.otherActivity;
         }
         let saveMultiplier = 1;
         if (saves.has(token)) {
@@ -977,7 +977,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
     const saveAbility = (saveAbilityString.includes("|") ? saveAbilityString.split("|") : [saveAbilityString]).map(s => s.trim().toLocaleLowerCase())
     const label = (details.name ?? details.label ?? effect.name).replace(/"/g, "");
     const chatFlavor = details.chatFlavor ?? "";
-    const rollTypeString = details.rollType ?? "save";
+    const rollTypeString = details.rollType ?? "damage";
     const rollType = (rollTypeString.includes("|") ? rollTypeString.split("|") : [rollTypeString]).map(s => s.trim().toLocaleLowerCase())
     const saveMagic = JSON.parse(details.saveMagic ?? "false"); //parse the saving throw true/false
     const rollMode = details.rollMode;
@@ -1154,14 +1154,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       if (debugEnabled > 0) warn(`gmOverTimeEffect | OverTime label=${label} startTurn=${startTurn} endTurn=${endTurn} damageBeforeSave=${damageBeforeSave} saveDC=${saveDC} saveAbility=${saveAbility} damageRoll=${damageRoll} damageType=${damageType}`);
 
       let itemData: any = {
-        "system": {
-          "target": {
-            "value": null,
-            "width": null,
-            "units": "",
-            "type": "creature"
-          }
-        }
       };
       //foundry.utils.duplicate(overTimeJSONData);
       itemData.img = "icons/svg/aura.svg";
@@ -1176,10 +1168,26 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         }
         if (theItem) itemData = theItem.toObject();
       }
+      
+      let activityData: any = {
+        name: label,
+        id: "overtime",
+        type: "damage",
+        damage: {
+          parts: [{
+            custom: {
+              enabled: true,
+              formula: damageRoll,
+            },
+            types: [damageType]
+        }]
+        }
+      };
+      activityData.img = effect.img;
+      itemData.img = effect.img; // v12 icon -> img
+      // foundry.utils.setProperty(itemData, "system.save.dc", saveDC);
+      // foundry.utils.setProperty(itemData, "system.save.scaling", "flat");
 
-      itemData.img = effect.img ?? effect.icon; // v12 icon -> img
-      foundry.utils.setProperty(itemData, "system.save.dc", saveDC);
-      foundry.utils.setProperty(itemData, "system.save.scaling", "flat");
       itemData.type = "equipment";
       foundry.utils.setProperty(itemData, "system.type.value", "trinket");
       foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.noProvokeReaction`, true);
@@ -1189,38 +1197,72 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       }
       if (rollTypeString === "save" && !actionSave) {
         actionType = "save";
-        foundry.utils.setProperty(itemData, "system.save.ability", saveAbility[0]);
+        activityData.type = "save";
+        activityData.save = {
+          ability: saveAbility[0],
+          dc: {
+            calculation: "",
+            formula: `${saveDC}`
+          }
+        }
+        actionType = "save";
+        // foundry.utils.setProperty(itemData, "system.save.ability", saveAbility[0]);
       }
       if (rollTypeString === "check" && !actionSave) {
-        actionType = "abil";
-        foundry.utils.setProperty(itemData, "system.save.ability", saveAbility[0]);
+        actionType = "check";
+        activityData.type = "check";
+        activityData.check = {
+          ability: saveAbility[0],
+          dc: {
+            calculation: "",
+            formula: `${saveDC}`
+          }
+        }
+        // foundry.utils.setProperty(itemData, "system.save.ability", saveAbility[0]);
       }
       if (rollTypeString === "skill" && !actionSave) { // skill checks for this is a fiddle - set a midi flag so that the midi save roll will pick it up.
-        actionType = "save";
+        actionType = "check";
+        activityData.type = "check";
         let skill = saveAbility[0];
+        let ability = "";
+        let skillEntry = GameSystemConfig.skills[skill];
         if (!GameSystemConfig.skills[skill]) { // not a skill id see if the name matches an entry
           //@ts-expect-error
-          const skillEntry: any = Object.entries(GameSystemConfig.skills).find(([id, entry]) => entry.label.toLocaleLowerCase() === skill)
-          if (skillEntry) {
-            skill = skillEntry[0];
-            foundry.utils.setProperty(itemData, "system.save.ability", skillEntry.ability);
+          let found: any = Object.entries(GameSystemConfig.skills).find(([id, entry]) => entry.label.toLocaleLowerCase() === skill)
+          if (found) {
+            skill = found[0];
+            skillEntry = found[1];
           }
-        } else foundry.utils.setProperty(itemData, "system.save.ability", GameSystemConfig.skills[skill].ability)
-        foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.overTimeSkillRoll`, skill)
+        } 
+        if (skillEntry) {
+          activityData.check = {
+            ability: skillEntry.ability,
+            dc: {
+              calculation: "",
+              formula: `${saveDC}`
+            },
+            associated: [skill]
+          }
+        }
       }
-
 
       if (damageBeforeSave || saveDamage === "fulldamage") {
-        foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "fulldam");
+        //foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "fulldam");
+        activityData.damage.onSave = "full";
       } else if (saveDamage === "halfdamage" || !damageRoll) {
-        foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "halfdam");
+        // foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "halfdam");
+        activityData.damage.onSave = "half";
       } else {
-        foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "nodam");
+        // foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "nodam");
+        activityData.damage.onSave = "none";
       }
       itemData.name = label;
-      foundry.utils.setProperty(itemData, "system.chatFlavor", chatFlavor);
+      activityData.description = {
+        chat: chatFlavor,
+      }
+      // foundry.utils.setProperty(itemData, "system.chatFlavor", chatFlavor);
       foundry.utils.setProperty(itemData, "system.description.chat", effect.description ?? "");
-      foundry.utils.setProperty(itemData, "system.actionType", actionType);
+      // foundry.utils.setProperty(itemData, "system.actionType", actionType);
 
       itemData._id = foundry.utils.randomID();
       // roll the damage and save....
@@ -1238,7 +1280,8 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         }
         for (let i = 1; i < stackCount; i++)
           damageRollString = `${damageRollString} + ${damageRoll}`;
-        foundry.utils.setProperty(itemData, "system.damage.parts", [[damageRollString, damageType]])
+        activityData.damage.parts[0].custom.formula = damageRollString;
+        // foundry.utils.setProperty(itemData, "system.damage.parts", [[damageRollString, damageType]])
         // itemData.system.damage.parts = [[damageRollString, damageType]];
       }
       foundry.utils.setProperty(itemData.flags, "midi-qol.forceCEOff", true);
@@ -1252,9 +1295,20 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       while (origin && !(origin instanceof Actor)) {
         origin = origin?.parent;
       }
+      itemData.system.activities = {"overtime": activityData};
+      const chosenActor = ((origin instanceof Actor) ? origin : actor);
+      const psuedoActor = foundry.utils.deepClone(chosenActor);
+      await psuedoActor.update({ "items": [itemData] });
+
       let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: ((origin instanceof Actor) ? origin : actor) });
+      ownedItem.prepareData();
+      //@ts-expect-error
+      ownedItem.prepareFinalAttributes();
+      //@ts-expect-error
+      ownedItem.prepareEmbeddedDocuments();  
       if (!actionSave && saveRemove && saveDC > -1)
-        failedSaveOverTimeEffectsToDelete[ownedItem.uuid] = { uuid: effect.uuid };
+      //@ts-expect-error
+        failedSaveOverTimeEffectsToDelete[ownedItem.system.activities.contents[0].uuid] = { uuid: effect.uuid };
 
       if (details.removeCondition) {
         let value = replaceAtFields(details.removeCondition, rollData, { blankValue: 0, maxIterations: 3 });
@@ -1269,7 +1323,8 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           remove = true;
         }
         if (remove) {
-          overTimeEffectsToDelete[ownedItem.uuid] = { uuid: effect.uuid }
+          //@ts-expect-error
+          overTimeEffectsToDelete[ownedItem.system.activities.contents[0].uuid] = { uuid: effect.uuid }
         }
       }
       try {
@@ -1289,7 +1344,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           }
         };
         foundry.utils.setProperty(options, `flags.${MODULE_ID}.isOverTime`, true);
-        await completeItemUse(ownedItem, {}, options); // worried about multiple effects in flight so do one at a time
+        await completeItemUseV2(ownedItem, {midiOptions: options}, {configure: false}, {}); // worried about multiple effects in flight so do one at a time
         if (actionSaveSuccess) {
           await expireEffects(actor, [effect], { "expiry-reason": "midi-qol:overTime:actionSave" });
         }
@@ -1358,22 +1413,13 @@ export async function _processOverTime(combat, data, options, userId) {
     } else toTest += 1;
   }
 }
-
-export async function completeItemRoll(item, options: any) {
-  //@ts-expect-error .version
-  if (foundry.utils.isNewerVersion(game.version, "10.278)"))
-    console.error("midi-qol | completeItemRoll(item, options) is deprecated please use completeItemUse(item, config, options)")
-  return completeItemUse(item, {}, options);
-}
-
-export async function completeActivityUse(activity, config: any = {}, options: any = { checkGMstatus: false, targetUuids: undefined, asUser: undefined }, dialog: any = {}, message: any = {}) {
+export async function completeActivityUse(activity, config: any = {}, dialog: any = {}, message: any = {}) {
   let theItem: any;
   let targetsToUse = new Set();
 
   if (typeof activity === "string") {
     activity = MQfromUuidSync(activity);
   }
-  config.midiOptions = options;
   config.midiOptions.workflowOptions = { forceCompletion: true };
   // delete any existing workflow - complete item use always is fresh.
   if (Workflow.getWorkflow(activity.uuid)) await Workflow.removeWorkflow(activity.uuid);
@@ -1418,28 +1464,33 @@ export async function completeActivityUse(activity, config: any = {}, options: a
         resolve(workflow);
       });
       config.midiOptions.targetsToUse = targetsToUse;
-      return activity.use(config, dialog, message).then(result => { if (!result) resolve(result) });
+      activity.use(config, dialog, message).then(result => { if (!result) resolve(result) });
     });
   } else {
-    const targetUuids = options.targetUuids ? options.targetUuids : Array.from(game.user?.targets || []).map(t => t.document.uuid); // game.user.targets is always a set of tokens
+    const targetUuids = config.midiOptions.argetUuids ? config.midiOptions.targetUuids : Array.from(game.user?.targets || []).map(t => t.document.uuid); // game.user.targets is always a set of tokens
     const data = {
       activityUuid: activity.uuid,
       actorUuid: activity.item.parent.uuid,
       targetUuids,
       config,
-      options
+      dialog
     }
-    const asUserActive = game.users?.get(options.asUser)?.active;
+    const asUserActive = game.users?.get(config.midiOptions.asUser)?.active;
     //@ts-expect-error
     if (!asUserActive) options.asUser = game.users?.activeGM?.id ?? game.user?.id
-    if (options.asUser && asUserActive)
-      return await socketlibSocket.executeAsUser("completeActivityUse", options.asUser, data);
+    if (config.midiOptions.asUser && asUserActive)
+      return await socketlibSocket.executeAsUser("completeActivityUse", config.midiOptions.asUser, data);
     else
       return await timedAwaitExecuteAsGM("completeActivityUse", data);
   }
 }
 
 export async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false, targetUuids: undefined, asUser: undefined }, dialog: any = {}, message: any = {}) {
+  config.midiOptions = options;
+  return completeItemUseV2(item, config, dialog, message);
+}
+
+export async function completeItemUseV2(item, config: any = {}, dialog: any = {}, message: any = {}) {
   if (typeof item === "string") {
     //@ts-expect-error
     item = fromUuidSync(item);
@@ -1454,7 +1505,7 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
     error(`item ${item.name} ${item.uuid} does not have an activity`);
     return undefined;
   }
-  return await completeActivityUse(activity, config, options, dialog, message);
+  return await completeActivityUse(activity, config, dialog, message);
 }
 
 export async function completeItemUseOld(item, config: any = {}, options: any = { checkGMstatus: false, targetUuids: undefined, asUser: undefined }) {
@@ -3979,7 +4030,8 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
           clearTimeout(useTimeoutId);
           //@ts-expect-error
           if (activity instanceof game.system.documents.activity.ActivityMixin) { // a nomral item}
-            result = await completeActivityUse(activity, {}, itemRollOptions, {}, {});
+            const config = {midiOptions: itemRollOptions};
+            result = await completeActivityUse(activity, config, {}, {});
             if (!result?.preItemUseComplete) resolve(noResult);
             else resolve({ name: activity?.name, uuid: activity?.uuid })
           } else if (false) { // assume it is a magic item item
@@ -4362,7 +4414,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.w = data.workflow;
       rollData.workflow = data.workflow;
       rollData.activity = data.workflow.activity;
-      rollData.otherDamageActivity = data.workflow?.saveActivity;
+      rollData.otherDamageActivity = data.workflow?.otherActivity;
       rollData.hasSave = data.workflow.hasSave;
       rollData.item = data.workflow.item?.getRollData().item;
       rollData.otherDamageFormula = data.workflow.otherDamageFormula;

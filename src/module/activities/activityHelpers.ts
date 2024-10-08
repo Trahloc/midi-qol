@@ -526,7 +526,7 @@ export async function setupTargets(activity: any, config, dialog, message): Prom
     else activity.targets = validTargetTokens(game.user?.targets);
   } else {
     foundry.utils.setProperty(dialog, "workflowOptions.targetConfirmation", "none");
-    activity.targets = new Set();
+    activity.targets = new Set([tokenForActor(activity.actor)]);
   }
 
   // remove selection of untargetable targets

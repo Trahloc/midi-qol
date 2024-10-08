@@ -23,21 +23,26 @@
   - TrapWorkflow
   - DDB Gamelog
 
-* Midi implements "Midi Attack", "Midi Save", "Midi Utility", "Midi Damage" activites.
+* Midi implements "Midi Attack", "Midi Save", "Midi Check", "Midi Utility", "Midi Damage" activites.
   - All Midi Activities have an "acitivity use" condition and an effect application condition.
     - if the use condition evaluates to false the activity cannot be used. If no use condition is specified on the activity the item activation condition will be used.
     - if the effect condition evaluates to false the activities effects won't be applied. If no effect condition is specified on the activity the item effect condtion will be used.
     - The combination of the above is to allow some extra flexibiltiy, you can specify effects that are applied if the attack hit (even if there is a save) and effects that will only be applied if the save failed even if the attack hit. If an effect condition is present it must evaluate to true for the effect to be applied.
     - The default midi behaviour is to replace the core activities with the midi versions. Midi then takes over the initiation and configuration of use, rollAttack, rollDamage etc rolls. This can be disabled via configuration settings.
   - The attack acivity adds the ability to specify a save activity or damage activity that midi will use to roll "other damage" for things like spider bite and so on.
-    - There is a config setting to have midi check that if the only activities on an item are a Midi Attack and Midi Save, midi will automatically merge those and treat the item as if the Midi Save activity is linked to the Midi Attack Activity.
-* Midi Attack activites with effects will always apply the effects if the target is hit.
+  - The Midi Check activity allows you to add damage if the check (ability or skill) roll is failed.
+- There is a config setting to have midi check that if the only activities on an item are a Midi Attack and Midi Save, midi will automatically merge those and treat the item as if the Midi Save activity is linked to the Midi Attack Activity.
+* Midi Attack activites with effects will always apply the effects if the target is hit and the effect condition is true.
 * Midi Save activities with effects will apply the effect if the target fails to save or the effect is marked as always apply. If the Save activity is linked to an attack activity then the target must be hit as well for the effects to be applied.
 
 * getSaveMultiplierForItem is now deprecated since all save activities specify the save multiplier to use for the save.
+* The config settings for rolling other have been removed as have the midi properties for those.
 * The midi properties for save multipliers on the midi tab have been removed.
 
-* The midi properties have been migrated to be activity properties, so they remain on the item. This includes activation, other damage and reaction conditions. Which are the fallback if the item activities do not specify a Eventually they will migrate to the activity rather than the item.
+* The midi properties have not been migrated to be activity properties, so they remain on the item. This includes activation, other damage and reaction conditions. Which are the fallback if the item activities do not specify a use or effect condition. Eventually the conditions will be removed from the midi properties.
+
+### 11.6.21
+* Some cleanup of traits.dm.midi.xxxx. Midi won't include damage types none or midi-none when applying dm.midi.xxx.
 
 ### 11.6.20
 * The Fix sticky keys setting should now really fix sticky keys (thanks @kgar).

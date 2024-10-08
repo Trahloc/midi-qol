@@ -1,6 +1,6 @@
 import { checkRule, configSettings, safeGetGameSetting } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, fromActorUuid, MQfromUuidSync, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects, CERemoveEffect, CEAddEffectWith, getActor } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, fromActorUuid, MQfromUuidSync, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects, CERemoveEffect, CEAddEffectWith, getActor, completeItemUseV2 } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
 import { Workflow } from "./Workflow.js";
 import { bonusCheck } from "./patching.js";
@@ -21,6 +21,7 @@ export let setupSocket = () => {
   socketlibSocket.register("bonusCheck", _bonusCheck);
   socketlibSocket.register("chooseReactions", localDoReactions);
   socketlibSocket.register("completeItemUse", _completeItemUse);
+  socketlibSocket.register("completeItemUseV2", _completeItemUseV2);
   socketlibSocket.register("completeActivityUse", _completeActivityUse);
   socketlibSocket.register("confirmDamageRollComplete", confirmDamageRollComplete);
   socketlibSocket.register("confirmDamageRollCompleteHit", confirmDamageRollCompleteHit);
@@ -344,19 +345,12 @@ export async function removeEffectUuids(data: { actorUuid: string; effects: stri
   // else return removeFunc();
   return removeFunc();
 }
-export async function createEffects(data: { actorUuid: string, effects: any[] }) {
-  const createEffectsFunc = async () => {
-    const actor = fromActorUuid(data.actorUuid);
-    for (let effect of data.effects) { // override default foundry behaviour of blank being transfer
-      if (effect.transfer === undefined) effect.transfer = false;
-    }
-    return actor?.createEmbeddedDocuments("ActiveEffect", data.effects)
-  };
-  return await createEffectsFunc();
-  /* This seems to cause a deadlock 
-  if (globalThis.DAE?.actionQueue) return globalThis.DAE.actionQueue.add(createEffectsFunc)
-  else return createEffectsFunc();
-  */
+export async function createEffects(data: { actorUuid: string, effects: any[], options: any }) {
+  const actor = fromActorUuid(data.actorUuid);
+  for (let effect of data.effects) { // override default foundry behaviour of blank being transfer
+    if (effect.transfer === undefined) effect.transfer = false;
+  }
+  return await actor?.createEmbeddedDocuments("ActiveEffect", data.effects, data.options);
 }
 
 export async function updateEffects(data: { actorUuid: string, updates: any[] }) {
@@ -476,15 +470,34 @@ export async function _applyEffects(data: { workflowId: string, targets: string[
 }
 
 async function _completeActivityUse(data: {
-  activityUuid: string, actorUuid: string, config: any, options: any, targetUuids: string[], workflowData: boolean
+  activityUuid: string, actorUuid: string, config: any, dialog: any, message: any, targetUuids: string[], workflowData: boolean
 }) {
   if (!game.user) return null;
-  let { activityUuid, actorUuid, config, options } = data;
+  let { activityUuid, actorUuid, config, dialog, message } = data;
   let actor: any = await fromUuid(actorUuid);
   if (actor.actor) actor = actor.actor;
 
-  const workflow = await completeItemUse(activityUuid, config, options);
-  if (data.options?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
+  const workflow = await completeItemUseV2(activityUuid, config, dialog, message);
+  if (data.config.midiOptions?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
+  else return true;
+}
+async function _completeItemUseV2(data: {
+  itemData: any, actorUuid: string, config: any, dialog: any, message: any, targetUuids: string[], workflowData: boolean
+}) {
+  if (!game.user) return null;
+  let { itemData, actorUuid, config, dialog, message } = data;
+  let actor: any = await fromUuid(actorUuid);
+  if (actor.actor) actor = actor.actor;
+  //@ts-ignore v10
+  let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor, keepId: true });
+    // prepare item data for socketed events
+    ownedItem.prepareData();
+    //@ts-expect-error
+    ownedItem.prepareFinalAttributes();
+    //@ts-expect-error
+    ownedItem.applyActiveEffects();
+  const workflow = await completeItemUseV2(ownedItem, config, dialog, message);
+  if (data.config?.midiOptions?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
   else return true;
 }
 async function _completeItemUse(data: {
@@ -707,8 +720,8 @@ export async function rollConcentration(data: { actorUuid, targetValue, whisper 
 }
 
 export async function rollAbility(data: { request: string; targetUuid: string; ability: string; options: any; }) {
-  if (data.request === "test") data.request = "abil";
-  if (data.request === "check") data.request = "abil";
+  if (data.request === "abil") data.request = "check";
+  if (data.request === "test") data.request = "check";
   const actor = fromActorUuid(data.targetUuid);
   if (!actor) {
     error(`GMAction.rollAbility | no actor for ${data.targetUuid}`)
@@ -723,12 +736,12 @@ export async function rollAbility(data: { request: string; targetUuid: string; a
       data.options.fastForward = true; // assume player is asleep force roll without dialog
       data.options.chatMessage = requestedChatMessage;
       if (data.request === "save") result = await actor.rollAbilitySave(data.ability, data.options)
-      else if (data.request === "abil") result = await actor.rollAbilityTest(data.ability, data.options);
+      else if (data.request === "check") result = await actor.rollAbilityTest(data.ability, data.options);
       else if (data.request === "skill") result = await actor.rollSkill(data.ability, data.options);
       resolve(result ?? {});
     }, configSettings.playerSaveTimeout * 1000);
     if (data.request === "save") result = await actor.rollAbilitySave(data.ability, data.options)
-    else if (data.request === "abil") result = await actor.rollAbilityTest(data.ability, data.options);
+    else if (data.request === "check") result = await actor.rollAbilityTest(data.ability, data.options);
     else if (data.request === "skill") result = await actor.rollSkill(data.ability, data.options);
     if (timeoutId) clearTimeout(timeoutId);
     resolve(result ?? {})
