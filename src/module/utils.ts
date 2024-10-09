@@ -3051,14 +3051,14 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         let item = MQfromUuidSync(itemUuidOrName);
         if (!item && this.actor) item = this.actor.items.getName(itemUuidOrName);
         if (!item && this instanceof Actor) item = this.items.getName(itemUuidOrName);
-        workflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
+        workflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], options);
       }
       const macroData = workflow.getMacroData();
       macroData.macroPass = `${button.key}.${flagSelector}`;
       macroData.tag = "optional";
       macroData.roll = roll;
-
-      result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll, bonus: (!specificMacro ? button.value : undefined) });
+      foundry.utils.mergeObject(options, { roll, bonus: (!specificMacro ? button.value : undefined) });
+      result = await workflow.callMacro(workflow?.item, macroToCall, macroData, options);
       if (typeof result === "string")
         button.value = result;
       else if (typeof result === "number")
@@ -3765,9 +3765,10 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
         roll: acRoll,
         rollHTML: reactionFlavor,
         rollTotal: acRoll.total,
+        options: { triggerTokenUuid, triggerItemUuid: options?.itemUuid, triggerActorUuid: options?.workflowOptions?.sourceActorUuid, triggerWorkflowName: options?.workflowOptions?.workflowName }
       }
       //@ts-expect-error attributes
-      const newAC = await bonusDialog.bind(data)(validFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, acRoll, "roll");
+      const newAC = await bonusDialog.bind(data)(validFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, acRoll, "roll", data.options);
       const endTime = Date.now();
       if (debugEnabled > 0) warn("promptReactions | returned via bonus dialog ", endTime - startTime)
       return { name: actor.name, uuid: actor.uuid, ac: newAC.total };
