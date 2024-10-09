@@ -1016,7 +1016,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       if (saveResult?.class) saveResult = JSON.parse(JSON.stringify(saveResult));
       const success = saveResult?.options?.success || saveResult?.total >= saveDC;
       if (saveResult?.options) saveResultDisplayed = true;
-      setProperty(effect, `flags.${MODULE_ID}.actionSaveSuccess`, success === true);
+      foundry.utils.setProperty(effect, `flags.${MODULE_ID}.actionSaveSuccess`, success === true);
     } else if (actionSave && actionSave === "roll" && options.isActionSave && options.saveToUse) {
       // player has made a save record the save/flags on the effect
       // if a match and saved then record the save success
@@ -3108,13 +3108,13 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         newRoll.terms[0].results.forEach(res => res.result = 99);
         //@ts-expect-error
         newRoll._total = 99;
-        setProperty(newRoll, "options", duplicate(roll.options))
-        setProperty(newRoll, "options.success", true);
+        foundry.utils.setProperty(newRoll, "options", foundry.utils.duplicate(roll.options))
+        foundry.utils.setProperty(newRoll, "options.success", true);
         break;
       case "fail":
         newRoll = newRoll = await roll.clone().evaluate();
-        setProperty(newRoll, "options", duplicate(roll.options))
-        setProperty(newRoll, "options.success", false);
+        foundry.utils.setProperty(newRoll, "options", foundry.utils.duplicate(roll.options))
+        foundry.utils.setProperty(newRoll, "options.success", false);
         //@ts-expect-error
         newRoll.terms[0].results.forEach(res => res.result = -1);
         //@ts-expect-error
