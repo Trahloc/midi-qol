@@ -2986,9 +2986,9 @@ async function displayBeforeAfterRolls(data: { originalRoll: Roll, newRoll: Roll
   //@ts-expect-error
   if (game.release.generation < 12) {
     chatData.type = CONST.CHAT_MESSAGE_TYPES.ROLL;
-  } else {
+  /*} else {
     //@ts-expect-error
-    chatData.style = CONST.CHAT_MESSAGE_STYLES.ROLL;
+    chatData.style = CONST.CHAT_MESSAGE_STYLES.ROLL; */
   }
   //@ts-expect-error
   if (originalRoll.options.rollMode) ChatMessage.applyRollMode(chatData, originalRoll.options.rollMode);
