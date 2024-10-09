@@ -3593,7 +3593,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       .filter(flag => {
         if (triggerType !== "reaction" || !midiFlags?.optional[flag].ac) return false;
         if (!midiFlags?.optional[flag].count) return true;
-        if (midiFlags?.optional[flag].count === "reaction") return !usedReaction;
+        if (midiFlags?.optional[flag].count === "reaction" || midiFlags?.optional[flag].countAlt === "reaction") return !usedReaction;
         return getOptionalCountRemainingShortFlag(target.actor, flag) > 0;
       }).length;
 
@@ -3754,7 +3754,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
       .filter(flag => {
         if (!midiFlags.optional[flag].ac) return false;
         if (!midiFlags.optional[flag].count) return true;
-        if (midiFlags.optional[flag].count === "reaction") return !usedReaction;
+        if (midiFlags.optional[flag].count === "reaction" || midiFlags.optional[flag].countAlt === "reaction") return !usedReaction;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
       }).map(flag => `flags.${MODULE_ID}.optional.${flag}`);
     if (validFlags.length > 0 && triggerType === "reaction") {
