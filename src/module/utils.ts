@@ -3587,16 +3587,15 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       return { name: "Filter", ac: 0, uuid: undefined };
     }
     reactionCount = reactionItemList?.length ?? 0;
-    if (!usedReaction) {
-      //@ts-expect-error .flags
-      const midiFlags: any = target.actor.flags[MODULE_ID];
-      reactionCount = reactionCount + Object.keys(midiFlags?.optional ?? [])
-        .filter(flag => {
-          if (triggerType !== "reaction" || !midiFlags?.optional[flag].ac) return false;
-          if (!midiFlags?.optional[flag].count) return true;
-          return getOptionalCountRemainingShortFlag(target.actor, flag) > 0;
-        }).length
-    }
+    //@ts-expect-error .flags
+    const midiFlags: any = target.actor.flags[MODULE_ID];
+    reactionCount = reactionCount + Object.keys(midiFlags?.optional ?? [])
+      .filter(flag => {
+        if (triggerType !== "reaction" || !midiFlags?.optional[flag].ac) return false;
+        if (!midiFlags?.optional[flag].count) return true;
+        if (midiFlags?.optional[flag].count === "reaction") return !usedReaction;
+        return getOptionalCountRemainingShortFlag(target.actor, flag) > 0;
+      }).length;
 
     if (reactionCount <= 0) return noResult;
 
@@ -3748,12 +3747,14 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
       if (debugEnabled > 0) warn("promptReactions | reaction processing returned after ", endTime - startTime, result)
       if (result.uuid) return result; //TODO look at multiple choices here
     }
-    if (usedReaction) return { name: "None" };
+    //Specific handling for flags.midi-qol.optional.NAME.ac; treated as reactions but should not be directly linked to usedReaction;
+    /*if (usedReaction) return { name: "None" };*/
     if (!midiFlags) return { name: "None" };
     const validFlags = Object.keys(midiFlags?.optional ?? {})
       .filter(flag => {
         if (!midiFlags.optional[flag].ac) return false;
         if (!midiFlags.optional[flag].count) return true;
+        if (midiFlags.optional[flag].count === "reaction") return !usedReaction;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
       }).map(flag => `flags.${MODULE_ID}.optional.${flag}`);
     if (validFlags.length > 0 && triggerType === "reaction") {
