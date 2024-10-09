@@ -196,7 +196,8 @@ export function defineChatMessageMidiClass(baseClass: any) {
       if (!configSettings.mergeCard) {
         return super._enrichDamageTooltip(rolls, html);
       }
-      if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") return;
+      if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") 
+        return super._enrichDamageTooltip(rolls, html);
       for (let rollType of MQDamageRollTypes) {
         const rollsToCheck = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === rollType);
         let rType = "damage";
