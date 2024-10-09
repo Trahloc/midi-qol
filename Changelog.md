@@ -3,6 +3,29 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.23
+* Fix for damage rolls not enriching the damage type on non midi chat cards.
+
+### 11.6.22
+* A merge from @thatlonelybugbear
+
+### 11.6.21
+* Some cleanup of traits.dm.midi.xxxx. Midi won't include damage types none or midi-none when applying dm.midi.xxx.
+
+### 11.6.20.1
+* Fix for type in processDamageRoll
+
+### 11.6.20
+* The Fix sticky keys setting should now really fix sticky keys (thanks @kgar).
+* Fox for some edge cases of complete item use not resetting targets.
+
+For Macro writers
+* Fix for addRollTo not preserving roll options.
+* Rolls that benefit from an optional bonus will have flags.midi-qol.optionsUsed (an array of strings) updated to list the optional bonuses applied.
+  - workflow.attackRoll and workflow.damageRolls[0] will have the annotated roll.
+  - Added workflow.tokenSaves which is an object keyed by token uuid containing the save roll
+  - rolls returned by actor.rollAbilitySave, item.rollAttack etc will have the flags set.
+
 ### 11.6.19.1
 * Fix for bug introduced in 11.6.19
 
