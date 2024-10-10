@@ -3078,7 +3078,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType, rollMode);
         newRoll = reRoll; break;
       case "reroll-query":
-        reRoll = reRoll = await roll.reroll();
+        reRoll = await roll.reroll();
         if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType, rollMode);
         const newRollHTML = await midiRenderRoll(reRoll);
         if (await Dialog.confirm({ title: "Confirm reroll", content: `Replace ${rollHTML} with ${newRollHTML}`, defaultYes: true }))
