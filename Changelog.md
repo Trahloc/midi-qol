@@ -4,7 +4,7 @@
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
 ### 12.4.0
-* Removed support for non-merge card case.
+* Removed support for non-merge cards.
 * Midi now uses activities to handle automation. 
 * The workflow now contains the activity that initiated the worlfow.
 * All of the existing workflow phases are still present and the onuse macro calls and hook valls still behave as they used to.
@@ -14,21 +14,26 @@
   - items with saves
   - attacks with saves (via a save activity).
   - DamageOnlyWorkflow? at least one test case works.
-  - calling on use macros which are still setup per item. The workflow contains the activity that caused the macro to be called.
+  - calling onuse macros which are still setup per item. The workflow contains the activity that caused the macro to be called.
   - damage application
   - active effect application - see below for changes. Midi supports the activity always apply save flag.
   - babonus optional effects causing the configure dialog to be displayed
+  - overTime effects.
+  - most of the pre-roll checks, but not exhaustively tested.
+  - Target confirmation
+  - template targeting
 
 * Not Working
   - TrapWorkflow
   - DDB Gamelog
+  - range template targeting (the new emmanation targeting).
 
 * Midi implements "Midi Attack", "Midi Save", "Midi Check", "Midi Utility", "Midi Damage" activites.
   - All Midi Activities have an "acitivity use" condition and an effect application condition.
     - if the use condition evaluates to false the activity cannot be used. If no use condition is specified on the activity the item activation condition will be used.
     - if the effect condition evaluates to false the activities effects won't be applied. If no effect condition is specified on the activity the item effect condtion will be used.
     - The combination of the above is to allow some extra flexibiltiy, you can specify effects that are applied if the attack hit (even if there is a save) and effects that will only be applied if the save failed even if the attack hit. If an effect condition is present it must evaluate to true for the effect to be applied.
-    - The default midi behaviour is to replace the core activities with the midi versions. Midi then takes over the initiation and configuration of use, rollAttack, rollDamage etc rolls. This can be disabled via configuration settings.
+    - The default midi behaviour is to replace any existing core activities with the midi versions. Midi then takes over the initiation and configuration of use, rollAttack, rollDamage etc rolls. This can be disabled via configuration settings meaning that only hand created midi activities will cause the midi workflow.
   - The attack acivity adds the ability to specify a save activity or damage activity that midi will use to roll "other damage" for things like spider bite and so on.
   - The Midi Check activity allows you to add damage if the check (ability or skill) roll is failed.
 - There is a config setting to have midi check that if the only activities on an item are a Midi Attack and Midi Save, midi will automatically merge those and treat the item as if the Midi Save activity is linked to the Midi Attack Activity.
@@ -41,6 +46,11 @@
 
 * The midi properties have not been migrated to be activity properties, so they remain on the item. This includes activation, other damage and reaction conditions. Which are the fallback if the item activities do not specify a use or effect condition. Eventually the conditions will be removed from the midi properties.
 
+### 11.6.23
+* Fix for damage rolls not enriching the damage type on non midi chat cards.
+
+### 11.6.22
+* A merge from @thatlonelybugbear
 ### 11.6.21
 * Some cleanup of traits.dm.midi.xxxx. Midi won't include damage types none or midi-none when applying dm.midi.xxx.
 

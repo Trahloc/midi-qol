@@ -192,7 +192,8 @@ export function defineChatMessageMidiClass(baseClass: any) {
     }
 
     _enrichDamageTooltip(rolls, html) {
-      if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== undefined || !this.flags?.["midi-qol"]) return;
+      if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== undefined || !this.flags?.["midi-qol"]) 
+        return super._enrichDamageTooltip(rolls, html);
       // if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") return;
       for (let rollType of MQDamageRollTypes) {
         const rollsToCheck = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === rollType);

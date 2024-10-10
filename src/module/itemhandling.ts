@@ -1,7 +1,7 @@
-import { warn, debug, error, i18n, MESSAGETYPES, i18nFormat, gameStats, debugEnabled, log, debugCallTiming, allAttackTypes, GameSystemConfig, SystemString, MODULE_ID } from "../midi-qol.js";
-import { DummyWorkflow, Workflow } from "./Workflow.js";
-import { configSettings, enableWorkflow, checkMechanic, targetConfirmation, safeGetGameSetting } from "./settings.js";
-import { checkRange, computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, isAutoConsumeResource, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, isInCombat, setReactionUsed, hasUsedReaction, checkIncapacitated, needsReactionCheck, needsBonusActionCheck, setBonusActionUsed, hasUsedBonusAction, asyncHooksCall, addAdvAttribution, evalActivationCondition, getDamageType, completeItemUse, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, checkDefeated, computeCoverBonus, getStatusName, getAutoTarget, hasAutoPlaceTemplate, sumRolls, getCachedDocument, initializeVision, canSense, canSee, createConditionData, evalCondition, MQfromUuidSync, getFlankingEffect, CERemoveEffect } from "./utils.js";
+import { warn, debug, error, i18n, MESSAGETYPES, gameStats, debugEnabled, log, debugCallTiming, GameSystemConfig, SystemString, MODULE_ID } from "../midi-qol.js";
+import { Workflow } from "./Workflow.js";
+import { configSettings, enableWorkflow, targetConfirmation } from "./settings.js";
+import { computeTemplateShapeDistance, getAutoRollAttack, getAutoRollDamage, getRemoveDamageButtons, getTokenForActorAsSet, getSpeaker, getUnitDist, itemHasDamage, itemIsVersatile, processAttackRollBonusFlags, processDamageRollBonusFlags, validTargetTokens, checkIncapacitated, asyncHooksCall, addAdvAttribution, evalActivationCondition, getDamageType, hasDAE, tokenForActor, getRemoveAttackButtons, doReactions, displayDSNForRoll, isTargetable, hasWallBlockingCondition, getToken, checkDefeated, computeCoverBonus, getAutoTarget, sumRolls, getCachedDocument, MQfromUuidSync, checkActivityRange } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TargetConfirmationDialog } from "./apps/TargetConfirmation.js";
@@ -74,7 +74,7 @@ export function requiresTargetConfirmation(activity, options): boolean {
       let tokenToUse = token;
       /*
       if (tokenToUse && game.user?.targets) {
-        const { result, attackingToken } = checkRange(item, tokenToUse, new Set(game.user.targets))
+        const { result, attackingToken } = checkActivityRange(activity, tokenToUse, new Set(game.user.targets))
         if (speaker.token && result === "fail")
           tokenToUse = undefined; 
         else tokenToUse = attackingToken;
@@ -100,7 +100,7 @@ export function requiresTargetConfirmation(activity, options): boolean {
       (["ft", "m"].includes(activity.item.system.range?.units) || activity.item.system.range.type === "touch")) {
       if (token) {
         for (let target of game.user.targets) {
-          const { result, attackingToken } = checkRange(activity.item, token, new Set([target]))
+          const { result, attackingToken } = checkActivityRange(activity, token, new Set([target]))
           if (result !== "normal") {
             if (debugEnabled > 0) warn("target confirmation triggered from targetConfirmation.longRange");
             return true;

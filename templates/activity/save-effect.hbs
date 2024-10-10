@@ -1,7 +1,6 @@
 <section class="tab activity-{{ tab.id }} {{ tab.cssClass }}" data-tab="{{ tab.id }}" data-group="{{ tab.group }}">
     {{> "systems/dnd5e/templates/activity/parts/save-details.hbs" }}
-    {{ formField fields.useConditionText value=source.useConditionText }}
+    {{> "modules/midi-qol/templates/activity/parts/use-condition.hbs" }}
     {{> "systems/dnd5e/templates/activity/parts/save-damage.hbs" }}
-    {{ formField fields.effectConditionText value=source.effectConditionText }}
     {{> "systems/dnd5e/templates/activity/parts/activity-effects.hbs" }}
 </section>

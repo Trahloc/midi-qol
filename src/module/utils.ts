@@ -926,7 +926,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
   const auraFlags = effect.flags?.ActiveAuras ?? {};
   if (auraFlags.isAura && auraFlags.ignoreSelf) return;
   const rollData = createConditionData({ actor, workflow: undefined, target: undefined });
-  // const rollData = actor.getRollData();
   if (!rollData.flags) rollData.flags = actor.flags;
   rollData.flags.midiqol = rollData.flags[MODULE_ID];
   const changes = effect.changes.filter(change => change.key.startsWith(`flags.${MODULE_ID}.OverTime`));
@@ -952,7 +951,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       let result;
       try {
         result = await evalCondition(value, rollData, { async: true });
-        // result = Roll.safeEval(value);
       } catch (err) {
         const message = `midi-qol | gmOverTimeEffect | error when evaluating overtime apply condition ${value} - assuming true`;
         TroubleShooter.recordError(err, message);
@@ -1117,8 +1115,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           flavor: `Action: ${label ?? effect.name} ${i18n(messageFlavor[details.rollType])}`,
           speaker: MessageClass.getSpeaker({ actor })
         };
-        //@ts-expect-error TODO: Remove when v11 support is dropped.
-        if (game.release.generation < 12) chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
         const chatCard = await ChatMessage.create(chatData);
         if (chatCard) {
           chatCardUuids.push(chatCard.uuid);
@@ -1155,7 +1151,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
 
       let itemData: any = {
       };
-      //foundry.utils.duplicate(overTimeJSONData);
       itemData.img = "icons/svg/aura.svg";
       if (typeof itemName === "string") {
         let theItem = await fromUuid(itemName);
@@ -1185,8 +1180,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       };
       activityData.img = effect.img;
       itemData.img = effect.img; // v12 icon -> img
-      // foundry.utils.setProperty(itemData, "system.save.dc", saveDC);
-      // foundry.utils.setProperty(itemData, "system.save.scaling", "flat");
 
       itemData.type = "equipment";
       foundry.utils.setProperty(itemData, "system.type.value", "trinket");
@@ -1206,7 +1199,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           }
         }
         actionType = "save";
-        // foundry.utils.setProperty(itemData, "system.save.ability", saveAbility[0]);
       }
       if (rollTypeString === "check" && !actionSave) {
         actionType = "check";
@@ -1218,7 +1210,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
             formula: `${saveDC}`
           }
         }
-        // foundry.utils.setProperty(itemData, "system.save.ability", saveAbility[0]);
       }
       if (rollTypeString === "skill" && !actionSave) { // skill checks for this is a fiddle - set a midi flag so that the midi save roll will pick it up.
         actionType = "check";
@@ -1247,22 +1238,15 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       }
 
       if (damageBeforeSave || saveDamage === "fulldamage") {
-        //foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "fulldam");
         activityData.damage.onSave = "full";
       } else if (saveDamage === "halfdamage" || !damageRoll) {
-        // foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "halfdam");
         activityData.damage.onSave = "half";
       } else {
-        // foundry.utils.setProperty(itemData.flags, "midiProperties.saveDamage", "nodam");
         activityData.damage.onSave = "none";
       }
       itemData.name = label;
-      activityData.description = {
-        chat: chatFlavor,
-      }
-      // foundry.utils.setProperty(itemData, "system.chatFlavor", chatFlavor);
+      activityData.description = {chat: chatFlavor};
       foundry.utils.setProperty(itemData, "system.description.chat", effect.description ?? "");
-      // foundry.utils.setProperty(itemData, "system.actionType", actionType);
 
       itemData._id = foundry.utils.randomID();
       // roll the damage and save....
@@ -1281,8 +1265,6 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         for (let i = 1; i < stackCount; i++)
           damageRollString = `${damageRollString} + ${damageRoll}`;
         activityData.damage.parts[0].custom.formula = damageRollString;
-        // foundry.utils.setProperty(itemData, "system.damage.parts", [[damageRollString, damageType]])
-        // itemData.system.damage.parts = [[damageRollString, damageType]];
       }
       foundry.utils.setProperty(itemData.flags, "midi-qol.forceCEOff", true);
       if (killAnim) foundry.utils.setProperty(itemData.flags, "autoanimations.killAnim", true)
@@ -1296,12 +1278,11 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         origin = origin?.parent;
       }
       itemData.system.activities = {"overtime": activityData};
-      const chosenActor = ((origin instanceof Actor) ? origin : actor);
-      const psuedoActor = foundry.utils.deepClone(chosenActor);
-      await psuedoActor.update({ "items": [itemData] });
-
-      let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: ((origin instanceof Actor) ? origin : actor) });
+      let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: ((origin instanceof Actor) ? origin : actor)});
       ownedItem.prepareData();
+      // TODO: Horrible kludge to allow temporary items to be rolled since dnd5e insists on setting flags on temp items if there is damage/attacks
+      ownedItem.setFlag = async (scope: string, key: string, value: any) => {return ownedItem};
+
       //@ts-expect-error
       ownedItem.prepareFinalAttributes();
       //@ts-expect-error
@@ -1427,11 +1408,18 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
   if (localRoll) {
     return new Promise((resolve) => {
       let saveTargets = Array.from(game.user?.targets ?? []).map(t => { return t.id });
-      if (config.midiOptions.targetUuids?.length > 0 && game.user && activity.target?.affects?.type !== "self") {
-        if (!config.midiOptions.ignoreUserTargets) game.user.updateTokenTargets([]);
+      if (config.midiOptions.ignoreUserTargets) game.user?.updateTokenTargets([]);
+      if (game.user && activity.target?.affects?.type !== "self") {
+        game.user?.updateTokenTargets([]);
+        const selfTarget = getToken(this.item.actor);
+        if (selfTarget) {
+          selfTarget.setTarget(true, { user: game.user, releaseOthers: false, groupSelection: true });
+          targetsToUse.add(selfTarget);
+        }
+      } else if (config.midiOptions.targetUuids?.length > 0 && game.user && activity.target?.affects?.type !== "self") {
         for (let targetUuid of config.midiOptions.targetUuids) {
           const theTarget = MQfromUuidSync(targetUuid);
-          if (theTarget && !config.midiOptions.ignoreUserTargets) theTarget.object.setTarget(true, { user: game.user, releaseOthers: false, groupSelection: true });
+          if (theTarget) theTarget.object.setTarget(true, { user: game.user, releaseOthers: false, groupSelection: true });
           targetsToUse.add(theTarget.object)
         }
       } else if (config.midiOptions.targetUuids === undefined && !config.midiOptions.ignoreUserTargets) {
@@ -2010,7 +1998,204 @@ let pointWarn = foundry.utils.debounce(() => {
   ui.notifications?.warn("4 Point LOS check selected but dnd5e-helpers not installed")
 }, 100)
 
+export function checkActivityRange(activityIn, tokenRef: Token | TokenDocument | string | undefined, targetsRef: Set<Token | TokenDocument | string> | undefined, showWarning: boolean = true): { result: string, attackingToken?: Token, range?: number | undefined, longRange?: number | undefined } {
+  if (!canvas || !canvas.scene) return { result: "normal" };
+  const checkRangeFunction = (activity, token, targets): { result: string, reason?: string, range?: number | undefined, longRange?: number | undefined } => {
+    if (!canvas || !canvas.scene) return {
+      result: "normal",
+    }
+    // check that a range is specified at all
+    if (!activity.range) return {
+      result: "normal",
+    };
+
+    if (!token) {
+      if (debugEnabled > 0) warn(`checkRange | ${game.user?.name} no token selected cannot check range`)
+      return {
+        result: "fail",
+        reason: `${game.user?.name} no token selected`,
+      }
+    }
+
+    let actor = token.actor;
+    // look at undefined versus !
+    if (!(activity.range.value ?? activity.range.reach) && !activity.range.long && activity.range.units !== "touch") return {
+      result: "normal",
+      reason: "no range specified"
+    };
+    if (activity.target?.affects.type === "self") return {
+      result: "normal",
+      reason: "self attack",
+      range: 0
+    };
+    // skip non mwak/rwak/rsak/msak types that do not specify a target type
+    if (!allAttackTypes.includes(activity.actionType) && !["creature", "ally", "enemy"].includes(activity.target?.affects.type)) return {
+      result: "normal",
+      reason: "not an attack"
+    };
+
+    const attackType = activity.actionType;
+    let range = (activity.range?.value ?? activity.range?.reach ?? 0);
+    let longRange = (activity.range?.long ?? 0);
+    if (activity.actor?.system) { // TODO revisit when/if flags move to activities
+      let conditionData;
+      let rangeBonus = foundry.utils.getProperty(activity.actor, `flags.${MODULE_ID}.range.${attackType}`) ?? "0"
+      rangeBonus = rangeBonus + " + " + (foundry.utils.getProperty(activity.actor, `flags.${MODULE_ID}.range.all`) ?? "0");
+      if (rangeBonus !== "0 + 0") {
+        conditionData = createConditionData({ item: activity.item, activity, actor: activity.actor, target: token })
+        const bonusValue = evalCondition(rangeBonus, conditionData, { errorReturn: 0, async: false });
+        range = Math.max(0, range + bonusValue);
+      };
+      let longRangeBonus = foundry.utils.getProperty(activity.actor, `flags.${MODULE_ID}.long.${attackType}`) ?? "0"
+      longRangeBonus = longRangeBonus + " + " + (foundry.utils.getProperty(activity.actor, `flags.${MODULE_ID}.long.all`) ?? "0");
+      if (longRangeBonus !== "0 + 0") {
+        if (!conditionData)
+          conditionData = createConditionData({ item: activity.item, actor: activity.actor, activity, target: token })
+        const bonusValue = evalCondition(longRangeBonus, conditionData, { errorReturn: 0, async: false });
+        longRange = Math.max(0, longRange + bonusValue);
+      };
+    }
+    if (longRange > 0 && longRange < range) longRange = range;
+    if (activity.range?.units) {
+      switch (activity.range.units) {
+        case "mi": // miles - assume grid units are feet or miles - ignore furlongs/chains whatever
+          //@ts-expect-error
+          if (["feet", "ft"].includes(canvas?.scene?.grid.units?.toLocaleLowerCase())) {
+            range *= 5280;
+            longRange *= 5280;
+            //@ts-expect-error
+          } else if (["yards", "yd", "yds"].includes(canvas?.scene?.grid.units?.toLocaleLowerCase())) {
+            range *= 1760;
+            longRange *= 1760;
+          }
+          break;
+        case "km": // kilometeres - assume grid units are meters or kilometers
+          //@ts-expect-error
+          if (["meter", "m", "meters", "metre", "metres"].includes(canvas?.scene?.grid.units?.toLocaleLowerCase())) {
+            range *= 1000;
+            longRange *= 1000;
+          }
+          break;
+        // "none" "self" "ft" "m" "any" "spec":
+        default:
+          break;
+      }
+    }
+    if (foundry.utils.getProperty(actor, `flags.${MODULE_ID}.sharpShooter`) && range < longRange) range = longRange;
+    if (activity.actionType === "rsak" && foundry.utils.getProperty(actor, "flags.dnd5e.spellSniper")) {
+      range = 2 * range;
+      longRange = 2 * longRange;
+    }
+    if (activity.range.units === "touch") {
+      range = canvas?.dimensions?.distance ?? 5;
+      if (activity.item.system.properties?.has("rch")) range += canvas?.dimensions?.distance ?? 5;
+      longRange = 0;
+    }
+
+    if (["mwak", "msak", "mpak"].includes(activity.actionType) && !activity.properties?.has("thr")) longRange = 0;
+    for (let target of targets) {
+      if (target === token) continue;
+      // check if target is burrowing
+      if (configSettings.optionalRules.wallsBlockRange !== 'none'
+        && globalThis.MidiQOL.WallsBlockConditions.some(status => hasCondition(target.actor, status))) {
+        return {
+          result: "fail",
+          reason: `${actor.name}'s has one or more of ${globalThis.MidiQOL.WallsBlockConditions} so can't be targeted`,
+          range,
+          longRange
+        }
+      }
+      // check the range TODO reivew total cover flag and activity as part of midi properties
+      const distance = getDistance(token, target, configSettings.optionalRules.wallsBlockRange && !foundry.utils.getProperty(activity.item, "flags.midiProperties.ignoreTotalCover"));
+
+      if ((longRange !== 0 && distance > longRange) || (distance > range && longRange === 0)) {
+        log(`${target.name} is too far ${distance} from your character you cannot hit`)
+        if (checkMechanic("checkRange") === "longdisadv" && ["rwak", "rsak", "rpak"].includes(activity.actionType)) {
+          return {
+            result: "dis",
+            reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
+            range,
+            longRange
+          }
+        } else {
+          return {
+            result: "fail",
+            reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
+            range,
+            longRange
+          }
+        }
+      }
+      if (distance > range) return {
+        result: "dis",
+        reason: `${actor.name}'s target is ${Math.round(distance * 10) / 10} away and your range is only ${longRange || range}`,
+        range,
+        longRange
+      }
+      if (distance < 0) {
+        log(`${target.name} is blocked by a wall`)
+        return {
+          result: "fail",
+          reason: `${actor.name}'s target is blocked by a wall`,
+          range,
+          longRange
+        }
+      }
+    }
+    return {
+      result: "normal",
+      range,
+      longRange
+    }
+  }
+
+  const tokenIn = getToken(tokenRef);
+  //@ts-expect-error .map
+  const targetsIn = targetsRef?.map(t => getToken(t));
+  if (!tokenIn || !targetsIn) return { result: "fail", attackingToken: undefined };
+  let attackingToken = tokenIn;
+  if (!canvas || !canvas.tokens || !tokenIn || !targetsIn) return {
+    result: "fail",
+    attackingToken: tokenIn,
+  }
+
+  let canOverride = foundry.utils.getProperty(tokenIn.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.all`) || foundry.utils.getProperty(tokenIn.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.${activityIn.actionType}`)
+  if (typeof canOverride === "string") {
+    const conditionData = createConditionData({ item: activityIn.item, activity: activityIn, actor: tokenIn.actor });
+    canOverride = evalCondition(canOverride, conditionData)
+  }
+
+  const { result, reason, range, longRange } = checkRangeFunction(activityIn, attackingToken, targetsIn);
+  if (!canOverride) { // no overrides so just do the check
+    if (result === "fail" && reason) {
+      if (showWarning) ui.notifications?.warn(reason);
+    }
+    return { result, attackingToken, range, longRange }
+  }
+
+  const ownedTokens = canvas.tokens.ownedTokens;
+  // Initial Check
+  // Now we loop through all owned tokens
+  let possibleAttackers: Token[] = ownedTokens.filter(t => {
+    let canOverride = foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.all`) || foundry.utils.getProperty(t.actor ?? {}, `flags.${MODULE_ID}.rangeOverride.attack.${activityIn.actionType}`)
+    if (typeof canOverride === "string") {
+      const conditionData = createConditionData({ item: activityIn.item, activity: activityIn, actor: t.actor });
+      canOverride = evalCondition(canOverride, conditionData)
+    }
+    return canOverride;
+  });
+
+  const successToken = possibleAttackers.find(attacker => checkRangeFunction(activityIn, attacker, targetsIn).result === "normal");
+  if (successToken) return { result: "normal", attackingToken: successToken, range, longRange };
+  // TODO come back and fix this: const disToken = possibleAttackers.find(attacker => checkRangeFunction(itemIn, attacker, targetsIn).result === "dis");
+  return { result: "fail", attackingToken, range, longRange };
+}  
+
 export function checkRange(itemIn, tokenRef: Token | TokenDocument | string | undefined, targetsRef: Set<Token | TokenDocument | string> | undefined, showWarning: boolean = true): { result: string, attackingToken?: Token, range?: number | undefined, longRange?: number | undefined } {
+  //@ts-expect-error
+  foundry.utils.logCompatibilityWarning("checkRange(item, token, targets, showWarning) is deprecated and will be removed in Version 14. "
+  + "Use checkActivityRange(activity, token, targets, showWarning) instead.",
+{since: 12.1, until: 12.5, once: true});
   if (!canvas || !canvas.scene) return { result: "normal" };
   const checkRangeFunction = (item, token, targets): { result: string, reason?: string, range?: number | undefined, longRange?: number | undefined } => {
     if (!canvas || !canvas.scene) return {

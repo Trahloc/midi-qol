@@ -1,7 +1,7 @@
 import { i18n, error, i18nFormat } from "../../midi-qol.js";
 import { checkMechanic, checkRule, configSettings, targetConfirmation } from "../settings.js";
-import { FULL_COVER, HALF_COVER, THREE_QUARTERS_COVER, activityHasAreaTarget, checkRange, computeCoverBonus, computeFlankingStatus, getIconFreeLink, getLinkText, getToken, isTargetable, markFlanking, tokenForActor } from "../utils.js";
-import { getAutoRollAttack, getTokenPlayerName, isAutoFastAttack } from "../utils.js";
+import { FULL_COVER, HALF_COVER, THREE_QUARTERS_COVER, activityHasAreaTarget, checkActivityRange, computeCoverBonus, computeFlankingStatus, getIconFreeLink, getToken, isTargetable, markFlanking, tokenForActor } from "../utils.js";
+import { getTokenPlayerName } from "../utils.js";
 import { TroubleShooter } from "./TroubleShooter.js";
 
 export class TargetConfirmationDialog extends Application {
@@ -100,7 +100,7 @@ export class TargetConfirmationDialog extends Application {
 
       let attackerToken = token;
       if (token && checkMechanic("checkRange") !== "none" && (["mwak", "msak", "mpak", "rwak", "rsak", "rpak"].includes(this.data.activity.actionType))) {
-        const { result, attackingToken } = checkRange(this.data.activity.item, token, new Set([target]), false);
+        const { result, attackingToken } = checkActivityRange(this.data.activity, token, new Set([target]), false);
         if (attackingToken) attackerToken = attackingToken;
         switch (result) {
           case "normal":

@@ -942,11 +942,53 @@
   "midi-qol.CollapsibleTargets.Hint": "The Hit/Miss target display in the chat card are collapsible",
   "midi-qol.AutoRemoveInstantaneousTemplate.Name": "Auto remove instantaneous templates",
   "midi-qol.AutoRemoveInstantaneousTemplate.Hint": "Templates placed by an item with duration instantaneous are removed at the end of the item roll",
+  "midi-qol.ReplaceDefaultActivities.Name": "Replacce dnd5e acitivites with midi-qol equivalents",
+  "midi-qol.ReplaceDefaultActivities.Hint": "Any existing activies, Attack, Damage, Save, Check, Utility will instead use the midi versions. This is required to automate SRD items, otherwise you will need to hand configure every item for midi automation.",
+  "midi-qol.AutoMergeActivityOther.Name": "Auto merge other activity for Midi Attack Activities (Requires Reload)",
+  "midi-qol.AutoMergeActivityOther.Hint": "If an item only has an attack activity and single Damage, Save, Check or Utility it will be merged with the Attack activity",
+  "midi-qol.SHARED" : {
+    "use-condition": {
+      "header": "Midi Conditions"
+    },
+    "FIELDS": {
+      "forceDialog": {
+        "label": "Force Configuration Dialog",
+        "hint": "Force Configuration Dialog when attack rolled"
+      },
+
+      "useConditionText": {
+        "label": "Use Condition",
+        "hint": "Condition to allow use"
+      },
+      "effectConditionText": {
+        "label": "Effect Condition",
+        "hint": "Condition to apply effect"
+      }
+    }
+  },
   "midi-qol.ATTACK": {
     "Title": {
       "one": "Midi Attack",
       "other": "Midi Attacks"
+    },
+    "extras" : {
+      "header": "Midi Attack Extra Feilds"
+    },
+    "FIELDS": {
+      "attackMode": {
+        "label": "MMM Attack Mode",
+        "hint": "MMM Attack Mode default"
+      },
+      "ammunition": {
+        "label": "Ammunition",
+        "hint": "Ammunition to consume"
+      },
+      "otherActivityUuid": {
+        "label": "Other Activity",
+        "hint": "Extra activity to preform 'other' damage"
+      }
     }
+
   },
   "midi-qol.DAMAGE": {
     "Title": {
@@ -979,8 +1021,9 @@
     }
   },
   "midi-qol.fields": {
-    "use-condition": "Midi Activity Allow Use Condition",
+    "use-condition-header": "Midi Activity Allow Use Condition",
     "attack-extras": "Midi Attack Fields",
-    "effects-conditon": "Midi Effect application condition"
+    "effects-conditon": "Midi Effect application condition",
+    "force-dialog": "Force Configuration Dialog"
   }
 }

@@ -1337,7 +1337,7 @@ export function readyPatching() {
       "CONFIG.Wall.documentClass",
       "CONFIG.ActiveEffect.documentClass",
     ];
-    const addDependent = effectClass.prototype.addDependent ?? _addDependent;
+    const addDependent = _addDependent;
     const getDependents = effectClass.prototype.getDependents ?? _getDependents;
     for (let classString of classStrings) {
       const docClass = eval(classString)
@@ -1391,7 +1391,7 @@ async function addDependents(...dependents) {
  */
 async function _addDependent(...dependent) {
   const id = game.system.id ?? MODULE_ID;
-  const dependents = this.getFlag(id, "dependents") ?? [];
+  const dependents = this.getDependents().map(d => ({ uuid: d.uuid }));
   dependents.push(...dependent.map(d => ({ uuid: d.uuid })));
   return this.setFlag(id, "dependents", dependents);
 }
