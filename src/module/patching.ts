@@ -1328,8 +1328,8 @@ export function readyPatching() {
       "CONFIG.Wall.documentClass",
       "CONFIG.ActiveEffect.documentClass",
     ];
-    const addDependent = effectClass.prototype.addDependent ?? _addDependent;
-    const getDependents = effectClass.prototype.getDependents ?? _getDependents;
+    const addDependent = _addDependent;
+    const getDependents = _getDependents;
     for (let classString of classStrings) {
       const docClass = eval(classString)
       if (!docClass) continue;
@@ -1382,7 +1382,7 @@ async function addDependents(...dependents) {
  */
 async function _addDependent(...dependent) {
   const id = game.system.id ?? MODULE_ID;
-  const dependents = this.getFlag(id, "dependents") ?? [];
+  const dependents = this.getDependents().map(d => ({ uuid: d.uuid }));
   dependents.push(...dependent.map(d => ({ uuid: d.uuid })));
   return this.setFlag(id, "dependents", dependents);
 }
@@ -1393,11 +1393,11 @@ async function _addDependent(...dependent) {
  */
 function _getDependents() {
   const id = game.system.id ?? MODULE_ID;
-  return (this.getFlag(id, "dependents") || []).reduce((arr, { uuid }) => {
+  return Array.from((this.getFlag(id, "dependents") || []).reduce((deps, { uuid }) => {
     const effect = MQfromUuidSync(uuid);
-    if (effect) arr.push(effect);
-    return arr;
-  }, []);
+    if (effect) deps.add(effect);
+    return deps;
+  }, new Set()));
 }
 
 async function _onDelete(wrapped, ...args) {
