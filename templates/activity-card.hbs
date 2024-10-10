@@ -12,9 +12,9 @@
       <img class="gold-icon" src="{{ item.img }}" alt="{{ item.name }}">
       <div class="name-stacked border">
         <span class="title">{{ item.name }}</span>
-        {{#if (or data.subtitle item.system.chatFlavor)}}
+        {{#if (or data.subtitle activity.description.chatFlavor)}}
         <span class="subtitle">
-          {{#if item.system.chatFlavor}}{{ item.system.chatFlavor }}
+          {{#if activity.description.chatFlavor}}{{ item.system.chatFlavor }}
           {{else}}{{{ data.subtitle }}}{{/if}}
         </span>
         {{/if}}
@@ -100,7 +100,7 @@
     {{/if}}
 <-->
     {{!-- Other Formula --}}
-    {{#if item.system.formula}}
+    {{#if activity.otherActivity?.damage}}
     <button class="midi-qol-otherDamage-button" data-action="formula">{{ OtherFormula }}</button>
     {{/if}}
     <!-- dnd5e

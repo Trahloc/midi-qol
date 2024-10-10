@@ -4,24 +4,31 @@
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
 ### 12.4.0
+This is an alpha test for midi and dnd5e v4.0. There has been a major rewrite of midi and there is a great deal still to do. It is likely that the workflow system will be reworked in the future to have more activity based workflows, but not initially.
+
+This verssion requires dae version 11.3.65, which has not been publically released since there are reports of dae causing problems in dnd5e v4. I'm not aware of these so consider this also an alpha test for dae in v4.
+
+Major changes
 * Removed support for non-merge cards.
 * Midi now uses activities to handle automation. 
 * The workflow now contains the activity that initiated the worlfow.
-* All of the existing workflow phases are still present and the onuse macro calls and hook valls still behave as they used to.
+* All of the existing workflow phases are still present and the onuse macro calls and hook calls still behave as they used to.
 
 * Working?:
   - normal attacks with damage and effect application (see below).
   - items with saves
   - attacks with saves (via a save activity).
   - DamageOnlyWorkflow? at least one test case works.
-  - calling onuse macros which are still setup per item. The workflow contains the activity that caused the macro to be called.
+  - calling onuse macros which are still setup per item. The workflow contains the activity that caused the macro to be called. If/when activities get proper flags I'll look at setting these per activity.
   - damage application
-  - active effect application - see below for changes. Midi supports the activity always apply save flag.
-  - babonus optional effects causing the configure dialog to be displayed
+  - active effect application - see below for changes. Midi supports the "activity always apply effects" activity setting.
+  - babonus optional effects causing the configure dialog to be displayed.
   - overTime effects.
   - most of the pre-roll checks, but not exhaustively tested.
   - Target confirmation
   - template targeting
+  - reactions that don't rely on magic items. Needs much more testing/bug fixing. There is also no way to specify 0 cost reactions anymore. Either will need to hack the dnd sheet, add it as some sort of midi property or something else.
+  - new config setting for players/gm - items with ammunition cause the configure aatrtack roll dialog to pop for attack rolls so you can choose the ammunition.
 
 * Not Working
   - TrapWorkflow
@@ -36,15 +43,19 @@
     - The default midi behaviour is to replace any existing core activities with the midi versions. Midi then takes over the initiation and configuration of use, rollAttack, rollDamage etc rolls. This can be disabled via configuration settings meaning that only hand created midi activities will cause the midi workflow.
   - The attack acivity adds the ability to specify a save activity or damage activity that midi will use to roll "other damage" for things like spider bite and so on.
   - The Midi Check activity allows you to add damage if the check (ability or skill) roll is failed.
-- There is a config setting to have midi check that if the only activities on an item are a Midi Attack and Midi Save, midi will automatically merge those and treat the item as if the Midi Save activity is linked to the Midi Attack Activity.
+- There is a config setting to have midi check that if the only activities on an item are a Midi Attack and one midi save/check/damage/utility activity, midi will automatically merge those and treat the item as if the "other" is linked to the Midi Attack Activity. This will cover the bulk of cases since most items will only have a single activity, possibly with a save activity.
 * Midi Attack activites with effects will always apply the effects if the target is hit and the effect condition is true.
 * Midi Save activities with effects will apply the effect if the target fails to save or the effect is marked as always apply. If the Save activity is linked to an attack activity then the target must be hit as well for the effects to be applied.
+* Midi attack activities allow you to specify 1/2 handed and the default ammunition to use so that you can avoid the configure dialog if you want.
+* Midi activities also have a force dialog setting that will cause the configure dialog to appear when the activity is rolled.
 
 * getSaveMultiplierForItem is now deprecated since all save activities specify the save multiplier to use for the save.
 * The config settings for rolling other have been removed as have the midi properties for those.
 * The midi properties for save multipliers on the midi tab have been removed.
-
 * The midi properties have not been migrated to be activity properties, so they remain on the item. This includes activation, other damage and reaction conditions. Which are the fallback if the item activities do not specify a use or effect condition. Eventually the conditions will be removed from the midi properties.
+
+### 11.6.24 
+* Fix for item dependents growing indefinitely.
 
 ### 11.6.23
 * Fix for damage rolls not enriching the damage type on non midi chat cards.

@@ -22,7 +22,7 @@ export var MidiActivityMixin = Base => {
       const { StringField, BooleanField, ObjectField } = foundry.data.fields;
       const schema = {
         ...super.defineSchema(),
-        flags: new ObjectField(),
+        // flags: new ObjectField(),
         useConditionText: new StringField({ name: "useCondition", initial: "" }),
         forceDialog: new BooleanField({ name: "forceDialog", initial: false }),
         effectConditionText: new StringField({ name: "effectCondition", initial: "" }),
@@ -67,6 +67,7 @@ export var MidiActivityMixin = Base => {
       }
       if (!await this.confirmCanProceed(config, dialog, message)) return;
       foundry.utils.setProperty(message, "data.flags.midi-qol.messageType", "attack");
+      if (config.midiOptions?.configureDialog === false) dialog.configure = false;
       const results = await super.use(config, dialog, message);
       this.workflow.itemCardUuid = results.message.uuid;
       await this.workflow.performState(this.workflow.WorkflowState_Start, {});
@@ -190,6 +191,7 @@ export var MidiActivityMixin = Base => {
         console.error(message, err);
       }
     }
+    
     getDamageConfig(config: any = {}) {
       config.attackMode = this.workflow?.attackMode;
       config.ammunition = this.actor.items.get(this.workflow?.ammunition);
@@ -464,7 +466,7 @@ export var MidiActivityMixin = Base => {
         const checkReactionAOO = configSettings.recordAOO === "all" || (configSettings.recordAOO === this.actor.type)
         let thisUsesReaction = false;
         const hasReaction = hasUsedReaction(this.actor);
-        if (!config.midiOptions.workflowOptions?.notReaction && ["reaction", "reactiondamage", "reactionmanual", "reactionpreattack"].includes(this.activation?.type) && this.activation?.cost > 0) {
+        if (!config.midiOptions.workflowOptions?.notReaction && ["reaction", "reactiondamage", "reactionmanual", "reactionpreattack"].includes(this.activation?.type) && (this.activation?.cost ?? 1) > 0) {
           thisUsesReaction = true;
         }
         if (!config.midiOptions.workflowOptions?.notReaction && checkReactionAOO && !thisUsesReaction && this.attack) {
@@ -769,7 +771,7 @@ export var MidiActivityMixin = Base => {
         || !getRemoveDamageButtons(this.item)
         || systemCard
         || configSettings.mergeCardMulti);
-      const needVersatileButton = itemIsVersatile(this.item) && (systemCard || ["none", "saveOnly"].includes(getAutoRollDamage(this.workflow)) || !getRemoveDamageButtons(this.item));
+      const needVersatileButton = this.item.system.isVersatible && (systemCard || ["none", "saveOnly"].includes(getAutoRollDamage(this.workflow)) || !getRemoveDamageButtons(this.item));
       // not used const sceneId = token?.scene && token.scene.id || canvas?.scene?.id;
       const isPlayerOwned = this.item.actor?.hasPlayerOwner;
       const hideItemDetails = (["none", "cardOnly"].includes(configSettings.showItemDetails) || (configSettings.showItemDetails === "pc" && !isPlayerOwned))

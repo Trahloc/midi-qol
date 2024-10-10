@@ -151,6 +151,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
     }
 
     async rollAttack(config, dialog, message) {
+      if (!config.midiOptions) config.midiOptions = {};
       if (debugEnabled > 0) warn("MidiQOL | AttackActivity | rollAttack | Called", config, dialog, message);
       let returnValue = await this.configureAttackRoll(config);
       if (this.workflow?.aborted || !returnValue) return [];
@@ -190,6 +191,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       if (debugEnabled > 0) warn("configureAttackRoll", this, config);
       if (!this.workflow) return false;
       let workflow: Workflow = this.workflow;
+      if (!config.midiOptions) config.midiOptions = {};
     
       if (workflow && !workflow.reactionQueried) {
         workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow.rollOptions?.rollToggle), { overwrite: true, insertValues: true, insertKeys: true });
@@ -333,7 +335,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
     
       config.midiOptions.chatMessage = false;
       // This will have to become an actvitity option
-      if (getProperty(this.item, "flags.midiProperties.offHandWeapon")) {
+      if (foundry.utils.getProperty(this.item, "flags.midiProperties.offHandWeapon")) {
         //@ts-expect-error
         foundry.utils.logCompatibilityWarning(`${this.item.name} item.flags.midiProperties.offHandWeapn is deprecated will be removed in Version 12.5 `
         + "use acitivy.attackMode = offhand instead.",

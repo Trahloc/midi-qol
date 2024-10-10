@@ -2,7 +2,7 @@ import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflo
 import { preloadTemplates } from './module/preloadTemplates.js';
 import { checkModules, installedModules, setupModules } from './module/setupModules.js';
 import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
-import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Hooks.js';
+import { initHooks, readyHooks, setupHooks } from './module/Hooks.js';
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, DDBGameLogWorkflow, UserWorkflow } from './module/Workflow.js';
@@ -793,7 +793,6 @@ function setupMidiQOLApi() {
     MQfromUuid: MQfromUuidSync,
     MQfromUuidSync,
     MQOnUseOptions,
-    overTimeJSONData,
     playerFor,
     playerForActor,
     raceOrType,

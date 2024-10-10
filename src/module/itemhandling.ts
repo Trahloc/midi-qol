@@ -693,6 +693,7 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
 // workflow.advantage/disadvantage/fastforwrd set by settings and conditions
 // workflow.rollOptions advantage/disadvantage/fastforward set by keyboard moeration
 // workflow.workflowOptions set by options passed to do item.use/item.attackRoll
+/*
 export async function doAttackRoll(wrapped, options: any = { versatile: false, resetAdvantage: false, chatMessage: undefined, createWorkflow: true, fastForward: false, advantage: false, disadvantage: false, dialogOptions: {}, isDummy: false }) {
   try {
     let workflow: Workflow | undefined = options.isDummy ? undefined : Workflow.getWorkflow(this.uuid);
@@ -924,7 +925,9 @@ export async function doAttackRoll(wrapped, options: any = { versatile: false, r
     throw err;
   }
 }
+*/
 
+/*
 export async function doDamageRoll(wrapped, { event = undefined, critical = false, systemCard = false, spellLevel = null, powerLevel = null, versatile = null, options = {} } = {}) {
   //@ts-expect-error
   const DamageRoll = CONFIG.Dice.DamageRoll;
@@ -1239,7 +1242,7 @@ export async function doDamageRoll(wrapped, { event = undefined, critical = fals
     throw err;
   }
 }
-
+*/
 export function setDamageRollMinTerms(rolls: Array<Roll> | undefined) {
   if (rolls && sumRolls(rolls)) {
     for (let roll of rolls) {
@@ -1288,6 +1291,7 @@ function blockRoll(item, workflow) {
   return false;
 }
 
+/*
 // Override default display card method. Can't use a hook since a template is rendefed async
 export async function wrappedDisplayCard(wrapped, options) {
   console.error("wrappedDisplayCard", options);
@@ -1423,7 +1427,7 @@ export async function wrappedDisplayCard(wrapped, options) {
     throw err;
   }
 }
-
+*/
 export async function resolveTargetConfirmation(activity, options: any = {}, pressedKeys?: any): Promise<boolean> {
   const savedSettings = { control: ui.controls?.control?.name, tool: ui.controls?.tool };
   const savedActiveLayer = canvas?.activeLayer;

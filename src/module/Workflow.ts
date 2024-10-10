@@ -1358,7 +1358,6 @@ export class Workflow {
             );
           }
           const effectsToApplyUuids = selectedEffects.map(ef => ef.uuid);
-          console.error("Applying activity target effects", effectsToApplyUuids, " to ", token);
           await globalThis.DAE.doActivityEffects(this.activity, true, [token], effectsToApplyUuids, {
             damageTotal: totalDamage,
             critical: this.isCritical,
@@ -1439,7 +1438,6 @@ export class Workflow {
             );
           }
           const effectsToApplyUuids = selectedEffects.map(ef => ef.uuid);
-          console.error("Applying other activity target effects", effectsToApplyUuids, " to ", token);
           await globalThis.DAE.doActivityEffects(this.otherActivity, true, [token], effectsToApplyUuids, {
             damageTotal: totalDamage,
             critical: this.isCritical,
@@ -4028,7 +4026,7 @@ export class Workflow {
     let item = this.item;
 
     // check for a hit/critical/fumble
-    if (item?.system.target?.type === "self") {
+    if (this.activity.target?.type === "self") {
       this.targets = getTokenForActorAsSet(this.actor);
     }
     if (!this.useActiveDefence) {
@@ -4333,7 +4331,7 @@ export class Workflow {
           inRange = inRange && (configSettings.rangeTarget === "none" || !hasWallBlockingCondition(target))
           if (inRange) {
             // if the item specifies a range of "special" don't target the caster.
-            let selfTarget = (this.activity?.item?.system.range?.units === "spec") ? canvas.tokens?.get(this.tokenId) : null;
+            let selfTarget = (this.activity?.range?.units === "spec") ? canvas.tokens?.get(this.tokenId) : null;
             if (selfTarget === target) {
               inRange = false;
             }
