@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.24
+* Fix for item dependents growing indefinitely.
+
 ### 11.6.23
 * Fix for damage rolls not enriching the damage type on non midi chat cards.
 
