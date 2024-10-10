@@ -2,6 +2,7 @@ import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { Workflow } from "../Workflow.js";
 import { configSettings } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
+import { MidiActivityMixin } from "./MidiActivityMixin.js";
 
 export var MidiSummonActivity;
 
@@ -19,7 +20,7 @@ export function setupSummonActivity() {
 }
 
 let defineMidiSummonActivityClass =(ActivityClass: any) => {
-  return class MidiSummonActivity extends ActivityClass {
+  return class MidiSummonActivity extends MidiActivityMixin(ActivityClass) {
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.SUMMON"];
     static metadata =
       foundry.utils.mergeObject(
