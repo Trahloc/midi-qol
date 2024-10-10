@@ -166,7 +166,7 @@ export class Workflow {
   }
 
   get hasSave(): boolean {
-    return this.activity.save || this.activity.check || this.activity.otherActivity?.save || this.activity.otherActivity?.check;
+    return this.activity.save || this.activity.check || this.otherActivity?.save || this.otherActivity?.check;
   }
 
 
@@ -175,7 +175,7 @@ export class Workflow {
   }
 
   get otherUseCondition() {
-    if (this.activity?.otherActivity?.useCondition) return this.activity.otherActivity.useCondition;
+    if (this.otherActivity?.useCondition) return this.otherActivity.useCondition;
     return foundry.utils.getProperty(this, `item.flags.${MODULE_ID}.otherCondition`);
   }
 
@@ -1297,7 +1297,7 @@ export class Workflow {
     if (!ceEffect) ceEffect = getCEEffectByName(this.activity.item.name);
 
     const activityEffects = (this.activity.applicableEffects ?? []).filter(ef => !ef.transfer);
-    const otherActivityEffects = (this.activity.otherActivity?.applicableEffects ?? []).filter(ef => !ef.transfer);
+    const otherActivityEffects = (this.otherActivity?.applicableEffects ?? []).filter(ef => !ef.transfer);
     const ceTargetEffect = ceEffect && !(ceEffect?.flags?.dae?.selfTarget || ceEffect?.flags?.dae?.selfTargetAlways);
     const ceSelfEffect = ceEffect && (ceEffect?.flags?.dae?.selfTarget || ceEffect?.flags?.dae?.selfTargetAlways);
     const hasActivityEffects = hasDAE(this) && activityEffects.length > 0;
@@ -1440,7 +1440,7 @@ export class Workflow {
           }
           const effectsToApplyUuids = selectedEffects.map(ef => ef.uuid);
           console.error("Applying other activity target effects", effectsToApplyUuids, " to ", token);
-          await globalThis.DAE.doActivityEffects(this.activity.otherActivity, true, [token], effectsToApplyUuids, {
+          await globalThis.DAE.doActivityEffects(this.otherActivity, true, [token], effectsToApplyUuids, {
             damageTotal: totalDamage,
             critical: this.isCritical,
             fumble: this.isFumble,
@@ -3086,7 +3086,7 @@ export class Workflow {
         dnd5eTargetDetails = dnd5eTargets.map(t => {
           let uncannyDodge = foundry.utils.getProperty(t, `actor.flags.${MODULE_ID}.uncanny-dodge`) && this.activity?.attack;
           let saveMults: any = {};
-          saveMults["otherDamage"] = getsaveMultiplierForActivity(this.activity.otherActivity);
+          saveMults["otherDamage"] = this.otherActivity ? getsaveMultiplierForActivity(this.otherActivity) : 1;
           saveMults["defaultDamage"] = getsaveMultiplierForActivity(this.activity);
           saveMults["bonusDamage"] = getsaveMultiplierForActivity(this.activity);
           return {
