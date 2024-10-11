@@ -405,7 +405,7 @@ export var MidiActivityMixin = Base => {
           }
         }
         let isEmanationTargeting = ["radius", "squaredRadius"].includes(this.target?.template?.type);
-        let isAoETargeting = !isEmanationTargeting && this.target?.template?.type !== "";
+        let isAoETargeting = !isEmanationTargeting && activityHasAreaTarget(this);
         let selfTarget = this.target?.affects.type === "self";
         const inCombat = isInCombat(this.actor);
         const requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && inCombat);
@@ -802,6 +802,7 @@ export var MidiActivityMixin = Base => {
         hasSave: !minimalCard && this.item.hasSave && (systemCard || configSettings.autoCheckSaves === "none"),
         hasAreaTarget: !minimalCard && activityHasAreaTarget(this),
         hasAttackRoll: !minimalCard && this.item.hasAttack,
+        hasPlaceSummons: !minimalCard && this.summon?.prompt === false,
         configSettings,
         hideItemDetails,
         dmgBtnText,
@@ -816,7 +817,8 @@ export var MidiActivityMixin = Base => {
         Attack: i18n(`${SystemString}.Attack`),
         SavingThrow: i18n(`${SystemString}.SavingThrow`),
         OtherFormula: i18n(`${SystemString}.OtherFormula`),
-        PlaceTemplate: i18n(`${SystemString}.PlaceTemplate`),
+        PlaceTemplate: i18n(`${SystemString}.TARGET.Action.PlaceTemplate`),
+        PlaceSummons: i18n(`${SystemString}.SUMMON.Action.Place`),
         Use: i18n(`${SystemString}.Use`),
         canCancel: configSettings.undoWorkflow // TODO enable this when more testing done.
       };
