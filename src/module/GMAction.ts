@@ -921,7 +921,7 @@ async function prepareDamageListItems(data: {
     
     const tooltipList = damageItem.damageDetail?.map(di => {
       let allMods: string[] = Object.keys(di.active ?? {}).reduce((acc: string[], k) => {
-        if (["saved", "semiSuperSaver", "superSaver"].includes(k)) return acc;
+        if (["semiSuperSaver", "superSaver"].includes(k)) return acc;
         if (di.active[k] && k !== "multiplier") acc.push(k);
         return acc;
       }, []);

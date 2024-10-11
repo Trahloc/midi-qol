@@ -1,7 +1,11 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 
-* 12.0.0 
- - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
+### 12.4.1
+* Changed workflow so that other damage supports arrays of rolls meaning other activities can return multiple damage results which will be included in the overall roll.
+* If the only acitvities on an item are a midi attack roll and a single otherActivity that will be used by the attack roll (either by setting it in the attack activity or enabling auto merge activities in the config settings) midi will skip the choose activity dialog.
+* A reminder, if it was not obvious, Check Activities can do damage/apply effects and can be used as other activities, so you can have activities that require an acrobatics check or take damage.
+* The module.json for the module has been udpated so you can check for updates without having to install the zip file every time.
+* Incorporated merge request from @michael - thanks.
 
 ### 12.4.0
 This is an alpha test for midi and dnd5e v4.0. There has been a major rewrite of midi and there is a great deal still to do. It is likely that the workflow system will be reworked in the future to have more activity based workflows, but not initially.
@@ -53,6 +57,9 @@ Major changes
 * The config settings for rolling other have been removed as have the midi properties for those.
 * The midi properties for save multipliers on the midi tab have been removed.
 * The midi properties have not been migrated to be activity properties, so they remain on the item. This includes activation, other damage and reaction conditions. Which are the fallback if the item activities do not specify a use or effect condition. Eventually the conditions will be removed from the midi properties.
+
+### 11.6.25
+* Fix for display hit miss check mark to players when it should not be.
 
 ### 11.6.24 
 * Fix for item dependents growing indefinitely.

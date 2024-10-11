@@ -33,6 +33,8 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
         },
       }, { overwrite: true })
  
+    get isOtherActivityCompatible() { return true }
+
     async rollDamage(config: any ={}, dialog={}, message={}) {
       message = foundry.utils.mergeObject({
         "data.flags.dnd5e.roll": {

@@ -36,14 +36,8 @@ let defineMidiDamageActivityClass = (ActivityClass: any) => {
         },
       }, { overwrite: true })
 
-    static defineSchema() {
-      //@ts-expect-error
-      const { StringField, BooleanField, ObjectField } = foundry.data.fields;
-      const schema = {
-        ...super.defineSchema(),
-      };
-      return schema;
-    }
+    get isOtherActivityCompatible() { return true }
+
     async rollDamage(config, dialog, message) {
       config.midiOptions ??= {};
       config.midiOptions.fastForwardDamage = game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward);

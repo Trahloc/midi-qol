@@ -48,7 +48,6 @@ let defineMidiCheckActivityClass = (ActivityClass: any) => {
         },
       }, { overwrite: true })
 
-
     static defineSchema() {
       //@ts-expect-error
       const { StringField, ArrayField, BooleanField, SchemaField, ObjectField } = foundry.data.fields;

@@ -305,6 +305,12 @@ export function defineChatMessageMidiClass(baseClass: any) {
         html.querySelectorAll(".midi-attack-roll .dice-tooltip")?.forEach(el => el.remove());
         html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
       }
+      if (!game.user?.isGM) { // Remove the hit miss check mark for non-gm players if required.
+        const displayAttackResult = (game.settings.get("dnd5e", "attackRollVisibility") !== "none");
+        if (!displayAttackResult || configSettings.autoCheckHit !== "all") {
+          html.querySelectorAll(".midi-attack-roll .dice-total .icons")?.forEach(el => el.remove());
+        }
+      }
     }
 
     _enrichChatCard(html) {
@@ -317,6 +323,7 @@ export function defineChatMessageMidiClass(baseClass: any) {
       }
       if (debugEnabled > 1) warn("Enriching chat card", this.id);
       this.enrichAttackRolls(html); // This has to run first to stop errors when ChatMessage5e._enrichDamageTooltip runs
+
       super._enrichChatCard(html);
       if (this.author.isGM && (configSettings.hideRollDetails ?? "none") !== "none" && !game.user?.isGM) {
         html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));

@@ -424,11 +424,11 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
     damagePerToken[tokenDocument.uuid].challengeModeScale = challengeModeScale;
     if (totalDamage !== 0 && (workflow.hitTargets.has(token) || workflow.hitTargetsEC.has(token) || workflow.hasSave)) {
       const isHealing = ("heal" === workflow.activity.actionType);
-      await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? [workflow.otherDamageRoll], !isHealing ? "reactiondamage" : "reactionheal", { activity: workflow.activity, item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.rawDamageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
+      await doReactions(token, workflow.tokenUuid, workflow.damageRolls ?? workflow.bonusDamageRolls ?? workflow.otherDamageRolls, !isHealing ? "reactiondamage" : "reactionheal", { activity: workflow.activity, item: workflow.item, workflow, workflowOptions: { damageDetail: workflow.rawDamageDetail, damageTotal: totalDamage, sourceActorUuid: workflow.actor?.uuid, sourceItemUuid: workflow.item?.uuid, sourceAmmoUuid: workflow.ammo?.uuid } });
     }
     const damageDetails = damagePerToken[tokenDocument.uuid].damageDetails;
 
-    for (let [rolls, type] of [[workflow.damageRolls, "defaultDamage"], [(workflow.otherDamageMatches?.has(token) ?? true) ? [workflow.otherDamageRoll] : [], "otherDamage"], [workflow.bonusDamageRolls, "bonusDamage"]]) {
+    for (let [rolls, type] of [[workflow.damageRolls, "defaultDamage"], [(workflow.otherDamageMatches?.has(token) ?? true) ? workflow.otherDamageRolls : [], "otherDamage"], [workflow.bonusDamageRolls, "bonusDamage"]]) {
       if (rolls?.length > 0 && rolls[0]) {
         //@ts-expect-error
         const damages = game.system.dice.aggregateDamageRolls(rolls, { respectProperties: true }).map(roll => ({
@@ -514,7 +514,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
   }
   workflow.damageList = Object.values(damagePerToken);
   const toCheck = ["combinedDamage"];
-  if (!configSettings.singleConcentrationRoll && workflow.otherDamageRoll) toCheck.push("otherDamage");
+  if (!configSettings.singleConcentrationRoll && workflow.otherDamageRolls) toCheck.push("otherDamage");
   let chatCardUuids: string[] = [];
   for (let selector of toCheck) {
     workflow.damageList.forEach(damageEntry => {
@@ -6209,6 +6209,8 @@ export function itemOtherFormula(item): string {
   return "";
 }
 export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
+  //@ts-expect-error
+  const OperatorTerm = foundry.dice.terms.OperatorTerm;
   if (!bonusRoll) return roll;
   if (!roll) return bonusRoll;
   //@ts-expect-error _evaluated

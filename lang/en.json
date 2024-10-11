@@ -946,7 +946,7 @@
   "midi-qol.ReplaceDefaultActivities.Hint": "Any existing activies, Attack, Damage, Save, Check, Utility will instead use the midi versions. This is required to automate SRD items, otherwise you will need to hand configure every item for midi automation.",
   "midi-qol.AutoMergeActivityOther.Name": "Auto merge other activity for Midi Attack Activities (Requires Reload)",
   "midi-qol.AutoMergeActivityOther.Hint": "If an item only has an attack activity and single Damage, Save, Check or Utility it will be merged with the Attack activity",
-  "midi-qol.ConfirmAmmunitions.Name": "Confirm Ammunition choice when rolling attack",
+  "midi-qol.ConfirmAmmunition.Name": "Confirm Ammunition choice when rolling attack - shows attack roll configuration",
   "midi-qol.SHARED" : {
     "use-condition": {
       "header": "Midi Conditions"
@@ -1026,5 +1026,7 @@
     "attack-extras": "Midi Attack Fields",
     "effects-conditon": "Midi Effect application condition",
     "force-dialog": "Force Configuration Dialog"
-  }
+  },
+  "midi-qol.BaseDamageFlavor": "Base Damage",
+  "midi-qol.OtherDamageFlavor": "Other Damage"
 }

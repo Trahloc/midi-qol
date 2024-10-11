@@ -114,7 +114,7 @@
     "allowBugReporter": true
   },
   "url": "https://gitlab.com/tposney/midi-qol",
-  "manifest": "https://gitlab.com/tposney/midi-qol/raw/v11.6/package/module.json",
-  "download": "https://gitlab.com/tposney/midi-qol/raw/v11.6/package/midi-qol-v{{version}}.zip",
-  "changelog": "https://gitlab.com/tposney/midi-qol/raw/v11.6/Changelog.md"
+  "manifest": "https://gitlab.com/tposney/midi-qol/raw/v12dnd4/package/module.json",
+  "download": "https://gitlab.com/tposney/midi-qol/raw/v12dnd4/package/midi-qol-v{{version}}.zip",
+  "changelog": "https://gitlab.com/tposney/midi-qol/raw/v12dnd4/Changelog.md"
 }

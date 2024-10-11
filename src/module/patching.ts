@@ -1700,9 +1700,11 @@ export async function doItemUse(wrapped, config: any = {}, dialog: any = {}, mes
   if (config.legacy !== false) return wrapped(config, dialog, message);
   const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id));
   const attackActivity = activities?.find(a => a instanceof MidiAttackActivity);
-  const otherActivities = activities?.filter(a => a !== attackActivity && !(a instanceof MidiSaveActivity || a instanceof MidiDamageActivity));
-  if (!attackActivity || otherActivities?.length > 0) return wrapped(config, dialog, message);
-  return attackActivity.use(config, dialog, message);
+  const extraActvities = activities?.filter(a => a !== attackActivity && a !== attackActivity?.otherActivity);
+  if (attackActivity && extraActvities.length === 0) {
+    return attackActivity.use(config, dialog, message);
+  }
+  return wrapped(config, dialog, message);
 }
 
 class CustomizeDamageFormula {

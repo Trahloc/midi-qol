@@ -30,6 +30,8 @@ export var MidiActivityMixin = Base => {
       return schema;
     }
 
+    get isOtherActivityCompatible() { return false}
+    
     get messageFlags() {
       const baseFlags = super.messageFlags;
       const targets = new Map();
@@ -51,6 +53,7 @@ export var MidiActivityMixin = Base => {
         ui.notifications?.error("DND5E.DocumentUseWarn", { localize: true });
       }
       if (debugEnabled > 0) warn("MidiQOL | AttackActivity | use | Called", config, dialog, message);
+
       if (config.systemCard) return super.use(config, dialog, message);
       let previousWorkflow = Workflow.getWorkflow(this.uuid);
       if (previousWorkflow) {
@@ -79,22 +82,26 @@ export var MidiActivityMixin = Base => {
       if (debugEnabled > 0) {
         warn("AttackActivity | rollDamage | Called", config, dialog, message);
       }
+      let result: Roll[] | undefined;
+      let otherResult: Roll[] | undefined;
       if (await asyncHooksCall("midi-qol.preDamageRoll", this.workflow) === false
         || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.workflow) === false
         || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.workflow) === false) {
         console.warn("midi-qol | Damage roll blocked via pre-hook");
         return;
       }
-      dialog.configure = !config.midiOptions.fastForwardDamage || this.forceDialog;
-      Hooks.once("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
-        delete rollConfig.event;
-        return true;
-      })
+      if (this.hasDamage) {
+        dialog.configure = !config.midiOptions.fastForwardDamage || this.forceDialog;
+        Hooks.once("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
+          delete rollConfig.event;
+          return true;
+        })
 
-      message.create = false;
-      let result = await super.rollDamage(config, dialog, message);
-      result = await this.postProcessDamageRoll(config, result);
-      if (this.workflow && config.midiOptions.updateWorkflow !== false) await this.workflow.setDamageRolls(result);
+        message.create = false;
+        result = await super.rollDamage(config, dialog, message);
+        result = await this.postProcessDamageRoll(config, result);
+        if (this.workflow && config.midiOptions.updateWorkflow !== false) await this.workflow.setDamageRolls(result);
+      }
       if (this.otherActivity) {
         let shouldRollOther = true;
         if (this.otherCondition && this.workflow) {
@@ -111,20 +118,22 @@ export var MidiActivityMixin = Base => {
           if (!foundry.utils.getProperty(this.item, "flags.midiProperties.critOther")) otherConfig.midiOptions.isCritical = false;
           otherConfig.midiOptions.updateWorkflow = false;
           foundry.utils.setProperty(otherConfig, "critical.allow", this.item.flags.midiProperties?.critOther);
-          let otherResult;
           if (this.otherActivity?.hasDamage)
             otherResult = await this.otherActivity.rollDamage(otherConfig, dialog, { create: false });
           else if (this.otherActivity?.roll?.formula) {
             otherResult = await this.otherActivity.rollFormula(otherConfig, dialog, { create: false });
-            if (otherResult instanceof Array) otherResult = otherResult[0];
-            //@ts-expect-error
-            otherResult = new game.system.dice.DamageRoll(otherResult.formula, {}, {});
+            if (otherResult) {
+              if (!(otherResult instanceof Array)) otherResult = [otherResult];
+              otherResult = otherResult.map(roll =>
+                //@ts-expect-error
+                new game.system.dice.DamageRoll(roll.formula, {}, {})
+              );
+            }
           }
-          if (otherResult instanceof Array) otherResult = otherResult[0]; // TODO deal with arrays of rolls
-          if (otherResult && config.midiOptions.updateWorkflow !== false && this.workflow) await this.workflow.setOtherDamageRoll(otherResult);
+          if (otherResult && config.midiOptions.updateWorkflow !== false && this.workflow) await this.workflow.setOtherDamageRolls(otherResult);
         }
       }
-      if (config.midiOptions.updateWorkflow !== false && this.workflow?.suspended) this.workflow.unSuspend.bind(this.workflow)({ damageRoll: result, otherDamageRoll: this.workflow.otherDamageRoll });
+      if (config.midiOptions.updateWorkflow !== false && this.workflow?.suspended) this.workflow.unSuspend.bind(this.workflow)({ damageRoll: result, otherDamageRoll: otherResult });
       return result;
     }
 
@@ -191,7 +200,7 @@ export var MidiActivityMixin = Base => {
         console.error(message, err);
       }
     }
-    
+
     getDamageConfig(config: any = {}) {
       config.attackMode = this.workflow?.attackMode;
       config.ammunition = this.actor.items.get(this.workflow?.ammunition);
@@ -204,7 +213,7 @@ export var MidiActivityMixin = Base => {
       return rollConfig;
     }
 
-    async postProcessDamageRoll(config, result): Promise<void> {
+    async postProcessDamageRoll(config, result): Promise<Array<Roll>> {
       let result2: Array<Roll>;
       //@ts-expect-error
       const DamageRoll = CONFIG.Dice.DamageRoll;

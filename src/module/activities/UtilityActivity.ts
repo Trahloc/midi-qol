@@ -36,6 +36,8 @@ let defineMidiUtilityActivityClass = (ActvityClass: any) => {
         },
       }, { overwrite: true })
 
+    get isOtherActivityCompatible() { return true }
+
     async rollFormula(config, dialog, message: any = {}) {
       if (debugEnabled > 0)
         warn("UtilityActivity | rollFormula | Called", config, dialog, message);

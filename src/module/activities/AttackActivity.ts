@@ -149,7 +149,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       }
       return context;
     }
-
+    
     async rollAttack(config, dialog, message) {
       if (!config.midiOptions) config.midiOptions = {};
       if (debugEnabled > 0) warn("MidiQOL | AttackActivity | rollAttack | Called", config, dialog, message);
@@ -192,18 +192,18 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       if (!this.workflow) return false;
       let workflow: Workflow = this.workflow;
       if (!config.midiOptions) config.midiOptions = {};
-    
+
       if (workflow && !workflow.reactionQueried) {
         workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow.rollOptions?.rollToggle), { overwrite: true, insertValues: true, insertKeys: true });
       }
-    
+
       //@ts-ignore
       if (CONFIG.debug.keybindings && workflow) {
         log("itemhandling doAttackRoll: workflow.rollOptions", workflow.rollOptions);
         log("item handling newOptions", mapSpeedKeys(globalThis.MidiKeyManager.pressedKeys, "attack", workflow.rollOptions?.rollToggle));
       }
       if (debugEnabled > 1) debug("Entering configure attack roll", config.event, workflow, config.rolllOptions);
-    
+
       // workflow.systemCard = config.midiOptions.systemCard;
       if (workflow.workflowType === "BaseWorkflow") {
         if (workflow.attackRoll && workflow.currentAction === workflow.WorkflowState_Completed) {
@@ -213,7 +213,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
             await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid);
             await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
           }
-    
+
           if (workflow.damageRollCount > 0) { // re-rolling damage counts as new damage
             const itemCard = await this.displayCard(foundry.utils.mergeObject(config, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
             workflow.itemCardId = itemCard.id;
@@ -222,14 +222,14 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
           }
         }
       }
-    
+
       if (config.midiOptions.resetAdvantage) {
         workflow.advantage = false;
         workflow.disadvantage = false;
         workflow.rollOptions = foundry.utils.deepClone(defaultRollOptions);
       }
       if (workflow.workflowType === "TrapWorkflow") workflow.rollOptions.fastForward = true;
-    
+
       await doActivityReactions(this, workflow);
       if (configSettings.allowUseMacro && workflow.options.noTargetOnusemacro !== true) {
         await workflow.triggerTargetMacros(["isPreAttacked"]);
@@ -239,7 +239,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
           return false;
         }
       }
-    
+
       // Compute advantage
       await workflow.checkAttackAdvantage();
       if (await asyncHooksCall("midi-qol.preAttackRoll", workflow) === false
@@ -248,7 +248,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
         console.warn("midi-qol | attack roll blocked by preAttackRoll hook");
         return false;
       }
-    
+
       // Active defence resolves by triggering saving throws and returns early
       if (game.user?.isGM && workflow.useActiveDefence) {
         delete config.midiOptions.event; // for dnd 3.0
@@ -266,7 +266,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
         return workflow.activeDefence(this, result);
         */
       }
-    
+
       // Advantage is true if any of the sources of advantage are true;
       let advantage = config.midiOptions.advantage
         || workflow.options.advantage
@@ -284,29 +284,29 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
         workflow.attackAdvAttribution.add(`ADV:flanking`);
         workflow.advReminderAttackAdvAttribution.add(`ADV:Flanking`);
       }
-    
+
       let disadvantage = config.midiOptions.disadvantage
         || workflow.options.disadvantage
         || workflow?.disadvantage
         || workflow?.workflowOptions?.disadvantage
         || workflow.rollOptions.disadvantage;
       if (workflow.noDisadvantage) disadvantage = false;
-    
+
       if (workflow.rollOptions.disadvantage) {
         workflow.attackAdvAttribution.add(`DIS:keyPress`);
         workflow.advReminderAttackAdvAttribution.add(`DIS:keyPress`);
       }
       if (workflow.workflowOptions?.disadvantage)
         workflow.attackAdvAttribution.add(`DIS:workflowOptions`);
-    
+
       if (advantage && disadvantage) {
         advantage = false;
         disadvantage = false;
       }
-    
+
       workflow.attackRollCount += 1;
       if (workflow.attackRollCount > 1) workflow.damageRollCount = 0;
-    
+
       // create an options object to pass to the roll.
       // advantage/disadvantage are already set (in options)
       config.midiOptions = foundry.utils.mergeObject(config.midiOptions, {
@@ -320,26 +320,26 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       if (workflow.rollOptions.rollToggle) config.midiOptions.fastForward = !config.midiOptions.fastForward;
       if (advantage) config.midiOptions.advantage = true; // advantage passed to the roll takes precedence
       if (disadvantage) config.midiOptions.disadvantage = true; // disadvantage passed to the roll takes precedence
-    
+
       // Setup labels for advantage reminder
       const advantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("ADV:")).map(s => s.replace("ADV:", ""));;
       if (advantageLabels.length > 0) foundry.utils.setProperty(config.midiOptions, "dialogOptions.adv-reminder.advantageLabels", advantageLabels);
       const disadvantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("DIS:")).map(s => s.replace("DIS:", ""));
       if (disadvantageLabels.length > 0) foundry.utils.setProperty(config.midiOptions, "dialogOptions.adv-reminder.disadvantageLabels", disadvantageLabels);
-    
+
       // It seems that sometimes the option is true/false but when passed to the roll the critical threshold needs to be a number
       if (config.midiOptions.critical === true || config.midiOptions.critical === false)
         config.midiOptions.critical = this.criticalThreshold;
       if (config.midiOptions.fumble === true || config.midiOptions.fumble === false)
         delete config.midiOptions.fumble;
-    
+
       config.midiOptions.chatMessage = false;
       // This will have to become an actvitity option
       if (foundry.utils.getProperty(this.item, "flags.midiProperties.offHandWeapon")) {
         //@ts-expect-error
         foundry.utils.logCompatibilityWarning(`${this.item.name} item.flags.midiProperties.offHandWeapn is deprecated will be removed in Version 12.5 `
-        + "use acitivy.attackMode = offhand instead.",
-      {since: 12.1, until: 12.5, once: true});
+          + "use acitivy.attackMode = offhand instead.",
+          { since: 12.1, until: 12.5, once: true });
         config.attackMode = "offHand";
       }
       if (config.midiOptions.versatile) config.attackMode = "twoHanded";
@@ -351,16 +351,14 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       //@ts-expect-error
       this._otherActivity = fromUuidSync(this.otherActivityUuid)
       if (!this._otherActivity && configSettings.autoMergeActivityOther) {
-        const otherActivityOptions = this.item.system.activities.filter(a =>
-          a.uuid !== this.uuid && (a.damage || a.roll?.formula || a.save || a.check)
-        );
+        const otherActivityOptions = this.item.system.activities.filter(a => a.isOtherActivityCompatible);
         if (otherActivityOptions.length === 1) {
           //@ts-expect-error
           this._otherActivity = fromUuidSync(otherActivityOptions[0].uuid);
         }
       }
       this._otherActivity?.prepareData();
-      if (!this._otherActivity) this.otherActivityUuid = null;
+      if (!this._otherActivity) this._otherActivity = null;
       return this._otherActivity;
     }
 

@@ -149,10 +149,14 @@ export class Workflow {
   }
 
   get damageFlavor() {
-    return i18n("Damage");
+    return i18n("midi-qol.BaseDamageFlavor");
     // See what the reception to a simple header is
     if (this.rawDamageDetail.filter(d => d.damage !== 0).length === 0) return `(${allDamageTypes[this.defaultDamageType ?? "none"].label})`
     return `(${this.rawDamageDetail.filter(d => d.damage !== 0).map(d => allDamageTypes[d.type].label || d.type)})`;
+  }
+
+  get otherDamageFlavor() {
+    return i18n("midi-qol.OtherDamageFlavor");
   }
 
   get useCondition() {
@@ -990,11 +994,11 @@ export class Workflow {
   }
 
   async WorkflowState_WaitForDamageRoll(context: any = {}): Promise<WorkflowState> {
-    if (context.damageRoll) {
+    if (context.damageRoll || context.otherDamageRoll) {
       // record the data - currently done in item handling
       return this.WorkflowState_ConfirmRoll;
     }
-    if (!this.activity.hasDamage) return this.WorkflowState_WaitForSaves;
+    if (!this.activity.hasDamage && !this.otherActivity.hasDamage) return this.WorkflowState_WaitForSaves;
     if (context.attackRoll) return this.WorkflowState_AttackRollComplete;
     if (debugEnabled > 1) debug(`wait for damage roll has damage ${activityHasDamage(this.activity)} isfumble ${this.isFumble} no auto damage ${this.noAutoDamage}`);
 
@@ -1090,8 +1094,8 @@ export class Workflow {
     if (this.damageRolls)
       this.rawDamageDetail = createDamageDetailV4({ roll: this.damageRolls, activity: this.activity, defaultType: this.defaultDamageType });
     else this.rawDamageDetail = [];
-    if (this.otherDamageRoll) {
-      this.rawOtherDamageDetail = createDamageDetailV4({ roll: this.otherDamageRoll, activity: null, defaultType: this.defaultDamageType });
+    if (this.otherDamageRolls) {
+      this.rawOtherDamageDetail = createDamageDetailV4({ roll: this.otherDamageRolls, activity: null, defaultType: this.defaultDamageType });
     } else this.rawOtherDamageDetail = [];
     if (this.bonusDamageRolls)
       this.rawBonusDamageDetail = createDamageDetailV4({ roll: this.bonusDamageRolls, activity: null, defaultType: this.defaultDamageType });
@@ -2871,11 +2875,9 @@ export class Workflow {
           const otherReplaceString = `<div class="midi-qol-other-damage-roll"><div style="text-align:center">${this.damageFlavor}</div>${this.damageRollHTML || ""}<div class="end-midi-qol-other-ddamage-roll">`
           content = content.replace(otherSearchRe, otherReplaceString);
         }
-        if (this.otherDamageHTML) {
-          let otherFlavor = this.otherDamageRoll.options?.flavor ?? this.otherFlavor;
-          if (this.otherActivity?.name !== this.item.name)`${this.otherFlavor} (${this.otherActivity?.name})`
+        if (this.otherDamageRollHTML) {
           const otherSearchRe = /<div class="midi-qol-other-damage-roll">[\s\S]*?<div class="end-midi-qol-other-damage-roll">/;
-          const otherReplaceString = `<div class="midi-qol-other-damage-roll"><div style="text-align:center" >${otherFlavor}${this.otherDamageHTML || ""}</div><div class="end-midi-qol-other-damage-roll">`
+          const otherReplaceString = `<div class="midi-qol-other-damage-roll"><div style="text-align:center" >${this.otherDamageFlavor}${this.otherDamageRollHTML || ""}</div><div class="end-midi-qol-other-damage-roll">`
           content = content.replace(otherSearchRe, otherReplaceString);
         }
         if (this.bonusDamageRolls) {
@@ -2884,14 +2886,14 @@ export class Workflow {
           content = content.replace(bonusSearchRe, bonusReplaceString);
         }
       } else {
-        if (this.otherDamageHTML) {
+        if (this.otherDamageRollHTML) {
           const otherSearchRe = /<div class="midi-qol-damage-roll">[\s\S]*?<div class="end-midi-qol-damage-roll">/;
-          const otherReplaceString = `<div class="midi-qol-damage-roll"><div style="text-align:center"></div>${this.otherDamageHTML || ""}<div class="end-midi-qol-damage-roll">`
+          const otherReplaceString = `<div class="midi-qol-damage-roll"><div style="text-align:center">${this.otherDamageFlavor}</div>${this.otherDamageRollHTML || ""}<div class="end-midi-qol-damage-roll">`
           content = content.replace(otherSearchRe, otherReplaceString);
         }
         if (this.bonusDamageRolls) {
           const bonusSearchRe = /<div class="midi-qol-bonus-damage-roll">[\s\S]*?<div class="end-midi-qol-bonus-damage-roll">/;
-          const bonusReplaceString = `<div class="midi-qol-bonus-damage-roll"><div style="text-align:center" >${this.bonusDamageFlavor}${this.bonusDamageHTML || ""}</div><div class="end-midi-qol-bonus-damage-roll">`
+          const bonusReplaceString = `<div class="midi-qol-bonus-damage-roll"><div style="text-align:center" >${this.bonusDamageFlavor}</div>${this.bonusDamageHTML || ""}<div class="end-midi-qol-bonus-damage-roll">`
           content = content.replace(bonusSearchRe, bonusReplaceString);
         }
       }
@@ -3030,24 +3032,25 @@ export class Workflow {
     if ((this.activity.save || this.activity.check || this.otherActivity?.save || this.otherActivity?.check) && this.activity.damage.parts.length > 0) {
       switch (getsaveMultiplierForActivity(this.activity)) {
         case 0:
-          noDamage.push("Default &#48;")
+          noDamage.push(`${i18n("midi-qol.BaseDamageFlavor")} &#48;`)
           break;
         case 1:
-          fullDamage.push("Default &#49;")
+          fullDamage.push(`${i18n("midi-qol.BaseDamageFlavor")} &#49;`)
           break;
         default:
-          halfDamage.push("Default &frac12;");
+          halfDamage.push(`${i18n("midi-qol.BaseDamageFlavor")} &frac12;`);
       }
-    } else if (!(this.activity.save || this.activity.check) && (this.otherActivity?.save || this.otherActivity?.check) && this.otherActivity?.damage.parts.length > 0) {
+    }
+    if ((this.otherActivity?.save || this.otherActivity?.check) && this.otherActivity?.damage.parts.length > 0) {
       switch (getsaveMultiplierForActivity(this.otherActivity)) {
         case 0:
-          noDamage.push("Other &#48;")
+          noDamage.push(`${i18n("midi-qol.OtherDamageFlavor")} &#48;`)
           break;
         case 1:
-          fullDamage.push("Other &#49;")
+          fullDamage.push(`${i18n("midi-qol.OtherDamageFlavor")} &#49;`)
           break;
         default:
-          halfDamage.push("Other &frac12;");
+          halfDamage.push(`${i18n("midi-qol.OtherDamageFlavor")} &frac12;`);
       }
     }
 
@@ -3131,7 +3134,7 @@ export class Workflow {
     if (this.attackRoll) messageRolls.push(this.attackRoll);
     if (this.damageRolls) messageRolls.push(...this.damageRolls);
     if (this.bonusDamageRolls) messageRolls.push(...this.bonusDamageRolls);
-    if (this.otherDamageRoll) messageRolls.push(this.otherDamageRoll);
+    if (this.otherDamageRolls) messageRolls.push(...this.otherDamageRolls);
     if (this.saveRolls) messageRolls.push(...this.saveRolls);
     return messageRolls;
   }
@@ -4580,24 +4583,37 @@ export class Workflow {
     this.setBonusDamageRolls([this.convertRollToDamageRoll(roll)]);
   }
 
-  async setOtherDamageRoll(roll: Roll) {
-    //@ts-expect-error
-    if (!roll instanceof Roll) {
-      warn("setOtherDamageRoll: roll is not a roll", roll);
-      this.otherDamageRoll = undefined;
+  async setOtherDamageRolls(rolls: Array<Roll> | Roll | undefined | null) {
+    if (!rolls) {
+      this.otherDamageRolls = undefined;
       this.rawOtherDamageDetail = [];
       return;
+    };
+    if (rolls instanceof Roll) rolls = [rolls];
+    rolls.forEach(roll => {
+      setRollOperatorEvaluated(roll);
+    });
+
+    for (let i = 0; i < rolls.length; i++) {
+      rolls[i] = await rolls[i]; // only here in case someone passes an unawaited roll
+      //@ts-expect-error
+      if (!rolls[i]._evaluated) rolls[i] = await rolls[i].evaluate({ async: true });
     }
-    this.otherDamageRoll = await roll;
-    if (!this.otherDamageRoll._evaluated)
-      this.otherDamageRoll = this.otherDamageRoll = await this.otherDamageRoll.evaluate({ async: true });
-    this.otherDamageTotal = roll.total ?? 0;
-    foundry.utils.setProperty(roll, "options.flavor", `${i18nSystem("OtherFormula")}`);
-    this.otherFlavor = `${i18nSystem("OtherFormula")}`;
-    this.otherDamageHTML = await midiRenderOtherDamageRoll(roll);
-    foundry.utils.setProperty(roll, `options.${MODULE_ID}.rollType`, "otherDamage");
-    this.rawOtherDamageDetail = createDamageDetailV4({ roll: this.otherDamageRoll, activity: this.activity, defaultType: this.defaultDamageType });
-    this.otherDamageDetail = createDamageDetailV4({ roll: this.otherDamageRoll, activity: this.activity, defaultType: this.defaultDamageType });
+    this.otherDamageRolls = rolls;
+    this.otherDamageTotal = sumRolls(this.otherDamageRolls, "positive");
+    this.healingAdjustedOtherDamageTotal = sumRolls(this.otherDamageRolls, "negativeIgnoreTemp");
+    this.otherDamageRollHTML = "";
+    for (let roll of this.otherDamageRolls) {
+      foundry.utils.setProperty(roll, `options.${MODULE_ID}.rollType`, "otherDamage");
+      this.otherDamageRollHTML += await midiRenderOtherDamageRoll(roll);
+    }
+    this.rawOtherDamageDetail = createDamageDetailV4({ roll: this.otherDamageRolls, activity: this.activity, defaultType: this.defaultDamageType });
+    this.otherDamageDetail = createDamageDetailV4({ roll: this.otherDamageRolls, activity: this.activity, defaultType: this.defaultDamageType });
+    return;
+  }
+
+  async setOtherDamageRoll(roll: Roll) {
+    this.setOtherDamageRolls([this.convertRollToDamageRoll(roll)]);
   }
 }
 
@@ -4889,8 +4905,8 @@ export class TrapWorkflow extends Workflow {
       this.rawBonusDamageDetail = createDamageDetailV4({ roll: this.bonusDamageRolls, activity: this.activity, defaultType: defaultDamageType });
     else
       this.rawBonusDamageDetail = [];
-    if (this.otherDamageRoll)
-      this.rawOtherDamageDetail = createDamageDetailV4({ roll: this.otherDamageRoll, activity: this.activity, defaultType: defaultDamageType });
+    if (this.otherDamageRolls)
+      this.rawOtherDamageDetail = createDamageDetailV4({ roll: this.otherDamageRolls, activity: this.activity, defaultType: defaultDamageType });
     else
       this.rawOtherDamageDetail = [];
     // apply damage to targets plus saves plus immunities
