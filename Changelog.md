@@ -1,10 +1,12 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 
-### 12.4.1
+### 2.4.1
 * Changed workflow so that other damage supports arrays of rolls meaning other activities can return multiple damage results which will be included in the overall roll.
-* If the only acitvities on an item are a midi attack roll and a single otherActivity that will be used by the attack roll (either by setting it in the attack activity or enabling auto merge activities in the config settings) midi will skip the choose activity dialog.
-* A reminder, if it was not obvious, Check Activities can do damage/apply effects and can be used as other activities, so you can have activities that require an acrobatics check or take damage.
-* The module.json for the module has been udpated so you can check for updates without having to install the zip file every time.
+* If the only activities on an item are a midi attack roll and a single otherActivity that will be used by the attack roll (either by setting it in the attack activity or enabling auto merge activities in the config settings) midi will skip the choose activity dialog.
+* A reminder, if it was not obvious, Check Activities can do damage/apply effects and can be used as other activities, so you can have activities that require an acrobatics check or take damage. 
+* The otherActivity can be quite fliexible, for example Dragon Slaying Weapons are very simply implemented with an attack activity doing base damage and an "other" Damage activity with a use condition to ensure the target is a dragon.
+* Items that require a to hit roll and a save with no damage/1/2 on save can be implemented with an attack activity that does no damage and a Save otherActivity (no need for dummy damage on the attack activity anymore).
+* The module.json for the module has been updated so you can check for updates without having to install the zip file every time.
 * Incorporated merge request from @michael - thanks.
 
 ### 12.4.0
