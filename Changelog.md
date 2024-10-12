@@ -1,6 +1,10 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 
-### 2.4.1
+### 12.4.2
+* Change dae dependency to 12.0.0 (in dndv4 dae branch).
+* add changes for 11.6.25
+
+### 12.4.1
 * Changed workflow so that other damage supports arrays of rolls meaning other activities can return multiple damage results which will be included in the overall roll.
 * If the only activities on an item are a midi attack roll and a single otherActivity that will be used by the attack roll (either by setting it in the attack activity or enabling auto merge activities in the config settings) midi will skip the choose activity dialog.
 * A reminder, if it was not obvious, Check Activities can do damage/apply effects and can be used as other activities, so you can have activities that require an acrobatics check or take damage. 
