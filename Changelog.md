@@ -3,6 +3,10 @@
 ### 12.4.4
 * Fixes for Tidy sheets to work again
 
+* Known not working:
+  - multiple template targeting.
+  
+
 ### 12.4.3
 * Added Heal Activity
 * Reinstated dice so nice rolling.

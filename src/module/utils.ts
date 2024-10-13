@@ -6711,7 +6711,7 @@ export function getDefaultDamageType(item) {
 }
 
 export function activityHasAreaTarget(activity): boolean {
-  return !["", undefined, null].includes(activity.target?.template?.type);
+  return activity.target.template?.count > 0;
 }
 
 export function getSaveRollModeFor(abilityId) {
