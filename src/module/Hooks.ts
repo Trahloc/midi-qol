@@ -364,7 +364,7 @@ export function initHooks() {
       AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
       AutoTargetOptions: autoTargetOptions,
       RemoveAttackDamageButtonsOptions,
-      hasReaction: item.system.activation?.type?.includes("reaction"),
+      hasReaction: true, // can't test the item since any of the activities might be a reaction item.system.activation?.type?.includes("reaction"),
       onUseMacroParts: getCurrentSourceMacros(item)
     });
     if (!foundry.utils.getProperty(item, "flags.midi-qol.autoTarget")) {
@@ -378,7 +378,7 @@ export function initHooks() {
       data.showCEOff = ["both", "cepri", "itempri"].includes(configSettings.autoCEEffects);
       data.showCEOn = ["none", "itempri"].includes(configSettings.autoCEEffects);
     }
-    if (item.hasAreaTarget) {
+    if (true) { // can't do item check anymore item.hasAreaTarget
       if (!foundry.utils.getProperty(item, "flags.midi-qol.AoETargetType")) {
         foundry.utils.setProperty(data, "flags.midi-qol.AoETargetType", "any");
         foundry.utils.setProperty(item, "flags.midi-qol.AoETargetType", "any");

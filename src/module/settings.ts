@@ -529,7 +529,8 @@ export let fetchParams = () => {
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapcitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
   if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated";
-  if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
+  // if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
+  configSettings.midiFieldsTab = true;
   configSettings.v3DamageApplication = true;
   configSettings.useDamageDetail = false;
   if (configSettings.collapsibleTargets === undefined) configSettings.collapsibleTargets = true;

@@ -179,12 +179,12 @@ export class Workflow {
   }
 
   get otherUseCondition() {
-    if (this.otherActivity?.useCondition) return this.otherActivity.useCondition;
+    if (this.otherActivity?.useCondition) return this.otherActivity?.useCondition;
     return foundry.utils.getProperty(this, `item.flags.${MODULE_ID}.otherCondition`);
   }
 
   get otherEffectActivationCondition() {
-    if (this.otherActivity?.effectCondition) return this.otherActivity.effectCondition;
+    if (this.otherActivity?.effectCondition) return this.otherActivity?.effectCondition;
     return foundry.utils.getProperty(this, `item.flags.${MODULE_ID}.otherCondition`);
   }
 
@@ -998,7 +998,7 @@ export class Workflow {
       // record the data - currently done in item handling
       return this.WorkflowState_ConfirmRoll;
     }
-    if (!this.activity.hasDamage && !this.otherActivity.hasDamage) return this.WorkflowState_WaitForSaves;
+    if (!this.activity.hasDamage && !this.otherActivity?.hasDamage) return this.WorkflowState_WaitForSaves;
     if (context.attackRoll) return this.WorkflowState_AttackRollComplete;
     if (debugEnabled > 1) debug(`wait for damage roll has damage ${activityHasDamage(this.activity)} isfumble ${this.isFumble} no auto damage ${this.noAutoDamage}`);
 
@@ -3842,7 +3842,7 @@ export class Workflow {
     }
     await asyncHooksCallAll(`midi-qol.preTargetDamageApplication`, token, { item: this.item, workflow: this, damageItem: damages, ditem: damages });
 
-    if (damages.hpDamage !== 0 && (this.hitTargets.has(token) || this.hitTargetsEC.has(token) || this.otherActivity.save || this.otherActivity.check)) {
+    if (damages.hpDamage !== 0 && (this.hitTargets.has(token) || this.hitTargetsEC.has(token) || this.otherActivity?.save || this.otherActivity?.check)) {
       const healedDamaged = damages.hpDamage < 0 ? "isHealed" : "isDamaged";
       await asyncHooksCallAll(`midi-qol.${healedDamaged}`, token, { item: this.item, workflow: this, damageItem: damages, ditem: damages });
       const actorOnUseMacros = foundry.utils.getProperty(token.actor ?? {}, `flags.${MODULE_ID}.onUseMacroParts`) ?? new OnUseMacros();

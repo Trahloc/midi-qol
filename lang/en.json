@@ -962,8 +962,8 @@
         "hint": "Condition to allow use"
       },
       "effectConditionText": {
-        "label": "Effect Condition",
-        "hint": "Condition to apply effect"
+        "label": "Active Effect Condition",
+        "hint": "Condition to apply active effects"
       }
     }
   },
@@ -973,7 +973,7 @@
       "other": "Midi Attacks"
     },
     "extras" : {
-      "header": "Midi Attack Extra Feilds"
+      "header": "Midi Attack Fields"
     },
     "FIELDS": {
       "attackMode": {
@@ -989,12 +989,17 @@
         "hint": "Extra activity to preform 'other' damage"
       }
     }
-
   },
   "midi-qol.DAMAGE": {
     "Title": {
       "one": "Midi Damage",
       "other": "Midi Damage"
+    }
+  },
+  "midi-qol.HEAL": {
+    "Title": {
+      "one": "Midi Heal",
+      "other": "Midi Heal"
     }
   },
   "midi-qol.SAVE": {

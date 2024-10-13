@@ -147,8 +147,9 @@ function setupActvities() {
   setupDamageActivity();
   setupSaveActivity();
   setupCheckActivity(); // must happen after setupSaveActivity
-  setupUtilityActivity();
+  setupHealActivity();
   setupSummonActivity();
+  setupUtilityActivity();
 }
 
 Hooks.once('init', async function () {
@@ -592,6 +593,7 @@ import { setupUtilityActivity } from './module/activities/UtilityActivity.js';
 import { setupSummonActivity } from './module/activities/SummonActivity.js';
 import { setupDamageActivity } from './module/activities/DamageActivity.js';
 import { setupCheckActivity } from './module/activities/CheckActivity.js';
+import { setupHealActivity } from './module/activities/HealActivity.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
