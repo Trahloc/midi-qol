@@ -3749,7 +3749,7 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
     }
     //Specific handling for flags.midi-qol.optional.NAME.ac; treated as reactions but should not be directly linked to usedReaction;
     /*if (usedReaction) return { name: "None" };*/
-    if (!midiFlags) return { name: "None" };
+    if (usedReaction && !midiFlags) return { name: "None" };
     const validFlags = Object.keys(midiFlags?.optional ?? {})
       .filter(flag => {
         if (!midiFlags.optional[flag].ac) return false;
