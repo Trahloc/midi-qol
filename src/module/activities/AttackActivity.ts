@@ -3,7 +3,7 @@ import { mapSpeedKeys } from "../MidiKeyManager.js";
 import { Workflow } from "../Workflow.js";
 import { defaultRollOptions } from "../patching.js";
 import { configSettings } from "../settings.js";
-import { addAdvAttribution, asyncHooksCall, getSpeaker, processAttackRollBonusFlags } from "../utils.js";
+import { addAdvAttribution, asyncHooksCall, displayDSNForRoll, getSpeaker, processAttackRollBonusFlags } from "../utils.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
 import { doActivityReactions } from "./activityHelpers.js";
 
@@ -174,6 +174,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       if (this.workflow) {
         this.workflow.attackMode = config.attackMode;
         this.workflow.ammunition = rolls[0].options.ammunition ?? config.ammunition;
+        if (this.workflow.workflowOptions?.attackRollDSN !== false) await displayDSNForRoll(rolls[0], "attackRollD20");
         await this.workflow?.setAttackRoll(rolls[0]);
         rolls[0] = await processAttackRollBonusFlags.bind(this.workflow)();
         if (["formulaadv", "adv"].includes(configSettings.rollAlternate)) addAdvAttribution(rolls[0], this.workflow.attackAdvAttribution);

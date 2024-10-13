@@ -306,14 +306,13 @@ export var MidiActivityMixin = Base => {
             let promises = result2.map(r => displayDSNForRoll(r, "damageRoll"));
             await Promise.all(promises);
           }
-          DamageRoll.toMessage(result2, messageData, { rollMode: game.settings.get("core", "rollMode") });
+          await DamageRoll.toMessage(result2, messageData, { rollMode: game.settings.get("core", "rollMode") });
           // await result2.toMessage(messageData, { rollMode: game.settings.get("core", "rollMode") });
         }
         setDamageRollMinTerms(result)
 
         if (this.actionType === "heal" && !Object.keys(GameSystemConfig.healingTypes).includes(this.workflow.defaultDamageType ?? "")) this.workflow.defaultDamageType = "healing";
-
-        if (false && this.workflow?.workflowOptions?.damageRollDSN !== false) {
+        if (this.workflow?.workflowOptions?.damageRollDSN !== false) {
           let promises = result.map(r => displayDSNForRoll(r, "damageRoll"));
           await Promise.all(promises);
         }
