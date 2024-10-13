@@ -399,7 +399,7 @@ export var MidiActivityMixin = Base => {
         warn("MidiQOL | confirmCanProceed | Called", this);
       const workflow = this.workflow;
       try {
-        if (this.useCondition) {
+        if (this.useCondition && this.activation.type !== "reaction") { // reactions condition evaluation is handled elsewhere
           if (!(await evalActivationCondition(this.workflow, this.useCondition, this.targets.first(), { async: true }))) {
             ui.notifications?.warn("You are unable to use the item");
             return this.removeWorkflow();

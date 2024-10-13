@@ -3851,7 +3851,7 @@ async function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
       console.warn(`midi-qol | itemReaction | item ${item.name} ${activity.name} has a reaction type of ${activity.activation.type} which is deprecated - please update to reaction and reaction conditions`)
     }
 
-    if ((activity.activation?.value ?? 1)  > 0 && onlyZeroCost) continue; // TODO can't specify 0 cost reactions in dnd5e 4.x - have to find another way
+    if ((activity.activation?.value ?? 1) > 0 && onlyZeroCost) continue; // TODO can't specify 0 cost reactions in dnd5e 4.x - have to find another way
     if (item.type === "spell") {
       if (configSettings.ignoreSpellReactionRestriction) return true;
       if (["atwill", "innate"].includes(item.system.preparation.mode)) return true;
@@ -3861,7 +3861,7 @@ async function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
     }
 
     if (!item.system.attuned && item.system.attunement === "required") continue;
-    const canUse = await activity._prepareUsageUpdates({consume: true});
+    const canUse = await activity._prepareUsageUpdates({ consume: true });
     if (canUse) return true;
   }
   //if (item._getUsageUpdates({ consumeUsage: item.hasLimitedUses, consumeResource: item.hasResource, slotLevel: false }))
@@ -3933,17 +3933,21 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       }
       for (let item of possibleReactions) {
         const theItem = item instanceof Item ? item : item.baseItem;
-        const reactionCondition = foundry.utils.getProperty(theItem ?? {}, `flags.${MODULE_ID}.reactionCondition`);
-        for (let activity of theItem.system.activities)
+        for (let activity of theItem.system.activities) {
+          let reactionCondition = activity.useCondition;
+          if (!reactionCondition) reactionCondition = foundry.utils.getProperty(theItem ?? {}, `flags.${MODULE_ID}.reactionCondition`);
+          console.warn(`for ${target.actor?.name} ${theItem.name} using condition ${reactionCondition}`);
+
           if (reactionCondition) {
             if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using condition ${reactionCondition}`);
             const returnvalue = await evalReactionActivationCondition(options.workflow, reactionCondition, target, { async: true, extraData: { reaction: reactionTriggerLabelFor(triggerType) } });
-            if (returnvalue) reactions.push(item);
+            if (returnvalue) reactions.push(activity);
           } else {
             if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using ${triggerType} filter`);
             if (activity.activation?.type === triggerType || (triggerType === "reactionhit" && activity.activation?.type === "reaction"))
               reactions.push(activity);
           }
+        }
       };
 
       if (debugEnabled > 0)

@@ -1,5 +1,12 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 
+### 12.4.3
+* Added Heal Activity
+* Reinstated dice so nice rolling.
+* Fix for reactions with conditions not firing.
+* Added in change for 11.6.25.1
+* I may well have missed some other cases of not using the correct useCondition (still to be found) - so if it seems that the use condition is being ignored try putting the condition in the midi properties instead and I'll have a look
+
 ### 12.4.2
 * Change dae dependency to 12.0.0 (in dndv4 dae branch).
 * add changes for 11.6.25
