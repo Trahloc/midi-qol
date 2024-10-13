@@ -3934,10 +3934,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       for (let item of possibleReactions) {
         const theItem = item instanceof Item ? item : item.baseItem;
         for (let activity of theItem.system.activities) {
-          let reactionCondition = activity.useCondition;
-          if (!reactionCondition) reactionCondition = foundry.utils.getProperty(theItem ?? {}, `flags.${MODULE_ID}.reactionCondition`);
-          console.warn(`for ${target.actor?.name} ${theItem.name} using condition ${reactionCondition}`);
-
+          let reactionCondition = activity.reactionCondition;
           if (reactionCondition) {
             if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using condition ${reactionCondition}`);
             const returnvalue = await evalReactionActivationCondition(options.workflow, reactionCondition, target, { async: true, extraData: { reaction: reactionTriggerLabelFor(triggerType) } });

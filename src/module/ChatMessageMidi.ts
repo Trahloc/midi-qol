@@ -323,7 +323,9 @@ export function defineChatMessageMidiClass(baseClass: any) {
         html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
         html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
       }
-      if (!game.user?.isGM) { // Remove the hit miss check mark for non-gm players if required.
+      // Remove the hit miss check mark for non-gm players if required.
+      // Because midi rolls are not marked as attack rolls
+      if (!game.user?.isGM) { 
         const hideAttackResult = (game.settings.get("dnd5e", "attackRollVisibility") === "none");
         if (hideAttackResult || configSettings.autoCheckHit !== "all") {
           html.querySelectorAll(".midi-attack-roll .dice-total .icons")?.forEach(el => el.remove());
