@@ -456,7 +456,7 @@ export function initHooks() {
       },
       {
         label: i18n("midi-qol.buttons.damage"),
-        enabled: (params) => params.item.activities.find(a => a.damage?.parts?.length),
+        enabled: (params) => params.item.system.activities?.find(a => a.damage?.parts?.length),
         execute: (params) => {
           if (debugEnabled > 1) log('Clicked damage', params);
           params.item.rollDamage({ event: params.event, versatile: false, systemCard: true })
