@@ -180,7 +180,7 @@ export let hideStuffHandler = (message, html, data) => {
   if (game.user?.isGM) shouldDisplayChallenge = true;
   else switch (safeGetGameSetting("dnd5e", "challengeVisibility")) {
     case "all": shouldDisplayChallenge = true; break;
-    case "player": shouldDisplayChallenge = !game.user?.isGM; break;
+    case "player": shouldDisplayChallenge = !message.author?.isGM; break;
     default: shouldDisplayChallenge = false; break;
   }
   // If force hide rolls and your are not the author/target of a whisper roll hide it.
@@ -277,7 +277,7 @@ export let hideStuffHandler = (message, html, data) => {
     }
     if (safeGetGameSetting("dnd5e", "attackRollVisibility")) {
       const visibility = safeGetGameSetting("dnd5e", "attackRollVisibility");
-      if (visibility === "none") {
+      if (visibility === "none" || configSettings.autoCheckHit !== "all") {
         html.find(".midi-qol-attack-roll .dice-total").removeClass("success");
         html.find(".midi-qol-attack-roll .dice-total").removeClass("failure");
         html.find(".midi-qol-attack-roll .dice-total").removeClass("fumble");

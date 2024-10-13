@@ -1,6 +1,12 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
     * Compatibility with 5e v4.0.x: Not yet compatible. In alpha build testing.
 
+### 11.6.25.1
+* Actually fix the case of incorrectly displaying hit check mark when disabled.
+
+### 11.6.25
+* Some cleanup of display hit/miss indicator for attack rolls
+
 ### 11.6.24
 * Fix for item dependents growing indefinitely.
 
