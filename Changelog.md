@@ -1,5 +1,5 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
-    * Compatibility with 5e v4.0.x: Not yet compatible. In alpha build testing.
+    * Compatibility with 5e v4.0.x: Not yet compatible. In alpha build testing, for which you can ask in the discord server.
 
 ### 11.6.25.1
 * Actually fix the case of incorrectly displaying hit check mark when disabled.
