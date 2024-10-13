@@ -3,6 +3,9 @@
 * 12.0.0 
  - will be v12 only. Tentative date August 26th - assuming the most popular modules dependent on midi are v12 ready. 
 
+### 11.6.25.1
+* Actually fix the case of incorrectly displaying hit check mark when disabled.
+
 ### 11.6.25
 * Some cleanup of display hit/miss indicator for attack rolls
 
