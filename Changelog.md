@@ -1,11 +1,13 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 
+### 12.4.5
+* Couple of little fixes for critical/advantage settings
+
 ### 12.4.4
 * Fixes for Tidy sheets to work again
 
 * Known not working:
   - multiple template targeting.
-  
 
 ### 12.4.3
 * Added Heal Activity

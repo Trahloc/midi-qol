@@ -207,8 +207,8 @@ export var MidiActivityMixin = Base => {
       const rollConfig = super.getDamageConfig(config);
       this.configureDamageRoll(rollConfig);
       for (let roll of rollConfig.rolls) {
-        roll.options.isCritical ||= config.midiOptions.isCritical;
-        roll.options.isFumble ||= config.midiOptions.isFumble;
+        roll.options.isCritical ||= !!config.midiOptions.isCritical;
+        roll.options.isFumble ||= !!config.midiOptions.isFumble;
       }
       return rollConfig;
     }

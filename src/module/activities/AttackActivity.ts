@@ -159,8 +159,8 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       dialog.configure = !config.midiOptions.fastForwardAttack || this.forceDialog || (this.ammunition !== "" && this.confirmAmmuntion);
       Hooks.once("dnd5e.preRollAttackV2", (rollConfig, dialogConfig, messageConfig) => {
         for (let roll of rollConfig.rolls) {
-          if (config.midiOptions.advantage) roll.options.advantage ||= config.midiOptions.advantage;
-          if (config.midiOptions.disadvantage) roll.options.disadvantage ||= config.midiOptions.disadvantage;
+          if (config.midiOptions.advantage) roll.options.advantage ||= !!config.midiOptions.advantage;
+          if (config.midiOptions.disadvantage) roll.options.disadvantage ||= !!config.midiOptions.disadvantage;
         }
         delete rollConfig.event;
         return true;

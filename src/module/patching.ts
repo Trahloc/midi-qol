@@ -278,7 +278,7 @@ export function averageDice(roll: Roll) {
   return roll;
 }
 
-function configureDamage(wrapped) {
+function configureDamage(wrapped, options: any = {critical: {}}) {
   if (this.options.configured) return;
   //@ts-expect-error
   const OperatorTerm = foundry.dice.terms.OperatorTerm
@@ -292,7 +292,7 @@ function configureDamage(wrapped) {
   if (!this.isCritical || useDefaultCritical) {
     while (this.terms.length > 0 && this.terms[this.terms.length - 1] instanceof OperatorTerm)
       this.terms.pop();
-    wrapped();
+    wrapped(options.critical);
     if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
     return;
   }
