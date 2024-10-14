@@ -1,5 +1,7 @@
 ![](https://img.shields.io/badge/Foundry-v10-informational)
 ![](https://img.shields.io/badge/Foundry-v11-informational)
+![](https://img.shields.io/badge/Foundry-v12-informational)
+![](https://img.shields.io/badge/Dnd5e-v3.3.1-informational)
 ![Forge Installs](https://img.shields.io/badge/dynamic/json?label=Forge%20Installs&query=package.installs&suffix=%25&url=https%3A%2F%2Fforge-vtt.com%2Fapi%2Fbazaar%2Fpackage%2Fmidi-qol&colorB=4aa94a)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tposney)
@@ -8,10 +10,11 @@
 
 <a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io/discord/915186263609454632?logo=discord" alt="chat on Discord"></a>
 
+## Available versions
 
 - MidiQOL v11.4.48 is compatible with Foundry v12 (all the way to .331) and dnd5e v3.2.9.
 - MidiQOL v11.6.x is compatible with dnd5e v3.3.x.
-- MidiQOL v12.x is an alpha build if someone wants to test for dnd5e v4.x. Non game ready and none of the premade modules are compatible at all.
+- MidiQOL v12.x is an alpha build if someone wants to test for dnd5e v4.x. Non game ready and none of the premade modules are compatible at all (needs DAE v12.x too).
 
 ## Future releases **tentative** timetable
 
