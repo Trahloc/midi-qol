@@ -7,17 +7,13 @@ Discord <a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tposney)
 
 
-- MidiQOL v11.4.42 is compatible with Foundry v12 (all the way to .329) and dnd5e v3.2.9.
-- MidiQOL v11.4.42 is compatible with dnd5e v3.3.x.
+- MidiQOL v11.4.48 is compatible with Foundry v12 (all the way to .331) and dnd5e v3.2.9.
+- MidiQOL v11.6.x is compatible with dnd5e v3.3.x.
+- MidiQOL v12.x is an alpha build if someone wants to test for dnd5e v4.x. Non game ready and none of the premade modules are compatible at all.
 
 ## Future releases **tentative** timetable
 
-- **11.5.0** will be dnd5e v3.2+ only. Tentative date July 29.
-
-- **11.6.0** will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date August 5. You are actively encouraged to both try v3 damage calculation/application and report bugs. This version will remove concentration-data from midi-qol and all use will switch to dependents. Currently midi-only supports backwards compatible concentration-data.
-
-- **12.0.0** will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready.
-The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
+- **12.0.0** will be v12 only and dnd5e v4.x compatible. Tentative date end of November.
 
 ### Custom Sounds rewritten
 You will have to change your configuration
@@ -604,7 +600,23 @@ There is an optional configuration on the optional tab to remove this restrictio
 
 Instead of triggering on attacks reactions can trigger on damage application (e.g. hellish rebuke).
 
-Midi supports 3 activation types, **reaction** (triggers if hit), **reaction damage** (triggers if damaged), **reaction manual** (midi will ignore this when prompting for reactions).
+***deprecated*** ~~Midi supports 3 activation types, **reaction** (triggers if hit), **reaction damage** (triggers if damaged), **reaction manual** (midi will ignore this when prompting for reactions).~~
+
+**Reactions** Use activation type Reaction, and then in the MidiQOL tab. in the Item's details add the desired reaction trigger from the following list:
+Available reaction triggers:
+- 'preAttack', called before an Item (with creates an attack roll, or in Foundry data schema terms item.hasAttack == true) rolls for the Attack,
+- 'isAttacked' called when an item.hasAttack has rolled the Attack, but before checks for hit/miss,
+- 'isMissed', item.hasAttack misses,
+- 'isHit', item.hasAttack hits,
+- 'isDamaged', item.hasAttack deals damage,
+- 'isHealed', item does healing (either actionType == 'heal' OR the first damage type is 'healing' or 'temporary healing'),
+- 'isSave', item.hasSave triggers a saving throw, but before the result has been adjudicated
+- 'isSaveSuccess', item.hasSave and save success
+- 'isSaveFail', item.hasSave and save failure.
+
+**Usage**, in MidiQOL item details tab, in the activation conditions for reactions, add `reaction === 'isHit'` for example.
+
+
 
 Items in the SRD have the activation type set to reaction for reaction spells/features, so you will need to edit them in your game.
 
