@@ -1,10 +1,8 @@
 <fieldset>
-  <legend> {{ localize "midi-qol.fields.attack-extras" }} </legend>
+  <legend> {{ localize "midi-qol.ATTACK.extras.header" }} </legend>
   {{ formField fields.attackMode value=source.attackMode options=attackModeOptions }}
-  {{ formField fields.forceDialog value= source.forceDialog }}
   {{#if hasAmmunition}}
   {{ formField fields.ammunition value=source.ammunition options=ammunitionOptions }}
   {{/if}}
-  {{ formField fields.saveActivityUuid value=source.saveActivityUuid options=saveActivityOptions}}
   {{ formField fields.otherActivityUuid value=source.otherActivityUuid options=otherActivityOptions}}
 </fieldset>

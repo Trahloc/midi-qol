@@ -364,7 +364,7 @@ export function initHooks() {
       AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
       AutoTargetOptions: autoTargetOptions,
       RemoveAttackDamageButtonsOptions,
-      hasReaction: item.system.activation?.type?.includes("reaction"),
+      hasReaction: true, // can't test the item since any of the activities might be a reaction item.system.activation?.type?.includes("reaction"),
       onUseMacroParts: getCurrentSourceMacros(item)
     });
     if (!foundry.utils.getProperty(item, "flags.midi-qol.autoTarget")) {
@@ -378,7 +378,7 @@ export function initHooks() {
       data.showCEOff = ["both", "cepri", "itempri"].includes(configSettings.autoCEEffects);
       data.showCEOn = ["none", "itempri"].includes(configSettings.autoCEEffects);
     }
-    if (item.hasAreaTarget) {
+    if (true) { // can't do item check anymore item.hasAreaTarget
       if (!foundry.utils.getProperty(item, "flags.midi-qol.AoETargetType")) {
         foundry.utils.setProperty(data, "flags.midi-qol.AoETargetType", "any");
         foundry.utils.setProperty(item, "flags.midi-qol.AoETargetType", "any");
@@ -456,7 +456,7 @@ export function initHooks() {
       },
       {
         label: i18n("midi-qol.buttons.damage"),
-        enabled: (params) => params.item.activities.find(a => a.damage?.parts?.length),
+        enabled: (params) => params.item.system.activities?.find(a => a.damage?.parts?.length),
         execute: (params) => {
           if (debugEnabled > 1) log('Clicked damage', params);
           params.item.rollDamage({ event: params.event, versatile: false, systemCard: true })
@@ -724,94 +724,6 @@ function setupMidiFlagTypes() {
 }
 export function setupHooks() {
 }
-export const overTimeJSONData = {
-  "name": "OverTime Item",
-  "type": "weapon",
-  "img": "icons/svg/aura.svg",
-  "system": {
-    "description": {
-      "value": "",
-      "chat": "",
-      "unidentified": ""
-    },
-    "source": "",
-    "quantity": 1,
-    "weight": 0,
-    "price": 0,
-    "attuned": false,
-    "attunement": 0,
-    "equipped": false,
-    "rarity": "",
-    "identified": true,
-    "activation": {
-      "type": "special",
-      "cost": 0,
-      "condition": ""
-    },
-    "duration": {
-      "value": null,
-      "units": ""
-    },
-    "target": {
-      "value": null,
-      "width": null,
-      "units": "",
-      "type": "creature"
-    },
-    "range": {
-      "value": null,
-      "long": null,
-      "units": ""
-    },
-    "uses": {
-      "value": 0,
-      "max": "0",
-      "per": ""
-    },
-    "consume": {
-      "type": "",
-      "target": "",
-      "amount": null
-    },
-    "preparation": { "mode": "atwill" },
-    "ability": "",
-    "actionType": "save",
-    "attackBonus": 0,
-    "chatFlavor": "",
-    "critical": null,
-    "damage": {
-      "parts": [],
-      "versatile": ""
-    },
-    "formula": "",
-    "save": {
-      "ability": "con",
-      "dc": 10,
-      "scaling": "flat"
-    },
-    "armor": {
-      "value": 0
-    },
-    "hp": {
-      "value": 0,
-      "max": 0,
-      "dt": null,
-      "conditions": ""
-    },
-    "weaponType": "simpleM",
-    "proficient": false,
-    "attributes": {
-      "spelldc": 10
-    }
-  },
-  "effects": [],
-  "sort": 0,
-  "flags": {
-    "midi-qol": {
-      "noCE": true
-    }
-  }
-};
 
 export const itemJSONData = {
   "name": "Concentration Check - Midi QOL",

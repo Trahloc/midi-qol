@@ -317,33 +317,37 @@ async function registerTests() {
             const actor: any = getActor(actor1Name);
             const target: Token | undefined = getToken(target1Name);
             assert.ok(target && !!target?.actor && actor)
-            game.user?.updateTokenTargets([target?.id ?? ""]);
-            const item = actor.items.getName("Saving Throw Test");
-            assert.ok(item);
-            //@ts-ignore .flags v10
-            target?.actor && foundry.utils.setProperty(target.actor.flags, "midi-qol.magicResistance.all", true)
-            const workflow = await completeItemUse(item, {}, { workflowOptions });
-            assert.equal(workflow.saveResults.length, 1);
-            assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
-            assert.ok(workflow.saveResults[0].formula.startsWith("2d20kh"))
-            //@ts-ignore
-            delete target.actor.flags[MODULE_ID].magicResistance;
+            try {
+              game.user?.updateTokenTargets([target?.id ?? ""]);
+              const item = actor.items.getName("Saving Throw Test");
+              assert.ok(item);
+              await actor.setFlag("midi-qol", "magicResistance.all",  true);
+              console.warn("update flags returned", actor.flags["midi-qol"].magicResistance);
+              const workflow = await completeItemUse(item, {}, { workflowOptions });
+              console.warn("complete ite use returned")
+              assert.equal(workflow.saveResults.length, 1);
+              assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
+              assert.ok(workflow.saveResults[0].formula.startsWith("2d20kh"))
+            } finally {
+              await actor.unsetFlag("midi-qol", "magicResistance");
+            }
           });
           it("rolls a magic vulnerability spell saving throw", async function () {
             const actor: any = getActor(actor1Name);
             const target: Token | undefined = getToken(target1Name);
-            assert.ok(target && !!target?.actor && actor)
-            game.user?.updateTokenTargets([target?.id ?? ""]);
-            const item = actor.items.getName("Saving Throw Test");
-            assert.ok(item);
-            //@ts-ignore .flags v10
-            target?.actor && foundry.utils.setProperty(target.actor.flags, "midi-qol.magicVulnerability.all", true)
-            const workflow = await completeItemUse(item, {}, { workflowOptions });
-            assert.equal(workflow.saveResults.length, 1);
-            assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
-            assert.ok(workflow.saveResults[0].formula.startsWith("2d20kl"))
-            //@ts-ignore
-            delete target.actor.flags[MODULE_ID].magicVulnerability;
+            assert.ok(target && !!target?.actor && actor);
+            try {
+              game.user?.updateTokenTargets([target?.id ?? ""]);
+              const item = actor.items.getName("Saving Throw Test");
+              assert.ok(item);
+              await actor.setFlag("midi-qol", "magicVulnerability.all", true);
+              const workflow = await completeItemUse(item, {}, { workflowOptions });
+              assert.equal(workflow.saveResults.length, 1);
+              assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
+              assert.ok(workflow.saveResults[0].formula.startsWith("2d20kl"))
+            } finally {
+              await actor.unsetFlag("midi-qol", "magicVulnerability");
+            }
           });
         });
       },
@@ -398,19 +402,19 @@ async function registerTests() {
             const actor = getActor(actor2Name);
             assert.ok(target && actor);
             game.user?.updateTokenTargets([target?.id ?? ""]);
-            if (await CEHasEffectApplied({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""})) {
-              await CERemoveEffect({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""});
+            if (await CEHasEffectApplied({ effectName: "Deafened", uuid: target?.actor?.uuid ?? "" })) {
+              await CERemoveEffect({ effectName: "Deafened", uuid: target?.actor?.uuid ?? "" });
             }
-            assert.ok(!await CEHasEffectApplied({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""}));
+            assert.ok(!await CEHasEffectApplied({ effectName: "Deafened", uuid: target?.actor?.uuid ?? "" }));
             await completeItemUse(actor.items.getName("CE Test"), {}, { workflowOptions });
             await busyWait(0.5);
-            assert.ok(await CEHasEffectApplied({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""}));
+            assert.ok(await CEHasEffectApplied({ effectName: "Deafened", uuid: target?.actor?.uuid ?? "" }));
             const effect: ActiveEffect | undefined = target?.actor?.effects.find(e => e.name === "CE Test");
             results = await target?.actor?.deleteEmbeddedDocuments("ActiveEffect", [effect?.id ?? "bad"]);
             await busyWait(0.1);
-            if (await CEHasEffectApplied({effectName: "Deafened", uuid: target?.actor?.uuid ?? ""})) {
+            if (await CEHasEffectApplied({ effectName: "Deafened", uuid: target?.actor?.uuid ?? "" })) {
               console.warn("testCECondition", "Deafened not removed")
-              await CERemoveEffect({ effectName: "Deafened", uuid: target?.actor?.uuid ?? ""});
+              await CERemoveEffect({ effectName: "Deafened", uuid: target?.actor?.uuid ?? "" });
               return false;
             }
             return true;
@@ -440,7 +444,7 @@ async function registerTests() {
             const actor = getActor(actor2Name);
             const target2: any = getToken(target2Name);
             const target3: any = getToken(target3Name);
-            game.user?.updateTokenTargets([target2?.id ?? "", target3?.id ?? ""]);
+            game.user?.updateTokenTargets([target3?.id ?? "", target2?.id ?? ""]);
             const target2hp = target2?.actor?.system.attributes.hp.value;
             const target3hp = target3?.actor?.system.attributes.hp.value;
             await completeItemUse(actor.items.getName("MODTest"), {}, { advantage: true, workflowOptions }); // does 10 + 10 to undead
@@ -911,7 +915,7 @@ async function registerTests() {
             assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp - 5);
             //@ts-expect-error
             await token?.actor?.deleteEmbeddedDocuments("ActiveEffect", theEffects.map(ef => ef.id));
-            await token?.actor?.update({"system.attributes.hp.value": oldHp});
+            await token?.actor?.update({ "system.attributes.hp.value": oldHp });
           });
 
           it("tests applyTokenDamage saves", async function () {
@@ -922,7 +926,7 @@ async function registerTests() {
             const theItem = actor?.items.getName("Saving Throw Test");
             await applyTokenDamage([{ damage: 10, type: 'piercing' }], 10, new Set([token]), theItem, new Set([token]), {});
             assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp - 5);
-            await actor?.update({"system.attributes.hp.value": oldHp});
+            await actor?.update({ "system.attributes.hp.value": oldHp });
           });
           it("tests applyTokenDamage super saver (saved)", async function () {
             await resetActors();
@@ -930,9 +934,9 @@ async function registerTests() {
             const actor = getActor(actor1Name)
             const oldHp = token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value");
             const theItem = actor?.items.getName("Saving Throw Test");
-            await applyTokenDamage([{ damage: 10, type: 'piercing' }], 10, new Set([token]), theItem, new Set([token]), {superSavers: new Set([token])}); 
+            await applyTokenDamage([{ damage: 10, type: 'piercing' }], 10, new Set([token]), theItem, new Set([token]), { superSavers: new Set([token]) });
             assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp);
-            await actor?.update({"system.attributes.hp.value": oldHp});
+            await actor?.update({ "system.attributes.hp.value": oldHp });
           });
           it("tests applyTokenDamage super saver (failed)", async function () {
             await resetActors();
@@ -940,9 +944,9 @@ async function registerTests() {
             const actor = getActor(actor1Name)
             const oldHp = token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value");
             const theItem = actor?.items.getName("Saving Throw Test");
-            await applyTokenDamage([{ damage: 10, type: 'piercing' }], 10, new Set([token]), theItem, new Set(), {superSavers: new Set([token])}); 
+            await applyTokenDamage([{ damage: 10, type: 'piercing' }], 10, new Set([token]), theItem, new Set(), { superSavers: new Set([token]) });
             assert.equal(token && foundry.utils.getProperty(token, "actor.system.attributes.hp.value"), oldHp - 5);
-            await actor?.update({"system.attributes.hp.value": oldHp});
+            await actor?.update({ "system.attributes.hp.value": oldHp });
           });
 
         });

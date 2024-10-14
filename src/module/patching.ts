@@ -1,5 +1,5 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID, isdndv4, NumericTerm } from "../midi-qol.js";
-import { templateTokens, wrappedDisplayCard } from "./itemhandling.js";
+import { templateTokens } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect } from "./utils.js";
 import { installedModules } from "./setupModules.js";
@@ -278,7 +278,7 @@ export function averageDice(roll: Roll) {
   return roll;
 }
 
-function configureDamage(wrapped) {
+function configureDamage(wrapped, options: any = {critical: {}}) {
   if (this.options.configured) return;
   //@ts-expect-error
   const OperatorTerm = foundry.dice.terms.OperatorTerm
@@ -292,7 +292,7 @@ function configureDamage(wrapped) {
   if (!this.isCritical || useDefaultCritical) {
     while (this.terms.length > 0 && this.terms[this.terms.length - 1] instanceof OperatorTerm)
       this.terms.pop();
-    wrapped();
+    wrapped(options.critical);
     if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
     return;
   }
@@ -480,7 +480,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     if (options.isConcentrationCheck) {
       procOptions.isConcentrationCheck = false; // stop an infinite loop
       result = await this.rollConcentration(procOptions)
-    } else  result = await wrapped(abilityId, procOptions);
+    } else result = await wrapped(abilityId, procOptions);
     if (success === false) {
       result = new Roll("-1[auto fail]");
       // V12 - since the roll is -1 evaluateSync will work
@@ -493,7 +493,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     const flavor = result.options?.flavor;
     let maxFlags = foundry.utils.getProperty(this, "flags.midi-qol.max.ability") ?? {};
     let maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId])) ?? false;
-    if (options.isConcentrationCheck) 
+    if (options.isConcentrationCheck)
       maxValue = maxFlags.save?.concentration ?? maxValue;
     if (maxValue && Number.isNumeric(maxValue)) {
       result = setRollMaxDiceTerm(result, Number(maxValue));
@@ -956,20 +956,6 @@ export function actorPrepareData(wrapped) {
     processTraits(this);
     wrapped();
     prepareOnUseMacroData(this);
-    /*
-    const deprecatedKeys = ["silver", "adamant", "spell", "nonmagic", "magic", "physical"];
-    for (let traitKey of ["dr", "di", "dv", "sdr", "sdi", "sdv"]) {
-      for (let deprecatedKey of deprecatedKeys) {
-        if (this.system.traits[traitKey]?.value.has(deprecatedKey)) {
-          const message = `MidiQOL ${traitKey} value ${deprecatedKey} is no longer supported in Actor ${this.name} ${this.uuid} .Set in custom traits instead`
-          if (ui.notifications)
-            ui.notifications?.error(message);
-          else error(message);
-          TroubleShooter.recordError(new Error("Trait key invalid"), message);
-        }
-      }
-    }
-    */
   } catch (err) {
     const message = `actor prepare data ${this?.name}`;
     TroubleShooter.recordError(err, message);
@@ -991,6 +977,7 @@ export function itemPrepareData(wrapped) {
   }
   wrapped();
   prepareOnUseMacroData(this);
+
 }
 
 export function prepareOnUseMacroData(actorOrItem) {
@@ -1030,10 +1017,8 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
     let macroString = OnUseMacros.parseParts(macroParts).items.map(oum => oum.toString()).join(",");
     changes.flags[MODULE_ID].onUseMacroName = macroString;
     delete changes.flags[MODULE_ID].onUseMacroParts;
-    itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
   } catch (err) {
     delete changes.flags[MODULE_ID].onUseMacroParts;
-    itemOrActor.updateSource({ "flags.midi-qol.-=onUseMacroParts": null });
     const message = `midi-qol | failed in preUpdateItemActor onUse Macro for ${itemOrActor?.name} ${itemOrActor?.uuid}`
     console.warn(message, err);
     TroubleShooter.recordError(err, message);
@@ -1266,19 +1251,6 @@ async function setDeadStatus(actor, options: any) {
   }
 }
 
-async function _preUpdateActor(wrapped, update, options, user) {
-  try {
-    await checkWounded(this, update, options, user);
-    await zeroHPExpiry(this, update, options, user);
-  } catch (err) {
-    const message = `midi-qol | _preUpdateActor failed `;
-    console.warn(message, err);
-    TroubleShooter.recordError(err, message);
-  }
-  finally {
-    return wrapped(update, options, user);
-  }
-}
 function itemSheetDefaultOptions(wrapped) {
   const options = wrapped();
   const modulesToCheck = ["magic-items-2", "magicitems", "items-with-spells-5e", "ready-set-roll-5e"];
@@ -1337,7 +1309,7 @@ export function readyPatching() {
       "CONFIG.Wall.documentClass",
       "CONFIG.ActiveEffect.documentClass",
     ];
-    const addDependent = effectClass.prototype.addDependent ?? _addDependent;
+    const addDependent = _addDependent;
     const getDependents = effectClass.prototype.getDependents ?? _getDependents;
     for (let classString of classStrings) {
       const docClass = eval(classString)
@@ -1391,7 +1363,7 @@ async function addDependents(...dependents) {
  */
 async function _addDependent(...dependent) {
   const id = game.system.id ?? MODULE_ID;
-  const dependents = this.getFlag(id, "dependents") ?? [];
+  const dependents = this.getDependents().map(d => ({ uuid: d.uuid }));
   dependents.push(...dependent.map(d => ({ uuid: d.uuid })));
   return this.setFlag(id, "dependents", dependents);
 }
@@ -1402,11 +1374,11 @@ async function _addDependent(...dependent) {
  */
 function _getDependents() {
   const id = game.system.id ?? MODULE_ID;
-  return (this.getFlag(id, "dependents") || []).reduce((arr, { uuid }) => {
+  return Array.from((this.getFlag(id, "dependents") || []).reduce((deps, { uuid }) => {
     const effect = MQfromUuidSync(uuid);
-    if (effect) arr.push(effect);
-    return arr;
-  }, []);
+    if (effect) deps.add(effect);
+    return deps;
+  }, new Set()));
 }
 
 async function _onDelete(wrapped, ...args) {
@@ -1508,10 +1480,9 @@ function _getUsageConfig(wrapped): any {
 
 export let itemPatching = () => {
   libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.use", doItemUse, "MIXED");
-  // libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.displayCard", wrappedDisplayCard, "MIXED");
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     if (!isdndv4) libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype._getUsageConfig", _getUsageConfig, "WRAPPER");
-      libWrapper.register(MODULE_ID, "CONFIG.Dice.DamageRoll.prototype.configureDamage", configureDamage, "MIXED");
+    libWrapper.register(MODULE_ID, "CONFIG.Dice.DamageRoll.prototype.configureDamage", configureDamage, "MIXED");
   }
   configureDamageRollDialog();
 };
@@ -1634,9 +1605,9 @@ async function _preCreateActiveEffect(wrapped, data, options, user): Promise<voi
     if (globalThis.MidiQOL.incapacitatedConditions.some(condition => this.statuses.has(condition))) {
       if (debugEnabled > 0) warn(`on createActiveEffect ${this.name} ${this.id} removing concentration for ${parent.name}`)
       //@ts-expect-error - there is a separate check for hp.value <= in Hooks.ts so don't duplicate removal
-      if (parent.system.attributes?.hp?.value > 0) { 
-      //@ts-expect-error
-      parent.endConcentration();
+      if (parent.system.attributes?.hp?.value > 0) {
+        //@ts-expect-error
+        parent.endConcentration();
       }
     }
   } catch (err) {
@@ -1723,15 +1694,17 @@ export async function _preDeleteCombat(wrapped, ...args) {
   }
 }
 
-export async function doItemUse(wrapped, config: any ={}, dialog: any ={}, message: any ={}) {
-  if ( this.pack ) return;
+export async function doItemUse(wrapped, config: any = {}, dialog: any = {}, message: any = {}) {
+  if (this.pack) return;
 
   if (config.legacy !== false) return wrapped(config, dialog, message);
   const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id));
   const attackActivity = activities?.find(a => a instanceof MidiAttackActivity);
-  const otherActivities = activities?.filter(a => a !== attackActivity && !(a instanceof MidiSaveActivity || a instanceof MidiDamageActivity));
-  if (!attackActivity || otherActivities?.length > 0) return wrapped(config, dialog, message);
-  return attackActivity.use(config, dialog, message);
+  const extraActvities = activities?.filter(a => a !== attackActivity && a !== attackActivity?.otherActivity);
+  if (attackActivity && extraActvities.length === 0) {
+    return attackActivity.use(config, dialog, message);
+  }
+  return wrapped(config, dialog, message);
 }
 
 class CustomizeDamageFormula {
@@ -1868,7 +1841,7 @@ export function processTraits(actor) {
             addPhysicalDamages(trait.value);
             break
           case "adamant":
-            trait.bypasses.add("ada");
+            trait.bypasses.add("adm");
             addPhysicalDamages(trait.value);
             break
           case "physical":

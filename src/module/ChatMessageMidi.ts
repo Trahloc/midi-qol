@@ -192,7 +192,8 @@ export function defineChatMessageMidiClass(baseClass: any) {
     }
 
     _enrichDamageTooltip(rolls, html) {
-      if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== undefined || !this.flags?.["midi-qol"]) return;
+      if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== undefined || !this.flags?.["midi-qol"]) 
+        return super._enrichDamageTooltip(rolls, html);
       // if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") return;
       for (let rollType of MQDamageRollTypes) {
         const rollsToCheck = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === rollType);
@@ -316,10 +317,19 @@ export function defineChatMessageMidiClass(baseClass: any) {
       }
       if (debugEnabled > 1) warn("Enriching chat card", this.id);
       this.enrichAttackRolls(html); // This has to run first to stop errors when ChatMessage5e._enrichDamageTooltip runs
+
       super._enrichChatCard(html);
       if (this.author.isGM && (configSettings.hideRollDetails ?? "none") !== "none" && !game.user?.isGM) {
         html.querySelectorAll(".dice-roll").forEach(el => el.addEventListener("click", this.noDiceClicks.bind(this)));
         html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
+      }
+      // Remove the hit miss check mark for non-gm players if required.
+      // Because midi rolls are not marked as attack rolls
+      if (!game.user?.isGM) { 
+        const hideAttackResult = (game.settings.get("dnd5e", "attackRollVisibility") === "none");
+        if (hideAttackResult || configSettings.autoCheckHit !== "all") {
+          html.querySelectorAll(".midi-attack-roll .dice-total .icons")?.forEach(el => el.remove());
+        }
       }
     }
 

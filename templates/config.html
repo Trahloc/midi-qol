@@ -28,7 +28,12 @@
             {{selectOptions ConsumeResourceOptions selected=configSettings.gmConsumeResource}}
           </select>
           <div class="notes midi-qol-faint">{{{localize "midi-qol.ConsumeResource.Hint"}}}</div>
+        </div>
 
+        <div class="form-group">
+          <label>{{localize "midi-qol.ConfirmAmmunition.Name"}}</label>
+          <input type="checkbox" name="gmConfirmAmmunition" data-dtype="Boolean" {{checked
+            configSettings.gmConfirmAmmunition}} />
         </div>
 
         <div class="form-group">
@@ -109,6 +114,12 @@
           </select>
         </div>
         <div class="notes midi-qol-faint">{{{localize "midi-qol.ConsumeResource.Hint"}}}</div>
+
+        <div class="form-group">
+          <label>{{localize "midi-qol.ConfirmAmmunition.Name"}}</label>
+          <input type="checkbox" name="confirmAmmunition" data-dtype="Boolean" {{checked
+            configSettings.confirmAmmunition}} />
+        </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.AutoDamage.Name"}}</label>
@@ -853,14 +864,21 @@
         <button type="button" name="import-config" id="midi-qol-import-config">
           <i class="fas fa-dice-d20"></i> {{localize "midi-qol.ImportConfig"}}
         </button>
+
+      <div class="form-group">
+        <label>{{localize "midi-qol.ReplaceDefaultActivities.Name"}}</label>
+        <input type="checkbox" name="replaceDefaultActivities" data-dtype="Boolean" {{checked configSettings.replaceDefaultActivities}} />
+        <div class="notes midi-qol-faint">{{{localize "midi-qol.ReplaceDefaultActivities.Hint"}}}</div>
       </div>
 
-      <div class="midi-qol-box">
-        <div class="form-group">
-          <label>{{localize "midi-qol.MidiFieldsTab.Name"}}</label>
-          <input type="checkbox" name="midiFieldsTab" data-dtype="Boolean" {{checked configSettings.midiFieldsTab}} />
-        </div>
+      <div class="form-group">
+        <label>{{localize "midi-qol.AutoMergeActivityOther.Name"}}</label>
+        <input type="checkbox" name="autoMergeActivityOther" data-dtype="Boolean" {{checked configSettings.autoMergeActivityOther}} />
+        <div class="notes midi-qol-faint">{{{localize "midi-qol.AutoMergeActivityOther.Hint"}}}</div>
+      </div>
+    </div>
 
+      <div class="midi-qol-box">
         <div class="form-group midiPropoertiesTab">
           <label>{{localize "midi-qol.MidiPropertiesTab.Name"}}</label>
           <select name="midiPropertiesTabRole" data-dtype="String">
@@ -899,11 +917,6 @@
           <div class="notes midi-qol-faint">{{{localize "midi-qol.ShowItemDetails.Hint"}}}</div>
         </div>
 
-        <div class="form-group">
-          <label>{{localize "midi-qol.MergeCard.Name"}}</label>
-          <input type="checkbox" name="mergeCard" data-dtype="Boolean" {{checked configSettings.mergeCard}} />
-          <div class="notes midi-qol-faint">{{{localize "midi-qol.MergeCard.Hint"}}}</div>
-        </div>
 
         <div class="form-group">
           <label>{{localize "midi-qol.MergeCardCondensed.Name"}}</label>

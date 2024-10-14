@@ -271,6 +271,8 @@ export let hideStuffHandler = (message, html, data) => {
         html.find(".midi-qol-attack-roll .dice-total").removeClass("failure");
         html.find(".midi-qol-attack-roll .dice-total").removeClass("fumble");
         html.find(".midi-qol-attack-roll .dice-total").removeClass("critical");
+        html.find(".midi-qol-attack-roll .dice-total .icons").remove();
+
         html.find(".midi-qol-hits-display .midi-qol-hit-symbol").remove();
         html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("success");
         html.find(".midi-qol-hits-display .midi-qol-hit-class").removeClass("failure");
@@ -590,7 +592,7 @@ export function processCreateDDBGLMessages(message: ChatMessage, options: any, u
       workflow.needsDamage = false;
       workflow.setDamageRolls(rolls);
     } else if (workflow.needsOtherDamage && rolls?.length) {
-      workflow.setOtherDamageRoll(rolls[0]);
+      workflow.setOtherDamageRolls(rolls);
       workflow.needsOtherDamage = false;
     }
     if (workflow.currentAction === workflow.WorkflowState_WaitForDamageRoll) {

@@ -71,7 +71,7 @@ class ConfigSettings {
   autoCheckSaves: string = "none";
   autoFastForward: string = "off";
   autoItemEffects: string;
-  autoMergeActivitySave: boolean = false;
+  autoMergeActivityOther: boolean = false;
   autoRemoveSummonedCreature: boolean = false;
   autoRemoveTemplate: boolean;
   autoRemoveInstantaneousTemplate: boolean;
@@ -84,6 +84,8 @@ class ConfigSettings {
   checkSaveText: boolean = false;
   collapsibleTargets: boolean = true;
   concentrationAutomation: boolean = false;
+  confirmAmmunition: boolean = false;
+  gmConfirmAmmunition: boolean = false;
   consumeResource: string = "none";
   convenientEffectsReaction: string = "Reaction";
   criticalSound: string = "";
@@ -391,7 +393,7 @@ export let fetchParams = () => {
   //@ts-ignore
   if (configSettings.autoItemEffects === false) configSettings.autoItemEffects = "off";
   //@ts-ignore
-  if (configSettings.autoMergeActivitySave === undefined) configSettings.autoMergeActivitySave = true;
+  if (configSettings.autoMergeActivityOther === undefined) configSettings.autoMergeActivityOther = true;
   if (configSettings.playerDamageCard === undefined) configSettings.playerDamageCard = "none";
   if (configSettings.playerCardDamageDifferent === undefined) configSettings.playerCardDamageDifferent = true;
   if (configSettings.displayHitResultNumeric === undefined) configSettings.displayHitResultNumeric = false;
@@ -497,6 +499,8 @@ export let fetchParams = () => {
   if (configSettings.undoWorkflow === undefined) configSettings.undoWorkflow = false;
   if (configSettings.undoChatColor === undefined) configSettings.undoChatColor = "Delete";
   if (configSettings.enforceSingleWeaponTarget == undefined) configSettings.enforceSingleWeaponTarget = false;
+  if (configSettings.confirmAmmunition === undefined) configSettings.confirmAmmunition = false;
+  if (configSettings.gmConfirmAmmunition === undefined) configSettings.gmConfirmAmmunition = false;
   configSettings.hidePlayerDamageCard = true;
   configSettings.quickSettings = true;
   //@ts-expect-error have removed the definition
@@ -525,7 +529,8 @@ export let fetchParams = () => {
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapcitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
   if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated";
-  if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
+  // if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
+  configSettings.midiFieldsTab = true;
   configSettings.v3DamageApplication = true;
   configSettings.useDamageDetail = false;
   if (configSettings.collapsibleTargets === undefined) configSettings.collapsibleTargets = true;
