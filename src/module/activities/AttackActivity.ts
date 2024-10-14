@@ -44,14 +44,17 @@ let defineMidiAttackSheetClass = (baseClass: any) => {
       context = await super._prepareEffectContext(context);
       context.attackModeOptions = this.item.system.attackModes;
       context.hasAmmunition = this.item.system.properties.has("amm");
-      context.ammunitionOptions = this.activity.actor.items
-        .filter(i => (i.type === "consumable") && (i.system.type?.value === "ammo")
-          && (!this.item.system.ammunition?.type || (i.system.type.subtype === this.item.system.ammunition.type)))
-        .map(i => ({
-          value: i.id, label: `${i.name} (${i.system.quantity})`, item: i,
-          disabled: !i.system.quantity, selected: i.id === this.activity.attack.ammunition
-        }))
-        .sort((lhs, rhs) => lhs.label.localeCompare(rhs.label, game.i18n.lang));
+      //@ts-expect-error
+      context.ammunitionOptions = this.isOwned
+        ? this.activity.actor.items
+          .filter(i => (i.type === "consumable") && (i.system.type?.value === "ammo")
+            && (!this.item.system.ammunition?.type || (i.system.type.subtype === this.item.system.ammunition.type)))
+          .map(i => ({
+            value: i.id, label: `${i.name} (${i.system.quantity})`, item: i,
+            disabled: !i.system.quantity, selected: i.id === this.activity.attack.ammunition
+          }))
+          .sort((lhs, rhs) => lhs.label.localeCompare(rhs.label, game.i18n.lang))
+        : [];
       context.otherActivityOptions = this.item.system.activities.filter(a =>
         a.damage || a.roll?.formula || a.save || a.check).reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.uuid }); return ret }, [{ label: "", value: "" }]
         );
