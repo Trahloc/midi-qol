@@ -5786,6 +5786,13 @@ export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
   }
   //@ts-expect-error _evaluate
   if (!bonusRoll._evaluated) bonusRoll = bonusRoll.clone().evaluate({ async: false }) // V12
+  else {
+    for (let term of bonusRoll.terms) {
+      //@ts-expect-error _evaluated
+      if (!term._evaluated && term instanceof OperatorTerm) {
+        term.evaluate();
+    }
+  }
   let terms;
   if (bonusRoll.terms[0] instanceof OperatorTerm) {
     terms = roll.terms.concat(bonusRoll.terms);
