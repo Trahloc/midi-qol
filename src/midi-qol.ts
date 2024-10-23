@@ -1001,6 +1001,7 @@ function setupMidiFlags() {
   })
   midiFlags.push(`flags.${MODULE_ID}.advantage.deathSave`);
   midiFlags.push(`flags.${MODULE_ID}.disadvantage.deathSave`);
+  midiFlags.push(`flags.${MODULE_ID}.deathSaveBonus`);
 
   if (game.system.id === "dnd5e") {
     // fix for translations

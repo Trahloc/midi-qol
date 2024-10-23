@@ -565,9 +565,10 @@ async function rollDeathSave(wrapped, options) {
   mergeKeyboardOptions(options ?? {}, mapSpeedKeys(undefined, "ability"));
   const advFlags = foundry.utils.getProperty(this, "flags.midi-qol")?.advantage;
   const disFlags = foundry.utils.getProperty(this, "flags.midi-qol")?.disadvantage;
+  const deathSaveBonus = foundry.utils.getProperty(this, "flags.midi-qol")?.deathSaveBonus;
 
   options.fastForward = autoFastForwardAbilityRolls ? !options.event?.fastKey : options.event?.fastKey;
-  if (advFlags?.all || advFlags?.deathSave || disFlags?.all || disFlags?.deathSave) {
+  if (advFlags?.all || advFlags?.deathSave || disFlags?.all || disFlags?.deathSave || deathSaveBonus) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor: this });
     if (await evalAllConditionsAsync(this, "flags.midi-qol.advantage.all", conditionData) ||
       await evalAllConditionsAsync(this, "flags.midi-qol.advantage.deathSave", conditionData)) {
@@ -577,6 +578,21 @@ async function rollDeathSave(wrapped, options) {
     if (await evalAllConditionsAsync(this, "flags.midi-qol.disadvantage.all", conditionData) ||
       await evalAllConditionsAsync(this, "flags.midi-qol.disadvantage.deathSave", conditionData)) {
       options.disadvantage = true;
+    }
+    if (deathSaveBonus) {
+      let bonus: any;
+      if (typeof(deathSaveBonus) === "number") {
+        bonus = deathSaveBonus;
+      } else {
+        bonus = await evalAllConditionsAsync(this, "flags.midi-qol.deathSaveBonus", conditionData);
+      }
+      if (bonus) {
+        if (options.parts instanceof Array) {
+          options.parts.push(bonus);
+        } else {
+          options.parts = [bonus];
+        }
+      }
     }
   }
   if (options.advantage && options.disadvantage) {
