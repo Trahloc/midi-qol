@@ -673,7 +673,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     warn: function warn(...args: any[]): void,
     Workflow: class Workflow,
     moveToken: async function (tokenRef: Token | TokenDocument | UUID, newCenter: { x: number, y: number }, animate: boolean = true),
-    moveTokenAwayFromPoint: async function (targetRef: Token | TokenDocument | UUID, distance: number, point: { x: number, y: number }, animate: boolean = true),
+    moveTokenAwayFromPoint: async function (targetRef: Token | TokenDocument | UUID, distance: number, point: { x: number, y: number }, animate: boolean = true, checkCollision: boolean = true),
   }
 });
 
@@ -804,10 +804,10 @@ function setupMidiQOLApi() {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
       if (tokenUuid) return untimedExecuteAsGM("moveToken", { tokenUuid, newCenter, animate });
     },
-    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }, animate: boolean = true) => {
+    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }, animate: boolean = true, checkCollision: boolean = true) => {
       const targetUuid = getTokenDocument(targetRef)?.uuid;
       if (point && targetUuid && distance)
-        return untimedExecuteAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate })
+        return untimedExecuteAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate, checkCollision })
     }
   });
   globalThis.MidiDAEEval = {
