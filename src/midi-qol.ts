@@ -6,7 +6,7 @@ import { initHooks, overTimeJSONData, readyHooks, setupHooks } from './module/Ho
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, DDBGameLogWorkflow, UserWorkflow } from './module/workflow.js';
-import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getDistanceSimple, getDistanceSimpleOld, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, fromActorUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility, MQfromUuidSync, actorFromUuid, createDamageDetail, removeActionUsed, removeBonusActionUsed, getCheckRollModeFor, getSaveRollModeFor } from './module/utils.js';
+import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemRoll, completeItemUse, computeCoverBonus, computeDistance, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getDistance, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, fromActorUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility, MQfromUuidSync, actorFromUuid, createDamageDetail, removeActionUsed, removeBonusActionUsed, getCheckRollModeFor, getSaveRollModeFor } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/itemhandling.js';
 import { RollStats } from './module/RollStats.js';
@@ -592,7 +592,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     checkRule: function checkRule(rule: string): boolean,
     completeItemUse: async function completeItemUse(item, config: any = {}, options: any = { checkGMstatus: false }),
     computeCoverBonus: function computeCoverBonus(attacker: Token | TokenDocument, target: Token | TokenDocument, item: any = undefined): number,
-    computeDistance: function computeDistance(t1: Token, t2: Token, wallBlocking = false),
+    computeDistance: function computeDistance(t1: Token, t2: Token, {wallsBlock = false, includeCover = true}),
     configSettings: function configSettings(): any,
     contestedRoll: async function contestedRoll(data: {
       source: { rollType: string, ability: string, token: Token | TokenDocument | string, rollOptions: any },
@@ -673,7 +673,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     warn: function warn(...args: any[]): void,
     Workflow: class Workflow,
     moveToken: async function (tokenRef: Token | TokenDocument | UUID, newCenter: { x: number, y: number }, animate: boolean = true),
-    moveTokenAwayFromPoint: async function (targetRef: Token | TokenDocument | UUID, distance: number, point: { x: number, y: number }, animate: boolean = true),
+    moveTokenAwayFromPoint: async function (targetRef: Token | TokenDocument | UUID, distance: number, point: { x: number, y: number }, animate: boolean = true, checkCollision: boolean = true),
   }
 });
 
@@ -710,7 +710,7 @@ function setupMidiQOLApi() {
     completeItemRoll,
     completeItemUse,
     computeCoverBonus,
-    computeDistance: getDistanceSimple,
+    computeDistance,
     ConfigPanel,
     configSettings: () => { return configSettings },
     get currentConfigSettings() { return configSettings },
@@ -735,7 +735,7 @@ function setupMidiQOLApi() {
     getCachedChatMessage: getCachedDocument,
     getChanges, // (actorOrItem, key) - what effects on the actor or item target the specific key
     getConcentrationEffect,
-    getDistance: getDistanceSimpleOld,
+    getDistance,
     geti18nOptions,
     geti18nTranslations,
     getSaveRollModeFor,
@@ -804,10 +804,10 @@ function setupMidiQOLApi() {
       const tokenUuid = getTokenDocument(tokenRef)?.uuid;
       if (tokenUuid) return untimedExecuteAsGM("moveToken", { tokenUuid, newCenter, animate });
     },
-    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }, animate: boolean = true) => {
+    moveTokenAwayFromPoint: async (targetRef: Token | TokenDocument | string, distance: number, point: { x: number, y: number }, animate: boolean = true, checkCollision: boolean = true) => {
       const targetUuid = getTokenDocument(targetRef)?.uuid;
       if (point && targetUuid && distance)
-        return untimedExecuteAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate })
+        return untimedExecuteAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate, checkCollision })
     }
   });
   globalThis.MidiDAEEval = {
@@ -821,14 +821,14 @@ function setupMidiQOLApi() {
     checkRange,
     checkRule,
     computeCoverBonus,
-    computeDistance: getDistanceSimple,
+    computeDistance,
     contestedRoll,
     displayDSNForRoll,
     doConcentrationCheck,
     chooseEffect,
     findNearby,
     findNearbyCount,
-    getDistance: getDistanceSimpleOld,
+    getDistance,
     getTraitMult: getTraitMult,
     hasCondition,
     hasUsedBonusAction,
@@ -1001,6 +1001,7 @@ function setupMidiFlags() {
   })
   midiFlags.push(`flags.${MODULE_ID}.advantage.deathSave`);
   midiFlags.push(`flags.${MODULE_ID}.disadvantage.deathSave`);
+  midiFlags.push(`flags.${MODULE_ID}.deathSaveBonus`);
 
   if (game.system.id === "dnd5e") {
     // fix for translations
