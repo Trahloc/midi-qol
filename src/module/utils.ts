@@ -1575,37 +1575,54 @@ export function distancePointToken({ x, y, elevation = 0 }, token, wallblocking 
   return distance;
 }
 
-export function getDistanceSimpleOld(t1: Token, t2: Token, includeCover, wallBlocking = false) {
+export function getDistance(t1: Token, t2: Token, includeCover = true, wallsBlock = false) {
   //@ts-expect-error foundry.utils.logCompatibilityWarning
-  foundry.utils.logCompatibilityWarning("getDistance(t1,t2,includeCover,wallBlocking) is deprecated in favor computeDistance(t1,t2,wallBlocking?).", { since: "11.2.1", untill: "12.0.0" });
-  return getDistance(t1, t2, wallBlocking);
-}
-export function getDistanceSimple(t1: Token, t2: Token, wallBlocking = false) {
-  return getDistance(t1, t2, wallBlocking);
+  foundry.utils.logCompatibilityWarning("getDistance(t1,t2,includeCover?,wallsBlock?) is deprecated in favor of computeDistance(t1,t2,{wallsBlock Boolean, includeCover: Boolean).", { since: "11.2.1", until: "12.0.0" });
+  const options = { wallsBlock, includeCover };
+  return computeDistance(t1, t2, options);
 }
 
-export function checkDistance(t1: any, t2: any, distance: number, wallsBlocking?: boolean,): boolean {
-  const dist = getDistance(t1, t2, wallsBlocking);
+export function checkDistance(t1: any, t2: any, distance: number, options: boolean | { wallsBlock?: boolean, includeCover?: boolean } = { wallsBlock: false, includeCover: true }): boolean {
+  let wallsBlock: boolean, includeCover: boolean;
+  if (typeof options === "boolean") {
+    wallsBlock = options;
+    includeCover = true;
+    //@ts-expect-error
+    foundry.utils.logCompatibilityWarning("checkDistance(t1,t2,wallsBlocking?) is deprecated in favor of checkDistance(t1,t2,{wallsBlock: Boolean, includeCover: Boolean}).", { since: "11.6.26", until: "12.0.0" });
+  } else {
+    ({ wallsBlock = false, includeCover = true} = options);
+  }
+  const dist = computeDistance(t1, t2, { wallsBlock, includeCover });
   return 0 <= dist && dist <= distance;
 }
 
 /** takes two tokens of any size and calculates the distance between them
 *** gets the shortest distance betwen two tokens taking into account both tokens size
-*** if wallblocking is set then wall are checked
+*** if wallsBlock is set then walls are checked
+*** if includeCover is set then cover is checked via the relevant modules
 **/
-export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking = false): number {
+export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: boolean | { wallsBlock?: boolean, includeCover?: boolean } = { wallsBlock: false, includeCover: true }): number {
   if (!canvas || !canvas.scene) return -1;
   if (!canvas.grid || !canvas.dimensions) return -1;
   t1 = getPlaceable(t1);
   t2 = getPlaceable(t2);
   if (!t1 || !t2) return -1;
   if (!canvas || !canvas.grid || !canvas.dimensions) return -1;
-
+  let wallsBlock: boolean, includeCover: boolean;
+  if (typeof options === "boolean") {
+    wallsBlock = options;
+    includeCover = true;
+    //@ts-expect-error
+    foundry.utils.logCompatibilityWarning("computeDistance(t1, t2, wallsBlock?: boolean) is deprecated in favor of computeDistance(t1, t2, { wallsBlock: boolean, includeCover: boolean }).", { since: "11.6.26", until: "12.0.0" });
+  }
+  else {
+     ({ wallsBlock = false, includeCover = true } = options);
+  }
   const actor = t1.actor;
   const ignoreWallsFlag = foundry.utils.getProperty(actor, `flags.${MODULE_ID}.ignoreWalls`);
   // get condition data & eval the property
   if (ignoreWallsFlag) {
-    wallblocking = false;
+    wallsBlock = false;
   }
   let t1DocWidth = t1.document.width ?? 1;
   if (t1DocWidth > 10) t1DocWidth = t1DocWidth / canvas.dimensions.size;
@@ -1627,20 +1644,20 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
   let coverVisible;
   // For levels autocover and simbul's cover calculator pre-compute token cover - full cover means no attack and so return -1
   // otherwise don't bother doing los checks they are overruled by the cover check
-  if (installedModules.get("levelsautocover") && game.settings.get("levelsautocover", "apiMode") && wallblocking && configSettings.optionalRules.wallsBlockRange === "levelsautocover") {
+  if (installedModules.get("levelsautocover") && game.settings.get("levelsautocover", "apiMode") && wallsBlock && configSettings.optionalRules.wallsBlockRange === "levelsautocover" && includeCover) {
     //@ts-expect-error
     const levelsautocoverData = AutoCover.calculateCover(t1, t2, getLevelsAutoCoverOptions());
     coverVisible = levelsautocoverData.rawCover > 0;
     if (!coverVisible) return -1;
-  } else if (globalThis.CoverCalculator && configSettings.optionalRules.wallsBlockRange === "simbuls-cover-calculator") {
+  } else if (globalThis.CoverCalculator && configSettings.optionalRules.wallsBlockRange === "simbuls-cover-calculator" && includeCover) {
     if (t1 === t2) return 0; // Simbul's throws an error when calculating cover for the same token
     const coverData = globalThis.CoverCalculator.Cover(t1, t2);
-    if (debugEnabled > 0) warn("getDistance | simbuls cover calculator ", t1.name, t2.name, coverData);
-    if (coverData?.data.results.cover === 3 && wallblocking) return -1;
+    if (debugEnabled > 0) warn("computeDistance | simbuls cover calculator ", t1.name, t2.name, coverData);
+    if (coverData?.data.results.cover === 3 && wallsBlock) return -1;
     coverVisible = true;
-  } else if (installedModules.get("tokencover") && configSettings.optionalRules.wallsBlockRange === "tokencover") {
+  } else if (installedModules.get("tokencover") && configSettings.optionalRules.wallsBlockRange === "tokencover" && includeCover) {
     const coverValue = calcTokenCover(t1, t2);
-    if (coverValue === 3 && wallblocking) return -1;
+    if (coverValue === 3 && wallsBlock) return -1;
     coverVisible = true;
 
   }
@@ -1669,7 +1686,7 @@ export function getDistance(t1: any /*Token*/, t2: any /*Token*/, wallblocking =
             } else
               dest = new PIXI.Point(...canvas.grid.getCenter(Math.round(t2.document.x + (canvas.dimensions.size * x1)), Math.round(t2.document.y + (canvas.dimensions.size * y1))));
             const r = new Ray(origin, dest);
-            if (wallblocking) {
+            if (wallsBlock) {
               switch (configSettings.optionalRules.wallsBlockRange) {
                 case "center":
                   let collisionCheck;
@@ -1938,7 +1955,7 @@ export function checkRange(itemIn, tokenRef: Token | TokenDocument | string, tar
         }
       }
       // check the range
-      const distance = getDistance(token, target, configSettings.optionalRules.wallsBlockRange && !foundry.utils.getProperty(item, "flags.midiProperties.ignoreTotalCover"));
+      const distance = computeDistance(token, target, { wallsBlock: configSettings.optionalRules.wallsBlockRange && !foundry.utils.getProperty(item, "flags.midiProperties.ignoreTotalCover"), includeCover: true });
 
       if ((longRange !== 0 && distance > longRange) || (distance > range && longRange === 0)) {
         log(`${target.name} is too far ${distance} from your character you cannot hit`)
@@ -2376,7 +2393,7 @@ export function findNearby(disposition: number | string | null | Array<string | 
         (t.id !== token.id || options?.includeToken) && // not the token
         //@ts-expect-error .disposition v10      
         (disposition === null || targetDisposition.includes(t.document.disposition))) {
-        const tokenDistance = getDistance(t, token, true);
+        const tokenDistance = computeDistance(t, token, { wallsBlock: true, includeCover: true });
         inRange = 0 <= tokenDistance && tokenDistance <= distance
       } else return false; // wrong disposition
       if (inRange && options.canSee && !canSense(t, token)) return false; // Only do the canSee check if the token is inRange
@@ -4102,7 +4119,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
       AsyncFunction = (async function () { }).constructor;
     const evl = AsyncFunction("sandbox", src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4137,7 +4154,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     }
     const evl = new Function('sandbox', src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance: getDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, getDistance, computeDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat });
 
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
@@ -4822,7 +4839,7 @@ export function computeFlankingStatus(token, target): boolean {
   if (token.actor?.items.contents.some(item => item.system?.properties?.rch && item.system.equipped)) {
     range = 2;
   }
-  if (getDistance(token, target, true) > range * (canvas?.dimensions?.distance ?? 5)) return false;
+  if (computeDistance(token, target, { wallsBlock: true, includeCover: true }) > range * (canvas?.dimensions?.distance ?? 5)) return false;
   // an enemy's enemies are my friends.
   const allies: any /* Token v10 */[] = findPotentialFlankers(target)
 
