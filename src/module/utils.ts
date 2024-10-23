@@ -1587,6 +1587,7 @@ export function checkDistance(t1: any, t2: any, distance: number, options: boole
   if (typeof options === "boolean") {
     wallsBlock = options;
     includeCover = true;
+    //@ts-expect-error
     foundry.utils.logCompatibilityWarning("checkDistance(t1,t2,wallsBlocking?) is deprecated in favor of checkDistance(t1,t2,{wallsBlock: Boolean, includeCover: Boolean}).", { since: "11.6.26", until: "12.0.0" });
   } else {
     ({ wallsBlock = false, includeCover = true} = options);
@@ -1611,6 +1612,7 @@ export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: b
   if (typeof options === "boolean") {
     wallsBlock = options;
     includeCover = true;
+    //@ts-expect-error
     foundry.utils.logCompatibilityWarning("computeDistance(t1, t2, wallsBlock?: boolean) is deprecated in favor of computeDistance(t1, t2, { wallsBlock: boolean, includeCover: boolean }).", { since: "11.6.26", until: "12.0.0" });
   }
   else {
