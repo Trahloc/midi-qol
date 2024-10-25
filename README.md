@@ -10,6 +10,10 @@
 
 <a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io/discord/915186263609454632?logo=discord" alt="chat on Discord"></a>
 
+**Midi-qol** is a module designed to help automate various parts of your game, specifically rolling attacks/casting spells and applying damage/effects.
+
+It has LOTS of configuration options which can be daunting.
+
 ## Available versions
 
 - MidiQOL v11.4.48 is compatible with Foundry v12 (all the way to .331) and dnd5e v3.2.9.
@@ -19,13 +23,6 @@
 ## Future releases **tentative** timetable
 
 - **12.0.0** will be v12 only and dnd5e v4.x compatible. Tentative date end of November.
-
-### Custom Sounds rewritten
-You will have to change your configuration
-
-Midi-qol is a module designed to help automate various parts of your game, specifically rolling attacks/casting spells and applying damage/effects.
-
-It has LOTS of configuration options which can be daunting.
 
 # Bug reports
 **Important** When submitting a bug report ALWAYS include your exported (from the misc tab) midi-qol settings. I really can't work out what is going on without them.
