@@ -596,7 +596,7 @@ export function initHooks() {
         });
 
       } else {
-        data = foundry.utils.mergeObject(data, getItemSheetData(data, item));
+        data = foundry.utils.mergeObject(data, getItemSheetData(data, item), { recursive: false });
         renderTemplate("modules/midi-qol/templates/midiPropertiesForm.hbs", data).then(templateHtml => {
           const element = html.find('input[name="system.chatFlavor"]').parent().parent();
           element.append(templateHtml);
