@@ -3443,7 +3443,7 @@ export function isConcentrating(actor: globalThis.dnd5e.documents.Actor5e): unde
   return actor.effects.find(e => e.statuses.has(CONFIG.specialStatusEffects.CONCENTRATING) && !e.disabled && !e.isSuppressed)
 }
 
-function maxCastLevel(actor) {
+export function maxCastLevel(actor) {
   if (configSettings.ignoreSpellReactionRestriction) return 9;
   const spells = actor.system.spells;
   if (!spells) return 0;
@@ -3491,7 +3491,7 @@ async function getMagicItemReactions(actor: Actor, triggerType: string): Promise
   return items;
 }
 
-function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
+export function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
   if (!item.system.activation?.type?.includes("reaction")) return false;
   if (item.system.activation.type !== "reaction") {
     console.warn(`midi-qol | itemReaction | item ${item.name} has a reaction type of ${item.system.activation.type} which is deprecated - please update to reaction and reaction conditions`)
