@@ -35,41 +35,40 @@ Once you've done that come back and read through the rest of the configuation gu
 2. Configure midi-qol to work the way you want.
 3. Get some midi-compatible items to make all this automation stuff work.
 
-## Prequisites
-### Modules you must also install
-#### Dynamic Active Effects (DAE)
-#### libwrapper
-#### sockeilib
-No longer required or supported.
-### Modules you really should install
-#### Times-up
+## Prerequisites (modules you must install).
+* Dynamic Active Effects (DAE)
+* libwrapper
+* sockeilib
+
+## No longer required or supported.
+* Advanced Macros
+* ItemMacro
+
+## Modules you really should install.
+* **Times-up.**
 Required if you want effects to automatically be removed on expiry, either world time on combat turn/round. If you want time to advance in your world both **Simple Calendar** and **Small Time** are highly recommended.
 
-### Modules that are nice to have
-#### Convenient Effects
-Convenient Effects provides status effects, like blinded charmed and so pre-configured and can be applied to targets as the result of using an item. In addition, when using an item midi can automatically apply the convenient effects defined effects for that spell.
+## Modules that are nice to have
+* **Convenient Effects** provides status effects, like blinded charmed and so pre-configured and can be applied to targets as the result of using an item. In addition, when using an item midi can automatically apply the convenient effects defined effects for that spell.
 
-Condition Lab and triggler (CLT) allows configuration of status effects which you can apply with midi-qol.
+* **Condition Lab and triggler (CLT)** allows configuration of status effects which you can apply with midi-qol (**no longer being developed!**)
 
-### Monks Token Bar/Let Me Roll That for You.
-When automating saving throws both of these modules allow you to have players roll their own saving throws and midi-qol will interact with them to prompt for and record the saving throws. Both are recommended. The only "issue" is that monk's token bar will not hide the monster names when displayed.
+* **Monks Token Bar/Let Me Roll That for You**:
+When automating saving throws both of these modules allow you to have players roll their own saving throws and midi-qol will interact with them to prompt for and record the saving throws (_Monk's Tokenbar is recommended as LMRTFY is not actively being developed anymore_).
 
-#### Automated Animation
+* **Automated Animation.**
 This adds some nice animations to item/spell usage and is configured to work with midi-qol. Highly recommended.
 
-#### Dice So Nice
+* **Dice So Nice.**
 If you like 3d dice rolled to the screen this is a must have. It is mostly compatible with midi-qol. Any oddities are the result of midi-qol.
 
-#### Active Token Effects 
+* **Active Token Effects.**
 This adds to the list of effects you can apply for things like vision lighting and so on.
 
-#### Effect Macros
+* **Effect Macros.**
 Allows you run a macro when an effect is applied/created/toggled.
 
-#### Template Macros
-Allows you to run a macro when a template is created/entered/exited.
-
-#### Active Auras
+* **Active Auras.**
 This allows effects to be applied to nearby tokens without having to trigger any items. Think Paladin's Aura of Protection
 
 #### 
@@ -87,7 +86,7 @@ The steps are:
   * Optional rules
   * Mechanics.
 
-Most setings are configured on the configuratin application (the workflow button on configure settings) and is accessible only to a GM. Some settings available to all users are on the configuration settings application from the foundry sidebar.
+Most setings are configured on the configuration application (the workflow button on configure settings) and is accessible only to a GM. Some settings available to all users are on the configuration settings application from the foundry sidebar.
 
 #### Configure attack and damage rolls
 Midi has several concepts that can be confusing to first time users.
