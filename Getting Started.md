@@ -13,9 +13,9 @@ Foundry has displayed a chat card with buttons on it for attack and damage and d
   * Roll the saving throw remembering if the save is made with advantage/disadvantage and any bonuses to apply
   * Decide if the saving throw was successful.
   * Work out how much damage to apply to the token, remembering to factor in resistance/immunities/the saving throw.
-  * Apply any sepcial effects that the attack mid have, e.g. the posisoned condition.
+  * Apply any special effects that the attack might have, e.g. the posisoned condition.
 
-Midi-qol exists to help you automate the some or all of these steps. Before going through the detail of how to set this up here is the same attack done with midi-qol with full automation, all accomplished with a single cick of the item button.
+Midi-qol exists to help you automate some or all of these steps. Before going through the details of how to set this up here is the same attack done with midi-qol with full automation, all accomplished with a single cick of the item button.
 
 | Spider Bite | Extra actions generated with same click |
 | ------ | ------ |
@@ -24,8 +24,8 @@ Midi-qol exists to help you automate the some or all of these steps. Before goin
 Midi-qol is a fairly complex module with many configuration options and dependencies on other modules. To make it work you have to go through a setup process where you configure it to work the way you want.
 
 If you are too impatient to read a getting started guide, here is the quickest way to get something working. 
-  1. Install the prerequisite modules (libsocket, libwrapper and Dynami Active Effects), midi-qol won't activate without them.
-  2. Got to configure settings and for midi-qol tick "Enable Combat Automation".
+  1. Install the prerequisite modules (socketlib, libwrapper and Dynamic Active Effects), midi-qol won't activate without them.
+  2. Go to configure settings and for midi-qol tick "Enable Combat Automation".
   3. Navigate to the midi-qol settings and click on the workflow button.
   4. Go to the quick settings tab and click full automation and confirm the changes. Midi will now do most things out of the box when you target an opponent and roll the sword.
 
@@ -37,17 +37,16 @@ Once you've done that come back and read through the rest of the configuation gu
 
 ## Prequisites
 ### Modules you must also install
-#### libsocket
+#### Dynamic Active Effects (DAE)
 #### libwrapper
-#### Dynamic Active Effects
-#### Advanced Macros
+#### sockeilib
 No longer required or supported.
 ### Modules you really should install
 #### Times-up
 Required if you want effects to automatically be removed on expiry, either world time on combat turn/round. If you want time to advance in your world both **Simple Calendar** and **Small Time** are highly recommended.
 
 ### Modules that are nice to have
-#### Convenient Effects or Condition Lab and Triggler
+#### Convenient Effects
 Convenient Effects provides status effects, like blinded charmed and so pre-configured and can be applied to targets as the result of using an item. In addition, when using an item midi can automatically apply the convenient effects defined effects for that spell.
 
 Condition Lab and triggler (CLT) allows configuration of status effects which you can apply with midi-qol.
@@ -84,7 +83,7 @@ The steps are:
 3. Look and feel
 4. Configure Other optional settings
   * Reactions
-  * Concentration
+  * Concentration (now uses the system's concentration with some added extras)
   * Optional rules
   * Mechanics.
 
@@ -151,7 +150,7 @@ Midi can automate the process of requesting and adjudicating saves.
 ### Advanced(ish) features
 #### Configure Concentration
 ![Concentration](GettingStartedPics/Concentration.png)
-Midi-qol can automate the application of concentration, warning players when casting a spell would break concentration and force a concentration save when a concentrating actor is damaged.
+Midi-qol nowadays expands on the system's implementation of concentration, warning players when casting a spell would break concentration and force a concentration save when a concentrating actor is damaged.
 
 #### Configure Reactions
 
@@ -170,9 +169,24 @@ There a quite a few sources of items and there are certainly others I am not awa
 
 * **Midi Sample Items Compendium** A small number of items/spells/features are provided in the sample item's compendium. They are intended to showcase techniques you can use to create your own effects.
 
-* **Midi SRD and DAE SRD** available as modules these provide quite a lot of items configured and ready to go.
+* **Cauldron of Plentiful Resources (CPR)**.
 
-* **@Crynmic** is creating lots of spell/item/feature effects. Access requires patreon support but there are many features available.
+* **D&D Beyond Importer (DDBi)**.
+
+* **Gambit's Premades (GPS)**
+
+* **Midi Item Showcase Community (MISC)**
+
+* **@Crymic** is creating lots of spell/item/feature effects. Access requires patreon support but there are many features available.
+
+* **Worth mentioning modules for homebrew Items/rules**
+  * **Bossloot Magic Items** (free and patreon versions)
+
+  * **Elkan 5e**
+
+  * **Shayne's Box of Everything**
+
+  * **Stroud's DnD Helpers**
 
 * **Others I don't know about** Probably many. 
 
