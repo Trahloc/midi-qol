@@ -71,6 +71,9 @@ Allows you run a macro when an effect is applied/created/toggled.
 * **Active Auras.**
 This allows effects to be applied to nearby tokens without having to trigger any items. Think Paladin's Aura of Protection
 
+* **Anonymous**. 
+This module can help you hide the names of creatures that you don't want revealed to your players and is compatible with MidiQOL.
+
 #### 
 ## Configuration
 ### Conguration overview
