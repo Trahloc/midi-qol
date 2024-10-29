@@ -1,5 +1,14 @@
-* Future versions: There are no hard and fast timelines for these releases, but....
-    * Compatibility with 5e v4.0.x: In alpha build testing, for which you can ask in the discord server.
+
+### 11.6.26
+* clear deprecation warnings for setProperty/duplicate.
+* clear deprecation error for CONST.CHAT_MESSAGE_STYLES.ROLL is deprecated in favor of defining rolls directly in ChatMessage#rolls Deprecated since Version 12
+*handling for flags.midi-qol.optional.NAME.ac; treated as reactions but should not be directly linked to usedReaction;
+* adding more context to the Dummyworkflow() and the options passed to the callMarco() in case of a flags.midi-qol.optional.NAME.ac | Override | ItemMacro.name of item and/or a subsequent .macroToCall for the same optional.
+* fix for addRollTo when passing as a bonusRoll a formula containing operatorTerms, which would be non evaluated and trigger an error for You can only call Roll.fromTerms(terms) with an array or terms which are either all evaluated, or none evaluated
+* remove the isDamaged reactions from the ones altering the reactionFlavor based on the showReactionAttackRoll settings.
+* Expose itemReaction and maxCastLevel as maxReactionCastLevel
+* Makes sure that if you alter the damage to be applied in a preTargetApplication/isDamaged/isHealed Hook (...), and the resulting damage would change the isDamaged to isHealed or vice versa, the correct Special Duration effect removal is triggered. 
+* Fix for when configSettings.midiFieldsTab false, rendering an item sheet can lead to maximum stack overflow error.
 
 ### 11.6.25.1
 * Actually fix the case of incorrectly displaying hit check mark when disabled.
