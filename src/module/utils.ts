@@ -102,8 +102,8 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
   if (dmgTypeString.includes("healing") || dmgTypeString.includes("temphp")) totalMult = -1;
   if (dmgTypeString.includes("midi-none")) return 0;
   if (configSettings.damageImmunities === "none") return totalMult;
-  let phsyicalDamageTypes;
-  phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
+  let physicalDamageTypes;
+  physicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
 
   if (dmgTypeString !== "") {
     // if not checking all damage counts as magical
@@ -114,7 +114,7 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
     magicalDamage = magicalDamage || damageProperties.includes("mgc");
     const silverDamage = item?.system.properties.has("sil") || magicalDamage || damageProperties.includes("sil");
     const adamantineDamage = item?.system.properties?.has("ada") || damageProperties.includes("ada");
-    const physicalDamage = phsyicalDamageTypes.includes(dmgTypeString);
+    const physicalDamage = physicalDamageTypes.includes(dmgTypeString);
 
     let traitList = [
       { type: "di", mult: configSettings.damageImmunityMultiplier },
@@ -183,11 +183,11 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
         // Support old style leftover settings
         if (configSettings.damageImmunities === "immunityPhysical") {
           if (!magicalDamage && trait.has("physical"))
-            phsyicalDamageTypes.forEach(dt => trait.add(dt))
+            physicalDamageTypes.forEach(dt => trait.add(dt))
           if (!(magicalDamage || silverDamage) && trait.has("silver"))
-            phsyicalDamageTypes.forEach(dt => trait.add(dt))
+            physicalDamageTypes.forEach(dt => trait.add(dt))
           if (!(magicalDamage || adamantineDamage) && trait.has("adamant"))
-            phsyicalDamageTypes.forEach(dt => trait.add(dt))
+            physicalDamageTypes.forEach(dt => trait.add(dt))
         }
 
       }

@@ -2046,9 +2046,9 @@ function removeTraitValue(traitValue: string[] | Set<string>, toRemove): string[
 }
 
 function addPhysicalDamages(traitValue) {
-  let phsyicalDamageTypes;
-  phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
-  for (let dt of phsyicalDamageTypes) {
+  let physicalDamageTypes;
+  physicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
+  for (let dt of physicalDamageTypes) {
     if (traitValue instanceof Set) traitValue.add(dt);
     else if (!traitValue.includes(dt)) traitValue.push(dt);
   }
