@@ -403,6 +403,12 @@ function configureDamage(wrapped) {
 
 async function doAbilityRoll(wrapped, rollType: string, ...args) {
   let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false, isConcentrationCheck: false }] = args;
+  if (debugEnabled > 0) {
+    //TODO - why are there 2 calls for that? - Is the dnd5e system chat message calling the hook?
+    console.warn("MidiQOL doAbilityRoll", {isConcentrationCheck: options.isConcentrationCheck});
+    console.warn("MidiQOL doAbilityRoll", {isConcentration: options.isConcentration});
+    //these are never both true
+  }
   let overtimeActorUuid;
   if (options.event) {
     const target = options.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
@@ -526,7 +532,8 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     if (rollMode !== "blindroll") rollMode = result.options.rollMode;
     await displayDSNForRoll(result, rollType, rollMode);
     foundry.utils.mergeObject(messageData, { "flags": options.flags ?? {} });
-    foundry.utils.setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
+    if (options.isConcentrationCheck) foundry.utils.mergeObject(messageData, { "flags.midi-qol": { isConcentrationCheck: true } });
+    if (installedModules.get("lmrtfy")) foundry.utils.setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
     if (!options.simulate) {
       result = await bonusCheck(this, result, rollType, abilityId, messageData);
       DSNMarkDiceDisplayed(result);
