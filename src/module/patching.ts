@@ -476,8 +476,8 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
 
     if (options.isConcentrationCheck) {
       procOptions.isConcentrationCheck = false; // stop an infinite loop
-      result = await this.rollConcentration(procOptions)
-    } else  result = await wrapped(abilityId, procOptions);
+      return await this.rollConcentration(procOptions)
+    } else result = await wrapped(abilityId, procOptions);
     if (success === false) {
       result = new Roll("-1[auto fail]");
       // V12 - since the roll is -1 evaluateSync will work
