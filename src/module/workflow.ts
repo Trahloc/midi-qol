@@ -3901,7 +3901,7 @@ export class Workflow {
     await asyncHooksCallAll(`midi-qol.preTargetDamageApplication`, token, { item: this.item, workflow: this, damageItem: damages, ditem: damages });
 
     if (damages.hpDamage !== 0 && (this.hitTargets.has(token) || this.hitTargetsEC.has(token) || this.saveItem.hasSave)) {
-      const healedDamaged = damages.hpDamage < 0 ? "isHealed" : "isDamaged";
+      let healedDamaged = damages.hpDamage < 0 ? "isHealed" : "isDamaged";
       await asyncHooksCallAll(`midi-qol.${healedDamaged}`, token, { item: this.item, workflow: this, damageItem: damages, ditem: damages });
       const actorOnUseMacros = foundry.utils.getProperty(token.actor ?? {}, `flags.${MODULE_ID}.onUseMacroParts`) ?? new OnUseMacros();
       // It seems applyTokenDamageMany without a this gets through to here - so a silly guard in place TODO come back and fix this properly
@@ -3910,11 +3910,12 @@ export class Workflow {
         "TargetOnUse",
         healedDamaged,
         { actor: token.actor, token: token });
+      healedDamaged = damages.hpDamage < 0 ? "isHealed" : "isDamaged";  //recalculate what the total damage and trigger the correct special duration expiration.
       const expiredEffects = getAppliedEffects(token?.actor, { includeEnchantments: true }).filter(ef => {
         const specialDuration = foundry.utils.getProperty(ef, "flags.dae.specialDuration");
         if (!specialDuration) return false;
         return specialDuration.includes(healedDamaged);
-      }).map(ef => ef.uuid)
+      }).map(ef => ef.uuid);
       if (expiredEffects?.length ?? 0 > 0) {
         await timedAwaitExecuteAsGM("removeEffectUuids", {
           actorUuid: token.actor?.uuid,
