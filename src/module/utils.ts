@@ -1030,7 +1030,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       if (saveResult?.class) saveResult = JSON.parse(JSON.stringify(saveResult));
       const success = saveResult?.options?.success || saveResult?.total >= saveDC;
       if (saveResult?.options) saveResultDisplayed = true;
-      setProperty(effect, `flags.${MODULE_ID}.actionSaveSuccess`, success === true);
+      foundry.utils.setProperty(effect, `flags.${MODULE_ID}.actionSaveSuccess`, success === true);
     } else if (actionSave && actionSave === "roll" && options.isActionSave && options.saveToUse) {
       // player has made a save record the save/flags on the effect
       // if a match and saved then record the save success
@@ -3017,9 +3017,9 @@ async function displayBeforeAfterRolls(data: { originalRoll: Roll, newRoll: Roll
   //@ts-expect-error
   if (game.release.generation < 12) {
     chatData.type = CONST.CHAT_MESSAGE_TYPES.ROLL;
-  } else {
+  /*} else {
     //@ts-expect-error
-    chatData.style = CONST.CHAT_MESSAGE_STYLES.ROLL;
+    chatData.style = CONST.CHAT_MESSAGE_STYLES.ROLL; */
   }
   //@ts-expect-error
   if (originalRoll.options.rollMode) ChatMessage.applyRollMode(chatData, originalRoll.options.rollMode);
@@ -3082,14 +3082,14 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         let item = MQfromUuidSync(itemUuidOrName);
         if (!item && this.actor) item = this.actor.items.getName(itemUuidOrName);
         if (!item && this instanceof Actor) item = this.items.getName(itemUuidOrName);
-        workflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], {});
+        workflow = new DummyWorkflow(this.actor ?? this, item, ChatMessage.getSpeaker({ actor: this.actor }), [], options);
       }
       const macroData = workflow.getMacroData();
       macroData.macroPass = `${button.key}.${flagSelector}`;
       macroData.tag = "optional";
       macroData.roll = roll;
-
-      result = await workflow.callMacro(workflow?.item, macroToCall, macroData, { roll, bonus: (!specificMacro ? button.value : undefined) });
+      foundry.utils.mergeObject(options, { roll, bonus: (!specificMacro ? button.value : undefined) });
+      result = await workflow.callMacro(workflow?.item, macroToCall, macroData, options);
       if (typeof result === "string")
         button.value = result;
       else if (typeof result === "number")
@@ -3109,7 +3109,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType, rollMode);
         newRoll = reRoll; break;
       case "reroll-query":
-        reRoll = reRoll = await roll.reroll();
+        reRoll = await roll.reroll();
         if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType, rollMode);
         const newRollHTML = await midiRenderRoll(reRoll);
         if (await Dialog.confirm({ title: "Confirm reroll", content: `Replace ${rollHTML} with ${newRollHTML}`, defaultYes: true }))
@@ -3139,13 +3139,13 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         newRoll.terms[0].results.forEach(res => res.result = 99);
         //@ts-expect-error
         newRoll._total = 99;
-        setProperty(newRoll, "options", duplicate(roll.options))
-        setProperty(newRoll, "options.success", true);
+        foundry.utils.setProperty(newRoll, "options", foundry.utils.duplicate(roll.options))
+        foundry.utils.setProperty(newRoll, "options.success", true);
         break;
       case "fail":
         newRoll = newRoll = await roll.clone().evaluate();
-        setProperty(newRoll, "options", duplicate(roll.options))
-        setProperty(newRoll, "options.success", false);
+        foundry.utils.setProperty(newRoll, "options", foundry.utils.duplicate(roll.options))
+        foundry.utils.setProperty(newRoll, "options.success", false);
         //@ts-expect-error
         newRoll.terms[0].results.forEach(res => res.result = -1);
         //@ts-expect-error
@@ -3457,7 +3457,7 @@ export function isConcentrating(actor: globalThis.dnd5e.documents.Actor5e): unde
   return actor.effects.find(e => e.statuses.has(CONFIG.specialStatusEffects.CONCENTRATING) && !e.disabled && !e.isSuppressed)
 }
 
-function maxCastLevel(actor) {
+export function maxCastLevel(actor) {
   if (configSettings.ignoreSpellReactionRestriction) return 9;
   const spells = actor.system.spells;
   if (!spells) return 0;
@@ -3505,7 +3505,7 @@ async function getMagicItemReactions(actor: Actor, triggerType: string): Promise
   return items;
 }
 
-function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
+export function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
   if (!item.system.activation?.type?.includes("reaction")) return false;
   if (item.system.activation.type !== "reaction") {
     console.warn(`midi-qol | itemReaction | item ${item.name} has a reaction type of ${item.system.activation.type} which is deprecated - please update to reaction and reaction conditions`)
@@ -3618,16 +3618,15 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
       return { name: "Filter", ac: 0, uuid: undefined };
     }
     reactionCount = reactionItemList?.length ?? 0;
-    if (!usedReaction) {
-      //@ts-expect-error .flags
-      const midiFlags: any = target.actor.flags[MODULE_ID];
-      reactionCount = reactionCount + Object.keys(midiFlags?.optional ?? [])
-        .filter(flag => {
-          if (triggerType !== "reaction" || !midiFlags?.optional[flag].ac) return false;
-          if (!midiFlags?.optional[flag].count) return true;
-          return getOptionalCountRemainingShortFlag(target.actor, flag) > 0;
-        }).length
-    }
+    //@ts-expect-error .flags
+    const midiFlags: any = target.actor.flags[MODULE_ID];
+    reactionCount = reactionCount + Object.keys(midiFlags?.optional ?? [])
+      .filter(flag => {
+        if (triggerType !== "reaction" || !midiFlags?.optional[flag].ac) return false;
+        if (!midiFlags?.optional[flag].count) return true;
+        if (midiFlags?.optional[flag].count === "reaction" || midiFlags?.optional[flag].countAlt === "reaction") return !usedReaction;
+        return getOptionalCountRemainingShortFlag(target.actor, flag) > 0;
+      }).length;
 
     if (reactionCount <= 0) return noResult;
 
@@ -3650,7 +3649,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     // {"none": "Attack Hit", "d20": "d20 roll only", "d20Crit": "d20 + Critical", "all": "Whole Attack Roll"},
 
     let content = reactionFlavor;
-    if (["isHit", "isMissed", "isCrit", "isFumble", "isDamaged", "isAttacked"].includes(reactionTriggerLabelFor(triggerType))) {
+    if (["isHit", "isMissed", "isCrit", "isFumble", "isAttacked"].includes(reactionTriggerLabelFor(triggerType))) {
       switch (configSettings.showReactionAttackRoll) {
         case "all":
           content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""}</h4>`;
@@ -3779,12 +3778,14 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
       if (debugEnabled > 0) warn("promptReactions | reaction processing returned after ", endTime - startTime, result)
       if (result.uuid) return result; //TODO look at multiple choices here
     }
-    if (usedReaction) return { name: "None" };
-    if (!midiFlags) return { name: "None" };
+    //Specific handling for flags.midi-qol.optional.NAME.ac; treated as reactions but should not be directly linked to usedReaction;
+    /*if (usedReaction) return { name: "None" };*/
+    if (usedReaction && !midiFlags) return { name: "None" };
     const validFlags = Object.keys(midiFlags?.optional ?? {})
       .filter(flag => {
         if (!midiFlags.optional[flag].ac) return false;
         if (!midiFlags.optional[flag].count) return true;
+        if (midiFlags.optional[flag].count === "reaction" || midiFlags.optional[flag].countAlt === "reaction") return !usedReaction;
         return getOptionalCountRemainingShortFlag(actor, flag) > 0;
       }).map(flag => `flags.${MODULE_ID}.optional.${flag}`);
     if (validFlags.length > 0 && triggerType === "reaction") {
@@ -3795,9 +3796,10 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
         roll: acRoll,
         rollHTML: reactionFlavor,
         rollTotal: acRoll.total,
+        options: { triggerTokenUuid, triggerItemUuid: options?.itemUuid, triggerActorUuid: options?.workflowOptions?.sourceActorUuid, triggerWorkflowName: options?.workflowOptions?.workflowName }
       }
       //@ts-expect-error attributes
-      const newAC = await bonusDialog.bind(data)(validFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, acRoll, "roll");
+      const newAC = await bonusDialog.bind(data)(validFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, acRoll, "roll", data.options);
       const endTime = Date.now();
       if (debugEnabled > 0) warn("promptReactions | returned via bonus dialog ", endTime - startTime)
       return { name: actor.name, uuid: actor.uuid, ac: newAC.total };
@@ -5815,6 +5817,13 @@ export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
   }
   //@ts-expect-error _evaluate
   if (!bonusRoll._evaluated) bonusRoll = bonusRoll.clone().evaluate({ async: false }) // V12
+  else {
+    for (let term of bonusRoll.terms) {
+      //@ts-expect-error _evaluated
+      if (!term._evaluated && term instanceof OperatorTerm) {
+        term.evaluate();
+    }
+  }
   let terms;
   if (bonusRoll.terms[0] instanceof OperatorTerm) {
     terms = roll.terms.concat(bonusRoll.terms);

@@ -1210,7 +1210,7 @@ export class Workflow {
     // If a damage card is going to be created don't call the isDamaged macro - wait for the damage card calculations to do a better job
     if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true && !configSettings.autoApplyDamage.includes("Card"))
       await this.triggerTargetMacros(["isDamaged"], this.hitTargets);
-    if (debugEnabled > 1) debug("all rolls complete ", duplicate(this.rawDamageDetail));
+    if (debugEnabled > 1) debug("all rolls complete ", foundry.utils.duplicate(this.rawDamageDetail));
     return this.WorkflowState_ApplyDynamicEffects;
   }
 
@@ -3134,7 +3134,7 @@ export class Workflow {
         content: `<div data-item-id="${this.item.id}"></div> ${saveContent}`,
         flavor: `<h4>${this.saveDisplayFlavor}</h4>`,
       };
-      setProperty(chatData, `flags.${MODULE_ID}.type`, MESSAGETYPES.SAVES);
+      foundry.utils.setProperty(chatData, `flags.${MODULE_ID}.type`, MESSAGETYPES.SAVES);
 
       //@ts-expect-error
       if (game.release.generation < 12) {
@@ -4384,7 +4384,7 @@ export class Workflow {
           let inRange = target.actor
             //@ts-expect-error .disposition v10
             && dispositions.includes(target.document.disposition);
-          if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIngoreIncapcitate"].includes(configSettings.rangeTarget))
+          if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIgnoreIncapacitated"].includes(configSettings.rangeTarget))
             inRange = inRange && !checkIncapacitated(target.actor, debugEnabled > 0);
           if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.rangeTarget))
             inRange = inRange && !checkDefeated(target);
@@ -4959,7 +4959,7 @@ export class TrapWorkflow extends Workflow {
     return this.WorkflowState_AllRollsComplete;
   }
   async WorkflowState_AllRollsComplete(context: any = {}): Promise<WorkflowState> {
-    if (debugEnabled > 1) debug("all rolls complete ", duplicate(this.rawDamageDetail))
+    if (debugEnabled > 1) debug("all rolls complete ", foundry.utils.duplicate(this.rawDamageDetail))
     if (this.rawDamageDetail.length) await processDamageRoll(this, this.rawDamageDetail[0].type)
     return this.WorkflowState_ApplyDynamicEffects;
   }

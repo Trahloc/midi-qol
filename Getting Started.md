@@ -13,9 +13,9 @@ Foundry has displayed a chat card with buttons on it for attack and damage and d
   * Roll the saving throw remembering if the save is made with advantage/disadvantage and any bonuses to apply
   * Decide if the saving throw was successful.
   * Work out how much damage to apply to the token, remembering to factor in resistance/immunities/the saving throw.
-  * Apply any sepcial effects that the attack mid have, e.g. the posisoned condition.
+  * Apply any special effects that the attack might have, e.g. the posisoned condition.
 
-Midi-qol exists to help you automate the some or all of these steps. Before going through the detail of how to set this up here is the same attack done with midi-qol with full automation, all accomplished with a single cick of the item button.
+Midi-qol exists to help you automate some or all of these steps. Before going through the details of how to set this up here is the same attack done with midi-qol with full automation, all accomplished with a single cick of the item button.
 
 | Spider Bite | Extra actions generated with same click |
 | ------ | ------ |
@@ -24,8 +24,8 @@ Midi-qol exists to help you automate the some or all of these steps. Before goin
 Midi-qol is a fairly complex module with many configuration options and dependencies on other modules. To make it work you have to go through a setup process where you configure it to work the way you want.
 
 If you are too impatient to read a getting started guide, here is the quickest way to get something working. 
-  1. Install the prerequisite modules (libsocket, libwrapper and Dynami Active Effects), midi-qol won't activate without them.
-  2. Got to configure settings and for midi-qol tick "Enable Combat Automation".
+  1. Install the prerequisite modules (socketlib, libwrapper and Dynamic Active Effects), midi-qol won't activate without them.
+  2. Go to configure settings and for midi-qol tick "Enable Combat Automation".
   3. Navigate to the midi-qol settings and click on the workflow button.
   4. Go to the quick settings tab and click full automation and confirm the changes. Midi will now do most things out of the box when you target an opponent and roll the sword.
 
@@ -35,43 +35,44 @@ Once you've done that come back and read through the rest of the configuation gu
 2. Configure midi-qol to work the way you want.
 3. Get some midi-compatible items to make all this automation stuff work.
 
-## Prequisites
-### Modules you must also install
-#### libsocket
-#### libwrapper
-#### Dynamic Active Effects
-#### Advanced Macros
-No longer required or supported.
-### Modules you really should install
-#### Times-up
+## Prerequisites (modules you must install).
+* Dynamic Active Effects (DAE)
+* libwrapper
+* sockeilib
+
+## No longer required or supported.
+* Advanced Macros
+* ItemMacro
+
+## Modules you really should install.
+* **Times-up.**
 Required if you want effects to automatically be removed on expiry, either world time on combat turn/round. If you want time to advance in your world both **Simple Calendar** and **Small Time** are highly recommended.
 
-### Modules that are nice to have
-#### Convenient Effects or Condition Lab and Triggler
-Convenient Effects provides status effects, like blinded charmed and so pre-configured and can be applied to targets as the result of using an item. In addition, when using an item midi can automatically apply the convenient effects defined effects for that spell.
+## Modules that are nice to have
+* **Convenient Effects** provides status effects, like blinded charmed and so pre-configured and can be applied to targets as the result of using an item. In addition, when using an item midi can automatically apply the convenient effects defined effects for that spell.
 
-Condition Lab and triggler (CLT) allows configuration of status effects which you can apply with midi-qol.
+* **Condition Lab and triggler (CLT)** allows configuration of status effects which you can apply with midi-qol (**no longer being developed!**)
 
-### Monks Token Bar/Let Me Roll That for You.
-When automating saving throws both of these modules allow you to have players roll their own saving throws and midi-qol will interact with them to prompt for and record the saving throws. Both are recommended. The only "issue" is that monk's token bar will not hide the monster names when displayed.
+* **Monks Token Bar/Let Me Roll That for You**:
+When automating saving throws both of these modules allow you to have players roll their own saving throws and midi-qol will interact with them to prompt for and record the saving throws (_Monk's Tokenbar is recommended as LMRTFY is not actively being developed anymore_).
 
-#### Automated Animation
+* **Automated Animation.**
 This adds some nice animations to item/spell usage and is configured to work with midi-qol. Highly recommended.
 
-#### Dice So Nice
+* **Dice So Nice.**
 If you like 3d dice rolled to the screen this is a must have. It is mostly compatible with midi-qol. Any oddities are the result of midi-qol.
 
-#### Active Token Effects 
+* **Active Token Effects.**
 This adds to the list of effects you can apply for things like vision lighting and so on.
 
-#### Effect Macros
+* **Effect Macros.**
 Allows you run a macro when an effect is applied/created/toggled.
 
-#### Template Macros
-Allows you to run a macro when a template is created/entered/exited.
-
-#### Active Auras
+* **Active Auras.**
 This allows effects to be applied to nearby tokens without having to trigger any items. Think Paladin's Aura of Protection
+
+* **Anonymous**. 
+This module can help you hide the names of creatures that you don't want revealed to your players and is compatible with MidiQOL.
 
 #### 
 ## Configuration
@@ -84,11 +85,11 @@ The steps are:
 3. Look and feel
 4. Configure Other optional settings
   * Reactions
-  * Concentration
+  * Concentration (now uses the system's concentration with some added extras)
   * Optional rules
   * Mechanics.
 
-Most setings are configured on the configuratin application (the workflow button on configure settings) and is accessible only to a GM. Some settings available to all users are on the configuration settings application from the foundry sidebar.
+Most setings are configured on the configuration application (the workflow button on configure settings) and is accessible only to a GM. Some settings available to all users are on the configuration settings application from the foundry sidebar.
 
 #### Configure attack and damage rolls
 Midi has several concepts that can be confusing to first time users.
@@ -151,7 +152,7 @@ Midi can automate the process of requesting and adjudicating saves.
 ### Advanced(ish) features
 #### Configure Concentration
 ![Concentration](GettingStartedPics/Concentration.png)
-Midi-qol can automate the application of concentration, warning players when casting a spell would break concentration and force a concentration save when a concentrating actor is damaged.
+Midi-qol nowadays expands on the system's implementation of concentration, warning players when casting a spell would break concentration and force a concentration save when a concentrating actor is damaged.
 
 #### Configure Reactions
 
@@ -170,9 +171,24 @@ There a quite a few sources of items and there are certainly others I am not awa
 
 * **Midi Sample Items Compendium** A small number of items/spells/features are provided in the sample item's compendium. They are intended to showcase techniques you can use to create your own effects.
 
-* **Midi SRD and DAE SRD** available as modules these provide quite a lot of items configured and ready to go.
+* **Cauldron of Plentiful Resources (CPR)**.
 
-* **@Crynmic** is creating lots of spell/item/feature effects. Access requires patreon support but there are many features available.
+* **D&D Beyond Importer (DDBi)**.
+
+* **Gambit's Premades (GPS)**
+
+* **Midi Item Showcase Community (MISC)**
+
+* **@Crymic** is creating lots of spell/item/feature effects. Access requires patreon support but there are many features available.
+
+* **Worth mentioning modules for homebrew Items/rules**
+  * **Bossloot Magic Items** (free and patreon versions)
+
+  * **Elkan 5e**
+
+  * **Shayne's Box of Everything**
+
+  * **Stroud's DnD Helpers**
 
 * **Others I don't know about** Probably many. 
 
