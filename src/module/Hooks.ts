@@ -837,6 +837,7 @@ export const overTimeJSONData = {
 
 export const itemJSONData = {
   "name": "Concentration Check - Midi QOL",
+  "_id": "mididnd5econ000",
   "type": "feat",
   "img": "./modules/midi-qol/icons/concentrate.png",
   "system": {
