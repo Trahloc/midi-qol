@@ -49,6 +49,20 @@ export function getDamageFlavor(damageType): string | undefined {
 }
 
 /**
+*  Modifies the provided damageItem! For use during the isDamaged macro passes.
+*/
+export function modifyDamageBy({ damageItem = {}, value, multiplier = 1, type = "none", reason }): {} {
+  //reminder: For use during the isDamaged macro passes ONLY!
+	if (foundry.utils.isEmpty(damageItem)) return;
+	if (!value) return;
+	const damageModification = { value, active: { multiplier }, type };
+	if (!MidiQOL.configSettings().useDamageDetail) damageItem.hpDamage += value;
+	damageItem.damageDetail.push(damageModification);
+	if (reason) damageItem.details.push(reason);
+	return damageModification;
+}
+
+/**
  *  return a list of {damage: number, type: string} for the roll and the item
  */
 export function createDamageDetail({ roll, item, defaultType = MQdefaultDamageType }): { damage: unknown; type: string; }[] {
