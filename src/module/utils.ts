@@ -1,16 +1,15 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, gameStats, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
-import { prepareDamagelistToJSON, socketlibSocket, timedAwaitExecuteAsGM, untimedExecuteAsGM, updateEffects } from "./GMAction.js";
+import { prepareDamagelistToJSON, socketlibSocket, timedAwaitExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { dice3dEnabled, installedModules } from "./setupModules.js";
-import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes, overTimeJSONData } from "./Hooks.js";
+import { concentrationCheckItemDisplayName, itemJSONData, midiFlagTypes } from "./Hooks.js";
 
 import { OnUseMacros } from "./apps/Item.js";
 import { Options } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
-import { toEditorSettings } from "typescript";
 
 const defaultTimeout = 30;
 export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | String;
@@ -51,15 +50,16 @@ export function getDamageFlavor(damageType): string | undefined {
 /**
 *  Modifies the provided damageItem! For use during the isDamaged macro passes.
 */
-export function modifyDamageBy({ damageItem = {}, value, multiplier = 1, type = "none", reason }): {} {
+export function modifyDamageBy({ damageItem, value, multiplier = 1, type = "none", reason }): {} {
   //reminder: For use during the isDamaged macro passes ONLY!
-	if (foundry.utils.isEmpty(damageItem)) return;
-	if (!value) return;
-	const damageModification = { value, active: { multiplier }, type };
-	if (!MidiQOL.configSettings().useDamageDetail) damageItem.hpDamage += value;
-	damageItem.damageDetail.push(damageModification);
-	if (reason) damageItem.details.push(reason);
-	return damageModification;
+  //@ts-expect-error
+  if (!damageItem || foundry.utils.isEmpty(damageItem)) return {};
+  if (!value) return {};
+  const damageModification = { value, active: { multiplier }, type };
+  if (!configSettings.useDamageDetail) damageItem.hpDamage += value;
+  damageItem.damageDetail.push(damageModification);
+  if (reason) damageItem.details.push(reason);
+  return damageModification;
 }
 
 /**
@@ -67,12 +67,9 @@ export function modifyDamageBy({ damageItem = {}, value, multiplier = 1, type = 
  */
 export function createDamageDetail({ roll, item, defaultType = MQdefaultDamageType }): { damage: unknown; type: string; }[] {
   let damageParts = {};
-  let rolls = roll;
+  let rolls = roll instanceof Roll ? [roll] : roll;
   //@ts-expect-error
   const DamageRoll = CONFIG.Dice.DamageRoll;
-  if (rolls instanceof Roll) {
-    rolls = [rolls];
-  }
   if (item?.system.damage?.parts[0]) {
     defaultType = item.system.damage.parts[0][1]
   }
@@ -1604,7 +1601,7 @@ export function checkDistance(t1: any, t2: any, distance: number, options: boole
     //@ts-expect-error
     foundry.utils.logCompatibilityWarning("checkDistance(t1,t2,wallsBlocking?) is deprecated in favor of checkDistance(t1,t2,{wallsBlock: Boolean, includeCover: Boolean}).", { since: "11.6.26", until: "12.0.0" });
   } else {
-    ({ wallsBlock = false, includeCover = true} = options);
+    ({ wallsBlock = false, includeCover = true } = options);
   }
   const dist = computeDistance(t1, t2, { wallsBlock, includeCover });
   return 0 <= dist && dist <= distance;
@@ -1630,7 +1627,7 @@ export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: b
     foundry.utils.logCompatibilityWarning("computeDistance(t1, t2, wallsBlock?: boolean) is deprecated in favor of computeDistance(t1, t2, { wallsBlock: boolean, includeCover: boolean }).", { since: "11.6.26", until: "12.0.0" });
   }
   else {
-     ({ wallsBlock = false, includeCover = true } = options);
+    ({ wallsBlock = false, includeCover = true } = options);
   }
   const actor = t1.actor;
   const ignoreWallsFlag = foundry.utils.getProperty(actor, `flags.${MODULE_ID}.ignoreWalls`);
@@ -3017,9 +3014,9 @@ async function displayBeforeAfterRolls(data: { originalRoll: Roll, newRoll: Roll
   //@ts-expect-error
   if (game.release.generation < 12) {
     chatData.type = CONST.CHAT_MESSAGE_TYPES.ROLL;
-  /*} else {
-    //@ts-expect-error
-    chatData.style = CONST.CHAT_MESSAGE_STYLES.ROLL; */
+    /*} else {
+      //@ts-expect-error
+      chatData.style = CONST.CHAT_MESSAGE_STYLES.ROLL; */
   }
   //@ts-expect-error
   if (originalRoll.options.rollMode) ChatMessage.applyRollMode(chatData, originalRoll.options.rollMode);
@@ -5050,6 +5047,7 @@ export function getChanges(actorOrItem, key: string) {
 export function canSense(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): boolean {
   return canSenseModes(tokenEntity, targetEntity, validModes).length > 0;
 }
+
 export function canSenseModes(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): Array<string> {
   const token = getToken(tokenEntity);
   const target = getToken(targetEntity);
@@ -5822,6 +5820,7 @@ export function addRollTo(roll: Roll, bonusRoll: Roll): Roll {
       //@ts-expect-error _evaluated
       if (!term._evaluated && term instanceof OperatorTerm) {
         term.evaluate();
+      }
     }
   }
   let terms;
