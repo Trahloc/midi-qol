@@ -532,7 +532,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     if (rollMode !== "blindroll") rollMode = result.options.rollMode;
     await displayDSNForRoll(result, rollType, rollMode);
     foundry.utils.mergeObject(messageData, { "flags": options.flags ?? {} });
-    if (options.isConcentrationCheck) foundry.utils.mergeObject(messageData, { "flags.midi-qol": { isConcentrationCheck: true } });
+    if (options.isConcentrationCheck || options.isConcentration) foundry.utils.mergeObject(messageData, { "flags.midi-qol": { isConcentrationCheck: true } });
     if (installedModules.get("lmrtfy")) foundry.utils.setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
     if (!options.simulate) {
       result = await bonusCheck(this, result, rollType, abilityId, messageData);
