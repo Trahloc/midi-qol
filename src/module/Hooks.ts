@@ -1,16 +1,15 @@
-import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID, getStaticID, isdndv4 } from "../midi-qol.js";
+import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID, isdndv4 } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuidSync, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, getReactionEffect, getBonusActionEffect, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating, getCEEffectByName, setRollMaxDiceTerm, setRollMinDiceTerm } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuidSync, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating, getCEEffectByName, setRollMaxDiceTerm, setRollMinDiceTerm } from "./utils.js";
 import { activateMacroListeners, getCurrentSourceMacros } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preUpdateItemActorOnUseMacro, zeroHPExpiry, deathSaveHook } from "./patching.js";
-import { preActivityConsumptionHook, preItemUsageConsumptionHook, preRollDamageHook, showItemInfo } from "./itemhandling.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { Workflow } from "./Workflow.js";
 import { ActorOnUseMacrosConfig } from "./apps/ActorOnUseMacroConfig.js";
 import { installedModules } from "./setupModules.js";
-import { setTokenSourceMapRange } from "typescript";
+import { preActivityConsumptionHook, activityConsumptionHook, showItemInfo } from "./activities/activityHelpers.js";
 
 export const concentrationCheckItemName = "Concentration Check - Midi QOL";
 export var concentrationCheckItemDisplayName = "Concentration Check";
@@ -161,10 +160,9 @@ export let readyHooks = async () => {
   // Hooks.on("restCompleted", restManager); I think this means 1.6 is required.
   Hooks.on("dnd5e.restCompleted", restManager);
 
-  if (isdndv4)
-    Hooks.on("dnd5e.preactivityConsumption", preActivityConsumptionHook);
-  else
-    Hooks.on("dnd5e.preItemUsageConsumption", preItemUsageConsumptionHook);
+  Hooks.on("dnd5e.preActivityConsumption", preActivityConsumptionHook);
+  Hooks.on("dnd5e.activityConsumption", activityConsumptionHook);
+
 
   //@ts-expect-error
   if (foundry.utils.isNewerVersion("12.1.0", game.modules.get("babonus")?.version ?? "0"))
@@ -194,9 +192,9 @@ function registerBaBonusHooks() {
 
   Hooks.on("babonus.filterBonuses", (bonuses, subjects, details, hookType) => {
     if (!(subjects.actor || !subjects.item)) return;
-      const subject = subjects.item ?? subjects.actor;
-      const hasOptionalBonus = bonuses?.some(bonus => bonus.optional);
-      foundry.utils.setProperty(subject, "flags.midi-qol.hasBabonusOptionalBonus", hasOptionalBonus);
+    const subject = subjects.item ?? subjects.actor;
+    const hasOptionalBonus = bonuses?.some(bonus => bonus.optional);
+    foundry.utils.setProperty(subject, "flags.midi-qol.hasBabonusOptionalBonus", hasOptionalBonus);
   });
 
   Hooks.on("dnd5e.preRollAttackV2", (rollConfig, dialogConfig, messageConfig) => {
@@ -947,7 +945,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || bypassesPresent.size > 0) continue; break;
             case "non-magical-physical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("mgc")) continue; break;
-            case "non-silver-pysical":
+            case "non-silver-physical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("sil")) continue;
               break;
             case "non-adamant-physical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("ada")) continue; break

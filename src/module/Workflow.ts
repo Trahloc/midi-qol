@@ -1,9 +1,8 @@
 import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID, NumericTerm } from "../midi-qol.js";
-import { postTemplateConfirmTargets, selectTargets, templateTokens } from "./itemhandling.js";
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, applyTokenDamage, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, getDistance, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, getDistanceSimple, requestPCActiveDefence, evalActivationCondition, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, getAutoTarget, hasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasDamage, activityHasAreaTarget, getsaveMultiplierForActivity, checkActivityRange } from "./utils.js"
+import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, applyTokenDamage, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, requestPCActiveDefence, evalActivationCondition, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, activityHasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasDamage, activityHasAreaTarget, getsaveMultiplierForActivity, checkActivityRange, computeDistance, getAoETargetType, getActivityAutoTarget } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -11,6 +10,7 @@ import { saveTargetsUndoData, saveUndoData } from "./undo.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
 import { MidiSummonActivity } from "./activities/SummonActivity.js";
+import { postTemplateConfirmTargets, selectTargets, templateTokens } from "./activities/activityHelpers.js";
 
 export const shiftOnlyEvent = { shiftKey: true, altKey: false, ctrlKey: false, metaKey: false, type: "" };
 export function noKeySet(event) { return !(event?.shiftKey || event?.ctrlKey || event?.altKey || event?.metaKey) }
@@ -342,7 +342,7 @@ export class Workflow {
         this.item.flags.midiProperties = {};
       }
     }
-    this.needTemplate = (getAutoTarget(this.item) !== "none" && activityHasAreaTarget(this.activity) && !hasAutoPlaceTemplate(this.item));
+    this.needTemplate = (getActivityAutoTarget(this.activity) !== "none" && activityHasAreaTarget(this.activity) && !activityHasAutoPlaceTemplate(this.item));
     if (this.needTemplate && options.noTemplateHook !== true) {
       if (debugEnabled > 0) warn("registering for preCreateMeasuredTemplate, createMeasuredTemplate")
       this.preCreateTemplateHookId = Hooks.once("preCreateMeasuredTemplate", this.setTemplateFlags.bind(this));
@@ -372,7 +372,8 @@ export class Workflow {
     if (debugEnabled > 0) warn("setTemplateFlags", templateDoc, this.item?.uuid, this.actor.uuid)
     if (this.item) templateDoc.updateSource({ "flags.midi-qol.itemUuid": this.item.uuid });
     if (this.actor) templateDoc.updateSource({ "flags.midi-qol.actorUuid": this.actor.uuid });
-    if (!foundry.utils.getProperty(templateDoc, "flags.dnd5e.origin")) templateDoc.updateSource({ "flags.dnd5e.origin": this.item?.uuid });
+    if (this.activity) templateDoc.updateSource({ "flags.midi-qol.activityUuid": this.activity.uuid });
+    if (!foundry.utils.getProperty(templateDoc, "flags.dnd5e.origin")) templateDoc.updateSource({ "flags.dnd5e.origin": this.uuid });
     return true;
   }
 
@@ -656,8 +657,8 @@ export class Workflow {
       this.failedSaves = new Set(this.targets);
       this.selfTargeted = true;
     }
-    this.temptargetConfirmation = getAutoTarget(this.item) !== "none" && activityHasAreaTarget(this.activity);
-    if (debugEnabled > 1) debug("WORKFLOW NONE", getAutoTarget(this.item), activityHasAreaTarget(this.activity));
+    this.temptargetConfirmation = getActivityAutoTarget(this.activity) !== "none" && activityHasAreaTarget(this.activity);
+    if (debugEnabled > 1) debug("WORKFLOW NONE", getActivityAutoTarget(this.activity), activityHasAreaTarget(this.activity));
     if (this.temptargetConfirmation) {
       return this.WorkflowState_AwaitTemplate;
     }
@@ -967,7 +968,8 @@ export class Workflow {
     const noHits = this.hitTargets.size === 0 && this.hitTargetsEC.size === 0;
     const allMissed = noHits && this.targets.size !== 0;
     if (allMissed) {
-      if (configSettings.confirmAttackDamage !== "none" && !this.workflowOptions.forceCompletion) return this.WorkflowState_ConfirmRoll;
+      if (configSettings.confirmAttackDamage !== "none" && !this.workflowOptions.forceCompletion)
+        return this.WorkflowState_ConfirmRoll;
       if (this.workflowOptions.forceCompletion) {
         expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"])
         await this.expireTargetEffects(["isAttacked"]);
@@ -1066,7 +1068,7 @@ export class Workflow {
       await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, getRemoveAttackButtons(this.item), getRemoveDamageButtons(this.item));
       await Workflow.removeItemCardConfirmRollButton(this.itemCardUuid);
     }
-    if (getAutoTarget(this.item) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
+    if (getActivityAutoTarget(this.activity) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
       // we are not auto targeting so for area effect attacks, without hits (e.g. fireball)
       this.targets = validTargetTokens(game.user?.targets);
       this.hitTargets = validTargetTokens(game.user?.targets);
@@ -1957,7 +1959,7 @@ export class Workflow {
       } else if (this.item.system.properties?.has("thr")) {
         const meleeRange = 5 + (this.item.system?.properties?.has("rch") ? 5 : 0);
         //@ts-expect-error .first
-        if (getDistance(me, this.targets.first(), false) <= meleeRange) nearbyFoe = false;
+        if (computeDistance(me, this.targets.first(), { wallsBlock: false }) <= meleeRange) nearbyFoe = false;
         else nearbyFoe = checkNearby(-1, canvas?.tokens?.get(this.tokenId), configSettings.optionalRules.nearbyFoe, { includeIncapacitated: false, canSee: true });
       }
       if (nearbyFoe) {
@@ -2028,7 +2030,7 @@ export class Workflow {
       const grants = firstTarget.actor?.flags[MODULE_ID]?.grants?.critical ?? {};
       const fails = firstTarget.actor?.flags[MODULE_ID]?.fail?.critical ?? {};
       if (grants || fails) {
-        if (Number.isNumeric(grants.range) && getDistanceSimple(firstTarget, this.token, false) <= Number(grants.range)) {
+        if (Number.isNumeric(grants.range) && computeDistance(firstTarget, this.token, { wallsBlock: false }) <= Number(grants.range)) {
           this.critFlagSet = true;
         }
         const conditionData = createConditionData({ workflow: this, target: firstTarget, actor: this.actor });
@@ -3843,7 +3845,7 @@ export class Workflow {
     await asyncHooksCallAll(`midi-qol.preTargetDamageApplication`, token, { item: this.item, workflow: this, damageItem: damages, ditem: damages });
 
     if (damages.hpDamage !== 0 && (this.hitTargets.has(token) || this.hitTargetsEC.has(token) || this.otherActivity?.save || this.otherActivity?.check)) {
-      const healedDamaged = damages.hpDamage < 0 ? "isHealed" : "isDamaged";
+      let healedDamaged = damages.hpDamage < 0 ? "isHealed" : "isDamaged";
       await asyncHooksCallAll(`midi-qol.${healedDamaged}`, token, { item: this.item, workflow: this, damageItem: damages, ditem: damages });
       const actorOnUseMacros = foundry.utils.getProperty(token.actor ?? {}, `flags.${MODULE_ID}.onUseMacroParts`) ?? new OnUseMacros();
       // It seems applyTokenDamageMany without a this gets through to here - so a silly guard in place TODO come back and fix this properly
@@ -3852,6 +3854,7 @@ export class Workflow {
         "TargetOnUse",
         healedDamaged,
         { actor: token.actor, token: token });
+      healedDamaged = damages.hpDamage < 0 ? "isHealed" : "isDamaged";  //recalculate what the total damage and trigger the correct special duration expiration.
       const expiredEffects = getAppliedEffects(token?.actor, { includeEnchantments: true }).filter(ef => {
         const specialDuration = foundry.utils.getProperty(ef, "flags.dae.specialDuration");
         if (!specialDuration) return false;
@@ -4323,7 +4326,7 @@ export class Workflow {
         for (let target of canvas.tokens.placeables) {
           if (!isTargetable(target)) continue;
           const ray = new Ray(target.center, token.center);
-          const wallsBlocking = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.rangeTarget)
+          const wallsBlock = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.rangeTarget)
           let inRange = target.actor
             //@ts-expect-error .disposition v10
             && dispositions.includes(target.document.disposition);
@@ -4338,7 +4341,7 @@ export class Workflow {
             if (selfTarget === target) {
               inRange = false;
             }
-            const distance = getDistanceSimple(target, token, wallsBlocking);
+            const distance = computeDistance(target, token, { wallsBlock });
             inRange = inRange && distance >= 0 && distance <= minDist
           }
           if (inRange) {
@@ -4621,113 +4624,119 @@ export class UserWorkflow extends Workflow {
 }
 
 export class DamageOnlyWorkflow extends Workflow {
-  //@ts-expect-error dnd5e v10
+  //@ts-expect-error
   constructor(actor: globalThis.dnd5e.documents.Actor5e, token: Token, damageTotal: number, damageType: string, targets: [Token], roll: Roll,
     options: { flavor: string, itemCardId: string, itemCardUuid: string, damageList: [], useOther: boolean, itemData: any, isCritical: boolean, item?: Item }) {
-    // For the moment force damage only workflows to a new card.
-    options.itemCardId = "new";
-    options.itemCardUuid = "new";
     if (!actor) actor = token.actor ?? targets[0]?.actor;
     const theTargets = Array.from(targets).map(t => getToken(t)).filter(t => t);
-    let theItem: any = null;
-    if (options.item) {
-      theItem = options.item.clone({ "system.actionType": "other", "system.save.type": "" }, { keepId: true });
-    } else if (options.itemData) {
-      const itemData = foundry.utils.duplicate(options.itemData)
-      foundry.utils.setProperty(itemData, "system.actionType", "other");
-      foundry.utils.setProperty(itemData, "system.save.type", "");
-      foundry.utils.setProperty(itemData, "_id", itemData._id ?? foundry.utils.randomID());
-      theItem = new CONFIG.Item.documentClass(itemData, { parent: actor });
-    } else {
+    let damageRoll = roll;
+    if (!damageRoll) {
       //@ts-expect-error
-      theItem = new CONFIG.Item.documentClass({ name: options.flavor ?? "Damage Only Workflow", type: "feat", _id: foundry.utils.randomID(), system: { actionType: "other", save: { type: "" } } }, { parent: actor });
+      damageRoll = new CONFIG.Dice.DamageRoll(`${damageTotal}`, {}, { type: damageType });
+      damageRoll = damageRoll.roll({ async: false });
     }
-    super(actor, theItem, ChatMessage.getSpeaker({ token, actor }), new Set(theTargets), { event: shiftOnlyEvent, noOnUseMacro: true });
-    this.itemData = theItem?.toObject();
+    let theItem: any = null;
+    const extraItemData = {
+      name: options.flavor ?? "Damage Only Workflow",
+      type: "feat", _id: foundry.utils.randomID(),
+      system: {
+        activities: {
+          dnd5eactivity000: {
+            type: "damage",
+            _id: foundry.utils.randomID(),
+            damage: {
+              //@ts-expect-error
+              parts: [{ custom: { enabled: true, formula: damageRoll.formula }, types: [damageRoll.options.type] }],
+            },
+            range: {
+              override: true,
+              units: ""
+            },
+            target: {
+              affects: {
+                type: "creature",
+                special: ""
+              }
+            }
+          }
+        },
+      }
+    }
+    // Create a synthetic item with a single damage activity - activity is needed for displaying the activity card if required
+    if (options.item || options.itemData) { // use any item data passed in
+      let itemData: any = options.item ? options.item.toObject() : options.itemData;
+      delete itemData.system.activities;
+      itemData = foundry.utils.mergeObject(itemData, extraItemData, { inplace: false });
+      theItem = new CONFIG.Item.documentClass(itemData, { parent: actor });
+      foundry.utils.setProperty(itemData, "_id", itemData._id ?? foundry.utils.randomID());
+    } else {
+      theItem = new CONFIG.Item.documentClass(extraItemData, { parent: actor });
+    }
+    if (!theItem) return;
+
+    theItem.setFlag = async (scope: string, key: string, value: any) => { return theItem };
+    theItem.prepareData();
+    theItem.prepareFinalAttributes();
+    super(actor, theItem.system.activities.contents[0], ChatMessage.getSpeaker({ token, actor }), new Set(theTargets), { event: shiftOnlyEvent, noOnUseMacro: true });
     // Do the supplied damageRoll
     this.flavor = options.flavor;
     this.defaultDamageType = GameSystemConfig.damageTypes[damageType]?.label ?? damageType;
-    this.damageList = options.damageList;
-    this.itemCardId = options.itemCardId;
+    // Since this could to be the same item don't roll the on use macro, since this could loop forever
+    foundry.utils.setProperty(this.item, `flags.${MODULE_ID}.onUseMacroName`, null);
+    this.stateTransitionCount = 0;
     if (options.itemCardUuid) this.itemCardUuid = options.itemCardUuid;
     else {
       const message = game.messages?.get(options.itemCardId);
       if (message) this.itemCardUuid = message?.uuid;
     }
-    this.useOther = options.useOther ?? false;
-    this.item = theItem;
-    if (this.item) foundry.utils.setProperty(this.item, `flags.${MODULE_ID}.onUseMacroName`, null);
-    let damageRoll = roll;
-    if (!damageRoll) {
-      //@ts-expect-error
-      damageRoll = new CONFIG.Dice.DamageRoll(`${damageTotal}`, {}, { type: damageType });
-      //@ts-expect-error
-      if (game.system.release > 11)
-        //@ts-expect-error
-        damageRoll = damageRoll.evaluateSync({ strict: false });
-      else
-        damageRoll = damageRoll.roll({ async: false });
-    }
-    this.stateTransitionCount = 0;
     this.setDamageRolls([damageRoll]).then(() => {
       this.damageTotal = damageTotal;
       this.isCritical = options.isCritical ?? false;
       this.kickStart = false;
       this.suspended = false;
       this.performState(this.WorkflowState_Start);
-    });
+    })
     return this;
   }
-
-  get workflowType() { return "DamageOnlyWorkflow" };
-  get damageFlavor() {
-    if (this.useOther && this.flavor) return this.flavor;
-    else return super.damageFlavor;
-  }
-
   async WorkflowState_Start(context: any = {}): Promise<WorkflowState> {
     this.effectsAlreadyExpired = [];
-    if (!this.item && this.itemData) {
-      this.itemData.effects = this.itemData.effects.map(e => foundry.utils.duplicate(e))
-      this.item = new CONFIG.Item.documentClass(this.itemData, { parent: this.actor });
-      foundry.utils.setProperty(this.item, `flags.${MODULE_ID}.onUseMacroName`, null);
-    };
-    this.isFumble = false;
-    this.attackTotal = 9999;
-    await this.checkHits(this.options);
 
-    if ((this.itemCardId === "new" || this.itemCardUuid === "new")) { // create a new chat card for the item
-      if (this.item) {
-        this.createCount += 1;
-        // this.itemCard = await showItemCard.bind(this.item)(false, this, true);
-        this.itemCard = await this.item.displayCard({ systemCard: false, workflow: this, createMessage: true, defaultCard: true });
-        this.itemCardId = this.itemCard.id;
-        this.itemCardUuid = this.itemCard.uuid;
-      } else {
-        // no item card and no item - give up
-        return this.WorkflowState_Abort;
-      }
+    //@ts-expect-error
+    if (this.itemCardUuid === "new" || !fromUuidSync(this.itemCardUuid)) {
+      const message = {}
+      const messageConfig = foundry.utils.mergeObject({
+        create: true,
+        data: {
+          flags: {
+            dnd5e: {
+              ...this.activity.messageFlags,
+              messageType: "usage",
+              use: {
+                effects: this.applicableEffects?.map(e => e.id)
+              }
+            }
+          },
+          rolls: this.damageRolls,
+        },
+        hasConsumption: false
+      }, message);
+        this.itemCard = await this.activity._createUsageMessage(messageConfig);
+      this.itemCardId = this.itemCard.id;
+      this.itemCardUuid = this.itemCard.uuid;
     }
-    // Since this could to be the same item don't roll the on use macro, since this could loop forever
     const whisperCard = configSettings.autoCheckHit === "whisper" || game.settings.get("core", "rollMode") === "blindroll";
-    await this.displayHits(whisperCard);
     if (this.actor) { // Hacky process bonus flags
       // TODO come back and fix this for dnd3
       const newRolls = await processDamageRollBonusFlags.bind(this)(this.damageRolls);
       await this.setDamageRolls(newRolls);
     }
-
-    // Need to pretend there was an attack roll so that hits can be registered and the correct string created
-    // TODO separate the checkHit()/create hit display Data and displayHits() into 3 separate functions so we don't have to pretend there was a hit to get the display
-
+  
     if (this.itemCardId || this.itemCardUuid) {
-      this.damageRollHTML = await midiRenderDamageRoll(this.damageRoll);
-      this.damageCardData = {
-        flavor: "damage flavor",
-        //@ts-expect-error
-        roll: this.damageRolls ?? null,
-        speaker: this.speaker
-      }
+      this.isFumble = false;
+      this.attackTotal = 9999;
+      await this.checkHits(this.options);
+      this.hitTargets = new Set(this.targets);
+      await this.displayHits(whisperCard, false);
       await this.displayDamageRolls();
     } else {
       await this.damageRoll?.toMessage({ flavor: this.flavor });
@@ -4758,7 +4767,8 @@ export class TrapWorkflow extends Workflow {
     this.rollOptions.fastForward = true;
     this.kickStart = false;
     this.suspended = false;
-    this.performState(this.WorkflowState_Start);
+    this.activity.use({ configure: false }, {}, {})
+    // this.performState(this.WorkflowState_Start);
     return this;
   }
 
@@ -4774,15 +4784,14 @@ export class TrapWorkflow extends Workflow {
           this.itemCardId = itemCard.id
         }
         */
-    this.activity.use({ configure: false }, {}, {})
+    // this.activity.use({ configure: false }, {}, {})
     // this.itemCardId = (await showItemCard.bind(this.item)(false, this, true))?.id;
-    //@ts-expect-error TODO this is just wrong fix
-    if (debugEnabled > 1) debug(" workflow.none ", state, this.item, getAutoTarget(this.item), activityHasAreaTarget(this.activity), this.targets);
+    if (debugEnabled > 1) debug(" Trapworkflow | WorkflowState_Start ", this.item, getActivityAutoTarget(this.activity), activityHasAreaTarget(this.activity), this.targets);
     // don't support the placement of a template
     return this.WorkflowState_AwaitTemplate
   }
   async WorkflowState_AwaitTemplate(context: any = {}): Promise<WorkflowState> {
-    const targetDetails = this.item.system.target;
+    const targetDetails = this.activity.target;
     if (configSettings.rangeTarget !== "none" && ["m", "ft"].includes(targetDetails?.units) && ["creature", "ally", "enemy"].includes(targetDetails?.type)) {
       this.setRangedTargets(targetDetails);
       this.targets = validTargetTokens(this.targets);
@@ -4795,7 +4804,8 @@ export class TrapWorkflow extends Workflow {
       return this.WorkflowState_TemplatePlaced;
     //@ts-expect-error .canvas
     const TemplateClass = game.system.canvas.AbilityTemplate;
-    const templateData = TemplateClass.fromItem(this.item).document.toObject(false); // TODO check this v10
+    const abilityTemplates = TemplateClass.fromActivity(this.activity);
+    const templateData = abilityTemplates[0].document.toObject(false);
     // template.draw();
     // get the x and y position from the trapped token
     templateData.x = this.templateLocation?.x || 0;
@@ -4808,7 +4818,7 @@ export class TrapWorkflow extends Workflow {
       const templateDocument: any = templates[0];
       const selfToken = getToken(this.tokenUuid);
       const ignoreSelf = foundry.utils.getProperty(this.item, `flags.${MODULE_ID}.trapWorkflow.ignoreSelf`) ?? false;
-      const AoETargetType = foundry.utils.getProperty(this.item, `flags.${MODULE_ID}.trapWorkflow.AoETargetType`) ?? "";
+      const AoETargetType = getAoETargetType(this.activity);
       templateTokens(templateDocument.object, selfToken, ignoreSelf, AoETargetType);
       selectTargets.bind(this)(templateDocument, null, game.user?.id); // Target the tokens from the template
       if (this.templateLocation?.removeDelay) {
@@ -4899,7 +4909,7 @@ export class TrapWorkflow extends Workflow {
     }
 
     // If the item does damage, use the same damage type as the item
-    let defaultDamageType = getActivityDefaultDamageType(this.iactivity) ?? this.defaultDamageType
+    let defaultDamageType = getActivityDefaultDamageType(this.activity) ?? this.defaultDamageType
     this.rawDamageDetail = createDamageDetailV4({ roll: this.damageRolls, activity: this.activity, defaultType: defaultDamageType });
     if (this.bonusDamageRolls)
       this.rawBonusDamageDetail = createDamageDetailV4({ roll: this.bonusDamageRolls, activity: this.activity, defaultType: defaultDamageType });
@@ -5040,7 +5050,7 @@ export class DDBGameLogWorkflow extends Workflow {
     }
     expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"]);
 
-    if (getAutoTarget(this.item) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
+    if (getActivityAutoTarget(this.activity) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
       // we are not auto targeting so for area effect attacks, without hits (e.g. fireball)
       this.targets = validTargetTokens(game.user?.targets);
       this.hitTargets = validTargetTokens(game.user?.targets);

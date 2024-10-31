@@ -1,9 +1,8 @@
-import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 import { GameSystemConfig, MQDamageRollTypes, debugEnabled, i18n, log, warn } from "../midi-qol.js";
 //import { chatDamageButtons } from "./chatMessageHandling.js";
-import { setDamageRollMinTerms } from "./itemhandling.js";
-import { addChatDamageButtons, configSettings, safeGetGameSetting } from "./settings.js";
-import { getDamageType, getToken } from "./utils.js";
+import { addChatDamageButtons, configSettings } from "./settings.js";
+import { getToken } from "./utils.js";
+import { setDamageRollMinTerms } from "./activities/activityHelpers.js";
 
 export function defineChatMessageMidiClass(baseClass: any) {
   return class ChatMessageMidi extends baseClass /*globalThis.dnd5e.documents.ChatMessage5e*/ {

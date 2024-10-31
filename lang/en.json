@@ -977,12 +977,12 @@
     },
     "FIELDS": {
       "attackMode": {
-        "label": "MMM Attack Mode",
-        "hint": "MMM Attack Mode default"
+        "label": "Attack Mode",
+        "hint": "Default attack mode"
       },
       "ammunition": {
         "label": "Ammunition",
-        "hint": "Ammunition to consume"
+        "hint": "Default ammunition to consume"
       },
       "otherActivityUuid": {
         "label": "Other Activity",

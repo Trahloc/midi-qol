@@ -1,14 +1,13 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID, isdndv4, NumericTerm } from "../midi-qol.js";
-import { templateTokens } from "./itemhandling.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect, getActivityAutoTarget, getAoETargetType } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { MidiAttackActivity } from "./activities/AttackActivity.js";
-import { MidiSaveActivity } from "./activities/SaveActivity.js";
-import { MidiDamageActivity } from "./activities/DamageActivity.js";
+import { templateTokens } from "./activities/activityHelpers.js";
+
 let libWrapper;
 
 var d20Roll;
@@ -574,13 +573,30 @@ async function rollDeathSave(wrapped, options) {
   mergeKeyboardOptions(options ?? {}, mapSpeedKeys(undefined, "ability"));
   const advFlags = foundry.utils.getProperty(this, "flags.midi-qol")?.advantage;
   const disFlags = foundry.utils.getProperty(this, "flags.midi-qol")?.disadvantage;
+  const deathSaveBonus = foundry.utils.getProperty(this, "flags.midi-qol")?.deathSaveBonus;
 
   options.fastForward = autoFastForwardAbilityRolls ? !options.event?.fastKey : options.event?.fastKey;
-  if (advFlags?.all || advFlags?.deathSave || disFlags?.all || disFlags?.deathSave) {
+  if (advFlags?.all || advFlags?.deathSave || disFlags?.all || disFlags?.deathSave || deathSaveBonus) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor: this });
     if (await evalAllConditionsAsync(this, "flags.midi-qol.advantage.all", conditionData) ||
       await evalAllConditionsAsync(this, "flags.midi-qol.advantage.deathSave", conditionData)) {
       options.advantage = true;
+    }
+
+    if (deathSaveBonus) {
+      let bonus: any;
+      if (typeof(deathSaveBonus) === "number") {
+        bonus = deathSaveBonus;
+      } else {
+        bonus = await evalAllConditionsAsync(this, "flags.midi-qol.deathSaveBonus", conditionData);
+      }
+      if (bonus) {
+        if (options.parts instanceof Array) {
+          options.parts.push(bonus);
+        } else {
+          options.parts = [bonus];
+        }
+      }
     }
 
     if (await evalAllConditionsAsync(this, "flags.midi-qol.disadvantage.all", conditionData) ||
@@ -732,7 +748,7 @@ let debouncedATRefresh = foundry.utils.debounce(_midiATIRefresh, 30);
 function _midiATIRefresh(template) {
   // We don't have an item to check auto targeting with, so just use the midi setting
   if (!canvas?.tokens) return;
-  let autoTarget = getAutoTarget(template.item);
+  let autoTarget = getActivityAutoTarget(template.activity);
   if (autoTarget === "none") return;
   if (autoTarget === "dftemplates" && installedModules.get("df-templates"))
     return; // df-templates will handle template targeting.
@@ -774,8 +790,8 @@ function _midiATIRefresh(template) {
     }
   } else {
     const distance: number = template.distance ?? 0;
-    if (template.item) {
-      templateTokens(template, getTokenForActor(template.item.parent), !foundry.utils.getProperty(template.item, "flags.midi-qol.AoETargetTypeIncludeSelf"), foundry.utils.getProperty(template, "item.flags.midi-qol.AoETargetType"), autoTarget);
+    if (template.activity) {
+      templateTokens(template, getTokenForActor(template.item.parent), !foundry.utils.getProperty(template.item, "flags.midi-qol.AoETargetTypeIncludeSelf"), getAoETargetType(template.activity), autoTarget);
       return true;
     } else
       templateTokens(template);
@@ -2021,9 +2037,9 @@ function removeTraitValue(traitValue: string[] | Set<string>, toRemove): string[
 }
 
 function addPhysicalDamages(traitValue) {
-  let phsyicalDamageTypes;
-  phsyicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
-  for (let dt of phsyicalDamageTypes) {
+  let physicalDamageTypes;
+  physicalDamageTypes = Object.keys(GameSystemConfig.damageTypes).filter(dt => GameSystemConfig.damageTypes[dt].isPhysical);
+  for (let dt of physicalDamageTypes) {
     if (traitValue instanceof Set) traitValue.add(dt);
     else if (!traitValue.includes(dt)) traitValue.push(dt);
   }

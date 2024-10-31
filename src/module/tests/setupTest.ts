@@ -115,14 +115,16 @@ async function registerTests() {
               const trapWorkflowMacro = game.macros?.getName("TrapWorkflowTest");
               const targetToken = getToken(target1Name)
               const targetActor = targetToken?.actor;
-              const spell = game.items?.getName("FireballTest")?.toObject();
-              assert.ok(spell);
-              if (spell && targetToken) {
-                foundry.utils.setProperty(spell, "system.save", { ability: 'dex', dc: 15, scaling: 'flat' });
-                foundry.utils.setProperty(spell, "system.preparation", { mode: 'innate', prepared: 'true' });
-                const trapItem = new Item.implementation(spell, { parent: targetActor });
+              const spell = game.items?.getName("FireballTest");
+              if (spell && targetToken && targetActor) {
+                // foundry.utils.setProperty(spell, "system.save", { ability: 'dex', dc: 15, scaling: 'flat' });
+                // foundry.utils.setProperty(spell, "system.preparation", { mode: 'innate', prepared: 'true' });
+                //@ ts-expect-error
+                const trapItem: any = new CONFIG.Item.documentClass(spell.toObject(), { parent: targetActor });
+                trapItem.setFlag = async (scope: string, key: string, value: any) => { return trapItem };
+                trapItem.prepareData();
+                trapItem.prepareFinalAttributes();
                 const templateLocation = targetToken.center;
-                //@ts-expect-error
                 const workflow: TrapWorkflow = new TrapWorkflow(targetActor, trapItem.system.activities.contents[0], undefined, templateLocation);
                 assert.ok(trapWorkflowMacro, "TrapWorkflowTest macro not found");
                 assert.ok(!!workflow && workflow instanceof TrapWorkflow);

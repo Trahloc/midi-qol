@@ -1,5 +1,21 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 
+### 12.4.6
+* Include changes from merge request 183 (deathSaveBonus)
+* Include changes from merge request 184 (computeDistance)
+* Include changes from merge request 185 (moveToken)
+* Include changes from merge request 186 (stack overflow when displaying midi tab)
+* Include changes from merge request 187 (modifyDamageBy)
+* Include changes from merge request 188 (physicalDamageTypes)
+* Include changes from merge request 189 (healedDamaged)
+* Implement auto consume resources/spell slot settings.
+* Implement auto template placement for emanation templates.
+* First pass of TrapWorkflow implementation.
+* Support dnd5e choose targets option - triggers target confirmation.
+* Fix for DamageOnlyWorkflow. Reinstated support for adding damage to existing chat card.
+* Fix for ammunition selector not displaying
+* Fix for spell damage scaling not working.
+
 ### 12.4.5
 * Couple of little fixes for critical/advantage settings
 

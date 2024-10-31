@@ -44,8 +44,7 @@ let defineMidiAttackSheetClass = (baseClass: any) => {
       context = await super._prepareEffectContext(context);
       context.attackModeOptions = this.item.system.attackModes;
       context.hasAmmunition = this.item.system.properties.has("amm");
-      //@ts-expect-error
-      context.ammunitionOptions = this.isOwned
+      context.ammunitionOptions = this.item.isOwned
         ? this.activity.actor.items
           .filter(i => (i.type === "consumable") && (i.system.type?.value === "ammo")
             && (!this.item.system.ammunition?.type || (i.system.type.subtype === this.item.system.ammunition.type)))
@@ -55,9 +54,9 @@ let defineMidiAttackSheetClass = (baseClass: any) => {
           }))
           .sort((lhs, rhs) => lhs.label.localeCompare(rhs.label, game.i18n.lang))
         : [];
-      context.otherActivityOptions = this.item.system.activities.filter(a =>
-        a.damage || a.roll?.formula || a.save || a.check).reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.uuid }); return ret }, [{ label: "", value: "" }]
-        );
+      context.otherActivityOptions = this.item.system.activities
+      .filter(a => a.uuid !== this.activity.uuid &&(a.damage || a.roll?.formula || a.save || a.check))
+      .reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.uuid }); return ret }, [{ label: "", value: "" }]);
 
       let indexOffset = 0;
       if (context.activity.damage?.parts) {
@@ -152,14 +151,20 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       }
       return context;
     }
-    
+
     async rollAttack(config, dialog, message) {
+      if (!dialog) dialog = {};
+      if (!message) message = {};
       if (!config.midiOptions) config.midiOptions = {};
       if (debugEnabled > 0) warn("MidiQOL | AttackActivity | rollAttack | Called", config, dialog, message);
       let returnValue = await this.configureAttackRoll(config);
       if (this.workflow?.aborted || !returnValue) return [];
 
+      try {
       dialog.configure = !config.midiOptions.fastForwardAttack || this.forceDialog || (this.ammunition !== "" && this.confirmAmmuntion);
+      } catch(err) {
+        console.error("midi-qol | AttackActivity | rollAttack | Error configuring dialog", err);
+      }
       Hooks.once("dnd5e.preRollAttackV2", (rollConfig, dialogConfig, messageConfig) => {
         for (let roll of rollConfig.rolls) {
           if (config.midiOptions.advantage) roll.options.advantage ||= !!config.midiOptions.advantage;

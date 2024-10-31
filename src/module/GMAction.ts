@@ -1183,7 +1183,8 @@ async function _moveToken(data: { tokenUuid: string, newCenter: { x: number, y: 
   return tokenDocument.update({ x: data.newCenter?.x ?? 0, y: data.newCenter?.y ?? 0 }, { animate: data.animate ?? true });
 }
 
-async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: number, y: number }, distance: number, animate: boolean }): Promise<void> {
+
+async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: number, y: number }, distance: number, animate: boolean, checkCollision: boolean }): Promise<void> {
   const targetToken = getToken(data.targetUuid);
   const targetTokenDocument = getTokenDocument(targetToken);
   if (!canvas || !canvas.dimensions || !canvas.grid || !targetToken || !data.point) return;
@@ -1191,6 +1192,17 @@ async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: n
   let distance = data.distance / canvas.dimensions.distance * canvas.dimensions.size;
   let newCenter = ray.project(1 + distance / ray.distance);
   newCenter = canvas.grid.getSnappedPosition(newCenter.x - targetToken.w / 2, newCenter.y - targetToken.h / 2, 1);
+
+  if (data.checkCollision) {
+    //@ts-expect-error
+    const testCollision = CONFIG.Canvas.polygonBackends.move.testCollision(targetToken.center, newCenter, {source: targetToken.document, type: "move", any: "closest"});
+    if (testCollision.length) {
+      const collisionPoint = { x: testCollision[0].x, y: testCollision[0].y };
+      //@ts-expect-error
+      const getCenterCollisionPoint = canvas.grid.getCenterPoint(collisionPoint);
+      newCenter = canvas.grid.getSnappedPosition(getCenterCollisionPoint.x - targetToken.w / 2, getCenterCollisionPoint.y - targetToken.h / 2, 1);
+    }
+  }
   //@ts-expect-error
   return targetTokenDocument.update({ x: newCenter?.x ?? 0, y: newCenter?.y ?? 0 }, { animate: data.animate ?? true });
 }
