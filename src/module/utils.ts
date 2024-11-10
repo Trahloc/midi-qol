@@ -320,7 +320,7 @@ export async function applyTokenDamage(damageDetail, totalDamage, theTargets, it
     chatCardId: workflow.itemCardId,
     chatCardUuid: workflow.itemCardUuid,
     flagTags: workflow.flagTags,
-    updateOptions: { noConcentrationCheck: options?.noConcentrationCheck },
+    updateOptions: options.updateOptions,
     forceApply: options.forceApply,
   });
   return cardIds;
@@ -1273,7 +1273,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
         let damageRollString = damageRoll;
         let stackCount = effect.flags.dae?.stacks ?? 1;
         if (globalThis.EffectCounter && theTargetToken) {
-          const counter = globalThis.EffectCounter.findCounter(theTargetToken, effect.img ?? effect.icon) //v12 icon -> img
+          const counter = globalThis.EffectCounter.findCounter(getTokenDocument(theTargetToken), effect.img ?? effect.icon) //v12 icon -> img
           if (counter) stackCount = counter.getValue();
         }
         for (let i = 1; i < stackCount; i++)
@@ -1300,7 +1300,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       ownedItem.prepareFinalAttributes();
       //@ts-expect-error
       ownedItem.prepareEmbeddedDocuments();
-      if (!actionSave && saveRemove && saveDC > -1)
+      if (false && !actionSave && saveRemove && saveDC > -1)
         //@ts-expect-error
         failedSaveOverTimeEffectsToDelete[ownedItem.system.activities.contents[0].uuid] = { uuid: effect.uuid };
 
@@ -1331,14 +1331,13 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           checkGMStatus: true,
           targetUuids: [theTargetUuid],
           ignoreUserTargets: true,
-          rollMode,
           workflowOptions: { targetConfirmation: "none", autoRollDamage: "onHit", fastForwardDamage, isOverTime: true, allowIncapacitated },
           flags: {
             dnd5e: { "itemData": ownedItem.toObject() },
           }
         };
         foundry.utils.setProperty(options, `flags.${MODULE_ID}.isOverTime`, true);
-        await completeItemUseV2(ownedItem, { midiOptions: options }, { configure: false }, {}); // worried about multiple effects in flight so do one at a time
+        await completeItemUseV2(ownedItem, { midiOptions: options }, { configure: false }, {rollMode}); // worried about multiple effects in flight so do one at a time
         if (actionSaveSuccess) {
           await expireEffects(actor, [effect], { "expiry-reason": "midi-qol:overTime:actionSave" });
         }
@@ -1414,6 +1413,7 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
   if (typeof activity === "string") {
     activity = MQfromUuidSync(activity);
   }
+  config.midiOptions ??= {};
   config.midiOptions.workflowOptions = { forceCompletion: true };
   // delete any existing workflow - complete item use always is fresh.
   if (Workflow.getWorkflow(activity.uuid)) await Workflow.removeWorkflow(activity.uuid);
@@ -2962,15 +2962,15 @@ export async function expireMyEffects(effectsToExpire: string[]) {
     const specialDuration = foundry.utils.getProperty(ef.flags, "dae.specialDuration");
     if (!specialDuration || !specialDuration?.length) return false;
     return (expireAnyAction && specialDuration.includes("1Action")) ||
-      (expireBonusAction && specialDuration.includes("Bonus Action") && this.item.system.activation.type === "bonus") ||
-      (expireReaction && specialDuration.includes("Reaction") && this.item.system.activation.type === "reaction") ||
-      (expireTurnAction && specialDuration.includes("Turn Action") && this.item.system.activation.type === "action") ||
-      (expireAttack && this.item?.hasAttack && specialDuration.includes("1Attack")) ||
+      (expireBonusAction && specialDuration.includes("Bonus Action") && this.acitvity.activation.type === "bonus") ||
+      (expireReaction && specialDuration.includes("Reaction") && this.activity.activation.type === "reaction") ||
+      (expireTurnAction && specialDuration.includes("Turn Action") && this.activity.activation.type === "action") ||
+      (expireAttack && this.activity?.hasAttack && specialDuration.includes("1Attack")) ||
       (expireSpell && this.item?.type === "spell" && specialDuration.includes("1Spell")) ||
-      (expireAttack && this.item?.hasAttack && specialDuration.includes(`1Attack:${this.item?.system.actionType}`)) ||
-      (expireHit && this.item?.hasAttack && specialDuration.includes("1Hit") && this.hitTargets.size > 0) ||
-      (expireHit && this.item?.hasAttack && specialDuration.includes(`1Hit:${this.item?.system.actionType}`) && this.hitTargets.size > 0) ||
-      (expireDamage && this.item?.hasDamage && specialDuration.includes("DamageDealt")) ||
+      (expireAttack && this.activity?.hasAttack && specialDuration.includes(`1Attack:${this.activity?.actionType}`)) ||
+      (expireHit && this.activity?.hasAttack && specialDuration.includes("1Hit") && this.hitTargets.size > 0) ||
+      (expireHit && this.activity?.hasAttack && specialDuration.includes(`1Hit:${this.activity?.actionType}`) && this.hitTargets.size > 0) ||
+      (expireDamage && this.activity?.hasDamage && specialDuration.includes("DamageDealt")) ||
       (expireInitiative && specialDuration.includes("Initiative"))
   });
   if (debugEnabled > 1) debug("expire my effects", myExpiredEffects, expireAnyAction, expireAttack, expireHit);
@@ -3745,7 +3745,7 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
       TroubleShooter.recordError(new Error(message), message);
       return;
     }
-    await item.update({ "system.uses.value": Math.max(0, item.system.uses.value - 1) });
+    await item.update({ "system.uses.spent": Math.max(0, item.system.uses.spent + 1) });
   }
   if (typeof countAlt?.value === "string" && countAlt.value.startsWith("ItemUses.")) {
     const itemName = countAlt.value.split(".")[1];
@@ -3756,7 +3756,7 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
       TroubleShooter.recordError(new Error(message), message);
       return;
     }
-    await item.update({ "system.uses.value": Math.max(0, item.system.uses.value - 1) });
+    await item.update({ "system.uses.spent": Math.max(0, item.system.uses.spent + 1) });
   }
 
   const actorUpdates: any = {};
@@ -3870,6 +3870,7 @@ async function getMagicItemReactions(actor: Actor, triggerType: string): Promise
 
 async function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
   //TODO most of the checks need to be activity checks
+  if (!item.system.activities) return false;
   for (let activity of item.system.activities) {
     if (!activity.activation?.type?.includes("reaction")) continue;
     if (activity.activation.type !== "reaction") {
@@ -3903,8 +3904,8 @@ export const reactionTypes = {
   "reactionfumble": { prompt: "midi-qol.reactionFlavorFumble", triggerLabel: "isFumble" },
   "reactionheal": { prompt: "midi-qol.reactionFlavorHeal", triggerLabel: "isHealed" },
   "reactiondamage": { prompt: "midi-qol.reactionFlavorDamage", triggerLabel: "isDamaged" },
-  "reactionattacked": { prompt: "midi-qol.reactionFlavorAttacked", triggerLabel: "isAttacked" },
   "reactionpreattack": { prompt: "midi-qol.reactionFlavorPreAttack", triggerLabel: "preAttack" },
+  "reactionattacked": { prompt: "midi-qol.reactionFlavorAttacked", triggerLabel: "isAttacked" },
   "reactionsave": { prompt: "midi-qol.reactionFlavorSave", triggerLabel: "isSave" },
   "reactionsavefail": { prompt: "midi-qol.reactionFlavorSaveFail", triggerLabel: "isSaveFail" },
   "reactionsavesuccess": { prompt: "midi-qol.reactionFlavorSaveSuccess", triggerLabel: "isSaveSuccess" },
@@ -3927,6 +3928,8 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     if (!target) return noResult;
     //@ts-expect-error attributes
     if (!target.actor || !target.actor.flags) return noResult;
+    // TODO V4 Change no reactions if incapacitated - I think this makes sense.
+    if (checkIncapacitated(target.actor, debugEnabled > 0)) return noResult;
     if (checkRule("incapacitated")) {
       try {
         enableNotifications(false);
@@ -3950,7 +3953,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     try {
       let possibleReactions: ReactionItem[] = [];
       for (let item of target.actor.items) {
-        if (await itemReaction(item, triggerType, maxLevel, usedReaction)) possibleReactions.push(item);;
+        if (await itemReaction(item, triggerType, maxLevel, usedReaction)) possibleReactions.push(item);
       }
       //let possibleReactions: ReactionItem[] = target.actor.items.filter(item => temReaction(item, triggerType, maxLevel, usedReaction));
       if (false && getReactionSetting(player) === "allMI" && !usedReaction) {
@@ -4252,7 +4255,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
           if (activity.item instanceof CONFIG.Item.documentClass) { // a nomral item}
             const config = { midiOptions: itemRollOptions };
             result = await completeActivityUse(activity, config, {}, {});
-            if (!result?.preItemUseComplete) resolve(noResult);
+            if (result.currentAction !== result.WorkflowState_Cleanup) resolve(noResult);
             else resolve({ name: activity?.name, uuid: activity?.uuid })
           } else if (false) { // assume it is a magic item item
             //@ts-expect-error
@@ -4602,7 +4605,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     else if (typeof data.item === "string") item = MQfromUuidSync(data.item);
   }
   if (!item) item = data.activity?.item ?? data.workflow?.activity?.item ?? data.workflow?.item;
-  let rollData = data.activity?.getRollData() ?? item?.getRollData() ?? {};
+  let rollData = data.activity?.getRollData() ?? item?.getRollData() ?? actor.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
   rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
   try {
@@ -4638,6 +4641,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.otherDamageActivity = data.workflow?.otherActivity;
       rollData.hasSave = data.workflow.hasSave;
       rollData.item = data.workflow.item?.getRollData().item;
+      if (data.workflow.item) rollData.item.type = data.workflow.item.type;
       rollData.otherDamageFormula = data.workflow.otherDamageFormula;
       rollData.shouldRollDamage = data.workflow.shouldRollDamage;
       rollData.hasAttack = data.workflow.activity.attack;
@@ -4646,6 +4650,11 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     if (data.activity) {
       rollData.activity = data.activity;
     }
+    if (game.combat) {
+      rollData.combatRound = game.combat?.round;
+      rollData.combatTurn = game.combat?.turn;
+      rollData.combatTime = game.combat?.round + (game.combat.turn ?? 0) /100;
+    } else rollData.combatTime = 0;
     rollData.CONFIG = CONFIG;
     rollData.CONST = {};
     let exclusions: string[] = [];
@@ -6260,6 +6269,9 @@ export function activityHasAutoPlaceTemplate(activity) {
   return activity && ["self"].includes(activity.range?.units) && ["radius", "squareRadius"].includes(activity.target.template.type);
 }
 
+export function activityHasEmanationNoTemplate(activity) {
+  return activity && activity.target.template.type === "emanationNoTemplate";
+}
 export function itemOtherFormula(item): string {
   console.log("itemOtherFormula", item);
   return "";
@@ -6555,7 +6567,7 @@ export async function expireEffects(actor, effects: ActiveEffect[], options: any
   }
   if (effectsToDelete.length > 0) {
     for (let effect of effectsToDelete)
-      await effect.delete();
+      await effect.delete(options);
   }
   return { deleted: actorEffectsToDelete, disabled: effectsToDisable, itemEffects: effectsToDelete };
 }
@@ -6600,15 +6612,13 @@ export function setRollOperatorEvaluated(roll) {
   })
 }
 export function doSyncRoll(roll, source: string | undefined) {
-  //@ts-expect-error
-  if (game.release.generation > 11) {
-    if (!roll.isDeterministic)
-      error(`%c doSyncEval | dice expressions are not supported in v12 [${roll._formula}] and has been ignore ${source}`, "color:red;");
-    return roll.evaluateSync({ strict: false })
+
+  if (!roll.isDeterministic) {
+    console.error(`%c doSyncRoll | dice expressions not supported in v12 [${roll._formula}] and will be ignored ${source}`, "color:red;");
+    //@ts-expect-error
+    return new Roll("0").evaluateSync();
   } else
-    if (!roll.isDeterministic)
-      console.warn(`%c doSyncEval | dice expressions not supported in v12 [${roll._formula}] and will be ignored ${source}`, "color:red;");
-  return roll.evaluate({ async: false })
+    return roll.evaluateSync()
 }
 
 export function setRollMinDiceTerm(roll: Roll, minValue: number) {
@@ -6631,6 +6641,23 @@ export function setRollMaxDiceTerm(roll: Roll, maxValue: number) {
   //@ts-expect-error
   roll._total = roll._evaluateTotal();
   return roll;
+}
+
+export function addDependent (document: Document, dependent: Document) {
+  //@ts-expect-error
+  if (!document.addDependent) {
+    //@ts-expect-error
+    console.error(`midi-qol | addDependent | document ${document.uuid} does not have addDependent defined`);
+    return;
+  }
+  //@ts-expect-error
+  if (game.user?.isGM || document.isOwner) {
+    //@ts-expect-error
+    document.addDependent(dependent);
+  } else {
+    //@ts-expect-error
+    return socketlibSocket.executeAsGM("addDependent", { documentUuid: document.uuid, dependentUuid: dependent.uuid });
+  }
 }
 
 export async function addConcentrationDependent(actorRef: Token | TokenDocument | Actor | string, dependent: any, item?: Item) {
@@ -6657,7 +6684,7 @@ export async function addConcentrationDependent(actorRef: Token | TokenDocument 
     //@ts-expect-error
     return concentrationEffect.addDependent(dependent);
   } else
-    return socketlibSocket.executeAsGM("addDependent", { concentrationEffectUuid: concentrationEffect.uuid, dependentUuid: dependent.uuid });
+    return socketlibSocket.executeAsGM("addDependent", { documentUuid: concentrationEffect.uuid, dependentUuid: dependent.uuid });
 }
 
 export function getAppliedEffects(actor, { includeEnchantments }) {

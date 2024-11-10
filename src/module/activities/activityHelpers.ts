@@ -3,7 +3,7 @@ import { Workflow } from "../Workflow.js";
 import { TargetConfirmationDialog } from "../apps/TargetConfirmation.js";
 import { configSettings, targetConfirmation } from "../settings.js";
 import { installedModules } from "../setupModules.js";
-import { getFlankingEffect, CERemoveEffect, sumRolls, evalActivationCondition, getAutoTarget, computeTemplateShapeDistance, getToken, MQfromUuidSync, checkActivityRange, checkDefeated, checkIncapacitated, computeCoverBonus, getSpeaker, hasWallBlockingCondition, isTargetable, tokenForActor, activityHasAreaTarget, getActivityAutoTarget, getAoETargetType } from "../utils.js";
+import { getFlankingEffect, CERemoveEffect, sumRolls, evalActivationCondition, getAutoTarget, computeTemplateShapeDistance, getToken, MQfromUuidSync, checkActivityRange, checkDefeated, checkIncapacitated, computeCoverBonus, getSpeaker, hasWallBlockingCondition, isTargetable, tokenForActor, activityHasAreaTarget, getActivityAutoTarget, getAoETargetType, doReactions } from "../utils.js";
 
 export async function confirmWorkflow(existingWorkflow: Workflow): Promise<boolean> {
   const validStates = [existingWorkflow.WorkflowState_Completed, existingWorkflow.WorkflowState_Start, existingWorkflow.WorkflowState_RollFinished]
@@ -77,23 +77,24 @@ export function setDamageRollMinTerms(rolls: Array<Roll> | undefined) {
 }
 
 export async function doActivityReactions(activity, workflow: Workflow) {
-  return true;
   const promises: Promise<any>[] = [];
   if (!foundry.utils.getProperty(activity, `flags.${MODULE_ID}.noProvokeReaction`)) {
     for (let targetToken of workflow.targets) {
       promises.push(new Promise(async resolve => {
-        //@ts-expect-error targetToken Type
+      //@ts-expect-error targetToken Type
         const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: foundry.utils.mergeObject(workflow.workflowOptions, { sourceActorUuid: activity.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
         if (result?.name) {
           //@ts-expect-error
           targetToken.actor?._initialize();
+          workflow.actor._initialize();
           // targetToken.actor?.prepareData(); // allow for any items applied to the actor - like shield spell
+          workflow.needsAttackAdvantageCheck = true; // Toggle this on in case
         }
         resolve(result);
       }));
     }
   }
-  await Promise.allSettled(promises);
+  return await Promise.all(promises);
 }
 
 export function preActivityConsumptionHook(activity, usageConfig, messageConfig): boolean {
@@ -107,7 +108,7 @@ export function activityConsumptionHook(activity, usageConfig, messageConfig, up
 }
 
 function activityRequiresPostTemplateConfiramtion(activity): boolean {
-  const isRangeTargeting = ["ft", "m"].includes(activity.item.system.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+  const isRangeTargeting = ["ft", "m"].includes(activity.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
   if (activity.target.template?.type) {
     return true;
   } else if (isRangeTargeting) {
@@ -236,7 +237,7 @@ export async function preTemplateTargets(activity, options, pressedKeys): Promis
 }
 
 export async function postTemplateConfirmTargets(activity, options, pressedKeys, workflow): Promise<boolean> {
-  if (!itemRequiresPostTemplateConfiramtion(activity)) return true;
+  if (!activityRequiresPostTemplateConfiramtion(activity)) return true;
   if (requiresTargetConfirmation(activity, options)) {
     let result = true;
     result = await resolveTargetConfirmation(activity, options, pressedKeys);
@@ -405,7 +406,7 @@ export function isAoETargetable(targetToken, options: { selfToken?: Token | Toke
   const selfToken = getToken(options.selfToken);
   if (["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapacitated"].includes(autoTarget) && checkIncapacitated(targetToken.actor, false)) return false;
   if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(autoTarget) && checkDefeated(targetToken)) return false;
-  if (targetToken === selfToken) return !options.ignoreSelf;
+  if (targetToken === selfToken && options.ignoreSelf) return false;
   //@ts-expect-error .disposition
   const selfDisposition = selfToken?.document.disposition ?? 1;
   switch (options.AoETargetType) {

@@ -76,7 +76,7 @@
     {{!-- Saving Throw --}}
 
     {{#if hasSave}}
-    {{#with item.system.save}}
+    {{#with activity.save}}
     <button data-action="save" data-ability="{{ability}}" dats-dc="{{dc}}">
       {{#with (lookup (lookup @root.config.abilities ability) "label") as |abilityLabel|}}
       <span class="visible-dc">{{ localize "DND5E.SavingThrowDC" dc=../dc ability=abilityLabel }}</span>
@@ -86,44 +86,15 @@
     </button>
     {{/with}}
     {{/if}}
-    <!-- dnd5e
-    {{#if hasSave}}
-    {{#with item.system.save}}
-    <button type="button" data-action="save" data-ability="{{ ability }}" data-dc="{{ dc }}">
-      <i class="fas fa-shield-heart"></i>
-      {{#with (lookup (lookup @root.config.abilities ability) "label") as |abilityLabel|}}
-      <span class="visible-dc">{{ localize "DND5E.SavingThrowDC" dc=../dc ability=abilityLabel }}</span>
-      <span class="hidden-dc">{{ localize "DND5E.SavePromptTitle" ability=abilityLabel }}</span>
-      {{/with}}
-    </button>
-    {{/with}}
-    {{/if}}
-<-->
+
     {{!-- Other Formula --}}
     {{#if activity.otherActivity?.damage}}
     <button class="midi-qol-otherDamage-button" data-action="formula">{{ OtherFormula }}</button>
     {{/if}}
-    <!-- dnd5e
-    {{#if item.system.formula}}
-    <button type="button" data-action="formula">
-      <i class="fas fa-ellipsis"></i>
-      {{ localize "DND5E.OtherFormula"}}
-    </button>
-    {{/if}}
-    <-->
-
     {{!-- Templates --}}
     {{#if hasAreaTarget}}
     <button data-action="placeTemplate">{{ PlaceTemplate }}</button>
     {{/if}}
-    <!-- dnd5e
-    {{#if hasAreaTarget}}
-    <button type="button" data-action="placeTemplate">
-      <i class="fas fa-bullseye"></i>
-      {{ localize "DND5E.PlaceTemplate" }}
-    </button>
-    {{/if}}
-    <-->
 
     {{!-- Summons --}}
     {{#if hasPlaceSummons}}

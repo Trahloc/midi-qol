@@ -21,8 +21,8 @@ export function setupSaveActivity() {
 }
 
 let defineMidiSaveActivityClass = (ActivityClass: any) => {
-  return class MidiSaveActivity extends MidiActivityMixin(ActivityClass) { 
-    static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.SAVE"];
+  return class MidiSaveActivity extends MidiActivityMixin(ActivityClass) {
+    static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "DND5E.DAMAGE", "midi-qol.SAVE", "midi-qol.DAMAGE"];
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
@@ -32,38 +32,67 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
       }, { overwrite: true })
- 
+
+    static defineSchema() {
+      //@ts-expect-error
+      const { StringField, ArrayField, BooleanField, SchemaField, ObjectField } = foundry.data.fields;
+      //@ts-expect-error
+      const dataModels = game.system.dataModels;
+      const { ActivationField: ActivationField, CreatureTypeField, CurrencyTemplate, DamageData,
+        DamageField, DurationField, MovementField, RangeField, RollConfigField, SensesField,
+        SourceField, TargetField, UsesField } = dataModels.shared
+      const FormulaField = dataModels.fields.FormulaField;
+
+      return {
+        ...super.defineSchema(),
+        damage: new SchemaField({
+          onSave: new StringField(),
+          parts: new ArrayField(new DamageField()),
+          critical: new SchemaField({
+            allow: new BooleanField(),
+            bonus: new FormulaField(),
+          }),
+        })
+      }
+    }
+    
     get isOtherActivityCompatible() { return true }
 
-    async rollDamage(config: any ={}, dialog={}, message={}) {
-      message = foundry.utils.mergeObject({
-        "data.flags.dnd5e.roll": {
-          damageOnSave: this.damage.onSave
+    async rollDamage(config: any = {}, dialog = {}, message = {}) {
+          message = foundry.utils.mergeObject({
+            "data.flags.dnd5e.roll": {
+              damageOnSave: this.damage.onSave
+            }
+          }, message);
+          config.midiOptions ??= {};
+          config.midiOptions.fastForwardDamage = game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward);
+          return super.rollDamage(config, dialog, message);
         }
-      }, message);
-      config.midiOptions ??= {};
-      config.midiOptions.fastForwardDamage = game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward);
-      return super.rollDamage(config, dialog, message);
-    }
   }
-}
+    }
 
 let defineMidiSaveSheetClass = (baseClass: any) => {
-  return class extends baseClass {
-    static PARTS = {
-      ...super.PARTS,
-      effect: {
-        template: "modules/midi-qol/templates/activity/save-effect.hbs",
-        templates: [
-          ...super.PARTS.effect.templates,
-          "modules/midi-qol/templates/activity/parts/use-condition.hbs",
-        ]
+    return class extends baseClass {
+      static PARTS = {
+        ...super.PARTS,
+        effect: {
+          template: "modules/midi-qol/templates/activity/save-effect.hbs",
+          templates: [
+            ...super.PARTS.effect.templates,
+            "modules/midi-qol/templates/activity/parts/use-condition.hbs",
+            "modules/midi-qol/templates/activity/parts/save-damage.hbs",
+          ]
+        }
+      };
+
+      static DEFAULT_OPTIONS = {
+        ...super.DEFAULT_OPTIONS,
+        classes: ["save-activity", "damage-activity"]
       }
-    };
-    async _prepareContext(options) {
-      await this.activity.prepareData({});
-      const returnvalue =  await super._prepareContext(options);
-      return returnvalue;
+      async _prepareContext(options) {
+        await this.activity.prepareData({});
+        const returnvalue = await super._prepareContext(options);
+        return returnvalue;
+      }
     }
   }
-}

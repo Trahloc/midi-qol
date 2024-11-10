@@ -641,10 +641,10 @@ async function addConvenientEffect(options) {
   // await game.dfreds.effectInterface?.addEffect({ effectName, uuid: actorUuid, origin });
 }
 
-async function _addDependent(data: { concentrationEffectUuid: string, dependentUuid: string }) {
-  const concentrationEffect = MQfromUuidSync(data.concentrationEffectUuid);
-  if (!concentrationEffect) {
-    console.error("GMAction.addDependent | concentration effect not found", data.concentrationEffectUuid);
+async function _addDependent(data: { documentUuid: string, dependentUuid: string }) {
+  const document = MQfromUuidSync(data.documentUuid);
+  if (!document || !document.addDependent) {
+    console.error("GMAction.addDependent | document not found or does not support addDependent", data.documentUuid);
     return undefined;
   }
   const dependent = MQfromUuidSync(data.dependentUuid);
@@ -652,7 +652,7 @@ async function _addDependent(data: { concentrationEffectUuid: string, dependentU
     console.error("GMAction.addDependent | dependent not found", data.dependentUuid);
     return undefined;
   }
-  return concentrationEffect.addDependent(dependent);
+  return document.addDependent(dependent);
 }
 
 async function localDoReactions(data: { tokenUuid: string; reactionActivityList: ReactionItemReference[], triggerTokenUuid: string, reactionFlavor: string; triggerType: string; options: any }) {

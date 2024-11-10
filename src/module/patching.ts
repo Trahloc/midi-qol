@@ -1,6 +1,6 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID, isdndv4, NumericTerm } from "../midi-qol.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getAutoTarget, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect, getActivityAutoTarget, getAoETargetType } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect, getActivityAutoTarget, getAoETargetType } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { mapSpeedKeys } from "./MidiKeyManager.js";
@@ -277,8 +277,13 @@ export function averageDice(roll: Roll) {
   return roll;
 }
 
-function configureDamage(wrapped, options: any = {critical: {}}) {
-  if (this.options.configured) return;
+function configureDamage(wrapped, options: any = { critical: {} }) {
+  // @ ts-expect-error
+  // if ((options.critical && foundry.utils.isEmpty(options.critical)) || this.options.configured || options.critical.allow === false || !this.isCritical) {
+
+  if (this.options.configured || options.critical.allow === false || !this.isCritical) {
+    return;
+  }
   //@ts-expect-error
   const OperatorTerm = foundry.dice.terms.OperatorTerm
   //@ts-expect-error
@@ -288,10 +293,12 @@ function configureDamage(wrapped, options: any = {critical: {}}) {
   let useDefaultCritical = getCriticalDamage() === "default";
   useDefaultCritical ||= (getCriticalDamage() === "explodeCharacter" && this.data.actorType !== "character");
   useDefaultCritical ||= (getCriticalDamage() === "explodeNPC" && this.data.actorType !== "npc");
-  if (!this.isCritical || useDefaultCritical) {
+  if (useDefaultCritical) {
     while (this.terms.length > 0 && this.terms[this.terms.length - 1] instanceof OperatorTerm)
       this.terms.pop();
-    wrapped(options.critical);
+    options.critical.multiplyNumeric ??= game.settings.get("dnd5e", "criticalDamageModifiers");
+    options.critical.powerfulCritical ??= game.settings.get("dnd5e", "criticalDamageMaxDice");
+    wrapped({ critical: options.critical });
     if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
     return;
   }
@@ -585,7 +592,7 @@ async function rollDeathSave(wrapped, options) {
 
     if (deathSaveBonus) {
       let bonus: any;
-      if (typeof(deathSaveBonus) === "number") {
+      if (typeof (deathSaveBonus) === "number") {
         bonus = deathSaveBonus;
       } else {
         bonus = await evalAllConditionsAsync(this, "flags.midi-qol.deathSaveBonus", conditionData);
@@ -748,6 +755,7 @@ let debouncedATRefresh = foundry.utils.debounce(_midiATIRefresh, 30);
 function _midiATIRefresh(template) {
   // We don't have an item to check auto targeting with, so just use the midi setting
   if (!canvas?.tokens) return;
+  console.error("template", template);
   let autoTarget = getActivityAutoTarget(template.activity);
   if (autoTarget === "none") return;
   if (autoTarget === "dftemplates" && installedModules.get("df-templates"))
@@ -1282,7 +1290,6 @@ export function readyPatching() {
 
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     libWrapper.register(MODULE_ID, `game.${game.system.id}.canvas.AbilityTemplate.prototype.refresh`, midiATRefresh, "WRAPPER");
-    libWrapper.register(MODULE_ID, "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     if (!isdndv4) libWrapper.register(MODULE_ID, "CONFIG.Item.sheetClasses.base['dnd5e.ItemSheet5e2'].cls.defaultOptions", itemSheetDefaultOptions, "WRAPPER");
@@ -1293,7 +1300,6 @@ export function readyPatching() {
     libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.challengeConcentration", challengeConcentration, "MIXED")
   } else { // TODO find out what itemsheet5e is called in sw5e TODO work out how this is set for sw5e v10
     libWrapper.register(MODULE_ID, "game.sw5e.canvas.AbilityTemplate.prototype.refresh", midiATRefresh, "WRAPPER");
-    libWrapper.register(MODULE_ID, "game.system.applications.actor.TraitSelector.prototype.getData", preDamageTraitSelectorGetData, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.character['sw5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.npc['sw5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
   }
@@ -1380,7 +1386,7 @@ async function addDependents(...dependents) {
 async function _addDependent(...dependent) {
   const id = game.system.id ?? MODULE_ID;
   const dependents = this.getDependents().map(d => ({ uuid: d.uuid }));
-  dependents.push(...dependent.map(d => ({ uuid: d.uuid })));
+  dependents.push(...dependent.filter(dep => !dependents.some(d => d.uuid === dep.uuid)).map(d => ({ uuid: d.uuid })));
   return this.setFlag(id, "dependents", dependents);
 }
 
@@ -1402,6 +1408,11 @@ async function _onDelete(wrapped, ...args) {
   //@ts-expect-error
   if (game.user === game.users?.activeGM) {
     if (!this.getDependents) return wrapped(...args);
+    // Special case for consumable items - don't delete effect when item deleted
+    if (this instanceof Item && this.type === "consumable") {
+      foundry.utils.setProperty(this, `flags.${game.system.id}.dependents`, [])
+      return wrapped(...args);
+    }
     const dependents = this.getDependents();
     if (dependents.length > 0) {
       for (let dep of dependents) {
@@ -2053,19 +2064,6 @@ function addCustomTrait(customTraits: string, customTrait: string): string {
   if (traitList.includes(customTrait)) return customTraits;
   traitList.push(customTrait);
   return traitList.join("; ");
-}
-
-function preDamageTraitSelectorGetData(wrapped) {
-  try {
-    // migrate di/dr/dv and strip out active effect data.
-    if (this.object instanceof Actor) processTraits(this.object);
-  } catch (err) {
-    const message = `preDamageTraitSelectorGetData | migrate traits error`;
-    error(message, err);
-    TroubleShooter.recordError(err, message);
-  } finally {
-    return wrapped();
-  }
 }
 
 function actorGetRollData(wrapped, ...args) {

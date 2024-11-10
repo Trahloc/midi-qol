@@ -101,14 +101,7 @@ export let readyHooks = async () => {
       return true;
     }
   })
-  /* dnd5e.damageActor won't pass through the options of the update so can't use it for disable concentratnChecks
-  Hooks.on("dnd5e.damageActor", (actor, changes, data, userId) => {
-    if (configSettings.doConcentrationCheck === "item" && userId === game.userId && isConcentrating(actor) && changes.total < 0) {
-      if (changes.hp < 0 || (configSettings.tempHPDamageConcentrationCheck && changes.temp < 0))
-        doConcentrationCheck(actor, actor.getConcentrationDC(-changes.total))
-    }
-  });
-*/
+
   Hooks.on("renderActorArmorConfig", (app, html, data) => {
     if (!["none", undefined, false].includes(checkRule("challengeModeArmor"))) {
       const ac = data.ac;
@@ -355,7 +348,7 @@ export function initHooks() {
       MacroPassOptions: Workflow.allMacroPasses,
       showCEOff: false,
       showCEOn: false,
-      hasOtherDamage: ![undefined, ""].includes(item.system.formula) || (item.system.damage?.versatile && !item.system.properties?.has("ver")),
+      hasOtherDamage: true, // TODO fix this for activities ![undefined, ""].includes(item.system.formula) || (item.system.damage?.versatile && !item.system.properties?.has("ver")),
       showHeader: !configSettings.midiFieldsTab,
       midiPropertyLabels: midiProps,
       ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions"),
@@ -411,6 +404,10 @@ export function initHooks() {
       delete data.flags.midiProperties.halfdam
       delete data.flags.midiProperties.nodam;
       delete data.flags.midiProperties.concentration;
+      delete data.flags.midiProperties.rollOther;
+      delete data.flags.midiProperties.saveDamage;
+      delete data.flags.midiProperties.bonusSaveDamage;
+      delete data.flags.midiProperties.otherSaveDamage;
     }
     return data;
   }
@@ -432,7 +429,7 @@ export function initHooks() {
       }
     });
     api.registerItemTab(myTab);
-
+/*
     api.config.itemSummary.registerCommands([
       {
         label: i18n("midi-qol.buttons.roll"),
@@ -493,6 +490,8 @@ export function initHooks() {
         },
       },
     ]);
+    */
+    /*
     api.registerItemContent(
       new api.models.HtmlContent({
         html: (data) => {
@@ -516,6 +515,7 @@ export function initHooks() {
           !data.item.hasAreaTarget,
       })
     );
+    */
     api.config.actorTraits.registerActorTrait({
       title: i18n("midi-qol.ActorOnUseMacros"),
       iconClass: "fas fa-cog",
@@ -602,21 +602,6 @@ export function initHooks() {
     }
     // activateMacroListeners(app, html);
   })
-
-  Hooks.on("preUpdateItem", (candidate, updates, options, user) => {
-    if (updates.system?.target) {
-      const targetType = updates.system.target?.type ?? candidate.system.target?.type;
-      const noUnits = !["creature", "ally", "enemy"].includes(targetType) && !(targetType in GameSystemConfig.areaTargetTypes);
-      if (noUnits) {
-        foundry.utils.setProperty(updates, "system.target.units", null);
-      }
-      // One of the midi specials must specify a count before you can set units
-      if (["creature", "ally", "enemy"].includes(targetType) && (updates.system?.target?.value === null || !candidate.system.target.value)) {
-        foundry.utils.setProperty(updates, "system.target.units", null);
-      }
-    }
-    return true;
-  });
 
   function _chatListeners(html) {
     html.on("click", '.card-buttons button', onChatCardAction.bind(this))
@@ -796,17 +781,6 @@ Hooks.on("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
   return true;
 });
 
-/*
-Hooks.on("dnd5e.preRollDamage", (item, rollConfig) => {
-  return true;
-  if ((item.parent instanceof Actor && item.type === "spell")) {
-    const actor = item.parent;
-    const actorSpellBonus = foundry.utils.getProperty(actor, "system.bonuses.spell.all.damage");
-    if (actorSpellBonus) rollConfig.rollConfigs[0].parts.push(actorSpellBonus);
-  }
-  return preRollDamageHook(item, rollConfig)
-});
-*/
 Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
   if (!configSettings.v3DamageApplication) return true;
   try {

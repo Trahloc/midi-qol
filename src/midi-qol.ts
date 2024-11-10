@@ -6,7 +6,7 @@ import { initHooks, readyHooks, setupHooks } from './module/Hooks.js';
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
 import { TrapWorkflow, DamageOnlyWorkflow, Workflow, DummyWorkflow, DDBGameLogWorkflow, UserWorkflow } from './module/Workflow.js';
-import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, fromActorUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility, MQfromUuidSync, actorFromUuid, createDamageDetail, removeActionUsed, removeBonusActionUsed, getCheckRollModeFor, getSaveRollModeFor, completeActivityUse, completeItemUseV2, checkActivityRange, modifyDamageBy, computeDistance } from './module/utils.js';
+import { addConcentration, addConcentrationDependent, addRollTo, applyTokenDamage, canSee, canSense, canSenseModes, checkDistance, checkIncapacitated, checkNearby, checkRange, chooseEffect, completeItemUse, computeCoverBonus, contestedRoll, createConditionData, debouncedUpdate, displayDSNForRoll, doConcentrationCheck, doOverTimeEffect, evalAllConditions, evalCondition, findNearby, findNearbyCount, getCachedDocument, getChanges, getConcentrationEffect, getTokenDocument, getTokenForActor, getTokenForActorAsSet, getTokenPlayerName, getTraitMult, hasCondition, hasUsedBonusAction, hasUsedReaction, isTargetable, midiRenderAttackRoll, midiRenderBonusDamageRoll, midiRenderDamageRoll, midiRenderOtherDamageRoll, midiRenderRoll, fromActorUuid, playerFor, playerForActor, raceOrType, reactionDialog, removeHiddenCondition, removeInvisibleCondition, removeReactionUsed, reportMidiCriticalFlags, setBonusActionUsed, setReactionUsed, tokenForActor, typeOrRace, validRollAbility, MQfromUuidSync, actorFromUuid, createDamageDetail, removeActionUsed, removeBonusActionUsed, getCheckRollModeFor, getSaveRollModeFor, completeActivityUse, completeItemUseV2, checkActivityRange, modifyDamageBy, computeDistance, addDependent } from './module/utils.js';
 import { ConfigPanel } from './module/apps/ConfigPanel.js';
 import { RollStats } from './module/RollStats.js';
 import { OnUseMacroOptions } from './module/apps/Item.js';
@@ -142,6 +142,7 @@ Hooks.once("init", () => {
 });
 
 function setupActvities() {
+  setupMidiActivityUsageDialog();
   setupAttackActivity();
   setupDamageActivity();
   setupSaveActivity();
@@ -317,7 +318,7 @@ function addConfigOptions() {
     // config.midiProperties["halfdam"] = i18n("midi-qol.halfDamageSaveProp");
     config.midiProperties["autoFailFriendly"] = i18n("midi-qol.FailFriendly");
     config.midiProperties["autoSaveFriendly"] = i18n("midi-qol.SaveFriendly");
-    config.midiProperties["rollOther"] = i18n("midi-qol.rollOtherProp");
+    // config.midiProperties["rollOther"] = i18n("midi-qol.rollOtherProp");
     config.midiProperties["critOther"] = i18n("midi-qol.otherCritProp");
     config.midiProperties["offHandWeapon"] = i18n("midi-qol.OffHandWeapon");
     config.midiProperties["magicdam"] = i18n("midi-qol.magicalDamageProp");
@@ -326,9 +327,9 @@ function addConfigOptions() {
     config.midiProperties["noConcentrationCheck"] = i18n("midi-qol.noConcentrationEffectProp");
     config.midiProperties["toggleEffect"] = i18n("midi-qol.toggleEffectProp");
     config.midiProperties["ignoreTotalCover"] = i18n("midi-qol.ignoreTotalCover");
-    config.midiProperties["saveDamage"] = "Save Damage";
-    config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
-    config.midiProperties["otherSaveDamage"] = "Other Damage Save";
+    // config.midiProperties["saveDamage"] = "Save Damage";
+    // config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
+    // config.midiProperties["otherSaveDamage"] = "Other Damage Save";
     config.midiProperties["idr"] = "Ignore dr";
     config.midiProperties["idi"] = "Ignore di";
     config.midiProperties["idv"] = "Ignore dv";
@@ -479,7 +480,7 @@ Hooks.once('ready', function () {
       type: Boolean
     };
     //@ts-expect-error
-    game.system.config.areaTargetTypes["squareRadius"] = { label: i18n("midi-qol.squareRadius"), template: "rect" };
+    game.system.config.areaTargetTypes["emanationNoTemplate"] = { label: i18n("midi-qol.emanationNoTemplate"), template: "rect" };
 
     if (game.user?.isGM) {
       const instanceId = game.settings.get(MODULE_ID, "instanceId");
@@ -594,6 +595,7 @@ import { setupDamageActivity } from './module/activities/DamageActivity.js';
 import { setupCheckActivity } from './module/activities/CheckActivity.js';
 import { setupHealActivity } from './module/activities/HealActivity.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/activities/activityHelpers.js';
+import { setupMidiActivityUsageDialog } from './module/activities/MidiActivityMixin.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -605,6 +607,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     addRollTo: function addRollTo(roll: Roll, bonusRoll: Roll): Roll,
     addConcentration: async function addConcentration(actorRef: Actor | string, concentrationData: ConcentrationData): Promise<void>,
     addConcentrationDependent: async function addConcentrationDependent(actor: ActorRef, dependent, item?: Item),
+    addDependent: async function addDependent(docuemnt: Document, dependent),
     applyTokenDamage: async function applyTokenDamage(damageDetail, totalDamage, theTargets, item, saves, options: any = { existingDamage: [], superSavers: new Set(), semiSuperSavers: new Set(), workflow: undefined, updateContext: undefined, forceApply: false, noConcentrationCheck: false }): Promise<any[]>,
     canSense: function canSense(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): boolean,
     canSense: function canSee(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string): boolean,
@@ -616,7 +619,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     checkActivityRange: function checkActivityRange(activity: Activity, tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
     checkRule: function checkRule(rule: string): boolean,
     completeItemUse: async function completeItemUse(item, config: any = {}, options: any, dialog, message),
-    completeActivityUse: async function completeActivityUse(activity: Activity, config: any = {}, options: any = { checkGMstatus: false }),
+    completeActivityUse: async function completeActivityUse(activity: Activity, config: any = {}, dialog: message: any = {}),
     computeCoverBonus: function computeCoverBonus(attacker: Token | TokenDocument, target: Token | TokenDocument, item: any = undefined): number,
     computeDistance: function computeDistance(t1: Token, t2: Token, {wallBlocking = false, includeCover = true}),
     configSettings: function configSettings(): any,
@@ -722,6 +725,7 @@ function setupMidiQOLApi() {
   //@ts-ignore
   globalThis.MidiQOL = foundry.utils.mergeObject(globalThis.MidiQOL ?? {}, {
     addConcentration,
+    addDependent,
     addConcentrationDependent,
     addRollTo,
     addUndoChatMessage,
@@ -1091,7 +1095,7 @@ function setupMidiFlags() {
   for (let key of damageTypes) {
     midiFlags.push(`flags.${MODULE_ID}.absorption.${key}`);
   }
-  midiFlags.push(`dlags.${MODULE_ID}.fail.disadvantage.heavy`);
+  midiFlags.push(`flags.${MODULE_ID}.fail.disadvantage.heavy`);
 
   /*
   midiFlags.push(`flags.${MODULE_ID}.grants.advantage.attack.all`);

@@ -1,5 +1,31 @@
 * Future versions: There are no hard and fast timelines for these releases, but....
 
+This is the first open beta for midi-qol in dnd5e v4. It is definitely a beta and not ready for full time game play. In addition it will take time for the supporting modules (CPR/MISC etc) to catch up.
+You must install dae version 12.0.2 or later avialble via url install from https://gitlab.com/tposney/dae/raw/dndv4/package/module.json
+
+Major Changes:
+* Midi now uses activities to handle all of the actions that it performs.
+* Midi provides its own version of most core activities.
+  - You can configure midi to automatically replace core activities with midi versions.
+* The midi attack activity allows you to specify an additional activity - the "otherActivity" which supports things like spider bite. The other activity can roll a saving throw or apply damage.
+* Each activity has a "use" condition which must be met for the activity to be rolled.
+* Each activity has an "effect" condition which must be true for the effects attached to the activity to be applied.
+* non-merge card is no longer supported.
+* Ranged template targeting has changed. Where previously you would specify a range and template type self/ally/enemy, now you specifiy either emanation targeting (which will draw a template centered on the caster) or "emanation - no template" which will target creatures within the specified template size.
+
+### 12.4.7
+* Removed references to rolling/evaluating rolls with {async: true/false}
+* Support for new targeting type - emanation - no template, which targets creatures within the template distance of the token using the activity. The replaces the previous settings for ranged targets. This, plus emanation targeting, replaces midi's previous solution for self centered template effects. The functionality is identical, but will require all such items to be edited to conform to the new scheme.
+* Add MidiQOL.addDependent(document, dependent), which adds dependent as a dependent to the passed document.
+* Fix for Healing Activities not rolling healing.
+* Added activity to the availabe data in midi called macros.
+* Fix for preActivitySave macros being called.
+* Fix for ItemMacro calling for removed consumables.
+* Ammunition confers its properties (magical/silvered etc) on an attack made with that ammunition.
+* Added combatRound, combatTurn and combatTime (combatRound + combatTurn/100) to condition data.
+* Incapacitated actors can't take reactions.
+
+
 ### 12.4.6
 * Include changes from merge request 183 (deathSaveBonus)
 * Include changes from merge request 184 (computeDistance)

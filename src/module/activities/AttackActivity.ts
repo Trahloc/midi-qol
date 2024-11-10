@@ -3,6 +3,7 @@ import { mapSpeedKeys } from "../MidiKeyManager.js";
 import { Workflow } from "../Workflow.js";
 import { defaultRollOptions } from "../patching.js";
 import { configSettings } from "../settings.js";
+import { busyWait } from "../tests/setupTest.js";
 import { addAdvAttribution, asyncHooksCall, displayDSNForRoll, getSpeaker, processAttackRollBonusFlags } from "../utils.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
 import { doActivityReactions } from "./activityHelpers.js";
@@ -55,8 +56,8 @@ let defineMidiAttackSheetClass = (baseClass: any) => {
           .sort((lhs, rhs) => lhs.label.localeCompare(rhs.label, game.i18n.lang))
         : [];
       context.otherActivityOptions = this.item.system.activities
-      .filter(a => a.uuid !== this.activity.uuid &&(a.damage || a.roll?.formula || a.save || a.check))
-      .reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.uuid }); return ret }, [{ label: "", value: "" }]);
+        .filter(a => a.uuid !== this.activity.uuid && (a.damage || a.roll?.formula || a.save || a.check))
+        .reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.uuid }); return ret }, [{ label: "", value: "" }]);
 
       let indexOffset = 0;
       if (context.activity.damage?.parts) {
@@ -161,8 +162,8 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       if (this.workflow?.aborted || !returnValue) return [];
 
       try {
-      dialog.configure = !config.midiOptions.fastForwardAttack || this.forceDialog || (this.ammunition !== "" && this.confirmAmmuntion);
-      } catch(err) {
+        dialog.configure = !config.midiOptions.fastForwardAttack || this.forceDialog || (this.ammunition !== "" && this.confirmAmmuntion);
+      } catch (err) {
         console.error("midi-qol | AttackActivity | rollAttack | Error configuring dialog", err);
       }
       Hooks.once("dnd5e.preRollAttackV2", (rollConfig, dialogConfig, messageConfig) => {
@@ -179,6 +180,12 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       config.attackMode = this.attackMode ?? "oneHanded";
       config.ammunition = this.ammunition;
       const rolls = await super.rollAttack(config, dialog, message);
+      if (!rolls) return;
+      if (dialog.configure && rolls[0]?.options?.ammunition && rolls[0].options.ammunition !== this.ammunition) {
+        await this.update({ ammunition: rolls[0].options.ammunition });
+        this.ammunition = rolls[0].options.ammunition;
+        this._otherActivity = undefined; // reset this in case ammunition changed
+      }
       if (this.workflow) {
         this.workflow.attackMode = config.attackMode;
         this.workflow.ammunition = rolls[0].options.ammunition ?? config.ammunition;
@@ -240,6 +247,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       if (workflow.workflowType === "TrapWorkflow") workflow.rollOptions.fastForward = true;
 
       await doActivityReactions(this, workflow);
+      await busyWait(0.01);
       if (configSettings.allowUseMacro && workflow.options.noTargetOnusemacro !== true) {
         await workflow.triggerTargetMacros(["isPreAttacked"]);
         if (workflow.aborted) {
@@ -261,7 +269,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       // Active defence resolves by triggering saving throws and returns early
       if (game.user?.isGM && workflow.useActiveDefence) {
         delete config.midiOptions.event; // for dnd 3.0
-        // TODO wqorkfout what to do with active defense 
+        // TODO work out what to do with active defense 
         /*
         let result: Roll = await wrapped(foundry.utils.mergeObject(options, {
           advantage: false,
@@ -355,8 +363,29 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       return true;
     }
 
+    /** @override */
+    get actionType() {
+      const type = this.attack.type;
+      return `${type.value === "ranged" ? "r" : "m"}${type.classification === "spell" ? "sak" : "wak"}`;
+    }
+
+    get ammunitionItem() {
+      if (!this.ammunition) return undefined;
+      const ammunitionItem = this.actor?.items?.get(this.ammunition);
+      console.error("MidiQOL | AttackActivity | ammunition | ammunitionItem", ammunitionItem);
+      return ammunitionItem
+    }
+
     get otherActivity() {
       if (this._otherActivity !== undefined) return this._otherActivity;
+      if (this.ammunitionItem?.system.damage?.replace) {
+        //TODO consider making this a choice of activity
+        this._otherActivity = this.ammunitionItem.system.activities.contents[0];
+        if (this._otherActivity) {
+          this._otherActivity.prepareData();
+          return this._otherActivity;
+        }
+      }
       //@ts-expect-error
       this._otherActivity = fromUuidSync(this.otherActivityUuid)
       if (!this._otherActivity && configSettings.autoMergeActivityOther) {

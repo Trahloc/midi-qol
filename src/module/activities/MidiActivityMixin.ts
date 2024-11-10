@@ -6,7 +6,7 @@ import { checkMechanic, configSettings } from "../settings.js";
 import { installedModules } from "../setupModules.js";
 import { busyWait } from "../tests/setupTest.js";
 import { saveUndoData } from "../undo.js";
-import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityRange, checkIncapacitated, createConditionData, displayDSNForRoll, evalActivationCondition, evalCondition, getAutoRollAttack, getAutoRollDamage, getAutoTarget, getRemoveAttackButtons, getRemoveDamageButtons, getSpeaker, getStatusName, getToken, activityHasAutoPlaceTemplate, hasUsedBonusAction, hasUsedReaction, initializeVision, isAutoConsumeResource, isInCombat, needsBonusActionCheck, needsReactionCheck, processDamageRollBonusFlags, setBonusActionUsed, setReactionUsed, sumRolls, tokenForActor, validTargetTokens } from "../utils.js";
+import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityRange, checkIncapacitated, createConditionData, displayDSNForRoll, evalActivationCondition, evalCondition, getAutoRollAttack, getAutoRollDamage, getAutoTarget, getRemoveAttackButtons, getRemoveDamageButtons, getSpeaker, getStatusName, getToken, activityHasAutoPlaceTemplate, hasUsedBonusAction, hasUsedReaction, initializeVision, isAutoConsumeResource, isInCombat, needsBonusActionCheck, needsReactionCheck, processDamageRollBonusFlags, setBonusActionUsed, setReactionUsed, sumRolls, tokenForActor, validTargetTokens, activityHasEmanationNoTemplate, getActivityAutoTarget } from "../utils.js";
 import { confirmWorkflow, preTemplateTargets, removeFlanking, selectTargets, setDamageRollMinTerms } from "./activityHelpers.js";
 
 export var MidiActivityMixin = Base => {
@@ -46,6 +46,11 @@ export var MidiActivityMixin = Base => {
       return baseFlags;
     }
 
+    static metadata = foundry.utils.mergeObject(
+      foundry.utils.mergeObject({}, super.metadata), {
+      usage: { dialog: MidiActivityUsageDialog },
+    });
+
     async use(config: any = {}, dialog: any = {}, message: any = {}) {
       if (!this.item.isEmbedded) return;
       if (!this.item.isOwner) {
@@ -65,6 +70,7 @@ export var MidiActivityMixin = Base => {
       await this.confirmTargets();
       // come back and see about re-rolling etc.
       if (!this.workflow || this.workflow.currentAction !== this.workflow.WorkflowState_NoAction) {
+        console.error("MidiActivity | use | Workflow is not in the correct state", config.midiOptions, this.workflow?.currentAction);
         this.workflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
       }
       if (!await this.confirmCanProceed(config, dialog, message)) return;
@@ -97,6 +103,7 @@ export var MidiActivityMixin = Base => {
     }
 
     checkAutoConsume(config, dialog, message) {
+      if (dialog.configure === false) return;
       if (this.isSpell && ["both", "spell"].includes(isAutoConsumeResource(this.workflow))) {
         dialog.configure = false;
         // Check that there is a spell slot of the right level
@@ -118,7 +125,7 @@ export var MidiActivityMixin = Base => {
     async rollDamage(config, dialog, message: any = {}) {
       if (!config.midiOptions) config.midiOptions = {};
       if (debugEnabled > 0) {
-        warn("AttackActivity | rollDamage | Called", config, dialog, message);
+        warn("MidiActivity | rollDamage | Called", config, dialog, message);
       }
       let result: Roll[] | undefined;
       let otherResult: Roll[] | undefined;
@@ -128,8 +135,9 @@ export var MidiActivityMixin = Base => {
         console.warn("midi-qol | Damage roll blocked via pre-hook");
         return;
       }
-      if (this.hasDamage) {
+      if (this.hasDamage || this.hasHealing) {
         dialog.configure = !config.midiOptions?.fastForwardDamage || this.forceDialog;
+        if (dialog.configure) config.midiOptions.isCritical = false;
         Hooks.once("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
           delete rollConfig.event;
           return true;
@@ -149,13 +157,14 @@ export var MidiActivityMixin = Base => {
             if (shouldRollOther) break;
           }
         }
-        if (shouldRollOther && this.otherActivity.hasDamage) {
+        if (shouldRollOther && (this.otherActivity.hasDamage || this.otherActivity.hasHealing)) {
           this.otherActivity.workflow = this.workflow;
           // Check conditions & flags
           const otherConfig = foundry.utils.deepClone(config);
-          if (!foundry.utils.getProperty(this.item, "flags.midiProperties.critOther")) otherConfig.midiOptions.isCritical = false;
+          otherConfig.midiOptions.isCritical &&= (this.otherActivity.damage?.critical?.allow || this.otherActivity.item.flags.midiProperties?.critOther);
+          foundry.utils.setProperty(otherConfig, "critical.allow", this.otherActivity.damage.critical?.allow || this.otherActivity.item.flags.midiProperties?.critOther);
           otherConfig.midiOptions.updateWorkflow = false;
-          foundry.utils.setProperty(otherConfig, "critical.allow", this.item.flags.midiProperties?.critOther);
+          // foundry.utils.setProperty(otherConfig, "critical.allow", this.item.flags.midiProperties?.critOther);
           if (this.otherActivity?.hasDamage)
             otherResult = await this.otherActivity.rollDamage(otherConfig, dialog, { create: false });
           else if (this.otherActivity?.roll?.formula) {
@@ -190,7 +199,6 @@ export var MidiActivityMixin = Base => {
             workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys(pressedKeys, "damage", workflow.rollOptions?.rollToggle), { insertKeys: true, insertValues: true, overwrite: true });
           else
             workflow.rollOptions = foundry.utils.mergeObject(workflow.rollOptions, mapSpeedKeys({}, "damage", workflow.rollOptions?.rollToggle), { insertKeys: true, insertValues: true, overwrite: true });
-
         }
         //@ts-expect-error
         if (CONFIG.debug.keybindings) {
@@ -225,7 +233,8 @@ export var MidiActivityMixin = Base => {
         if (workflow && (workflow.isVersatile || config.midiOptions.versatile)) workflow.rollOptions.versatile = true;
         if (debugEnabled > 0) warn("rolling damage  ", this.name, this);
 
-        if (workflow && config.midiOptions?.critical !== undefined) workflow.isCritical = config.midiOptions?.critical;
+        if (workflow && config.midiOptions?.isCritical !== undefined) 
+          workflow.isCritical = config.midiOptions?.isCritical;
         config.midiOptions.fastForwardDamage = config.midiOptions.fastForwardDamage ?? workflow.workflowOptions?.fastForwardDamage ?? workflow.rollOptions.fastForwardDamage;
 
         if (workflow) workflow.damageRollCount += 1;
@@ -245,6 +254,12 @@ export var MidiActivityMixin = Base => {
       const rollConfig = super.getDamageConfig(config);
       this.configureDamageRoll(rollConfig);
       for (let roll of rollConfig.rolls) {
+        if (rollConfig.ammunition) { // add ammunition properties to the damage roll
+          let rollProperties = new Set(roll.options.properties);
+          const ammunitionProperties = rollConfig.ammunition.system.properties;
+          //@ts-expect-error
+          roll.options.properties = Array.from(rollProperties.union(ammunitionProperties));
+        }
         roll.options.isCritical ||= !!config.midiOptions.isCritical;
         roll.options.isFumble ||= !!config.midiOptions.isFumble;
       }
@@ -262,7 +277,9 @@ export var MidiActivityMixin = Base => {
           // result2 = await wrapped(damageRollData)
         }
         let magicalDamage = this.item?.system.properties?.has("mgc") || this.item?.flags?.midiProperties?.magicdam;
+        magicalDamage ||= config.ammunition?.system.properties.has("mgc") || config.ammunition?.flags?.midiProperties?.magicdam;
         magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && this.attackBonus > 0);
+        magicalDamage ||= configSettings.requireMagical === "off" && config.ammunition?.attackBonus > 0;
         magicalDamage = magicalDamage || (configSettings.requireMagical === "off" && (this.attack?.type.classification ?? "none") !== "weapon");
         magicalDamage = magicalDamage || (configSettings.requireMagical === "nonspell" && this.isSpell);
 
@@ -333,7 +350,7 @@ export var MidiActivityMixin = Base => {
         } else if (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kh`) || foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kl`)) {
           let result2: Roll[] = [];
           for (let i = 0; i < result.length; i++) {
-            result2.push(await result[i].reroll({ async: true }));
+            result2.push(await result[i].reroll());
           }
           if ((foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kh`) && (sumRolls(result2) > sumRolls(result)))
             || (foundry.utils.getProperty(this, `parent.flags.${MODULE_ID}.damage.reroll-kl`) && (sumRolls(result2) < sumRolls(result)))) {
@@ -433,7 +450,7 @@ export var MidiActivityMixin = Base => {
       this.workflow = undefined;
       return false;
     }
-    
+
     async confirmCanProceed(this: any, config, dialog, message): Promise<boolean> {
       if (debugEnabled > 0)
         warn("MidiQOL | confirmCanProceed | Called", this);
@@ -452,7 +469,7 @@ export var MidiActivityMixin = Base => {
             return this.removeWorkflow();
           }
         }
-        let isEmanationTargeting = ["radius", "squaredRadius"].includes(this.target?.template?.type);
+        let isEmanationTargeting = ["radius"].includes(this.target?.template?.type);
         let isAoETargeting = !isEmanationTargeting && activityHasAreaTarget(this);
         let selfTarget = this.target?.affects.type === "self";
         const inCombat = isInCombat(this.actor);
@@ -711,6 +728,14 @@ export var MidiActivityMixin = Base => {
     // Kludge because of private method #placeTemplate in dnd5e mixin. Need to override the caller so that we can do our own stuff.
     // Means have to track changes to _finalizeUsage in dnd5e mixin
     async _finalizeUsage(config, results) {
+      const workflow = Workflow.getWorkflow(this.uuid)
+      this.workflow = workflow;
+      const tokenToUse: Token = workflow?.attackingToken;
+      const autoCreatetemplate = tokenToUse && activityHasAutoPlaceTemplate(this);
+      const emanationNoTemplate = tokenToUse && activityHasEmanationNoTemplate(this);
+      if (!(autoCreatetemplate || emanationNoTemplate) || !tokenToUse || !workflow) {
+        return super._finalizeUsage(config, results);
+      }
       results.templates = config.create?.measuredTemplate ? await this._placeTemplate() : [];
     }
 
@@ -719,103 +744,86 @@ export var MidiActivityMixin = Base => {
       this.workflow = workflow;
       const tokenToUse: Token = workflow?.attackingToken;
       const autoCreatetemplate = tokenToUse && activityHasAutoPlaceTemplate(this);
-      if (!autoCreatetemplate || !tokenToUse || !workflow) {
-        const templates: any[] = [];
-        try {
-          //@ts-expect-error
-          for ( const template of game.system.canvas.AbilityTemplate.fromActivity(this) ) {
-            const result = await template.drawPreview();
-            if ( result ) templates.push(result);
+      const emanationNoTemplate = tokenToUse && activityHasEmanationNoTemplate(this);
+      if (!workflow || !tokenToUse) return;
+      workflow.activity = this;
+      if (autoCreatetemplate && tokenToUse) {
+        const gs = canvas?.dimensions?.distance ?? 5;
+        const templateOptions: any = {};
+        // square templates don't respect the options distance field
+        let item = this;
+        let target = this.target ?? { value: 0 };
+        const useSquare = false;
+        const fudge = 0.1;
+        //@ts-expect-error
+        const { width, height } = tokenToUse.document;
+        if (useSquare) {
+          templateOptions.distance = target.template.size + fudge + Math.max(width, height, 0) * gs;
+          item = item.clone({ "system.target.value": templateOptions.distance, "system.target.type": "square" })
+        }
+        else
+          templateOptions.distance = Math.ceil(target.template.size + Math.max(width / 2, height / 2, 0) * (canvas?.dimensions?.distance ?? 0));
+
+        if (useSquare) {
+          const adjust = (templateOptions.distance ?? target.template.size) / 2;
+          templateOptions.x = Math.floor((tokenToUse.center?.x ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
+          templateOptions.y = tokenToUse.center?.y ?? 0;
+          if (game.settings.get("dnd5e", "gridAlignedSquareTemplates")) {
+            templateOptions.y = Math.floor((tokenToUse.center?.y ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
           }
-        } catch(err) {
-          //@ts-expect-error
-          Hooks.onError("Activity#placeTemplate", err, {
-            msg: game.i18n.localize("DND5E.TARGET.Warning.PlaceTemplate"),
-            log: "error",
-            notify: "error"
-          });
+        } else {
+          templateOptions.x = tokenToUse.center?.x ?? 0;
+          templateOptions.y = tokenToUse.center?.y ?? 0;
+        }
+
+        if (workflow?.actor) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.actorUuid`, workflow.actor.uuid);
+        if (workflow?.tokenId) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.tokenId`, workflow.tokenId);
+        if (workflow) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.workflowId`, workflow.id);
+        foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.itemUuid`, this.uuid);
+
+        // @ts-expect-error .canvas
+        let templates = game.system.canvas.AbilityTemplate.fromActivity(this, templateOptions);
+        // fromActivity returns an array of templates - work out if we need more than one
+        if (!templates) console.error("No templates returned from fromActivity");
+        let template = templates[0];
+        const templateData = template.document.toObject();
+        if (this.item) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.itemUuid`, this.item.uuid);
+        if (this.actor) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.actorUuid`, this.actor.uuid);
+        if (!foundry.utils.getProperty(templateData, `flags.${game.system.id}.origin`)) foundry.utils.setProperty(templateData, `flags.${game.system.id}.origin`, this.item?.uuid);
+        // @ts-expect-error
+        const templateDocuments: MeasuredTemplateDocument[] | undefined = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
+
+        if (templateDocuments && templateDocuments.length > 0) {
+          let td: MeasuredTemplateDocument = templateDocuments[0];
+          await td.object?.refresh();
+          await busyWait(0.01);
+          workflow.templateUuid = td.uuid;
+          workflow.template = td;
+          workflow.templateId = td?.object?.id;
+          if (tokenToUse && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
+            // @ts-expect-error .object
+            await tokenToUse.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
+            if (workflow && !foundry.utils.getProperty(workflow, "item.flags.walledtemplates.noAutotarget"))
+              selectTargets.bind(workflow)(td);
+
+          }
+          else if (getActivityAutoTarget(workflow?.activity) !== "none") selectTargets.bind(workflow)(td);
         }
         return templates;
       }
-      workflow.activity = this;
-      if (autoCreatetemplate && tokenToUse) {
-          const gs = canvas?.dimensions?.distance ?? 5;
-          const templateOptions: any = {};
-          // square templates don't respect the options distance field
-          let item = this;
-          let target = this.target ?? { value: 0 };
-          const useSquare = false;
-          const fudge = 0.1;
-          //@ts-expect-error
-          const { width, height } = tokenToUse.document;
-          if (useSquare) {
-            templateOptions.distance = target.template.size + fudge + Math.max(width, height, 0) * gs;
-            item = item.clone({ "system.target.value": templateOptions.distance, "system.target.type": "square" })
-          }
-          else
-            templateOptions.distance = Math.ceil(target.template.size + Math.max(width / 2, height / 2, 0) * (canvas?.dimensions?.distance ?? 0));
-
-          if (useSquare) {
-            const adjust = (templateOptions.distance ?? target.template.size) / 2;
-            templateOptions.x = Math.floor((tokenToUse.center?.x ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
-            templateOptions.y = tokenToUse.center?.y ?? 0;
-            if (game.settings.get("dnd5e", "gridAlignedSquareTemplates")) {
-              templateOptions.y = Math.floor((tokenToUse.center?.y ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
-            }
-          } else {
-            templateOptions.x = tokenToUse.center?.x ?? 0;
-            templateOptions.y = tokenToUse.center?.y ?? 0;
-          }
-
-          if (workflow?.actor) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.actorUuid`, workflow.actor.uuid);
-          if (workflow?.tokenId) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.tokenId`, workflow.tokenId);
-          if (workflow) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.workflowId`, workflow.id);
-          foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.itemUuid`, this.uuid);
-
-          // @ts-expect-error .canvas
-          let templates = game.system.canvas.AbilityTemplate.fromActivity(this, templateOptions);
-          // fromActivity returns an array of templates - work out if we need more than one
-          if (!templates) console.error("No templates returned from fromActivity");
-          let template = templates[0];
-          const templateData = template.document.toObject();
-          if (this.item) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.itemUuid`, this.item.uuid);
-          if (this.actor) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.actorUuid`, this.actor.uuid);
-          if (!foundry.utils.getProperty(templateData, `flags.${game.system.id}.origin`)) foundry.utils.setProperty(templateData, `flags.${game.system.id}.origin`, this.item?.uuid);
-          // @ts-expect-error
-          const templateDocuments: MeasuredTemplateDocument[] | undefined = await canvas?.scene?.createEmbeddedDocuments("MeasuredTemplate", [templateData]);
-
-          if (templateDocuments && templateDocuments.length > 0) {
-            let td: MeasuredTemplateDocument = templateDocuments[0];
-            await td.object?.refresh();
-            await busyWait(0.01);
-            workflow.templateUuid = td.uuid;
-            workflow.template = td;
-            workflow.templateId = td?.object?.id;
-            if (tokenToUse && installedModules.get("walledtemplates") && this.flags?.walledtemplates?.attachToken === "caster") {
-              // @ts-expect-error .object
-              await tokenToUse.attachTemplate(td.object, { "flags.dae.stackable": "noneName" }, true);
-              if (workflow && !foundry.utils.getProperty(workflow, "item.flags.walledtemplates.noAutotarget"))
-                selectTargets.bind(workflow)(td);
-
-            }
-            else if (getAutoTarget(workflow?.item) !== "none") selectTargets.bind(workflow)(td);
-          }
-          return templates;
-        }
     }
 
     async _usageChatContext(message) {
       const context = await super._usageChatContext(message);
       let systemCard = false;
       const minimalCard = false;
-      const createMessage = true;
 
       if (systemCard === undefined) systemCard = false;
       if (debugEnabled > 0) warn("show item card ", this, this.actor, this.actor.token, systemCard, this.workflow);
       let token = tokenForActor(this.item.actor);
       let needAttackButton = !getRemoveAttackButtons(this.item) || configSettings.mergeCardMulti || configSettings.confirmAttackDamage !== "none" ||
         (!this.workflow?.someAutoRollEventKeySet() && !getAutoRollAttack(this.workflow) && !this.workflow?.midiOptions?.autoRollAttack);
-      const needDamagebutton = this.hasDamagae && (
+      const needDamagebutton = this.hasDamage && (
         (["none", "saveOnly"].includes(getAutoRollDamage(this.workflow)) || this.workflow?.midiOptions?.rollToggle)
         || configSettings.confirmAttackDamage !== "none"
         || !getRemoveDamageButtons(this.item)
@@ -833,12 +841,7 @@ export var MidiActivityMixin = Base => {
       if (this.workflow?.midiOptions?.fastForwardDamage && configSettings.showFastForward) versaBtnText += ` ${i18n("midi-qol.fastForward")}`;
 
       let midiContextData = {
-        // actor: this.item.actor,
-        // token: this.item.actor?.token,
-        // tokenId: token?.document?.uuid ?? token?.uuid ?? null, // v10 change tokenId is a token Uuid
-        // tokenUuid: token?.document?.uuid ?? token?.uuid ?? null,
         hasButtons: true,
-        // data: await this.item.system.getCardData(),
         labels: this.labels,
         //@ ts-expect-error TODO needed for abilities translation
         // config: game.system.config,
@@ -849,9 +852,9 @@ export var MidiActivityMixin = Base => {
         isVersatile: needVersatileButton,
         isSpell: this.isSpell,
         isPower: this.isPower,
-        hasSave: !minimalCard && this.item.hasSave && (systemCard || configSettings.autoCheckSaves === "none"),
+        hasSave: !minimalCard && this.save && (systemCard || configSettings.autoCheckSaves === "none"),
         hasAreaTarget: !minimalCard && activityHasAreaTarget(this),
-        hasAttackRoll: !minimalCard && this.item.hasAttack,
+        hasAttackRoll: !minimalCard && this.attack,
         hasPlaceSummons: !minimalCard && this.summon?.prompt === false,
         configSettings,
         hideItemDetails,
@@ -861,8 +864,8 @@ export var MidiActivityMixin = Base => {
         hasEffects,
         effects: this.item.effects,
         isMerge: true,
-        mergeCardMulti: configSettings.mergeCardMulti && (this.item.hasAttack || this.hasDamage),
-        confirmAttackDamage: configSettings.confirmAttackDamage !== "none" && (this.item.hasAttack || this.hasDamage),
+        mergeCardMulti: configSettings.mergeCardMulti && (this.attack || this.hasDamage),
+        confirmAttackDamage: configSettings.confirmAttackDamage !== "none" && (this.attack || this.hasDamage),
         RequiredMaterials: i18n(`${SystemString}.RequiredMaterials`),
         Attack: i18n(`${SystemString}.Attack`),
         SavingThrow: i18n(`${SystemString}.SavingThrow`),
@@ -873,6 +876,10 @@ export var MidiActivityMixin = Base => {
         canCancel: configSettings.undoWorkflow // TODO enable this when more testing done.
       };
       return foundry.utils.mergeObject(context, midiContextData)
+    }
+
+    get actionType() { // the default actionType method in dnd5e mixin returns this.metadata.data instead of this.metadata.type
+      return this.metadata.type;
     }
 
     get otherActivity(): any {
@@ -903,5 +910,27 @@ export var MidiActivityMixin = Base => {
       return this.damage?.parts.length > 0;
     }
 
+    get hasHealing() {
+      return this.healing !== undefined;
+    }
+    get hasAttack() {
+      return this.attack !== undefined;
+    }
+  }
+}
+
+export var  MidiActivityUsageDialog;
+export function setupMidiActivityUsageDialog() {
+  //@ts-expect-error
+  const ActivityUsageDialog = game.system.applications.activity.ActivityUsageDialog;
+  MidiActivityUsageDialog = class MidiActivityUsageDialog extends ActivityUsageDialog {
+    async _prepareCreationContext(context, options) {
+      context = await super._prepareCreationContext(context, options);
+      //@ts-expect-error
+      if (activityHasAutoPlaceTemplate(this.activity) || activityHasEmanationNoTemplate(this.activity)) {
+        context.hasCreation = false;
+      }
+      return context;
+    }
   }
 }
