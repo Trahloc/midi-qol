@@ -153,40 +153,40 @@ async function registerTests() {
 
         describe("skill roll tests", function () {
           it("roll perception - 1 dice", function () {
-            return actor.rollSkill("prc", { chatMessage: false, fastForward: true })
+            return actor.rollSkill({skill: "prc"}, { configure: false }, { create: false })
               // .then(skillRoll => { actor._initialize(); assert.equal(skillRoll.terms[0].number, 1) });
-              .then(skillRoll => { actor._initialize(); expect(skillRoll.terms[0].number).to.equal(1) });
+              .then(skillRoll => { actor._initialize(); expect(skillRoll[0].terms[0].number).to.equal(1) });
           });
 
           it("roll perception - adv.all", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.all", true);
-            const result = await actor.rollSkill("prc", { chatMessage: false, fastForward: true })
-              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.all; actor._initialize(); assert.equal(skillRoll.terms[0].number, 2) });
+            const result = await actor.rollSkill({skill: "prc"}, { configure: false }, { create: false })
+              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.all; actor._initialize(); assert.equal(skillRoll[0].terms[0].number, 2) });
             return result
           });
           it("roll perception - adv.skill.all", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.skill.all", true);
-            const result = await actor.rollSkill("prc", { chatMessage: false, fastForward: true })
-              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.all; actor._initialize(); assert.equal(skillRoll.terms[0].number, 2) });
+            const result = await actor.rollSkill({skill: "prc"}, { configure: false }, { create: false })
+              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.all; actor._initialize(); assert.equal(skillRoll[0].terms[0].number, 2) });
             return result;
 
           });
           it("roll perception - adv.skill.prc", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.skill.prc", true);
-            const result = await actor.rollSkill("prc", { chatMessage: false, fastForward: true })
-              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.prc; actor._initialize(); assert.equal(skillRoll.terms[0].number, 2) });
+            const result = await actor.rollSkill({skill: "prc"}, { configure: false }, { create: false })
+              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.prc; actor._initialize(); assert.equal(skillRoll[0].terms[0].number, 2) });
             return result;
           });
           it("roll perception - adv.skill.ath", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.skill.ath", true);
-            return actor.rollSkill("prc", { chatMessage: false, fastForward: true })
-              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.ath; actor._initialize(); assert.equal(skillRoll.terms[0].number, 1) });
+            return actor.rollSkill({skill: "prc"}, { configure: false }, { create: false })
+              .then(skillRoll => { delete actor.flags[MODULE_ID].advantage.skill.ath; actor._initialize(); assert.equal(skillRoll[0].terms[0].number, 1) });
           });
           it("roll acr skill min = 10", async function () {
             for (let i = 0; i < 20; i++) {
               foundry.utils.setProperty(actor, "flags.midi-qol.min.skill.all", 10);
-              const result = await actor.rollSkill("acr", { chatMessage: false, fastForward: true });
-              assert.ok(result.total >= 10);
+              const result = await actor.rollSkill({skill: "acr"}, { configure: false }, { create: false });
+              assert.ok(result.reduce((acc, roll) => acc + roll.total, 0) >= 10);
               delete actor.flags[MODULE_ID].min.skill.all;
               return result;
             }
@@ -194,8 +194,8 @@ async function registerTests() {
           it("roll per skill max = 10", async function () {
             for (let i = 0; i < 20; i++) {
               foundry.utils.setProperty(actor, "flags.midi-qol.max.skill.all", 10);
-              const result = await actor.rollSkill("per", { chatMessage: false, fastForward: true });
-              assert.ok(result.total <= 10)
+              const result = await actor.rollSkill({skill: "per"}, { configure: false }, { create: false });
+              assert.ok(result.reduce((acc, roll) => acc + roll.total, 0) <= 10)
               delete actor.flags[MODULE_ID].max.skill.all
 
               return result;
@@ -217,6 +217,7 @@ async function registerTests() {
             await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
             await combat?.delete();
             const roll: Roll = await rollResult;
+            console.error("rolls an initiative roll", roll)
             //@ts-ignore
             assert.equal(roll.terms[0].results.length, 1);
           });
@@ -232,10 +233,11 @@ async function registerTests() {
             let scene = canvas?.scene;
             const combat = await cls.create({ scene: scene?.id, active: true }, { render: true });
             await combat?.startCombat();
-            await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
+            await actor.rollInitiativeDialog({ createCombatants: true, rerollInitiative: true });
             await combat?.delete();
             const roll: Roll = await rollResult;
             await actor.unsetFlag(game.system.id, "initiativeAdv");
+            console.error("rolls an advantage initiative roll", roll)
             //@ts-ignore
             assert.equal(roll.terms[0].results.length, 2);
             assert.ok(roll.formula.startsWith("2d20kh"));
@@ -252,9 +254,10 @@ async function registerTests() {
             let scene = canvas?.scene;
             const combat = await cls.create({ scene: scene?.id, active: true });
             await combat?.startCombat();
-            await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
+            await actor.rollInitiativeDialog({  });
             await combat?.delete();
             const roll: Roll = await rollResult;
+            console.error("olls an disadvantage initiative roll", roll)
             await actor.unsetFlag(game.system.id, "initiativeDisadv");
             //@ts-ignore
             assert.equal(roll.terms[0].results.length, 2);
@@ -263,43 +266,43 @@ async function registerTests() {
         })
         describe("save roll tests", function () {
           it("roll dex save - 1 dice", async function () {
-            return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { actor._initialize(); assert.equal(abilitySave.terms[0].number, 1) });
+            return actor.rollSavingThrow({ability: "dex"}, {configure: false}, {create: false})
+              .then(abilitySave => { actor._initialize(); assert.equal(abilitySave[0].terms[0].number, 1) });
           });
           it("roll dex save - adv.all", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.all", true);
-            return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.all; actor._initialize(); assert.equal(abilitySave.terms[0].number, 2) });
+            return actor.rollSavingThrow({ability: "dex"}, {configure: false}, {create: false})
+              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.all; actor._initialize(); assert.equal(abilitySave[0].terms[0].number, 2) });
           });
           it("roll dex save - adv.ability.save.all", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.ability.save.all", true);
-            return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.all; actor._initialize(); assert.equal(abilitySave.terms[0].number, 2) });
+            return actor.rollSavingThrow({ability: "dex"}, {configure: false}, {create: false})
+              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.all; actor._initialize(); assert.equal(abilitySave[0].terms[0].number, 2) });
           });
           it("roll dex save - adv.ability.save.dex", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.ability.save.dex", true);
-            return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.dex; actor._initialize(); assert.equal(abilitySave.terms[0].number, 2) });
+            return actor.rollSavingThrow({ability: "dex"}, {configure: false}, {create: false})
+              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.dex; actor._initialize(); assert.equal(abilitySave[0].terms[0].number, 2) });
           });
           it("roll dex save - adv.ability.save.str", async function () {
             foundry.utils.setProperty(actor, "flags.midi-qol.advantage.ability.save.str", true);
-            return actor.rollAbilitySave("dex", { chatMessage: false, fastForward: true })
-              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.dex; actor._initialize(); assert.equal(abilitySave.terms[0].number, 1) });
+            return actor.rollSavingThrow({ability: "dex"}, {configure: false}, {create: false})
+              .then(abilitySave => { delete actor.flags[MODULE_ID].advantage.ability.save.dex; actor._initialize(); assert.equal(abilitySave[0].terms[0].number, 1) });
           });
           it("roll str save min = 10", async function () {
             for (let i = 0; i < 20; i++) {
               foundry.utils.setProperty(actor, "flags.midi-qol.min.ability.save.all", 10);
-              const result = await actor.rollAbilitySave("str", { chatMessage: false, fastForward: true });
+              const result = await actor.rollSavingThrow({ability: "str"}, {configure: false}, {create: false});
               delete actor.flags[MODULE_ID].min.ability.save.all;
-              assert.ok(result.total >= 10)
+              assert.ok(result[0].total >= 10)
             }
           })
           it("roll str save max = 10", async function () {
             for (let i = 0; i < 20; i++) {
               foundry.utils.setProperty(actor, "flags.midi-qol.max.ability.save.all", 10);
-              const result = await actor.rollAbilitySave("str", { chatMessage: false, fastForward: true });
+              const result = await actor.rollSavingThrow({ability: "str"}, {configure: false}, {create: false});
               delete actor.flags[MODULE_ID].max.ability.save.all;
-              assert.ok(result.total <= 10)
+              assert.ok(result[0].total <= 10)
             }
           })
 
@@ -312,8 +315,8 @@ async function registerTests() {
             assert.ok(item);
             const workflow = await completeItemUse(item, {}, { workflowOptions });
             assert.ok(workflow.saveResults.length === 1);
-            assert.equal(workflow.saveResults[0].terms[0].results.length, 1);
-            assert.ok(workflow.saveResults[0].formula.startsWith("1d20"))
+            assert.equal(workflow.saveResults[0][0].terms[0].results.length, 1);
+            assert.ok(workflow.saveResults[0][0].formula.startsWith("1d20"))
           });
           it("rolls a magic resistance spell saving throw", async function () {
             const actor: any = getActor(actor1Name);
@@ -328,8 +331,8 @@ async function registerTests() {
               const workflow = await completeItemUse(item, {}, { workflowOptions });
               console.warn("complete ite use returned")
               assert.equal(workflow.saveResults.length, 1);
-              assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
-              assert.ok(workflow.saveResults[0].formula.startsWith("2d20kh"))
+              assert.equal(workflow.saveResults[0][0].terms[0].results.length, 2);
+              assert.ok(workflow.saveResults[0][0].formula.startsWith("2d20kh"))
             } finally {
               await actor.unsetFlag("midi-qol", "magicResistance");
             }
@@ -345,8 +348,8 @@ async function registerTests() {
               await actor.setFlag("midi-qol", "magicVulnerability.all", true);
               const workflow = await completeItemUse(item, {}, { workflowOptions });
               assert.equal(workflow.saveResults.length, 1);
-              assert.equal(workflow.saveResults[0].terms[0].results.length, 2);
-              assert.ok(workflow.saveResults[0].formula.startsWith("2d20kl"))
+              assert.equal(workflow.saveResults[0][0].terms[0].results.length, 2);
+              assert.ok(workflow.saveResults[0][0].formula.startsWith("2d20kl"))
             } finally {
               await actor.unsetFlag("midi-qol", "magicVulnerability");
             }

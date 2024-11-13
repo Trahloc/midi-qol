@@ -144,7 +144,7 @@ export var MidiActivityMixin = Base => {
         })
 
         message.create = false;
-        result = await super.rollDamage(config, dialog, message);
+        result = await super.rollDamage(config, dialog, message) ?? [];
         result = await this.postProcessDamageRoll(config, result);
         if (this.workflow && config.midiOptions.updateWorkflow !== false) await this.workflow.setDamageRolls(result);
       }
@@ -181,7 +181,7 @@ export var MidiActivityMixin = Base => {
         }
       }
       if (config.midiOptions.updateWorkflow !== false && this.workflow?.suspended) this.workflow.unSuspend.bind(this.workflow)({ damageRoll: result, otherDamageRoll: otherResult });
-      return result;
+      return result ?? [];
     }
 
     configureDamageRoll(config): void {

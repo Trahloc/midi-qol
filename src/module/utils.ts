@@ -5818,9 +5818,12 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
   }
 }
 
-export function DSNMarkDiceDisplayed(roll: Roll) {
-  roll.dice.forEach(d => d.results.forEach(r => foundry.utils.setProperty(r, "hidden", true)));
+export function DSNMarkDiceDisplayed(rolls: Roll | Roll[]) {
+  if (rolls instanceof Roll) rolls = [rolls];
+  for (let roll of rolls)
+    roll.dice.forEach(d => d.results.forEach(r => foundry.utils.setProperty(r, "hidden", true)));
 }
+
 export function isReactionItem(item): boolean {
   if (!item) return false;
   return item.system.activation?.type?.includes("reaction");
@@ -5945,8 +5948,8 @@ export async function contestedRoll(data: {
     title: `${targetFlavor}: ${targetToken?.name} vs ${sourceToken?.name}`
   });
   const resultPromises = [
-    socketlibSocket.executeAsUser("rollAbility", player1.id, { request: source.rollType.trim(), targetUuid: sourceDocument?.uuid, ability: source.ability.trim(), options: sourceOptions }),
-    socketlibSocket.executeAsUser("rollAbility", player2.id, { request: target.rollType.trim(), targetUuid: targetDocument?.uuid, ability: target.ability.trim(), options: targetOptions }),
+    socketlibSocket.executeAsUser("rollAbilityV2", player1.id, { request: source.rollType.trim(), targetUuid: sourceDocument?.uuid, ability: source.ability.trim(), options: sourceOptions }),
+    socketlibSocket.executeAsUser("rollAbilityV2", player2.id, { request: target.rollType.trim(), targetUuid: targetDocument?.uuid, ability: target.ability.trim(), options: targetOptions }),
   ];
 
   let results = await Promise.all(resultPromises);

@@ -153,6 +153,9 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       return context;
     }
 
+    async _triggerSubsequentActions(config, results) {
+    }
+
     async rollAttack(config, dialog, message) {
       if (!dialog) dialog = {};
       if (!message) message = {};

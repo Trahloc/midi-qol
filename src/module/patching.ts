@@ -139,18 +139,25 @@ export async function bonusCheck(actor, result: Roll, category, detail, messageD
   return result;
 }
 
-async function doRollSkill(wrapped, ...args) {
+async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message: any = {}) {
   try {
-    let [skillId, options = { event: {}, parts: [], advantage: false, disadvantage: false, simulate: false, targetValue: undefined }] = args;
-    const chatMessage = options.chatMessage;
+    let options: any = foundry.utils.mergeObject({
+      event: config.event,
+      simulate: config.simulate,
+      targetValue: config.target,
+      isMagicalSave: config.isMagicalSave,
+      isConcentrationCheck: config.isConcentrationCheck
+    }, config.midiOptions ?? {});
+    message.data ??= {};
+    let skillId = config.skill;
     const rollTarget = options.targetValue;
     let overtimeActorUuid;
-    if (options.event) {
+    if (options.event) { // TODO Decide if we want to do this or support core behaviour of anyone rolling concentration check
       const target = options.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
       if (target?.dataset?.midiOvertimeActorUuid) overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
       if (overtimeActorUuid && this.uuid !== overtimeActorUuid) {
         const actualActor = MQfromUuidSync(overtimeActorUuid);
-        if (actualActor) return actualActor.rollSkill(...args);
+        if (actualActor) return actualActor.rollSkill(config, dialog, message);
       }
     }
     const keyOptions = mapSpeedKeys(undefined, "ability");
@@ -180,18 +187,29 @@ async function doRollSkill(wrapped, ...args) {
 
     let result;
 
-    procOptions.chatMessage = false;
     if (!procOptions.parts || procOptions.parts.length === 0) delete procOptions.parts;
     delete procOptions.event;
 
     // result = await wrapped.call(this, skillId, procOptions);
     let messageData;
-    Hooks.once(`${game.system.id}.preRollSkill`, (actor, rollData, skillId) => {
-      messageData = rollData.messageData;
+    Hooks.once(`${game.system.id}.preRollSkillV2`, (config, dialog, message) => {
+      message.data ??= {};
       if (overtimeActorUuid)
-        messageData["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
+        message.data["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
+      setDialogOptions(dialog, procOptions);
+      message.create = false;
+      config.rolls.forEach(roll => {
+        roll.options.advantage ||= procOptions.advantage;
+        roll.options.disadvantage ||= procOptions.disadvantage;
+      })
     })
-    result = await wrapped(skillId, procOptions);
+    delete config.event;
+    const saveCreate = message.create;
+    message.create = false;
+    setDialogOptions(dialog, procOptions);
+    result = await wrapped(config, dialog, message);
+    message.create = saveCreate;
+
     if (!result) return result;
     let rollMode: string = result.options?.rollMode ?? game.settings.get("core", "rollMode");
     const saveRollMode = game.settings.get("core", "rollMode");
@@ -200,36 +218,42 @@ async function doRollSkill(wrapped, ...args) {
       rollMode = "blindroll";
       game.settings.set("core", "rollMode", "blindroll");
     }
-    const flavor = result.options?.flavor;
     const maxflags = foundry.utils.getProperty(this, "flags.midi-qol.max") ?? {};
     const maxValue = (maxflags.skill && (maxflags.skill.all || maxflags.skill[skillId])) ?? false;
     if (maxValue && Number.isNumeric(maxValue)) {
-      result = setRollMaxDiceTerm(result, Number(maxValue));
+      for (let I = 0; I < result.length; I++) {
+        result[I] = setRollMaxDiceTerm(result[I], Number(maxValue));
+      }
     }
 
     const minflags = foundry.utils.getProperty(this, "flags.midi-qol.min") ?? {};
     const minValue = (minflags.skill && (minflags.skill.all || minflags.skill[skillId])) ?? false;
     if (minValue && Number.isNumeric(minValue)) {
-      result = setRollMinDiceTerm(result, Number(minValue));
+      for (let I = 0; I < result.length; I++) {
+        result[I] = setRollMinDiceTerm(result[I], Number(minValue));
+      }
     }
 
+    /*
     if (rollMode !== "blindroll") rollMode = result.options.rollMode;
     else result.options.rollMode = "blindroll";
-    await displayDSNForRoll(result, "skill", rollMode);
-
+    */
     if (!options.simulate) {
       result = await bonusCheck(this, result, "skill", skillId, messageData);
       DSNMarkDiceDisplayed(result);
     }
+    await displayDSNForRoll(result, "skill", rollMode);
+
     let success: boolean | undefined = undefined;
     if (rollTarget !== undefined) {
-      success = result.total >= rollTarget;
-      result.options.success = success;
+      const resultTotal = result.reduce((acc, r) => acc + r.total, 0);
+      success = resultTotal >= rollTarget;
+      result.forEach(r => r.options.success = success);
     }
-    if (chatMessage !== false && result) {
+    if (message.create !== false && result) {
       await displayDSNForRoll(result, "skill", rollMode);
       if (foundry.utils.getProperty(result, "flags.midi-qol.chatMessageShown") !== true)
-        await result.toMessage(messageData, { rollMode });
+        await result[0].toMessage(messageData, { rollMode });
     }
     game.settings.set("core", "rollMode", saveRollMode);
 
@@ -242,6 +266,21 @@ async function doRollSkill(wrapped, ...args) {
   }
 }
 
+function setDialogOptions(dialog, midiOptions) {
+  dialog.options ??= {};
+  //@ts-expect-error
+  const ADV_MODE = CONFIG.Dice.D20Roll.ADV_MODE;
+  if (midiOptions.advantage && !midiOptions.disadvantage) {
+    dialog.options.advantageMode = ADV_MODE.ADVANTAGE;
+    dialog.options.defaultButton = "advantage";
+  } else if (!midiOptions.advantage && midiOptions.disadvantage) {
+    dialog.options.advantageMode = ADV_MODE.DISADVANTAGE;
+    dialog.options.defaultButton = "disadvantage";
+  } else {
+    dialog.options.advantageMode = ADV_MODE.NORMAL;
+    dialog.options.defaultButton = "normal";
+  }
+}
 function multiply(modifier: string) {
   const rgx = /mx([0-9])+/;
   const match = modifier.match(rgx);
@@ -416,24 +455,32 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
   if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
 }
 
-async function doAbilityRoll(wrapped, rollType: string, ...args) {
-  let [abilityId, options = { event: {}, parts: [], chatMessage: undefined, simulate: false, targetValue: undefined, isMagicalSave: false, isConcentrationCheck: false }] = args;
+async function doAbilityRollV2(wrapped, rollType, config: any = {}, dialog: any = {}, message: any = {}) {
+  let options = foundry.utils.mergeObject({
+    event: config.event,
+    simulate: config.simulate,
+    targetValue: config.target,
+    isMagicalSave: config.isMagicalSave,
+    isConcentrationCheck: config.isConcentrationCheck,
+  }, config.midiOptions ?? {});
+  message.data ??= {};
+  let abilityId = config.ability;
   let overtimeActorUuid;
   if (options.event) {
-    const target = options.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
+    const target = config?.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
     if (target?.dataset?.midiOvertimeActorUuid) {
       overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
-      options.rollMode = target.dataset.midiRollMode ?? options.rollMode;
+      options.rollMode = target.dataset.midiRollMode ?? message.rollMode;
     }
     if (overtimeActorUuid && this.uuid !== overtimeActorUuid) {
       const actualActor = MQfromUuidSync(overtimeActorUuid);
       if (actualActor && rollType === "save")
-        return actualActor.rollAbilitySave(...args);
-      else return actualActor.rollAbilityTest(...args);
+        return actualActor.rollSavingThrow(config, dialog, message);
+      else return actualActor.rollAbilityCheck(config, dialog, message);
     }
   }
   try {
-    const rollTarget = options.targetValue;
+    const rollTarget = config.target;
     if (rollTarget !== undefined && !checkRule("criticalSaves")) { // We have a target value, which means we are checking for success and not criticals
       options.critical = 21;
       options.fumble = 0;
@@ -453,7 +500,6 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     options.advantage ||= options.event?.advantage;
     options.disadvantage ||= options.event?.disadvantage;
     if (options.fromMars5eChatCard) options.fastForward ||= autoFastForwardAbilityRolls;
-    const chatMessage = options.chatMessage;
     const keyOptions = mapSpeedKeys(undefined, "ability");
     if (options.mapKeys !== false) {
       if (keyOptions?.advantage === true) options.advantage = true;
@@ -471,38 +517,48 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
 
     let result;
-    if (!options.parts || procOptions.parts.length === 0) delete options.parts;
-    procOptions.chatMessage = false;
-    delete procOptions.event;
-    let messageData;
-    const type = rollType === "save" ? "preRollAbilitySave" : "preRollAbilityTest";
+    delete config.event;
+    const type = rollType === "save" ? "preRollSavingThrowV2" : "preAbilityCheckV2";
 
-    Hooks.once(`${game.system.id}.${type}`, (actor, rollData, skillId) => {
-      messageData = rollData.messageData;
-      if (overtimeActorUuid)
-        messageData["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
-    });
+    if (overtimeActorUuid)
+      message.data["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
 
     if (options.isConcentrationCheck) {
       procOptions.isConcentrationCheck = false; // stop an infinite loop
-      result = await this.rollConcentration(procOptions)
-    } else result = await wrapped(abilityId, procOptions);
+      result = await this.rollConcentration(config, dialog, message)
+    } else {
+      Hooks.once(`dnd5e.${type}`, (config, dialog, message) => {
+        setDialogOptions(dialog, procOptions);
+        config.rolls.forEach(roll => {
+          roll.options.advantage ||= procOptions.advantage;
+          roll.options.disadvantage ||= procOptions.disadvantage;
+        });
+      });
+      setDialogOptions(dialog, procOptions);
+      if (options.fastForward) dialog.configure = false;
+      const saveCreate = message.create;
+      message.create = false;
+      result = await wrapped(config, dialog, message);
+      message.create = saveCreate;
+    }
     if (success === false) {
-      result = new Roll("-1[auto fail]");
-      // V12 - since the roll is -1 evaluateSync will work
-      const evaluateSync = result.evaluateSync;
-      if (evaluateSync) result = evaluateSync.bind(result)();
-      else result = await result.evaluate()
+      //@ts-expect-error
+      result = [new Roll("-1[auto fail]").evaluateSync()];
     }
     if (!result) return result;
-
-    const flavor = result.options?.flavor;
+    if (result instanceof Roll) {
+      console.warn("doAbilityRollV2: result is a Roll, not an array of Rolls");
+      result = [result];
+    }
+    const flavor = result[0].options?.flavor;
     let maxFlags = foundry.utils.getProperty(this, "flags.midi-qol.max.ability") ?? {};
     let maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId])) ?? false;
     if (options.isConcentrationCheck)
       maxValue = maxFlags.save?.concentration ?? maxValue;
     if (maxValue && Number.isNumeric(maxValue)) {
-      result = setRollMaxDiceTerm(result, Number(maxValue));
+      for (let i = 0; i < result.length; i++) {
+        result[i] = setRollMaxDiceTerm(result[i], Number(maxValue));
+      }
     }
 
     const minFlags = foundry.utils.getProperty(this, "flags.midi-qol.min.ability") ?? {};
@@ -510,10 +566,12 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     if (options.isConcentrationCheck)
       minValue = minFlags.save?.concentration ?? minValue;
     if (minValue && Number.isNumeric(minValue)) {
-      result = setRollMinDiceTerm(result, Number(minValue));
+      for (let i = 0; i < result.length; i++) {
+        result[i] = setRollMinDiceTerm(result[i], Number(minValue));
+      }
     }
 
-    let rollMode: string = options.rollMode ?? result.options.rollMode ?? game.settings.get("core", "rollMode");
+    let rollMode: string = message.rollMode ?? game.settings.get("core", "rollMode");
     let blindCheckRoll;
     let blindSaveRoll;
     const saveRollMode = game.settings.get("core", "rollMode");
@@ -524,7 +582,8 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
           if (blindCheckRoll) {
             rollMode = "blindroll";
             game.settings.set("core", "rollMode", "blindroll");
-            result.options.rollMode = "blindroll";
+            result.forEach(r => r.options.rollMode = "blindroll");
+            // result.options.rollMode = "blindroll";
           }
 
           break;
@@ -533,29 +592,31 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
           if (blindSaveRoll) {
             rollMode = "blindroll";
             game.settings.set("core", "rollMode", "blindroll");
-            result.options.rollMode = "blindroll";
+            result.forEach(r => r.options.rollMode = "blindroll");
+            // result.options.rollMode = "blindroll";
             break;
           }
       }
     }
-    if (rollMode !== "blindroll") rollMode = result.options.rollMode;
+    if (rollMode !== "blindroll") rollMode = config.rollMode;
     await displayDSNForRoll(result, rollType, rollMode);
-    foundry.utils.mergeObject(messageData, { "flags": options.flags ?? {} });
-    foundry.utils.setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
+
+    foundry.utils.mergeObject(message.data, { "flags": config.flags ?? {} });
     if (!options.simulate) {
-      result = await bonusCheck(this, result, rollType, abilityId, messageData);
+      result[0] = await bonusCheck(this, result[0], rollType, abilityId, message.data);
       DSNMarkDiceDisplayed(result);
     }
 
     if (rollTarget !== undefined && success === undefined) {
-      success = result.total >= rollTarget;
-      result.options.success = success;
+      const resultTotal = result.reduce((acc, r) => acc + r.total, 0);
+      success = resultTotal >= rollTarget;
+      result.forEach(r => r.options.success = success);
     }
 
-    if (chatMessage !== false && result) {
-      messageData.template = "modules/midi-qol/templates/roll-base.html";
-      if (foundry.utils.getProperty(result, "flags.midi-qol.chatMessageShown") !== true)
-        await result.toMessage(messageData, { rollMode });
+    if (message.create !== false && result) {
+      message.data.template = "modules/midi-qol/templates/roll-base.html";
+      if (foundry.utils.getProperty(result[0], "flags.midi-qol.chatMessageShown") !== true)
+        await result[0].toMessage(message.data, { rollMode });
     }
     game.settings.set("core", "rollMode", saveRollMode);
 
@@ -569,11 +630,12 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
   }
 }
 
-export async function rollAbilitySave(wrapped, ...args) {
-  return doAbilityRoll.bind(this)(wrapped, "save", ...args);
+export async function rollSavingThrow(wrapped, config = {}, dialog = {}, message = {}) {
+  return doAbilityRollV2.bind(this)(wrapped, "save", config, dialog, message);
 }
-async function rollAbilityTest(wrapped, ...args) {
-  return doAbilityRoll.bind(this)(wrapped, "check", ...args);
+
+async function rollAbilityCheck(wrapped, config = {}, dialog = {}, message = {}) {
+  return doAbilityRollV2.bind(this)(wrapped, "check", config, dialog, message);
 }
 
 async function rollDeathSave(wrapped, options) {
@@ -755,7 +817,6 @@ let debouncedATRefresh = foundry.utils.debounce(_midiATIRefresh, 30);
 function _midiATIRefresh(template) {
   // We don't have an item to check auto targeting with, so just use the midi setting
   if (!canvas?.tokens) return;
-  console.error("template", template);
   let autoTarget = getActivityAutoTarget(template.activity);
   if (autoTarget === "none") return;
   if (autoTarget === "dftemplates" && installedModules.get("df-templates"))
@@ -1070,13 +1131,29 @@ export async function rollInitiativeDialog(wrapped, rollOptions: any = { fastFor
     return wrapped(rollOptions)
   }
   const roll = this.getInitiativeRoll(rollOptions);
-  this._cachedInitiativeRoll = roll;
-  rollOptions.createCombatants = true;
+  const config = {
+    evaluate: false,
+    event: rollOptions.event,
+    hookNames: ["initiativeDialog", "abilityCheck", "d20Test"],
+    rolls: [{ parts: [roll.formula.replace(roll.d20.formula, "")], options: { ...roll.options, configured: false } }],
+    subject: this
+  }
+  const dialog = {configure: false};
+  const message = { rollMode: game.settings.get("core", "rollMode") };
+  //@ts-expect-error
+  const rolls = await CONFIG.Dice.D20Roll.build(config, dialog, message);
+  this._cachedInitiativeRoll = rolls[0];
   await this.rollInitiative({ createCombatants: true });
-  delete this._cahcedInitiativeRoll;
 }
 
-export function getInitiativeRoll(wrapped, options: any = { advantageMode: 0, fastForward: autoFastForwardAbilityRolls }) {
+export function getInitiativeRoll(wrapped, options: any = { advantageMode: undefined, fastForward: autoFastForwardAbilityRolls }) {
+  if ( this._cachedInitiativeRoll ) {
+    return wrapped(options);
+    const term = this._cachedInitiativeRoll.terms[0];
+    //@ts-expect-error TODO if/when dnd5e clone works this can be return wrapped(options);
+    this._cachedInitiativeRoll.terms[0] = new CONFIG.Dice.D20Die({ number: term.number, faces: term.faces, ...term });
+    return this._cachedInitiativeRoll;
+  }
   //@ts-expect-error
   const D20Roll = game.dnd5e.dice.D20Roll;
   let disadv = options.advantageMode === D20Roll.ADV_MODE.DISADVANTAGE;
@@ -1097,9 +1174,21 @@ export function getInitiativeRoll(wrapped, options: any = { advantageMode: 0, fa
     disadv = true;
   }
 
-  if (adv && disadv) options.advantageMode = 0;
-  else if (adv) options.advantageMode = D20Roll.ADV_MODE.ADVANTAGE;
-  else if (disadv) options.advantageMode = D20Roll.ADV_MODE.DISADVANTAGE;
+  if (adv && disadv) {
+    options.advantageMode = 0;
+    options.advantage = true;
+    options.disadvantage = true;
+  }
+  else if (adv) {
+    options.advantageMode = D20Roll.ADV_MODE.ADVANTAGE;
+    options.advantage = true;
+    options.disadvantage = false;
+  }
+  else if (disadv) {
+    options.advantageMode = D20Roll.ADV_MODE.DISADVANTAGE;
+    options.disadvantage = true
+    options.advantage = false;
+  }
   if (autoFastForwardAbilityRolls) {
     options.fastForward = true;
   }
@@ -1533,8 +1622,8 @@ export async function checkDeleteTemplate(templateDocument, options, user) {
 export let actorAbilityRollPatching = () => {
 
   log("Patching roll abilities Save/Test/Skill/Tool")
-  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollAbilitySave", rollAbilitySave, "MIXED");
-  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollAbilityTest", rollAbilityTest, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollSavingThrow", rollSavingThrow, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollAbilityCheck", rollAbilityCheck, "MIXED");
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollDeathSave", rollDeathSave, "WRAPPER");
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollSkill", doRollSkill, "MIXED");
   libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollToolCheck", rollToolCheck, "WRAPPER");

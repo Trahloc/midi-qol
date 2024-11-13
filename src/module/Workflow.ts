@@ -869,10 +869,10 @@ export class Workflow {
 
     if (this.noAutoAttack) return this.WorkflowState_Suspend;
     this.autoRollAttack = this.rollOptions.advantage || this.rollOptions.disadvantage || this.rollOptions.autoRollAttack;
+    const isFastRoll = this.rollOptions.fastForwarAttack ?? isAutoFastAttack(this);
     if (!this.autoRollAttack) {
       // Not auto rolling attack so setup the buttons to display advantage/disadvantage
       const chatMessage = this.chatCard;
-      const isFastRoll = this.rollOptions.fastForwarAttack ?? isAutoFastAttack(this);
       let content = chatMessage?.content && foundry.utils.duplicate(chatMessage.content)
       if (content && (!this.autoRollAttack || !isFastRoll)) {
         // provide a hint as to the type of roll expected.
@@ -899,6 +899,7 @@ export class Workflow {
       if (this.ammo) await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preAttackRoll"), "OnUse", "preAttackRoll");
     }
     if (this.autoRollAttack) {
+      this.rollOptions.fastForwarAttack ||= isFastRoll;
       // REFACTOR -await
       await this.activity.rollAttack({ midiOptions: this.rollOptions }, {}, {});
       return this.WorkflowState_AttackRollComplete;
@@ -3184,9 +3185,13 @@ export class Workflow {
     let rollAbility;
     if (this.saveActivity.save) {
       rollType = "save";
-      rollAbility = this.saveActivity.save.ability;
-      //@ts-expect-error actor.rollAbilitySave
-      rollAction = CONFIG.Actor.documentClass.prototype.rollAbilitySave;
+      if (this.saveActivity.save.ability instanceof Set) {
+        // TODO work out how to let the player choose the save for dnd5e 4.1
+        rollAbility = this.saveActivity.save.ability.first();
+      }
+      else rollAbility = this.saveActivity.save.ability;
+      //@ts-expect-error actor
+      rollAction = CONFIG.Actor.documentClass.prototype.rollSavingThrow;
     } else if (this.saveActivity.check) {
       if (this.saveActivity.check.associated.size > 0) {
         rollType = "skill";
@@ -3198,7 +3203,7 @@ export class Workflow {
         rollType = "check";
         rollAbility = this.saveActivity.check.ability;
         //@ts-expect-error actor.rollAbilityTest
-        rollAction = CONFIG.Actor.documentClass.prototype.rollAbilityTest;
+        rollAction = CONFIG.Actor.documentClass.prototype.rollAbilityCheck;
       }
     }
     /* the correct activity should be passed so no check needed else {
@@ -3410,7 +3415,7 @@ export class Workflow {
           if (!owner?.active) owner = game.users?.activeGM;
           // Fall back to rolling as the current user
           if (!owner) owner = game.user ?? undefined;
-          promises.push(socketlibSocket.executeAsUser("rollAbility", owner?.id, {
+          promises.push(socketlibSocket.executeAsUser("rollAbilityV2", owner?.id, {
             targetUuid: target.actor.uuid,
             request: rollType,
             ability: rollAbility,
@@ -3531,10 +3536,8 @@ export class Workflow {
     var results = await Promise.all(promises);
     if (rerRequests?.length > 0) await busyWait(0.01);
     delete this.saveDetails;
-
+    for (let i = 0; i < results.length; i++) { if (results[i] instanceof Roll) results[i] = [results[i]]; }
     this.saveResults = results;
-    // replace betterrolls results (customRoll) with pseudo normal roll
-    results = results.map(result => result.entries ? this.processCustomRoll(result) : result);
     let i = 0;
     if (activityHasAreaTarget(this.activity) && this.templateUuid) {
       const templateDocument = await fromUuid(this.templateUuid);
@@ -3545,20 +3548,24 @@ export class Workflow {
       let target = getToken(tokenOrDocument)
       const targetDocument = getTokenDocument(tokenOrDocument);
       if (!target?.actor || !target || !targetDocument) continue; // these were skipped when doing the rolls so they can be skipped now
-      if (!results[i] || results[i].total === undefined) {
+      if (!results[i]?.[0] || results[i]?.[0]?.total === undefined) {
         const message = `Token ${target?.name} could not roll save/check assuming 1`;
         error(message, target);
         TroubleShooter.recordError(new Error(message), message);
-        results[i] = await new Roll("1").evaluate();
-      } else if (!(results[i] instanceof Roll)) {
-        results[i] = Roll.fromJSON(JSON.stringify(results[i]));
+        results[i] = [await new Roll("1").evaluate()];
+      }
+      for (let j = 0; j < results[i].length; j++) {
+        if (!(results[i][j] instanceof Roll)) {
+          console.error("This should not happend", results[i]);
+          results[i][j] = [Roll.fromJSON(JSON.stringify(results[i][j]))];
+        }
       }
       let result = results[i];
-      let saveRollTotal = results[i]?.total || 0;
-      let saveRoll = result;
-      if (result?.terms[0]?.options?.advantage) this.advantageSaves.add(target);
+      let saveRollTotal = result.reduce((acc, r) => acc + r.total, 0);
+      let saveRolls = result;
+      if (result[0]?.options?.advantage) this.advantageSaves.add(target);
       else this.advantageSaves.delete(target);
-      if (result?.terms[0]?.options?.disadvantage) this.disadvantageSaves.add(target);
+      if (result[0]?.options?.disadvantage) this.disadvantageSaves.add(target);
       else this.disadvantageSaves.delete(target);
       if (this.advantageSaves.has(target) && this.disadvantageSaves.has(target)) {
         this.advantageSaves.delete(target);
@@ -3566,16 +3573,13 @@ export class Workflow {
       }
       let isFumble = false;
       let isCritical = false;
-      if (saveRoll?.terms && !result?.isBR && saveRoll.terms[0]) { // normal d20 roll/lmrtfy/monks roll
-        const dterm: DiceTerm = saveRoll.terms[0];
-        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
+      if (saveRolls[0]?.terms) { // normal d20 roll/lmrtfy/monks roll
+        const dterm: DiceTerm = saveRolls[0].terms[0];
+        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? saveRollTotal;
         //@ts-expect-error
         isFumble = diceRoll <= (dterm.options?.fumble ?? 1)
         //@ts-expect-error
         isCritical = diceRoll >= (dterm.options?.critical ?? 20);
-      } else if (result?.isBR) {
-        isCritical = result.isCritical;
-        isFumble = result.isFumble;
       }
       let coverSaveBonus = 0;
 
@@ -3647,16 +3651,16 @@ export class Workflow {
       }
       if (isCritical) this.criticalSaves.add(target);
 
-      let newRoll;
+      let newRolls;
       if (configSettings.allowUseMacro && this.options.noTargetOnusemacro !== true) {
         const rollResults = await this.triggerTargetMacros(["isSave", "isSaveSuccess", "isSaveFailure"], new Set([target]), { saved });
-        newRoll = rollResults[target.document.uuid]?.[0];
-        if (newRoll instanceof Roll) {
-          saveRoll = newRoll;
-          saveRollTotal = newRoll.total;
+        newRolls = rollResults[target.document.uuid];
+        if (newRolls[0] instanceof Roll) {
+          saveRolls = newRolls;
+          saveRollTotal = newRolls.reduce((acc, r) => acc + r.total, 0);
           saved = saveRollTotal >= rollDC;
-          const dterm: DiceTerm = saveRoll.terms[0];
-          const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
+          const dterm: DiceTerm = saveRolls[0].terms[0];
+          const diceRoll = dterm?.results?.find(result => result.active)?.result ?? saveRollTotal;
           //@ts-expect-error
           isFumble = diceRoll <= (dterm.options?.fumble ?? 1)
           //@ts-expect-error
@@ -3664,7 +3668,7 @@ export class Workflow {
         }
       }
       if (!saved) {
-        if (!(result instanceof D20Roll)) result = D20Roll.fromRoll(result);
+        if (!(result[0] instanceof D20Roll)) result[0] = D20Roll.fromRoll(result[0]);
         // const newRoll = await bonusCheck(target.actor, result, rollType, "fail")
         const failFlagsLength = collectBonusFlags(target.actor, rollType, "fail.all").length;
         const failAbilityFlagsLength = collectBonusFlags(target.actor, rollType, `fail.${rollAbility}`).length
@@ -3675,7 +3679,7 @@ export class Workflow {
           if (owner) {
             let newRoll;
             if (owner?.isGM && game.user?.isGM) {
-              newRoll = await bonusCheck(target.actor, result, rollType, failAbilityFlagsLength ? `fail.${rollAbility}` : "fail.all");
+              newRoll = await bonusCheck(target.actor, result[0], rollType, failAbilityFlagsLength ? `fail.${rollAbility}` : "fail.all");
             } else {
               newRoll = await socketlibSocket.executeAsUser("bonusCheck", owner?.id, {
                 actorUuid: target.actor.uuid,
@@ -3685,13 +3689,13 @@ export class Workflow {
               });
 
             }
-            saveRollTotal = newRoll.total;
-            saveRoll = newRoll;
+            saveRolls[0] = newRoll;
+            saveRollTotal = saveRolls.reduce((acc, r) => acc + r.total, 0);
           }
         }
         saved = saveRollTotal >= rollDC;
-        const dterm: DiceTerm = saveRoll.terms[0];
-        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
+        const dterm: DiceTerm = saveRolls[0].terms[0];
+        const diceRoll = dterm?.results?.find(result => result.active)?.result ?? saveRollTotal;
         //@ts-expect-error
         isFumble = diceRoll <= (dterm.options?.fumble ?? 1)
         //@ts-expect-error
@@ -3708,9 +3712,9 @@ export class Workflow {
         const checkBonus = foundry.utils.getProperty(target, `actor.flags.${MODULE_ID}.concentrationSaveBonus`);
         if (checkBonus) {
           const rollBonus = (await new Roll(`${checkBonus}`, target.actor?.getRollData()).evaluate());
-          result = addRollTo(result, rollBonus);
-          saveRollTotal = result.total;
-          saveRoll = result;
+          result = addRollTo(result[0], rollBonus);
+          saveRolls[0] = result;
+          saveRollTotal = result.reduce((acc, r) => acc + r.total, 0);
           //TODO 
           // rollDetail = (await new Roll(`${rollDetail.total} + ${rollBonus}`).evaluate());
           saved = saveRollTotal >= rollDC;
@@ -3758,9 +3762,9 @@ export class Workflow {
         if (saved) saveStyle = "color: green;";
         else saveStyle = "color: red;";
       }
-      const rollHTML = await midiRenderRoll(saveRoll);
-      this.saveRolls.push(saveRoll);
-      this.tokenSaves[getTokenDocument(target)?.uuid ?? "none"] = saveRoll;
+      const rollHTML = await midiRenderRoll(saveRolls[0]);
+      this.saveRolls.push(saveRolls[0]);
+      this.tokenSaves[getTokenDocument(target)?.uuid ?? "none"] = saveRolls[0];
       this.saveDisplayData.push({
         gmName: getTokenName(target),
         playerName: getTokenPlayerName(target),
@@ -3771,7 +3775,7 @@ export class Workflow {
         saveSymbol: saved ? "fa-check" : "fa-times",
         saveTotalClass: target.actor.hasPlayerOwner ? "" : "midi-qol-npc-save-total",
         rollTotal: saveRollTotal,
-        rollDetail: saveRoll,
+        rollDetail: saveRolls[0],
         rollHTML,
         id: target.id,
         adv,
@@ -4541,7 +4545,7 @@ export class Workflow {
     this.damageDetail = createDamageDetailV4({ roll: this.damageRolls, activity: this.activity, defaultType: this.defaultDamageType });
     return;
   }
-  
+
   async setDamageRolls(rolls: Array<Roll> | Roll | undefined | null) {
     if (!rolls) {
       this.damageRolls = undefined;
@@ -4550,7 +4554,7 @@ export class Workflow {
 
     if (rolls instanceof Roll) rolls = [rolls];
     //@ts-expect-error
-    const baseRollProperties = rolls[0].options?.properties ?? [];
+    const baseRollProperties = rolls[0]?.options?.properties ?? [];
     rolls.forEach(roll => {
       setRollOperatorEvaluated(roll);
     });

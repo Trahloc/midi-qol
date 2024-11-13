@@ -52,6 +52,7 @@ export let setupSocket = () => {
   socketlibSocket.register("removeStatsForActorId", removeActorStats);
   socketlibSocket.register("removeWorkflow", _removeWorkflow);
   socketlibSocket.register("rollAbility", rollAbility);
+  socketlibSocket.register("rollAbilityV2", rollAbilityV2);
   socketlibSocket.register("rollConcentration", rollConcentration);
   socketlibSocket.register("startUndoWorkflow", startUndoWorkflow);
   socketlibSocket.register("undoMostRecentWorkflow", _undoMostRecentWorkflow);
@@ -97,6 +98,7 @@ export class SaferSocket {
       case "moveTokenAwayFromPoint":
       case "removeWorkflow":
       case "rollAbility":
+      case "rollAbilityV2":
       case "rollConcentration":
       case "removeEffect":
       case "removeActionBonusReaction":
@@ -719,6 +721,57 @@ export async function rollConcentration(data: { actorUuid, targetValue, whisper 
   return actor.rollConcentration({ targetValue: data.targetValue, whisper: data.whisper });
 }
 
+ async function rollAbilityV2(data: any) {
+  if (data.request === "abil") data.request = "check";
+  if (data.request === "test") data.request = "check";
+  const actor = fromActorUuid(data.targetUuid);
+  if (!actor) {
+    error(`GMAction.rollAbility | no actor for ${data.targetUuid}`)
+    return {};
+  }
+    /*
+  advantage: boolean | undefined,
+  disadvantage: boolean | undefined,
+  isFriendly: boolean | undefined,
+  isMagicSave: boolean | undefined,
+  isConcentrationCheck: boolean | undefined,
+  rollDC: number,
+  saveItemUuid: string,
+  workflowOptions: object
+} = {
+  advantage: undefined,
+  disadvantage: undefined,
+  isMagicSave: isMagicSave,
+  isFriendly: undefined,
+  isConcentrationCheck: undefined,
+  rollDC: rollDC,
+  saveItemUuid: "",
+  workflowOptions: this.workflowOptions
+};
+*/
+  let config: any = {ability: data.ability, skill: data.ability, midiOptions: data.options};
+  let dialog: any = {configure: !data.options.fastForward};
+  let message: any = {create: data.options.chatMessage};
+  return new Promise(async (resolve) => {
+    let timeoutId;
+    let result;
+    if (configSettings.playerSaveTimeout > 0) timeoutId = setTimeout(async () => {
+      warn(`Roll request for {actor.name}timed out. Doing roll`);
+      dialog.configure = false; // assume player is asleep force roll without dialog
+      if (data.request === "save") result = await actor.rollSavingThrow(config, dialog, message);
+      else if (data.request === "check") result = await actor.rollAbilityCheck(config, dialog, message);
+      else if (data.request === "skill") result = await actor.rollSkill(config, dialog, message);
+      resolve(result ?? {});
+    }, configSettings.playerSaveTimeout * 1000);
+    if (data.request === "save") result = await actor.rollSavingThrow(config, dialog, message)
+    else if (data.request === "check") result = await actor.rollAbilityTest(config, dialog, message);
+    else if (data.request === "skill") result = await actor.rollSkill(config, dialog, message);
+    if (timeoutId) clearTimeout(timeoutId);
+    resolve(result ?? {})
+  });
+
+
+}
 export async function rollAbility(data: { request: string; targetUuid: string; ability: string; options: any; }) {
   if (data.request === "abil") data.request = "check";
   if (data.request === "test") data.request = "check";
