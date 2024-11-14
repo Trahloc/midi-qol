@@ -1143,7 +1143,7 @@ export async function rollInitiativeDialog(wrapped, rollOptions: any = { fastFor
   //@ts-expect-error
   const rolls = await CONFIG.Dice.D20Roll.build(config, dialog, message);
   this._cachedInitiativeRoll = rolls[0];
-  await this.rollInitiative({ createCombatants: true });
+  await this.rollInitiative({ createCombatants: true, rerollInitiative: rollOptions.rerollInitiative });
 }
 
 export function getInitiativeRoll(wrapped, options: any = { advantageMode: undefined, fastForward: autoFastForwardAbilityRolls }) {

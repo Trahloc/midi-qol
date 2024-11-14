@@ -21,6 +21,8 @@ export async function resetActors() {
     //@ts-ignore .system
     await a.update({ "data.attributes.hp.value": foundry.utils.getProperty(a, "system.attributes.hp.max") });
     if (a.effects?.contents.length > 0) await a.deleteEmbeddedDocuments("ActiveEffect", a?.effects?.contents?.map(e => e.id ?? ""));
+    await a.unsetFlag("dnd5e", "initiativeAdv");
+    await a.unsetFlag("dnd5e", "initiativeDisadv");
   }
   if (canvas?.scene?.tokens) {
     for (let token of canvas?.scene?.tokens) {
@@ -28,7 +30,9 @@ export async function resetActors() {
         //@ts-expect-error
         await token.actor.update({ "system.attributes.hp.value": token.actor.system.attributes.hp.max });
         if (token.actor.effects?.contents.length > 0) await token.actor.deleteEmbeddedDocuments("ActiveEffect", token.actor.effects.contents.map(e => e.id ?? ""));
-      }
+        await token.actor.unsetFlag("dnd5e", "initiativeAdv");
+        await token.actor.unsetFlag("dnd5e", "initiativeDisadv");
+          }
     }
   }
 }
@@ -217,12 +221,12 @@ async function registerTests() {
             await actor.rollInitiative({ createCombatants: true, rerollInitiative: true });
             await combat?.delete();
             const roll: Roll = await rollResult;
-            console.error("rolls an initiative roll", roll)
             //@ts-ignore
             assert.equal(roll.terms[0].results.length, 1);
           });
           it("rolls an advantage initiative roll", async function () {
             await actor.setFlag(game.system.id, "initiativeAdv", true);
+            await actor.setFlag(game.system.id, "initiativeDisadv", false);
             const rollResult: Promise<Roll> = new Promise((resolve) => {
               Hooks.once("createChatMessage", function (chatMessage) {
                 resolve(chatMessage.rolls[0])
@@ -237,12 +241,13 @@ async function registerTests() {
             await combat?.delete();
             const roll: Roll = await rollResult;
             await actor.unsetFlag(game.system.id, "initiativeAdv");
-            console.error("rolls an advantage initiative roll", roll)
+            await actor.unsetFlag(game.system.id, "initiativeDisadv");
             //@ts-ignore
             assert.equal(roll.terms[0].results.length, 2);
             assert.ok(roll.formula.startsWith("2d20kh"));
           });
           it("rolls a disadvantage initiative roll", async function () {
+            await actor.setFlag(game.system.id, "initiativeAdv", false);
             await actor.setFlag(game.system.id, "initiativeDisadv", true);
             const rollResult: Promise<Roll> = new Promise(async (resolve) => {
               Hooks.once("createChatMessage", function (chatMessage) {
@@ -254,11 +259,11 @@ async function registerTests() {
             let scene = canvas?.scene;
             const combat = await cls.create({ scene: scene?.id, active: true });
             await combat?.startCombat();
-            await actor.rollInitiativeDialog({  });
+            await actor.rollInitiativeDialog({ createCombatants: true, rerollInitiative: true });
             await combat?.delete();
             const roll: Roll = await rollResult;
-            console.error("olls an disadvantage initiative roll", roll)
             await actor.unsetFlag(game.system.id, "initiativeDisadv");
+            await actor.unsetFlag(game.system.id, "initiativeAdv");
             //@ts-ignore
             assert.equal(roll.terms[0].results.length, 2);
             assert.ok(roll.formula.startsWith("2d20kl"));
@@ -439,7 +444,6 @@ async function registerTests() {
             //@ts-ignore .flags v10
             delete actor.flags[MODULE_ID].advantage.all;
             const newHp = target?.actor?.system.attributes.hp.value;
-            console.error(newHp, oldHp)
             //@ts-ignore
             assert.equal(newHp, oldHp - 10 - actor.system.abilities.str.mod);
             return true;
@@ -801,7 +805,6 @@ async function registerTests() {
 
             const oldHp = foundry.utils.getProperty(target, "actor.system.attributes.hp.value");
             game.user?.updateTokenTargets([target?.id ?? ""]);
-            console.error("about to complete Item use");
             await completeItemUse(actor.items.getName("AppliesDamage"), {}, { workflowOptions });
             console.warn("completeItemUse completed");
             game.user?.updateTokenTargets([]);

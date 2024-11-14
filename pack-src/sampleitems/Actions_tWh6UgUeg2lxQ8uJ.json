@@ -1,0 +1,22 @@
+{
+  "name": "Actions",
+  "sorting": "a",
+  "folder": null,
+  "type": "Item",
+  "_id": "tWh6UgUeg2lxQ8uJ",
+  "description": "",
+  "sort": 100000,
+  "color": null,
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "12.331",
+    "systemId": "dnd5e",
+    "systemVersion": "4.1.1",
+    "createdTime": 1731498471584,
+    "modifiedTime": 1731498471615,
+    "lastModifiedBy": "Zl1BOUaPLwDEujaL"
+  },
+  "_key": "!folders!tWh6UgUeg2lxQ8uJ"
+}

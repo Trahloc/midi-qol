@@ -31,7 +31,6 @@
     <input type="Number" name="flags.midi-qol.fumbleThreshold" value="{{item.flags.midi-qol.fumbleThreshold}}" />
   </div>
   {{/if}}
-  {{#if item.hasAreaTarget}}
   <div class="form-group">
     <label>{{localize "midi-qol.AoETargetType.Name"}}</label>
     <select name="flags.midi-qol.AoETargetType" data-dtype="String">
@@ -51,7 +50,6 @@
       {{selectOptions AutoTargetOptions selected=item.flags.midi-qol.autoTarget}}
     </select>
   </div>
-  {{/if}}
   <div class="form-group">
     <label>{{ localize "midi-qol.confirmTargetsProp"}}</label>
     <select name="flags.midiProperties.confirmTargets" data-dtype="String">
@@ -63,14 +61,12 @@
     <select name="flags.midi-qol.rollAttackPerTarget" data-dtype="String">
       {{selectOptions ConfirmTargetOptions selected=item.flags.midi-qol.rollAttackPerTarget}} </select>
   </div>
-  {{#if (or item.hasAttack item.hasDamage)}}
   <div class="form-group">
     <label>{{ localize "midi-qol.RemoveButtons.Name"}}</label>
     <select name="flags.midi-qol.removeAttackDamageButtons" data-dtype="String">
       {{selectOptions RemoveAttackDamageButtonsOptions selected=item.flags.midi-qol.removeAttackDamageButtons}}
     </select>
   </div>
-  {{/if}}
   {{/if}}
 
   {{#if showCEOff}}

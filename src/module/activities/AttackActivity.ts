@@ -375,7 +375,6 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
     get ammunitionItem() {
       if (!this.ammunition) return undefined;
       const ammunitionItem = this.actor?.items?.get(this.ammunition);
-      console.error("MidiQOL | AttackActivity | ammunition | ammunitionItem", ammunitionItem);
       return ammunitionItem
     }
 
@@ -404,8 +403,11 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
     }
 
     get confirmAmmuntion() {
-      if (game.user?.isGM) return configSettings.gmConfirmAmmunition;
-      return configSettings.confirmAmmunition;
+      const ammunitionOptions = this.item.system.ammunitionOptions;
+      if (ammunitionOptions.some(ammo => ammo.value === this.ammunition && ammo.disabled)) return true;
+      const ammoCount = (ammunitionOptions?.filter(ammo => !ammo.disabled) ?? []).length;
+      if (game.user?.isGM) return configSettings.gmConfirmAmmunition && (ammoCount > 1);
+      return configSettings.confirmAmmunition && (ammoCount > 1);
     }
   }
 }

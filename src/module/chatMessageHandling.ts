@@ -426,23 +426,23 @@ export async function onChatCardAction(event) {
       break;
     case "attack-adv":
     case "attack-dis":
-    case "attack":
-    case "rollAttack":
+    // case "attack":
+    // case "rollAttack":
       await activity.rollAttack({
-        event,
+        // event,
         midiOptions: {
           spellLevel,
           advantage: action === "attack-adv",
           disadvantage: action === "attack-dis",
-          fastForward: true
+          fastForwardAttack: true
         }
       },
-        { configure: action !== "attack" }, {});
+        { configure: false }, {});
       break;
     case "damage-critical":
     case "damage-nocritical":
-    case "damage":
-    case "rollDamage":
+    // case "damage":
+    // case "rollDamage":
       await activity.rollDamage({
         event,
         midiOptions: { spellLevel, critical: action === 'damage-critical' }

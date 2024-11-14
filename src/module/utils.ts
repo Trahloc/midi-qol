@@ -1,4 +1,4 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect, isdndv4 } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, savedOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect, isdndv4 } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./Workflow.js";
@@ -989,7 +989,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
     const saveAbility = (saveAbilityString.includes("|") ? saveAbilityString.split("|") : [saveAbilityString]).map(s => s.trim().toLocaleLowerCase())
     const label = (details.name ?? details.label ?? effect.name).replace(/"/g, "");
     const chatFlavor = details.chatFlavor ?? "";
-    const rollTypeString = details.rollType ?? "damage";
+    const rollTypeString = details.rollType ?? (saveAbility[0] ? "save" : "damage");
     const rollType = (rollTypeString.includes("|") ? rollTypeString.split("|") : [rollTypeString]).map(s => s.trim().toLocaleLowerCase())
     const saveMagic = JSON.parse(details.saveMagic ?? "false"); //parse the saving throw true/false
     const rollMode = details.rollMode;
@@ -1300,9 +1300,9 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       ownedItem.prepareFinalAttributes();
       //@ts-expect-error
       ownedItem.prepareEmbeddedDocuments();
-      if (false && !actionSave && saveRemove && saveDC > -1)
+      if (!actionSave && saveRemove && saveDC > -1)
         //@ts-expect-error
-        failedSaveOverTimeEffectsToDelete[ownedItem.system.activities.contents[0].uuid] = { uuid: effect.uuid };
+        savedOverTimeEffectsToDelete[ownedItem.system.activities.contents[0].uuid] = { uuid: effect.uuid };
 
       if (details.removeCondition) {
         let value = replaceAtFields(details.removeCondition, rollData, { blankValue: 0, maxIterations: 3 });
@@ -1497,94 +1497,16 @@ export async function completeItemUseV2(item, config: any = {}, dialog: any = {}
     item = fromUuidSync(item);
   }
   if (!(item instanceof CONFIG.Item.documentClass)) {
-    console.error("item use only works for items");
+    error("completeItemUseV2 only works for items", item);
     return undefined;
   }
   //@ts-expect-error
   const activity = item.system.activities.contents[0];
   if (!activity) {
-    error(`item ${item.name} ${item.uuid} does not have an activity`);
+    error(`completeItemUseV2 | item ${item.name} ${item.uuid} does not have an activity`);
     return undefined;
   }
   return await completeActivityUse(activity, config, dialog, message);
-}
-
-export async function completeItemUseOld(item, config: any = {}, options: any = { checkGMstatus: false, targetUuids: undefined, asUser: undefined }) {
-  let theItem: any;
-  let targetsToUse = new Set();
-
-  if (typeof item === "string") {
-    theItem = MQfromUuidSync(item);
-  } else if (!(item instanceof CONFIG.Item.documentClass)) {
-    const magicItemUuid = item.magicItem.items.find(i => i.id === item.id)?.uuid;
-    theItem = await fromUuid(magicItemUuid);
-  } else theItem = item;
-  options = foundry.utils.mergeObject(options, { workflowOptions: { forceCompletion: true } })
-  // delete any existing workflow - complete item use always is fresh.
-  if (Workflow.getWorkflow(theItem.uuid)) await Workflow.removeWorkflow(theItem.uuid);
-  let localRoll = (!options.asUser && game.user?.isGM) || !options.checkGMStatus || options.asUser === game.user?.id;
-  if (localRoll) {
-    return new Promise((resolve) => {
-      let saveTargets = Array.from(game.user?.targets ?? []).map(t => { return t.id });
-      if (options.targetUuids?.length > 0 && game.user && theItem.system.target.type !== "self") {
-        if (!options.ignoreUserTargets) game.user.updateTokenTargets([]);
-        for (let targetUuid of options.targetUuids) {
-          const theTarget = MQfromUuidSync(targetUuid);
-          if (theTarget && !options.ignoreUserTargets) theTarget.object.setTarget(true, { user: game.user, releaseOthers: false, groupSelection: true });
-          targetsToUse.add(theTarget.object)
-        }
-      } else if (options.targetUuids === undefined && !options.ignoreUserTargets) {
-        targetsToUse = new Set(game.user?.targets);
-      }
-
-      let abortHookName = `midi-qol.preAbort.${item?.uuid}`;
-      if (!(item instanceof CONFIG.Item.documentClass)) {
-        // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
-        abortHookName = "midi-qol.preAbort";
-      }
-      const abortHookId = Hooks.once(abortHookName, (workflow) => {
-        Hooks.off(completeHookName, completeHookId);
-        if (debugEnabled > 0) warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`)
-        game.user?.updateTokenTargets(saveTargets);
-        resolve(workflow);
-      });
-
-      let completeHookName = `midi-qol.postCleanup.${item?.uuid}`;
-      if (!(item instanceof CONFIG.Item.documentClass)) {
-        // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
-        completeHookName = "midi-qol.postCleanup";
-      }
-      const completeHookId = Hooks.once(completeHookName, (workflow) => {
-        Hooks.off(abortHookName, abortHookId);
-        if (debugEnabled > 0) warn(`completeItemUse complete hook fired: ${workflow.workflowName} ${completeHookName}`)
-        game.user?.updateTokenTargets(saveTargets);
-        resolve(workflow);
-      });
-
-      if (item.magicItem) {
-        item.magicItem.magicItemActor.roll(item.magicItem.id, theItem.id);
-      } else {
-        options.targetsToUse = targetsToUse
-        theItem.use(config, options).then(result => { if (!result) resolve(result) });
-      }
-    })
-  } else {
-    const targetUuids = options.targetUuids ? options.targetUuids : Array.from(game.user?.targets || []).map(t => t.document.uuid); // game.user.targets is always a set of tokens
-    const data = {
-      itemData: theItem.toObject(false),
-      actorUuid: theItem.parent.uuid,
-      targetUuids,
-      config,
-      options
-    }
-    const asUserActive = game.users?.get(options.asUser)?.active;
-    //@ts-expect-error
-    if (!asUserActive) options.asUser = game.users?.activeGM?.id ?? game.user?.id
-    if (options.asUser && asUserActive)
-      return await socketlibSocket.executeAsUser("completeItemUse", options.asUser, data);
-    else
-      return await timedAwaitExecuteAsGM("completeItemUse", data);
-  }
 }
 
 export function untargetAllTokens(...args) {
@@ -4026,7 +3948,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     // {"none": "Attack Hit", "d20": "d20 roll only", "d20Crit": "d20 + Critical", "all": "Whole Attack Roll"},
 
     let content = reactionFlavor;
-    if (["isHit", "isMissed", "isCrit", "isFumble", "isDamaged", "isAttacked"].includes(reactionTriggerLabelFor(triggerType))) {
+    if (["isHit", "isMissed", "isCrit", "isFumble", "isAttacked"].includes(reactionTriggerLabelFor(triggerType))) {
       switch (configSettings.showReactionAttackRoll) {
         case "all":
           content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""}</h4>`;
@@ -4231,8 +4153,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
         clearTimeout(timeoutId);
         const activity: any = reactionActivities.find(i => i.uuid === button.key);
         if (activity) {
-          // await setReactionUsed(actor);
-          // No need to set reaction effect since using item will do so.
+
           dialog.close();
           // options = foundry.utils.mergeObject(options.workflowOptions ?? {}, {triggerTokenUuid, checkGMStatus: false}, {overwrite: true});
           const itemRollOptions = foundry.utils.mergeObject(options, {
@@ -4256,7 +4177,7 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
             const config = { midiOptions: itemRollOptions };
             result = await completeActivityUse(activity, config, {}, {});
             if (result.currentAction !== result.WorkflowState_Cleanup) resolve(noResult);
-            else resolve({ name: activity?.name, uuid: activity?.uuid })
+            else resolve({ name: activity?.name, uuid: activity?.uuid, itemName: activity.item.name, itemUuid: activity.item.uuid })
           } else if (false) { // assume it is a magic item item
             //@ts-expect-error
             const api = game.modules.get("magicitems")?.api ?? game.modules.get("magic-items-2")?.api;
@@ -4642,7 +4563,6 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.hasSave = data.workflow.hasSave;
       rollData.item = data.workflow.item?.getRollData().item;
       if (data.workflow.item) rollData.item.type = data.workflow.item.type;
-      rollData.otherDamageFormula = data.workflow.otherDamageFormula;
       rollData.shouldRollDamage = data.workflow.shouldRollDamage;
       rollData.hasAttack = data.workflow.activity.attack;
       rollData.hasDamage = activityHasDamage(data.workflow.activity);
@@ -5826,7 +5746,7 @@ export function DSNMarkDiceDisplayed(rolls: Roll | Roll[]) {
 
 export function isReactionItem(item): boolean {
   if (!item) return false;
-  return item.system.activation?.type?.includes("reaction");
+  return item.system.activities.some(activity => activity.activation?.type?.includes("reaction"));
 }
 
 export function getCriticalDamage() {
@@ -6276,7 +6196,7 @@ export function activityHasEmanationNoTemplate(activity) {
   return activity && activity.target.template.type === "emanationNoTemplate";
 }
 export function itemOtherFormula(item): string {
-  console.log("itemOtherFormula", item);
+  console.warn("midiqol | itemOtherFormula deprecated", item);
   return "";
   const isVersatle = item?.isVersatile && item?.system.properties?.has("ver");
   if ((item?.system.formula ?? "") !== "") return item.system.formula;

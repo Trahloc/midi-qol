@@ -712,7 +712,7 @@
   "midi-qol.ShowReactionAttackRoll.Name": "Show attack roll",
   "midi-qol.ShowReactionAttackRollOptions": {
     "none": "Attack Hits",
-    "d20": "d20 roll only",
+    "d20": "d20 roll",
     "all": "Attack Roll Total",
     "allCrit": "Attack Roll Total + Critical"
   },

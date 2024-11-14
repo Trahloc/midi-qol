@@ -70,13 +70,14 @@ export var MidiActivityMixin = Base => {
       await this.confirmTargets();
       // come back and see about re-rolling etc.
       if (!this.workflow || this.workflow.currentAction !== this.workflow.WorkflowState_NoAction) {
-        console.error("MidiActivity | use | Workflow is not in the correct state", config.midiOptions, this.workflow?.currentAction);
+        console.log("MidiActivity | use | Workflow is not in the correct state", config.midiOptions, this.workflow?.currentAction);
         this.workflow = new Workflow(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
       }
       if (!await this.confirmCanProceed(config, dialog, message)) return;
       foundry.utils.setProperty(message, "data.flags.midi-qol.messageType", "attack");
       if (config.midiOptions?.configureDialog === false) dialog.configure = false;
       this.checkAutoConsume(config, dialog, message);
+      dialog.configure = true;
       const results = await super.use(config, dialog, message);
 
       if (!results) { // activity use was aborted

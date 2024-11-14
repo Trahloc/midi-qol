@@ -1,0 +1,22 @@
+{
+  "name": "Spells",
+  "sorting": "a",
+  "folder": null,
+  "type": "Item",
+  "_id": "qF3UYnzAAbVavYSR",
+  "description": "",
+  "sort": 100000,
+  "color": null,
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "12.331",
+    "systemId": "dnd5e",
+    "systemVersion": "4.1.1",
+    "createdTime": 1731498476677,
+    "modifiedTime": 1731498476810,
+    "lastModifiedBy": "Zl1BOUaPLwDEujaL"
+  },
+  "_key": "!folders!qF3UYnzAAbVavYSR"
+}

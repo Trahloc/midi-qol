@@ -1,4 +1,4 @@
-import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, failedSaveOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID, isdndv4 } from "../midi-qol.js";
+import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, savedOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID, isdndv4 } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuidSync, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating, getCEEffectByName, setRollMaxDiceTerm, setRollMinDiceTerm } from "./utils.js";
@@ -303,12 +303,12 @@ export function initHooks() {
   Hooks.on("midi-qol.RollComplete", async (workflow) => {
     const wfuuid = workflow.uuid;
 
-    if (failedSaveOverTimeEffectsToDelete[wfuuid]) {
+    if (savedOverTimeEffectsToDelete[wfuuid]) {
       if (workflow.saves.size === 1 || !workflow.hasSave) {
-        let effect = MQfromUuidSync(failedSaveOverTimeEffectsToDelete[wfuuid].uuid);
+        let effect = MQfromUuidSync(savedOverTimeEffectsToDelete[wfuuid].uuid);
         expireEffects(effect.parent, [effect], { "expiry-reason": "midi-qol:overTime" });
       }
-      delete failedSaveOverTimeEffectsToDelete[wfuuid];
+      delete savedOverTimeEffectsToDelete[wfuuid];
     }
     if (overTimeEffectsToDelete[wfuuid]) {
       let effect = MQfromUuidSync(overTimeEffectsToDelete[wfuuid].uuid);
