@@ -1,12 +1,14 @@
 This is the first open beta for midi-qol in dnd5e v4. It is definitely a beta and not ready for full time game play. In addition it will take time for the supporting modules (CPR/MISC etc) to catch up.
+It must be installed via a manifest install from https://gitlab.com/tposney/midi-qol/raw/v12dnd4/Changelog.md
 You must install **dae version 12.0.2** or later avialble via url install from https://gitlab.com/tposney/dae/raw/dndv4/package/module.json
-This version of midi also requires dnd5e v4.1+. This first v4 compatible release was 12.4.0, so see the complete changelog for what's changed.
+This version of midi also requires dnd5e v4.1+. 
+This first v4 compatible release was 12.4.0, so see the complete changelog for what's changed at https://gitlab.com/tposney/midi-qol/raw/v12dnd4/Changelog.md
 
 ## Major Changes:
 * Midi now uses activities to handle all of the actions that it performs, but for the moment also maintains a workflow for each activity being rolled.
 * Midi provides its own version of most core activities.
-  - You can configure midi to automatically replace core activities with midi versions - useful if you want to use midi for most activities. Otherwise midi activities must be manually added to items.
-* The midi attack activity allows you to specify an additional activity - the "otherActivity" which supports things like spider bite. The other activity can roll a saving throw and/or apply damage and has its own effects. There is a new midi setting, where midi will check the activity's item and if there is exactly 1 possible "other activity" midi will use it automatically. This is intended to make the transition easier and things like the SRD spider's bite attack will work with no changes required.
+  - You can configure midi to automatically replace core activities with midi versions - useful if you want to use midi for most activities. Otherwise midi activities must be manually added to items. (On this misc tab).
+* The midi attack activity allows you to specify an additional activity - the "other activity" which supports things like spider bite. The other activity can roll a saving throw and/or apply damage and has its own effects. There is a new midi setting (on this misc tab), where midi will check the activity's item and if there is exactly 1 possible "other activity" midi will use it automatically. This is intended to make the transition easier and things like the SRD spider's bite attack will work with no changes required.
 * Each activity has a "use" condition which must be met for the activity to be rolled.
 * Each activity has an "effect" condition which must be true for the effects attached to the activity to be applied.
 * non-merge card is no longer supported.
@@ -18,7 +20,7 @@ This version of midi also requires dnd5e v4.1+. This first v4 compatible release
 * Multiple templates are not yet supported.
 * There are still some deprecation warnings which I will work to reduce over time.
 * The major refactor of rolls in dnd5e v4.1 meant a swag of changes to midi - which seem to be working, but have not been as extensively tested as the rest of the midi migration to v4.
-* A lot of the automatic migration of items, performed by dnd5e, when migrating to v4.x do **NOT** result in workable midi items, so you will have to check them on a case by case basis.
+* A lot of the automatic migration of items, performed by dnd5e, when migrating to v4.x do **NOT** result in workable midi items, so you will have to check them on a case by case basis. Generally this is the creation of a superflous midi-utility activity.
 * Active defence has not been implemented yet.
 * No testing of cover calculations has been done.
 * Vitality resource has not been tested yet.
@@ -36,7 +38,7 @@ This version of midi also requires dnd5e v4.1+. This first v4 compatible release
 * Added activity to the availabe data in midi called macros.
 * Fix for preActivitySave macros being called.
 * Fix for ItemMacro calling for removed consumables.
-* New setting for gm/players - confirm ammunition - if set whenever an item consuming ammunition is rolled (and there is more than one ammunition choice) the roll config dialog will be displayed so that you can choose the ammunition to use. In addition if the current ammunition for the item is expired the dialog will be displayed so you can choose alternate ammunition.
+* New setting for gm/players - confirm ammunition - if set whenever an item consuming ammunition is rolled (and there is more than one ammunition choice) the roll config dialog will be displayed so that you can choose the ammunition to use. In addition, if the current ammunition for the item is expired the dialog will be displayed so you can choose alternate ammunition. This replaces functionality provided by dnd5e scriptlets to prompt for ammunition consumption.
 * Ammunition confers its properties (magical/silvered etc) on an attack made with that ammunition.
 * Added combatRound, combatTurn and combatTime (combatRound + combatTurn/100) to condition data.
 * Incapacitated actors can't take reactions.
