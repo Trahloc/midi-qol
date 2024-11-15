@@ -831,7 +831,7 @@ function setupMidiQOLApi() {
         return false;
       }
     },
-    removeEffects: async (data: { actorUuid: string, effects: [] }) => {  // data: {actorUuid, effects: [<effect.ids>]}
+    removeEffects: async (data: { actorUuid: string, effects: any[] }) => {  // data: {actorUuid, effects: [<effect.ids>]}
       if (!data.actorUuid) {
         console.error("Midi-QOL createEffects failed. Missing actorUuid")
         return false;
