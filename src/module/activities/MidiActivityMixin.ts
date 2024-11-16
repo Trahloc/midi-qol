@@ -86,6 +86,7 @@ export var MidiActivityMixin = Base => {
       }
 
       this.workflow.itemCardUuid = results.message.uuid;
+      this.workflow.itemCardId = results.message.id;
       if (this.consumption?.spellSlot) {
         this.workflow.castData = {
           baseLevel: this.item.system.level,

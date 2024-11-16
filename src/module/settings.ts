@@ -244,7 +244,6 @@ export const checkedModuleList = [
   "itemacro",
   /levels/,
   "lib-wrapper",
-  "lmrtfy",
   "multilevel-tokens",
   "sequencer",
   "simbuls-cover-calculator",

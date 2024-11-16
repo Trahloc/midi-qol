@@ -193,10 +193,10 @@ async function _removeCEEffect(data: { effectName: string, uuid: string }) {
   // return game.dfreds.effectInterface?.removeEffect({ effectName: data.effectName, uuid: data.uuid });
 }
 
-async function cancelWorkflow(data: { workflowId: string, itemCardId: string }) {
+async function cancelWorkflow(data: { workflowId: string, itemCardUuid: string }) {
   const workflow = Workflow.getWorkflow(data.workflowId);
-  if (workflow?.itemCardId !== data.itemCardId) {
-    const itemCard = await fromUuid(data.itemCardId);
+  if (workflow?.itemCardUuid !== data.itemCardUuid) {
+    const itemCard = await fromUuid(data.itemCardUuid);
     if (itemCard) itemCard.delete()
     /* Confirm this needs to be awaited
     await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);

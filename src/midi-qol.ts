@@ -1,7 +1,7 @@
 import { registerSettings, fetchParams, configSettings, checkRule, enableWorkflow, midiSoundSettings, fetchSoundSettings, midiSoundSettingsBackup, disableWorkflowAutomation, readySettingsSetup, collectSettingData, safeGetGameSetting } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 import { checkModules, installedModules, setupModules } from './module/setupModules.js';
-import { itemPatching, visionPatching, actorAbilityRollPatching, patchLMRTFY, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
+import { itemPatching, visionPatching, actorAbilityRollPatching, readyPatching, initPatching, addDiceTermModifiers } from './module/patching.js';
 import { initHooks, readyHooks, setupHooks } from './module/Hooks.js';
 import { SaferSocket, initGMActionSetup, setupSocket, socketlibSocket, untimedExecuteAsGM } from './module/GMAction.js';
 import { setupSheetQol } from './module/sheetQOL.js';
@@ -287,7 +287,6 @@ Hooks.once('setup', function () {
   visionPatching();
   setupModules();
   initGMActionSetup();
-  patchLMRTFY();
   setupMidiFlags();
   setupHooks();
   undoDamageText = i18n("midi-qol.undoDamageFrom");
@@ -556,24 +555,7 @@ Hooks.once('ready', function () {
     setTimeout(disableWorkflowAutomation, 2000)
   }
   Hooks.callAll("midi-qol.midiReady");
-  if (
-    installedModules.get("lmrtfy")
-    //@ts-expect-error
-    && foundry.utils.isNewerVersion("3.1.8", game.modules.get("lmrtfy").version)) {
-    let abbr = {};
 
-    for (let key in CONFIG[SystemString].abilities) {
-      let abb = game.i18n.localize(CONFIG[SystemString].abilities[key].abbreviation);
-      let upperFirstLetter = abb.charAt(0).toUpperCase() + abb.slice(1);
-      abbr[`${abb}`] = `${SystemString}.Ability${upperFirstLetter}`;
-    }
-    //@ts-expect-error
-    LMRTFY.saves = abbr;
-    //@ts-expect-error
-    LMRTFY.abilities = abbr;
-    //@ts-expect-error
-    LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
-  }
   if (game.user?.isGM) { // need to improve the test
     const problems = TroubleShooter.collectTroubleShooterData().problems
     for (let problem of problems) {

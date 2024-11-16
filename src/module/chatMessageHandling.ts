@@ -181,7 +181,7 @@ export let hideStuffHandler = (message, html, data) => {
   if (game.user?.isGM) shouldDisplayChallenge = true;
   else switch (safeGetGameSetting("dnd5e", "challengeVisibility")) {
     case "all": shouldDisplayChallenge = true; break;
-    case "player": shouldDisplayChallenge = !game.user?.isGM; break;
+    case "player": shouldDisplayChallenge = !message.author?.isGM; break;
     default: shouldDisplayChallenge = false; break;
   }
   // If force hide rolls and your are not the author/target of a whisper roll hide it.
@@ -230,9 +230,6 @@ export let hideStuffHandler = (message, html, data) => {
     return;
 
   } else {
-    // hide tool tips from non-gm
-    html.find(".midi-qol-save-tooltip").hide();
-
     if (message.blind) {
       html.find(".midi-attack-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
       // html.find(".midi-damage-roll .dice-roll").replaceWith(`<span>${i18n("midi-qol.DiceRolled")}</span>`);
@@ -248,15 +245,16 @@ export let hideStuffHandler = (message, html, data) => {
       html.find(".midi-qol-saves-display").hide();
     }
 
-
+    // hide tool tips from non-gm
+    if (configSettings.autoCheckSaves !== "allShow") html.find(".midi-qol-save-tooltip").hide();
     // Hide the save dc if required
     if (!configSettings.displaySaveDC || !shouldDisplayChallenge) {
       html.find(".midi-qol-saveDC").remove();
-      if (!["allShow", "all"].includes(configSettings.autoCheckSaves)) {
-        html.find(".midi-qol-npc-save-total").remove();
-      }
     }
-    if (!shouldDisplayChallenge)
+    if (!["allShow", "all"].includes(configSettings.autoCheckSaves)) {
+      html.find(".midi-qol-npc-save-total").remove();
+    }
+    if (!shouldDisplayChallenge || !configSettings.highlightSuccess)
       html.find(".midi-qol-saves-display .midi-qol-save-symbol").remove();
     if (!configSettings.highlightSuccess || !shouldDisplayChallenge) {
       html.find(".midi-qol-saves-display .midi-qol-save-class").removeClass("success");
@@ -354,11 +352,13 @@ export async function onChatCardAction(event) {
   // Validate permission to proceed with the roll
   if (!(game.user?.isGM || message?.isAuthor)) return;
   if (!["damage", "attack", "rollAttack", "rollDamage", "confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
-  if (!message?.user) return;
+  //@ts-expect-error
+  if (!message?.author) return;
   const activityUuid = foundry.utils.getProperty(message, "flags.dnd5e.activity.uuid");
   //@ts-expect-error
   const activity = fromUuidSync(activityUuid);
   const item = activity?.item;
+  const workflow = activity.workflow;
   const actor = item.actor;
 
   if (!actor) return;
@@ -380,11 +380,10 @@ export async function onChatCardAction(event) {
           return;
         }
         const result = (await socketlibSocket.executeAsUser("applyEffects", authorId, {
-          workflowId: item.uuid,
+          workflowId: workflow.uuid,
           targets: Array.from(game.user.targets).map(t => t.document.uuid)
         }));
       } else {
-        let workflow = Workflow.getWorkflow(item.uuid);
         if (workflow) {
           workflow.forceApplyEffects = true; // don't overwrite the application targets
           workflow.effectTargets = game.user?.targets;
@@ -399,10 +398,26 @@ export async function onChatCardAction(event) {
         await game.messages?.get(messageId)?.delete();
       };
       break;
+    case "confirm-damage-roll-cancel":
+      if (authorId) {
+        if (!game.user?.isGM && configSettings.confirmAttackDamage === "gmOnly") {
+          return;
+        }
+        const user = game.users?.get(authorId);
+        if (user?.active) {
+
+          socketlibSocket.executeAsUser("cancelWorkflow", authorId, { workflowId: workflow?.uuid ?? activity?.uuid, itemCardId: message.id, itemCardUuid: message.uuid }).then(result => {
+            if (typeof result === "string") ui.notifications?.warn(result);
+          });
+        } else {
+          await Workflow.removeItemCardAttackDamageButtons(messageId);
+          await Workflow.removeItemCardConfirmRollButton(messageId);
+        }
+      }
+      break;
     case "confirm-damage-roll-complete":
     case "confirm-damage-roll-complete-hit":
     case "confirm-damage-roll-complete-miss":
-    case "confirm-damage-roll-cancel":
       if (authorId) {
         if (!game.user?.isGM && configSettings.confirmAttackDamage === "gmOnly") {
           return;
@@ -413,7 +428,6 @@ export async function onChatCardAction(event) {
             "confirm-damage-roll-complete": "confirmDamageRollComplete",
             "confirm-damage-roll-complete-hit": "confirmDamageRollCompleteHit",
             "confirm-damage-roll-complete-miss": "confirmDamageRollCompleteMiss",
-            "confirm-damage-roll-cancel": "cancelWorkflow"
           }[action];
           socketlibSocket.executeAsUser(actionToCall, authorId, { activityUuid, itemCardId: message.id, itemCardUuid: message.uuid }).then(result => {
             if (typeof result === "string") ui.notifications?.warn(result);
@@ -426,8 +440,8 @@ export async function onChatCardAction(event) {
       break;
     case "attack-adv":
     case "attack-dis":
-    // case "attack":
-    // case "rollAttack":
+      // case "attack":
+      // case "rollAttack":
       await activity.rollAttack({
         // event,
         midiOptions: {
@@ -441,12 +455,12 @@ export async function onChatCardAction(event) {
       break;
     case "damage-critical":
     case "damage-nocritical":
-    // case "damage":
-    // case "rollDamage":
+    case "damage":
+    case "rollDamage":
       await activity.rollDamage({
         event,
-        midiOptions: { spellLevel, critical: action === 'damage-critical' }
-      }, {configure: false}, {})
+        midiOptions: { spellLevel, isCritical: action === 'damage-critical', fastForwardDamage: true }
+      }, { configure: false }, {})
     default:
       break;
   }

@@ -66,10 +66,6 @@ export class ConfigPanel extends FormApplication {
     let rollNPCSavesOptions = foundry.utils.duplicate(geti18nOptions("rollNPCSavesOptions"));
     for (let key of Object.keys(rollNPCSavesOptions)) {
       switch (key) {
-        case "letme":
-        case "letmeQuery":
-          if (!installedModules.get("lmrtfy")) rollNPCSavesOptions[key] = `${rollNPCSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "LMRTFY" })}`;
-          break;
         case "mtb":
           if (!installedModules.get("monks-tokenbar")) rollNPCSavesOptions[key] = `${rollNPCSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Monks Token Bar" })}`;
           break;
@@ -80,10 +76,6 @@ export class ConfigPanel extends FormApplication {
     let playerRollSavesOptions = foundry.utils.duplicate(geti18nOptions("playerRollSavesOptions"));
     for (let key of Object.keys(playerRollSavesOptions)) {
       switch (key) {
-        case "letme":
-        case "letmeQuery":
-          if (!installedModules.get("lmrtfy")) playerRollSavesOptions[key] = `${playerRollSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "LMRTFY" })}`;
-          break;
         case "mtb":
           if (!installedModules.get("monks-tokenbar")) playerRollSavesOptions[key] = `${playerRollSavesOptions[key]} - ${game.i18n.format("MODMANAGE.DepNotInstalled", { missing: "Monks Token Bar" })}`;
           break;
@@ -513,11 +505,6 @@ let quickSettingsDetails: any = {
       autoApplyDamage: "yesCard"
     },
     codeChecks: (current, settings) => {
-      if (installedModules.get("lmrtfy")) settings.playerRollSaves = "letme";
-      else if (installedModules.get("monks-tokenbar")) settings.playerRollSaves = "mtb";
-      else {
-        ui.notifications?.warn("Player rolls saves works best with `Let Me Roll That For You` or 'Monks Token Bar` installed and active");
-      }
     }
   },
   DamageManual: {

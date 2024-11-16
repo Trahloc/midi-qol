@@ -1,3 +1,10 @@
+### 12.4.8
+* Fix for damage button not working when extra buttons displayed.
+* Fix for not fast forwarding rolls when adv/disadv/critical/nocritical buttons are pressed.
+* Fix for cancel/confirm buttons not working
+* Fix for player rolled saves not working..
+* Fix to support old Monks Token bar for saves.
+
 This is the first open beta for midi-qol in dnd5e v4. It is definitely a beta and not ready for full time game play. In addition it will take time for the supporting modules (CPR/MISC etc) to catch up.
 It must be installed via a manifest install from https://gitlab.com/tposney/midi-qol/raw/v12dnd4/Changelog.md
 You must install **dae version 12.0.2** or later avialble via url install from https://gitlab.com/tposney/dae/raw/dndv4/package/module.json

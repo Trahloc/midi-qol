@@ -664,73 +664,21 @@ export let getSaveMultiplierForItem = (item: Item, itemDamageType) => {
 };
 
 export function requestPCSave(ability, rollType, player, actor, { advantage, disadvantage, flavor, dc, requestId, GMprompt, isMagicSave, magicResistance, magicVulnerability, saveItemUuid, isConcentrationCheck }) {
-  const useUuid = true; // for  LMRTFY
-  const actorId = useUuid ? actor.uuid : actor.id;
-  const playerLetme = !player?.isGM && ["letme", "letmeQuery"].includes(configSettings.playerRollSaves);
-  const playerLetMeQuery = "letmeQuery" === configSettings.playerRollSaves;
-  const gmLetmeQuery = "letmeQuery" === GMprompt;
-  const gmLetme = player.isGM && ["letme", "letmeQuery"].includes(GMprompt);
-  let rollAdvantage: number = 0;
   try {
-    if (player && installedModules.get("lmrtfy") && (playerLetme || gmLetme)) {
-      if (((!player.isGM && playerLetMeQuery) || (player.isGM && gmLetmeQuery))) {
-        // TODO - reinstated the LMRTFY patch so that the event is properly passed to the roll
-        rollAdvantage = 2;
-      } else {
-        rollAdvantage = (advantage && !disadvantage ? 1 : (!advantage && disadvantage) ? -1 : 0);
-      }
-      if (isMagicSave) { // rolls done via LMRTFY won't pick up advantage when passed through and we can't pass both advantage and disadvantage
-        if (magicResistance && disadvantage) rollAdvantage = 1; // This will make the LMRTFY display wrong
-        if (magicVulnerability && advantage) rollAdvantage = -1; // This will make the LMRTFY display wrong
-      }
-      //@ts-expect-error
-      let mode = foundry.utils.isNewerVersion(game.version ?? game.version, "0.9.236") ? "publicroll" : "roll";
-      if (configSettings.autoCheckSaves !== "allShow") {
-        mode = "blindroll";
-      }
-      let message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${i18n("midi-qol.saving-throw")} ${flavor}`;
-      if (rollType === "abil")
-        message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${i18n("midi-qol.ability-check")} ${flavor}`;
-      if (rollType === "skill")
-        message = `${configSettings.displaySaveDC ? "DC " + dc : ""} ${flavor}`;
-      // Send a message for LMRTFY to do a save.
-      const socketData = {
-        user: player.id,
-        actors: [actorId],
-        abilities: rollType === "abil" ? [ability] : [],
-        saves: rollType === "save" ? [ability] : [],
-        skills: rollType === "skill" ? [ability] : [],
-        advantage: rollAdvantage,
-        mode,
-        title: i18n("midi-qol.saving-throw"),
-        message,
-        formula: "",
-        attach: { requestId },
-        deathsave: false,
-        initiative: false,
-        isMagicSave,
-        saveItemUuid,
-        isConcentrationCheck
-      }
-      if (debugEnabled > 1) debug("process player save ", socketData)
-      game.socket?.emit('module.lmrtfy', socketData);
-      //@ts-expect-error - global variable
-      LMRTFY.onMessage(socketData);
-    } else { // display a chat message to the user telling them to save
-      const actorName = actor.name;
-      let abilityString = GameSystemConfig.abilities[ability];
-      if (abilityString.label) abilityString = abilityString.label;
-      let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityString} ${i18n("midi-qol.saving-throw")}`;
-      if (advantage && !disadvantage) content = content + ` (${i18n("DND5E.Advantage")}) - ${flavor})`;
-      else if (!advantage && disadvantage) content = content + ` (${i18n("DND5E.Disadvantage")}) - ${flavor})`;
-      else content + ` - ${flavor})`;
-      const chatData = {
-        content,
-        whisper: [player]
-      }
-      // think about how to do this if (workflow?.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", workflow.flagTags);
-      ChatMessage.create(chatData);
+    // display a chat message to the user telling them to save
+    const actorName = actor.name;
+    let abilityString = GameSystemConfig.abilities[ability];
+    if (abilityString.label) abilityString = abilityString.label;
+    let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityString} ${i18n("midi-qol.saving-throw")}`;
+    if (advantage && !disadvantage) content = content + ` (${i18n("DND5E.Advantage")}) - ${flavor})`;
+    else if (!advantage && disadvantage) content = content + ` (${i18n("DND5E.Disadvantage")}) - ${flavor})`;
+    else content + ` - ${flavor})`;
+    const chatData = {
+      content,
+      whisper: [player]
     }
+    // think about how to do this if (workflow?.flagTags) chatData.flags = foundry.utils.mergeObject(chatData.flags ?? "", workflow.flagTags);
+    ChatMessage.create(chatData);
   } catch (err) {
     const message = `midi-qol | request PC save`;
     TroubleShooter.recordError(err, message);
@@ -739,40 +687,16 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
 }
 
 export function requestPCActiveDefence(player, actor, advantage, saveItemName, rollDC, formula, requestId, options?: { workflow: Workflow }) {
-  const useUuid = true; // for  LMRTFY
+  const useUuid = true;
   const actorId = useUuid ? actor.uuid : actor.id;
   if (!player.isGM && false) {
-    // TODO - reinstated the LMRTFY patch so that the event is properly passed to the roll
     advantage = 2;
   } else {
     advantage = (advantage === true ? 1 : advantage === false ? -1 : 0);
   }
   let mode = checkRule("activeDefenceShow") ?? "selfroll";
   let message = `${saveItemName} ${configSettings.hideRollDetails === "none" ? "DC " + rollDC : ""} ${i18n("midi-qol.ActiveDefenceString")}`;
-  if (installedModules.get("lmrtfy")) {
-    // Send a message for LMRTFY to do a save.
-    const socketData = {
-      "abilities": [],
-      "saves": [],
-      "skills": [],
-      mode,
-      "title": i18n("midi-qol.ActiveDefenceString"),
-      message,
-      "tables": [],
-      user: player.id,
-      actors: [actorId],
-      advantage,
-      formula,
-      attach: { requestId, mode },
-      deathsave: false,
-      initiative: false
-    };
-    if (debugEnabled > 1) debug("process player save ", socketData)
-    game.socket?.emit('module.lmrtfy', socketData);
-    // LMRTFY does not emit to self so in case it needs to be handled by the local client pretend we received it.
-    //@ts-expect-error - LMRTFY
-    LMRTFY.onMessage(socketData);
-  } else if (options?.workflow) { //prompt for a normal roll.
+  if (options?.workflow) { //prompt for a normal roll.
     const rollOptions: any = { advantage, midiType: "defenceRoll", flavor: message };
     if (configSettings.autoCheckHit === "all") rollOptions.targetValue = rollDC;
     socketlibSocket.executeAsUser("D20Roll", player.id, { targetUuid: actor.uuid, formula, request: message, rollMode: mode, options: rollOptions, messageData: { speaker: getSpeaker(actor) } }).then(result => {
@@ -1337,7 +1261,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
           }
         };
         foundry.utils.setProperty(options, `flags.${MODULE_ID}.isOverTime`, true);
-        await completeItemUseV2(ownedItem, { midiOptions: options }, { configure: false }, {rollMode}); // worried about multiple effects in flight so do one at a time
+        await completeItemUseV2(ownedItem, { midiOptions: options }, { configure: false }, { rollMode }); // worried about multiple effects in flight so do one at a time
         if (actionSaveSuccess) {
           await expireEffects(actor, [effect], { "expiry-reason": "midi-qol:overTime:actionSave" });
         }
@@ -4573,7 +4497,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     if (game.combat) {
       rollData.combatRound = game.combat?.round;
       rollData.combatTurn = game.combat?.turn;
-      rollData.combatTime = game.combat?.round + (game.combat.turn ?? 0) /100;
+      rollData.combatTime = game.combat?.round + (game.combat.turn ?? 0) / 100;
     } else rollData.combatTime = 0;
     rollData.CONFIG = CONFIG;
     rollData.CONST = {};
@@ -6566,7 +6490,7 @@ export function setRollMaxDiceTerm(roll: Roll, maxValue: number) {
   return roll;
 }
 
-export function addDependent (document: Document, dependent: Document) {
+export function addDependent(document: Document, dependent: Document) {
   //@ts-expect-error
   if (!document.addDependent) {
     //@ts-expect-error

@@ -3407,7 +3407,7 @@ export class Workflow {
             isconcentrationCheck: saveDetails.isConcentrationCheck, // Not sure if epic rolls will pick this up
             workflowOptions: saveDetails.workflowOptions
           })
-        } else { // not using LMRTFY/other prompting - just roll a save
+        } else {
           // Find a player owner for the roll if possible
           let owner: User | undefined = playerFor(target);
           if (!owner?.isGM && owner?.active) showRoll = true; // Always show player save rolls
@@ -3536,7 +3536,16 @@ export class Workflow {
     var results = await Promise.all(promises);
     if (rerRequests?.length > 0) await busyWait(0.01);
     delete this.saveDetails;
-    for (let i = 0; i < results.length; i++) { if (results[i] instanceof Roll) results[i] = [results[i]]; }
+    for (let i = 0; i < results.length; i++) {
+      if (results[i] instanceof Roll) results[i] = [results[i]];
+      if (results[i] instanceof Array)
+        for (let j = 0; j < results[i].length; j++) {
+          if (!(results[i][j] instanceof Roll)) {
+            //@ts-expect-error
+            results[i][j] = CONFIG.Dice.D20Roll.fromJSON(JSON.stringify(results[i][j]));
+          }
+        }
+    }
     this.saveResults = results;
     let i = 0;
     if (activityHasAreaTarget(this.activity) && this.templateUuid) {
@@ -3554,12 +3563,7 @@ export class Workflow {
         TroubleShooter.recordError(new Error(message), message);
         results[i] = [await new Roll("1").evaluate()];
       }
-      for (let j = 0; j < results[i].length; j++) {
-        if (!(results[i][j] instanceof Roll)) {
-          console.error("This should not happend", results[i]);
-          results[i][j] = [Roll.fromJSON(JSON.stringify(results[i][j]))];
-        }
-      }
+
       let result = results[i];
       let saveRollTotal = result.reduce((acc, r) => acc + r.total, 0);
       let saveRolls = result;
@@ -3573,7 +3577,7 @@ export class Workflow {
       }
       let isFumble = false;
       let isCritical = false;
-      if (saveRolls[0]?.terms) { // normal d20 roll/lmrtfy/monks roll
+      if (saveRolls[0]?.terms) { // normal d20 roll/monks roll
         const dterm: DiceTerm = saveRolls[0].terms[0];
         const diceRoll = dterm?.results?.find(result => result.active)?.result ?? saveRollTotal;
         //@ts-expect-error
@@ -3624,7 +3628,7 @@ export class Workflow {
       saveRollTotal += coverSaveBonus;
       let saved = saveRollTotal >= rollDC;
 
-      if (checkRule("criticalSaves")) { // normal d20 roll/lmrtfy/monks roll
+      if (checkRule("criticalSaves")) { // normal d20 roll/monks roll
         saved = (isCritical || saveRollTotal >= rollDC) && !isFumble;
       }
       if (foundry.utils.getProperty(this.actor, `flags.${MODULE_ID}.sculptSpells`) && (this.rangeTargeting || this.temptargetConfirmation) && this.activity?.item?.system.school === "evo" && this.preSelectedTargets.has(target)) {
@@ -3718,7 +3722,7 @@ export class Workflow {
           //TODO 
           // rollDetail = (await new Roll(`${rollDetail.total} + ${rollBonus}`).evaluate());
           saved = saveRollTotal >= rollDC;
-          if (checkRule("criticalSaves")) { // normal d20 roll/lmrtfy/monks roll
+          if (checkRule("criticalSaves")) { // normal d20 roll/monks roll
             saved = (isCritical || saveRollTotal >= rollDC) && !isFumble;
           }
         }
@@ -3896,10 +3900,8 @@ export class Workflow {
 
   processDefenceRoll(message, html, data) {
     if (!this.defenceRequests) return true;
-    const isLMRTFY = (installedModules.get("lmrtfy") && message.flags?.lmrtfy?.data);
-    if (!isLMRTFY || message.flags?.dnd5e?.roll?.type === "save") return true;
-    const requestId = isLMRTFY ? message.flags.lmrtfy.data.requestId : message?.speaker?.actor;
-    if (debugEnabled > 0) warn("processDefenceRoll |", isLMRTFY, requestId, this.saveRequests)
+    const requestId = message?.speaker?.actor;
+    if (debugEnabled > 0) warn("processDefenceRoll |", requestId, this.saveRequests)
 
     if (!requestId) return true;
     if (!this.defenceRequests[requestId]) return true;
@@ -3909,37 +3911,18 @@ export class Workflow {
     delete this.defenceRequests[requestId];
     delete this.defenceTimeouts[requestId];
     handler(message.rolls[0])
-
-    if (game.user?.isGM && message.flags?.lmrtfy?.data?.mode === "selfroll" && checkRule("activeDefenceShow") === "selfroll") {
-      html.hide();
-    }
-    /*
-    if (!game.user?.isGM || !checkRule("activeDefenceShowGM")) {
-      switch (message.flags?.lmrtfy?.data?.mode) {
-        case "blindroll": if (!game.user?.isGM) html.hide(); break;
-        case "gmroll": if (!game.user?.isGM && message.author.id !== game.user?.id) html.hide(); break;
-        case "selfroll": if (game.user?.id !== message.author.id) html.hide(); break;
-        default:
-          if (game.user?.id !== message.author.id
-            && !["allShow"].includes(configSettings.autoCheckSaves)) html.hide();
-      }
-    }
-    */
     return true;
   }
 
   processSaveRoll(message, html, data) {
     if (!this.saveRequests) return {};
-    const isLMRTFY = message.flags?.lmrtfy?.data && message.rolls;
     const ddbglFlags = message.flags && message.flags["ddb-game-log"];
     const isDDBGL = ddbglFlags?.cls === "save" && !ddbglFlags?.pending;
     const midiFlags = message.flags && message.flags[MODULE_ID];
 
-    if (!midiFlags?.lmrtfy?.requestId && !isLMRTFY && !isDDBGL && message.flags?.dnd5e?.roll?.type !== "save") return true;
-    let requestId = isLMRTFY ? message.flags.lmrtfy.data.requestId : message?.speaker?.token;
-    if (midiFlags?.lmrtfy.requestId) requestId = midiFlags.lmrtfy.requestId;
+    let requestId = message?.speaker?.token;
     if (!requestId && isDDBGL) requestId = message?.speaker?.actor;
-    if (debugEnabled > 0) warn("processSaveRoll |", isLMRTFY, requestId, this.saveRequests)
+    if (debugEnabled > 0) warn("processSaveRoll |", requestId, this.saveRequests)
     if (!requestId) return true;
 
     if (!this.saveRequests[requestId]) return true;
@@ -3955,7 +3938,7 @@ export class Workflow {
       }
       handler(message.rolls[0])
     }
-    if (game.user?.id !== message.author.id && !isLMRTFY && !["allShow"].includes(configSettings.autoCheckSaves)) {
+    if (game.user?.id !== message.author.id && !["allShow"].includes(configSettings.autoCheckSaves)) {
       setTimeout(() => html.remove(), 100);
     }
     return true;
@@ -4019,7 +4002,7 @@ export class Workflow {
       // this.diceRoll = terms[0].results.find(d => d.active).result;
     }
     //@ts-expect-error .options.critical undefined
-    let criticalThreshold = this.attackRoll.options.critical;
+    let criticalThreshold = this.attackRoll.options.criticalSuccess;
     if (this.targets.size > 0) {
       //@ts-expect-error first
       const midiFlags = this.targets.first().actor?.flags[MODULE_ID];
@@ -4035,7 +4018,7 @@ export class Workflow {
     this.isCritical = this.diceRoll >= criticalThreshold;
     const midiFumble = this.item && foundry.utils.getProperty(this.item, `flags.${MODULE_ID}.fumbleThreshold`);
     //@ts-expect-error .funble
-    let fumbleTarget = this.attackRoll.terms[0].options.fumble ?? 1;
+    let fumbleTarget = this.attackRoll.terms[0].options.criticalFailure ?? 1;
     if (Number.isNumeric(midiFumble)) fumbleTarget = midiFumble;
     this.isFumble = this.diceRoll <= fumbleTarget;
     this.attackTotal = this.attackRoll.total ?? 0;
@@ -4377,7 +4360,6 @@ export class Workflow {
   }
 
   async activeDefence(item, roll) {
-    // For each target do a LMRTFY custom roll DC 12 + attackers bonus, for gm tokens always auto roll
     // Roll is d20 + AC - 10
     let hookId = Hooks.on("renderChatMessage", this.processDefenceRoll.bind(this));
     try {

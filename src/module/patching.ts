@@ -7,6 +7,7 @@ import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { MidiAttackActivity } from "./activities/AttackActivity.js";
 import { templateTokens } from "./activities/activityHelpers.js";
+import { rollAbility } from "./GMAction.js";
 
 let libWrapper;
 
@@ -138,8 +139,64 @@ export async function bonusCheck(actor, result: Roll, category, detail, messageD
 
   return result;
 }
+function _applyDeprecatedD20Configs(rollConfig, dialogConfig, messageConfig, options) {
+  const set = (config, keyPath, value) => {
+    if ( value === undefined ) return;
+    foundry.utils.setProperty(config, keyPath, value);
+  };
 
+  let roll = rollConfig.rolls?.[0] ?? {};
+  set(roll, "parts", options.parts);
+  set(roll, "data", options.data);
+  set(rollConfig, "event", options.event);
+  set(roll, "options.advantage", options.advantage);
+  set(roll, "options.disadvantage", options.disadvantage);
+  set(roll, "options.criticalSuccess", options.critical);
+  set(roll, "options.criticalFailure", options.fumble);
+  set(rollConfig, "target", options.targetValue);
+  set(rollConfig, "ammunition", options.ammunition);
+  set(rollConfig, "attackMode", options.attackMode);
+  set(rollConfig, "mastery", options.mastery);
+  set(rollConfig, "elvenAccuracy", options.elvenAccuracy);
+  set(rollConfig, "halflingLucky", options.halflingLucky);
+  set(rollConfig, "reliableTalent", options.reliableTalent);
+  if ( "fastForward" in options ) dialogConfig.configure = !options.fastForward;
+  set(dialogConfig, "options", options.dialogOptions);
+  set(dialogConfig, "options.ammunitionOptions", options.ammunitionOptions);
+  set(dialogConfig, "options.attackModeOptions", options.attackModes);
+  set(dialogConfig, "options.chooseAbility", options.chooseModifier);
+  set(dialogConfig, "options.masteryOptions", options.masteryOptions);
+  set(dialogConfig, "options.title", options.title);
+  set(messageConfig, "create", options.chatMessage);
+  set(messageConfig, "data", options.messageData);
+  set(messageConfig, "rollMode", options.rollMode);
+  set(messageConfig, "data.flavor", options.flavor);
+
+  //@ts-expect-error
+  if ( !foundry.utils.isEmpty(roll) ) {
+    rollConfig.rolls ??= [];
+    if ( rollConfig.rolls[0] ) rollConfig.rolls[0] = roll;
+    else rollConfig.rolls.push(roll);
+  }
+}
 async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message: any = {}) {
+  let oldFormat = false;
+  if (foundry.utils.getType(config) !== "Object") {
+    oldFormat = true;
+    //@ts-expect-error
+    foundry.utils.logCompatibilityWarning(
+      `The \`rollSkill\` method on Actor5e now takes roll, dialog, and message config objects as parameters.`,
+      { since: "DnD5e 4.1", until: "DnD5e 4.5" }
+    );
+    oldFormat = true;
+    const oldConfig = dialog;
+    config = { "skill": config };
+    if ( oldConfig.ability ) config.ability = oldConfig.ability;
+    if ( oldConfig.bonus ) config.bonus = oldConfig.bonus;
+    dialog = {};
+    _applyDeprecatedD20Configs(config, dialog, message, oldConfig);
+
+  }
   try {
     let options: any = foundry.utils.mergeObject({
       event: config.event,
@@ -191,7 +248,6 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
     delete procOptions.event;
 
     // result = await wrapped.call(this, skillId, procOptions);
-    let messageData;
     Hooks.once(`${game.system.id}.preRollSkillV2`, (config, dialog, message) => {
       message.data ??= {};
       if (overtimeActorUuid)
@@ -203,10 +259,15 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
         roll.options.disadvantage ||= procOptions.disadvantage;
       })
     })
+    Hooks.once("dnd5e.postSkillRollConfiguration", (rolls, config, dialog, messageDetails) => {
+      // record message configuration details for later display
+      message = messageDetails;
+    });
     delete config.event;
     const saveCreate = message.create;
     message.create = false;
     setDialogOptions(dialog, procOptions);
+    if (options.fastForward) dialog.configure = false;
     result = await wrapped(config, dialog, message);
     message.create = saveCreate;
 
@@ -239,7 +300,7 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
     else result.options.rollMode = "blindroll";
     */
     if (!options.simulate) {
-      result = await bonusCheck(this, result, "skill", skillId, messageData);
+      result = await bonusCheck(this, result, "skill", skillId, message.data);
       DSNMarkDiceDisplayed(result);
     }
     await displayDSNForRoll(result, "skill", rollMode);
@@ -253,11 +314,12 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
     if (message.create !== false && result) {
       await displayDSNForRoll(result, "skill", rollMode);
       if (foundry.utils.getProperty(result, "flags.midi-qol.chatMessageShown") !== true)
-        await result[0].toMessage(messageData, { rollMode });
+        await result[0].toMessage(message.data, { rollMode });
     }
     game.settings.set("core", "rollMode", saveRollMode);
 
     await expireRollEffect.bind(this)("Skill", skillId, success);
+    if (oldFormat) return result[0];
     return result;
   } catch (err) {
     const message = `doRollSkill error ${this.name}, ${this.uuid}`;
@@ -455,13 +517,15 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
   if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
 }
 
-async function doAbilityRollV2(wrapped, rollType, config: any = {}, dialog: any = {}, message: any = {}) {
+async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any = {}, message: any = {}) {
+  const oldFormat = message.midiOptions?.oldFormat;
   let options = foundry.utils.mergeObject({
     event: config.event,
     simulate: config.simulate,
     targetValue: config.target,
     isMagicalSave: config.isMagicalSave,
     isConcentrationCheck: config.isConcentrationCheck,
+    fromMars5eChatCard: config.fromMars5eChatCard ?? dialog.fromMars5eChatCard,
   }, config.midiOptions ?? {});
   message.data ??= {};
   let abilityId = config.ability;
@@ -495,6 +559,7 @@ async function doAbilityRollV2(wrapped, rollType, config: any = {}, dialog: any 
     if (options.fromMars5eChatCard) { // It seems mtb ignores the advantage/disadvantage flags sent in the request
       options.advantage ||= options.event?.altKey;
       options.disadvantage ||= options.event?.ctrlKey;
+      message.create = false;
       if (!autoFastForwardAbilityRolls) options.fastForward ||= options.event?.shiftKey;
     }
     options.advantage ||= options.event?.advantage;
@@ -518,21 +583,24 @@ async function doAbilityRollV2(wrapped, rollType, config: any = {}, dialog: any 
 
     let result;
     delete config.event;
-    const type = rollType === "save" ? "preRollSavingThrowV2" : "preAbilityCheckV2";
+    const type = rollType === "save" ? "SavingThrow" : "AbilityCheck";
 
     if (overtimeActorUuid)
       message.data["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
-
     if (options.isConcentrationCheck) {
       procOptions.isConcentrationCheck = false; // stop an infinite loop
       result = await this.rollConcentration(config, dialog, message)
     } else {
-      Hooks.once(`dnd5e.${type}`, (config, dialog, message) => {
+      Hooks.once(`dnd5e.preRoll${type}V2`, (config, dialog, message) => {
         setDialogOptions(dialog, procOptions);
         config.rolls.forEach(roll => {
           roll.options.advantage ||= procOptions.advantage;
           roll.options.disadvantage ||= procOptions.disadvantage;
         });
+      });
+      Hooks.once(`dnd5e.post${type}RollConfiguration`, ( rolls, config, dialog, messageDetails) => {
+        // record the configured message data for later display
+        message = messageDetails;
       });
       setDialogOptions(dialog, procOptions);
       if (options.fastForward) dialog.configure = false;
@@ -614,14 +682,14 @@ async function doAbilityRollV2(wrapped, rollType, config: any = {}, dialog: any 
     }
 
     if (message.create !== false && result) {
-      message.data.template = "modules/midi-qol/templates/roll-base.html";
-      if (foundry.utils.getProperty(result[0], "flags.midi-qol.chatMessageShown") !== true)
-        await result[0].toMessage(message.data, { rollMode });
+      //@ts-expect-error
+      CONFIG.Dice.D20Roll.toMessage(result, message.data, { rollMode, create: true });
     }
     game.settings.set("core", "rollMode", saveRollMode);
 
     await expireRollEffect.bind(this)(rollType, abilityId, success);
     if (options.isConcentrationCheck) expireRollEffect.bind(this)("isConcentrationSave", success);
+    if (oldFormat) return result[0];
     return result;
   } catch (err) {
     const message = `doAbilityRoll error ${this.name} ${abilityId} ${rollType} ${this.uuid}`;
@@ -631,11 +699,11 @@ async function doAbilityRollV2(wrapped, rollType, config: any = {}, dialog: any 
 }
 
 export async function rollSavingThrow(wrapped, config = {}, dialog = {}, message = {}) {
-  return doAbilityRollV2.bind(this)(wrapped, "save", config, dialog, message);
+  return doRollAbilityV2.bind(this)(wrapped, "save", config, dialog, message);
 }
 
 async function rollAbilityCheck(wrapped, config = {}, dialog = {}, message = {}) {
-  return doAbilityRollV2.bind(this)(wrapped, "check", config, dialog, message);
+  return doRollAbilityV2.bind(this)(wrapped, "check", config, dialog, message);
 }
 
 async function rollDeathSave(wrapped, options) {
@@ -1623,13 +1691,27 @@ export let actorAbilityRollPatching = () => {
 
   log("Patching roll abilities Save/Test/Skill/Tool")
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollSavingThrow", rollSavingThrow, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollAbilitySave", rollAbilitySave, "WRAPPER");
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollAbilityCheck", rollAbilityCheck, "MIXED");
+  libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollAbilityTest", rollAbilityTest, "WRAPPER");
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollDeathSave", rollDeathSave, "WRAPPER");
   libWrapper.register(MODULE_ID, "CONFIG.Actor.documentClass.prototype.rollSkill", doRollSkill, "MIXED");
   libWrapper.register(MODULE_ID, "CONFIG.Item.documentClass.prototype.rollToolCheck", rollToolCheck, "WRAPPER");
 
   // 10.0.19 rollDeath save now implemented via the preRollDeathSave Hook
   // v12 (and v11 for compat) deathSave is now a patch to allow for async evaluation of adv/dis flags
+}
+
+async function rollAbilitySave(wrapped, config: any = {}, dialog={}, message: any={}) {
+  message.midiOptions ??= {};
+  message.midiOptions.oldForamt = true;
+  return wrapped(config, dialog, message);
+}
+async function rollAbilityTest(wrapped, config: any = {}, dialog={}, message: any={}) {
+  message.midiOptions ??= {};
+  message.midiOptions.oldForamt = true;
+  return wrapped(config, dialog, message);
+
 }
 
 export async function rollToolCheck(wrapped, options: any = {}) {
@@ -1648,65 +1730,6 @@ export async function rollToolCheck(wrapped, options: any = {}) {
     await result.toMessage(args, { rollMode });
   }
   return result;
-}
-
-export function patchLMRTFY() {
-  if (installedModules.get("lmrtfy")) {
-    log("Patching lmrtfy")
-    libWrapper.register(MODULE_ID, "LMRTFYRoller.prototype._makeRoll", LMRTFYMakeRoll, "OVERRIDE");
-    libWrapper.register(MODULE_ID, "LMRTFY.onMessage", LMRTFYOnMessage, "OVERRIDE");
-  }
-}
-
-function LMRTFYOnMessage(data: any) {
-  //console.log("LMRTF got message: ", data)
-  if (data.user === "character" &&
-    (!game.user?.character || !data.actors.includes(game.user.character.id))) {
-    return;
-  } else if (!["character", "tokens"].includes(data.user) && data.user !== game.user?.id) {
-    return;
-  }
-
-  let actors: (Actor | undefined)[] = [];
-  if (data.user === "character") {
-    actors = [game?.user?.character];
-  } else if (data.user === "tokens") {
-    //@ts-expect-error
-    actors = canvas?.tokens?.controlled.map(t => t.actor).filter(a => data.actors.includes(a?.id)) ?? [];
-  } else {
-    //@ts-expect-error
-    actors = data.actors.map(aid => LMRTFY.fromUuid(aid));
-  }
-  actors = actors.filter(a => a);
-
-  // remove player characters from GM's requests
-  if (game.user?.isGM && data.user !== game.user.id) {
-    actors = actors.filter(a => !a?.hasPlayerOwner);
-  }
-  if (actors.length === 0) return;
-  //@ts-ignore
-  new LMRTFYRoller(actors, data).render(true);
-}
-
-async function LMRTFYMakeRoll(event, rollMethod, failRoll, ...args) {
-  let options = this._getRollOptions(event, failRoll);
-  // save the current roll mode to reset it after this roll
-  const rollMode = game.settings.get("core", "rollMode");
-  game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
-  for (let actor of this.actors) {
-    Hooks.once("preCreateChatMessage", this._tagMessage.bind(this));
-
-    // system specific roll handling
-    switch (game.system.id) {
-      default: {
-        foundry.utils.setProperty(options, "flags.lmrtfy", { "message": this.data.message, "data": this.data.attach })
-        actor[rollMethod].call(actor, ...args, options);
-      }
-    }
-  }
-  game.settings.set("core", "rollMode", rollMode);
-  this._disableButtons(event);
-  this._checkClose();
 }
 
 // This is done as a wrapper so that there is no race condition when hp reaches 0 also trying to remove condition
@@ -1735,48 +1758,8 @@ async function _preCreateActiveEffect(wrapped, data, options, user): Promise<voi
   }
 }
 
-function filterChatMessageCreate(wrapped, data: any, context: any) {
-  if (!(data instanceof Array)) data = [data]
-  for (let messageData of data) {
-    if (messageData.flags?.lmrtfy?.data?.disableMessage) messageData.blind = true; // TODO check this v10
-  }
-  return wrapped(data, context);
-}
 
-export function _tagMessage(candidate, data, options) {
-  let update = { flags: { lmrtfy: { "message": this.data.message, "data": this.data.attach } } }; // TODO check this
-  candidate.updateSource(update);
-}
 
-export async function _makeRoll(event, rollMethod, failRoll, ...args) {
-  let options;
-  switch (this.advantage) {
-    case -1:
-      options = { disadvantage: true, fastForward: true };
-      break;
-    case 0:
-      options = { fastForward: true };
-      break;
-    case 1:
-      options = { advantage: true, fastForward: true };
-      break;
-    case 2:
-      options = { event };
-      break;
-  }
-  const rollMode = game.settings.get("core", "rollMode");
-  game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
-  for (let actor of this.actors) {
-    Hooks.once("preCreateChatMessage", this._tagMessage.bind(this));
-    if (failRoll) {
-      options["parts"] = [-100];
-    }
-    await actor[rollMethod].call(actor, ...args, options);
-  }
-  game.settings.set("core", "rollMode", rollMode);
-  this._disableButtons(event);
-  this._checkClose();
-}
 
 export async function createRollResultFromCustomRoll(customRoll: any) {
   const saveEntry = customRoll.entries?.find((e) => e.type === "multiroll");
