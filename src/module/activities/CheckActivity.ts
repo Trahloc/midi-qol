@@ -1,7 +1,7 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { mapSpeedKeys } from "../MidiKeyManager.js";
 import { Workflow } from "../Workflow.js";
-import { configSettings } from "../settings.js";
+import { ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
 import { MidiSaveActivity } from "./SaveActivity.js";
@@ -17,7 +17,7 @@ export function setupCheckActivity() {
   //@ts-expect-error
   MidiCheckSheet = defineMidiCheckSheetClass(game.system.applications.activity.CheckSheet);
   MidiCheckActivity = defineMidiCheckActivityClass(CheckActivity);
-  if (configSettings.replaceDefaultActivities) {
+  if (ReplaceDefaultActivities) {
     GameSystemConfig.activityTypes["dnd5eCheck"] = GameSystemConfig.activityTypes.check;
     GameSystemConfig.activityTypes.check = { documentClass: MidiCheckActivity };
   } else {
@@ -95,7 +95,7 @@ let defineMidiCheckActivityClass = (ActivityClass: any) => {
         }
       }
     }
-    
+    get isOtherActivityCompatible() { return true }
     async rollDamage(config={}, dialog={}, message={}) {
       message = foundry.utils.mergeObject({
         "data.flags.dnd5e.roll": {

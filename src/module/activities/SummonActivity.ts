@@ -1,6 +1,6 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { Workflow } from "../Workflow.js";
-import { configSettings } from "../settings.js";
+import { ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
 
@@ -11,7 +11,7 @@ export function setupSummonActivity() {
   //@ts-expect-error
   const GameSystemConfig = game.system.config;
   MidiSummonActivity = defineMidiSummonActivityClass(GameSystemConfig.activityTypes.summon.documentClass);
-  if (configSettings.replaceDefaultActivities) {
+  if (ReplaceDefaultActivities) {
     GameSystemConfig.activityTypes["dnd5eSummon"] = GameSystemConfig.activityTypes.summon;
     GameSystemConfig.activityTypes.summon = { documentClass: MidiSummonActivity };
   } else {

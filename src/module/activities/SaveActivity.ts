@@ -1,5 +1,5 @@
 import { debugEnabled, warn } from "../../midi-qol.js";
-import { configSettings } from "../settings.js";
+import { ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
 
 export var MidiSaveActivity;
@@ -12,7 +12,7 @@ export function setupSaveActivity() {
   //@ts-expect-error
   MidiSaveSheet = defineMidiSaveSheetClass(game.system.applications.activity.SaveSheet);
   MidiSaveActivity = defineMidiSaveActivityClass(GameSystemConfig.activityTypes.save.documentClass);
-  if (configSettings.replaceDefaultActivities) {
+  if (ReplaceDefaultActivities) {
     GameSystemConfig.activityTypes["dnd5eSave"] = GameSystemConfig.activityTypes.save;
     GameSystemConfig.activityTypes.save = { documentClass: MidiSaveActivity };
   } else {

@@ -3194,11 +3194,18 @@ export class Workflow {
       rollAction = CONFIG.Actor.documentClass.prototype.rollSavingThrow;
     } else if (this.saveActivity.check) {
       if (this.saveActivity.check.associated.size > 0) {
-        rollType = "skill";
-        rollAbility = this.saveActivity.check.ability;
-        rollAbility = this.saveActivity.check.associated.first();
-        //@ts-expect-error 
-        rollAction = CONFIG.Actor.documentClass.prototype.rollSkill;
+        if (this.saveActivity.check.ability === "") { //this is a tool check
+          //@ts-expect-error
+          rollAction = CONFIG.Actor.documentClass.prototype.rollToolCheck;
+          rollType = "tool";
+          rollAbility = this.saveActivity.check.associated.first();
+        } else {
+          rollType = "skill";
+          rollAbility = this.saveActivity.check.ability;
+          rollAbility = this.saveActivity.check.associated.first();
+          //@ts-expect-error 
+          rollAction = CONFIG.Actor.documentClass.prototype.rollSkill;
+        }
       } else {
         rollType = "check";
         rollAbility = this.saveActivity.check.ability;
@@ -3848,8 +3855,8 @@ export class Workflow {
     }
     if (data && this.currentAction === this.WorkflowState_Completed) {
       if (this.itemCardUuid) {
-        await this.removeItemCardAttackDamageButtons(this.itemCardUuid);
-        await this.removeItemCardConfirmRollButton(this.itemCardUuid);
+        await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid);
+        await Workflow.removeItemCardConfirmRollButton(this.itemCardUuid);
       }
       delete data._id;
       const itemCard = await CONFIG.ChatMessage.documentClass.create(data);

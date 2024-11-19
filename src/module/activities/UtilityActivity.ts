@@ -1,7 +1,7 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { mapSpeedKeys } from "../MidiKeyManager.js";
 import { Workflow } from "../Workflow.js";
-import { configSettings } from "../settings.js";
+import { ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
 
@@ -16,7 +16,7 @@ export function setupUtilityActivity() {
   MidiUtilitySheet = defineMidiUtilitySheetClass(game.system.applications.activity.UtilitySheet);
 
   MidiUtilityActivity = defineMidiUtilityActivityClass(GameSystemConfig.activityTypes.utility.documentClass);
-  if (configSettings.replaceDefaultActivities) {
+  if (ReplaceDefaultActivities) {
     GameSystemConfig.activityTypes["dnd5eUtility"] = GameSystemConfig.activityTypes.utility;
     GameSystemConfig.activityTypes.utility = { documentClass: MidiUtilityActivity };
   } else {

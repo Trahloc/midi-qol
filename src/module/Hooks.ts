@@ -1,7 +1,7 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, savedOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID, isdndv4 } from "../midi-qol.js";
 import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
-import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuidSync, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationSave, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating, getCEEffectByName, setRollMaxDiceTerm, setRollMinDiceTerm } from "./utils.js";
+import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuidSync, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationRequestMessage, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating, getCEEffectByName, setRollMaxDiceTerm, setRollMinDiceTerm } from "./utils.js";
 import { activateMacroListeners, getCurrentSourceMacros } from "./apps/Item.js"
 import { checkMechanic, checkRule, configSettings, dragDropTargeting } from "./settings.js";
 import { checkWounded, checkDeleteTemplate, preUpdateItemActorOnUseMacro, zeroHPExpiry, deathSaveHook } from "./patching.js";
@@ -291,7 +291,7 @@ export function initHooks() {
     colorChatMessageHandler(message, html, data);
     hideRollRender(message, html, data);
     hideStuffHandler(message, html, data);
-    processConcentrationSave(message, html, data);
+    processConcentrationRequestMessage(message, html, data);
   });
 
   Hooks.on("deleteChatMessage", (message, options, user) => {
@@ -429,68 +429,68 @@ export function initHooks() {
       }
     });
     api.registerItemTab(myTab);
-/*
-    api.config.itemSummary.registerCommands([
-      {
-        label: i18n("midi-qol.buttons.roll"),
-        enabled: (params) => ["weapon", "spell", "power", "feat", "tool", "consumable"].includes(params.item.type),
-        iconClass: 'fas fa-dice-d20',
-        execute: (params) => {
-          if (debugEnabled > 1) log('roll', params.item);
-          Workflow.removeWorkflow(params.item.uuid);
-          params.item.use({}, { event: params.event, configureDialog: true, systemCard: true });
-        },
-      },
-      {
-        label: i18n("midi-qol.buttons.attack"),
-        enabled: (params) => params.item.hasAttack,
-        execute: (params) => {
-          if (debugEnabled > 1) log('attack', params);
-          params.item.rollAttack({ event: params.event, versatile: false, resetAdvantage: true, systemCard: true })
-        },
-      },
-      {
-        label: i18n("midi-qol.buttons.damage"),
-        enabled: (params) => params.item.system.activities?.find(a => a.damage?.parts?.length),
-        execute: (params) => {
-          if (debugEnabled > 1) log('Clicked damage', params);
-          params.item.rollDamage({ event: params.event, versatile: false, systemCard: true })
-        },
-      },
-      {
-        label: i18n("midi-qol.buttons.versatileDamage"),
-        enabled: (params) => itemIsVersatile(params.item),
-        execute: (params) => {
-          if (debugEnabled > 1) log('Clicked versatile', params);
-          params.item.rollDamage({ event: params.event, versatile: true, systemCard: true })
-        }
-      },
-      {
-        label: i18n("midi-qol.buttons.itemUse"),
-        enabled: (params) => params.item.type === "consumable",
-        execute: (params) => {
-          if (debugEnabled > 1) log('Clicked consume', params);
-          params.item.use({ event: params.event, systemCard: true }, {})
-        },
-      },
-      {
-        label: i18n("midi-qol.buttons.itemUse"),
-        enabled: (params) => params.item.type === "tool",
-        execute: (params) => {
-          if (debugEnabled > 1) log('Clicked tool check', params);
-          params.item.rollToolCheck({ event: params.event, systemCard: true })
-        },
-      },
-      {
-        label: i18n("midi-qol.buttons.info"),
-        enabled: (params) => true,
-        execute: (params) => {
-          if (debugEnabled > 1) log('Clicked info', params);
-          showItemInfo.bind(params.item)()
-        },
-      },
-    ]);
-    */
+    /*
+        api.config.itemSummary.registerCommands([
+          {
+            label: i18n("midi-qol.buttons.roll"),
+            enabled: (params) => ["weapon", "spell", "power", "feat", "tool", "consumable"].includes(params.item.type),
+            iconClass: 'fas fa-dice-d20',
+            execute: (params) => {
+              if (debugEnabled > 1) log('roll', params.item);
+              Workflow.removeWorkflow(params.item.uuid);
+              params.item.use({}, { event: params.event, configureDialog: true, systemCard: true });
+            },
+          },
+          {
+            label: i18n("midi-qol.buttons.attack"),
+            enabled: (params) => params.item.hasAttack,
+            execute: (params) => {
+              if (debugEnabled > 1) log('attack', params);
+              params.item.rollAttack({ event: params.event, versatile: false, resetAdvantage: true, systemCard: true })
+            },
+          },
+          {
+            label: i18n("midi-qol.buttons.damage"),
+            enabled: (params) => params.item.system.activities?.find(a => a.damage?.parts?.length),
+            execute: (params) => {
+              if (debugEnabled > 1) log('Clicked damage', params);
+              params.item.rollDamage({ event: params.event, versatile: false, systemCard: true })
+            },
+          },
+          {
+            label: i18n("midi-qol.buttons.versatileDamage"),
+            enabled: (params) => itemIsVersatile(params.item),
+            execute: (params) => {
+              if (debugEnabled > 1) log('Clicked versatile', params);
+              params.item.rollDamage({ event: params.event, versatile: true, systemCard: true })
+            }
+          },
+          {
+            label: i18n("midi-qol.buttons.itemUse"),
+            enabled: (params) => params.item.type === "consumable",
+            execute: (params) => {
+              if (debugEnabled > 1) log('Clicked consume', params);
+              params.item.use({ event: params.event, systemCard: true }, {})
+            },
+          },
+          {
+            label: i18n("midi-qol.buttons.itemUse"),
+            enabled: (params) => params.item.type === "tool",
+            execute: (params) => {
+              if (debugEnabled > 1) log('Clicked tool check', params);
+              params.item.rollToolCheck({ event: params.event, systemCard: true })
+            },
+          },
+          {
+            label: i18n("midi-qol.buttons.info"),
+            enabled: (params) => true,
+            execute: (params) => {
+              if (debugEnabled > 1) log('Clicked info', params);
+              showItemInfo.bind(params.item)()
+            },
+          },
+        ]);
+        */
     /*
     api.registerItemContent(
       new api.models.HtmlContent({
@@ -1111,14 +1111,16 @@ Hooks.on("dnd5e.preApplyDamage", (actor, amount, updates, options) => {
   return true;
 });
 
-Hooks.on("dnd5e.preRollConcentration", (actor, options) => {
+Hooks.on("dnd5e.preRollConcentrationV2", (rollConfig: any, dialogConfig: any, messageConfig: any) => {
+  console.error(rollConfig, dialogConfig, messageConfig);
+  const actor = rollConfig.subject;
   // insert advantage and disadvantage
   // insert midi bonuses.
-  if (options.workflowOptions?.noConcentrationCheck) return false;
+  if (rollConfig.workflowOptions?.noConcentrationCheck) return false;
   const concAdvFlag = foundry.utils.getProperty(actor, `flags.${MODULE_ID}.advantage.concentration`);
   const concDisadvFlag = foundry.utils.getProperty(actor, `flags.${MODULE_ID}.disadvantage.concentration`);
-  let concAdv = options.advantage;
-  let concDisadv = options.disadvantage;
+  let concAdv;
+  let concDisadv;
   if (concAdvFlag || concDisadvFlag) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor });
     if (concAdvFlag && evalAllConditions(actor, `flags.${MODULE_ID}.advantage.concentration`, conditionData)) {
@@ -1128,37 +1130,46 @@ Hooks.on("dnd5e.preRollConcentration", (actor, options) => {
       concDisadv = true;
     }
   }
-  const conc = actor.system.attributes?.concentration;
-  //@ts-expect-error
-  const config = game.system.config;
-  //@ts-expect-error
-  const modes = CONFIG.Dice.D20Roll.ADV_MODE;
-  concAdv = concAdv || (conc.roll.mode === modes.ADVANTAGE);
-  concDisadv = concDisadv || (conc.roll.mode === modes.DISADVANTAGE);
 
-  if (concAdv && !concDisadv) {
-    options.advantage = true;
-  } else if (!concAdv && concDisadv) {
-    options.disadvantage = true;
+  if (rollConfig.rolls) {
+    for (let roll of rollConfig.rolls) {
+      roll.options.advantage ||= concAdv;
+      roll.options.disadvantage ||= concDisadv;
+    }
   }
   return true;
 })
 
-Hooks.on("dnd5e.rollConcentration", (actor, roll) => {
-  //@ts-expect-error
-  const simplifyBonus = game.system.utils.simplifyBonus;
-  if (foundry.utils.getProperty(actor, "flags.midi-qol.min.ability.save.concentration") && simplifyBonus) {
-    const minRoll = simplifyBonus(foundry.utils.getProperty(actor, "flags.midi-qol.min.ability.save.concentration"), actor.getRollData());
-    if (Number(minRoll)) setRollMinDiceTerm(roll, Number(minRoll));
+Hooks.on("dnd5e.rollConcentrationV2", (rolls, { subject }) => {
+  if (!subject || !(subject instanceof CONFIG.Actor.documentClass)) {
+    const message = "dnd5e.rollConcentrationV2 hook called with non-actor";
+    TroubleShooter.recordError(new Error(message), message);
+    error(message, subject);
+    return;
   }
-  if (foundry.utils.getProperty(actor, "flags.midi-qol.max.ability.save.concentration") && simplifyBonus) {
-    const maxRoll = simplifyBonus(foundry.utils.getProperty(actor, "flags.midi-qol.max.ability.save.concentration"), actor.getRollData());
-    if (Number(maxRoll)) setRollMaxDiceTerm(roll, Number(maxRoll));
+  if (rolls instanceof Roll) rolls = [rolls];
+  // Not sure what multiple concentration rolls mean
+  // Assume concentration fails if any of the concentration rolls fail.
+  for (let roll of rolls) {
+    //@ts-expect-error
+    const simplifyBonus = game.system.utils.simplifyBonus;
+    if (foundry.utils.getProperty(subject, "flags.midi-qol.min.ability.save.concentration") && simplifyBonus) {
+      const minRoll = simplifyBonus(foundry.utils.getProperty(subject, "flags.midi-qol.min.ability.save.concentration"), subject.getRollData());
+      if (Number(minRoll)) setRollMinDiceTerm(roll, Number(minRoll));
+    }
+    if (foundry.utils.getProperty(subject, "flags.midi-qol.max.ability.save.concentration") && simplifyBonus) {
+      const maxRoll = simplifyBonus(foundry.utils.getProperty(subject, "flags.midi-qol.max.ability.save.concentration"), subject.getRollData());
+      if (Number(maxRoll)) setRollMaxDiceTerm(roll, Number(maxRoll));
+    }
+    if (!Number.isNaN(roll.options.target)) {
+      roll.options.success = roll.total >= Number(roll.options.target);
+    }
+    if (checkRule("criticalSaves") && roll.isCritical) roll.options.success = true;
+    // triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets, options: any = {}) {
+    if (configSettings.removeConcentration && roll.options.success === false) {
+      //@ts-expect-error
+      subject.endConcentration();
+      return;
+    }
   }
-  if (!Number.isNaN(roll.options.targetValue)) {
-    roll.options.success = roll.total >= Number(roll.options.targetValue);
-  }
-  if (checkRule("criticalSaves") && roll.isCritical) roll.options.success = true;
-  // triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets, options: any = {}) {
-  if (configSettings.removeConcentration && roll.options.success === false) actor.endConcentration();
 });

@@ -1,3 +1,16 @@
+### 12.4.9
+* Moved replace core activities setting to main midi settings and tagged as requires reload.
+* Fix for typo in monks support for saving throws.
+* Fix for skill rolls not displaying dsn dice.
+* Fix for concentration always being removed when using dnd5e concentration rolls - midi concentration item already works. Some clean up of the concentration code.
+* When an actor reaches 0 hp and concentration auto remove is set no concentration save will be rolled, concentration is just removed.
+* flags.midi-qol.max.skill.acr/per/etc is deprecated in favour of system.skills.acr/per/etc.roll.max
+* flags.midi-qol.min.skill.acr/per/etc is deprecated in favour of system.skills.acr/per/etc.roll.min
+* flags.midi-qol.max.ability.save.concentration is deprecated in favor of system.attributes.concentration.roll.max 
+* flags.midi-qol.min.ability.save.concentration is deprecated in favor of system.attributes.concentration.roll.min 
+* remove MidiQOL.setConcentrationData, MidiQOL.addConcentration functions.
+* Death saves work properly again.
+
 ### 12.4.8
 * Fix for damage button not working when extra buttons displayed.
 * Fix for not fast forwarding rolls when adv/disadv/critical/nocritical buttons are pressed.

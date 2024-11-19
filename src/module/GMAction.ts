@@ -712,13 +712,13 @@ export async function _D20Roll(data: { request: string, targetUuid: string, form
     resolve(result ?? {})
   });
 }
-export async function rollConcentration(data: { actorUuid, targetValue, whisper }) {
+export async function rollConcentration(data: { actorUuid, target, whisper, create, rollMode }) {
   const actor = MQfromUuidSync(data.actorUuid);
   if (!actor) {
     error(`GMAction.rollConcentration | no actor for ${data.actorUuid}`)
     return {};
   }
-  return actor.rollConcentration({ targetValue: data.targetValue, whisper: data.whisper });
+  return actor.rollConcentration({target: data.target, legacy: false}, {}, {create: data.create, whisper: data.whisper, rollMode: data.rollMode});
 }
 
  async function rollAbilityV2(data: any) {
@@ -749,7 +749,13 @@ export async function rollConcentration(data: { actorUuid, targetValue, whisper 
   workflowOptions: this.workflowOptions
 };
 */
-  let config: any = {ability: data.ability, skill: data.ability, midiOptions: data.options};
+  let config: any = {midiOptions: data.options};
+  switch(data.request) {
+    case "save": config.ability = data.ability; break;
+    case "check": config.ability = data.ability; break;
+    case "skill": config.skill = data.ability; break;
+    case "tool": config.tool = data.ability; break;
+  };
   let dialog: any = {configure: !data.options.fastForward};
   let message: any = {create: data.options.chatMessage};
   return new Promise(async (resolve) => {
@@ -761,11 +767,13 @@ export async function rollConcentration(data: { actorUuid, targetValue, whisper 
       if (data.request === "save") result = await actor.rollSavingThrow(config, dialog, message);
       else if (data.request === "check") result = await actor.rollAbilityCheck(config, dialog, message);
       else if (data.request === "skill") result = await actor.rollSkill(config, dialog, message);
+      else if (data.request === "tool") result = await actor.rollToolCheck(config, dialog, message);
       resolve(result ?? {});
     }, configSettings.playerSaveTimeout * 1000);
     if (data.request === "save") result = await actor.rollSavingThrow(config, dialog, message)
     else if (data.request === "check") result = await actor.rollAbilityTest(config, dialog, message);
     else if (data.request === "skill") result = await actor.rollSkill(config, dialog, message);
+    else if (data.request === "tool") result = await actor.rollToolCheck(config, dialog, message);
     if (timeoutId) clearTimeout(timeoutId);
     resolve(result ?? {})
   });

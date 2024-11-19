@@ -26,7 +26,8 @@ export var midiSoundSettings: any = {};
 export var midiSoundSettingsBackup: any = undefined;
 export var DebounceInterval: number;
 export var _debouncedUpdateAction;
-
+export var ReplaceDefaultActivities: boolean = true;
+export var AutoMergeActivityOther: boolean = true;
 
 export const defaultTargetConfirmationSettings = {
   enabled: false,
@@ -71,7 +72,6 @@ class ConfigSettings {
   autoCheckSaves: string = "none";
   autoFastForward: string = "off";
   autoItemEffects: string;
-  autoMergeActivityOther: boolean = false;
   autoRemoveSummonedCreature: boolean = false;
   autoRemoveTemplate: boolean;
   autoRemoveInstantaneousTemplate: boolean;
@@ -183,7 +183,6 @@ class ConfigSettings {
   weaponUseSound: string = "";
   weaponUseSoundRanged: string = "";
   rollAlternate: string = "off";
-  replaceDefaultActivities: boolean = true;
   optionalRules: any = {
     invisAdvantage: "RAW",
     hiddenAdvantage: "none",
@@ -349,7 +348,6 @@ export let fetchParams = () => {
   //@ts-ignore
   configSettings = game.settings.get("midi-qol", "ConfigSettings");
   //TODO create a config.html for this
-  if (configSettings.replaceDefaultActivities === undefined) configSettings.replaceDefaultActivities = true;
   if (configSettings.saveDROrder === undefined) configSettings.saveDROrder = "DRSavedr";
   if (!configSettings.fumbleSound) configSettings.fumbleSound = CONFIG.sounds["dice"];
   if (!configSettings.criticalSound) configSettings.criticalSound = CONFIG.sounds["dice"];
@@ -391,8 +389,6 @@ export let fetchParams = () => {
   if (!configSettings.enforceBonusActions) configSettings.enforceBonusActions = "none";
   //@ts-ignore
   if (configSettings.autoItemEffects === false) configSettings.autoItemEffects = "off";
-  //@ts-ignore
-  if (configSettings.autoMergeActivityOther === undefined) configSettings.autoMergeActivityOther = true;
   if (configSettings.playerDamageCard === undefined) configSettings.playerDamageCard = "none";
   if (configSettings.playerCardDamageDifferent === undefined) configSettings.playerCardDamageDifferent = true;
   if (configSettings.displayHitResultNumeric === undefined) configSettings.displayHitResultNumeric = false;
@@ -551,6 +547,8 @@ export let fetchParams = () => {
   forceHideRoll = Boolean(game.settings.get("midi-qol", "ForceHideRoll"));
   dragDropTargeting = Boolean(game.settings.get("midi-qol", "DragDropTarget"));
   DebounceInterval = Number(game.settings.get("midi-qol", "DebounceInterval"));
+  ReplaceDefaultActivities = Boolean(game.settings.get("midi-qol", "ReplaceDefaultActivities"));
+  AutoMergeActivityOther = Boolean(game.settings.get("midi-qol", "AutoMergeActivityOther"));
   _debouncedUpdateAction = foundry.utils.debounce(_updateAction, DebounceInterval);
   targetConfirmation = game.settings.get("midi-qol", "TargetConfirmation");
   if (configSettings.griddedGridless === undefined) configSettings.griddedGridless = false;
@@ -600,6 +598,22 @@ const settings = [
     config: true,
     type: Boolean,
     onChange: fetchParams
+  },
+  {
+    name: "ReplaceDefaultActivities",
+    scope: "world",
+    default: true,
+    config: true,
+    type: Boolean,
+    requiresReload: true,
+  },
+  {
+    name: "AutoMergeActivityOther",
+    scope: "world",
+    default: true,
+    config: true,
+    type: Boolean,
+    requiresReload: true,
   },
   {
     name: "AutoFastForwardAbilityRolls",
@@ -723,7 +737,8 @@ export const registerSettings = function () {
       default: setting.default,
       type: setting.type,
       choices: (typeof setting.choices === "string") ? geti18nOptions(`${setting.choices}`) : {},
-      onChange: setting.onChange
+      onChange: setting.onChange,
+      requiresReload: setting.requiresReload
     };
     //@ts-ignore - too tedious to define undefined in each of the settings defs
     if (setting.choices) options.choices = setting.choices;

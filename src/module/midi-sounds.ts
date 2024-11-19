@@ -117,7 +117,7 @@ export class MidiSounds {
       case "equipment": subtype = "equipment." + item.system.type.value; break;
       case "consumable": subtype = "consumable." + item.system.type.value; break;
       case "spell": subtype = "spell." + item.system.school; break;
-      case "tool": subtype = "tool." + item.system.tool.value; break;
+      case "tool": subtype = "tool." + item.system.tool.type.value; break;
       default: subtype = item.type + "any";
     }
     return subtype;

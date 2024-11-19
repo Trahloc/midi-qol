@@ -2451,95 +2451,6 @@ export function getSpeaker(actor) {
   return speaker
 }
 
-export interface ConcentrationData {
-  item: any;
-  targets: Set<Token>;
-  templateUuid?: string;
-  removeUuids?: string[];
-  templates?: string[];
-}
-
-export async function addConcentration(actorRef: Actor | string, concentrationData: ConcentrationData) {
-  const actor = getActor(actorRef);
-  if (!actor) return;
-  if (debugEnabled > 0) warn("addConcentration", actor.name, concentrationData);
-  const concentrationEffect = await addConcentrationEffect(actor, concentrationData);
-  await setConcentrationData(actor, concentrationData);
-}
-
-// Add the concentration marker to the character and update the duration if possible
-export async function addConcentrationEffect(actor, concentrationData: ConcentrationData) {
-  let duration = {};
-  let item = concentrationData.item;
-  let selfTarget = actor.token ? actor.token.object : getTokenForActor(actor);
-  const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget?.id));
-  const convertedDuration = globalThis.DAE.convertDuration(item?.system.duration, inCombat);
-  if (convertedDuration?.type === "seconds") {
-    duration = { seconds: convertedDuration.seconds, startTime: game.time.worldTime }
-  } else if (convertedDuration?.type === "turns") {
-    duration = {
-      rounds: convertedDuration.rounds,
-      turns: convertedDuration.turns,
-      startRound: game.combat?.round,
-      startTurn: game.combat?.turn
-    }
-  }
-  const effectData = { duration };
-  return actor.beginConcentrating(concentrationData.item, effectData)
-}
-
-export async function setConcentrationData(actor, concentrationData: ConcentrationData) {
-  if (!actor) return;
-  const dnd5eTargets: any = [];
-  if (concentrationData.item instanceof Item)
-    concentrationData.item = concentrationData.item.uuid;
-  const sourceItem = MQfromUuidSync(concentrationData.item);
-  let selfTargeted = false;
-  let targets: { tokenUuid: string | undefined, actorUuid: string | undefined }[] = [];
-  let concentrationEffect = getConcentrationEffect(actor, sourceItem);
-
-  if (concentrationData.targets) {
-    const selfTargetUuid = actor.uuid;
-    for (let hit of concentrationData.targets) {
-      const tokenUuid = hit.document?.uuid ?? hit.uuid;
-      const actorUuid = hit.actor?.uuid ?? "";
-      targets.push({ tokenUuid, actorUuid });
-      if (selfTargetUuid === actorUuid)
-        selfTargeted = true;
-      if (concentrationEffect) {
-        const effects = hit.actor?.effects.filter(e =>
-          //@ts-expect-error
-          e.origin === concentrationData.item && e.uuid !== concentrationEffect.uuid);
-        if (effects?.length) {
-          for (let effect of effects) {
-            //@ts-expect-error origin
-            if (effect.origin !== concentrationEffect.uuid)
-              await effect.update({ origin: concentrationEffect.uuid });
-          }
-        }
-        let effectIds = effects?.map(e => ({ uuid: e.uuid }));
-        if (effectIds?.length)
-          dnd5eTargets.push(...effectIds);
-      }
-    }
-  }
-  if (!selfTargeted) {
-    let selfTarget = actor.token ? actor.token.object : getTokenForActor(actor);
-    targets.push({ tokenUuid: selfTarget.uuid, actorUuid: actor.uuid });
-  }
-  let templates: string[] = concentrationData.templates ?? [];
-  if (concentrationData.templateUuid) templates.push(concentrationData.templateUuid)
-
-  if (concentrationEffect) { //duplicate the concentration data into the effect dependents
-    //@ts-expect-error
-    let dependents = concentrationEffect.getDependents().map(e => e.uuid);
-    dependents = [...dependents, ...dnd5eTargets, ...templates, ...concentrationData.removeUuids ?? []];
-    dependents = dependents.map(d => ({ uuid: d.uuid ?? d.actorUuid ?? d }));
-    //@ts-expect-error
-    await concentrationEffect.setDependents(dependents);
-  }
-}
-
 /** 
  * Find tokens nearby
  * @param {number|null} disposition. same(1), opposite(-1), neutral(0), ignore(null) token disposition
@@ -5579,6 +5490,8 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
     "d20AttackOnly": "Show attack D20 Only",
     "all": "Entire Roll"
   },*/
+  const promises: Promise<any>[] = [];
+
   for (let roll of rolls) {
     if (dice3dEnabled()) {
       //@ts-expect-error game.dice3d
@@ -5644,7 +5557,6 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
           //@ts-expect-error
           else term.options.flavor = displayRoll.options.type;
         });
-        const promises: Promise<any>[] = [];
         if (ghostRoll) {
           promises.push(dice3d?.showForRoll(displayRoll, game.user, true, ChatMessage.getWhisperRecipients("GM"), !game.user?.isGM));
           if (game.settings.get("dice-so-nice", "showGhostDice")) {
@@ -5654,12 +5566,13 @@ export async function displayDSNForRoll(rolls: Roll | Roll[] | undefined, rollTy
           }
         } else
           promises.push(dice3d?.showForRoll(displayRoll, game.user, true, whisperIds, rollMode === "blindroll" && !game.user?.isGM));
-        await Promise.allSettled(promises);
       }
     }
-    //mark all dice as shown - so that toMessage does not trigger additional display on other clients
-    DSNMarkDiceDisplayed(roll);
+
   }
+  if (promises.length) await Promise.all(promises);
+  //mark all dice as shown - so that toMessage does not trigger additional display on other clients
+  DSNMarkDiceDisplayed(rolls);
 }
 
 export function DSNMarkDiceDisplayed(rolls: Roll | Roll[]) {
@@ -6425,7 +6338,7 @@ export function blankOrUndefinedDamageType(s: string | undefined): string {
   return s;
 }
 
-export function processConcentrationSave(message, html, data) {
+export function processConcentrationRequestMessage(message, html, data) {
   if (configSettings.doConcentrationCheck !== "chat") return;
   let elt = html.find("[data-action=concentration]");
   const hasRolled = foundry.utils.getProperty(message, `flags.${MODULE_ID}.concentrationRolled`);
@@ -6443,9 +6356,9 @@ export function processConcentrationSave(message, html, data) {
       if (actor) {
         const user = playerForActor(actor);
         if (user?.active) {
-          const whisper = game.users.filter(user => actor.testUserPermission(user, "OWNER"))
-          socketlibSocket.executeAsUser("rollConcentration", user.id, { actorUuid: actor.uuid, targetValue: dc, whisper });
-        } else actor.rollConcentration({ targetValue: dc });
+          const whisper = game.users.filter(user => actor.testUserPermission(user, "OWNER")).map(u=> u.id);
+          socketlibSocket.executeAsUser("rollConcentration", user.id, { actorUuid: actor.uuid, target: dc, create: true, rollMode: "gmroll" });
+        } else actor.rollConcentration({ target: dc }, {}, {create: true, rollMode: "gmroll"});
         message.setFlag(MODULE_ID, "concentrationRolled", true);
       }
     }

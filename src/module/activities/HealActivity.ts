@@ -1,7 +1,7 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { mapSpeedKeys } from "../MidiKeyManager.js";
 import { Workflow } from "../Workflow.js";
-import { configSettings } from "../settings.js";
+import { ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
 
@@ -15,7 +15,7 @@ export function setupHealActivity() {
   //@ts-expect-error
   MidiHealSheet = defineMidiHealSheetClass(game.system.applications.activity.HealSheet);
   MidiHealActivity = defineMidiHealActivityClass(GameSystemConfig.activityTypes.heal.documentClass);
-  if (configSettings.replaceDefaultActivities) {
+  if (ReplaceDefaultActivities) {
     GameSystemConfig.activityTypes["dnd5eHeal"] = GameSystemConfig.activityTypes.heal;
     GameSystemConfig.activityTypes.heal = { documentClass: MidiHealActivity };
   } else {

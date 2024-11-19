@@ -1,8 +1,9 @@
 import { debugEnabled, warn, GameSystemConfig, debug, log } from "../../midi-qol.js";
+import { untimedExecuteAsGM } from "../GMAction.js";
 import { mapSpeedKeys } from "../MidiKeyManager.js";
 import { Workflow } from "../Workflow.js";
 import { defaultRollOptions } from "../patching.js";
-import { configSettings } from "../settings.js";
+import { AutoMergeActivityOther, ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { busyWait } from "../tests/setupTest.js";
 import { addAdvAttribution, asyncHooksCall, displayDSNForRoll, getSpeaker, processAttackRollBonusFlags } from "../utils.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
@@ -19,7 +20,7 @@ export function setupAttackActivity() {
   //@ts-expect-error
   MidiAttackSheet = defineMidiAttackSheetClass(game.system.applications.activity.AttackSheet);
   MidiAttackActivity = defineMidiAttackActivityClass(GameSystemConfig.activityTypes.attack.documentClass);
-  if (configSettings.replaceDefaultActivities) {
+  if (ReplaceDefaultActivities) {
     GameSystemConfig.activityTypes["dnd5eAttack"] = GameSystemConfig.activityTypes.attack;
     GameSystemConfig.activityTypes.attack = { documentClass: MidiAttackActivity };
   } else {
@@ -234,10 +235,30 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
           }
 
           if (workflow.damageRollCount > 0) { // re-rolling damage counts as new damage
-            const itemCard = await this.displayCard(foundry.utils.mergeObject(config, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
+            const messageConfig = foundry.utils.mergeObject({
+              create: true,
+              data: {
+                flags: {
+                  dnd5e: {
+                    ...this.messageFlags,
+                    messageType: "usage",
+                    use: {
+                      effects: this.applicableEffects?.map(e => e.id)
+                    }
+                  }
+                }
+              },
+              hasConsumption: false
+            }, {flags: workflow.chatCard.flags})
+            const itemCard = await this._createUsageMessage(messageConfig);
+            // const itemCard = await this.displayCard(foundry.utils.mergeObject(config, { systemCard: false, workflowId: workflow.id, minimalCard: false, createMessage: true }));
             workflow.itemCardId = itemCard.id;
             workflow.itemCardUuid = itemCard.uuid;
             workflow.needItemCard = false;
+            if (configSettings.undoWorkflow && workflow.undoData) {
+              workflow.undoData.chatCardUuids = workflow.undoData.chatCardUuids.concat([itemCard.uuid]);
+              untimedExecuteAsGM("updateUndoChatCardUuids", workflow.undoData);
+            }
           }
         }
       }
@@ -390,7 +411,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       }
       //@ts-expect-error
       this._otherActivity = fromUuidSync(this.otherActivityUuid)
-      if (!this._otherActivity && configSettings.autoMergeActivityOther) {
+      if (!this._otherActivity && AutoMergeActivityOther) {
         const otherActivityOptions = this.item.system.activities.filter(a => a.isOtherActivityCompatible);
         if (otherActivityOptions.length === 1) {
           //@ts-expect-error
