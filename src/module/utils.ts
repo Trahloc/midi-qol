@@ -74,7 +74,7 @@ export function createDamageDetail({ roll, item, defaultType = MQdefaultDamageTy
   if (rolls instanceof Roll) {
     rolls = [rolls];
   }
-  if (item?.system.damage?.parts[0]) {
+  if (item?.system.damage?.parts?.[0]) {
     defaultType = item.system.damage.parts[0][1]
   }
   rolls = foundry.utils.deepClone(rolls).map(r => {
@@ -4243,7 +4243,7 @@ export function getConcentrationEffect(actor, itemRef?: Item | string): ActiveEf
     return actor?.effects.find(ef => ef.statuses.has(systemConcentrationId));
   else {
     return actor?.effects.find(ef => ef.statuses.has(systemConcentrationId)
-      && (ef.flags?.dnd5e?.itemData === item.id || ef.flags.dnd5e?.itemData?._id === item.id)
+      && (ef.flags?.dnd5e?.item?.id === item.id || ef.flags?.dnd5e?.item?._id === item.id)
     );
   }
 }
