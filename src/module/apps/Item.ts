@@ -102,7 +102,6 @@ export function activateMacroListeners(app: Application, html) {
 }
 
 async function _onDrop(ev) {
-  console.error("on drop called")
   ev.preventDefault();
   //@ts-ignore
   const data = TextEditor.getDragEventData(ev);

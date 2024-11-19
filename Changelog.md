@@ -8,7 +8,7 @@
 * flags.midi-qol.min.skill.acr/per/etc is deprecated in favour of system.skills.acr/per/etc.roll.min
 * flags.midi-qol.max.ability.save.concentration is deprecated in favor of system.attributes.concentration.roll.max 
 * flags.midi-qol.min.ability.save.concentration is deprecated in favor of system.attributes.concentration.roll.min 
-* remove MidiQOL.setConcentrationData, MidiQOL.addConcentration functions.
+* removed MidiQOL.setConcentrationData, MidiQOL.addConcentration functions.
 * Death saves work properly again.
 
 ### 12.4.8

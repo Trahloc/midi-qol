@@ -1020,8 +1020,8 @@ function setupMidiFlags() {
     midiFlags.push(`flags.${MODULE_ID}.advantage.skill.${skill}`);
     midiFlags.push(`flags.${MODULE_ID}.disadvantage.skill.${skill}`);
     midiFlags.push(`flags.${MODULE_ID}.fail.skill.${skill}`);
-    midiFlags.push(`flags.${MODULE_ID}.max.skill.${skill}`);
-    midiFlags.push(`flags.${MODULE_ID}.min.skill.${skill}`);
+    // midiFlags.push(`flags.${MODULE_ID}.max.skill.${skill}`);
+    // midiFlags.push(`flags.${MODULE_ID}.min.skill.${skill}`);
     midiFlags.push(`flags.${MODULE_ID}.optional.NAME.skill.${skill}`);
   })
   midiFlags.push(`flags.${MODULE_ID}.advantage.deathSave`);

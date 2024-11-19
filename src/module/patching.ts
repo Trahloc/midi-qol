@@ -280,6 +280,21 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
     if (options.fastForward) dialog.configure = false;
     result = await wrapped(config, dialog, message);
     message.create = saveCreate;
+    const maxflags = foundry.utils.getProperty(this, "flags.midi-qol.max") ?? {};
+    const maxValue = (maxflags.skill && maxflags.skill.all) ?? false;
+    if (maxValue && Number.isNumeric(maxValue)) {
+      for (let I = 0; I < result.length; I++) {
+        result[I] = setRollMaxDiceTerm(result[I], Number(maxValue));
+      }
+    }
+
+    const minflags = foundry.utils.getProperty(this, "flags.midi-qol.min") ?? {};
+    const minValue = (minflags.skill && minflags.skill.all) ?? false;
+    if (minValue && Number.isNumeric(minValue)) {
+      for (let I = 0; I < result.length; I++) {
+        result[I] = setRollMinDiceTerm(result[I], Number(minValue));
+      }
+    }
 
     if (!result) return result;
     /*

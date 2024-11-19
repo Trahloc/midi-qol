@@ -6356,9 +6356,9 @@ export function processConcentrationRequestMessage(message, html, data) {
       if (actor) {
         const user = playerForActor(actor);
         if (user?.active) {
-          const whisper = game.users.filter(user => actor.testUserPermission(user, "OWNER")).map(u=> u.id);
+          const whisper = game.users.filter(user => actor.testUserPermission(user, "OWNER")).map(u => u.id);
           socketlibSocket.executeAsUser("rollConcentration", user.id, { actorUuid: actor.uuid, target: dc, create: true, rollMode: "gmroll" });
-        } else actor.rollConcentration({ target: dc }, {}, {create: true, rollMode: "gmroll"});
+        } else actor.rollConcentration({ target: dc }, {}, { create: true, rollMode: "gmroll" });
         message.setFlag(MODULE_ID, "concentrationRolled", true);
       }
     }
