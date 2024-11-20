@@ -1870,6 +1870,7 @@ export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: b
                   if (collisionCheck) continue;
                   break;
                 case "centerLevels":
+                case "levelsautocover":
                   // //@ts-expect-error
                   // TODO include auto cover calcs in checking console.error(AutoCover.calculateCover(t1, t2));
                   if (configSettings.optionalRules.wallsBlockRange === "centerLevels" && installedModules.get("levels")) {
