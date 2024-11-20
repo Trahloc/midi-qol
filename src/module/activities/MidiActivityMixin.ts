@@ -75,6 +75,8 @@ export var MidiActivityMixin = Base => {
         if (!(workflowClass.prototype instanceof Workflow)) workflowClass = Workflow;
         this.workflow = new workflowClass(this.actor, this, ChatMessage.getSpeaker({ actor: this.item.actor }), this.targets, config.midiOptions);
       }
+      // Stupid vscode thinks this.workflow can be undefined which it can't so put in a superflous check to keep it happy
+      if (!this.workflow) return undefined;
       if (!await this.confirmCanProceed(config, dialog, message)) return;
       foundry.utils.setProperty(message, "data.flags.midi-qol.messageType", "attack");
       if (config.midiOptions?.configureDialog === false) dialog.configure = false;

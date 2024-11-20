@@ -1,3 +1,8 @@
+### 12.4.10
+* Some fixes courtesy @micheal and @thatlonelybugbear.
+* Add additional hooks called when doing a state transition
+  - midi-qol.premades.pre/post.StateName which are called after onUse macros are called and after the midi-qo.pre/post.StateName calls.
+
 ### 12.4.9
 * Moved replace core activities setting to main midi settings and tagged as requires reload.
 * Fix for typo in monks support for saving throws.

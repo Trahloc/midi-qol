@@ -496,7 +496,11 @@ export class Workflow {
       return true;
     }
     if (debugEnabled > 1) log(`callHooksForAction | ${prePost} ${this.nameForState(action)}`)
-    const hookName = `midi-qol.${prePost}${this.nameForState(action)}`
+    let hookName = `midi-qol.${prePost}${this.nameForState(action)}`
+    if (await asyncHooksCall(hookName, this) === false) return false;
+    if (this.item && await asyncHooksCall(`${hookName}.${this.item.uuid}`, this) === false) return false;
+    if (this.activity && await asyncHooksCall(`${hookName}.${this.activity.uuid}`, this) === false) return false;
+    hookName = `midi-qol.premades.${prePost}${this.nameForState(action)}`
     if (await asyncHooksCall(hookName, this) === false) return false;
     if (this.item && await asyncHooksCall(`${hookName}.${this.item.uuid}`, this) === false) return false;
     if (this.activity && await asyncHooksCall(`${hookName}.${this.activity.uuid}`, this) === false) return false;
@@ -587,11 +591,11 @@ export class Workflow {
         await busyWait(0.01);
         if (this.currentAction !== newState) {
           if (!isAborting || this.currentAction === this.WorkflowState_Completed) {
+            await this.callOnUseMacrosForAction("post", this.currentAction);
             if (await this.callHooksForAction("post", this.currentAction) === false && !isAborting) {
               console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by post ${this.nameForState(this.currentAction)} Hook`)
               newState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
             }
-            await this.callOnUseMacrosForAction("post", this.currentAction);
             if (debugEnabled > 0) warn(`${this.workflowName} finished ${currentName}`);
             if (debugEnabled > 0) warn(`${this.workflowName} transition ${this.nameForState(this.currentAction)} -> ${name}`);
 
@@ -601,12 +605,12 @@ export class Workflow {
               continue;
             }
           }
+          await this.callOnUseMacrosForAction("pre", newState);
           if (await this.callHooksForAction("pre", newState) === false && !isAborting) {
             console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(newState)} Hook`)
             newState = this.aborted ? this.WorkflowState_Abort : this.WorkflowState_RollFinished;
             continue;
           }
-          await this.callOnUseMacrosForAction("pre", newState);
           if (this.aborted && !isAborting) {
             console.warn(`${this.workflowName} ${currentName} -> ${name} aborted by pre ${this.nameForState(newState)} macro pass`)
             newState = this.WorkflowState_Abort;
