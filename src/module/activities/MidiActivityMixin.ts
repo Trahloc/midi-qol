@@ -444,10 +444,10 @@ export var MidiActivityMixin = Base => {
         this.targets = new Set([tokenForActor(this.actor)]);
       }
 
-      // remove selection of untargetable targets
+      // remove selection of untargetable targets TODO
       if (canvas?.scene) {
         //@ts-expect-error
-        const tokensIdsToUse: Array<string> = Array.from(this.targets).map(t => t.id);
+        const tokensIdsToUse: Array<string> = this.targets? Array.from(this.targets).map(t => t.id) : [];
         game.user?.updateTokenTargets(tokensIdsToUse)
       }
       return true;

@@ -1,6 +1,6 @@
 import { checkRule, configSettings, safeGetGameSetting } from "./settings.js";
 import { i18n, log, warn, gameStats, getCanvas, error, debugEnabled, debugCallTiming, debug, GameSystemConfig, MODULE_ID } from "../midi-qol.js";
-import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, fromActorUuid, MQfromUuidSync, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects, CERemoveEffect, CEAddEffectWith, getActor, completeItemUseV2 } from "./utils.js";
+import { canSense, completeItemUse, getToken, getTokenDocument, gmOverTimeEffect, fromActorUuid, MQfromUuidSync, promptReactions, hasUsedAction, hasUsedBonusAction, hasUsedReaction, removeActionUsed, removeBonusActionUsed, removeReactionUsed, ReactionItemReference, isEffectExpired, expireEffects, getAppliedEffects, CERemoveEffect, CEAddEffectWith, getActor, completeItemUseV2, completeActivityUse } from "./utils.js";
 import { ddbglPendingFired } from "./chatMessageHandling.js";
 import { Workflow } from "./Workflow.js";
 import { bonusCheck } from "./patching.js";
@@ -472,19 +472,20 @@ export async function _applyEffects(data: { workflowId: string, targets: string[
 }
 
 async function _completeActivityUse(data: {
-  activityUuid: string, actorUuid: string, config: any, dialog: any, message: any, targetUuids: string[], workflowData: boolean
+  activityUuid: string, actorUuid: string, config: any, dialog: any, message: any, workflowData: boolean
 }) {
   if (!game.user) return null;
   let { activityUuid, actorUuid, config, dialog, message } = data;
   let actor: any = await fromUuid(actorUuid);
   if (actor.actor) actor = actor.actor;
 
-  const workflow = await completeItemUseV2(activityUuid, config, dialog, message);
+  const workflow = await completeActivityUse(activityUuid, config, dialog, message);
   if (data.config.midiOptions?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
   else return true;
 }
+
 async function _completeItemUseV2(data: {
-  itemData: any, actorUuid: string, config: any, dialog: any, message: any, targetUuids: string[], workflowData: boolean
+  itemData: any, actorUuid: string, config: any, dialog: any, message: any, workflowData: boolean
 }) {
   if (!game.user) return null;
   let { itemData, actorUuid, config, dialog, message } = data;
@@ -502,6 +503,7 @@ async function _completeItemUseV2(data: {
   if (data.config?.midiOptions?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
   else return true;
 }
+
 async function _completeItemUse(data: {
   itemData: any, actorUuid: string, config: any, options: any, targetUuids: string[], workflowData: boolean
 }) {

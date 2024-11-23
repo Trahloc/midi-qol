@@ -1,3 +1,8 @@
+### 12.4.11.1
+* Fix for quick settings not being visible.
+* Fix for GMAction completeItemUse calling the wrong thing plus clean up target handling.
+* Fix for DamageOnlyWorkflow failing when passed "minima;" itemData
+
 ### 12.4.11
 * Midi advantage/disadvantage/fastforward keys have been removed and midi now uses dnd5e key bindings throughout. 
 * The dnd5e skipDialog/skipDialogAdvantage/skipDialogDisadvantage are now supported and will auto roll with a normal/advantage/disadvantage roll of the first activity on an item. There are certain to be some odd edge cases so please report anomalous behaviour, remembering that the keys only apply to the first roll in the activity.

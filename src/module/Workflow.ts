@@ -4656,7 +4656,7 @@ export class DamageOnlyWorkflow extends Workflow {
     // Create a synthetic item with a single damage activity - activity is needed for displaying the activity card if required
     if (options.item || options.itemData) { // use any item data passed in
       let itemData: any = options.item ? options.item.toObject() : options.itemData;
-      delete itemData.system.activities;
+      if (itemData.system?.activities) delete itemData.system.activities;
       itemData = foundry.utils.mergeObject(itemData, extraItemData, { inplace: false });
       theItem = new CONFIG.Item.documentClass(itemData, { parent: actor });
       foundry.utils.setProperty(itemData, "_id", itemData._id ?? foundry.utils.randomID());

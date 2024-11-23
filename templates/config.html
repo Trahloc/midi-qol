@@ -1055,22 +1055,22 @@
           </div>
         </div>
       </div>
-
-      <!-- Quick Settings Tab-->
-      <div class="tab" data-tab="quicksettings" data-group="sections">
-        {{#each QuickSettingsBlurb as |line lineNum|}}
-        {{line}}<br>
-        {{/each}}
-        <div class="midi-qol-box">
-          <div class="column-button-container-mqol">
-            {{#each quickSettingsOptions as |label val|}}
-            <button type="quickbutton" class="import-quick-setting" style="text-align: left;" id={{val}}>
-              <i class="fas fa-dice-d20"></i> {{ label }}
-            </button>
-            {{/each}}
-          </div>
+    </div>
+    <!-- Quick Settings Tab-->
+    <div class="tab" data-tab="quicksettings" data-group="sections">
+      {{#each QuickSettingsBlurb as |line lineNum|}}
+      {{line}}<br>
+      {{/each}}
+      <div class="midi-qol-box">
+        <div class="column-button-container-mqol">
+          {{#each quickSettingsOptions as |label val|}}
+          <button type="quickbutton" class="import-quick-setting" style="text-align: left;" id={{val}}>
+            <i class="fas fa-dice-d20"></i> {{ label }}
+          </button>
+          {{/each}}
         </div>
       </div>
+    </div>
   </section>
   <footer class="sheet-footer flexrow 6" style="align-items: center">
     <label style="flex-grow: 1">{{localize "midi-qol.SettingsSearch"}}</label>

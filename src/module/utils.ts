@@ -1392,13 +1392,15 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
       activity.use(config, dialog, message).then(result => { if (!result) resolve(result) });
     });
   } else {
-    const targetUuids = config.midiOptions.argetUuids ? config.midiOptions.targetUuids : Array.from(game.user?.targets || []).map(t => t.document.uuid); // game.user.targets is always a set of tokens
+    const newConfig = foundry.utils.deepClone(config);
+    newConfig.midiOptions ??= {};
+    newConfig.config.midiOptions.targetsToUse = config.midiOptions.targetUuids ? config.midiOptions.targetUuids : Array.from(game.user?.targets || []).map(t => t.document.uuid); // game.user.targets is always a set of tokens
     const data = {
       activityUuid: activity.uuid,
       actorUuid: activity.item.parent.uuid,
-      targetUuids,
-      config,
-      dialog
+      config: newConfig,
+      dialog, 
+      message
     }
     const asUserActive = game.users?.get(config.midiOptions.asUser)?.active;
     //@ts-expect-error
