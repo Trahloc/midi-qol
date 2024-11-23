@@ -172,7 +172,8 @@ export var MidiActivityMixin = Base => {
         });
 
         message.create = false;
-        if (this.damage.parts.some(part => part.types.size > 1)) dialog.configure = true;
+        if (this.damage?.parts.some(part => part.types.size > 1)) dialog.configure = true;
+        if (this.healing?.types?.size > 1) dialog.configure = true;
         result = await super.rollDamage(config, dialog, message) ?? [];
         result = await this.postProcessDamageRoll(config, result);
         if (this.workflow && config.midiOptions.updateWorkflow !== false) await this.workflow.setDamageRolls(result);

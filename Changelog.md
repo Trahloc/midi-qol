@@ -1,7 +1,10 @@
+### 12.4.11.2
+* Fix for healing activities not working
+
 ### 12.4.11.1
 * Fix for quick settings not being visible.
 * Fix for GMAction completeItemUse calling the wrong thing plus clean up target handling.
-* Fix for DamageOnlyWorkflow failing when passed "minima;" itemData
+* Fix for DamageOnlyWorkflow failing when passed "minimal" itemData
 
 ### 12.4.11
 * Midi advantage/disadvantage/fastforward keys have been removed and midi now uses dnd5e key bindings throughout. 

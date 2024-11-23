@@ -1770,6 +1770,9 @@ export async function doItemUse(wrapped, config: any = {}, dialog: any = {}, mes
     const activity = await MidiActivityChoiceDialog.create(this);
     return activity?.use(config, dialog, message);
   }
+  if (activities.length === 1) {
+    return activities[0].use(config, dialog, message);
+  }
   if (this.actor) return this.displayCard(message);
 }
 
