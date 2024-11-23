@@ -1,7 +1,7 @@
 import { debug, warn, i18n, error, debugEnabled, i18nFormat, MODULE_ID } from "../midi-qol.js";
 import { DDBGameLogWorkflow, Workflow } from "./Workflow.js";
 import { nsaFlag, coloredBorders, configSettings, forceHideRoll, safeGetGameSetting } from "./settings.js";
-import { playerFor, playerForActor, doOverTimeEffect, isInCombat, MQfromUuidSync } from "./utils.js";
+import { playerFor, playerForActor, doOverTimeEffect, isInCombat, MQfromUuidSync, isAutoFastDamage } from "./utils.js";
 import { socketlibSocket, untimedExecuteAsGM } from "./GMAction.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
@@ -453,12 +453,16 @@ export async function onChatCardAction(event) {
       },
         { configure: false }, {});
       break;
-    case "damage-critical":
-    case "damage-nocritical":
     case "damage":
     case "rollDamage":
       await activity.rollDamage({
         event,
+        midiOptions: { spellLevel, fastForwardDamage: isAutoFastDamage() }
+      }, {}, {});
+      break;
+    case "damage-critical":
+    case "damage-nocritical":
+      await activity.rollDamage({
         midiOptions: { spellLevel, isCritical: action === 'damage-critical', fastForwardDamage: true }
       }, { configure: false }, {})
     default:

@@ -1,8 +1,5 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
-import { mapSpeedKeys } from "../MidiKeyManager.js";
-import { Workflow } from "../Workflow.js";
 import { ReplaceDefaultActivities, configSettings } from "../settings.js";
-import { asyncHooksCall } from "../utils.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
 
 export var MidiHealActivity;

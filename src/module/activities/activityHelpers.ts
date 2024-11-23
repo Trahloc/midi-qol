@@ -229,25 +229,25 @@ export function requiresTargetConfirmation(activity, options): boolean {
   return false;
 }
 
-export async function preTemplateTargets(activity, options, pressedKeys): Promise<boolean> {
+export async function preTemplateTargets(activity, options): Promise<boolean> {
   if (activityRequiresPostTemplateConfiramtion(activity)) return true;
   if (requiresTargetConfirmation(activity, options))
-    return await resolveTargetConfirmation(activity, options, pressedKeys) === true;
+    return await resolveTargetConfirmation(activity, options) === true;
   return true;
 }
 
-export async function postTemplateConfirmTargets(activity, options, pressedKeys, workflow): Promise<boolean> {
+export async function postTemplateConfirmTargets(activity, options, workflow): Promise<boolean> {
   if (!activityRequiresPostTemplateConfiramtion(activity)) return true;
   if (requiresTargetConfirmation(activity, options)) {
     let result = true;
-    result = await resolveTargetConfirmation(activity, options, pressedKeys);
+    result = await resolveTargetConfirmation(activity, options);
     if (result && game.user?.targets) workflow.targets = new Set(game.user.targets)
     return result === true;
   }
   return true;
 }
 
-export async function resolveTargetConfirmation(activity, options: any = {}, pressedKeys?: any): Promise<boolean> {
+export async function resolveTargetConfirmation(activity, options: any = {}): Promise<boolean> {
   const savedSettings = { control: ui.controls?.control?.name, tool: ui.controls?.tool };
   const savedActiveLayer = canvas?.activeLayer;
   await canvas?.tokens?.activate();
@@ -260,7 +260,7 @@ export async function resolveTargetConfirmation(activity, options: any = {}, pre
   let targets = new Promise((resolve, reject) => {
     // no timeout since there is a dialog to close
     // create target dialog which updates the target display
-    options = foundry.utils.mergeObject(options, { callback: resolve, pressedKeys });
+    options = foundry.utils.mergeObject(options, { callback: resolve });
     let targetConfirmation = new TargetConfirmationDialog(activity.actor, activity.item, game.user, options).render(true);
   });
   let shouldContinue = await targets;
@@ -534,9 +534,7 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
 };
 
 export function preRollDamageHook(item, rollConfig) {
-  if (item.flags.midiProperties?.offHandWeapon) {
-    rollConfig.data.mod = Math.min(0, rollConfig.data.mod);
-  }
+
   return true;
 }
 

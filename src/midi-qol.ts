@@ -322,23 +322,13 @@ function addConfigOptions() {
     config.midiProperties = {};
     // Add additonal vision types? How to modify token properties doing this.
     config.midiProperties["confirmTargets"] = i18n("midi-qol.confirmTargetsProp");
-    // config.midiProperties["nodam"] = i18n("midi-qol.noDamageSaveProp");
-    // config.midiProperties["fulldam"] = i18n("midi-qol.fullDamageSaveProp");
-    // config.midiProperties["halfdam"] = i18n("midi-qol.halfDamageSaveProp");
     config.midiProperties["autoFailFriendly"] = i18n("midi-qol.FailFriendly");
     config.midiProperties["autoSaveFriendly"] = i18n("midi-qol.SaveFriendly");
-    // config.midiProperties["rollOther"] = i18n("midi-qol.rollOtherProp");
-    config.midiProperties["critOther"] = i18n("midi-qol.otherCritProp");
-    config.midiProperties["offHandWeapon"] = i18n("midi-qol.OffHandWeapon");
     config.midiProperties["magicdam"] = i18n("midi-qol.magicalDamageProp");
     config.midiProperties["magiceffect"] = i18n("midi-qol.magicalEffectProp");
-    // removed for 11.4.29 config.midiProperties["concentration"] = i18n("midi-qol.concentrationEffectProp");
     config.midiProperties["noConcentrationCheck"] = i18n("midi-qol.noConcentrationEffectProp");
     config.midiProperties["toggleEffect"] = i18n("midi-qol.toggleEffectProp");
     config.midiProperties["ignoreTotalCover"] = i18n("midi-qol.ignoreTotalCover");
-    // config.midiProperties["saveDamage"] = "Save Damage";
-    // config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
-    // config.midiProperties["otherSaveDamage"] = "Other Damage Save";
     config.midiProperties["idr"] = "Ignore dr";
     config.midiProperties["idi"] = "Ignore di";
     config.midiProperties["idv"] = "Ignore dv";
@@ -392,9 +382,6 @@ function addConfigOptions() {
     config.midiProperties["nodam"] = i18n("midi-qol.noDamageSaveProp");
     config.midiProperties["fulldam"] = i18n("midi-qol.fullDamageSaveProp");
     config.midiProperties["halfdam"] = i18n("midi-qol.halfDamageSaveProp")
-    // config.midiProperties["rollOther"] = i18n("midi-qol.rollOtherProp");
-    config.midiProperties["critOther"] = i18n("midi-qol.otherCritProp");
-    config.midiProperties["concentration"] = i18n("midi-qol.concentrationActivationCondition");
     config.midiProperties["saveDamage"] = "Save Damage";
     config.midiProperties["bonusSaveDamage"] = "Bonus Damage Save";
     config.midiProperties["otherSaveDamage"] = "Other Damage Save";
@@ -441,7 +428,6 @@ Hooks.once('ready', function () {
     "preTargeting": "Called before targeting is resolved (*)",
     "preItemRoll": "Called before the item is rolled (*)",
     "templatePlaced": "Only called once a template is placed",
-    "preambleComplete": "After targeting complete",
     "preAttackRoll": "Before Attack Roll",
     "preCheckHits": "Before Check Hits",
     "postAttackRoll": "After Attack Roll",

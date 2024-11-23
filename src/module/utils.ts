@@ -4726,20 +4726,6 @@ export function needsReactionCheck(actor) {
 export function needsBonusActionCheck(actor) {
   return (configSettings.enforceBonusActions === "all" || configSettings.enforceBonusActions === actor.type)
 }
-export function mergeKeyboardOptions(options: any, pressedKeys: Options | undefined) {
-  if (!pressedKeys) return;
-  options.advantage = options.advantage || pressedKeys.advantage;
-  options.disadvantage = options.disadvantage || pressedKeys.disadvantage;
-  options.versatile = options.versatile || pressedKeys.versatile;
-  options.other = options.other || pressedKeys.other;
-  options.rollToggle = options.rollToggle || pressedKeys.rollToggle;
-  options.fastForward = options.fastForward || pressedKeys.fastForward;
-  options.fastForwardAbility = options.fastForwardAbility || pressedKeys.fastForwardAbility;
-  options.fastForwardDamage = options.fastForwardDamage || pressedKeys.fastForwardDamage;
-  options.fastForwardAttack = options.fastForwardAttack || pressedKeys.fastForwardAttack;
-  options.parts = options.parts || pressedKeys.parts;
-  options.critical = options.critical || pressedKeys.critical;
-}
 
 export async function asyncHooksCallAll(hook, ...args): Promise<boolean | undefined> {
   if (CONFIG.debug.hooks) {
@@ -6572,4 +6558,29 @@ export function getCheckRollModeFor(abilityId) {
   if (configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes(abilityId))
     return "blindroll";
   return configSettings.autoCheckSaves !== "allShow" ? "gmroll" : "public";
+}
+
+export function areMidiKeysPressed(event, action) {
+  if ( !event ) return false;
+  const activeModifiers = {};
+  const KeyBoardManager = game.keyboard;
+  //@ts-expect-error
+  const MODIFIER_KEYS = KeyBoardManager.constructor.MODIFIER_KEYS;
+  //@ts-expect-error
+  const MODIFIER_CODES = KeyBoardManager.constructor.MODIFIER_CODES;
+  //@ts-expect-error
+  const ClientKeyBindings = game.keybindings;
+  const addModifiers = (key, pressed) => {
+    activeModifiers[key] = pressed;
+    MODIFIER_CODES[key].forEach(n => activeModifiers[n] = pressed);
+  };
+  addModifiers(MODIFIER_KEYS.CONTROL, event.ctrlKey || event.metaKey);
+  addModifiers(MODIFIER_KEYS.SHIFT, event.shiftKey);
+  addModifiers(MODIFIER_KEYS.ALT, event.altKey);
+  return ClientKeyBindings.get("midi-qol", action).some(b => {
+    //@ts-expect-error
+    if ( KeyBoardManager.downKeys.has(b.key) && b.modifiers.every(m => activeModifiers[m]) ) return true;
+    if ( b.modifiers.length ) return false;
+    return activeModifiers[b.key];
+  });
 }

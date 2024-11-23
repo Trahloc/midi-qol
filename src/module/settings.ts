@@ -82,6 +82,8 @@ class ConfigSettings {
   autoTarget: string = "none";
   averageDamage: string = "none";
   checkSaveText: boolean = false;
+  checkTwoHanded: boolean = false;
+  chooseAmmunition: boolean = true;
   collapsibleTargets: boolean = true;
   concentrationAutomation: boolean = false;
   confirmAmmunition: boolean = false;
@@ -150,6 +152,7 @@ class ConfigSettings {
   removeButtons: string = "all";
   removeConcentration: boolean = true;
   removeConcentrationEffects: string = "effects";
+  requireAmmunition: boolean =  false;
   requireMagical: string = "off";
   requiresTargets: string = "none";
   rollNPCLinkedSaves: string = "auto";
@@ -184,30 +187,30 @@ class ConfigSettings {
   weaponUseSoundRanged: string = "";
   rollAlternate: string = "off";
   optionalRules: any = {
-    invisAdvantage: "RAW",
-    hiddenAdvantage: "none",
-    invisVision: false,
-    checkRange: "longFail",
-    wallsBlockRange: "center",
-    diplsayBonusRolls: true,
-    coverCalculation: "none",
-    nearbyFoe: 5,
-    nearbyAllyRanged: 0,
-    incapacitated: true,
-    removeHiddenInvis: true,
-    maxDRValue: false,
-    DRAllPerDamageDetail: true,
-    distanceIncludesHeight: false,
-    criticalSaves: false,
+    actionSpecialDurationImmediate: false,
     activeDefence: false,
     activeDefenceShow: "selfroll",
+    autoRerollInitiative: false,
     challengModeArmor: "none",
     checkFlanking: "off",
-    optionalCritRule: -1,
+    checkRange: "longFail",
+    coverCalculation: "none",
     criticalNat20: false,
-    actionSpecialDurationImmediate: false,
+    criticalSaves: false,
+    diplsayBonusRolls: true,
+    distanceIncludesHeight: false,
+    DRAllPerDamageDetail: true,
+    hiddenAdvantage: "none",
+    incapacitated: true,
+    invisAdvantage: "RAW",
+    invisVision: false,
+    maxDRValue: false,
+    nearbyAllyRanged: 0,
+    nearbyFoe: 5,
+    optionalCritRule: -1,
+    removeHiddenInvis: true,
     vitalityResource: "",
-    autoRerollInitiative: false,
+    wallsBlockRange: "center",
   
   };
 }

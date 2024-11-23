@@ -1,13 +1,12 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID, isdndv4, NumericTerm } from "../midi-qol.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, mergeKeyboardOptions, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect, getActivityAutoTarget, getAoETargetType, hasCondition } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect, getActivityAutoTarget, getAoETargetType, hasCondition } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
-import { mapSpeedKeys } from "./MidiKeyManager.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { MidiAttackActivity } from "./activities/AttackActivity.js";
 import { templateTokens } from "./activities/activityHelpers.js";
-import { rollAbility } from "./GMAction.js";
+import { MidiActivityChoiceDialog } from "./apps/MidiActivityChoiceDialog.js";
 
 let libWrapper;
 
@@ -31,7 +30,6 @@ function isVisible(wrapped) {
 }
 
 export interface Options {
-  event: any,
   advantage: boolean | undefined,
   disadvantage: boolean | undefined,
   fastForward: boolean | undefined,
@@ -57,22 +55,21 @@ export interface Options {
   rollType?: string
 };
 export const defaultRollOptions: Options = {
-  event: undefined,
   advantage: false,
   disadvantage: false,
-  fastForward: false,
-  fastForwardSet: false,
+  fastForward: undefined,
+  fastForwardSet: undefined,
   parts: undefined,
   chatMessage: undefined,
   rollToggle: undefined,
   other: undefined,
   versatile: false,
   critical: false,
-  autoRollAttack: false,
-  autoRollDamage: false,
-  fastForwardAttack: false,
-  fastForwardDamage: false,
-  fastForwardAbility: false
+  autoRollAttack: undefined,
+  autoRollDamage: undefined,
+  fastForwardAttack: undefined,
+  fastForwardDamage: undefined,
+  fastForwardAbility: undefined
 };
 
 export function collectBonusFlags(actor, category, detail): any[] {
@@ -195,11 +192,10 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
     if (oldConfig.bonus) config.bonus = oldConfig.bonus;
     dialog = {};
     _applyDeprecatedD20Configs(config, dialog, message, oldConfig);
-
   }
+
   try {
     let options: any = foundry.utils.mergeObject({
-      event: config.event,
       simulate: config.simulate,
       targetValue: config.target,
       isMagicalSave: config.isMagicalSave,
@@ -209,7 +205,7 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
     let skillId = config.skill;
     const rollTarget = options.targetValue;
     let overtimeActorUuid;
-    if (options.event) { // TODO Decide if we want to do this or support core behaviour of anyone rolling concentration check
+    if (config.event) { // TODO Decide if we want to do this or support core behaviour of anyone rolling concentration check
       const target = options.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
       if (target?.dataset?.midiOvertimeActorUuid) overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
       if (overtimeActorUuid && this.uuid !== overtimeActorUuid) {
@@ -217,17 +213,6 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
         if (actualActor) return actualActor.rollSkill(config, dialog, message);
       }
     }
-    const keyOptions = mapSpeedKeys(undefined, "ability");
-    options.advantage ||= options.event?.advantage;
-    options.disadvantage ||= options.event?.disadvantage;
-    if (options.mapKeys !== false) {
-      if (keyOptions?.advantage === true) options.advantage = true;
-      if (keyOptions?.disadvantage === true) options.disadvantage = true;
-      if (keyOptions?.fastForwardAbility === true) options.fastForward = true;
-      if (keyOptions?.advantage || keyOptions?.disadvantage) options.fastForward = true;
-    }
-    // mergeKeyboardOptions(options, mapSpeedKeys(undefined, "ability"));
-    options.event = {};
     let procOptions = options;
     if (configSettings.skillAbilityCheckAdvantage) {
       procOptions = await procAbilityAdvantage(this, "check", this.system.skills[skillId].ability, options)
@@ -237,39 +222,17 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
       procOptions.advantage = false;
       procOptions.disadvantage = false;
     }
+
+    //@ts-expect-error
+    let result: CONFIG.Dice.D20Roll[] = [];
+    let success: boolean | undefined = undefined;
     if (procAutoFailSkill(this, skillId)
       || (configSettings.skillAbilityCheckAdvantage && procAutoFail(this, "check", this.system.skills[skillId].ability))) {
-      options.parts = ["-100"];
+      //@ts-expect-error
+      const D20Roll = CONFIG.Dice.D20Roll;
+      result = [new D20Roll("-1[auto fail]").evaluateSync()];
+      success = false;
     }
-
-    let result;
-
-    if (!procOptions.parts || procOptions.parts.length === 0) delete procOptions.parts;
-    delete procOptions.event;
-
-    // result = await wrapped.call(this, skillId, procOptions);
-    Hooks.once(`${game.system.id}.preRollSkillV2`, (config, dialog, message) => {
-      message.data ??= {};
-      if (overtimeActorUuid)
-        message.data["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
-      message.create = false;
-      config.rolls.forEach(roll => {
-        roll.options.advantage ||= procOptions.advantage;
-        procOptions.advantage ||= procOptions.advantage;
-        roll.options.disadvantage ||= procOptions.disadvantage;
-        procOptions.disadvantage ||= procOptions.disadvantage;
-        dialog.options.disadvantage ||= procOptions.disadvantage;
-      })
-      setDialogOptions(dialog, procOptions);
-
-    })
-    Hooks.once("dnd5e.postSkillRollConfiguration", (rolls, config, dialog, messageDetails) => {
-      // record message configuration details for later display
-      message = messageDetails;
-    });
-    delete config.event;
-    const saveCreate = message.create;
-    message.create = false;
     const saveRollMode = game.settings.get("core", "rollMode");
     let rollMode: string = message.rollMode ?? config.rollMode ?? game.settings.get("core", "rollMode");
     const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
@@ -278,13 +241,35 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
       game.settings.set("core", "rollMode", "blindroll");
     }
     if (options.fastForward) dialog.configure = false;
-    result = await wrapped(config, dialog, message);
-    message.create = saveCreate;
+    config.midiOptions = procOptions;
+    if (success === undefined) {
+
+      message.create = false;
+      Hooks.once(`${game.system.id}.preRollSkillV2`, (config, dialog, message) => {
+        message.data ??= {};
+        if (overtimeActorUuid)
+          message.data["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
+        config.rolls.forEach(roll => {
+          roll.options.advantage ||= config.midiOptions.advantage;
+          roll.options.disadvantage ||= config.midiOptions.disadvantage;
+        })
+        setDialogOptions(dialog, config, config.rolls[0]?.options);
+      })
+      Hooks.once("dnd5e.postSkillRollConfiguration", (rolls, config, dialog, messageDetails) => {
+        // record message configuration details for later display
+        message = messageDetails;
+      });
+
+      const saveCreate = message.create;
+      message.create = false;
+      result = await wrapped(config, dialog, message);
+      message.create = saveCreate;
+    }
     const maxflags = foundry.utils.getProperty(this, "flags.midi-qol.max") ?? {};
     const maxValue = (maxflags.skill && maxflags.skill.all) ?? false;
     if (maxValue && Number.isNumeric(maxValue)) {
-      for (let I = 0; I < result.length; I++) {
-        result[I] = setRollMaxDiceTerm(result[I], Number(maxValue));
+      for (let i = 0; i < result.length; i++) {
+        result[i] = setRollMaxDiceTerm(result[i], Number(maxValue));
       }
     }
 
@@ -303,11 +288,10 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
     */
     await displayDSNForRoll(result, "skill", rollMode);
     if (!options.simulate) {
-      result = await bonusCheck(this, result, "skill", skillId, message.data);
+      result[0] = await bonusCheck(this, result[0], "skill", skillId, message.data);
       DSNMarkDiceDisplayed(result);
     }
-    let success: boolean | undefined = undefined;
-    if (rollTarget !== undefined) {
+    if (rollTarget !== undefined && success === undefined) {
       const resultTotal = result.reduce((acc, r) => acc + r.total, 0);
       success = resultTotal >= rollTarget;
       result.forEach(r => r.options.success = success);
@@ -328,14 +312,16 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
   }
 }
 
-function setDialogOptions(dialog, midiOptions) {
+function setDialogOptions(dialog, config, options) {
   dialog.options ??= {};
   //@ts-expect-error
   const ADV_MODE = CONFIG.Dice.D20Roll.ADV_MODE;
-  if (midiOptions.advantage && !midiOptions.disadvantage) {
+  if (config.midiOptions?.fastForward || options.advantage) dialog.configure = false;
+  if (dialog.configure === undefined && autoFastForwardAbilityRolls) dialog.configure = false;
+  if (options.advantage && !options.disadvantage) {
     dialog.options.advantageMode = ADV_MODE.ADVANTAGE;
     dialog.options.defaultButton = "advantage";
-  } else if (!midiOptions.advantage && midiOptions.disadvantage) {
+  } else if (!options.advantage && options.disadvantage) {
     dialog.options.advantageMode = ADV_MODE.DISADVANTAGE;
     dialog.options.defaultButton = "disadvantage";
   } else {
@@ -520,7 +506,6 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
 async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any = {}, message: any = {}) {
   const oldFormat = message.midiOptions?.oldFormat;
   let options = foundry.utils.mergeObject({
-    event: config.event,
     simulate: config.simulate,
     targetValue: config.target,
     isMagicalSave: config.isMagicalSave,
@@ -530,7 +515,7 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
   message.data ??= {};
   let abilityId = config.ability;
   let overtimeActorUuid;
-  if (options.event) {
+  if (config.event) {
     const target = config?.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
     if (target?.dataset?.midiOvertimeActorUuid) {
       overtimeActorUuid = target.dataset.midiOvertimeActorUuid;
@@ -550,11 +535,7 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
       options.fumble = 0;
     }
 
-    let success: boolean | undefined = undefined;
-    if (procAutoFail(this, rollType, abilityId)) {
-      options.parts = ["-100"];
-      success = false;
-    }
+
 
     if (options.fromMars5eChatCard) { // It seems mtb ignores the advantage/disadvantage flags sent in the request
       options.advantage ||= options.event?.altKey;
@@ -563,53 +544,43 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
       if (!autoFastForwardAbilityRolls) options.fastForward ||= options.event?.shiftKey;
       else options.fastForward = true;
     }
-    options.advantage ||= options.event?.advantage;
-    options.disadvantage ||= options.event?.disadvantage;
-    if (options.fromMars5eChatCard) options.fastForward ||= autoFastForwardAbilityRolls;
-    const keyOptions = mapSpeedKeys(undefined, "ability");
-    if (options.mapKeys !== false) {
-      if (keyOptions?.advantage === true) options.advantage = true;
-      if (keyOptions?.disadvantage === true) options.disadvantage = true;
-      if (keyOptions?.fastForwardAbility === true) options.fastForward = true;
-      if (keyOptions?.advantage || keyOptions?.disadvantage) options.fastForward = true;
-    }
 
-    options.event = {};
+    if (options.fromMars5eChatCard) options.fastForward ||= autoFastForwardAbilityRolls;
 
     let procOptions: any = await procAbilityAdvantage(this, rollType, abilityId, options);
-    if (procOptions.advantage && procOptions.disadvantage) {
-      procOptions.advantage = false;
-      procOptions.disadvantage = false;
-    }
-
     let result;
-    delete config.event;
-    const type = rollType === "save" ? "SavingThrow" : "AbilityCheck";
 
+    const type = rollType === "save" ? "SavingThrow" : "AbilityCheck";
     if (overtimeActorUuid)
       message.data["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
 
-    Hooks.once(`dnd5e.preRoll${type}V2`, (config, dialog, message) => {
-      config.rolls.forEach(roll => {
-        roll.options.advantage ||= procOptions.advantage;
-        procOptions.advantage ||= roll.options.advantage
-        roll.options.disadvantage ||= procOptions.disadvantage;
-        procOptions.disadvantage ||= roll.options.disadvantage;
-      });
-    });
-    Hooks.once(`dnd5e.post${type}RollConfiguration`, (rolls, config, dialog, messageDetails) => {
-      // record the configured message data for later display
-      message = messageDetails;
-    });
-    setDialogOptions(dialog, procOptions);
-    if (procOptions.fastForward) dialog.configure = false;
-    const saveCreate = message.create;
-    message.create = false;
-    result = await wrapped(config, dialog, message);
-    message.create = saveCreate;
-    if (success === false) {
+
+
+    let success;
+    if (procAutoFail(this, rollType, abilityId)) {
+      success = false;
       //@ts-expect-error
       result = [new Roll("-1[auto fail]").evaluateSync()];
+    }
+    config.midiOptions = procOptions;
+    if (success === undefined) {
+      if (procOptions.fastForward) dialog.configure = false;
+      const saveCreate = message.create;
+      message.create = false;
+      Hooks.once(`dnd5e.preRoll${type}V2`, (config, dialog, message) => {
+        config.rolls.forEach(roll => {
+          roll.options.advantage ||= config.midiOptions.advantage;
+          roll.options.disadvantage ||= config.midiOptions.disadvantage;
+        });
+        setDialogOptions(dialog, config, config.rolls[0]?.options);
+      });
+      Hooks.once(`dnd5e.post${type}RollConfiguration`, (rolls, config, dialog, messageDetails) => {
+        // record the configured message data for later display
+        message = messageDetails;
+      });
+      result = await wrapped(config, dialog, message);
+      message.create = saveCreate;
+
     }
     if (!result) return result;
     if (result instanceof Roll) {
@@ -706,14 +677,12 @@ async function rollAbilityCheck(wrapped, config = {}, dialog = {}, message = {})
   return doRollAbilityV2.bind(this)(wrapped, "check", config, dialog, message);
 }
 
-async function rollDeathSave(wrapped, config = {}, dialog = {}, message = {}) {
+async function rollDeathSave(wrapped, config: any = {}, dialog: any = {}, message: any = {}) {
   const options: any = {};
-  mergeKeyboardOptions(options ?? {}, mapSpeedKeys(undefined, "ability"));
   const advFlags = foundry.utils.getProperty(this, "flags.midi-qol")?.advantage;
   const disFlags = foundry.utils.getProperty(this, "flags.midi-qol")?.disadvantage;
   const deathSaveBonus = foundry.utils.getProperty(this, "flags.midi-qol")?.deathSaveBonus;
 
-  options.fastForward = autoFastForwardAbilityRolls ? !options.event?.fastKey : options.event?.fastKey;
   if (advFlags?.all || advFlags?.deathSave || disFlags?.all || disFlags?.deathSave || deathSaveBonus) {
     const conditionData = createConditionData({ workflow: undefined, target: undefined, actor: this });
     if (await evalAllConditionsAsync(this, "flags.midi-qol.advantage.all", conditionData) ||
@@ -742,22 +711,27 @@ async function rollDeathSave(wrapped, config = {}, dialog = {}, message = {}) {
       options.disadvantage = true;
     }
   }
+  config.midiOptions = options;
   const blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes("death");
   Hooks.once("dnd5e.preRollDeathSaveV2", (config, dialog, message) => {
     for (let roll of config.rolls) {
-      roll.options.advantage = options.advantage;
-      options.advantage = roll.options.advantage;
-      roll.options.disadvantage = options.disadvantage;
-      roll.options.disadvantage = roll.options.disadvantage;
+      roll.options.advantage = config.midiOptions.advantage;
+      roll.options.disadvantage = config.midiOptions.disadvantage;
     }
-    setDialogOptions(dialog, options);
+    setDialogOptions(dialog, config, config.rolls[0].options);
     if (blindSaveRoll) message.rollMode = "blindroll";
   });
   return wrapped(config, dialog, message);
 }
 
-export function deathSaveHook(actor, result, details) {
+export async function deathSaveHook(actor, result, details) {
   if (details.chatString === "DND5E.DeathSaveFailure") {
+    if (hasCondition(actor, "unconscious")) {
+      //@ts-expect-error
+      const _id = CONFIG.statusEffects.find(e => e.id === "unconscious")?._id;
+      const effect = actor.effects.find(e => e._id === _id);
+      if (effect) effect.update({ "flags.core.overlay": false });
+    }
     setDeadStatus(actor, { effect: getDeadStatus(), useDefeated: true, makeDead: true, overlay: true });
   }
 }
@@ -791,12 +765,10 @@ export async function procAbilityAdvantage(actor, rollType, abilityId, options: 
   var withAdvantage = options.advantage;
   var withDisadvantage = options.disadvantage;
 
-  //options.fastForward = options.fastForward || (autoFastForwardAbilityRolls ? !options.event?.fastKey : options.event?.fastKey);
   if (rollType === "save" && options.isMagicSave) {
     if ((actor?.system.traits?.dr?.custom || "").includes(i18n("midi-qol.MagicResistant").trim()))
       withAdvantage = true;;
     const conditionData = createConditionData({ workflow: options.workflow, target: tokenForActor(actor), actor, item: options.item ?? options.itemUuid ?? options.saveItem ?? options.saveItemUuid });
-    const magicResistanceFlags = foundry.utils.getProperty(actor, "flags.midi-qol.magicResistance");
     if (await evalAllConditionsAsync(actor, "flags.midi-qol.magicResistance.all", conditionData, false) ||
       await evalAllConditionsAsync(actor, `flags.midi-qol.magicResistance.${abilityId}`, conditionData, false)) {
       withAdvantage = true;
@@ -807,7 +779,6 @@ export async function procAbilityAdvantage(actor, rollType, abilityId, options: 
     }
   }
 
-  options.fastForward = options.fastForward || options.event?.fastKey;
   if (advantage || disadvantage) {
     const conditionData = createConditionData({ workflow: options.workflow, target: tokenForActor(actor), actor, item: options.item ?? options.itemUuid ?? options.saveItem ?? options.saveItemUuid });
     if (advantage) {
@@ -815,7 +786,7 @@ export async function procAbilityAdvantage(actor, rollType, abilityId, options: 
         || await evalAllConditionsAsync(actor, `flags.midi-qol.advantage.ability.all`, conditionData)
         || await evalAllConditionsAsync(actor, `flags.midi-qol.advantage.ability.${rollType}.all`, conditionData)
         || await evalAllConditionsAsync(actor, `flags.midi-qol.advantage.ability.${rollType}.${abilityId}`, conditionData)) {
-        withAdvantage = true;
+        options.advantage ||= true;
       }
     }
 
@@ -824,13 +795,10 @@ export async function procAbilityAdvantage(actor, rollType, abilityId, options: 
         || await evalAllConditionsAsync(actor, `flags.midi-qol.disadvantage.ability.all`, conditionData)
         || await evalAllConditionsAsync(actor, `flags.midi-qol.disadvantage.ability.${rollType}.all`, conditionData)
         || await evalAllConditionsAsync(actor, `flags.midi-qol.disadvantage.ability.${rollType}.${abilityId}`, conditionData)) {
-        withDisadvantage = true;
+        options.disadvantage ||= true;
       }
     }
   }
-  options.advantage = withAdvantage ?? false;
-  options.disadvantage = withDisadvantage ?? false;
-  options.event = {};
   return options;
 }
 
@@ -1158,10 +1126,10 @@ export function preUpdateItemActorOnUseMacro(itemOrActor, changes, options, user
 };
 
 export async function rollInitiativeDialog(wrapped, rollOptions: any = { fastForward: autoFastForwardAbilityRolls }) {
-  const pressedKeys = foundry.utils.duplicate(globalThis.MidiKeyManager.pressedKeys);
-  const adv = pressedKeys.advantage;
-  const disadv = pressedKeys.disadvantage;
   if (autoFastForwardAbilityRolls) rollOptions.fastForward = true;
+  // TODO Deal with an event with keys set
+  const adv = false;
+  const disadv = false;
   //@ts-expect-error .dice
   const dice: any = game.system.dice.D20Roll;
   rollOptions.advantageMode = dice.ADV_MODE.NORMAL;
@@ -1421,11 +1389,24 @@ function itemSheetDefaultOptions(wrapped) {
   }
   return options;
 }
-export function readyPatching() {
 
+function prepareSheetItem(wrapped, item, ctx) {
+  wrapped(item, ctx);
+  if (ctx.activities) {
+    ctx.activities = ctx.activities.filter(data => {
+      const activity = item.system.activities.get(data._id);
+      if (activity.midiAutomationOnly) return false;
+      return true;
+    })
+  }
+  return ctx;
+}
+export function readyPatching() {
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     libWrapper.register(MODULE_ID, `game.${game.system.id}.canvas.AbilityTemplate.prototype.refresh`, midiATRefresh, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
+    libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter2'].cls.prototype._prepareItem", prepareSheetItem, "WRAPPER");
+
     libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     if (!isdndv4) libWrapper.register(MODULE_ID, "CONFIG.Item.sheetClasses.base['dnd5e.ItemSheet5e2'].cls.defaultOptions", itemSheetDefaultOptions, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.ActiveEffect.documentClass.createConcentrationEffectData", createConcentrationEffectData, "WRAPPER");
@@ -1576,7 +1557,7 @@ export async function challengeConcentration(wrapped, { dc = 10, ability = null 
     return wrapped({ dc, ability });
   const isConcentrating = this.concentration.effects.size > 0;
   if (!isConcentrating) return null;
-  if (configSettings.concentrationIncapacitatedConditionCheck && (hasCondition(this, "incapacitated") || this.system.attributes.hp.value <= 0)) return;  
+  if (configSettings.concentrationIncapacitatedConditionCheck && (hasCondition(this, "incapacitated") || this.system.attributes.hp.value <= 0)) return;
   if (["chat"].includes(configSettings.doConcentrationCheck)) {
     const dataset = {
       action: "concentration",
@@ -1625,7 +1606,7 @@ export let visionPatching = () => {
 export function configureDamageRollDialog() {
   try {
     libWrapper.unregister(MODULE_ID, "CONFIG.Dice.DamageRoll.configureDialog", false);
-    if (configSettings.promptDamageRoll) libWrapper.register(MODULE_ID, "CONFIG.Dice.DamageRoll.configureDialog", CustomizeDamageFormula.configureDialog, "MIXED");
+    // if (configSettings.promptDamageRoll) libWrapper.register(MODULE_ID, "CONFIG.Dice.DamageRoll.configureDialog", CustomizeDamageFormula.configureDialog, "MIXED");
   } catch (err) {
     const message = `midi-qol | error when registering configureDamageRollDialog`;
     TroubleShooter.recordError(err, message);
@@ -1687,7 +1668,6 @@ async function rollAbilityTest(wrapped, config: any = {}, dialog = {}, message: 
   message.midiOptions ??= {};
   message.midiOptions.oldFormat = true;
   return wrapped(config, dialog, message);
-
 }
 
 export async function rollToolCheck(wrapped, options: any = {}) {
@@ -1771,15 +1751,26 @@ export async function _preDeleteCombat(wrapped, ...args) {
 
 export async function doItemUse(wrapped, config: any = {}, dialog: any = {}, message: any = {}) {
   if (this.pack) return;
-
   if (config.legacy !== false) return wrapped(config, dialog, message);
-  const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id));
+  const { legacy, chooseActivity, ...activityConfig } = config;
+  const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id) && !a.midiAutomationOnly);
   const attackActivity = activities?.find(a => a instanceof MidiAttackActivity);
   const extraActvities = activities?.filter(a => a !== attackActivity && a !== attackActivity?.otherActivity);
   if (attackActivity && extraActvities.length === 0) {
     return attackActivity.use(config, dialog, message);
   }
-  return wrapped(config, dialog, message);
+  //@ts-expect-error
+  const areKeysPressed = game.system.utils.areKeysPressed;
+  const skipPressed = areKeysPressed(config.event, "skipDialogAdvantage") || areKeysPressed(config.event, "skipDialogDisadvantage") || areKeysPressed(config.event, "skipDialogNormal");
+  if (skipPressed) {
+    if (attackActivity) return attackActivity.use(config, dialog, message);
+    else return activities?.[0]?.use(config, dialog, message);
+  }
+  if (activities?.length > 1 || chooseActivity) {
+    const activity = await MidiActivityChoiceDialog.create(this);
+    return activity?.use(config, dialog, message);
+  }
+  if (this.actor) return this.displayCard(message);
 }
 
 class CustomizeDamageFormula {

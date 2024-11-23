@@ -73,11 +73,15 @@
     <button class="midi-qol-versatile-damage-button" data-action="versatile">{{ versaBtnText }}</button>
     {{/if}}
 
+    {{!-- Roll Formula --}}
+    {{#if hasRollFormula}}
+    <button data-action="rollFormula">{{ RollFormula }}Roll Utiltiy Formula</button>
+    {{/if}}
     {{!-- Saving Throw --}}
 
     {{#if hasSave}}
     {{#with activity.save}}
-    <button data-action="save" data-ability="{{ability}}" dats-dc="{{dc}}">
+    <button data-action="save" data-ability="{{ability}}" data-dc="{{dc}}">
       {{#with (lookup (lookup @root.config.abilities ability) "label") as |abilityLabel|}}
       <span class="visible-dc">{{ localize "DND5E.SavingThrowDC" dc=../dc ability=abilityLabel }}</span>
       <span class="hidden-dc">{{ localize "DND5E.SavePromptTitle" ability=abilityLabel }}</span>

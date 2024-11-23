@@ -404,9 +404,11 @@ export function initHooks() {
       delete data.flags.midiProperties.halfdam
       delete data.flags.midiProperties.nodam;
       delete data.flags.midiProperties.concentration;
+      delete data.flags.midiProperties.critOther
       delete data.flags.midiProperties.rollOther;
       delete data.flags.midiProperties.saveDamage;
       delete data.flags.midiProperties.bonusSaveDamage;
+      delete data.flags.midiProperties.offHandWeapon;
       delete data.flags.midiProperties.otherSaveDamage;
     }
     return data;

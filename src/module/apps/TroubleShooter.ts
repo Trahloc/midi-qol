@@ -703,7 +703,7 @@ export class TroubleShooter extends FormApplication {
         data.problems.push({
           moduleId: "tokenvisibility",
           severity: "Error",
-          problemSummary: "Midi has swtiched to Alternate Token Cover from Alternate Token Visibility. You should install Alternative Token Cover",
+          problemSummary: "Midi has swtiched to Alternate Token Cover from Alternate Token Visibility. You should install and activate Alternative Token Cover",
           problemDetail: undefined,
           fixer: "Enable the 'tokencover' module and set 'Walls Block Range' to 'Token Cover' on the Mechanics Tab"
         });

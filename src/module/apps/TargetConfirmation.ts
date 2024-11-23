@@ -21,13 +21,12 @@ export class TargetConfirmationDialog extends Application {
   constructor(actor: CONFIG.Actor.documentClass, activity, user, options: any = {}) {
     super(options);
     this.data = { actor, activity, user, targets: [], options }
-
+    const keys = {}; // TODO see if this needs to be set from the workflow event or let it get processed later
     // Handle alt/ctrl etc keypresses when completing the dialog
     this.callback = function (value) {
-      foundry.utils.setProperty(options, "workflowOptions.advantage", options.worfkflowOptions?.advantage || options.pressedKeys?.advantage);
-      foundry.utils.setProperty(options, "workflowOptions.disadvantage", options.worfkflowOptions?.disadvantage || options.pressedKeys?.disadvantage);
-      foundry.utils.setProperty(options, "workflowOptions.versatile", options.worfkflowOptions?.versatile || options.pressedKeys?.versatile);
-      foundry.utils.setProperty(options, "workflowOptions.fastForward", options.worfkflowOptions?.fastForward || options.pressedKeys?.fastForward);
+      foundry.utils.setProperty(options, "workflowOptions.advantage", options.workflowOptions?.advantage);
+      foundry.utils.setProperty(options, "workflowOptions.disadvantage", options.workflowOptions?.disadvantage);
+      foundry.utils.setProperty(options, "workflowOptions.fastForward", options.worfkflowOptions?.fastForward);
       return options.callback ? options.callback(value) : value;
     }
     if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking")) && game.user?.targets) {

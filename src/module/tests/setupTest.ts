@@ -579,7 +579,7 @@ async function registerTests() {
             const expectedPasses = ['preTargeting', 'preItemRoll', 'preStart',
               'postStart', 'preAoETargetConfirmation', 'postAoETargetConfirmation',
               'preValidateRoll', 'postValidateRoll', 'prePreambleComplete',
-              'preambleComplete', 'postPreambleComplete', 'preWaitForAttackRoll',
+              'postPreambleComplete', 'preWaitForAttackRoll',
               'postWaitForAttackRoll', 'preWaitForDamageRoll', 'postWaitForDamageRoll',
               'preWaitForSaves', 'preSave', 'postWaitForSaves', 'preSavesComplete',
               'postSave', 'postSavesComplete', 'preAllRollsComplete', 'postAllRollsComplete',
@@ -597,7 +597,7 @@ async function registerTests() {
           it("Calls item onUseMacros", async function () {
             const actor = getActor(actor2Name);
             const macroPasses: string[] = [];
-            const expectedPasses = ['preTargeting', 'preItemRoll', 'preambleComplete', 'preSave', 'postSave', 'preActiveEffects', 'postActiveEffects'];
+            const expectedPasses = ['preTargeting', 'preItemRoll', 'prePreambleComplete', 'preSave', 'postSave', 'preActiveEffects', 'postActiveEffects'];
             const hookid = Hooks.on("Item OnUseMacroTest", (pass: string) => macroPasses.push(pass));
             await completeItemUse(actor.items.getName("Item OnUseMacroTest"), {}, { workflowOptions });
             Hooks.off("OnUseMacroTest", hookid);

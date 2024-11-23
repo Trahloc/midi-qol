@@ -1,7 +1,5 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
-import { mapSpeedKeys } from "../MidiKeyManager.js";
-import { Workflow } from "../Workflow.js";
-import { ReplaceDefaultActivities, configSettings } from "../settings.js";
+import { ReplaceDefaultActivities } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
 import { MidiActivityMixin } from "./MidiActivityMixin.js";
 
@@ -41,19 +39,28 @@ let defineMidiUtilityActivityClass = (ActvityClass: any) => {
     async rollFormula(config, dialog, message: any = {}) {
       if (debugEnabled > 0)
         warn("UtilityActivity | rollFormula | Called", config, dialog, message);
+      config ??= {};
+      dialog ??= {};
+      message ??= {}
+      config.midiOptions ??= {};
+      if (debugEnabled > 0) {
+        warn("MidiUtilityActivity | rollFormula | Called", config, dialog, message);
+      }
       if (await asyncHooksCall("midi-qol.preFormulaRoll", this.workflow) === false
         || await asyncHooksCall(`midi-qol.preFormulaRoll.${this.item.uuid}`, this.workflow) === false
         || await asyncHooksCall(`midi-qol.preFormulaRoll.${this.uuid}`, this.workflow) === false) {
         console.warn("midi-qol | UtiliatyActivity | Formula roll blocked via pre-hook");
         return;
       }
-      dialog.configure = !config.midiOptions.fastForwardDamage;
-      Hooks.once("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
-        delete rollConfig.event;
+      if (config.midiOptions.fastForward !== undefined)
+        dialog.configure = !config.midiOptions.fastForward;;
+      if (this.workflow?.rollOptions?.rollToggle) dialog.configure = !dialog.configure;
+    
+      Hooks.once("dnd5e.preRollFormulaV2", (rollConfig, dialogConfig, messageConfig) => {
         return true;
       })
 
-      message.create = false;
+      message.create = true;
       let result = await super.rollFormula(config, dialog, message);
       // result = await postProcessUtilityRoll(this, config, result);
       if (config.midiOptions.updateWorkflow !== false && this.workflow) {
@@ -62,6 +69,11 @@ let defineMidiUtilityActivityClass = (ActvityClass: any) => {
           this.workflow.unSuspend.bind(this.workflow)({ utilityRoll: result, otherDamageRoll: this.workflow.otherDamageRoll });
       }
       return result;
+    }
+    async _usageChatContext(message) {
+      const context = await super._usageChatContext(message);
+      context.hasRollFormula = false; // TODO fix this when able to do a proper card !!this.roll?.formula;
+      return context;
     }
   }
 }

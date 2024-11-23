@@ -370,7 +370,6 @@
     "preTargeting": "Called before targeting is resolved (*)",
     "preItemRoll": "Called before the item is rolled (*)",
     "templatePlaced": "Only called once a template is placed",
-    "preambleComplete": "After targeting complete",
     "preAttackRoll": "Before Attack Roll",
     "preCheckHits": "Before Check Hits",
     "postAttackRoll": "After Attack Roll",
@@ -560,7 +559,6 @@
   "midi-qol.UsePlayerPortrait.Hint": "For Actors of type character use the actor portrait instead of the token image in midi-qol chat cards",
   "midi-qol.DistanceIncludesHeight.Name": "Include height difference in distance calculations",
   "midi-qol.NoSocketLib": "Midi-qol requires socketlib installed and enabled",
-  "midi-qol.NoCubInstalled": "You have enabled midi-qol concentration automation. This requires that you install and activate Combat Utility Belt as well. Concentration Automation will be disabled.",
   "midi-qol.confirm": "Confirmation Dialog",
   "midi-qol.ExportConfig": "Export midi-qol settings to json file",
   "midi-qol.ImportConfig": "Import midi-qol settings from json file",
@@ -960,6 +958,10 @@
       "effectConditionText": {
         "label": "Active Effect Condition",
         "hint": "Condition to apply active effects"
+      },
+      "midiAutomationOnly": {
+        "label": "Automation Only",
+        "hint": "The activity is intended for midi automation only and not for manual use"
       }
     }
   },
@@ -1026,8 +1028,13 @@
     "use-condition-header": "Midi Activity Allow Use Condition",
     "attack-extras": "Midi Attack Fields",
     "effects-conditon": "Midi Effect application condition",
-    "force-dialog": "Force Configuration Dialog"
+    "force-dialog": "Force Configuration Dialog",
+    "midi-automation-only": "Only use in midi automation"
   },
   "midi-qol.BaseDamageFlavor": "Base Damage",
-  "midi-qol.OtherDamageFlavor": "Other Damage"
+  "midi-qol.OtherDamageFlavor": "Other Damage",
+  "midi-qol.RequireAmmunition.Name": "Require ammunition available if used",
+  "midi-qol.CheckTwoHanded.Name": "Require no shield equipped for two-handed/off-hand attacks",
+  "midi-qol.NoAmmunition": "There are 0 {name} in your inventory",
+  "midi-qol.TwoHandedShieldWarning": "Cannot use two-handed or off-hand attack with a shield equipped"
 }

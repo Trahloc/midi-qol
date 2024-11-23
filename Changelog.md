@@ -1,3 +1,21 @@
+### 12.4.11
+* Midi advantage/disadvantage/fastforward keys have been removed and midi now uses dnd5e key bindings throughout. 
+* The dnd5e skipDialog/skipDialogAdvantage/skipDialogDisadvantage are now supported and will auto roll with a normal/advantage/disadvantage roll of the first activity on an item. There are certain to be some odd edge cases so please report anomalous behaviour, remembering that the keys only apply to the first roll in the activity.
+* The versatile key (default v) now toggles versatile for an item. If the item is set to default roll 1 handed v+click will roll 2 handed and vice versa.
+* The toggle key now reverses the default midi attack and damage roll fastforwarding. If you normally fast forward those rolls, using toggle will force the display of the configuration dialog.
+* If an activity has more than one damage type specified, the configure damage dialog will always be displayed.
+* Midi now checks when rolling a two handed or off hand attack that you don't have a shield equipped and will fail the roll if you do. There is a config setting in the mechanics section to enable/disable this check.
+* More work on ammunition consumption checking. If you try to roll an attack and have none of the default ammunition, the configure roll dialog will be displayed so you can choose another ammunition type. (See also the gm/player setting to confirm ammunition usage).
+* There is an addition option in mechanics to fail rolls if you try to roll without sufficient ammunition.
+* When a token is marked as dead from failed death saves, the dead status will be displayed as overlayed and the unconscious status will be converted to non-overlay.
+* Added new property on midi activities, midiAutomationOnly, which when set means the activity is only meant to be used in midi automation. Such activities will not be displayed when prompting for choosing an activity to roll (created MidiActivityChoiceDialog) and won't be displayed in the expanded list of activities on the character sheet (patched ActorSheet5eCharacter2 _prepareItem).
+* Added some trivial behaviour for utility items, if there is a roll formula midi will always roll it and then proceed with the workflow. The result of the utility roll is stored in workflow.uitilityRoll.
+* Support for MidiUtility activities as otherActivities. This only for legacy support since anything that a MidiUtility activity can do a MidiDamage activity does better.
+* removed Hooks/onUsemacro calls to preambleComplete, use prePreambleComplete instead.
+* Fixed a bug when auto applying CE effects and also an "apply to self effect" in the same activity.
+**Breaking** Removed the midi property critOther without deprecation. Use the allow critical activity flag instead.
+**Breaking** Removed the midi property offHandWeapon. Use the attack mode on the activity instead.
+
 ### 12.4.10
 * Some fixes courtesy @micheal and @thatlonelybugbear.
 * Add additional hooks called when doing a state transition
