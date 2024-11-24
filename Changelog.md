@@ -1,8 +1,9 @@
 
 ### 11.6.26
+* Almost all of the chages are courtesy of @thatLonelyBugber - thanks.
 * clear deprecation warnings for setProperty/duplicate.
 * clear deprecation error for CONST.CHAT_MESSAGE_STYLES.ROLL is deprecated in favor of defining rolls directly in ChatMessage#rolls Deprecated since Version 12
-*handling for flags.midi-qol.optional.NAME.ac; treated as reactions but should not be directly linked to usedReaction;
+* handling for flags.midi-qol.optional.NAME.ac; treated as reactions but should not be directly linked to usedReaction;
 * adding more context to the Dummyworkflow() and the options passed to the callMarco() in case of a flags.midi-qol.optional.NAME.ac | Override | ItemMacro.name of item and/or a subsequent .macroToCall for the same optional.
 * fix for addRollTo when passing as a bonusRoll a formula containing operatorTerms, which would be non evaluated and trigger an error for You can only call Roll.fromTerms(terms) with an array or terms which are either all evaluated, or none evaluated
 * remove the isDamaged reactions from the ones altering the reactionFlavor based on the showReactionAttackRoll settings.
