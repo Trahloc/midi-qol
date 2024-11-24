@@ -1,3 +1,6 @@
+### 12.4.11.3
+* Clean up some of the damage roll edge cases/buttons mentioned in 12.4.11 
+
 ### 12.4.11.2
 * Fix for healing activities not working
 

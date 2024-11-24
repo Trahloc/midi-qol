@@ -25,7 +25,7 @@ export class MidiKeyManager {
     fastForwardSet: undefined,
     parts: undefined,
     chatMessage: undefined,
-    critical: undefined,
+    isCritical: undefined,
     fastForwardAbility: undefined,
     fastForwardDamage: undefined,
     fastForwardAttack: undefined,

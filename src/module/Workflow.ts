@@ -1017,7 +1017,7 @@ export class Workflow {
         let content = chatMessage && foundry.utils.duplicate(chatMessage.content)
         let searchRe = /<button data-action="damage">[^<]+<\/button>/;
         const damageTypeString = (this.activity.actionType === "heal") ? i18n(`${this.systemString}.Healing`) : i18n(`${this.systemString}.Damage`);
-        let damageString = (this.rollOptions.critical || this.isCritical) ? i18n(`${this.systemString}.Critical`) : damageTypeString;
+        let damageString = (this.rollOptions.isCritical || this.isCritical) ? i18n(`${this.systemString}.Critical`) : damageTypeString;
         if (this.rollOptions.fastForwardDamage && configSettings.showFastForward) damageString += ` ${i18n("midi-qol.fastForward")}`;
         let replaceString = `<button data-action="damage">${damageString}</button>`
         content = content.replace(searchRe, replaceString);

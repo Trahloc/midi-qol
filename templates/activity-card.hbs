@@ -63,7 +63,7 @@
     </div>
     {{else}}
     <div class="midi-qol-damage-buttons">
-      <button data-action="rollDamage">{{ dmgBtnText }}</button>
+      <button data-action="damage">{{ dmgBtnText }}</button>
     </div>
     {{/if}}
     {{/if}}
@@ -75,7 +75,7 @@
 
     {{!-- Roll Formula --}}
     {{#if hasRollFormula}}
-    <button data-action="rollFormula">{{ RollFormula }}Roll Utiltiy Formula</button>
+    <button data-action="formula">{{ RollFormula }}Roll Utiltiy Formula</button>
     {{/if}}
     {{!-- Saving Throw --}}
 
@@ -93,7 +93,7 @@
 
     {{!-- Other Formula --}}
     {{#if activity.otherActivity?.damage}}
-    <button class="midi-qol-otherDamage-button" data-action="formula">{{ OtherFormula }}</button>
+    <button class="midi-qol-otherDamage-button" data-action="rollFormula">{{ OtherFormula }}</button>
     {{/if}}
     {{!-- Templates --}}
     {{#if hasAreaTarget}}

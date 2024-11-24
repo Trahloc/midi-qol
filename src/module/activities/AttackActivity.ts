@@ -419,9 +419,6 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       const disadvantageLabels = Array.from(workflow.advReminderAttackAdvAttribution).filter(s => s.startsWith("DIS:")).map(s => s.replace("DIS:", ""));
       if (disadvantageLabels.length > 0) foundry.utils.setProperty(config.midiOptions, "dialogOptions.adv-reminder.disadvantageLabels", disadvantageLabels);
 
-      // It seems that sometimes the option is true/false but when passed to the roll the critical threshold needs to be a number
-      if (config.midiOptions.critical === true || config.midiOptions.critical === false)
-        config.midiOptions.critical = this.criticalThreshold;
       if (config.midiOptions.fumble === true || config.midiOptions.fumble === false)
         delete config.midiOptions.fumble;
 

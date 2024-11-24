@@ -351,7 +351,7 @@ export async function onChatCardAction(event) {
   const authorId = message?.author?.id;
   // Validate permission to proceed with the roll
   if (!(game.user?.isGM || message?.isAuthor)) return;
-  if (!["damage", "attack", "rollAttack", "rollDamage", "confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
+  if (!["damage", "attack", "rollAttack", "rollDamage", "formula", "confirm-damage-roll-complete", "confirm-damage-roll-complete-hit", "confirm-damage-roll-complete-miss", "confirm-damage-roll-cancel", "applyEffects", "attack-adv", "attack-dis", "damage-critical", "damage-nocritical"].includes(action)) return;
   //@ts-expect-error
   if (!message?.author) return;
   const activityUuid = foundry.utils.getProperty(message, "flags.dnd5e.activity.uuid");
@@ -453,8 +453,13 @@ export async function onChatCardAction(event) {
       },
         { configure: false }, {});
       break;
+    case "formula": 
+      await activity.rollFormula({
+        midiOptions: { spellLevel, fastForward: true }
+      }, { configure: false }, {});
+      break;
     case "damage":
-    case "rollDamage":
+    // case "rollDamage":
       await activity.rollDamage({
         event,
         midiOptions: { spellLevel, fastForwardDamage: isAutoFastDamage() }

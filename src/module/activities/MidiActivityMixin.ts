@@ -130,7 +130,7 @@ export var MidiActivityMixin = Base => {
       } else dialog.configure = !(["both", "item"].includes(isAutoConsumeResource(this.workflow)));
     }
 
-    async rollDamage(config, dialog, message: any = {}) {
+    async rollDamage(config: any, dialog:any = {}, message: any = {}) {
       if (!config.midiOptions) config.midiOptions = {};
       if (debugEnabled > 0) {
         warn("MidiActivity | rollDamage | Called", config, dialog, message);
@@ -161,7 +161,7 @@ export var MidiActivityMixin = Base => {
           for (let roll of rollConfig.rolls) {
             if (keys.critical) roll.options.isCritical = true;
             else if (keys.normal) roll.options.isCritical = false;
-            else roll.options.isCritical = rollConfig.midiOptions.isCritical;
+            else if (!dialog.configure) roll.options.isCritical = rollConfig.midiOptions.isCritical;
             if (this.damage.critical.allow === false) roll.options.isCritical = false;
           }
           if (dialogConfig.configure) {
