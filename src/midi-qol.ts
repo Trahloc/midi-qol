@@ -677,6 +677,9 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     Workflow: class Workflow,
     moveToken: async function (tokenRef: Token | TokenDocument | UUID, newCenter: { x: number, y: number }, animate: boolean = true),
     moveTokenAwayFromPoint: async function (targetRef: Token | TokenDocument | UUID, distance: number, point: { x: number, y: number }, animate: boolean = true, checkCollision: boolean = true),
+    createEffects: async function (data: { actorUuid: string, effects: [], options: { keepId: true } }),
+    removeEffects: async function (data: { actorUuid: string, effects: [] }),
+    updateEffects: async function (data: { actorUuid: string, updates: [] })
   }
 });
 
@@ -814,6 +817,46 @@ function setupMidiQOLApi() {
       const targetUuid = getTokenDocument(targetRef)?.uuid;
       if (point && targetUuid && distance)
         return untimedExecuteAsGM("moveTokenAwayFromPoint", { targetUuid, distance, point, animate, checkCollision })
+    },
+    createEffects: async (data: { actorUuid: string, effects: [], options: { keepId: true } }) => {
+      const { actorUuid, effects, options } = data;
+      if (!actorUuid) {
+        console.error("Midi-QOL createEffects failed. Missing actorUuid")
+        return false;
+      }
+      if (effects?.length)
+        return untimedExecuteAsGM("createEffects", { actorUuid, effects, options });
+      else {
+        console.error("Midi-QOL createEffects failed with missing data, which should include {actorUuid, effects: [], options: {}} but got", data);
+        return false;
+      }
+    },
+    removeEffects: async (data: { actorUuid: string, effects: any[] }) => {  // data: {actorUuid, effects: [<effect.ids>]}
+      if (!data.actorUuid) {
+        console.error("Midi-QOL createEffects failed. Missing actorUuid")
+        return false;
+      };
+      if (!data.effects.length) {
+        console.error("Midi-QOL removeEffects failed with missing data, which should include {actorUuid, effects: [<effectIDs>],} but got", data)
+        return false;
+      }
+      const statusEffectIds = new Set(CONFIG.statusEffects.map((statusEffect) => statusEffect.id));
+
+      for (let i = 0; i < data.effects.length; i++) {
+        const statusId = data.effects[i];
+        if (statusEffectIds.has(statusId)) {
+          data.effects[i] = getStaticID(statusId);
+        }
+      }
+      return untimedExecuteAsGM("removeEffects", data);
+    },
+    updateEffects: async (data: { actorUuid: string, updates: [] }) => {
+      if (data.actorUuid && data.updates?.length)
+        return untimedExecuteAsGM("updateEffects", data);
+      else {
+        console.error("Midi-QOL updateEffects failed missing data which should include {actorUuid, updates: []} but got", data)
+        return false;
+      }
     }
   });
   globalThis.MidiDAEEval = {
