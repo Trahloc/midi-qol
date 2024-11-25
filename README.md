@@ -16,7 +16,7 @@ It has LOTS of configuration options which can be daunting.
 
 ## Available versions
 
-- MidiQOL v11.4.48 is compatible with Foundry v12 (all the way to .331) and dnd5e v3.2.9.
+- MidiQOL v11.4.48 is compatible with Foundry v12 (all the way to .331) and dnd5e up to v3.2.x.
 - MidiQOL v11.6.x is compatible with dnd5e v3.3.x.
 - MidiQOL v12.x is a beta build if someone wants to test for dnd5e v4.x. Non game ready and none of the premade modules are compatible at all (needs DAE v12.x too).
 
