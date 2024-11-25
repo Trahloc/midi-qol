@@ -63,17 +63,8 @@ Over time I have come up with some items that I use in my game, which I think ot
 
 [TOC]
 
-# Changes in dnd5e 1.5:
-
-## Enhanced dnd5e critical damage effects. 
-You can make most of the changes that midi-qol supports for critical hits via the new game settings (max base dice, double modifiers as well as dice) and per weapon settings (additional dice). If you want to use the dnd5e critical damage fields set the midi-qol critical damage to "dnd5e default"
-
-You will need to experiment to confirm the interaction of the dnd5e critical damage flags and the midi-qol settings, however if you use the dnd5e default setting in midi-qol the rolls will not be modified by midi in any way and the dnd5e system will operate.
-
-Midi-qol supports exploding dice for critical hit dice if enabled.
-
 # Changelog
-https://gitlab.com/tposney/midi-qol/-/blob/master/Changelog.md
+https://gitlab.com/tposney/midi-qol/-/blob/v11.6/Changelog.md
 
 # Symbiotic Modules
 I don't spend a lot of time examining all of the modules that are written (and there are hundreds) so it is almost certain that other modules can substitute for the Highly Recommended/Good to Have just as well. If your favorite module is not in the list, it probably means I just don't know about it, so don't take the absence of a module from this list as a negative - it simply reflects my ignorance.
@@ -314,6 +305,13 @@ If you are not using convenient effects you can set this up much more flexibly i
 
 **Add defeated when HP === 0**. The dnd5e defeated condition will automatically be added to the token if it's hp fall to 0.
 
+## Enhanced dnd5e critical damage effects. 
+You can make most of the changes that midi-qol supports for critical hits via the new game settings (max base dice, double modifiers as well as dice) and per weapon settings (additional dice). If you want to use the dnd5e critical damage fields set the midi-qol critical damage to "dnd5e default"
+
+You will need to experiment to confirm the interaction of the dnd5e critical damage flags and the midi-qol settings, however if you use the dnd5e default setting in midi-qol the rolls will not be modified by midi in any way and the dnd5e system will operate.
+
+Midi-qol supports exploding dice for critical hit dice if enabled.
+
 ## Custom Sounds Complete rewrite as of v0.9.29
 Existing custom sounds will be disabled.
   
@@ -350,7 +348,7 @@ Existing custom sounds will be disabled.
 ## Other QOL settings
 * **Add attack damage buttons to the inventory** If enabled then a set of buttons (to bypass the midi-qol behaviour) are added to the description drop-down in the inventory.
 * **Fast-forward ability rolls** If enabled, allows you to bypass the advantage/disadvantage question when rolling ability saves/checks; ctrl/alt are supported.
-* **Critical Damage Type** adds options for how critical damage is treated. Only in core 0.7+.
+* **Critical Damage Type** adds options for how critical damage is treated.
 * **Add Damage Buttons to Chat** If enabled then any dnd5e standard damage roll (not mess/BR etc.) will have damage buttons added that appear on hovering over the card, provided a token is selected and allow applying damage to the **SELECTED** token, the damage immunities setting is used. This is the only place where midi-qol uses the selected token rather than targeted.
 * **Item Delete Check** Displays a confirmation dialog if an item is deleted from the inventory.
 * **Colored Border** Use the player color to put a colored border and/or color the actor/token name on chat messages.
