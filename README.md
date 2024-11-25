@@ -25,9 +25,12 @@ It has LOTS of configuration options which can be daunting.
 - **12.0.0** will be v12 only and dnd5e v4.x compatible. Tentative date end of November.
 
 # Bug reports
-**Important** When submitting a bug report ALWAYS include your exported (from the misc tab) midi-qol settings. I really can't work out what is going on without them.
+**Important** When submitting a bug report ALWAYS include either:
+* your exported Troubleshooter data file, from the relevant menu in MidiQOL settings,
+* or your exported (from the misc tab) midi-qol settings.
+I really can't work out what is going on without them.
 
-The export settings exports all of your midi-qol settings, plus a list of the active modules you have installed. No world information is exported. The list of active modules can be very useful to me in debugging.
+No world information is exported. The list of active modules can be very useful to me in debugging.
 
 # midi-qol
 Midi-qol is a replacement for minor-qol and you should not have both modules active at the same time.  (Both can be INSTALLED at the same time, but only one should be ACTIVATED.)  Because there are some subtle differences in the way the midi-qol works compared to minor-qol you will need to experiment with the settings.
