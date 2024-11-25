@@ -46,7 +46,7 @@ let enableSheetQOL = (app, html, data) => {
       html.find('.config-button[data-action="senses').parent().parent().parent().append(`<div>
       <label>${i18n("midi-qol.ActorOnUseMacros")}</label>
       <a class="config-button midiqol-onuse-macros" data-action="midi-onuse-macros" title="midi onuse macros">
-        <i class="fas fa-cog"></i>
+        <i class="fas fa-gear"></i>
       </a>
       </div>`);
       html.find(".midiqol-onuse-macros").click(ev => {
@@ -192,7 +192,7 @@ function addTidy5eItemSheetButtons(app, html, data) {
         case "spell":
         case "power":
         case "feat":
-          buttons.append(`<a class="button" data-action="basicRoll" title="${i18n("midi-qol.buttons.roll")}"><i class="fas fa-comment-alt"></i> ${i18n("midi-qol.buttons.roll")}</a>`);
+          buttons.append(`<a class="button" data-action="basicRoll" title="${i18n("midi-qol.buttons.roll")}"><i class="fas fa-message"></i> ${i18n("midi-qol.buttons.roll")}</a>`);
           if (item.hasAttack)
             buttons.append(`<a class="button" data-action="attack" title="Roll standard/advantage/disadvantage ${i18n("midi-qol.buttons.attack")}"><i class="fas fa-dice-d20"></i> ${i18n("midi-qol.buttons.attack")}</a>`);
           if (itemHasDamage(item))
@@ -211,7 +211,7 @@ function addTidy5eItemSheetButtons(app, html, data) {
           buttonsWereAdded = true;
           break;
       }
-      buttons.append(`<a class="button" data-action="info" title="${i18n("midi-qol.buttons.info")}"><i class="fas fa-info-circle"></i> ${i18n("midi-qol.buttons.info")}</a>`);
+      buttons.append(`<a class="button" data-action="info" title="${i18n("midi-qol.buttons.info")}"><i class="fas fa-circle-info"></i> ${i18n("midi-qol.buttons.info")}</a>`);
       buttonsWereAdded = true;
       if (buttonsWereAdded) {
         // adding the buttons to the sheet

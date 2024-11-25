@@ -3842,7 +3842,7 @@ export class Workflow {
         isPC: isPlayerOwned,
         target,
         saveString,
-        saveSymbol: saved ? "fa-check" : "fa-times",
+        saveSymbol: saved ? "fa-check" : "fa-xmark",
         saveTotalClass: target.actor.hasPlayerOwner ? "" : "midi-qol-npc-save-total",
         rollTotal: saveRollTotal,
         rollDetail: saveRoll,
@@ -4276,10 +4276,10 @@ export class Workflow {
         hitSymbol = "fa-check-double"
       } else if (game.user?.isGM && this.isFumble && ["hitDamage", "all"].includes(configSettings.hideRollDetails)) {
         isHitResult = "miss";
-        hitSymbol = "fa-times";
+        hitSymbol = "fa-xmark";
       } else if (this.isFumble) {
         isHitResult = "fumble";
-        hitSymbol = "fa-times";
+        hitSymbol = "fa-xmark";
       } else if (isHit) {
         isHitResult = "hit";
         hitSymbol = "fa-check";
@@ -4291,7 +4291,7 @@ export class Workflow {
         hitSymbol = "fa-check";
       } else {
         isHitResult = "miss";
-        hitSymbol = "fa-times";
+        hitSymbol = "fa-xmark";
       }
       let hitStyle = "";
       /* success highlighting needs to be in chatmessage handling

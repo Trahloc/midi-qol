@@ -2,7 +2,7 @@
   <!-- Statistics Tabs -->
   <nav class="tabs" data-group="primary-tabs">
     <a class="item" data-tab="stats"><i class="fas fa-dice-d20"></i> {{localize "midi-qol.RollStats"}}</a>
-    <a class="item" data-tab="config"><i class="fas fa-cogs"></i> {{localize "midi-qol.RollStatsConfig"}}</a>
+    <a class="item" data-tab="config"><i class="fas fa-gears"></i> {{localize "midi-qol.RollStatsConfig"}}</a>
   </nav>
 
 
@@ -13,7 +13,7 @@
       <div class="form-group">
         <div class="midi-qol-box" id={{@key}}>
           <div class="midi-qol-target-name" id="@key">
-            <h4><i class="fas fa-arrows-alt-v"></i> {{this.name}}</h4>
+            <h4><i class="fas fa-up-down-left-right-v"></i> {{this.name}}</h4>
           </div>
           <div id={{@key}}-X>
             <table>
@@ -96,22 +96,22 @@
     <div class="tab" data-tab="config">
       {{#if isGM}}
       <button type="button" name="clear" id="clear-stats">
-        <i class="fas fa-save"></i> {{localize "midi-qol.ClearStats"}}
+        <i class="fas fa-floppy-disk"></i> {{localize "midi-qol.ClearStats"}}
       </button>
       <button type="button" name="clear" id="export-stats-json">
-        <i class="fas fa-save"></i> {{localize "midi-qol.ExportJSON"}}
+        <i class="fas fa-floppy-disk"></i> {{localize "midi-qol.ExportJSON"}}
       </button>
       <button type="button" name="clear" id="export-stats-csv">
-        <i class="fas fa-save"></i> {{localize "midi-qol.ExportCSV"}}
+        <i class="fas fa-floppy-disk"></i> {{localize "midi-qol.ExportCSV"}}
       </button>
       <button type="button" name="clear" id="end-session">
-        <i class="fas fa-save"></i> {{localize "midi-qol.EndSession"}}
+        <i class="fas fa-floppy-disk"></i> {{localize "midi-qol.EndSession"}}
       </button>
       {{/if}}
       <div class="midi-qol-box">
         {{#each stats}}
         <button type="button" name="remove-{{this.name}}" id=remove-stats-{{@key}}>
-          <i class="fas fa-cogs"></i> {{localize "midi-qol.RemoveStats"}} {{this.name}}
+          <i class="fas fa-gears"></i> {{localize "midi-qol.RemoveStats"}} {{this.name}}
         </button>
         {{/each}}
       </div>
