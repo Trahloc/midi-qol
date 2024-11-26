@@ -105,9 +105,6 @@ As already mentioned I don't look at lots of modules, so there will be others th
 ## Dice So Nice
 Midi generally works with dice so nice, but the interactions are more complicated with the merge card.
 
-## Let Me Roll That For You
-Midi-qol can use Let Me Roll That For You for player/gm saving throws and is the preferred roller. There is a "feature" that LMRTFY returns the roll result to midi before the 3d dice have finished rolling, so you may see the saves display before the dice finish doing their thing.
-
 ## Monks Token Bar
 Midi-qol can use Monk's Token Bar to roll saves. **Update** adv/dis advantage for magic resistance/concentration now work with MTB.
 
@@ -121,14 +118,14 @@ If you generally use convenient effects you would disable the convenient effect 
 
 There is an additional check box available on the item sheet, for items that have corresponding convenient effects. The check box reverses the "apply convenient effects setting" for that item. If you have "auto apply convenient effect" set to true, the check box will disable the auto application for that one item. Similarly, if you have "auto apply convenient effect" set to false, the check box will enable the auto application for that one item. 
 
-## levels
+## Levels
 - Midi-qol will use the levels wall collision detection for its distance calculations/LOS calculations.
 
 ## levelVolumetricTemplates
 - Midi-qol will use levels volumetric template target calculations if installed.
 
 ## Ready Set Roll
-Currently **not** compatible with midi-qol.
+**Not** compatible with midi-qol.
 
 ## Magic Items
 **(Thanks to @simone for his help)**
@@ -140,9 +137,6 @@ Midi-qol breaks the blind chats by hidden GM feature of cautious GM.
 
 ## Chat Portraits
  If using Chat Portraits, the changes made by midi-qol to the token/actor name in chat cards are overwritten/lost. Choose which sort of highlighting you want - only one will work. Otherwise, all seems to work.
-
-## Maestro
-Maestro looks for the attack roll chat card in the chat log to play its critical/attack/fumble sounds. If you are using the merge card then the attack roll card is never created and Maestro can't play its sounds. You can use the midi-qol custom sounds instead.
 
 ## Item Macro
 No more needed, as DAE has its own macro editor that is preferable.
@@ -165,11 +159,6 @@ Things to keep in mind:
 
 ## FVTTEncounterStats. 
 This module keeps very detailed stats about each encounter you run and is fully compatible with midi-qol. If keeping game stats is your thing it's worth a look. Much better and more informative than the midi inbuilt rollStats.
-
-## Minor Roll Enhancements.
-* Generally not compatible.
-* You can use MRE to manage accelerator keys, provided you set it to be registered first in libWrapper settings.
-* I've only done a little bit of playing with the attack/damage behaviour, but it seems to be incompatible with midi.
 
 ## Advantage Reminder for dnd5e
 If you don't fast-forward rolls this does a good job of highlight the default advantage/disadvantage/critical status of a roll.  
