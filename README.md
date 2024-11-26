@@ -85,7 +85,6 @@ You can probably survive without these but midi pretty much assumes they are ins
 * **Automated Animations** - If you have the **jb2a** module this will automatically add lots of animations to spell/weapon effects.
 * **Token Magic** - lets you add some spiffy graphical effects to spells.
 * **SmallTime** - to make time advancement easy.
-* **libChangeLogs** - will show the midi change log when it changes.
 * **Build-A-Bonus** This module allows more complex bonuses to be calculated than dae/midi support by default. The bonus can be attached to an actor/item/active effect. 
 * **Effect Macros** provides another way to trigger behaviour when an effect is applied, combat updates and so on. Allows for more complex over time type effects via macros. The down side is that it does not include all of the midi data that onUseMacros get, but you can use flags.midi-qol...., flags.dae to set some of the values you might need
 
