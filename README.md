@@ -156,16 +156,10 @@ Things to keep in mind:
 * Midi will look only at the foundry data, so it is up to you to keep things synchronised between the two.
 * Effects that increase attack bonus/damage dealt (when applied in foundry) will have no effect on attack/damage rolls made on DND Beyond. Midi **will** take into account effects that change AC (when checking hits), damage resistance, etc. when applying damage.
 
-## FVTTEncounterStats. 
-This module keeps very detailed stats about each encounter you run and is fully compatible with midi-qol. If keeping game stats is your thing it's worth a look. Much better and more informative than the midi inbuilt rollStats.
-
 ## Advantage Reminder for dnd5e
 If you don't fast-forward rolls this does a good job of highlight the default advantage/disadvantage/critical status of a roll.  
 Reminders also lets you highlight when a saving throw might meet advantage which midi can't process (e.g. advantage on poison saves).  
 Thanks to @kaelad for highlighting a midi problem, as of 0.9.11 midi is compatible with Advantage Reminder for attack and damage rolls.
-
-## GM Paranoia
-Midi-qol is not compatible with GM paranoia.
 
 # Short Guide to configuration settings
 The heading says short, but it really isn't.
