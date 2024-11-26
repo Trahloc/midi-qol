@@ -20,10 +20,6 @@ It has LOTS of configuration options which can be daunting.
 - MidiQOL v11.6.x is compatible with dnd5e v3.3.x.
 - MidiQOL v12.x is a beta build if someone wants to test for dnd5e v4.x. Non game ready and none of the premade modules are compatible at all (needs DAE v12.x too).
 
-## Future releases **tentative** timetable
-
-- **12.0.0** will be v12 only and dnd5e v4.x compatible. Tentative date end of November.
-
 # Bug reports
 **Important** When submitting a bug report ALWAYS include either:
 * your exported Troubleshooter data file, from the relevant menu in MidiQOL settings,
