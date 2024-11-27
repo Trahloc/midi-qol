@@ -30,18 +30,36 @@ let defineMidiHealActivityClass = (ActivityClass: any) => {
         sheetClass: MidiHealSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
+          actions: {
+            rollDamage: MidiHealActivity.#rollDamage
+          }
         },
-      }, { overwrite: true })
+      }, { insertKeys: true, insertValues: true })
 
+    static #rollDamage(event, target, message) {
+      //@ts-expect-error
+      return this.rollDamage(event);
+    }
     get isOtherActivityCompatible() { return true }
 
-    async rollDamage(config, dialog, message) {
+    async rollDamage(config: any = {}, dialog: any = {}, message: any = {}) {
       config.midiOptions ??= {};
       config.midiOptions.fastForwardHeal = game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward);
       config.midiOptions.fastForwardDamage = game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward);
       return super.rollDamage(config, dialog, message);
     }
     
+    /*
+    getDamageConfig(config: any ={}) {
+      if ( !this.healing.formula ) return foundry.utils.mergeObject({ rolls: [] }, config);
+  
+      const rollConfig:any = foundry.utils.mergeObject({ critical: { allow: false }, scaling: 0 }, config);
+      const rollData = this.getRollData();
+      rollConfig.rolls = [this._processDamagePart(this.healing, rollConfig, rollData)].concat(config.rolls ?? []);
+  
+      return rollConfig;
+    }
+    */
     async _triggerSubsequentActions(config, results) {
     }
   }

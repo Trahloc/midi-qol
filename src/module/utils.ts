@@ -1368,12 +1368,23 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
         // Magic items create a pseudo item when doing the roll so have to hope we get the right completion
         abortHookName = "midi-qol.preAbort";
       }
+      const castHookName = `${game.system.id}.postUseLinkedSpell`;
+      const castHookId = Hooks.once(castHookName, (activity, usage, results) => {
+        // dependent activity fired
+        Hooks.off(abortHookName, abortHookId);
+        Hooks.off(completeHookName, completeHookId);
+        if (debugEnabled > 0) warn(`spell use hook fired: ${activity.item?.name} ${completeHookName}`)
+
+        game.user?.updateTokenTargets(saveTargets);
+        resolve(activity);
+      });
       const abortHookId = Hooks.once(abortHookName, (workflow) => {
         Hooks.off(completeHookName, completeHookId);
+        Hooks.off(castHookName, castHookId);
         if (debugEnabled > 0) warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`)
         console.warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`);
         game.user?.updateTokenTargets(saveTargets);
-        resolve(workflow);
+        resolve(workflow.activity);
       });
 
       let completeHookName = `midi-qol.postCleanup.${activity.uuid}`;
@@ -1383,10 +1394,11 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
       }
       const completeHookId = Hooks.once(completeHookName, (workflow) => {
         Hooks.off(abortHookName, abortHookId);
+        Hooks.off(castHookName, castHookId);
         if (debugEnabled > 0) warn(`completeActivityUse complete hook fired: ${workflow.workflowName} ${completeHookName}`)
         game.user?.updateTokenTargets(saveTargets);
         console.warn(`completeActivityUse complete hook fired: ${workflow.workflowName} ${completeHookName}`);
-        resolve(workflow);
+        resolve(workflow.activity);
       });
       config.midiOptions.targetsToUse = targetsToUse;
       activity.use(config, dialog, message).then(result => { if (!result) resolve(result) });
@@ -1399,7 +1411,7 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
       activityUuid: activity.uuid,
       actorUuid: activity.item.parent.uuid,
       config: newConfig,
-      dialog, 
+      dialog,
       message
     }
     const asUserActive = game.users?.get(config.midiOptions.asUser)?.active;
@@ -1432,7 +1444,8 @@ export async function completeItemUseV2(item, config: any = {}, dialog: any = {}
     error(`completeItemUseV2 | item ${item.name} ${item.uuid} does not have an activity`);
     return undefined;
   }
-  return await completeActivityUse(activity, config, dialog, message);
+  // TODO check that this makes sense now
+  return (await completeActivityUse(activity, config, dialog, message))?.workflow;
 }
 
 export function untargetAllTokens(...args) {
@@ -3591,43 +3604,6 @@ function maxCastLevel(actor) {
   return pactLevel;
 }
 
-async function getMagicItemReactions(actor: Actor, triggerType: string): Promise<ReactionItem[]> {
-  //@ts-expect-error .api
-  const api = game.modules.get("magicitems")?.api ?? game.modules.get("magic-items-2")?.api;
-  if (!api) return [];
-  const items: ReactionItem[] = [];
-  try {
-    const magicItemActor: any = await api.actor(actor);
-    if (!magicItemActor) return [];
-    for (let magicItem of magicItemActor.items) {
-      try {
-        if (!magicItem.active) continue;
-        for (let spell of magicItem.spells) {
-          const theSpell: any = await fromUuid(spell.uuid);
-          if (theSpell.system.activation.type.includes("reaction")) {
-            items.push({ "itemName": magicItem.name, itemId: magicItem.id, "actionName": spell.name, "img": spell.img, "id": spell.id, "uuid": spell.uuid, baseItem: theSpell });
-          }
-        }
-        for (let feature of magicItem.feats) {
-          const theFeat: any = await fromUuid(feature.uuid)
-          if (theFeat.system.activation.type.includes("reaction")) {
-            items.push({ "itemName": magicItem.name, itemId: magicItem.id, "actionName": feature.name, "img": feature.img, "id": feature.id, "uuid": feature.uuid, baseItem: theFeat });
-          }
-        }
-      } catch (err) {
-        const message = `midi-qol | err fetching magic item ${magicItem.name}`;
-        console.error(message, err);
-        TroubleShooter.recordError(err, message);
-      }
-    }
-  } catch (err) {
-    const message = `midi-qol | getMagicItemReactions | Fetching magic item spells/features on ${actor.name} failed - ignoring`;
-    TroubleShooter.recordError(err, message);
-    console.error(message, err);
-  }
-  return items;
-}
-
 async function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
   //TODO most of the checks need to be activity checks
   if (!item.system.activities) return false;
@@ -3636,22 +3612,10 @@ async function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
     if (activity.activation.type !== "reaction") {
       console.warn(`midi-qol | itemReaction | item ${item.name} ${activity.name} has a reaction type of ${activity.activation.type} which is deprecated - please update to reaction and reaction conditions`)
     }
-
     if ((activity.activation?.value ?? 1) > 0 && onlyZeroCost) continue; // TODO can't specify 0 cost reactions in dnd5e 4.x - have to find another way
-    if (item.type === "spell") {
-      if (configSettings.ignoreSpellReactionRestriction) return true;
-      if (["atwill", "innate"].includes(item.system.preparation.mode)) return true;
-      if (item.system.level === 0) return true;
-      if (item.system.preparation?.prepared !== true && item.system.preparation?.mode === "prepared") continue;
-      if (item.system.level <= maxLevel) return true;
-    }
-
     if (!item.system.attuned && item.system.attunement === "required") continue;
-    const canUse = await activity._prepareUsageUpdates({ consume: true });
-    if (canUse) return true;
+    return true;
   }
-  //if (item._getUsageUpdates({ consumeUsage: item.hasLimitedUses, consumeResource: item.hasResource, slotLevel: false }))
-  //  return true;
   return false;
 }
 
@@ -3706,43 +3670,70 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     if (!player || !player.active) player = ChatMessage.getWhisperRecipients("GM").find(u => u.active);
     if (!player) return noResult;
     const maxLevel = maxCastLevel(target.actor);
-    enableNotifications(false);
+    // enableNotifications(false);
     let reactions: ReactionItem[] = [];
     let reactionCount = 0;
     let reactionActivityList: ReactionItemReference[] = [];
     try {
-      let possibleReactions: ReactionItem[] = [];
-      for (let item of target.actor.items) {
-        if (await itemReaction(item, triggerType, maxLevel, usedReaction)) possibleReactions.push(item);
-      }
-      //let possibleReactions: ReactionItem[] = target.actor.items.filter(item => temReaction(item, triggerType, maxLevel, usedReaction));
-      if (false && getReactionSetting(player) === "allMI" && !usedReaction) {
-        // possibleReactions = possibleReactions.concat(await getMagicItemReactions(target.actor, triggerType));
-      }
-      for (let item of possibleReactions) {
+      const items: any = target.actor.items;
+      for (let item of items) {
         const theItem = item instanceof Item ? item : item.baseItem;
+
+        if (!theItem.system.activities) continue;
         for (let activity of theItem.system.activities) {
+          const activationType = item.system.linkedActivity?.activation.type  ??
+            activity.activation?.type;
+          if (!activationType?.includes("reaction")) continue;
+          if (activationType !== "reaction") {
+            console.warn(`midi-qol | itemReaction | item ${item.name} ${activity.name} has a reaction type of ${activity.activation.type} which is deprecated - please update to reaction and reaction conditions`)
+          }
+          if ((activity.activation?.value ?? 1) > 0 && usedReaction) continue; // TODO can't specify 0 cost reactions in dnd5e 4.x - have to find another way
+          if (!item.system.attuned && item.system.attunement === "required") continue;
           let reactionCondition = activity.reactionCondition;
+          let isValid = false;
+          // cast activities will get picked up by the spells they create on the actor
+          if (activity instanceof GameSystemConfig.activityTypes.cast.documentClass) continue;
+          if (item.type === "spell") {
+            if (item.system.linkedActivity) {
+              if (!theItem.system.linkedActivity.item.system.magicAvailable
+                || !theItem.system.linkedActivity.item.system.equipped) continue;
+              const config = activity._prepareUsageConfig({create: false});
+              const canUse = await activity._prepareUsageUpdates( config, { returnErrors: true });
+              if (canUse instanceof Array) continue; // insufficent uses available
+              isValid = true;
+            } else if (configSettings.ignoreSpellReactionRestriction) isValid = true;
+            else if (["atwill", "innate"].includes(item.system.preparation.mode)) isValid = true;
+            else if (item.system.level === 0) isValid = true;
+            else if (item.system.preparation?.prepared !== true && item.system.preparation?.mode === "prepared") continue;
+            else if (item.system.level <= maxLevel) isValid = true;
+          } else {
+            const config = activity._prepareUsageConfig({create: false});
+            const canUse = await activity._prepareUsageUpdates(config, { returnErrors: true });
+            if (canUse instanceof Array) continue; // insufficent uses available
+          }
+          if (!isValid) continue;
           if (reactionCondition) {
             if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using condition ${reactionCondition}`);
             const returnvalue = await evalReactionActivationCondition(options.workflow, reactionCondition, target, { async: true, extraData: { reaction: reactionTriggerLabelFor(triggerType) } });
-            if (returnvalue) reactions.push(activity);
+            if (!returnvalue) continue;
           } else {
             if (debugEnabled > 0) warn(`for ${target.actor?.name} ${theItem.name} using ${triggerType} filter`);
-            if (activity.activation?.type === triggerType || (triggerType === "reactionhit" && activity.activation?.type === "reaction"))
-              reactions.push(activity);
+            if (!(activity.activation?.type === triggerType || (triggerType === "reactionhit" && activity.activation?.type === "reaction")))
+              continue;
           }
+          reactions.push(activity);
         }
       };
 
       if (debugEnabled > 0)
-        warn(`doReactions ${triggerType} for ${target.actor?.name} ${target.name}`, reactions, possibleReactions);
+        warn(`doReactions ${triggerType} for ${target.actor?.name} ${target.name}`, reactions);
       reactionActivityList = reactions.map(activity => {
         return activity.uuid;
         // magic item details return { "itemName": item.itemName, itemId: item.itemId, "actionName": item.actionName, "img": item.img, "id": item.id, "uuid": item.uuid };
       });
     } catch (err) {
       const message = `midi-qol | fetching reactions`;
+      console.error(message);
       TroubleShooter.recordError(err, message);
     } finally {
       enableNotifications(true);
@@ -4014,25 +4005,9 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
           if (activity.item instanceof CONFIG.Item.documentClass) { // a nomral item}
             const config = { midiOptions: itemRollOptions };
             result = await completeActivityUse(activity, config, {}, {});
-            if (result.currentAction !== result.WorkflowState_Cleanup) resolve(noResult);
+            if (result?.workflow && result.workflow !== result.WorkflowState_Cleanup) resolve(noResult);
             else resolve({ name: activity?.name, uuid: activity?.uuid, itemName: activity.item.name, itemUuid: activity.item.uuid })
-          } else if (false) { // assume it is a magic item item
-            //@ts-expect-error
-            const api = game.modules.get("magicitems")?.api ?? game.modules.get("magic-items-2")?.api;
-            if (api) {
-              let item;
-              const magicItemActor = await api?.actor(actor)
-              if (magicItemActor) {
-                // export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | string;
-                const magicItem = magicItemActor.items.find(i => i.id === item.itemId);
-                await completeItemUse({ magicItem, id: item.id }, {}, itemRollOptions);
-                resolve({ name: item?.itemName, uuid: item?.uuid })
-
-              }
-              resolve({ name: item?.itemName, uuid: item?.uuid })
-            } else resolve(noResult);
           }
-
         }
         // actor.reset();
         resolve(noResult)
@@ -4112,9 +4087,14 @@ class ReactionDialog extends Application {
   }
   getData(options) {
     this.data.buttons = this.data.activities.reduce((acc: {}, activity: any) => {
+      let name = `${activity.item.name}: ${activity.name ?? activity.actionName}`;
+      if (activity.item.system.linkedActivity) {
+        const linked = activity.item.system.linkedActivity;
+        name = `${linked.item.name}: ${linked.name ?? linked.actionName}`;
+      }
       acc[foundry.utils.randomID()] = {
         // icon: `<image src=${item.img} width="30" height="30">`,
-        label: `<div style="display: flex; align-items: center; margin: 5px;"> <image src=${activity.item.img} width="40" height="40"> &nbsp ${activity.item.name}:${activity.name ?? activity.actionName} </div>`,
+        label: `<div style="display: flex; align-items: center; margin: 5px;"> <image src=${activity.item.img} width="40" height="40"> &nbsp ${name} </div>`,
         value: activity.name ?? activity.actionName,
         key: activity.uuid,
         callback: this.data.callback,
@@ -6370,23 +6350,25 @@ export function doSyncRoll(roll, source: string | undefined) {
     return roll.evaluateSync()
 }
 
-export function setRollMinDiceTerm(roll: Roll, minValue: number) {
-  roll.dice.forEach(d => {
+export function setRollMinDiceTerm(roll: Roll, minValue: number, count = 1) {
+  for (const [i, d] of roll.dice.entries()) {
+    if (i >= count) break;
     d.results.forEach(r => {
-      if (r.result < minValue) r.result = minValue;
+      if (r.result < minValue) r.result = Math.min(minValue, d.faces);
     });
-  });
+  };
   //@ts-expect-error
   roll._total = roll._evaluateTotal();
   return roll;
 }
 
-export function setRollMaxDiceTerm(roll: Roll, maxValue: number) {
-  roll.dice.forEach(d => {
+export function setRollMaxDiceTerm(roll: Roll, maxValue: number, count = 1) {
+  for (const [i, d] of roll.dice.entries()) {
+    if (i >= count) break;
     d.results.forEach(r => {
-      if (r.result > maxValue) r.result = maxValue;
+      if (r.result > maxValue) r.result = Math.max(1, maxValue);
     });
-  });
+  };
   //@ts-expect-error
   roll._total = roll._evaluateTotal();
   return roll;
@@ -6563,7 +6545,7 @@ export function getCheckRollModeFor(abilityId) {
 }
 
 export function areMidiKeysPressed(event, action) {
-  if ( !event ) return false;
+  if (!event) return false;
   const activeModifiers = {};
   const KeyBoardManager = game.keyboard;
   //@ts-expect-error
@@ -6581,8 +6563,8 @@ export function areMidiKeysPressed(event, action) {
   addModifiers(MODIFIER_KEYS.ALT, event.altKey);
   return ClientKeyBindings.get("midi-qol", action).some(b => {
     //@ts-expect-error
-    if ( KeyBoardManager.downKeys.has(b.key) && b.modifiers.every(m => activeModifiers[m]) ) return true;
-    if ( b.modifiers.length ) return false;
+    if (KeyBoardManager.downKeys.has(b.key) && b.modifiers.every(m => activeModifiers[m])) return true;
+    if (b.modifiers.length) return false;
     return activeModifiers[b.key];
   });
 }

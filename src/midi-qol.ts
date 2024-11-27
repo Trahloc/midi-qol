@@ -440,7 +440,7 @@ Hooks.once('ready', function () {
     "preActiveEffects": "Before Active Effects",
     "postActiveEffects": "After Active Effects ",
     "isTargeted": "Target is targeted but before item is rolled",
-    "isPreAttacked": "Target is about to be attacked, before reactions are checked",
+    "isPreAttacked": "Target is about to be attacked, before reactions",
     "isAttacked": "Target is attacked",
     "isHit": "Target is hit",
     "preTargetSave": "Target is about to roll a saving throw",

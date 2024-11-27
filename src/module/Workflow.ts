@@ -379,13 +379,13 @@ export class Workflow {
     const chatMessage = getCachedDocument(itemCardUuid);
     let content = chatMessage?.content && foundry.utils.duplicate(chatMessage.content);
     if (!content) return;
-    const confirmMissRe = /<button class="midi-qol-confirm-damage-roll-complete-miss" data-action="confirm-damage-roll-complete-miss">[^<]*?<\/button>/;
+    const confirmMissRe = /<button class="midi-qol-confirm-damage-roll-complete-miss" data-action="confirmDamageRollCompleteMiss">[^<]*?<\/button>/;
     content = content?.replace(confirmMissRe, "");
-    const confirmRe = /<button class="midi-qol-confirm-damage-roll-complete" data-action="confirm-damage-roll-complete">[^<]*?<\/button>/;
+    const confirmRe = /<button class="midi-qol-confirm-damage-roll-complete" data-action="confirmDamageRollComplete">[^<]*?<\/button>/;
     content = content?.replace(confirmRe, "");
-    const confirmHitRe = /<button class="midi-qol-confirm-damage-roll-complete-hit" data-action="confirm-damage-roll-complete-hit">[^<]*?<\/button>/;
+    const confirmHitRe = /<button class="midi-qol-confirm-damage-roll-complete-hit" data-action="confirmDamageRollCompleteHit">[^<]*?<\/button>/;
     content = content?.replace(confirmHitRe, "");
-    const cancelRe = /<button class="midi-qol-confirm-damage-roll-cancel" data-action="confirm-damage-roll-cancel">[^<]*?<\/button>/;
+    const cancelRe = /<button class="midi-qol-confirm-damage-roll-cancel" data-action="confirmDamageRollCancel">[^<]*?<\/button>/;
     content = content?.replace(cancelRe, "");
     // TODO come back and make this cached.
     return debouncedUpdate(chatMessage, { content });
@@ -401,9 +401,8 @@ export class Workflow {
       // const otherAttackRe = /<button data-action="attack">[^<]*<\/button>/;
       const damageRe = /<div class="midi-qol-damage-buttons[^"]*">[\s\S]*?<\/div>/
       const versatileRe = /<button class="midi-qol-versatile-damage-button" data-action="versatile">[^<]*<\/button>/
-      const otherDamageRe = /<button class="midi-qol-otherDamage-button" data-action="formula">[^<]*<\/button>/
-
-      const formulaRe = /<button data-action="formula">[^<]*<\/button>/
+      const otherDamageRe = /<button class="midi-qol-otherDamage-button" data-action="rollDamage">[^<]*<\/button>/
+      const formulaRe = /<button data-action="rollFormula">[^<]*<\/button>/
       if (removeAttackButtons) {
         content = content?.replace(attackRe, "")
       }
@@ -453,6 +452,7 @@ export class Workflow {
       } else {
         await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid);
         await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
+        await workflow.removeEffectsButton();
         setTimeout(() => {
           const chatmessageElt = document?.querySelector(`[data-message-id="${workflow.itemCardId ?? "XXX"}"]`);
           if (chatmessageElt) chatmessageElt?.querySelectorAll(".collapsible").forEach(ce => { if (!ce.classList.contains("collapsed")) ce.classList.add("collapsed") });
@@ -836,6 +836,7 @@ export class Workflow {
     if (!this.activity.attack) {
       this.hitTargets = new Set(this.targets);
       this.hitTargetsEC = new Set();
+      if (this.activity.roll?.formula) return this.WorkflowState_WaitForUtilityRoll;
       return this.WorkflowState_WaitForDamageRoll;
     }
 
@@ -875,6 +876,7 @@ export class Workflow {
       // REFACTOR -await
       const rolls = await this.activity.rollAttack({event: this.event,  midiOptions: this.rollOptions }, {}, {});
       if (!rolls || this.abort) return this.WorkflowState_Abort;
+      if (this.activity.roll?.formula) return this.WorkflowState_WaitForUtilityRoll;
       return this.WorkflowState_AttackRollComplete;
     }
     return this.WorkflowState_Suspend;
@@ -1096,8 +1098,20 @@ export class Workflow {
       this.hitTargetsEC = new Set();
       return this.WorkflowState_ApplyDynamicEffects;
     }
-
     return this.WorkflowState_WaitForSaves;
+  }
+
+  async WorkflowState_WaitForUtilityRoll(context: any = {}): Promise<WorkflowState> {
+    if (!this.activity.roll?.formula || context.utilityRoll) return this.WorkflowState_UtilityRollComplete;
+    if (getAutoRollDamage(this) !== "none") {
+      this.utilityRoll = await this.activity.rollFormula({ event: this.event, midiOptions: this.rollOptions }, {}, { create: true });
+      return this.WorkflowState_UtilityRollComplete;
+    }
+    return this.WorkflowState_Suspend;
+  }
+  
+  async WorkflowState_UtilityRollComplete(context: any = {}): Promise<WorkflowState> {
+    return this.WorkflowState_WaitForDamageRoll;
   }
   async WorkflowState_DamageRollCompleteCancelled(context: any = {}): Promise<WorkflowState> {
     if (configSettings.undoWorkflow) {
@@ -1167,10 +1181,6 @@ export class Workflow {
     return this.WorkflowState_AllRollsComplete;
   }
   async WorkflowState_AllRollsComplete(context: any = {}): Promise<WorkflowState> {
-    // Stop gap to always roll utility formula - need to insert this into the workflow properly
-    if (this.activity?.roll?.formula) {
-      await this.activity.rollFormula({ midiOptions: {...this.rollOptions, fastForward: isAutoFastDamage(this) }}, {}, { create: true });
-    }
     this.otherDamageMatches = new Set();
     let items: any[] = [];
 
@@ -2729,7 +2739,7 @@ export class Workflow {
     if (!this.itemCardUuid) return;
     const chatMessage = this.chatCard;
     if (chatMessage?.content) {
-      const buttonRe = /<button data-action="applyEffects">[^<]*<\/button>/;
+      const buttonRe = /<button data-action="midiApplyEffects">[^<]*<\/button>/;
       let content = foundry.utils.duplicate(chatMessage.content);
       content = content?.replace(buttonRe, "");
       await debouncedUpdate(chatMessage, { content });
@@ -2841,12 +2851,17 @@ export class Workflow {
 
   async displayDamageRolls() {
     const chatMessage = this.chatCard;
-    if (!chatMessage) debugger;
+    if (!chatMessage) {
+      const message = `midi-qol | displayDamageRolls | no chat message to display damage rolls`;
+      console.warn(message);
+      TroubleShooter.recordError(new Error(message), message);
+      return;
+    }
     let content = (chatMessage && foundry.utils.duplicate(chatMessage.content)) ?? "";
     if ((getRemoveDamageButtons(this.item) && configSettings.confirmAttackDamage === "none") || this.workflowType === "TrapWorkflow") {
       const versatileRe = /<button data-action="versatile">[^<]*<\/button>/
       const damageRe = /<button data-action="damage">[^<]*<\/button>/
-      const formulaRe = /<button data-action="formula">[^<]*<\/button>/
+      const formulaRe = /<button data-action="rollFormula">[^<]*<\/button>/
       content = content?.replace(damageRe, "<div></div>")
       content = content?.replace(formulaRe, "")
       content = content?.replace(versatileRe, "")
@@ -4007,6 +4022,7 @@ export class Workflow {
     let isHitEC = false;
 
     let item = this.item;
+    const activity = this.activity;
 
     // check for a hit/critical/fumble
     if (this.activity.target?.type === "self") {
@@ -4061,14 +4077,14 @@ export class Workflow {
         if (!this.isFumble) {
           if (midiFlagsAttackBonus) {
             // if (Number.isNumeric(midiFlagsAttackBonus.all)) attackTotal +=  Number.parseInt(midiFlagsAttackBonus.all);
-            // if (Number.isNumeric(midiFlagsAttackBonus[item.system.actionType]) && midiFlagsAttackBonus[item.system.actionType]) attackTotal += Number.parseInt(midiFlagsAttackBonus[item.system.actionType]);
+            // if (Number.isNumeric(midiFlagsAttackBonus[activity.actionType]) && midiFlagsAttackBonus[item.system.actionType]) attackTotal += Number.parseInt(midiFlagsAttackBonus[item.system.actionType]);
             if (midiFlagsAttackBonus?.all) {
               const attackBonus = await (new Roll(midiFlagsAttackBonus.all, targetActor.getRollData()))?.evaluate();
               attackTotal += attackBonus?.total ?? 0;
               foundry.utils.setProperty(this.actor, "flags.midi.evaluated.grants.attack.bonus.all", { value: attackBonus?.total ?? 0, effects: [`${targetActor.name}`] });
             }
-            if (midiFlagsAttackBonus[item.system.actionType]) {
-              const attackBonus = await (new Roll(midiFlagsAttackBonus[item.system.actionType], targetActor.getRollData())).evaluate();
+            if (midiFlagsAttackBonus[activity.actionType]) {
+              const attackBonus = await (new Roll(midiFlagsAttackBonus[activity.actionType], targetActor.getRollData())).evaluate();
               attackTotal += attackBonus?.total ?? 0;
               foundry.utils.setProperty(this.actor, `flags.midi.evaluated.grants.attack.bonus.${item.system.actionType}`, { value: attackBonus?.total ?? 0, effects: [`${targetActor.name}`] });
             }
@@ -4079,6 +4095,7 @@ export class Workflow {
               const workflowOptions = foundry.utils.mergeObject(foundry.utils.duplicate(this.workflowOptions), { sourceActorUuid: this.actor.uuid, sourceItemUuid: this.item?.uuid }, { inplace: false, overwrite: true });
               const result = await doReactions(targetToken, this.tokenUuid, this.attackRoll, "reactionattacked", { activity: this.activity, item: this.item, workflow: this, workflowOptions });
               // TODO what else to do once rolled
+              targetAC = Number.parseInt(targetActor.system.attributes.ac.value ?? 10) + bonusAC;
             }
             isHit = attackTotal >= targetAC || this.isCritical;
           }
@@ -4146,7 +4163,7 @@ export class Workflow {
           const conditionData = createConditionData({ workflow: this, target: this.token, actor: this.actor });
           if (await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.success.all`, conditionData)
             || await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.success.attack.all`, conditionData)
-            || await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.success.attack.${item.system.actionType}`, conditionData)) {
+            || await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.success.attack.${activity.actionType}`, conditionData)) {
             isHit = true;
             isHitEC = false;
             this.isFumble = false;
@@ -4160,13 +4177,13 @@ export class Workflow {
           conditionData = createConditionData({ workflow: this, target: this.token, actor: this.actor });
 
           if (await evalAllConditionsAsync(targetActor, `flags.${MODULE_ID}.grants.attack.success.all`, conditionData)
-            || await evalAllConditionsAsync(targetActor, `flags.${MODULE_ID}.grants.attack.success.${item.system.actionType}`, conditionData)) {
+            || await evalAllConditionsAsync(targetActor, `flags.${MODULE_ID}.grants.attack.success.${activity.actionType}`, conditionData)) {
             isHit = true;
             isHitEC = false;
             this.isFumble = false;
           }
           if (await evalAllConditionsAsync(targetActor, `flags.${MODULE_ID}.grants.attack.fail.all`, conditionData)
-            || await evalAllConditionsAsync(targetActor, `flags.${MODULE_ID}.grants.attack.fail.${item.system.actionType}`, conditionData)) {
+            || await evalAllConditionsAsync(targetActor, `flags.${MODULE_ID}.grants.attack.fail.${activity.actionType}`, conditionData)) {
             isHit = false;
             isHitEC = false;
             this.isCritical = false;

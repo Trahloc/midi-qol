@@ -1,12 +1,13 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID, isdndv4, NumericTerm } from "../midi-qol.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, setRollMinDiceTerm, setRollMaxDiceTerm, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect, getActivityAutoTarget, getAoETargetType, hasCondition } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect, getActivityAutoTarget, getAoETargetType, hasCondition } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { MidiAttackActivity } from "./activities/AttackActivity.js";
 import { templateTokens } from "./activities/activityHelpers.js";
 import { MidiActivityChoiceDialog } from "./apps/MidiActivityChoiceDialog.js";
+import { resolveOutput } from "xstate/dist/declarations/src/utils.js";
 
 let libWrapper;
 
@@ -194,6 +195,11 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
     _applyDeprecatedD20Configs(config, dialog, message, oldConfig);
   }
 
+  let preRollSkillHookId;
+  let rollSkillHookId;
+  //@ts-expect-error
+  let result: CONFIG.Dice.D20Roll[] = [];
+  const saveRollMode = game.settings.get("core", "rollMode");
   try {
     let options: any = foundry.utils.mergeObject({
       simulate: config.simulate,
@@ -223,8 +229,6 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
       procOptions.disadvantage = false;
     }
 
-    //@ts-expect-error
-    let result: CONFIG.Dice.D20Roll[] = [];
     let success: boolean | undefined = undefined;
     if (procAutoFailSkill(this, skillId)
       || (configSettings.skillAbilityCheckAdvantage && procAutoFail(this, "check", this.system.skills[skillId].ability))) {
@@ -233,7 +237,6 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
       result = [new D20Roll("-1[auto fail]").evaluateSync()];
       success = false;
     }
-    const saveRollMode = game.settings.get("core", "rollMode");
     let rollMode: string = message.rollMode ?? config.rollMode ?? game.settings.get("core", "rollMode");
     const blindSkillRoll = configSettings.rollSkillsBlind.includes("all") || configSettings.rollSkillsBlind.includes(skillId);
     if (blindSkillRoll && ["publicroll", "roll", "gmroll"].includes(rollMode)) {
@@ -243,19 +246,27 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
     if (options.fastForward) dialog.configure = false;
     config.midiOptions = procOptions;
     if (success === undefined) {
-
-      message.create = false;
-      Hooks.once(`${game.system.id}.preRollSkillV2`, (config, dialog, message) => {
+      const maxflags = foundry.utils.getProperty(this, "flags.midi-qol.max") ?? {};
+      const maxValue = (maxflags.skill && maxflags.skill.all);
+      const minflags = foundry.utils.getProperty(this, "flags.midi-qol.min") ?? {};
+      const minValue = (minflags.skill && minflags.skill.all);
+      preRollSkillHookId = Hooks.once(`${game.system.id}.preRollSkillV2`, (config, dialog, message) => {
         message.data ??= {};
+        //@ts-expect-error
+        if (foundry.utils.isNewerVersion("4.2", game.system.version)) {
+          message.create = false; // TODO dnd5e 4.2 remove this
+        }
         if (overtimeActorUuid)
           message.data["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
         config.rolls.forEach(roll => {
           roll.options.advantage ||= config.midiOptions.advantage;
           roll.options.disadvantage ||= config.midiOptions.disadvantage;
+          if (maxValue && Number.isNumeric(maxValue)) roll.options.maximum = Math.min(Number(maxValue), roll.options.maximum ?? Infinity);
+          if (minValue && Number.isNumeric(minValue)) roll.options.minimum = Math.max(Number(minValue), roll.options.minimum ?? -Infinity);
         })
         setDialogOptions(dialog, config, config.rolls[0]?.options);
       })
-      Hooks.once("dnd5e.postSkillRollConfiguration", (rolls, config, dialog, messageDetails) => {
+      rollSkillHookId = Hooks.once(`${game.system.id}.postSkillRollConfiguration`, (rolls, config, dialog, messageDetails) => {
         // record message configuration details for later display
         message = messageDetails;
       });
@@ -265,22 +276,6 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
       result = await wrapped(config, dialog, message);
       message.create = saveCreate;
     }
-    const maxflags = foundry.utils.getProperty(this, "flags.midi-qol.max") ?? {};
-    const maxValue = (maxflags.skill && maxflags.skill.all) ?? false;
-    if (maxValue && Number.isNumeric(maxValue)) {
-      for (let i = 0; i < result.length; i++) {
-        result[i] = setRollMaxDiceTerm(result[i], Number(maxValue));
-      }
-    }
-
-    const minflags = foundry.utils.getProperty(this, "flags.midi-qol.min") ?? {};
-    const minValue = (minflags.skill && minflags.skill.all) ?? false;
-    if (minValue && Number.isNumeric(minValue)) {
-      for (let I = 0; I < result.length; I++) {
-        result[I] = setRollMinDiceTerm(result[I], Number(minValue));
-      }
-    }
-
     if (!result) return result;
     /*
     if (rollMode !== "blindroll") rollMode = result.options.rollMode;
@@ -300,17 +295,22 @@ async function doRollSkill(wrapped, config: any = {}, dialog: any = {}, message:
       if (foundry.utils.getProperty(result, "flags.midi-qol.chatMessageShown") !== true)
         await result[0].toMessage(message.data, { rollMode });
     }
-    game.settings.set("core", "rollMode", saveRollMode);
-
     await expireRollEffect.bind(this)("Skill", skillId, success);
-    if (oldFormat) return result[0];
-    return result;
+
   } catch (err) {
     const message = `doRollSkill error ${this.name}, ${this.uuid}`;
     TroubleShooter.recordError(err, message)
     throw err;
   }
+  finally {
+    if (preRollSkillHookId) Hooks.off(`${game.system.id}.preRollSkillV2`, preRollSkillHookId);
+    if (rollSkillHookId) Hooks.off(`${game.system.id}.postSkillRollConfiguration`, rollSkillHookId);
+    game.settings.set("core", "rollMode", saveRollMode);
+    if (oldFormat) return result?.[0];
+    return result;
+  }
 }
+
 
 function setDialogOptions(dialog, config, options) {
   dialog.options ??= {};
@@ -515,6 +515,12 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
   message.data ??= {};
   let abilityId = config.ability;
   let overtimeActorUuid;
+  let preRollAbilityHookId;
+  let rollAbilityHookId;
+  const saveRollMode = game.settings.get("core", "rollMode");
+  let result;
+  let type;
+  try {
   if (config.event) {
     const target = config?.event?.target?.closest('.roll-link, [data-action="rollRequest"], [data-action="concentration"]');
     if (target?.dataset?.midiOvertimeActorUuid) {
@@ -528,14 +534,12 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
       else return actualActor.rollAbilityCheck(config, dialog, message);
     }
   }
-  try {
+
     const rollTarget = config.target;
     if (rollTarget !== undefined && !checkRule("criticalSaves")) { // We have a target value, which means we are checking for success and not criticals
       options.critical = 21;
       options.fumble = 0;
     }
-
-
 
     if (options.fromMars5eChatCard) { // It seems mtb ignores the advantage/disadvantage flags sent in the request
       options.advantage ||= options.event?.altKey;
@@ -546,15 +550,11 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
     }
 
     if (options.fromMars5eChatCard) options.fastForward ||= autoFastForwardAbilityRolls;
-
     let procOptions: any = await procAbilityAdvantage(this, rollType, abilityId, options);
-    let result;
 
-    const type = rollType === "save" ? "SavingThrow" : "AbilityCheck";
+    type = rollType === "save" ? "SavingThrow" : "AbilityCheck";
     if (overtimeActorUuid)
       message.data["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
-
-
 
     let success;
     if (procAutoFail(this, rollType, abilityId)) {
@@ -567,20 +567,25 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
       if (procOptions.fastForward) dialog.configure = false;
       const saveCreate = message.create;
       message.create = false;
-      Hooks.once(`dnd5e.preRoll${type}V2`, (config, dialog, message) => {
+      const maxFlags = foundry.utils.getProperty(this, "flags.midi-qol.max.ability") ?? {};
+      const maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId]));
+      const minFlags = foundry.utils.getProperty(this, "flags.midi-qol.min.ability") ?? {};
+      const minValue = (minFlags[rollType] && (minFlags[rollType].all || minFlags[rollType][abilityId]));
+      preRollAbilityHookId = Hooks.once(`${game.system.id}.preRoll${type}V2`, (config, dialog, message) => {
         config.rolls.forEach(roll => {
           roll.options.advantage ||= config.midiOptions.advantage;
           roll.options.disadvantage ||= config.midiOptions.disadvantage;
+          if (maxValue !== undefined && Number.isNumeric(maxValue)) roll.options.maximum = Math.min(roll.options.maximum ?? Infinity, Number(maxValue));
+          if (minValue !== undefined && Number.isNumeric(minValue)) roll.options.minimum = Math.max(roll.options.minimum ?? -Infinity, Number(minValue));
         });
         setDialogOptions(dialog, config, config.rolls[0]?.options);
       });
-      Hooks.once(`dnd5e.post${type}RollConfiguration`, (rolls, config, dialog, messageDetails) => {
+      rollAbilityHookId = Hooks.once(`${game.system.id}.post${type}RollConfiguration`, (rolls, config, dialog, messageDetails) => {
         // record the configured message data for later display
         message = messageDetails;
       });
       result = await wrapped(config, dialog, message);
       message.create = saveCreate;
-
     }
     if (!result) return result;
     if (result instanceof Roll) {
@@ -588,30 +593,10 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
       result = [result];
     }
     const flavor = result[0].options?.flavor;
-    let maxFlags = foundry.utils.getProperty(this, "flags.midi-qol.max.ability") ?? {};
-    let maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId])) ?? false;
-    if (options.isConcentrationCheck)
-      maxValue = maxFlags.save?.concentration ?? maxValue;
-    if (maxValue && Number.isNumeric(maxValue)) {
-      for (let i = 0; i < result.length; i++) {
-        result[i] = setRollMaxDiceTerm(result[i], Number(maxValue));
-      }
-    }
-
-    const minFlags = foundry.utils.getProperty(this, "flags.midi-qol.min.ability") ?? {};
-    let minValue = (minFlags[rollType] && (minFlags[rollType].all || minFlags[rollType][abilityId])) ?? false;
-    if (options.isConcentrationCheck)
-      minValue = minFlags.save?.concentration ?? minValue;
-    if (minValue && Number.isNumeric(minValue)) {
-      for (let i = 0; i < result.length; i++) {
-        result[i] = setRollMinDiceTerm(result[i], Number(minValue));
-      }
-    }
 
     let rollMode: string = message.rollMode ?? game.settings.get("core", "rollMode");
     let blindCheckRoll;
     let blindSaveRoll;
-    const saveRollMode = game.settings.get("core", "rollMode");
     if (["publicroll", "roll", "gmroll"].includes(rollMode)) {
       switch (rollType) {
         case "check":
@@ -622,7 +607,6 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
             result.forEach(r => r.options.rollMode = "blindroll");
             // result.options.rollMode = "blindroll";
           }
-
           break;
         case "save":
           blindSaveRoll = configSettings.rollSavesBlind.includes("all") || configSettings.rollSavesBlind.includes(abilityId);
@@ -657,15 +641,18 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
       CONFIG.Dice.D20Roll.toMessage(result, message.data, { rollMode, create: true });
     }
     game.settings.set("core", "rollMode", saveRollMode);
-
     await expireRollEffect.bind(this)(rollType, abilityId, success);
     if (options.isConcentrationCheck) expireRollEffect.bind(this)("isConcentrationSave", success);
-    if (oldFormat) return result[0];
-    return result;
   } catch (err) {
     const message = `doAbilityRoll error ${this.name} ${abilityId} ${rollType} ${this.uuid}`;
     TroubleShooter.recordError(err, message);
     throw err;
+  } finally {
+    if (preRollAbilityHookId) Hooks.off(`${game.system.id}.preRoll${type}V2`, preRollAbilityHookId);
+    if (rollAbilityHookId) Hooks.off(`${game.system.id}.post${type}RollConfiguration`, rollAbilityHookId);
+    game.settings.set("core", "rollMode", saveRollMode);
+    if (oldFormat) return result?.[0];
+    return result
   }
 }
 

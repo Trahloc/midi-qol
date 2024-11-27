@@ -53,9 +53,23 @@ let defineMidiUtilityActivityClass = (ActvityClass: any) => {
         return;
       }
       if (config.midiOptions.fastForward !== undefined)
-        dialog.configure = !config.midiOptions.fastForward;;
-      if (this.workflow?.rollOptions?.rollToggle) dialog.configure = !dialog.configure;
-    
+        dialog.configure = !config.midiOptions.fastForwardDamage;
+      //@ts-expect-error
+      const areKeysPressed = game.system.utils.areKeysPressed;
+      const keys = {
+        normal: areKeysPressed(config.event, "skipDialogNormal"),
+        advantage: areKeysPressed(config.event, "skipDialogAdvantage"),
+        disadvantage: areKeysPressed(config.event, "skipDialogDisadvantage")
+      };
+      if (Object.values(keys).some(k => k)) dialog.configure = this.forceDialog;
+      else dialog.configure ??= !config.midiOptions.fastForwardDamage || this.forceDialog;
+
+      /*
+      else
+        dialog.configure = true;
+      */
+      if (this.workflow?.rollOptions?.rollToggle) dialog.configure = !!!dialog.configure;
+
       Hooks.once("dnd5e.preRollFormulaV2", (rollConfig, dialogConfig, messageConfig) => {
         return true;
       })
@@ -66,13 +80,13 @@ let defineMidiUtilityActivityClass = (ActvityClass: any) => {
       if (config.midiOptions.updateWorkflow !== false && this.workflow) {
         this.workflow.utilityRolls = result;
         if (this.workflow.suspended)
-          this.workflow.unSuspend.bind(this.workflow)({ utilityRoll: result, otherDamageRoll: this.workflow.otherDamageRoll });
+          this.workflow.unSuspend.bind(this.workflow)({ utilityRoll: result });
       }
       return result;
     }
     async _usageChatContext(message) {
       const context = await super._usageChatContext(message);
-      context.hasRollFormula = false; // TODO fix this when able to do a proper card !!this.roll?.formula;
+      context.hasRollFormula = true; // TODO fix this when able to do a proper card !!this.roll?.formula;
       return context;
     }
   }

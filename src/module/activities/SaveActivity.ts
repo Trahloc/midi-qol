@@ -57,7 +57,15 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
     }
     
     get isOtherActivityCompatible() { return true }
-
+    getDamageConfig(config={}) {
+      const rollConfig = super.getDamageConfig(config);
+  
+      rollConfig.critical ??= {};
+      rollConfig.critical.allow = this.damage.critical.allow;
+      rollConfig.critical.bonusDamage = this.damage.critical.bonus;
+  
+      return rollConfig;
+    }
     async rollDamage(config: any = {}, dialog = {}, message = {}) {
           message = foundry.utils.mergeObject({
             "data.flags.dnd5e.roll": {

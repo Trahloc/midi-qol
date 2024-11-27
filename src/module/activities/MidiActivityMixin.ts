@@ -1,4 +1,5 @@
 import { GameSystemConfig, MODULE_ID, SystemString, allAttackTypes, debugEnabled, i18n, i18nFormat, log, warn } from "../../midi-qol.js";
+import { socketlibSocket } from "../GMAction.js";
 import { Workflow } from "../Workflow.js";
 import { TroubleShooter } from "../apps/TroubleShooter.js";
 import { checkMechanic, configSettings } from "../settings.js";
@@ -9,9 +10,12 @@ import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityR
 import { confirmWorkflow, preTemplateTargets, removeFlanking, selectTargets, setDamageRollMinTerms } from "./activityHelpers.js";
 
 export var MidiActivityMixin = Base => {
-  return class extends Base {
+  return class MidiActivityMixin extends Base {
     _workflow: Workflow | undefined;
-    get workflow() { return this._workflow; }
+    get workflow() {
+      if (!this._workflow) this._workflow = Workflow.getWorkflow(this.uuid);
+      return this._workflow;
+    }
     set workflow(value) { this._workflow = value; }
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.SHARED"];
 
@@ -48,8 +52,95 @@ export var MidiActivityMixin = Base => {
 
     static metadata = foundry.utils.mergeObject(
       foundry.utils.mergeObject({}, super.metadata), {
-      usage: { dialog: MidiActivityUsageDialog },
-    });
+      usage: {
+        dialog: MidiActivityUsageDialog,
+        actions: {
+          rollDamageNoCritical: MidiActivityMixin.#rollDamageNoCritical,
+          rollDamageCritical: MidiActivityMixin.#rollDamgeCritical,
+          confirmDamageRollCancel: MidiActivityMixin.#confirmDamageRollCancel,
+          confirmDamageRollComplete: MidiActivityMixin.#confirmDamageRollComplete,
+          confirmDamageRollCompleteHit: MidiActivityMixin.#confirmDamageRollCompleteHit,
+          confirmDamageRollCompleteMiss: MidiActivityMixin.#confirmDamageRollCompleteMiss,
+          midiApplyEffects: MidiActivityMixin.#applyEffects,
+        }
+      },
+    }, { insertValues: true, insertKeys: true });
+
+    static async #applyEffects(event, target, message) {
+      const workflow = this.workflow;
+      const authorId = message.author.id;
+      if (!workflow) return;
+      if ((workflow.targets?.size ?? 0) === 0) return;
+      if (game.user?.id !== authorId) {
+        // applying effects on behalf of another user;
+        if (!game.user?.isGM) {
+          ui.notifications?.warn("Only the GM can apply effects for other players")
+          return;
+        }
+        if (game.user.targets.size === 0) {
+          ui.notifications?.warn(i18n("midi-qol.noTokens"));
+          return;
+        }
+        const result = (await socketlibSocket.executeAsUser("applyEffects", authorId, {
+          workflowId: this.uuid,
+          targets: Array.from(game.user.targets).map(t => t.document.uuid)
+        }));
+      } else {
+        if (workflow) {
+          workflow.forceApplyEffects = true; // don't overwrite the application targets
+          workflow.effectTargets = game.user?.targets;
+          if (workflow.effectTargets.size > 0) workflow.performState(workflow.WorkflowState_ApplyDynamicEffects)
+        } else {
+          ui.notifications?.warn(i18nFormat("midi-qol.NoWorkflow", { itemName: this.item?.name }));
+        }
+      }
+    }
+    static async #confirmDamageRollCancel(event, target, message) {
+      const authorId = message.author.id;
+      if (!authorId) return;
+      if (!game.user?.isGM && configSettings.confirmAttackDamage === "gmOnly") {
+        return;
+      }
+      const user = game.users?.get(authorId);
+      if (user?.active) {
+
+        await socketlibSocket.executeAsUser("cancelWorkflow", authorId, { workflowId: this?.uuid, itemCardId: message.id, itemCardUuid: message.uuid }).then(result => {
+          if (typeof result === "string") ui.notifications?.warn(result);
+        });
+      } else {
+        await Workflow.removeItemCardAttackDamageButtons(message.id);
+        await Workflow.removeItemCardConfirmRollButton(message.id);
+      }
+    }
+
+    static async #confirmDamageRollComplete(event, target, message) {
+      await this.doConfirmation("confirmDamageRollComplete", event, target, message);
+    }
+    static async #confirmDamageRollCompleteHit(event, target, message) {
+      await this.doConfirmation("confirmDamageRollCompleteHit", event, target, message);
+    }
+    static async #confirmDamageRollCompleteMiss(event, target, message) {
+      await this.doConfirmation("confirmDamageRollCompleteMiss", event, target, message);
+    }
+    async doConfirmation(actionToCall, event, target, message) {
+      if (!game.user?.isGM && configSettings.confirmAttackDamage === "gmOnly") {
+        return;
+      }
+      if (message.author.active) {
+        const result = await socketlibSocket.executeAsUser(actionToCall, message.author.id, { activityUuid: this.uuid, itemCardId: message.id, itemCardUuid: message.uuid });
+        if (typeof result === "string") ui.notifications?.warn(result);
+      } else {
+        await Workflow.removeItemCardAttackDamageButtons(message.id);
+        await Workflow.removeItemCardConfirmRollButton(message.id);
+      }
+    }
+    static #rollDamageNoCritical(event, target, message) {
+      return this.rollDamage({ event, critical: { allow: false }, midiOptions: { isCritical: false } }, {}, message);
+    }
+
+    static #rollDamgeCritical(event, target, message) {
+      return this.rollDamage({ event, midiOptions: { isCritical: true } }, {}, message);
+    }
 
     async use(config: any = {}, dialog: any = {}, message: any = {}) {
       if (!this.item.isEmbedded) return;
@@ -130,87 +221,98 @@ export var MidiActivityMixin = Base => {
       } else dialog.configure = !(["both", "item"].includes(isAutoConsumeResource(this.workflow)));
     }
 
-    async rollDamage(config: any, dialog:any = {}, message: any = {}) {
+    async rollDamage(config: any, dialog: any = {}, message: any = {}) {
       if (!config.midiOptions) config.midiOptions = {};
       if (debugEnabled > 0) {
         warn("MidiActivity | rollDamage | Called", config, dialog, message);
       }
       let result: Roll[] | undefined;
       let otherResult: Roll[] | undefined;
-      if (await asyncHooksCall("midi-qol.preDamageRoll", this.workflow) === false
-        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.workflow) === false
-        || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.workflow) === false) {
-        console.warn("midi-qol | Damage roll blocked via pre-hook");
-        return;
-      }
-      //@ts-expect-error
-      const areKeysPressed = game.system.utils.areKeysPressed;
-      const keys = {
-        normal: areKeysPressed(config.event, "skipDialogNormal")
-          || areKeysPressed(config.event, "skipDialogDisadvantage"),
-        critical: areKeysPressed(config.event, "skipDialogAdvantage")
-      };
-      config.midiOptions.isCritical ||= this.workflow?.isCritical;
-
-      if (this.hasDamage || this.hasHealing) {
-        if (Object.values(keys).some(k => k)) dialog.configure = !!this.forceDialog;
-        else dialog.configure ??= !config.midiOptions?.fastForwardDamage || !!this.forceDialog;
-        if (this.workflow?.rollOptions?.rollToggle) dialog.configure = !dialog.configure;
-        // if (dialog.configure) config.midiOptions.isCritical = false;
-        Hooks.once("dnd5e.preRollDamageV2", (rollConfig, dialogConfig, messageConfig) => {
-          for (let roll of rollConfig.rolls) {
-            if (keys.critical) roll.options.isCritical = true;
-            else if (keys.normal) roll.options.isCritical = false;
-            else if (!dialog.configure) roll.options.isCritical = rollConfig.midiOptions.isCritical;
-            if (this.damage.critical.allow === false) roll.options.isCritical = false;
-          }
-          if (dialogConfig.configure) {
-            if (rollConfig.rolls[0].options.isCritical || rollConfig.midiOptions.isCritical) {
-              dialogConfig.options.defaultButton = "critical";
-            } else dialogConfig.options.defaultButton = "normal";
-          } return true;
-        });
-
-        message.create = false;
-        if (this.damage?.parts.some(part => part.types.size > 1)) dialog.configure = true;
-        if (this.healing?.types?.size > 1) dialog.configure = true;
-        result = await super.rollDamage(config, dialog, message) ?? [];
-        result = await this.postProcessDamageRoll(config, result);
-        if (this.workflow && config.midiOptions.updateWorkflow !== false) await this.workflow.setDamageRolls(result);
-      }
-      if (this.otherActivity) {
-        let shouldRollOther = true;
-        if (this.otherCondition && this.workflow) {
-          shouldRollOther = false;
-          for (let token of this.workflow.hitTargets) {
-            shouldRollOther ||= await evalActivationCondition(this.workflow, this.otherCondition, token, { async: true })
-            if (shouldRollOther) break;
-          }
+      let preRollDamageHookId;
+      let rollDamageHookId;
+      try {
+        if (await asyncHooksCall("midi-qol.preDamageRoll", this.workflow) === false
+          || await asyncHooksCall(`midi-qol.preDamageRoll.${this.item.uuid}`, this.workflow) === false
+          || await asyncHooksCall(`midi-qol.preDamageRoll.${this.uuid}`, this.workflow) === false) {
+          console.warn("midi-qol | Damage roll blocked via pre-hook");
+          return;
         }
-        if (shouldRollOther && (this.otherActivity.hasDamage || this.otherActivity.hasHealing || this.otherActivity.roll?.formula)) {
-          this.otherActivity.workflow = this.workflow;
-          // Check conditions & flags
-          const otherConfig = foundry.utils.deepClone(config);
-          otherConfig.midiOptions.fastForward = config.midiOptions.fastForwardDamage;
-          otherConfig.midiOptions.updateWorkflow = false; // rollFormula will try and restart the workflow
-          // Undo the roll toggle since rollFormula will look at it as well
+        //@ts-expect-error
+        const areKeysPressed = game.system.utils.areKeysPressed;
+        const keys = {
+          normal: areKeysPressed(config.event, "skipDialogNormal")
+            || areKeysPressed(config.event, "skipDialogDisadvantage"),
+          critical: areKeysPressed(config.event, "skipDialogAdvantage")
+        };
+        config.midiOptions.isCritical ||= this.workflow?.isCritical;
+
+        if (this.hasDamage || this.hasHealing) {
+          if (Object.values(keys).some(k => k)) dialog.configure = !!this.forceDialog;
+          else dialog.configure ??= !config.midiOptions?.fastForwardDamage || !!this.forceDialog;
           if (this.workflow?.rollOptions?.rollToggle) dialog.configure = !dialog.configure;
-          if (this.otherActivity?.hasDamage)
-            otherResult = await this.otherActivity.rollDamage(otherConfig, dialog, { create: false });
-          else if (this.otherActivity?.roll?.formula) {
-            otherResult = await this.otherActivity.rollFormula(otherConfig, dialog, { create: false });
-            if (otherResult) {
-              if (!(otherResult instanceof Array)) otherResult = [otherResult];
-              otherResult = otherResult.map(roll =>
-                //@ts-expect-error
-                new game.system.dice.DamageRoll(roll.formula, {}, {})
-              );
+          // if (dialog.configure) config.midiOptions.isCritical = false;
+          preRollDamageHookId = Hooks.once(`${game.system.id}.preRollDamageV2`, (rollConfig, dialogConfig, messageConfig) => {
+            for (let roll of rollConfig.rolls) {
+              if (keys.critical) roll.options.isCritical = true;
+              else if (keys.normal) roll.options.isCritical = false;
+              else if (!dialog.configure) roll.options.isCritical = rollConfig.midiOptions.isCritical;
+              if (this.damage?.critical.allow === false) roll.options.isCritical = false;
+            }
+            if (dialogConfig.configure) {
+              if (rollConfig.rolls[0].options.isCritical || rollConfig.midiOptions.isCritical) {
+                dialogConfig.options.defaultButton = "critical";
+              } else dialogConfig.options.defaultButton = "normal";
+            } return true;
+          });
+
+          message.create = false;
+          if (this.damage?.parts.some(part => part.types.size > 1)) dialog.configure = true;
+          if (this.healing?.types?.size > 1) dialog.configure = true;
+          result = await super.rollDamage(config, dialog, message) ?? [];
+          result = await this.postProcessDamageRoll(config, result);
+          if (this.workflow && config.midiOptions.updateWorkflow !== false) await this.workflow.setDamageRolls(result);
+        }
+        if (this.otherActivity) {
+          let shouldRollOther = true;
+          if (this.otherCondition && this.workflow) {
+            shouldRollOther = false;
+            for (let token of this.workflow.hitTargets) {
+              shouldRollOther ||= await evalActivationCondition(this.workflow, this.otherCondition, token, { async: true })
+              if (shouldRollOther) break;
             }
           }
-          if (otherResult && config.midiOptions.updateWorkflow !== false && this.workflow) await this.workflow.setOtherDamageRolls(otherResult);
+          if (shouldRollOther && (this.otherActivity.hasDamage || this.otherActivity.hasHealing || this.otherActivity.roll?.formula)) {
+            this.otherActivity.workflow = this.workflow;
+            // Check conditions & flags
+            const otherConfig = foundry.utils.deepClone(config);
+            otherConfig.midiOptions.fastForward = config.midiOptions.fastForwardDamage;
+            otherConfig.midiOptions.updateWorkflow = false; // rollFormula will try and restart the workflow
+            // Undo the roll toggle since rollFormula will look at it as well
+            if (this.workflow?.rollOptions?.rollToggle) dialog.configure = !dialog.configure;
+            if (this.otherActivity?.hasDamage)
+              otherResult = await this.otherActivity.rollDamage(otherConfig, dialog, { create: false });
+            else if (this.otherActivity?.roll?.formula) {
+              otherResult = await this.otherActivity.rollFormula(otherConfig, dialog, { create: false });
+              if (otherResult) {
+                if (!(otherResult instanceof Array)) otherResult = [otherResult];
+                otherResult = otherResult.map(roll =>
+                  //@ts-expect-error
+                  new game.system.dice.DamageRoll(roll.formula, {}, {})
+                );
+              }
+            }
+            if (otherResult && config.midiOptions.updateWorkflow !== false && this.workflow) await this.workflow.setOtherDamageRolls(otherResult);
+          }
         }
+        if (config.midiOptions.updateWorkflow !== false && this.workflow?.suspended) this.workflow.unSuspend.bind(this.workflow)({ damageRoll: result, otherDamageRoll: otherResult });
+      } catch (err) {
+        const message = "doDamageRoll error";
+        TroubleShooter.recordError(err, message);
+        console.error(message, err);
+      } finally {
+        if (preRollDamageHookId) Hooks.off(`${game.system.id}.preRollDamageV2`, preRollDamageHookId);
+        if (rollDamageHookId) Hooks.off(`${game.system.id}.rollDamageV2`, rollDamageHookId);
       }
-      if (config.midiOptions.updateWorkflow !== false && this.workflow?.suspended) this.workflow.unSuspend.bind(this.workflow)({ damageRoll: result, otherDamageRoll: otherResult });
       return result ?? [];
     }
 
@@ -448,7 +550,7 @@ export var MidiActivityMixin = Base => {
       // remove selection of untargetable targets TODO
       if (canvas?.scene) {
         //@ts-expect-error
-        const tokensIdsToUse: Array<string> = this.targets? Array.from(this.targets).map(t => t.id) : [];
+        const tokensIdsToUse: Array<string> = this.targets ? Array.from(this.targets).map(t => t.id) : [];
         game.user?.updateTokenTargets(tokensIdsToUse)
       }
       return true;
@@ -836,7 +938,7 @@ export var MidiActivityMixin = Base => {
       let token = tokenForActor(this.item.actor);
       let needAttackButton = !getRemoveAttackButtons(this.item) || configSettings.mergeCardMulti || configSettings.confirmAttackDamage !== "none" ||
         (!this.workflow?.someAutoRollEventKeySet() && !getAutoRollAttack(this.workflow) && !this.workflow?.midiOptions?.autoRollAttack);
-      const needDamagebutton = this.hasDamage && (
+      const needDamagebutton = (this.hasDamage || this.hasHealing) && (
         (["none", "saveOnly"].includes(getAutoRollDamage(this.workflow)) || this.workflow?.rollOptions.rollToggle)
         || configSettings.confirmAttackDamage !== "none"
         || !getRemoveDamageButtons(this.item)

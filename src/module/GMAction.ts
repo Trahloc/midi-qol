@@ -221,7 +221,7 @@ async function confirmDamageRollComplete(data: { activityUuid: string, itemCardI
   }
   const hasHits = workflow.hitTargets.size > 0 || workflow.hitTargetsEC.size > 0;
   if ((workflow.currentAction === workflow.WorkflowState_AttackRollComplete) || hasHits &&
-    workflow.item.hasDamage && (!workflow.damageRoll || workflow.currentAction !== workflow.WorkflowState_ConfirmRoll)) {
+    activity.hasDamage && (!workflow.damageRoll || workflow.currentAction !== workflow.WorkflowState_ConfirmRoll)) {
     return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
   }
   if (workflow.hitTargets.size === 0 && workflow.hitTargetsEC.size === 0) {
@@ -247,7 +247,7 @@ async function confirmDamageRollCompleteHit(data: { activityUuid: string, itemCa
     return undefined;
   }
 
-  if ((workflow.item?.hasDamage && !workflow.damageRoll) ||
+  if ((activity.hasDamage && !workflow.damageRoll) ||
     workflow.currentAction !== workflow.WorkflowState_ConfirmRoll) {
     return "midi-qol | You must roll damage before completing the roll - you can only confirm miss until then";
   }
@@ -479,8 +479,8 @@ async function _completeActivityUse(data: {
   let actor: any = await fromUuid(actorUuid);
   if (actor.actor) actor = actor.actor;
 
-  const workflow = await completeActivityUse(activityUuid, config, dialog, message);
-  if (data.config.midiOptions?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
+  const activity = await completeActivityUse(activityUuid, config, dialog, message);
+  if (data.config.midiOptions?.workflowData) return activity.workflow?.getMacroData({ noWorkflowReference: true }); // can't return the workflow
   else return true;
 }
 

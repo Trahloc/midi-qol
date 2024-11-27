@@ -1,5 +1,5 @@
 import { warn, error, debug, i18n, debugEnabled, overTimeEffectsToDelete, allAttackTypes, savedOverTimeEffectsToDelete, geti18nOptions, log, GameSystemConfig, SystemString, MODULE_ID, isdndv4 } from "../midi-qol.js";
-import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, onChatCardAction, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
+import { colorChatMessageHandler, nsaMessageHandler, hideStuffHandler, processItemCardCreation, hideRollUpdate, hideRollRender, processCreateDDBGLMessages, ddbglPendingHook, checkOverTimeSaves } from "./chatMessageHandling.js";
 import { processUndoDamageCard } from "./GMAction.js";
 import { untargetDeadTokens, untargetAllTokens, midiCustomEffect, MQfromUuidSync, removeReactionUsed, removeBonusActionUsed, checkflanking, expireRollEffect, removeActionUsed, expirePerTurnBonusActions, itemIsVersatile, getCachedDocument, getUpdatesCache, clearUpdatesCache, expireEffects, createConditionData, processConcentrationRequestMessage, evalAllConditions, doSyncRoll, doConcentrationCheck, _processOverTime, isConcentrating, getCEEffectByName, setRollMaxDiceTerm, setRollMinDiceTerm } from "./utils.js";
 import { activateMacroListeners, getCurrentSourceMacros } from "./apps/Item.js"
@@ -605,12 +605,6 @@ export function initHooks() {
     // activateMacroListeners(app, html);
   })
 
-  function _chatListeners(html) {
-    html.on("click", '.card-buttons button', onChatCardAction.bind(this))
-  }
-
-  Hooks.on("renderChatLog", (app, html, data) => _chatListeners(html));
-
   Hooks.on('dropCanvasData', function (canvas: Canvas, dropData: any) {
     if (!dragDropTargeting) return true;
     if (dropData.type !== "Item") return true;
@@ -1114,7 +1108,6 @@ Hooks.on("dnd5e.preApplyDamage", (actor, amount, updates, options) => {
 });
 
 Hooks.on("dnd5e.preRollConcentrationV2", (rollConfig: any, dialogConfig: any, messageConfig: any) => {
-  console.error(rollConfig, dialogConfig, messageConfig);
   const actor = rollConfig.subject;
   // insert advantage and disadvantage
   // insert midi bonuses.
@@ -1153,19 +1146,6 @@ Hooks.on("dnd5e.rollConcentrationV2", (rolls, { subject }) => {
   // Not sure what multiple concentration rolls mean
   // Assume concentration fails if any of the concentration rolls fail.
   for (let roll of rolls) {
-    //@ts-expect-error
-    const simplifyBonus = game.system.utils.simplifyBonus;
-    if (foundry.utils.getProperty(subject, "flags.midi-qol.min.ability.save.concentration") && simplifyBonus) {
-      const minRoll = simplifyBonus(foundry.utils.getProperty(subject, "flags.midi-qol.min.ability.save.concentration"), subject.getRollData());
-      if (Number(minRoll)) setRollMinDiceTerm(roll, Number(minRoll));
-    }
-    if (foundry.utils.getProperty(subject, "flags.midi-qol.max.ability.save.concentration") && simplifyBonus) {
-      const maxRoll = simplifyBonus(foundry.utils.getProperty(subject, "flags.midi-qol.max.ability.save.concentration"), subject.getRollData());
-      if (Number(maxRoll)) setRollMaxDiceTerm(roll, Number(maxRoll));
-    }
-    if (!Number.isNaN(roll.options.target)) {
-      roll.options.success = roll.total >= Number(roll.options.target);
-    }
     if (checkRule("criticalSaves") && roll.isCritical) roll.options.success = true;
     // triggerTargetMacros(triggerList: string[], targets: Set<any> = this.targets, options: any = {}) {
     if (configSettings.removeConcentration && roll.options.success === false) {

@@ -129,9 +129,21 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
         title: "midi-qol.ATTACK.Title.one",
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
+          actions: {
+            rollAttackAdvantage: MidiAttackActivity.#rollAttackAdvantage,
+            rollAttackDisadvantage: MidiAttackActivity.#rollAttackDisadvantage
+          }
         },
-      })
+      }, { insertKeys: true, insertValues: true })
 
+    static #rollAttackAdvantage(event, target, message) {
+      //@ts-expect-error
+      return this.rollAttack({ event, midiOptions: { advantage: true }}, {}, {});
+    }
+    static #rollAttackDisadvantage(event, target, message) {
+      //@ts-expect-error
+      return this.rollAttack({ event, midiOptions: { disadvantage: true }}, {}, {});
+    }
     async _prepareEffectContext(context) {
       context = await super._prepareEffectContext(context);
       context.attackModeOptions = this.item.system.attackModes;
@@ -256,8 +268,8 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       } catch (err) {
         console.error("midi-qol | AttackActivity | rollAttack | Error configuring dialog", err);
       } finally {
-        Hooks.off("dnd5e.preRollAttackV2", preRollHookId);
-        Hooks.off("dnd5e.rollAttackV2", rollAttackHookId);
+        if (preRollHookId) Hooks.off("dnd5e.preRollAttackV2", preRollHookId);
+        if (rollAttackHookId) Hooks.off("dnd5e.rollAttackV2", rollAttackHookId);
 
       }
       return rolls;
@@ -471,6 +483,13 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       if (ammunitionOptions.some(ammo => ammo.value === this.ammunition && ammo.disabled)) return { reason: game.i18n.format("midi-qol.NoAmmunition", { name: this.ammunitionItem?.name }), proceed: true, confirm: true };
       if (game.user?.isGM) return { confirm: configSettings.gmConfirmAmmunition && ammoCount > 1, proceed: true };
       return { confirm: configSettings.confirmAmmunition && (ammoCount > 1), proceed: true };
+    }
+
+    async _usageChatContext(message) {
+      const context = await super._usageChatContext(message);
+    
+      context.hasAttack = this.attack; // && !minimalCard && (systemCard || needAttackButton || configSettings.confirmAttackDamage !== "none"),
+      return context;
     }
   }
 }
