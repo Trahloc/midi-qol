@@ -355,7 +355,7 @@ async function importFromJSONDialog() {
           }
         },
         no: {
-          icon: '<i class="fas fa-times"></i>',
+          icon: '<i class="fas fa-xmark"></i>',
           label: "Cancel",
           callback: html => resolve(false)
         }

@@ -169,8 +169,8 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
             buttons: {
               complete: { icon: `<i class="fas fa-check"></i>`, label: "Complete previous", callback: () => { return "complete" } },
               discard: { icon: `<i class="fas fa-trash"></i>`, label: "Discard previous", callback: () => { return "discard" } },
-              undo: { icon: `<i class="fas fa-undo"></i>`, label: "Undo until previous", callback: () => { return "undo" } },
-              cancel: { icon: `<i class="fas fa-times"></i>`, label: "Cancel New", callback: () => { return "cancel" } },
+              undo: { icon: `<i class="fas fa-arrow-rotate-left"></i>`, label: "Undo until previous", callback: () => { return "undo" } },
+              cancel: { icon: `<i class="fas fa-xmark"></i>`, label: "Cancel New", callback: () => { return "cancel" } },
             }
           }, { width: 700 })) {
             case "complete":
