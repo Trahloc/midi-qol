@@ -1750,6 +1750,7 @@ class CustomizeDamageFormula {
     //@ts-expect-error
     const DamageRoll = CONFIG.Dice.DamageRoll;
     if (item) {
+      let versatileFormula = "";
       if (item.damage.versatile) {
         let actorBonus;
         if (rolls[0].data?.bonuses) {
@@ -1758,7 +1759,9 @@ class CustomizeDamageFormula {
             actorBonus = actorBonusData.damage;
           }
         }
-        const versatileFormula = item.damage.versatile + (actorBonus ? ` + ${actorBonus}` : "");
+        versatileFormula = item.damage.versatile;
+        if (item.magicalBonus && item.properties.has("mgc")) versatileFormula = versatileFormula.concat(` + ${item.magicalBonus}`);
+        if (actorBonus) versatileFormula = versatileFormula.concat(` + ${actorBonus}`);
         allRolls.push({
           value: versatileFormula,
           type: GameSystemConfig.damageTypes[rolls[0].options.type]?.label ?? null,
@@ -1772,7 +1775,7 @@ class CustomizeDamageFormula {
         allRolls.push({
           value: item.formula,
           type: GameSystemConfig.damageTypes[rolls[0].options.type]?.label ?? null,
-          versatileDamage: item.damage.versatile,
+          versatileDamage: versatileFormula,
           active: false,
           label: "Other",
           roll: new DamageRoll(item.formula, rolls[0].data, rolls[0].options),
