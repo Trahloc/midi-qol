@@ -2,10 +2,11 @@
 * Refactored min/max roll options for ability/concentration etc to align with dnd5e v4 settings. No longer uses setMin/MaxRoll.
 * Fix for rolls not completing when auto roll attack is disabled.
 * Fix for spells not scaling when damage is rolled from the chat card (instead of auto rolling).
-* Change to default midi key for roll toggle - turns out T is a bad choice when mixed with ctrl/alt. It is now F (toggle fast forward - which is what the key does now).
+* Fix for midi SaveActivity not being able to do critical damage.
+* Fix for removing concentration not removing dependent effects
+git * Change to default midi key for roll toggle - turns out T is a bad choice when mixed with ctrl/alt. It is now F (toggle fast forward - which is what the key does now).
 * All keyboard event processing now goes through the dnd5e event processing so it is all consistent.
 * A little clean up to the midi UtilityActivity so you can have the choice to roll the utility roll or not.
-* Fix for midi SaveActivity not being able to do critical damage.
 * Added support for cast activities on items to be available for reactions. The item with the spell must be equipped and attuned (if required).
 * Dropped support for magic items in reactions. Use the dnd5e cast activity instead.
 
