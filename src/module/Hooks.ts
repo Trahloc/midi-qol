@@ -940,10 +940,12 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
       }
 
       const categories = { "idi": "immunity", "idr": "resistance", "idv": "vulnerability", "ida": "absorption" };
-      if (mo?.sourceActor) {
+      if (mo?.sourceActorUuid) {
+        //@ts-expect-error
+        const sourceActor = fromUuidSync(mo.sourceActorUuid);
         for (let key of ["idi", "idr", "idv", "ida"]) {
-          if (foundry.utils.getProperty(mo.sourceActor, `system.traits.${key}`) && mo.sourceActor.system.traits[key].value.size > 0) {
-            const trait = foundry.utils.getProperty(mo.sourceActor, `system.traits.${key}`);
+          if (foundry.utils.getProperty(sourceActor, `system.traits.${key}`) && sourceActor.system.traits[key].value.size > 0) {
+            const trait = foundry.utils.getProperty(sourceActor, `system.traits.${key}`);
             if (!options.ignore?.[categories[key]]) foundry.utils.setProperty(options, `ignore.${categories[key]}`, new Set())
             for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
               if (trait.value.has(dt) || trait.all) options.ignore[categories[key]].add(dt);
