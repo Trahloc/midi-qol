@@ -130,12 +130,17 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
           actions: {
+            rollAttack: MidiAttackActivity.#rollAttack,
             rollAttackAdvantage: MidiAttackActivity.#rollAttackAdvantage,
             rollAttackDisadvantage: MidiAttackActivity.#rollAttackDisadvantage
           }
         },
       }, { insertKeys: true, insertValues: true })
 
+    static #rollAttack(event, target, message) {
+      //@ts-expect-error
+      return this.rollAttack({ event }, {}, {});
+    }
     static #rollAttackAdvantage(event, target, message) {
       //@ts-expect-error
       return this.rollAttack({ event, midiOptions: { advantage: true }}, {}, {});

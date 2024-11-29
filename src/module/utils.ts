@@ -1876,7 +1876,7 @@ export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: b
 
     }
   }
-  return distance;
+  return Math.max(distance, 0);
 };
 
 let pointWarn = foundry.utils.debounce(() => {

@@ -1318,10 +1318,7 @@ export class Workflow {
       }
     };
     const macroData = this.getMacroData();
-    let origin = this.item.uuid;
-    if (this.chatCard.getFlag("dnd5e", "use.concentrationId")) {
-      origin = this.actor.effects.get(this.chatCard.getFlag("dnd5e", "use.concentrationId"))?.uuid ?? this.item.uuid;
-    }
+    let origin = this.actor.effects.get(this.chatCard.getFlag("dnd5e", "use.concentrationId"))?.uuid ?? this.item.uuid;
     let damageComponents = {};
     let damageListItem;
     let hpDamage;
@@ -1366,7 +1363,7 @@ export class Workflow {
             itemCardId: this.itemCardId,
             itemCardUuid: this.itemCardUuid,
             metaData,
-            origin: origin.uuid,
+            origin,
             selfEffects: "none",
             spellLevel: this.spellLevel,
             toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
@@ -1508,7 +1505,6 @@ export class Workflow {
     let otherSelfEffects: any[] = [];
     if (this.otherEffectTargets.size > 0) otherSelfEffects = otherActivitySelfAllEffects;
     else otherSelfEffects = otherActivitySelfEffects;
-
     if (otherSelfEffects.length > 0 && selfToken) {
       await globalThis.DAE.doActivityEffects(this.activity, true, [selfToken], otherSelfEffects.map(ef => ef.uuid), {
         damageTotal: totalDamage,
@@ -1534,7 +1530,6 @@ export class Workflow {
           itemData: this.otherActivity.item.toObject()
         }
       })
-
     }
 
     if (ceSelfEffect && (this.effectTargets.size > 0 || ceSelfEffect.flags?.dae?.selfTargetAlways)) {
