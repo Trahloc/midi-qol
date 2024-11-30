@@ -183,12 +183,13 @@ class ConfigSettings {
   weaponUseSoundRanged: string = "";
   rollAlternate: string = "off";
   optionalRules: any = {
+    checkFlankingBonus: "",
     invisAdvantage: "RAW",
     hiddenAdvantage: "none",
     invisVision: false,
     checkRange: "longFail",
     wallsBlockRange: "center",
-    diplsayBonusRolls: true,
+    displayBonusRolls: true,
     coverCalculation: "none",
     nearbyFoe: 5,
     nearbyAllyRanged: 0,
