@@ -1260,7 +1260,7 @@ export function setupMidiStatusEffects() {
   //@ts-expect-error
   if (!CONFIG.statusEffects.find(e => e._id === getStaticID("flanked"))) {
     //@ts-expect-error
-    CONFIG.statusEffects.push({ id: "flanked", _id: getStaticID("flanked"), name: i18n("midi-qol.flanked"), [imgSource]: "modules/midi-qol/icons/flanked.svg", effectData: { transfer: false }, flags: { dae: { specialDuration: ["combatEnd", "isMoved", "shortRest"] } } });
+    CONFIG.statusEffects.push({ id: "flanked", _id: getStaticID("flanked"), name: i18n("midi-qol.Flanked"), [imgSource]: "modules/midi-qol/icons/flanked.svg", effectData: { transfer: false }, flags: { dae: { specialDuration: ["combatEnd", "isMoved", "shortRest"] } } });
   }
   //@ts-expect-error
   ActiveEffect.implementation.fromStatusEffect("flanked", { keepId: true }).then(effect => {
@@ -1270,7 +1270,7 @@ export function setupMidiStatusEffects() {
   //@ts-expect-error
   if (!CONFIG.statusEffects.find(e => e._id === getStaticID("flanking"))) {
     //@ts-expect-error
-    CONFIG.statusEffects.push({ id: "flanking", _id: getStaticID("flanking"), name: i18n("midi-qol.flanking"), [imgSource]: "modules/midi-qol/icons/flanking.svg", effectData: { transfer: false }, flags: { dae: { specialDuration: ["combatEnd", "isMoved", "shortRest"] } } });
+    CONFIG.statusEffects.push({ id: "flanking", _id: getStaticID("flanking"), name: i18n("midi-qol.Flanking"), [imgSource]: "modules/midi-qol/icons/flanking.svg", effectData: { transfer: false }, flags: { dae: { specialDuration: ["combatEnd", "isMoved", "shortRest"] } } });
   }
   //@ts-expect-error
   ActiveEffect.implementation.fromStatusEffect("flanking", { keepId: true }).then(effect => {
