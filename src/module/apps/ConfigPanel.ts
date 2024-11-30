@@ -209,6 +209,11 @@ export class ConfigPanel extends FormApplication {
       configSettings.optionalRulesEnabled = !configSettings.optionalRulesEnabled;
       this.render(true);
     })
+    html.find("#checkFlankingSelect").on("change", (event) => {
+      const selectedValue = event.target.value;
+      configSettings.optionalRules.checkFlanking = selectedValue;
+      this.render(true);
+    })
 
     html.find("#midi-qol-show-stats").on("click", event => {
       gameStats.showStats();
