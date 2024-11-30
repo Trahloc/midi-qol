@@ -184,6 +184,7 @@ class ConfigSettings {
   rollAlternate: string = "off";
   optionalRules: any = {
     checkFlankingBonus: "",
+    checkFlankingUUID: "",
     invisAdvantage: "RAW",
     hiddenAdvantage: "none",
     invisVision: false,
@@ -445,6 +446,7 @@ export let fetchParams = () => {
     challengeModeArmorScale: false,
     checkFlanking: "off",
     checkFlankingBonus: "",
+    checkFlankingUUID: "",
     checkRange: "longfail",
     coverCalculation: "none",
     displayBonusRolls: true,
