@@ -760,7 +760,15 @@
   "midi-qol.AddRow": "Add Row",
   "midi-qol.CheckFlanking.Name": "Check Flanking",
   "midi-qol.CheckFlanking.Hint": "Check if you and your allies flank the opponent. Either gives attacker advantage and/or applies <strong>Flanking status</strong> condition to attacker OR applies <strong>Flanked status</strong> to target",
-  "midi-qol.CheckFlankingOptions.HintLong": {
+  "midi-qol.CheckFlankingOptions": {
+    "off": "No Flanking",
+    "advonly": "MidiQOL advantage only",
+    "ceonly": "Flanking status + bonus",
+    "ceadv": "Flanking status + advantage",
+    "ceflanked": "lanked status + advantage",
+    "ceflankedNoconga": "Flanked status + no conga line"
+  },
+  "midi-qol.CheckFlankingOptionsHints.HintLong": {
     "off": "<strong>No Flanking</strong>: Do nothing",
     "advonly": "<strong>MidiQOL advantage only</strong>: No status icons added, and attack rolls have advantage",
     "ceonly": "<strong>Flanking status + bonus</strong>: Flanking effect on attacker and user provided bonus",
