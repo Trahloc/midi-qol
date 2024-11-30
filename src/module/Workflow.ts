@@ -2897,7 +2897,7 @@ export class Workflow {
       }
 
       this.displayId = foundry.utils.randomID();
-      const dnd5eAttackTargets = Array.from(this.targets).map(token => {
+      const midiAttackTargets = Array.from(this.targets).map(token => {
         const t = getTokenDocument(token);
         return {
           name: t?.actor?.name,
@@ -2905,6 +2905,7 @@ export class Workflow {
           uuid: t?.actor?.uuid,
           //@ts-expect-error
           ac: t?.actor?.system?.attributes.ac.value,
+          sourceActorUuid: this.actor.uuid
         }
       })
       newFlags = foundry.utils.mergeObject(newFlags, {
@@ -2918,10 +2919,8 @@ export class Workflow {
           otherDamageTotal: this.useOther ? this.damageTotal : this.otherDamageTotal,
           bonusDamageDetail: this.rawBonusDamageDetail,
           bonusDamageTotal: this.bonusDamageTotal,
-          displayId: this.displayId
-        },
-        "dnd5e": {
-          targets: dnd5eAttackTargets
+          displayId: this.displayId,
+          dnd5eTargets: midiAttackTargets
         }
       }, { overwrite: true, inplace: false });
     }
@@ -3072,9 +3071,9 @@ export class Workflow {
       var searchString;
       var replaceString;
       //@ts-expect-error
-      let dnd5eTargets: TokenDocument[] = Array.from(this.targets.map(t => getTokenDocument(t))).filter(t => t);
-      let dnd5eTargetDetails;
-      if (dnd5eTargets.length) {
+      let midiTargets: TokenDocument[] = Array.from(this.targets.map(t => getTokenDocument(t))).filter(t => t);
+      let midiTargetDetails;
+      if (midiTargets.length) {
         //@ts-expect-error
         const saves = this.saves?.map(t => getTokenDocument(t)?.uuid);
         //@ts-expect-error
@@ -3082,7 +3081,7 @@ export class Workflow {
         //@ts-expect-error
         const superSavers = this.superSavers?.map(t => getTokenDocument(t)?.uuid);
 
-        dnd5eTargetDetails = dnd5eTargets.map(t => {
+        midiTargetDetails = midiTargets.map(t => {
           let uncannyDodge = foundry.utils.getProperty(t, `actor.flags.${MODULE_ID}.uncanny-dodge`) && this.activity?.attack;
           let saveMults: any = {};
           saveMults["otherDamage"] = this.otherActivity ? getsaveMultiplierForActivity(this.otherActivity) : 1;
@@ -3099,7 +3098,8 @@ export class Workflow {
             superSaver: superSavers?.has(t.uuid),
             saveMults,
             itemType: this.item.type,
-            uncannyDodge
+            uncannyDodge,
+            sourceActorUuid: this.actor.uuid
           }
         })
       }
@@ -3113,7 +3113,7 @@ export class Workflow {
           "flags.midi-qol.type": MESSAGETYPES.SAVES,
           "flags.midi-qol.saveUuids": Array.from(this.saves).map(t => getTokenDocument(t)?.uuid),
           "flags.midi-qol.failedSaveUuids": Array.from(this.failedSaves).map(t => getTokenDocument(t)?.uuid),
-          "flags.dnd5e.targets": dnd5eTargetDetails
+          "flags.midi-qol.midi.dnd5eTargets": midiTargetDetails
         };
         //@ts-expect-error
         if (game.release.generation < 12) {
@@ -5020,7 +5020,7 @@ export class DDBGameLogWorkflow extends Workflow {
     if (!activityHasAreaTarget(this.activity)) return super.WorkflowState_AwaitTemplate;
     let system: any = game.system;
     // Create the template
-    const template = system.canvas.AbilityTemplate.fromItem(this.item);
+    const template = system.canvas.AbilityTemplate.Activity(this.activity);
     if (template) template.drawPreview();
     return super.WorkflowState_AwaitTemplate;
   }

@@ -3,12 +3,15 @@
 * Fix for rolls not completing when auto roll attack is disabled.
 * Fix for spells not scaling when damage is rolled from the chat card (instead of auto rolling).
 * Fix for midi SaveActivity not being able to do critical damage.
-* Fix for removing concentration not removing dependent effects
-git * Change to default midi key for roll toggle - turns out T is a bad choice when mixed with ctrl/alt. It is now F (toggle fast forward - which is what the key does now).
+* Fix for removing concentration not removing dependent effects.
+* Fix for idi/idr etc not working.
+* Fix for not supporting backwards compatible ability checks/saving throws/skill checks.
+* Change to default midi key for roll toggle - turns out T is a bad choice when mixed with ctrl/alt. It is now F (toggle fast forward - which is what the key does now).
 * All keyboard event processing now goes through the dnd5e event processing so it is all consistent.
 * A little clean up to the midi UtilityActivity so you can have the choice to roll the utility roll or not.
 * Added support for cast activities on items to be available for reactions. The item with the spell must be equipped and attuned (if required).
 * Dropped support for magic items in reactions. Use the dnd5e cast activity instead.
+* Fix for completeActivityUse overwriting workflowOptions thanks @Elwin
 
 ### 12.4.11.3
 * Clean up some of the damage roll edge cases/buttons mentioned in 12.4.11 

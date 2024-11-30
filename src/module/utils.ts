@@ -1338,7 +1338,7 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
     activity = MQfromUuidSync(activity);
   }
   config.midiOptions ??= {};
-  config.midiOptions.workflowOptions = { forceCompletion: true };
+  foundry.utils.setProperty(config, "midiOptions.workflowOptions.forceCompletion", true);
   // delete any existing workflow - complete item use always is fresh.
   if (Workflow.getWorkflow(activity.uuid)) await Workflow.removeWorkflow(activity.uuid);
   let localRoll = (!config.midiOptions.asUser && game.user?.isGM) || !config.midiOptions.checkGMStatus || config.midiOptions.asUser === game.user?.id;
@@ -5679,22 +5679,27 @@ export async function contestedRoll(data: {
   ];
 
   let results = await Promise.all(resultPromises);
-  let result: number | undefined = results[0].total - results[1].total;
+  let roll1 = results[0];
+  let roll2 = results[1];
+  if (roll1 instanceof Array) roll1 = roll1[0];
+  if (roll2 instanceof Array) roll2 = roll2[0];
+  let result: number | undefined = roll1.total - roll2.total;
   if (isNaN(result)) result = undefined;
   if (displayResults !== false) {
     let resultString;
     if (result === undefined) resultString = "";
     else resultString = result > 0 ? i18n("midi-qol.save-success") : result < 0 ? i18n("midi-qol.save-failure") : result === 0 ? i18n("midi-qol.save-drawn") : "no result"
     const skippedString = i18n("midi-qol.Skipped");
-    const content = `${flavor ?? i18n("midi-qol.ContestedRoll")} ${resultString} ${results[0].total ?? skippedString} ${i18n("midi-qol.versus")} ${results[1].total ?? skippedString}`;
+    const content = `${flavor ?? i18n("midi-qol.ContestedRoll")} ${resultString} ${roll1.total ?? skippedString} ${i18n("midi-qol.versus")} ${roll2.total ?? skippedString}`;
     displayContestedResults(itemCardUuid, content, ChatMessage.getSpeaker({ token: sourceToken }), flavor);
   }
 
-  if (result === undefined) return { result, rolls: results };
-  if (result > 0 && success) success(results);
-  else if (result < 0 && failure) failure(results);
-  else if (result === 0 && drawn) drawn(results)
-  return { result, rolls: results };
+  const rollsToReturn = [roll1, roll2];
+  if (result === undefined) return { result, rolls: rollsToReturn };
+  if (result > 0 && success) success(rollsToReturn);
+  else if (result < 0 && failure) failure(rollsToReturn);
+  else if (result === 0 && drawn) drawn(rollsToReturn)
+  return { result, rolls: rollsToReturn };
 }
 
 function displayContestedResults(chatCardUuid: string | undefined, resultContent: string, speaker, flavor: string | undefined) {
