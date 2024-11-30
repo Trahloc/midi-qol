@@ -713,10 +713,17 @@
 
           <div class="form-group">
             <label>{{localize "midi-qol.CheckFlanking.Name"}}</label>
-            <select name="optionalRules.checkFlanking" data-dtype="String">
+            <select name="optionalRules.checkFlanking" data-dtype="String" id="checkFlankingSelect">
               {{selectOptions checkFlankingOptions selected=configSettings.optionalRules.checkFlanking}}
             </select>
             <div class="notes midi-qol-faint">{{{localize "midi-qol.CheckFlanking.Hint"}}}</div>
+            {#if (eq configSettings.optionalRules.checkFlanking "ceonly")}}
+              <div class="form-group">
+                <label>{{localize "midi-qol.CheckFlankingBonus.Name"}}</label>
+                <input type="text" name="optionalRules.checkFlankingBonus" data-dtype="String">
+                 <div class="notes midi-qol-faint">{{{localize "midi-qol.CheckFlankingBonus.Hint"}}}</div>
+              </div>
+            {{/if}}
           </div>
 
           <div class="midi-qol-box">
