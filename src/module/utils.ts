@@ -4485,8 +4485,8 @@ export async function applyFlankedEffect(actor) {
   effect.updateSource({
     origin: actor.uuid,
     changes: [
-      { key: 'flags.midi-qol.grants.advantage.attack.mwak', mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: 'canSee(targetId, tokenId)' },
-      { key: 'flags.midi-qol.grants.advantage.attack.msak', mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: 'canSee(targetId, tokenId)' },
+      { key: "flags.midi-qol.grants.advantage.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(targetId, tokenId)" },
+      { key: "flags.midi-qol.grants.advantage.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(targetId, tokenId)" },
     ],
   });
   //@ts-expect-error
@@ -4499,13 +4499,13 @@ export async function removeFlankedEffect(actor) {
 
 export async function applyFlankingEffect(actor) {
   const flankingChanges = checkRule("checkFlanking") === "ceadv" ?
-    [{ key: "flags.midi-qol.advantage.attack.all", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(token, target)" }] :
+    [{ key: "flags.midi-qol.advantage.attack.all", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(tokenId, targetId)" }] :
     checkRule("checkFlanking") === "ceadv" ?
       [
         { key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
         { key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
         { key: "flags.midi-qol.optional.FlankingStatus.count", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "every" },
-        { key: "flags.midi-qol.optional.FlankingStatus.force", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "canSee(token, target)" },
+        { key: "flags.midi-qol.optional.FlankingStatus.force", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "canSee(tokenId, targetId)" },
       ] : 
       false;
   const id = "flanking";
