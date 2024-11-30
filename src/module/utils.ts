@@ -4797,8 +4797,8 @@ export function heightIntersects(targetDocument: any /*TokenDocument*/, flankerD
   return true;
 }
 export function findPotentialFlankers(target) {
-  const allies = findNearby(-1, target, (canvas?.dimensions?.distance ?? 5));
-  const reachAllies = findNearby(-1, target, 2 * (canvas?.dimensions?.distance ?? 5)).filter(
+  const allies = findNearby(-1, target, (canvas?.dimensions?.distance ?? 5), { canSee: true });
+  const reachAllies = findNearby(-1, target, 2 * (canvas?.dimensions?.distance ?? 5), { canSee: true }).filter(
     ally => !(allies.some(tk => tk === ally)) &&
       //@ts-expect-error .system
       ally.actor?.items.contents.some(item => item.system?.properties?.rch && item.system.equipped)
