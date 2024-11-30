@@ -4993,13 +4993,12 @@ export async function markFlanking(token, target): Promise<boolean> {
   if (["ceonly", "ceadv"].includes(checkRule("checkFlanking"))) {
     if (!token) return false;
     needsFlanking = computeFlankingStatus(token, target);
-//  if (!CEFlanking) return needsFlanking;
+    //  if (!CEFlanking) return needsFlanking;
     const hasFlanking = actor?.statuses.has("flanking");
     if (needsFlanking && !hasFlanking && actor) {
       await applyFlankingEffect(actor)
-      } else if (!needsFlanking && hasFlanking) {
-        await removeFlankingEffect(actor);
-      }
+    } else if (!needsFlanking && hasFlanking) {
+      await removeFlankingEffect(actor);
     }
   } else if (checkRule("checkFlanking") === "advonly") {
     if (!token) return false;
