@@ -108,6 +108,8 @@ export let SystemString;
 export let systemConcentrationId;
 export let midiReactionEffect;
 export let midiBonusActionEffect;
+export let midiFlankedEffect;
+export let midiFlankingEffect;
 
 export const MESSAGETYPES = {
   HITS: 1,
@@ -1243,7 +1245,6 @@ export function setupMidiStatusEffects() {
       globalThis.MidiQOL.midiBonusActionEffect = effect;
     });
   }
-
   if (configSettings.enforceReactions !== "none") {
     //@ts-expect-error
     if (!CONFIG.statusEffects.find(e => e._id === getStaticID("reaction"))) {
@@ -1255,7 +1256,26 @@ export function setupMidiStatusEffects() {
       midiReactionEffect = effect;
       globalThis.MidiQOL.midiReactionEffect = effect;
     });
-
   }
+  //@ts-expect-error
+	if (!CONFIG.statusEffects.find(e => e._id === getStaticID("flanked"))) {
+    //@ts-expect-error
+		CONFIG.statusEffects.push({ id: "flanked", _id: getStaticID("flanked"), name: i18n("midi-qol.flanked"), [imgSource]: "modules/midi-qol/icons/flanked.svg", effectData: { transfer: false }, flags: { dae: { specialDuration: ["combatEnd", "shortRest"] } } });
+	}
+  //@ts-expect-error
+	ActiveEffect.implementation.fromStatusEffect("flanked", { keepId: true }).then(effect => {
+		midiFlankedEffect = effect;
+		globalThis.MidiQOL.midiFlankedEffect = effect;
+	});
+  //@ts-expect-error
+  if (!CONFIG.statusEffects.find(e => e._id === getStaticID("flanking"))) {
+		//@ts-expect-error
+		CONFIG.statusEffects.push({ id: "flanking", _id: getStaticID("flanking"), name: i18n("midi-qol.flanking"), [imgSource]: "modules/midi-qol/icons/flanking.svg", effectData: { transfer: false }, flags: { dae: { specialDuration: ["combatEnd", "shortRest"] } } });
+  }
+  //@ts-expect-error
+	ActiveEffect.implementation.fromStatusEffect("flanking", { keepId: true }).then(effect => {
+		midiFlankingEffect = effect;
+		globalThis.MidiQOL.midiFlankingEffect = effect;
+	});
 }
 // globalThis.onerror = midiOnerror;
