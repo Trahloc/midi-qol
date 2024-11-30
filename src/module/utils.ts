@@ -4505,8 +4505,8 @@ export async function applyFlankingEffect(actor) {
   if (checkRule("checkFlanking") === "ceonly" && checkRule("checkFlankingBonus") !== "") {
     const flankingBonus = checkRule("checkFlankingBonus");
     changes = [
-      { key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
-      { key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
+      { key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `"${flankingBonus}"` },
+      { key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `"${flankingBonus}"` },
       { key: "flags.midi-qol.optional.FlankingStatus.count", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "every" },
       { key: "flags.midi-qol.optional.FlankingStatus.force", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "canSee(tokenUuid, targetUuid)" },
     ];
