@@ -444,6 +444,7 @@ export let fetchParams = () => {
     challengeModeArmor: "none",
     challengeModeArmorScale: false,
     checkFlanking: "off",
+    checkFlankingBonus: "",
     checkRange: "longfail",
     coverCalculation: "none",
     displayBonusRolls: true,
