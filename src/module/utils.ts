@@ -4498,26 +4498,36 @@ export async function removeFlankedEffect(actor) {
 }
 
 export async function applyFlankingEffect(actor) {
-  const id = "flanking";
-  await actor.effects.get(getStaticID(id))?.delete();
-  const effect = foundry.utils.deepClone(getFlankingEffect());
-  let changes = [];
-  if (checkRule("checkFlanking") === "ceonly" && checkRule("checkFlankingBonus") !== "") {
-    const flankingBonus = checkRule("checkFlankingBonus");
-    changes = [
-      { key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `"${flankingBonus}"` },
-      { key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `"${flankingBonus}"` },
-      { key: "flags.midi-qol.optional.FlankingStatus.count", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "every" },
-      { key: "flags.midi-qol.optional.FlankingStatus.force", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "canSee(tokenUuid, targetUuid)" },
-    ];
+  let effect;
+  if (checkRule("checkFlanking") === "uuid" && checkRule("checkFlankingUUID") !== "") {
+    effect = await fromUuid(checkRule("checkFlankingUUID"));
+    effect.updateSource({
+    origin: actor.uuid
+    })
+  } else {
+    const id = "flanking";
+    await actor.effects.get(getStaticID(id))?.delete();
+    effect = foundry.utils.deepClone(getFlankingEffect());
+    if (checkRule("checkFlanking") === "ceonly" && checkRule("checkFlankingBonus") !== "") {
+      const flankingBonus = checkRule("checkFlankingBonus");
+      changes = [
+        { key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${flankingBonus}` },
+        { key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${flankingBonus}` },
+        { key: "flags.midi-qol.optional.FlankingStatus.count", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "every" },
+        { key: "flags.midi-qol.optional.FlankingStatus.force", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "canSee(tokenUuid, targetUuid)" },
+      ];
+      effect.updateSource({
+        origin: actor.uuid,
+        changes
+      });
+    } else {
+      effect.updateSource({
+        origin: actor.uuid
+      })
+    }
   }
   //@ts-expect-error
-  effect.updateSource({
-    origin: actor.uuid,
-    changes,
-  });
-  //@ts-expect-error
-  return ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
+  await ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
 }
 
 export async function removeFlankingEffect(actor) {
@@ -4993,10 +5003,9 @@ export async function markFlanking(token, target): Promise<boolean> {
   let needsFlanking = false;
   const actor = token?.actor;
   if (!target || !checkRule("checkFlanking") || checkRule("checkFlanking") === "off") return false;
-  if (["ceonly", "ceadv"].includes(checkRule("checkFlanking"))) {
+  if (["ceonly", "ceadv", "uuid"].includes(checkRule("checkFlanking"))) {
     if (!token) return false;
     needsFlanking = computeFlankingStatus(token, target);
-    //  if (!CEFlanking) return needsFlanking;
     const hasFlanking = actor?.statuses.has("flanking");
     if (needsFlanking && !hasFlanking && actor) {
       await applyFlankingEffect(actor)
