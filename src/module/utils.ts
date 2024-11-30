@@ -1,4 +1,4 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, failedSaveOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect, midiFlankedEffect, midiFlankingEffect } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./workflow.js";
@@ -4477,6 +4477,53 @@ export function isInCombat(actor: Actor) {
   return (combats?.length ?? 0) > 0;
 }
 
+export async function applyFlankedEffect(actor) {
+	const id = "flanked";
+	await actor.effects.get(getStaticID(id))?.delete();
+	const effect = foundry.utils.deepClone(getFlankedEffect());
+	//@ts-expect-error
+	effect.updateSource({
+		origin: actor.uuid,
+		changes: [
+			{ key: "flags.midi-qol.grants.advantage.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(targetId, tokenId)" },
+			{ key: "flags.midi-qol.grants.advantage.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(targetId, tokenId)" },
+		]
+	});
+	//@ts-expect-error
+	return ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
+}
+
+export async function removeFlankedEffect(actor) {
+  return actor.effects.get(getStaticID("flanked"))?.delete();
+}
+
+export async function applyFlankingEffect(actor) {
+	const flankingChanges = checkRule("checkFlanking") === "ceadv" ?
+		[{ key: "flags.midi-qol.advantage.attack.all", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(token, target)" }] :
+		checkRule("checkFlanking") === "ceadv" ?
+			[
+				{ key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
+				{ key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
+				{ key: "flags.midi-qol.optional.FlankingStatus.count", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "every" },
+				{ key: "flags.midi-qol.optional.FlankingStatus.force", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "canSee(token, target)" },
+			] : 
+			false;
+	const id = "flanking";
+	await actor.effects.get(getStaticID(id))?.delete();
+	const effect = foundry.utils.deepClone(getFlankingEffect());
+	//@ts-expect-error
+	effect.updateSource({
+		origin: actor.uuid,
+		changes: flankingChanges
+	});
+	//@ts-expect-error
+	return ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
+}
+
+export async function removeFlankingEffect(actor) {
+  return actor.effects.get(getStaticID("flanking"))?.delete();
+}
+
 export async function setActionUsed(actor: Actor) {
   await actor.setFlag(MODULE_ID, "actions.action", true);
 }
@@ -4791,10 +4838,8 @@ export async function computeFlankedStatus(target): Promise<boolean> {
     const token = allies.pop();
     if (!token) break;
     if (!heightIntersects(target.document, token.document)) continue;
-    if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
-      const CEFlanked = getFlankedEffect();
-      //@ts-expect-error
-      const hasFlanked = token.actor && CEFlanked && CEHasEffectApplied({ effectName: CEFlanked.name, uuid: token.actor.uuid });
+    if (checkRule("checkFlanking") === "ceflankedNoconga") {
+      const hasFlanked = token.actor.statuses.has("flanked");
       if (hasFlanked) continue;
     }
     // Loop through each square covered by attacker and ally
@@ -4806,10 +4851,8 @@ export async function computeFlankedStatus(target): Promise<boolean> {
       if (actor?.system.attributes?.hp?.value <= 0) continue;
       if (!heightIntersects(target.document, ally.document)) continue;
       if (hasCondition(actor, "incapacitated")) continue;
-      if (checkRule("checkFlanking") === "ceflankedNoconga" && installedModules.get("dfreds-convenient-effects")) {
-        const CEFlanked = getFlankedEffect();
-        //@ts-expect-error
-        const hasFlanked = CEFlanked && CEHasEffectApplied({ effectName: CEFlanked.name, uuid: ally.actor.uuid });
+      if (checkRule("checkFlanking") === "ceflankedNoconga") {
+        const hasFlanked = ally.actor.statuses.has("flanked");
         if (hasFlanked) continue;
       }
       const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
@@ -4917,31 +4960,11 @@ export function computeFlankingStatus(token, target): boolean {
 }
 
 export function getFlankingEffect(): ActiveEffect | undefined {
-  if (installedModules.get("dfreds-convenient-effects")) {
-    //@ts-expect-error
-    const dfreds = game.dfreds;
-    let CEFlanking = dfreds.effects?._flanking;
-    if (!CEFlanking && dfreds.effectInterface?.findEffectByName)
-      CEFlanking = dfreds.effectInterface?.findEffectByName("Flanking");
-    if (!CEFlanking && dfreds.effectInterface?.findEffect)
-      CEFlanking = dfreds.effectInterface?.findEffect({ effectName: "Flanking" });
-    return CEFlanking;
-  }
-  return undefined;
+  return midiFlankingEffect;
 }
 
 export function getFlankedEffect(): ActiveEffect | undefined {
-  if (installedModules.get("dfreds-convenient-effects")) {
-    //@ts-expect-error
-    const dfreds = game.dfreds;
-    let CEFlanked = dfreds.effects?._flanked;
-    if (!CEFlanked && dfreds.effectInterface.findEffectByName)
-      CEFlanked = dfreds?.effectInterface.findEffectByName("Flanked");
-    if (!CEFlanked && dfreds.effectInterface?.findEffect)
-      CEFlanked = dfreds?.effectInterface.findEffect({ effectName: "Flanked" });
-    return CEFlanked;
-  }
-  return undefined;
+  return midiFlankedEffect;
 }
 
 export function getReactionEffect(): ActiveEffect {
@@ -4965,26 +4988,17 @@ export async function markFlanking(token, target): Promise<boolean> {
   // checkFlankedStatus requires only a target token
   if (!canvas) return false;
   let needsFlanking = false;
+  const actor = token?.actor;
   if (!target || !checkRule("checkFlanking") || checkRule("checkFlanking") === "off") return false;
   if (["ceonly", "ceadv"].includes(checkRule("checkFlanking"))) {
-    //@ts-expect-error
-    const dfreds = game.dfreds;
     if (!token) return false;
     needsFlanking = computeFlankingStatus(token, target);
-    if (installedModules.get("dfreds-convenient-effects")) {
-      let CEFlanking = getFlankingEffect();
-      if (!CEFlanking) return needsFlanking;
-      //@ ts-expect-error
-      // const hasFlanking = token.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanking.name, token.actor.uuid)
-      const hasFlanking = CEHasEffectApplied({ effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid });
-      if (needsFlanking && !hasFlanking && token.actor) {
-        await CEAddEffectWith({ effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid, overlay: false });
-        //@ ts-expect-error
-        // await game.dfreds.effectInterface?.addEffect({ effectName: CEFlanking.name, uuid: token.actor.uuid });
-      } else if (!needsFlanking && hasFlanking && token.actor) {
-        await CERemoveEffect({ effectName: CEFlanking.name ?? "Flanking", uuid: token.actor.uuid });
-        //@ ts-expect-error
-        // await game.dfreds.effectInterface?.removeEffect({ effectName: CEFlanking.name, uuid: token.actor.uuid });
+//  if (!CEFlanking) return needsFlanking;
+    const hasFlanking = actor?.statuses.has("flanking");
+    if (needsFlanking && !hasFlanking && actor) {
+      await applyFlankingEffect(actor)
+      } else if (!needsFlanking && hasFlanking) {
+        await removeFlankingEffect(actor);
       }
     }
   } else if (checkRule("checkFlanking") === "advonly") {
@@ -4992,24 +5006,14 @@ export async function markFlanking(token, target): Promise<boolean> {
     needsFlanking = computeFlankingStatus(token, target);
   } else if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking"))) {
     if (!target.actor) return false;
-    if (installedModules.get("dfreds-convenient-effects")) {
-      let CEFlanked = getFlankedEffect();
-      if (!CEFlanked) return false;
-      const needsFlanked = await computeFlankedStatus(target);
-      //@ ts-expect-error
-      // const hasFlanked = target.actor && await game.dfreds.effectInterface?.hasEffectApplied(CEFlanked.name, target.actor.uuid);
-      const hasFlanked = CEHasEffectApplied({ effectName: CEFlanked.name ?? "Flanked", uuid: target.actor.uuid });
-      if (needsFlanked && !hasFlanked && target.actor) {
-        await CEAddEffectWith({ effectName: CEFlanked.name ?? "Flanked", uuid: target.actor.uuid, overlay: false });
-        //@ ts-expect-error
-        // await game.dfreds.effectInterface?.addEffect({ effectName: CEFlanked.name, uuid: target.actor.uuid });
-      } else if (!needsFlanked && hasFlanked && token.actor) {
-        await CERemoveEffect({ effectName: CEFlanked.name ?? "Flanked", uuid: target.actor.uuid });
-        //@ ts-expect-error
-        // await game.dfreds.effectInterface?.removeEffect({ effectName: CEFlanked.name, uuid: target.actor.uuid });
-      }
-      return false;
+    const needsFlanked = await computeFlankedStatus(target);
+    const hasFlanked = target.actor.statuses.has("flanked");
+    if (needsFlanked && !hasFlanked) {
+      await applyFlankedEffect(target.actor);
+    } else if (!needsFlanked && hasFlanked) {
+      await removeFlankedEffect(target.actor);
     }
+    return false;
   }
   return needsFlanking;
 }
@@ -5018,8 +5022,7 @@ export async function checkflanking(user: User, target: Token, targeted: boolean
   if (user !== game.user) return false;
   let token = canvas?.tokens?.controlled[0];
   if (user.targets.size === 1) return markFlanking(token, target);
-  return false
-
+  return false;
 }
 
 export function getChanges(actorOrItem, key: string) {
