@@ -4889,6 +4889,7 @@ export function computeFlankingStatus(token, target): boolean {
   // For the target see how many square between this token and any friendly targets
   // Find all tokens hostile to the target
   if (!target) return false;
+  if (!MidiQOL.canSee(token.document, target.document)) return false;
   if (!heightIntersects(target.document, token.document)) return false;
   let range = 1;
   if (token.actor?.items.contents.some(item => item.system?.properties?.rch && item.system.equipped)) {
@@ -4933,6 +4934,7 @@ export function computeFlankingStatus(token, target): boolean {
     const actor: any = ally.actor;
     if (checkIncapacitated(ally.actor, debugEnabled > 0)) continue;
     if (hasCondition(actor, "incapacitated")) continue;
+    if (!MidiQOL.canSee(ally.document, target.document)) continue;
     const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
     const allyStartY = ally.document.height >= 1 ? 0.5 : ally.document.height / 2;
     var x, x1, y, y1, d, r;
