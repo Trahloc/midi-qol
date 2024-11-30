@@ -4836,6 +4836,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
     const token = allies.pop();
     if (!token) break;
     if (!heightIntersects(target.document, token.document)) continue;
+    if (!MidiQOL.canSee(token.document, target.document)) continue;
     if (checkRule("checkFlanking") === "ceflankedNoconga") {
       const hasFlanked = token.actor.statuses.has("flanked");
       if (hasFlanked) continue;
