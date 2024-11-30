@@ -4478,19 +4478,19 @@ export function isInCombat(actor: Actor) {
 }
 
 export async function applyFlankedEffect(actor) {
-	const id = "flanked";
-	await actor.effects.get(getStaticID(id))?.delete();
-	const effect = foundry.utils.deepClone(getFlankedEffect());
-	//@ts-expect-error
-	effect.updateSource({
-		origin: actor.uuid,
-		changes: [
-			{ key: "flags.midi-qol.grants.advantage.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(targetId, tokenId)" },
-			{ key: "flags.midi-qol.grants.advantage.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(targetId, tokenId)" },
-		]
-	});
-	//@ts-expect-error
-	return ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
+  const id = 'flanked';
+  await actor.effects.get(getStaticID(id))?.delete();
+  const effect = foundry.utils.deepClone(getFlankedEffect());
+  //@ts-expect-error
+  effect.updateSource({
+    origin: actor.uuid,
+    changes: [
+      { key: 'flags.midi-qol.grants.advantage.attack.mwak', mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: 'canSee(targetId, tokenId)' },
+      { key: 'flags.midi-qol.grants.advantage.attack.msak', mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: 'canSee(targetId, tokenId)' },
+    ],
+  });
+  //@ts-expect-error
+  return ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
 }
 
 export async function removeFlankedEffect(actor) {
@@ -4498,26 +4498,26 @@ export async function removeFlankedEffect(actor) {
 }
 
 export async function applyFlankingEffect(actor) {
-	const flankingChanges = checkRule("checkFlanking") === "ceadv" ?
-		[{ key: "flags.midi-qol.advantage.attack.all", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(token, target)" }] :
-		checkRule("checkFlanking") === "ceadv" ?
-			[
-				{ key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
-				{ key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
-				{ key: "flags.midi-qol.optional.FlankingStatus.count", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "every" },
-				{ key: "flags.midi-qol.optional.FlankingStatus.force", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "canSee(token, target)" },
-			] : 
-			false;
-	const id = "flanking";
-	await actor.effects.get(getStaticID(id))?.delete();
-	const effect = foundry.utils.deepClone(getFlankingEffect());
-	//@ts-expect-error
-	effect.updateSource({
-		origin: actor.uuid,
-		changes: flankingChanges
-	});
-	//@ts-expect-error
-	return ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
+  const flankingChanges = checkRule("checkFlanking") === "ceadv" ?
+    [{ key: "flags.midi-qol.advantage.attack.all", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(token, target)" }] :
+    checkRule("checkFlanking") === "ceadv" ?
+      [
+        { key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
+        { key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${checkRule("checkFlankingBonus")}` },
+        { key: "flags.midi-qol.optional.FlankingStatus.count", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "every" },
+        { key: "flags.midi-qol.optional.FlankingStatus.force", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "canSee(token, target)" },
+      ] : 
+      false;
+  const id = "flanking";
+  await actor.effects.get(getStaticID(id))?.delete();
+  const effect = foundry.utils.deepClone(getFlankingEffect());
+  //@ts-expect-error
+  effect.updateSource({
+    origin: actor.uuid,
+    changes: flankingChanges,
+  });
+  //@ts-expect-error
+  return ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
 }
 
 export async function removeFlankingEffect(actor) {
