@@ -759,7 +759,7 @@
   },
   "midi-qol.AddRow": "Add Row",
   "midi-qol.CheckFlanking.Name": "Check Flanking",
-  "midi-qol.CheckFlanking.Hint": "Check if you and your allies flank the opponent. Either gives attacker advantage and/or applies <strong>Flanking status</strong> condition to attacker OR applies <strong>Flanked status</strong> to target",
+  "midi-qol.CheckFlanking.Hint": "Choose how flanking rules are to be implemented in your world. In the choices for UUIDs, you can provide Active Effect's UUID, for example if you have created one in CPR",
   "midi-qol.CheckFlankingOptions": {
     "off": "No Flanking",
     "advonly": "MidiQOL advantage only",
@@ -767,16 +767,18 @@
     "ceadv": "Flanking status + advantage",
     "ceflanked": "Flanked status + advantage",
     "ceflankedNoconga": "Flanked status + no conga line",
-    "uuid": "Flanking effect UUID"
+    "flankingUUID": "Flanking effect UUID",
+    "flankedUUID": "Flanked effect UUID"
   },
   "midi-qol.CheckFlankingOptionsHints": {
     "off": "<strong>No Flanking</strong>: Do nothing",
-    "advonly": "<strong>MidiQOL advantage only</strong>: No status icons added, and attack rolls have advantage",
-    "ceonly": "<strong>Flanking status + bonus</strong>: Flanking effect on attacker and user provided bonus",
-    "ceadv": "<strong>Flanking status + advantage</strong>: Flanking effect on attacker and midiqol advantage",
-    "ceflanked": "<strong>Flanked status + advantage</strong>: Flanked effect on target and midiqol advantage",
-    "ceflankedNoconga": "<strong>Flanked status + no conga line</strong>: Flanked effect on target only if attacker is not flanked already",
-    "uuid": "<strong>Flanking effect UUID</strong>: User provided UUID of a Flanking effect they want to be used"
+    "advonly": "<strong>MidiQOL advantage only</strong>: No effect added and attack rolls have advantage",
+    "ceonly": "<strong>Flanking status + bonus</strong>: Flanking effect on attacker and user provided bonus to attack rolls",
+    "ceadv": "<strong>Flanking status + advantage</strong>: Flanking effect on attacker and MidiQOL advantage",
+    "ceflanked": "<strong>Flanked status + advantage</strong>: Flanked effect on target and MidiQOL advantage",
+    "ceflankedNoconga": "<strong>Flanked status + no conga line</strong>: Flanked effect (and MidiQOL advantage) on target only if attacker is not flanked already",
+    "flankingUUID": "<strong>Flanking effect UUID</strong>: User provided UUID of a Flanking effect they want to be used",
+    "flankedUUID": "<strong>Flanked effect UUID</strong>: User provided UUID of a Flanked effect they want to be used"
   },
   "midi-qol.CheckFlankingBonus.Name": "Flanking attack bonus",
   "midi-qol.CheckFlankingBonus.Hint": "Set the bonus to attacks when flanking, eg +2",
