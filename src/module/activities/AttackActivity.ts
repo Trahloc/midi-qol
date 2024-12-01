@@ -21,7 +21,7 @@ export function setupAttackActivity() {
   MidiAttackSheet = defineMidiAttackSheetClass(game.system.applications.activity.AttackSheet);
   MidiAttackActivity = defineMidiAttackActivityClass(GameSystemConfig.activityTypes.attack.documentClass);
   if (ReplaceDefaultActivities) {
-    GameSystemConfig.activityTypes["dnd5eAttack"] = GameSystemConfig.activityTypes.attack;
+    // GameSystemConfig.activityTypes["dnd5eAttack"] = GameSystemConfig.activityTypes.attack;
     GameSystemConfig.activityTypes.attack = { documentClass: MidiAttackActivity };
   } else {
     GameSystemConfig.activityTypes["midiAttack"] = { documentClass: MidiAttackActivity };
@@ -108,7 +108,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
     _otherActivity: any | undefined;
 
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.ATTACK", "midi-qol.SHARED"];
-
+    
     static defineSchema() {
       //@ts-expect-error
       const { StringField, ArrayField, BooleanField, SchemaField, ObjectField, NumberField } = foundry.data.fields;

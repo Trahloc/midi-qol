@@ -1,3 +1,9 @@
+### 12.4.13
+* Change to behaviour of replace activity setting. 
+- When enabled **ALL** activities that have a midi equivalent will be replaced with the midi equivalent which means very little setup is required as most activities will just work. If the setting is subsequently disabled or midi is disabled they will revert to the dnd5e equivalent.
+ - Enabling this setting is recommended for most users.
+ -  If the settings is disabled midi activities will be created separately to dnd5e activities and will disappear from the item if the setting is subsequently enabled or midi is disabled.  In additon SRD monsters/items will **not** trigger midi automation. Disabling this setting is only recommended if you plan to mainly use dnd5e activities and have a few midi activities enabled for special items or want to easily compare midi activity behaviour with dnd5e activity behaviour without needing to reload you world.
+
 ### 12.4.12
 * Refactored min/max roll options for ability/concentration etc to align with dnd5e v4 settings. No longer uses setMin/MaxRoll.
 * Fix for rolls not completing when auto roll attack is disabled.

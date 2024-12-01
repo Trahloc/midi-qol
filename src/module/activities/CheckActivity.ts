@@ -15,7 +15,7 @@ export function setupCheckActivity() {
   MidiCheckSheet = defineMidiCheckSheetClass(game.system.applications.activity.CheckSheet);
   MidiCheckActivity = defineMidiCheckActivityClass(CheckActivity);
   if (ReplaceDefaultActivities) {
-    GameSystemConfig.activityTypes["dnd5eCheck"] = GameSystemConfig.activityTypes.check;
+    // GameSystemConfig.activityTypes["dnd5eCheck"] = GameSystemConfig.activityTypes.check;
     GameSystemConfig.activityTypes.check = { documentClass: MidiCheckActivity };
   } else {
     GameSystemConfig.activityTypes["midiCheck"] = { documentClass: MidiCheckActivity };

@@ -16,7 +16,7 @@ import { addUndoChatMessage, getUndoQueue, removeMostRecentWorkflow, showUndoQue
 import { showUndoWorkflowApp } from './module/apps/UndoWorkflow.js';
 import { TroubleShooter } from './module/apps/TroubleShooter.js';
 import { TargetConfirmationDialog } from './module/apps/TargetConfirmation.js';
-import { setupAttackActivity } from './module/activities/AttackActivity.js';
+import { MidiAttackActivity, setupAttackActivity } from './module/activities/AttackActivity.js';
 
 
 export let debugEnabled = 0;
@@ -140,16 +140,24 @@ Hooks.once("init", () => {
   //@ts-expect-error
   CONFIG.ChatMessage.documentClass = defineChatMessageMidiClass(CONFIG.ChatMessage.documentClass);
 });
-
+globalThis.MidiQOL = { checkIncapacitated };
 function setupActvities() {
+  globalThis.MidiQOL.activityTypes = {};
   setupMidiActivityUsageDialog();
   setupAttackActivity();
+  globalThis.MidiQOL.activityTypes["attack"] = { documentClass: MidiAttackActivity };
   setupDamageActivity();
+  globalThis.MidiQOL.activityTypes["damage"] = { documentClass: MidiDamageActivity };
   setupSaveActivity();
+  globalThis.MidiQOL.activityTypes["save"] = { documentClass: MidiSaveActivity };
   setupCheckActivity(); // must happen after setupSaveActivity
+  globalThis.MidiQOL.activityTypes["check"] = { documentClass: MidiCheckActivity };
   setupHealActivity();
+  globalThis.MidiQOL.activityTypes["heal"] = { documentClass: MidiHealActivity };
   setupSummonActivity();
+  globalThis.MidiQOL.activityTypes["summon"] = { documentClass: MidiSummonActivity };
   setupUtilityActivity();
+  globalThis.MidiQOL.activityTypes["utility"] = { documentClass: MidiUtilityActivity };
 }
 
 Hooks.once('init', async function () {
@@ -180,7 +188,7 @@ Hooks.once('init', async function () {
   //@ts-expect-error
   systemConcentrationId = CONFIG.specialStatusEffects.CONCENTRATING;
 
-  globalThis.MidiQOL = { checkIncapacitated };
+  // globalThis.MidiQOL = { checkIncapacitated };
   // Assign custom classes and constants here
 
   // Register custom module settings
@@ -566,12 +574,12 @@ Hooks.once('ready', function () {
 import { setupMidiTests } from './module/tests/setupTest.js';
 import { TargetConfirmationConfig } from './module/apps/TargetConfirmationConfig.js';
 import { defineChatMessageMidiClass } from './module/ChatMessageMidi.js';
-import { setupSaveActivity } from './module/activities/SaveActivity.js';
-import { setupUtilityActivity } from './module/activities/UtilityActivity.js';
-import { setupSummonActivity } from './module/activities/SummonActivity.js';
-import { setupDamageActivity } from './module/activities/DamageActivity.js';
-import { setupCheckActivity } from './module/activities/CheckActivity.js';
-import { setupHealActivity } from './module/activities/HealActivity.js';
+import { MidiSaveActivity, setupSaveActivity } from './module/activities/SaveActivity.js';
+import { MidiUtilityActivity, setupUtilityActivity } from './module/activities/UtilityActivity.js';
+import { MidiSummonActivity, setupSummonActivity } from './module/activities/SummonActivity.js';
+import { MidiDamageActivity, setupDamageActivity } from './module/activities/DamageActivity.js';
+import { MidiCheckActivity, setupCheckActivity } from './module/activities/CheckActivity.js';
+import { MidiHealActivity, setupHealActivity } from './module/activities/HealActivity.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/activities/activityHelpers.js';
 import { setupMidiActivityUsageDialog } from './module/activities/MidiActivityMixin.js';
 import { field } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/fields.mjs.js';

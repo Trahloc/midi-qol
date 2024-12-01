@@ -13,7 +13,7 @@ export function setupSaveActivity() {
   MidiSaveSheet = defineMidiSaveSheetClass(game.system.applications.activity.SaveSheet);
   MidiSaveActivity = defineMidiSaveActivityClass(GameSystemConfig.activityTypes.save.documentClass);
   if (ReplaceDefaultActivities) {
-    GameSystemConfig.activityTypes["dnd5eSave"] = GameSystemConfig.activityTypes.save;
+    // GameSystemConfig.activityTypes["dnd5eSave"] = GameSystemConfig.activityTypes.save;
     GameSystemConfig.activityTypes.save = { documentClass: MidiSaveActivity };
   } else {
     GameSystemConfig.activityTypes["midiSave"] = { documentClass: MidiSaveActivity };

@@ -15,7 +15,7 @@ export function setupUtilityActivity() {
 
   MidiUtilityActivity = defineMidiUtilityActivityClass(GameSystemConfig.activityTypes.utility.documentClass);
   if (ReplaceDefaultActivities) {
-    GameSystemConfig.activityTypes["dnd5eUtility"] = GameSystemConfig.activityTypes.utility;
+    // GameSystemConfig.activityTypes["dnd5eUtility"] = GameSystemConfig.activityTypes.utility;
     GameSystemConfig.activityTypes.utility = { documentClass: MidiUtilityActivity };
   } else {
     GameSystemConfig.activityTypes["midiUtility"] = { documentClass: MidiUtilityActivity };

@@ -10,6 +10,7 @@ import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityR
 import { confirmWorkflow, preTemplateTargets, removeFlanking, selectTargets, setDamageRollMinTerms } from "./activityHelpers.js";
 
 export var MidiActivityMixin = Base => {
+
   return class MidiActivityMixin extends Base {
     _workflow: Workflow | undefined;
     get workflow() {
@@ -29,10 +30,11 @@ export var MidiActivityMixin = Base => {
         forceDialog: new BooleanField({ name: "forceDialog", initial: false }),
         effectConditionText: new StringField({ name: "effectCondition", initial: "" }),
         midiAutomationOnly: new BooleanField({ name: "midiAutomationOnly", initial: false }),
+        // disabled pending a way to make it work 
+        // useSystemActivity: new BooleanField({ name: "useSystemActivity", initial: false }),
       };
       return schema;
     }
-
     get isOtherActivityCompatible() { return false }
 
     get messageFlags() {

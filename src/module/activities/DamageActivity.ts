@@ -13,7 +13,7 @@ export function setupDamageActivity() {
   MidiDamageSheet = defineMidiDamageSheetClass(game.system.applications.activity.DamageSheet);
   MidiDamageActivity = defineMidiDamageActivityClass(GameSystemConfig.activityTypes.damage.documentClass);
   if (ReplaceDefaultActivities) {
-    GameSystemConfig.activityTypes["dnd5eDamage"] = GameSystemConfig.activityTypes.damage;
+    // GameSystemConfig.activityTypes["dnd5eDamage"] = GameSystemConfig.activityTypes.damage;
     GameSystemConfig.activityTypes.damage = { documentClass: MidiDamageActivity };
   } else {
     GameSystemConfig.activityTypes["midiDamage"] = { documentClass: MidiDamageActivity };

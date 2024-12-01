@@ -13,7 +13,7 @@ export function setupHealActivity() {
   MidiHealSheet = defineMidiHealSheetClass(game.system.applications.activity.HealSheet);
   MidiHealActivity = defineMidiHealActivityClass(GameSystemConfig.activityTypes.heal.documentClass);
   if (ReplaceDefaultActivities) {
-    GameSystemConfig.activityTypes["dnd5eHeal"] = GameSystemConfig.activityTypes.heal;
+    // GameSystemConfig.activityTypes["dnd5eHeal"] = GameSystemConfig.activityTypes.heal;
     GameSystemConfig.activityTypes.heal = { documentClass: MidiHealActivity };
   } else {
     GameSystemConfig.activityTypes["midiHeal"] = { documentClass: MidiHealActivity };

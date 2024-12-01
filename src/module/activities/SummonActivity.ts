@@ -12,7 +12,7 @@ export function setupSummonActivity() {
   const GameSystemConfig = game.system.config;
   MidiSummonActivity = defineMidiSummonActivityClass(GameSystemConfig.activityTypes.summon.documentClass);
   if (ReplaceDefaultActivities) {
-    GameSystemConfig.activityTypes["dnd5eSummon"] = GameSystemConfig.activityTypes.summon;
+    // GameSystemConfig.activityTypes["dnd5eSummon"] = GameSystemConfig.activityTypes.summon;
     GameSystemConfig.activityTypes.summon = { documentClass: MidiSummonActivity };
   } else {
     GameSystemConfig.activityTypes["midiSummon"] = { documentClass: MidiSummonActivity };

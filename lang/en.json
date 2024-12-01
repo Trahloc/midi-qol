@@ -962,6 +962,10 @@
       "midiAutomationOnly": {
         "label": "Automation Only",
         "hint": "The activity is intended for midi automation only and not for manual use"
+      },
+      "useSystemActivity": {
+        "label": "Use System Activity",
+        "hint": "Use the dnd5e system activity rather than the midi one"
       }
     }
   },
