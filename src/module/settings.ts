@@ -183,8 +183,9 @@ class ConfigSettings {
   weaponUseSoundRanged: string = "";
   rollAlternate: string = "off";
   optionalRules: any = {
-    checkFlankingBonus: "",
-    checkFlankingUUID: "",
+    getFlankingBonus: "",
+    getFlankingUUID: "",
+    getFlankedUUID: "",
     invisAdvantage: "RAW",
     hiddenAdvantage: "none",
     invisVision: false,
@@ -445,8 +446,9 @@ export let fetchParams = () => {
     challengeModeArmor: "none",
     challengeModeArmorScale: false,
     checkFlanking: "off",
-    checkFlankingBonus: "",
-    checkFlankingUUID: "",
+    getFlankingBonus: "",
+    getFlankingUUID: "",
+    getFlankedUUID: "",
     checkRange: "longfail",
     coverCalculation: "none",
     displayBonusRolls: true,
