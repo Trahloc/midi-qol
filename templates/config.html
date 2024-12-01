@@ -724,14 +724,14 @@
               {{/each}}
             </ul>
           </div>
-          {#if (eq configSettings.optionalRules.checkFlanking "ceonly")}}
+          {{#if (eq configSettings.optionalRules.checkFlanking "ceonly")}}
             <div class="form-group">
               <label>{{localize "midi-qol.CheckFlankingBonus.Name"}}</label>
               <input type="text" name="optionalRules.checkFlankingBonus" data-dtype="String" value="{{configSettings.optionalRules.checkFlankingBonus}}">
                 <div class="notes midi-qol-faint">{{{localize "midi-qol.CheckFlankingBonus.Hint"}}}</div>
             </div>
           {{/if}}
-          {#if (eq configSettings.optionalRules.checkFlanking "uuid")}}
+          {{#if (eq configSettings.optionalRules.checkFlanking "uuid")}}
             <div class="form-group">
               <label>{{localize "midi-qol.CheckFlankingUUID.Name"}}</label>
               <input type="text" name="optionalRules.checkFlankingUUID" data-dtype="String" value="{{configSettings.optionalRules.checkFlankingUUID}}">
