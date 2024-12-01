@@ -716,6 +716,7 @@
                 <select name="optionalRules.checkFlanking" data-dtype="String" id="checkFlankingSelect">
                   {{selectOptions checkFlankingOptions selected=configSettings.optionalRules.checkFlanking}}
                 </select>
+                <div class="notes midi-qol-faint">{{{localize "midi-qol.CheckFlanking.Hint"}}}</div>
                 <ul>
                   {{#each checkFlankingOptionsHints as |label val|}}
                   <li class="notes midi-qol-faint">
@@ -724,7 +725,7 @@
                   {{/each}}
                 </ul>
               </div>
-              {{#if (eq configSettings.optionalRules.checkFlanking "ceonly")}}
+              {{#if (eq configSettings.optionalRules.checkFlanking "flankingBonus")}}
                 <div class="form-group">
                   <label>{{localize "midi-qol.CheckFlankingBonus.Name"}}</label>
                   <input type="text" name="optionalRules.getFlankingBonus" data-dtype="String" value="{{configSettings.optionalRules.getFlankingBonus}}">
