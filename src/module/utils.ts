@@ -4477,42 +4477,51 @@ export function isInCombat(actor: Actor) {
   return (combats?.length ?? 0) > 0;
 }
 
-export async function applyFlankedEffect(actor) {
-  const id = 'flanked';
-  await actor.effects.get(getStaticID(id))?.delete();
-  const effect = foundry.utils.deepClone(getFlankedEffect());
-  //@ts-expect-error
-  effect.updateSource({
-    origin: actor.uuid,
-    changes: [
-      { key: "flags.midi-qol.grants.advantage.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(targetUuid, tokenUuid)" },
-      { key: "flags.midi-qol.grants.advantage.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.CUSTOM, value: "canSee(targetUuid, tokenUuid)" },
-    ],
-  });
-  //@ts-expect-error
-  return ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
-}
-
-export async function removeFlankedEffect(actor) {
-  return actor.effects.get(getStaticID("flanked"))?.delete();
-}
-
-export async function applyFlankingEffect(actor) {
+export async function applyFlankedEffect(actor: Actor) {
   let effect;
-  if (checkRule("checkFlanking") === "uuid" && checkRule("checkFlankingUUID") !== "") {
-    effect = await fromUuid(checkRule("checkFlankingUUID"));
+	const flankedUuid = checkRule("getFlankedUUID");
+	if (flankedUuid && flankedUuid !== "" && checkRule("checkFlanking") === "flankedUUID")
+		effect = foundry.utils.deepClone(await fromUuid(flankedUuid));
+	else effect = foundry.utils.deepClone(await getFlankedEffect());
+	effect.updateSource({
+		origin: actor.uuid,
+	});
+	return MidiQOL.createEffects({ actorUuid: actor.uuid, effects: [effect], options: { keepId: true } );
+}
+
+export async function hasFlankedEffect(actor: Actor, returnEffect: false) {
+	let effectId;
+  if (checkRule("checkFlanking") === "flankedUUID") {
+		effectId = (await fromUuid(checkRule("getFlankedUUID")))?._id;
+	} else effectId = getStaticID("flanked");
+  if (returnEffect) return actor.effects.get(effectId);
+  return !!actor.effects.get(effectId);
+}
+
+export async function removeFlankedEffect(actor: Actor) {
+  const effect = await hasFlankedEffect(actor, true);
+  if (effect) return MidiQOL.removeEffects({ actorUuid: actor.uuid, effects: [effect.id] });
+  else return false;
+}
+
+export async function applyFlankingEffect(actor: Actor) {
+  let effect;
+  const flankingUuid = checkRule("getFlankingUUID");
+  if (flankingUuid && flankingUuid !== "" && checkRule("checkFlanking") === "flankingUUID") {
+    effect = foundry.utils.deepClone(await fromUuid(flankingUuid));
+    await actor.effects.get(effect._id)?.delete();
     effect.updateSource({
-    origin: actor.uuid
+      origin: actor.uuid
     })
   } else {
     const id = "flanking";
     await actor.effects.get(getStaticID(id))?.delete();
-    effect = foundry.utils.deepClone(getFlankingEffect());
-    if (checkRule("checkFlanking") === "ceonly" && checkRule("checkFlankingBonus") !== "") {
-      const flankingBonus = checkRule("checkFlankingBonus");
+    effect = foundry.utils.deepClone(await getFlankingEffect());
+    const flankingBonus = checkRule("getFlankingBonus");
+    if (flankingBonus && flankingBonus !== "" && checkRule("checkFlanking") === "flankingBonus") {
       changes = [
-        { key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${flankingBonus}` },
-        { key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `${flankingBonus}` },
+        { key: "flags.midi-qol.optional.FlankingStatus.attack.mwak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `"${flankingBonus}"` },
+        { key: "flags.midi-qol.optional.FlankingStatus.attack.msak", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: `"${flankingBonus}"` },
         { key: "flags.midi-qol.optional.FlankingStatus.count", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "every" },
         { key: "flags.midi-qol.optional.FlankingStatus.force", mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "canSee(tokenUuid, targetUuid)" },
       ];
@@ -4526,12 +4535,21 @@ export async function applyFlankingEffect(actor) {
       })
     }
   }
-  //@ts-expect-error
-  await ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
+  return ActiveEffect.implementation.create(effect, { parent: actor, keepId: true });
 }
 
-export async function removeFlankingEffect(actor) {
-  return actor.effects.get(getStaticID("flanking"))?.delete();
+export async function hasFlankingEffect(actor: Actor, returnEffect = false) {
+	let effectId;
+  if (checkRule("checkFlanking") === "flankingUUID") {
+		effectId = (await fromUuid(checkRule("getFlankingUUID")))?._id;
+	} else effectId = getStaticID("flanking");
+  if (returnEffect) return actor.effects.get(effectId);
+  return !!actor.effects.get(effectId);
+}
+
+export async function removeFlankingEffect(actor: Actor) {
+  const effect = await hasFlankingEffect(actor, true);
+  return effect?.delete()
 }
 
 export async function setActionUsed(actor: Actor) {
@@ -4819,7 +4837,7 @@ export function findPotentialFlankers(target) {
 }
 
 export async function computeFlankedStatus(target): Promise<boolean> {
-  if (!checkRule("checkFlanking") || !["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking"))) return false;
+  if (!checkRule("checkFlanking") || !["flanked", "flankedNoconga", "flankedUUID"].includes(checkRule("checkFlanking"))) return false;
   if (!canvas || !target) return false;
   const allies: any /*Token v10*/[] = findPotentialFlankers(target);
   if (allies.length <= 1) return false; // length 1 means no other allies nearby
@@ -4849,7 +4867,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
     if (!token) break;
     if (!heightIntersects(target.document, token.document)) continue;
     if (!MidiQOL.canSee(token.document, target.document)) continue;
-    if (checkRule("checkFlanking") === "ceflankedNoconga") {
+    if (checkRule("checkFlanking") === "flankedNoconga") {
       const hasFlanked = token.actor.statuses.has("flanked");
       if (hasFlanked) continue;
     }
@@ -4862,7 +4880,7 @@ export async function computeFlankedStatus(target): Promise<boolean> {
       if (actor?.system.attributes?.hp?.value <= 0) continue;
       if (!heightIntersects(target.document, ally.document)) continue;
       if (hasCondition(actor, "incapacitated")) continue;
-      if (checkRule("checkFlanking") === "ceflankedNoconga") {
+      if (checkRule("checkFlanking") === "flankedNoconga") {
         const hasFlanked = ally.actor.statuses.has("flanked");
         if (hasFlanked) continue;
       }
@@ -4972,12 +4990,18 @@ export function computeFlankingStatus(token, target): boolean {
   return false;
 }
 
-export function getFlankingEffect(): ActiveEffect | undefined {
-  return midiFlankingEffect;
+export async function getFlankedEffect(): ActiveEffect | undefined {
+  const flankedEffectFromUuid = checkRule("getFlankedUUID");
+  if (flankedEffectFromUuid && flankedEffectFromUuid !== "" && checkRule("checkFlanking") === "flankedUUID") 
+    return await fromUuid(flankedEffectFromUuid);
+  return midiFlankedEffect;
 }
 
-export function getFlankedEffect(): ActiveEffect | undefined {
-  return midiFlankedEffect;
+export async function getFlankingEffect(): ActiveEffect | undefined {
+  const flankingEffectFromUuid = checkRule("getFlankingUUID");
+  if (flankingEffectFromUuid && flankingEffectFromUuid !== "" && checkRule("checkFlanking") === "flankingUUID")
+    return await fromUuid(flankingEffectFromUuid);
+  return midiFlankingEffect;
 }
 
 export function getReactionEffect(): ActiveEffect {
@@ -5003,11 +5027,11 @@ export async function markFlanking(token, target): Promise<boolean> {
   let needsFlanking = false;
   const actor = token?.actor;
   if (!target || !checkRule("checkFlanking") || checkRule("checkFlanking") === "off") return false;
-  if (["ceonly", "ceadv", "uuid"].includes(checkRule("checkFlanking"))) {
+  if (["flankingAdv", "flankingBonus", "flankingUUID"].includes(checkRule("checkFlanking"))) {
     if (!token) return false;
     needsFlanking = computeFlankingStatus(token, target);
-    const hasFlanking = actor?.statuses.has("flanking");
-    if (needsFlanking && !hasFlanking && actor) {
+    const hasFlanking = actor ? await hasFlankingEffect(actor) : false;
+    if (needsFlanking && !hasFlanking && actor){
       await applyFlankingEffect(actor)
     } else if (!needsFlanking && hasFlanking) {
       await removeFlankingEffect(actor);
@@ -5015,10 +5039,10 @@ export async function markFlanking(token, target): Promise<boolean> {
   } else if (checkRule("checkFlanking") === "advonly") {
     if (!token) return false;
     needsFlanking = computeFlankingStatus(token, target);
-  } else if (["ceflanked", "ceflankedNoconga"].includes(checkRule("checkFlanking"))) {
+  } else if (["flanked", "flankedNoconga", "flankedUUID"].includes(checkRule("checkFlanking"))) {
     if (!target.actor) return false;
     const needsFlanked = await computeFlankedStatus(target);
-    const hasFlanked = target.actor.statuses.has("flanked");
+    const hasFlanked = await hasFlankedEffect(target.actor);
     if (needsFlanked && !hasFlanked) {
       await applyFlankedEffect(target.actor);
     } else if (!needsFlanked && hasFlanked) {
