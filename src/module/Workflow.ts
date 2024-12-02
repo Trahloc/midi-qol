@@ -3833,6 +3833,9 @@ export class Workflow {
       replaceString = `<div class="midi-qol-bonus-roll"><div class="end-midi-qol-bonus-roll">`
       content = content.replace(searchRe, replaceString);
     }
+    if (installedModules.get("ready-set-roll-5e")) {
+      return;
+    }
     if (data && this.currentAction === this.WorkflowState_Completed) {
       if (this.itemCardUuid) {
         await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid);
