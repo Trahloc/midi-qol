@@ -73,7 +73,7 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
             }
           }, message);
           config.midiOptions ??= {};
-          config.midiOptions.fastForwardDamage = game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward);
+          config.midiOptions.fastForwardDamage ??= game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward);
           return super.rollDamage(config, dialog, message);
         }
   }

@@ -1,5 +1,16 @@
+### 12.4.14
+* Fixes for self applied effects, both always and if token hits.
+* Fix for chat card targets not being set in dnd5e damage application.
+* Fix for parenthetical terms and critical damage rolls.
+* Tidy sheet now omits midi automation only activities from the drop down list - thanks @kgar
+* Fix for Midi Check Activity not rolling the activity.
+  - If you specify multiple tools/skills in a Midi Check the first in the list will be used.
+  - If you specify a tool roll to be made and the target does not have the specified tool the roll will automatically fail.
+  - If no tool is specified in the check activity, the item will be used for the tool check.
+* Some rework of MidiCheck activity so that rolling the check, with no targets selected/specified will cause the owner of the item to roll a tool/skill check. 
+
 ### 12.4.13
-* Change to behaviour of replace activity setting. 
+* Change to behaviour of replace activity setting. This won't affect most users.
 - When enabled **ALL** activities that have a midi equivalent will be replaced with the midi equivalent which means very little setup is required as most activities will just work. If the setting is subsequently disabled or midi is disabled they will revert to the dnd5e equivalent.
  - Enabling this setting is recommended for most users.
  -  If the settings is disabled midi activities will be created separately to dnd5e activities and will disappear from the item if the setting is subsequently enabled or midi is disabled.  In additon SRD monsters/items will **not** trigger midi automation. Disabling this setting is only recommended if you plan to mainly use dnd5e activities and have a few midi activities enabled for special items or want to easily compare midi activity behaviour with dnd5e activity behaviour without needing to reload you world.

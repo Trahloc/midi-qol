@@ -15,7 +15,7 @@ export function setupCheckActivity() {
   MidiCheckSheet = defineMidiCheckSheetClass(game.system.applications.activity.CheckSheet);
   MidiCheckActivity = defineMidiCheckActivityClass(CheckActivity);
   if (ReplaceDefaultActivities) {
-    // GameSystemConfig.activityTypes["dnd5eCheck"] = GameSystemConfig.activityTypes.check;
+    // GameSystemConfig.activityTypes["dnd5eAttack"] = GameSystemConfig.activityTypes.attack;
     GameSystemConfig.activityTypes.check = { documentClass: MidiCheckActivity };
   } else {
     GameSystemConfig.activityTypes["midiCheck"] = { documentClass: MidiCheckActivity };
@@ -43,7 +43,7 @@ let defineMidiCheckActivityClass = (ActivityClass: any) => {
             rollDamage: MidiSaveActivity.metadata.usage.actions.rollDamage
           }
         },
-      }, { overwrite: true })
+      }, { insertKeys: true, invsertValues: true })
 
     static defineSchema() {
       //@ts-expect-error

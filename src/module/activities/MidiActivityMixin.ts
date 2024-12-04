@@ -46,7 +46,7 @@ export var MidiActivityMixin = Base => {
           const { img, system, uuid } = token.actor ?? {};
           if (uuid) targets.set(uuid, { name, img, uuid, ac: system?.attributes?.ac?.value });
         }
-        baseFlags.targets = Array.from(targets);
+        baseFlags.targets = Array.from(targets.values());
         // foundry.utils.setProperty(baseFlags, "roll.type", "usage");
       }
       return baseFlags;
@@ -260,6 +260,7 @@ export var MidiActivityMixin = Base => {
               else if (!dialog.configure) roll.options.isCritical = rollConfig.midiOptions.isCritical;
               if (this.damage?.critical.allow === false) roll.options.isCritical = false;
             }
+            console.error("preRollDamageV2", foundry.utils.deepClone(rollConfig), dialogConfig, messageConfig);
             if (dialogConfig.configure) {
               if (rollConfig.rolls[0].options.isCritical || rollConfig.midiOptions.isCritical) {
                 dialogConfig.options.defaultButton = "critical";
@@ -541,6 +542,8 @@ export var MidiActivityMixin = Base => {
       }
       // Setup targets.
       let selfTarget = this.target?.affects.type === "self";
+      if (this.item.type === "tool" && !this.target?.affects.type) 
+        selfTarget = true;
       if (!selfTarget) {
         if (config.midiOptions?.targetsToUse) this.targets = config.midiOptions.targetsToUse;
         else this.targets = validTargetTokens(game.user?.targets);

@@ -760,6 +760,14 @@ export async function rollConcentration(data: { actorUuid, target, whisper, crea
   };
   let dialog: any = {configure: !data.options.fastForward};
   let message: any = {create: data.options.chatMessage};
+  if (data.request === "tool") {
+    const requestedTool = data.ability;
+    const tool = actor.items.find(i => i.type === "tool" && i.system.type.baseItem === requestedTool);
+    if (!tool) { // no tool of the requested type - auto fail
+      //@ts-expect-error
+      return [await new CONFIG.Dice.D20Roll("-1").roll()];
+    }
+  }
   return new Promise(async (resolve) => {
     let timeoutId;
     let result;

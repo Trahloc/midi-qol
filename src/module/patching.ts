@@ -403,7 +403,7 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
   },
  */
   // if (criticalDamage === "doubleDice") this.options.multiplyNumeric = true;
-
+  this.simplify();
   for (let [i, term] of this.terms.entries()) {
     let cm = this.options.criticalMultiplier ?? 2;
     let cb = (this.options.criticalBonusDice && (i === 0)) ? this.options.criticalBonusDice : 0;
@@ -495,7 +495,7 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
   }
   while (this.terms.length > 0 && this.terms[this.terms.length - 1] instanceof OperatorTerm)
     this.terms.pop();
-  this._formula = this.constructor.getFormula(this.terms);
+  this.resetFormula();
   this.options.configured = true;
   if (this.data.actorType === configSettings.averageDamage || configSettings.averageDamage === "all") averageDice(this);
 }
@@ -1373,23 +1373,18 @@ function prepareSheetItem(wrapped, item, ctx) {
   wrapped(item, ctx);
   if (ctx.activities) {
     ctx.activities = ctx.activities.filter(data => {
-      const activity = item.system.activities.get(data._id);
-      return !activity.midiAutomationOnly;
+      const activity = item.system.activities.get(data._id ?? data.id);
+      return !activity?.midiAutomationOnly;
     });
   }
   return ctx;
 }
+
 export function readyPatching() {
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     libWrapper.register(MODULE_ID, `game.${game.system.id}.canvas.AbilityTemplate.prototype.refresh`, midiATRefresh, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.character['dnd5e.ActorSheet5eCharacter2'].cls.prototype._prepareItem", prepareSheetItem, "WRAPPER");
-    if (game.modules.get("tidy5e-sheet")?.active) {
-      // When supported by tidy5e patch in the right method or do the hook
-      // libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.character['dnd5e.Tidy5eCharacterSheet'].cls.prototype._prepareItem", prepareSheetItem, "WRAPPER");
-    }
-
-
     libWrapper.register(MODULE_ID, "CONFIG.Actor.sheetClasses.npc['dnd5e.ActorSheet5eNPC'].cls.prototype._filterItems", _filterItems, "WRAPPER");
     if (!isdndv4) libWrapper.register(MODULE_ID, "CONFIG.Item.sheetClasses.base['dnd5e.ItemSheet5e2'].cls.defaultOptions", itemSheetDefaultOptions, "WRAPPER");
     libWrapper.register(MODULE_ID, "CONFIG.ActiveEffect.documentClass.createConcentrationEffectData", createConcentrationEffectData, "WRAPPER");

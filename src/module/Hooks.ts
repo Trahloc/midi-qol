@@ -430,6 +430,13 @@ export function initHooks() {
         activateMacroListeners(params.app, params.tabContentsElement);
       }
     });
+
+    Hooks.on('tidy5e-sheet.getActivitiesForPlay', (parent, data) => {
+      if (data.activities && data.activities instanceof Array) {
+        data.activities = data.activities.filter(activity => !activity?.midiAutomationOnly);
+      }
+    });
+
     api.registerItemTab(myTab);
     /*
         api.config.itemSummary.registerCommands([

@@ -874,7 +874,7 @@ export class Workflow {
     if (this.autoRollAttack) {
       this.rollOptions.fastForwardAttack ||= isFastRoll;
       // REFACTOR -await
-      const rolls = await this.activity.rollAttack({event: this.event,  midiOptions: this.rollOptions }, {}, {});
+      const rolls = await this.activity.rollAttack({ event: this.event, midiOptions: this.rollOptions }, {}, {});
       if (!rolls || this.abort) return this.WorkflowState_Abort;
       if (this.activity.roll?.formula) return this.WorkflowState_WaitForUtilityRoll;
       return this.WorkflowState_AttackRollComplete;
@@ -914,7 +914,7 @@ export class Workflow {
       await asyncHooksCallAll("midi-qol.hitsChecked", this);
       if (this.item)
         await asyncHooksCallAll(`midi-qol.hitsChecked.${this.item?.uuid}`, this);
-      if (this.activity) 
+      if (this.activity)
         await asyncHooksCallAll(`midi-qol.hitsChecked.${this.activity?.uuid}`, this);
       if (this.aborted)
         return this.WorkflowState_Abort;
@@ -1109,7 +1109,7 @@ export class Workflow {
     }
     return this.WorkflowState_Suspend;
   }
-  
+
   async WorkflowState_UtilityRollComplete(context: any = {}): Promise<WorkflowState> {
     return this.WorkflowState_WaitForDamageRoll;
   }
@@ -1238,11 +1238,10 @@ export class Workflow {
     this.effectTargets = new Set();
     this.otherEffectTargets = new Set();
     if (this.forceApplyEffects) {
-      // Assume this.effectTargets is already set
-    } else if (this.activity.save && this.activity.attack) {
+      this.effectTargets = this.targets;
+    } else if (this.saveActivity?.save && this.activity.attack) {
       this.effectTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
-      // check saves when selecting the effects to apply - deal with always apply effects
-      // this.effectTargets = new Set([...this.effectTargets].filter(t => this.failedSaves.has(t)));
+      this.effectTargets = new Set([...this.effectTargets].filter(t => this.failedSaves.has(t)));
     } else if (this.activity.save) this.effectTargets = this.failedSaves;
     else if (this.activity.attack) {
       this.effectTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
@@ -1251,7 +1250,7 @@ export class Workflow {
     this.effectTargets = this.effectTargets.filter(t => this.activationMatches.has(t));
 
     if (this.forceApplyEffects) {
-      // Assume this.otherEffectTargets is already set
+      this.otherEffectTargets = this.targets;
     } else if ((this.otherActivity?.save || this.otherActivity?.check) && this.activity.attack) {
       this.otherEffectTargets = new Set([...this.hitTargets, ...this.hitTargetsEC]);
       // check saves when selecting the effects to apply - deal with always apply effects
@@ -1262,7 +1261,6 @@ export class Workflow {
     } else
       this.otherEffectTargets = this.targets;
     this.otherEffectTargets = this.otherEffectTargets.filter(t => this.otherActivationMatches.has(t));
-    let anyActivationTrue = this.effectTargets.size > 0 || this.otherEffectTargets.size > 0;
     // Do special expiries
     const specialExpiries = [
       "isAttacked",
@@ -1297,16 +1295,19 @@ export class Workflow {
     let ceEffect = getCEEffectByName(this.activity.name);
     if (!ceEffect) ceEffect = getCEEffectByName(this.activity.item.name);
 
-    const activityEffects = (this.activity.applicableEffects ?? []).filter(ef => !ef.transfer);
-    const otherActivityEffects = (this.otherActivity?.applicableEffects ?? []).filter(ef => !ef.transfer);
+    let activityEffects = (this.activity.applicableEffects ?? []).filter(ef => !ef.transfer);
+    let otherActivityEffects = (this.otherActivity?.applicableEffects ?? []).filter(ef => !ef.transfer);
     const ceTargetEffect = ceEffect && !(ceEffect?.flags?.dae?.selfTarget || ceEffect?.flags?.dae?.selfTargetAlways);
     const ceSelfEffect = ceEffect && (ceEffect?.flags?.dae?.selfTarget || ceEffect?.flags?.dae?.selfTargetAlways);
     const hasActivityEffects = hasDAE(this) && activityEffects.length > 0;
     const hasOtherActivityEffects = hasDAE(this) && otherActivityEffects.length > 0;
-    const activitySelfEffects = activityEffects.filter(ef => ef.flags?.dae?.selfTarget && !ef.transfer) ?? [];
-    const activitySelfAllEffect = activityEffects.filter(ef => ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) ?? [];
-    const otherActivitySelfEffects = otherActivityEffects.filter(ef => ef.flags?.dae?.selfTarget) ?? [];
-    const otherActivitySelfAllEffects = otherActivityEffects.filter(ef => ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) ?? [];
+    const activitySelfEffects = activityEffects.filter(ef => ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) ?? [];
+    const activitySelfAllEffect = activityEffects.filter(ef => ef.flags?.dae?.selfTargetAlways && !ef.transfer) ?? [];
+    const otherActivitySelfEffects = otherActivityEffects.filter(ef => ef.flags?.dae?.selfTarget || ef.flags?.dae?.selfTargetAlways) ?? [];
+    const otherActivitySelfAllEffects = otherActivityEffects.filter(ef => ef.flags?.dae?.selfTargetAlways) ?? [];
+    activityEffects = activityEffects.filter(ef => !ef.flags?.dae?.selfTarget && !ef.flags?.dae?.selfTargetAlways);
+    otherActivityEffects = otherActivityEffects.filter(ef => !ef.flags?.dae?.selfTarget && !ef.flags?.dae?.selfTargetAlways);
+    let anyApplication = this.effectTargets.size > 0 || this.otherEffectTargets.size > 0;
 
     let selfEffectsToApply = "none";
     const metaData = {
@@ -1324,7 +1325,6 @@ export class Workflow {
     let hpDamage;
     let totalDamage;
     for (let token of this.targets) {
-
       const tokenDamages = this.damageList?.find(di => di.targetUuid === getTokenDocument(token)?.uuid);
       if (tokenDamages) {
         totalDamage = tokenDamages.totalDamage;
@@ -1470,9 +1470,8 @@ export class Workflow {
 
     //Now do self effects
     let selfEffects: any[] = [];
-    if (this.effectTargets.size > 0) selfEffects = activitySelfAllEffect;
-    else selfEffects = activitySelfEffects;
-
+    if (this.effectTargets.size > 0) selfEffects = activitySelfEffects;
+    else selfEffects = activitySelfAllEffect;
     const selfToken = tokenForActor(this.actor);
     if (selfEffects.length > 0 && selfToken) {
       await globalThis.DAE.doActivityEffects(this.activity, true, [selfToken], selfEffects.map(ef => ef.uuid), {
@@ -3165,6 +3164,7 @@ export class Workflow {
     let rollAbility;
     if (this.saveActivity.save) {
       rollType = "save";
+      flagRollType = "save";
       if (this.saveActivity.save.ability instanceof Set) {
         // TODO work out how to let the player choose the save for dnd5e 4.1
         rollAbility = this.saveActivity.save.ability.first();
@@ -3173,37 +3173,31 @@ export class Workflow {
       //@ts-expect-error actor
       rollAction = CONFIG.Actor.documentClass.prototype.rollSavingThrow;
     } else if (this.saveActivity.check) {
-      if (this.saveActivity.check.associated.size > 0) {
-        if (this.saveActivity.check.ability === "") { //this is a tool check
-          //@ts-expect-error
-          rollAction = CONFIG.Actor.documentClass.prototype.rollToolCheck;
-          rollType = "tool";
-          rollAbility = this.saveActivity.check.associated.first();
-        } else {
-          rollType = "skill";
-          rollAbility = this.saveActivity.check.ability;
-          rollAbility = this.saveActivity.check.associated.first();
-          //@ts-expect-error 
-          rollAction = CONFIG.Actor.documentClass.prototype.rollSkill;
-        }
-      } else {
-        rollType = "check";
+      const isSkillOrTool = this.saveActivity.check.associated.size > 0 || this.item.type === "tool";
+      let skillOrTool = this.saveActivity.check.associated.first();
+      if (!skillOrTool && this.item.type === "tool")
+        skillOrTool = this.item.system.type.baseItem;
+      if (GameSystemConfig.skills[skillOrTool]) {
+        rollType = "skill";
         rollAbility = this.saveActivity.check.ability;
-        //@ts-expect-error actor.rollAbilityTest
-        rollAction = CONFIG.Actor.documentClass.prototype.rollAbilityCheck;
-      }
-    }
-    /* the correct activity should be passed so no check needed else {
-      const midiFlags = foundry.utils.getProperty(this.item, `flags.${MODULE_ID}`);
-      if (midiFlags?.overTimeSkillRoll) {
-        rollType = "skill"
+        rollAbility = skillOrTool;
         flagRollType = "skill";
-        //@ts-expect-error actor.rollAbilityTest
+        //@ts-expect-error 
         rollAction = CONFIG.Actor.documentClass.prototype.rollSkill;
-        this.activity.save.ability = midiFlags.overTimeSkillRoll;
+      } else {
+        //@ts-expect-error
+        rollAction = CONFIG.Actor.documentClass.prototype.rollToolCheck;
+        rollType = "tool";
+        rollAbility = skillOrTool
+        flagRollType = "tool";
       }
+    } else {
+      rollType = "check";
+      rollAbility = this.saveActivity.check.ability;
+      //@ts-expect-error actor.rollAbilityTest
+      rollAction = CONFIG.Actor.documentClass.prototype.rollAbilityCheck;
+      flagRollType = "check";
     }
-    */
 
     if (this.chatUseFlags?.babonus?.saveDC) {
       rollDC = this.chatUseFlags.babonus.saveDC;
@@ -3780,13 +3774,19 @@ export class Workflow {
     else if (i18n("SW5E.AbbreviationDC") !== "SW5E.AbbreviationDC") {
       DCString = i18n("SW5E.AbbreviationDC");
     }
-
+    DCString = `${DCString} ${rollDC}`;
+    if (rollDC ?? -1 === -1) DCString = "";
     if (rollType === "save")
-      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${GameSystemConfig.abilities[rollAbility].label ?? GameSystemConfig.abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}`;
+      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.abilities[rollAbility].label ?? GameSystemConfig.abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}`;
     else if (rollType === "check")
-      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${GameSystemConfig.abilities[rollAbility].label ?? GameSystemConfig.abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:`;
+      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.abilities[rollAbility].label ?? GameSystemConfig.abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:`;
     else if (rollType === "skill")
-      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString} ${rollDC}</label> ${GameSystemConfig.skills[rollAbility].label ?? GameSystemConfig.skills[rollAbility]}`;
+      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.skills[rollAbility].label ?? GameSystemConfig.skills[rollAbility]}`;
+    else if (rollType === "tool") {
+      //@ts-expect-error
+      const toolLabel = await game.system.documents.Trait.keyLabel(`tool:${rollAbility}`);
+      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${toolLabel}`;
+    }
   }
 
   monksSavingCheck(message, update, options, user) {
