@@ -295,6 +295,7 @@ For configuring some rules:
 - Attacking removes hidden: Rolling an attack will thereafter remove any hidden condition
 - Ranged attacks when a foe is closer than this have disadvantage: As described
 - DR-related house rules: As described. Note that `DR` was midi's old key for damage reduction, and the modern system has `dm` (damage modification) keys which can be used for the same purpose
+
 ![Rules2](GettingStartedPics/Rules2.png)
 
 - Just about everything above: As described (See readme for Challenge Mode AC). Exceptions:
