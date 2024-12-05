@@ -1,6 +1,9 @@
-[TOC]
 ## What is this document?
 This guide is intended for new users to midi-qol who need some guidance on setting the very many options that exist.
+
+## Table of contents
+[TOC]
+
 ## What can midi-qol do?
 Quite a lot, depending on how you configure it; at its simplest, it can speed up rolling by reducing the number of clicks/popups. To help illustrate some of its capabilities, here's an example: a spider attacking a goblin using the base dnd5e system.  
 ![dnd5e spider bite](GettingStartedPics/Base%20Spider%20Bite.png)  
