@@ -1,4 +1,5 @@
-## What is this document?
+<h2>What is this document?</h2>
+
 This guide is intended for new users to midi-qol who need some guidance on setting the very many options that exist.
 
 ## Table of contents
