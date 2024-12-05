@@ -84,9 +84,7 @@ This allows effects to be applied to nearby tokens without having to trigger any
 * **Anonymous**
 This module can help you hide the names of creatures that you don't want revealed to your players and is compatible with MidiQOL.
 
-#### 
-## Configuration
-### Conguration overview
+## Configuration Overview
 First enable combat automation in the midi-qol settings.
 The next sections cover configuring how that combat automation works, midi refers to a attack or spell cast as a workflow. You need to click on the workflow settings to manage the next set of settings.
 The steps are:
