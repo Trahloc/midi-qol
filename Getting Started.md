@@ -104,7 +104,7 @@ Midi has several concepts that can be confusing to first time users.
 ##### Rolling Attacks and Damage.
 Normally when you roll an item it displays a chat card with attack and damage buttons. There are Midi settings to alter that process. Both the GM and Player tabs let you configure how rolling an item behaves, which will be described in more detail below. Briefly: Auto-rolling attack/damage results in the attack being rolled immediately upon item use, and the damage being rolled either every time an attack is rolled, or only upon a hit. Fast-forwarding attack/damage results in skipping the configuration (advantage/normal/disadvantage or critical/normal) window for attack/damage rolls.
 
-This works fine if you are doing an ordinary attack, but sometimes you want to do some hand editing of the roll and not do everything automatically. The rollToggle key allows you to do this (dfault T). If you hold T when clicking on the item icon the normal sense of fastForwarding and auto roll is reversed. So if you were doing automatic rolls pressing T will display the Chat card for the item with attack and damage buttons ready for you to click.
+This works fine if you are doing an ordinary attack, but sometimes you want to do some hand editing of the roll and not do everything automatically. The rollToggle key allows you to do this (default T). If you hold T when clicking on the item icon the normal sense of fastForwarding and auto roll is reversed. So if you were doing automatic rolls pressing T will display the Chat card for the item with attack and damage buttons ready for you to click.
 
 ##### GM Tab
 ![GM Attack](GettingStartedPics/GM_Settings.png)  
