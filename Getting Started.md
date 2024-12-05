@@ -32,7 +32,7 @@ Here's what happened with that single click:
   * If there _had_ been an effect that should be applied only on a failed save, it would automatically have done so
 
 Importantly, while this was only a single click, it could be configured to be exactly as "automatic" as the table wants it to be. While it is possible to set up items with flags for advantage and disadvantage under certain circumstances, players may still want the normal attack popup, rather than "fast-forwarding" - this is configurable. Players may want to still click a button to roll their damage - this is configurable. Players likely _will_ object to their saves being automatically rolled for them - this is, of course, configurable! A GM may prefer the damage to _not_ be applied automatically, but rather simply calculated, leaving them the final option to click "apply damage" - this is configurable. With great configurability comes great a great number of settings; all that configuration will be addressed further below. First: Troubleshooting.
-## I've installed it but it does not do anything....
+## I've installed midi-qol but it does not do anything!
 Midi-qol is a fairly complex module with many configuration options and dependencies on other modules. To make it work you have to go through a setup process where you configure it to work the way you want.
 
 If you are too impatient to read a getting started guide, here is the quickest way to get something working. 
@@ -52,7 +52,7 @@ Once you've done that come back and read through the rest of the configuation gu
 * libwrapper
 * socketlib
 
-## No longer required or supported.
+## No longer required or supported
 * Advanced Macros
 * ItemMacro
 
