@@ -1,6 +1,4 @@
-**Work in progress - not complete or checked**
 [TOC]
-
 ## What is this document?
 This guide is intended for new users to midi-qol who need some guidance on setting the very many options that exist.
 ## What can midi-qol do?
