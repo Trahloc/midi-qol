@@ -129,6 +129,7 @@ This works fine if you are doing an ordinary attack, but sometimes you want to d
 - Add fake dice to GM Dice So Nice rolls: If using Dice So Nice, add additional "decoy" dice to GM rolls so players aren't certain how many dice are being rolled
 ##### Player Tab
 ![Player Attack](GettingStartedPics/Player_Settings.png)
+
 Similar to the GM tab but applies for non-gm players. The same settings apply to all players.  
 #### Configuring the workflow.
 Midi has the concept of a workflow, when you start the attack/cast the spell midi goes through a set of steps to determine the outcome of the roll, starting with targeting and finishing with applying status conditons (like poisoned).
