@@ -339,7 +339,7 @@ There a quite a few sources of items and there are certainly others I am not awa
 
   * **Stroud's DnD Helpers**
 
-* **Others I don't know about** Probably many. 
+* **Others I don't know about**. Probably many.
 
 ### There is nothing I can find that does what I want....
 If you get to this point then you'll have to create your own item. There are no definitive rules for how to do this. In combination midi-qol/DAE give you quite a lot of tools to implement what you need.
@@ -368,5 +368,5 @@ Let's do a very quick example using the SRD Bless spell.
 
 If you can't get what you want from the "standard" effects you might be able to use some of midis more complex effects.
 
-### Midi-qol special active effects.
+### Midi-qol special active effects
 Midi defines lots of flags that can affect how combat is adjudicated, for example granting advantage or disadvantage. Please see the readme for a list and explanation.
