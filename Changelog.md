@@ -1,3 +1,13 @@
+### 12.4.15
+* Midi Conditions are now on a separate tab. More properties will be migrated to that tab over time.
+* AoE targeting now respects the max number of creatures/allies/enemies in the spell details.   - Midi won't target more than the specified number of targets. The choice of targets to exclude is arbitrary.
+- Target Confirmation won't let you target more than the maximum number of targets.
+* Fixes for emanation and emanationNoTemplate targeting.
+* Fixes for TargetConfirmation sometimes being displayed twice.
+* If Boss Loot Assets premium/free is active, the auto delete instantaneous templates settings is disabled.
+* Fix for never displaying save dc.
+* Added a guard to hasCondition if system.traits.ci.value is not a set - which it should not be.
+
 ### 12.4.14
 * Fixes for self applied effects, both always and if token hits.
 * Fix for chat card targets not being set in dnd5e damage application.

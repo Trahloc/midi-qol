@@ -84,7 +84,9 @@ export class TargetConfirmationDialog extends Application {
     let data: any = foundry.utils.mergeObject(this.data, await super.getData(options));
     const targets = Array.from(game.user?.targets ?? []);
     data.targets = [];
+    const maxTargets = this.data.activity.target?.affects?.count;
     for (let target of targets) {
+      if (data.targets.length >= maxTargets) break;
       //@ts-expect-error .texture
       let img = target.document.texture.src;
       if (VideoHelper.hasVideoExtension(img)) {
@@ -165,9 +167,8 @@ export class TargetConfirmationDialog extends Application {
       });
     }
     if (this.data.activity.target) {
-      if (this.data.activity.target.affects.type === "creature")
-        data.blurb = i18nFormat("midi-qol.TargetConfirmation.Blurb", { targetCount: this.data.activity.target.affects.count ?? "any" })
-
+      if (this.data.activity.target.affects.count)
+        data.blurb = i18nFormat("midi-qol.TargetConfirmation.Blurb", { targetCount: this.data.activity.target.affects.count ?? "any", targetType: this.data.activity.target.affects.type ?? "targets" })
       else data.blurb = i18n("midi-qol.TargetConfirmation.BlurbAny");
     }
     return data;
@@ -178,10 +179,15 @@ export class TargetConfirmationDialog extends Application {
     if (!this.hookId) {
       this.hookId = Hooks.on("targetToken", (user, token, targeted) => {
         if (user !== game.user) return;
+        const maxTargets = this.data.activity.target?.affects?.count;
+        if (game.user?.targets?.size > maxTargets)
+          ui.notifications?.warn(i18nFormat("midi-qol.wrongNumberTargets", { allowedTargets: maxTargets }));
         if (game.user?.targets) {
           const validTargets: Array<string> = [];
-          for (let target of game?.user?.targets)
+          for (let target of game?.user?.targets) {
+            if (validTargets.length >= maxTargets) break;
             if (isTargetable(target)) validTargets.push(target.id);
+          }
           game.user?.updateTokenTargets(validTargets);
         }
         this.data.targets = Array.from(game.user?.targets ?? [])

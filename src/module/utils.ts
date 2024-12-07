@@ -1477,7 +1477,7 @@ export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | str
   const actor = getActor(actorRef);
   if (!actor) return false;
   //@ts-expect-error
-  if (actor.system.traits?.ci?.value.has("incapacitated")) return false;
+  if (actor.system.traits?.ci?.value?.has("incapacitated")) return false;
   const vitalityResource = checkRule("vitalityResource");
   if (typeof vitalityResource === "string" && foundry.utils.getProperty(actor, vitalityResource.trim()) !== undefined) {
     const vitality = foundry.utils.getProperty(actor, vitalityResource.trim()) ?? 0;
@@ -2373,8 +2373,8 @@ export function isAutoFastDamage(workflow: Workflow | undefined = undefined): bo
   return game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward)
 }
 
-export function isAutoConsumeResource(workflow: Workflow | undefined = undefined): string {
-  if (workflow?.workflowOptions.autoConsumeResource !== undefined) return workflow?.workflowOptions.autoConsumeResource;
+export function isAutoConsumeResource(workflowOptions: any | undefined = undefined): string {
+  if (workflowOptions.autoConsumeResource !== undefined) return workflowOptions.autoConsumeResource;
   return game.user?.isGM ? configSettings.gmConsumeResource : configSettings.consumeResource;
 }
 
@@ -2574,7 +2574,7 @@ export function hasCondition(actorRef: Actor | Token | TokenDocument | string | 
   //@ts-expect-error
   if (!actor.system.traits || !actor.statuses) return 0;
   //@ts-expect-error
-  if (actor.system.traits.ci?.value.has(condition)) return 0;
+  if (actor.system.traits?.ci?.value?.has(condition)) return 0;
   //@ts-expect-error
   if (actor.statuses.has(condition)) return 1;
   //@ts-expect-error specialStatusEffects
@@ -6252,6 +6252,12 @@ export function getUpdatesCache(uuid: string | undefined | null) {
   if (!updatesCache[uuid]) return {};
   return updatesCache[uuid];
 }
+
+export function addUpdatesCache(uuid: string | undefined | null, updates: any) {
+  if (!uuid) return;
+  updatesCache[uuid] = foundry.utils.mergeObject(updatesCache[uuid] ?? {}, updates, { insertKeys: true, insertValue: true });
+}
+
 export function clearUpdatesCache(uuid: string | undefined | null) {
   if (!uuid) return;
   delete updatesCache[uuid];
@@ -6263,7 +6269,8 @@ export function getCachedDocument(uuid: string | undefined | null) {
   let updates = document?.uuid && updatesCache[document.uuid];
   if (updates) {
     document = foundry.utils.deepClone(document);
-    Object.keys(updates).forEach(key => { foundry.utils.setProperty(document, key, updates[key]) });
+    document = foundry.utils.mergeObject(document, updates, { insertKeys: true, insertValues: true });
+    // Object.keys(updates).forEach(key => { foundry.utils.setProperty(document, key, updates[key]) });
   }
   return document;
 }

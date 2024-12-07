@@ -1,6 +1,6 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { ReplaceDefaultActivities, configSettings } from "../settings.js";
-import { MidiActivityMixin } from "./MidiActivityMixin.js";
+import { MidiActivityMixin, MidiActivityMixinSheet } from "./MidiActivityMixin.js";
 
 export var MidiHealActivity;
 export var MidiHealSheet;
@@ -66,15 +66,12 @@ let defineMidiHealActivityClass = (ActivityClass: any) => {
 }
 
 export function defineMidiHealSheetClass(baseClass: any) {
-  return class MidiHealSheet extends baseClass {
+  return class MidiHealSheet extends MidiActivityMixinSheet(baseClass) {
     static PARTS = {
       ...super.PARTS,
       effect: {
         template: "modules/midi-qol/templates/activity/heal-effect.hbs",
-        templates: [
-          ...super.PARTS.effect.templates,
-          "modules/midi-qol/templates/activity/parts/use-condition.hbs",
-        ]
+        templates: [ ...super.PARTS.effect.templates]
       }
     };
   }

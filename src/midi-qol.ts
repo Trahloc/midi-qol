@@ -158,6 +158,7 @@ function setupActvities() {
   globalThis.MidiQOL.activityTypes["summon"] = { documentClass: MidiSummonActivity };
   setupUtilityActivity();
   globalThis.MidiQOL.activityTypes["utility"] = { documentClass: MidiUtilityActivity };
+  globalThis.MidiQOL.activityTypes["MidiActivityMixin"] = MidiActivityMixin;
 }
 
 Hooks.once('init', async function () {
@@ -581,7 +582,7 @@ import { MidiDamageActivity, setupDamageActivity } from './module/activities/Dam
 import { MidiCheckActivity, setupCheckActivity } from './module/activities/CheckActivity.js';
 import { MidiHealActivity, setupHealActivity } from './module/activities/HealActivity.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/activities/activityHelpers.js';
-import { setupMidiActivityUsageDialog } from './module/activities/MidiActivityMixin.js';
+import { MidiActivityMixin, setupMidiActivityUsageDialog } from './module/activities/MidiActivityMixin.js';
 import { field } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/fields.mjs.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();

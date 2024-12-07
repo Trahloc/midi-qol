@@ -1,4 +1,4 @@
-import { GameSystemConfig, MODULE_ID, SystemString, allAttackTypes, debugEnabled, i18n, i18nFormat, log, warn } from "../../midi-qol.js";
+import { GameSystemConfig, MODULE_ID, SystemString, allAttackTypes, debugEnabled, error, i18n, i18nFormat, log, warn } from "../../midi-qol.js";
 import { socketlibSocket } from "../GMAction.js";
 import { Workflow } from "../Workflow.js";
 import { TroubleShooter } from "../apps/TroubleShooter.js";
@@ -7,7 +7,7 @@ import { installedModules } from "../setupModules.js";
 import { busyWait } from "../tests/setupTest.js";
 import { saveUndoData } from "../undo.js";
 import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityRange, checkIncapacitated, createConditionData, displayDSNForRoll, evalActivationCondition, evalCondition, getAutoRollAttack, getAutoRollDamage, getAutoTarget, getRemoveAttackButtons, getRemoveDamageButtons, getSpeaker, getStatusName, getToken, activityHasAutoPlaceTemplate, hasUsedBonusAction, hasUsedReaction, initializeVision, isAutoConsumeResource, isInCombat, needsBonusActionCheck, needsReactionCheck, processDamageRollBonusFlags, setBonusActionUsed, setReactionUsed, sumRolls, tokenForActor, validTargetTokens, activityHasEmanationNoTemplate, getActivityAutoTarget, areMidiKeysPressed } from "../utils.js";
-import { confirmWorkflow, preTemplateTargets, removeFlanking, selectTargets, setDamageRollMinTerms } from "./activityHelpers.js";
+import { confirmWorkflow, postTemplateConfirmTargets, preTemplateTargets, removeFlanking, selectTargets, setDamageRollMinTerms } from "./activityHelpers.js";
 
 export var MidiActivityMixin = Base => {
 
@@ -151,6 +151,12 @@ export var MidiActivityMixin = Base => {
       }
       if (debugEnabled > 0) warn("MidiQOL | MidiActivity | use | Called", config, dialog, message);
 
+      const autoCreatetemplate = activityHasAutoPlaceTemplate(this);
+      const emanationNoTemplate = activityHasEmanationNoTemplate(this);
+      if (autoCreatetemplate || emanationNoTemplate) {
+        config.create ??= {};
+        config.create.measuredTemplate = false;
+      }
       if (config.systemCard) return super.use(config, dialog, message);
       let previousWorkflow = Workflow.getWorkflow(this.uuid);
       if (previousWorkflow) {
@@ -178,7 +184,8 @@ export var MidiActivityMixin = Base => {
       this.checkAutoConsume(config, dialog, message);
       this.workflow.rollOptions.rollToggle = areMidiKeysPressed(config.event, "RollToggle");
       const results = await super.use(config, dialog, message);
-
+      this.workflow.itemUseComplete = true;
+      this.workflow.needItemCard = false;
       if (!results) { // activity use was aborted
         this.removeWorkflow();
         return undefined;
@@ -260,7 +267,6 @@ export var MidiActivityMixin = Base => {
               else if (!dialog.configure) roll.options.isCritical = rollConfig.midiOptions.isCritical;
               if (this.damage?.critical.allow === false) roll.options.isCritical = false;
             }
-            console.error("preRollDamageV2", foundry.utils.deepClone(rollConfig), dialogConfig, messageConfig);
             if (dialogConfig.configure) {
               if (rollConfig.rolls[0].options.isCritical || rollConfig.midiOptions.isCritical) {
                 dialogConfig.options.defaultButton = "critical";
@@ -311,7 +317,7 @@ export var MidiActivityMixin = Base => {
       } catch (err) {
         const message = "doDamageRoll error";
         TroubleShooter.recordError(err, message);
-        console.error(message, err);
+        error(message, err);
       } finally {
         if (preRollDamageHookId) Hooks.off(`${game.system.id}.preRollDamageV2`, preRollDamageHookId);
         if (rollDamageHookId) Hooks.off(`${game.system.id}.rollDamageV2`, rollDamageHookId);
@@ -364,7 +370,7 @@ export var MidiActivityMixin = Base => {
       } catch (err) {
         const message = "Configure Damage Roll error";
         TroubleShooter.recordError(err, message);
-        console.error(message, err);
+        error(message, err);
       }
     }
 
@@ -542,7 +548,7 @@ export var MidiActivityMixin = Base => {
       }
       // Setup targets.
       let selfTarget = this.target?.affects.type === "self";
-      if (this.item.type === "tool" && !this.target?.affects.type) 
+      if (this.item.type === "tool" && !this.target?.affects.type)
         selfTarget = true;
       if (!selfTarget) {
         if (config.midiOptions?.targetsToUse) this.targets = config.midiOptions.targetsToUse;
@@ -605,13 +611,6 @@ export var MidiActivityMixin = Base => {
           cancelWorkflow ||= results.some(i => i === false);
         }
         if (cancelWorkflow) return this.removeWorkflow();
-        let targetConfirmationHasRun = false; // Work out interaction with attack per target
-        if ((!targetConfirmationHasRun && ((this.target?.affects.type ?? "") !== "") || configSettings.enforceSingleWeaponTarget)) {
-          // TODO verify pressed keys below
-          if (!(await preTemplateTargets(this, config.midiOptions)))
-            return this.removeWorkflow();
-          if ((this.targets?.size ?? 0) === 0 && game.user?.targets) this.targets = game.user?.targets;
-        }
         let shouldAllowRoll = !requiresTargets // we don't care about targets
           || (this.targets.size > 0) // there are some target selected
           || (this.target?.affects.type ?? "") === "" // no target required
@@ -853,10 +852,19 @@ export var MidiActivityMixin = Base => {
       const tokenToUse: Token = workflow?.attackingToken;
       const autoCreatetemplate = tokenToUse && activityHasAutoPlaceTemplate(this);
       const emanationNoTemplate = tokenToUse && activityHasEmanationNoTemplate(this);
-      if (!(autoCreatetemplate || emanationNoTemplate) || !tokenToUse || !workflow) {
-        return super._finalizeUsage(config, results);
+      if ((autoCreatetemplate || emanationNoTemplate) && tokenToUse && workflow) {
+        config.create ??= {};
+        config.create.measuredTemplate = false;
+        await super._finalizeUsage(config, results);
+        if (!emanationNoTemplate)
+          results.templates = await this._placeTemplate() ?? [];
+      } else {
+        await super._finalizeUsage(config, results);
       }
-      results.templates = config.create?.measuredTemplate ? await this._placeTemplate() : [];
+      // TODO verify pressed keys below
+      // if (!(await postTemplateConfirmTargets(this, config.midiOptions, this.workflow)))
+      //   this.removeWorkflow();
+      // if ((this.targets?.size ?? 0) === 0 && game.user?.targets) this.targets = game.user?.targets;
     }
 
     async _placeTemplate() {
@@ -873,29 +881,13 @@ export var MidiActivityMixin = Base => {
         // square templates don't respect the options distance field
         let item = this;
         let target = this.target ?? { value: 0 };
-        const useSquare = false;
         const fudge = 0.1;
         //@ts-expect-error
         const { width, height } = tokenToUse.document;
-        if (useSquare) {
-          templateOptions.distance = target.template.size + fudge + Math.max(width, height, 0) * gs;
-          item = item.clone({ "system.target.value": templateOptions.distance, "system.target.type": "square" })
-        }
-        else
-          templateOptions.distance = Math.ceil(target.template.size + Math.max(width / 2, height / 2, 0) * (canvas?.dimensions?.distance ?? 0));
 
-        if (useSquare) {
-          const adjust = (templateOptions.distance ?? target.template.size) / 2;
-          templateOptions.x = Math.floor((tokenToUse.center?.x ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
-          templateOptions.y = tokenToUse.center?.y ?? 0;
-          if (game.settings.get("dnd5e", "gridAlignedSquareTemplates")) {
-            templateOptions.y = Math.floor((tokenToUse.center?.y ?? 0) - adjust / gs * (canvas?.dimensions?.size ?? 0));
-          }
-        } else {
-          templateOptions.x = tokenToUse.center?.x ?? 0;
-          templateOptions.y = tokenToUse.center?.y ?? 0;
-        }
-
+        templateOptions.distance = Math.ceil(target.template.size + Math.max(width / 2, height / 2, 0) * (canvas?.dimensions?.distance ?? 0));
+        templateOptions.x = tokenToUse.center?.x ?? 0;
+        templateOptions.y = tokenToUse.center?.y ?? 0;
         if (workflow?.actor) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.actorUuid`, workflow.actor.uuid);
         if (workflow?.tokenId) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.tokenId`, workflow.tokenId);
         if (workflow) foundry.utils.setProperty(templateOptions, `flags.${MODULE_ID}.workflowId`, workflow.id);
@@ -904,7 +896,7 @@ export var MidiActivityMixin = Base => {
         // @ts-expect-error .canvas
         let templates = game.system.canvas.AbilityTemplate.fromActivity(this, templateOptions);
         // fromActivity returns an array of templates - work out if we need more than one
-        if (!templates) console.error("No templates returned from fromActivity");
+        if (!templates) error("No templates returned from fromActivity");
         let template = templates[0];
         const templateData = template.document.toObject();
         if (this.item) foundry.utils.setProperty(templateData, `flags.${MODULE_ID}.itemUuid`, this.item.uuid);
@@ -1035,6 +1027,37 @@ export var MidiActivityMixin = Base => {
     }
     get hasAttack() {
       return this.attack !== undefined;
+    }
+  }
+}
+
+export var MidiActivityMixinSheet = Base => {
+  return class MidiActivitySheet extends Base {
+    static PARTS = {
+      ...super.PARTS,
+      "midi-qol": {
+        template: "modules/midi-qol/templates/activity/midi-activity-tab.hbs",
+        templates: [
+          "modules/midi-qol/templates/activity/parts/use-condition.hbs",
+        ]
+      }
+    }
+    _getTabs() {
+      let tabs = super._getTabs();
+      tabs = {
+        ...tabs,
+        "midi-qol": {
+          id: "midi-qol", group: "sheet", icon: "fa-solid fa-sun", label: "midi-qol"
+        }
+      }
+      return super._markTabs(tabs);
+    }
+    async _preparePartContext(partId, context) {
+      if (partId === "midi-qol") {
+        context.tab = context.tabs["midi-qol"];
+        return context;
+      }
+      return super._preparePartContext(partId, context);
     }
   }
 }

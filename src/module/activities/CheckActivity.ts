@@ -1,6 +1,6 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { ReplaceDefaultActivities, configSettings } from "../settings.js";
-import { MidiActivityMixin } from "./MidiActivityMixin.js";
+import { MidiActivityMixin, MidiActivityMixinSheet } from "./MidiActivityMixin.js";
 import { MidiSaveActivity } from "./SaveActivity.js";
 
 export var MidiCheckActivity;
@@ -123,7 +123,8 @@ let defineMidiCheckActivityClass = (ActivityClass: any) => {
 }
 
 export function defineMidiCheckSheetClass(baseClass: any) {
-  return class MidiCheckSheet extends baseClass {
+    return class MidiCheckSheet extends MidiActivityMixinSheet(baseClass) {
+
     static PARTS = {
       ...super.PARTS,
       effect: {
@@ -133,7 +134,6 @@ export function defineMidiCheckSheetClass(baseClass: any) {
           "systems/dnd5e/templates/activity/parts/save-damage.hbs",
           "systems/dnd5e/templates/activity/parts/damage-part.hbs",
           "systems/dnd5e/templates/activity/parts/damage-parts.hbs",
-          "modules/midi-qol/templates/activity/parts/use-condition.hbs",
         ]
       }
     };

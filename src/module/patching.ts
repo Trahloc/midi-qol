@@ -365,6 +365,7 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
   // @ ts-expect-error
   // if ((options.critical && foundry.utils.isEmpty(options.critical)) || this.options.configured || options.critical.allow === false || !this.isCritical) {
 
+  this.simplify();
   if (this.options.configured || options.critical.allow === false || !this.isCritical) {
     return;
   }

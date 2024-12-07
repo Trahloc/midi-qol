@@ -1,7 +1,7 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { ReplaceDefaultActivities } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
-import { MidiActivityMixin } from "./MidiActivityMixin.js";
+import { MidiActivityMixin, MidiActivityMixinSheet } from "./MidiActivityMixin.js";
 
 export var MidiUtilityActivity;
 export var MidiUtilitySheet;
@@ -93,15 +93,12 @@ let defineMidiUtilityActivityClass = (ActvityClass: any) => {
 }
 
 export function defineMidiUtilitySheetClass(baseClass: any) {
-  return class MidiUtilitySheet extends baseClass {
+  return class MidiUtilitySheet extends MidiActivityMixinSheet(baseClass) {
     static PARTS = {
       ...super.PARTS,
       effect: {
         template: "modules/midi-qol/templates/activity/utility-effect.hbs",
-        templates: [
-          ...super.PARTS.effect.templates,
-          "modules/midi-qol/templates/activity/parts/use-condition.hbs",
-        ]
+        templates: [super.PARTS.effect.templates]
       }
     };
   }

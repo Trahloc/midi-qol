@@ -261,7 +261,7 @@ export async function resolveTargetConfirmation(activity, options: any = {}): Pr
     // no timeout since there is a dialog to close
     // create target dialog which updates the target display
     options = foundry.utils.mergeObject(options, { callback: resolve });
-    let targetConfirmation = new TargetConfirmationDialog(activity.actor, activity.item, game.user, options).render(true);
+    let targetConfirmation = new TargetConfirmationDialog(activity.actor, activity, game.user, options).render(true);
   });
   let shouldContinue = await targets;
   if (savedActiveLayer) await savedActiveLayer.activate();
@@ -515,9 +515,11 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
   }
 
   game.user?.targets?.forEach(token => {
-    if (!isAoETargetable(token, { ignoreSelf, selfToken, AoETargetType, autoTarget: getActivityAutoTarget(workflow.activity) })) token.setTarget(false, { user: game.user, releaseOthers: false })
-  });
-
+    if (!isAoETargetable(token, { ignoreSelf, selfToken, AoETargetType, autoTarget: getActivityAutoTarget(workflow.activity) })) 
+      token.setTarget(false, { user: game.user, releaseOthers: false })
+    if (workflow.activity.target?.affects.count && (game.user?.targets?.size ?? 0) > workflow.activity.target?.affects?.count)
+      token.setTarget(false, { user: game.user, releaseOthers: false });
+    });
   workflow.saves = new Set();
 
   //@ts-expect-error filter

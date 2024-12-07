@@ -1,6 +1,6 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { ReplaceDefaultActivities, configSettings } from "../settings.js";
-import { MidiActivityMixin } from "./MidiActivityMixin.js";
+import { MidiActivityMixin, MidiActivityMixinSheet } from "./MidiActivityMixin.js";
 
 export var MidiDamageActivity;
 export var MidiDamageSheet;
@@ -47,15 +47,12 @@ let defineMidiDamageActivityClass = (ActivityClass: any) => {
 }
 
 export function defineMidiDamageSheetClass(baseClass: any) {
-  return class MidiDamageSheet extends baseClass {
+  return class MidiDamageSheet extends MidiActivityMixinSheet(baseClass) {
     static PARTS = {
       ...super.PARTS,
       effect: {
         template: "modules/midi-qol/templates/activity/damage-effect.hbs",
-        templates: [
-          ...super.PARTS.effect.templates,
-          "modules/midi-qol/templates/activity/parts/use-condition.hbs",
-        ]
+        templates: [super.PARTS.effect.templates],
       }
     };
   }

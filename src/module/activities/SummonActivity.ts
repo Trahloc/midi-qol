@@ -2,14 +2,17 @@ import { debugEnabled, i18n, warn } from "../../midi-qol.js";
 import { Workflow } from "../Workflow.js";
 import { ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
-import { MidiActivityMixin } from "./MidiActivityMixin.js";
+import { MidiActivityMixin, MidiActivityMixinSheet } from "./MidiActivityMixin.js";
 
 export var MidiSummonActivity;
+export var MidiSummonSheet;
 
 export function setupSummonActivity() {
   if (debugEnabled > 0) warn("MidiQOL | SummonActivity | setupSummonActivity | Called");
   //@ts-expect-error
   const GameSystemConfig = game.system.config;
+  //@ts-expect-error
+  MidiSummonSheet = defineMidiSummonSheetClass(game.system.applications.activity.SummonSheet);
   MidiSummonActivity = defineMidiSummonActivityClass(GameSystemConfig.activityTypes.summon.documentClass);
   if (ReplaceDefaultActivities) {
     // GameSystemConfig.activityTypes["dnd5eSummon"] = GameSystemConfig.activityTypes.summon;
@@ -18,14 +21,19 @@ export function setupSummonActivity() {
     GameSystemConfig.activityTypes["midiSummon"] = { documentClass: MidiSummonActivity };
   }
 }
+let defineMidiSummonSheetClass = (baseClass: any) => {
+  return class MidiSummonSheet extends MidiActivityMixinSheet(baseClass) {
+  }
+}
 
-let defineMidiSummonActivityClass =(ActivityClass: any) => {
+let defineMidiSummonActivityClass = (ActivityClass: any) => {
   return class MidiSummonActivity extends MidiActivityMixin(ActivityClass) {
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.SUMMON"];
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
         title: "midi-qol.SUMMON.Title.one",
+        sheetClass: MidiSummonSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },

@@ -6,7 +6,7 @@ import { defaultRollOptions } from "../patching.js";
 import { AutoMergeActivityOther, ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { busyWait } from "../tests/setupTest.js";
 import { addAdvAttribution, areMidiKeysPressed, asyncHooksCall, displayDSNForRoll, getSpeaker, processAttackRollBonusFlags } from "../utils.js";
-import { MidiActivityMixin } from "./MidiActivityMixin.js";
+import { MidiActivityMixin, MidiActivityMixinSheet } from "./MidiActivityMixin.js";
 import { doActivityReactions } from "./activityHelpers.js";
 
 export var MidiAttackSheet;
@@ -29,14 +29,14 @@ export function setupAttackActivity() {
 }
 
 let defineMidiAttackSheetClass = (baseClass: any) => {
-  return class extends baseClass {
+  return class MidiAttackActivitySheet extends MidiActivityMixinSheet(baseClass) {
+
     static PARTS = {
       ...super.PARTS,
       effect: {
         template: "modules/midi-qol/templates/activity/attack-effect.hbs",
         templates: [
           ...super.PARTS.effect.templates,
-          "modules/midi-qol/templates/activity/parts/use-condition.hbs",
           "modules/midi-qol/templates/activity/parts/attack-extras.hbs",
         ]
       }
@@ -190,6 +190,8 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
         if (this.workflow?.aborted || !returnValue) return [];
 
         let requiresAmmoConfirmation = false;
+        await this.workflow?.checkAttackAdvantage();
+
         //@ts-expect-error
         const areKeysPressed = game.system.utils.areKeysPressed;
         const keys = {

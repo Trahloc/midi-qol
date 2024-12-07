@@ -118,7 +118,7 @@
   "midi-qol.PlayerRollSaves.Hint": "Players Roll saves. None means midi will roll the save. Otherwise, the player will get a whispered chat message or Monk's Token bar prompt.",
   "midi-qol.rollNPCSaves.Name": "Prompt GM to Roll Saves (Unlinked)",
   "midi-qol.rollNPCLinkedSaves.Name": "Prompt GM to Roll Saves (Linked)",
-  "midi-qol.rollNPCSaves.Hint": "Auto means the midi will roll the save for the Actor. Otherwise, the GM will receive an Monk's Token Bar or chat prompt.",
+  "midi-qol.rollNPCSaves.Hint": "Auto means the midi will roll the save for the Actor. Otherwise, the GM will be prompted according to the setting.",
   "midi-qol.PlayerSaveTimeout.Name": "Timeout before rolling for players",
   "midi-qol.PlayerSaveTimeout.Hint": "How long to wait before taking over the player's save for them in seconds",
   "midi-qol.MagicResistant": "magic-resistant",
@@ -652,7 +652,7 @@
   "midi-qol.TargetConfirmationConfig.Name": "Target Confirmation",
   "midi-qol.TargetConfirmationConfig.Hint": "When rolling an item confirm targets before completing",
   "midi-qol.TargetConfirmation.Name": "Target Confirmation",
-  "midi-qol.TargetConfirmation.Blurb": "Select up to {targetCount} targets. Shift-Click to select multiple targets",
+  "midi-qol.TargetConfirmation.Blurb": "Select up to {targetCount} {targetType}. Shift-Click to select multiple targets",
   "midi-qol.TargetConfirmation.BlurbAny": "Select any number of targets. Shift-Click to select multiple targets",
 
   "midi-qol.AddDead.Name": "Add effect when HP = 0",

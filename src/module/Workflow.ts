@@ -352,7 +352,7 @@ export class Workflow {
       })
     }
     this.needItemCard = true;
-    this.preItemUseComplete = false;
+    this.itemUseComplete = false;
     this.kickStart = false;
   }
 
@@ -544,7 +544,7 @@ export class Workflow {
       this.itemCardUuid = context.itemCardUuid;
       this.needItemCard = false;
     }
-    if (context.itemUseComplete) this.preItemUseComplete = true;
+    if (context.itemUseComplete) this.itemUseComplete = true;
 
     // Currently this just brings the workflow to life.
     // next version it will record the contexts in the workflow and bring the workflow to life.
@@ -677,8 +677,8 @@ export class Workflow {
     return this.WorkflowState_AoETargetConfirmation;
   }
   async WorkflowState_AwaitItemCard(context: any = {}): Promise<WorkflowState> {
-    if (this.needItemCard || !this.preItemUseComplete) {
-      if (debugEnabled > 0) warn("WorkflowState_AwaitItemCard suspending because needItemCard/preItemUseComplete", this.needItemCard, this.preItemUseComplete);
+    if (this.needItemCard || !this.itemUseComplete) {
+      if (debugEnabled > 0) warn("WorkflowState_AwaitItemCard suspending because needItemCard/itemUseComplete", this.needItemCard, this.itemUseComplete);
       return this.WorkflowState_Suspend;
     }
     if (this.needTemplate) {
@@ -692,17 +692,14 @@ export class Workflow {
     if (debugEnabled > 0) warn("WorkflowState_AwaitTemplate started");
     if (context.templateDocument) {
       this.needTemplate = false;
-      if (debugEnabled > 0) warn("WorkflowState_AwaitTemplate context - template placed", "needTemplate", this.needTemplate, "needItemCard", this.needItemCard, "preItemUseComplete", this.preItemUseComplete);
-      if (this.needItemCard) return this.WorkflowState_Suspend;
-      if (!this.preItemUseComplete) return this.WorkflowState_Suspend;
-      if (this.tempTargetConfirmation) return this.WorkflowState_AoETargetConfirmation;
-      return this.WorkflowState_TemplatePlaced;
+      if (debugEnabled > 0) warn("WorkflowState_AwaitTemplate context - template placed", "needTemplate", this.needTemplate, "needItemCard", this.needItemCard, "itemUseComplete", this.itemUseComplete);
+      return this.WorkflowState_AoETargetConfirmation;
     }
     if (context.itemUseComplete || !this.needTemplate) {
-      if (debugEnabled > 0) warn("WorkflowState_AwaitTemplate context itemUseComplete", "needTemplate", this.needTemplate, "needItemCard", this.needItemCard, "preItemUseComplete", this.preItemUseComplete);
-      return this.tempTargetConfirmation ? this.WorkflowState_AoETargetConfirmation : this.WorkflowState_TemplatePlaced;
+      if (debugEnabled > 0) warn("WorkflowState_AwaitTemplate context itemUseComplete", "needTemplate", this.needTemplate, "needItemCard", this.needItemCard, "itemUseComplete", this.itemUseComplete);
+      return this.WorkflowState_AoETargetConfirmation;
     }
-    if (debugEnabled > 0) warn("WorkflowState_AwaitTemplate suspending", "needTemplate", this.needTemplate, "needItemCard", this.needItemCard, "preItemUseComplete", this.preItemUseComplete);
+    if (debugEnabled > 0) warn("WorkflowState_AwaitTemplate suspending", "needTemplate", this.needTemplate, "needItemCard", this.needItemCard, "itemUseComplete", this.itemUseComplete);
     return this.WorkflowState_Suspend;
   }
   async WorkflowState_TemplatePlaced(context: any = {}): Promise<WorkflowState> {
@@ -733,7 +730,9 @@ export class Workflow {
     return this.WorkflowState_AoETargetConfirmation;
   }
   async WorkflowState_AoETargetConfirmation(context: any = {}): Promise<WorkflowState> {
-    if (this.activity?.target?.affects.type !== "" && this.workflowOptions.targetConfirmation !== "none") {
+    const hasAoETemplate = activityHasAreaTarget(this.activity);
+    const emanationNoTemplate = activityHasEmanationNoTemplate(this.activity);
+    if ((hasAoETemplate || emanationNoTemplate) && this.workflowOptions.targetConfirmation !== "none") {
       if (!await postTemplateConfirmTargets(this.activity, this.workflowOptions, this)) {
         return this.WorkflowState_Abort;
       }
@@ -1577,7 +1576,9 @@ export class Workflow {
       Hooks.off("createMeasuredTemplate", this.placeTemplateHookId);
       Hooks.off("preCreateMeasuredTemplate", this.preCreateTemplateHookId);
     }
-    if (configSettings.autoRemoveInstantaneousTemplate && this.templateUuid && this.activity.duration.units === "inst") {
+    const blfxActive = game.modules.get("boss-loot-assets-premium")?.active ||
+      game.modules.get("boss-loot-assets-free")?.active;
+    if (!blfxActive && configSettings.autoRemoveInstantaneousTemplate && this.templateUuid && this.activity.duration.units === "inst") {
       const templateToDelete = await fromUuid(this.templateUuid);
       if (templateToDelete) await templateToDelete.delete();
     }
@@ -3775,7 +3776,7 @@ export class Workflow {
       DCString = i18n("SW5E.AbbreviationDC");
     }
     DCString = `${DCString} ${rollDC}`;
-    if (rollDC ?? -1 === -1) DCString = "";
+    if ((rollDC ?? -1) === -1) DCString = "";
     if (rollType === "save")
       this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.abilities[rollAbility].label ?? GameSystemConfig.abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}`;
     else if (rollType === "check")
@@ -4309,10 +4310,12 @@ export class Workflow {
     // min dist is the number of grid squares away.
     let minDist = targetDetails.template.size;
     const targetIds: string[] = [];
+    const maxTargets = targetDetails.affects?.count;;
     // ignoreToken set to null if special target include "self" - otherwise set to token
     let ignoreToken = targetDetails.affects.special.split(";").some(spec => spec === "self") ? null : canvas.tokens?.get(this.tokenId);
     if (canvas.tokens?.placeables && canvas.grid) {
       for (let target of canvas.tokens.placeables) {
+        if (targetIds.length >= maxTargets) break;
         if (!isTargetable(target)) continue;
         const ray = new Ray(target.center, token.center);
         const wallsBlock = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.rangeTarget)
@@ -4330,7 +4333,8 @@ export class Workflow {
             inRange = false;
           }
           const distance = computeDistance(target, token, { wallsBlock });
-          inRange = inRange && distance >= 0 && distance <= minDist
+          inRange = inRange && distance >= 0 && distance <= minDist;
+          console.error((inRange ? "In Range" : "Out of Range"), target.name, distance, minDist);
         }
         if (inRange) {
           target.setTarget(true, { user: game.user, releaseOthers: false });
@@ -4962,7 +4966,6 @@ export class DDBGameLogWorkflow extends Workflow {
     super(actor, item, speaker, targets, options);
     this.needTemplate = activityHasAreaTarget(this.activity) ?? false;
     this.needItemCard = false;
-    this.preItemUseComplete = true;
     this.needsDamage = this.item.hasDamage;
     this.attackRolled = !item.hasAttack;
     if (configSettings.undoWorkflow) this.undoData = { actor: actor.id, item: item.id, targets: Array.from(targets).map(t => t.id), options: options };

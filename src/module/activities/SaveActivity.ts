@@ -1,6 +1,6 @@
 import { debugEnabled, warn } from "../../midi-qol.js";
 import { ReplaceDefaultActivities, configSettings } from "../settings.js";
-import { MidiActivityMixin } from "./MidiActivityMixin.js";
+import { MidiActivityMixin, MidiActivityMixinSheet } from "./MidiActivityMixin.js";
 
 export var MidiSaveActivity;
 export var MidiSaveSheet;
@@ -80,14 +80,13 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
     }
 
 let defineMidiSaveSheetClass = (baseClass: any) => {
-    return class extends baseClass {
+  return class MidiSaveSheet extends MidiActivityMixinSheet(baseClass) {
       static PARTS = {
         ...super.PARTS,
         effect: {
           template: "modules/midi-qol/templates/activity/save-effect.hbs",
           templates: [
             ...super.PARTS.effect.templates,
-            "modules/midi-qol/templates/activity/parts/use-condition.hbs",
             "modules/midi-qol/templates/activity/parts/save-damage.hbs",
           ]
         }
