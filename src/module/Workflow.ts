@@ -2267,7 +2267,7 @@ export class Workflow {
 
       if (target.actor?.uuid !== this.actor.uuid && triggerList.includes("1Reaction")) {
       }
-      if (this.activityHas && triggerList.includes("isSaveSuccess") && (this.saves.has(target) || options.saved === true)) {
+      if (this.activityHasSave && triggerList.includes("isSaveSuccess") && (this.saves.has(target) || options.saved === true)) {
         result.push(...await this.callMacros(this.item,
           actorOnUseMacros?.getMacros("isSaveSuccess"),
           "TargetOnUse",
