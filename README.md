@@ -789,7 +789,7 @@ where specification is a comma separated list of fields.
   
   #### Overtime Macros:
   * `macro=<macro to call>` - call a macro as part of the damage application stage, with available arguments the results of rolling the overTime item, which will include damage done, saving throws made etc., as if it were an OnUse macro of the Overtime item roll. These macros can be:
-    * `world macros` using the name of the macro from your macro folder,
+    * `world macros` using the name of the macro from your macro folder, eg `Macro.My world macro name`
     * linked to the Item Macro of an Item by using `ItemMacro.ItemUUID`,
     * macros provided by modules in which case MidiQOL will `bind` the relevant arguments to that function, using for example `function.MidiQOL.log`.
 
