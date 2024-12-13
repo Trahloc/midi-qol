@@ -732,7 +732,20 @@ An optional attack bonus prompts the attacker after the attack roll is made, but
 * `flags.midi-qol.optional.Name.rollMode`, any additional rolls are to be made with the specifid roll mode. Can be useful to hide rolls from the players. Use one of `publicroll/gmroll/blindroll/selfroll` 
 * `flags.midi-qol.optional.Name.macroToCall`, `ItemMacro` or `world macro name` executes a macro when the user opts in to use the optional bonus, with arguments being the same as in MidiQOL onUse macros.
 
-Values for the optional roll bonus flags include a dice expression (added to the roll), a number, reroll (rerolling the roll completely) reroll-max, reroll-min, reroll-kh (reroll with max dice, min dice, or reroll and keep the higher of the original/new roll) or success which changes the roll to 99 ensuring success.
+Values for the optional roll bonus flags include:
+* a dice expression (added to the roll),
+* a number,
+* Rerolls with:
+  * `reroll`: rerolls and keeps the new roll,
+  * `reroll-max`: rerolls max and keeps the new roll,
+  * `reroll-min`: rerolls min and keeps the new roll,
+  * `reroll-kh`: rerolls and keeps higher roll,
+  * `reroll-kl`: rerolls and keeps lower roll,
+  * `reroll-query`: rerolls and asks user which roll to keep,
+* `success`: ensures success for D20Rolls (currently makes it a critical),
+* `fail`: ensures failure for D20Rolls,
+* `replace <formula>`: replaces with a new formula, example `replace 4d20kh`.
+
 
 ## Enhanced traits.dr/di/dv
 * Available from the special traits actor settings, or via active effects.
