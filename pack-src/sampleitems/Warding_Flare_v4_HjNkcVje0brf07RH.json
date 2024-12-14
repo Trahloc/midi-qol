@@ -97,9 +97,24 @@
           "name": ""
         },
         "useConditionText": "reaction === \"preAttack\"",
-        "forceDialog": false,
         "effectConditionText": "",
-        "name": "Warding Flare"
+        "name": "Warding Flare",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "warding-flare-v4",
@@ -173,7 +188,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -214,7 +229,11 @@
       "itemCondition": "",
       "reactionCondition": "",
       "effectCondition": "",
-      "otherCondition": ""
+      "otherCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default",
+      "removeAttackDamageButtons": "default"
     },
     "midiProperties": {
       "nodam": false,
@@ -291,14 +310,14 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498472799,
-    "modifiedTime": 1731498472799,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180117979,
+    "modifiedTime": 1734180117979,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "fZIl4G4qj3C894LI",
   "_id": "HjNkcVje0brf07RH",
-  "sort": 0,
+  "sort": 500000,
   "ownership": {
     "default": 0,
     "Zl1BOUaPLwDEujaL": 3

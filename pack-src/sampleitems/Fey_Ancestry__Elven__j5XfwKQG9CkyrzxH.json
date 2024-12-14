@@ -23,9 +23,7 @@
           "aura": "None",
           "radius": null
         },
-        "core": {
-          "statusId": ""
-        },
+        "core": {},
         "dfreds-convenient-effects": {
           "description": ""
         }
@@ -71,7 +69,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -152,7 +150,11 @@
       "itemCondition": "",
       "effectCondition": "",
       "reactionCondition": "",
-      "otherCondition": ""
+      "otherCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default",
+      "removeAttackDamageButtons": "default"
     },
     "tidy5e-sheet": {
       "section": "",
@@ -192,14 +194,14 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498472799,
-    "modifiedTime": 1731498472799,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180117979,
+    "modifiedTime": 1734180117979,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "fZIl4G4qj3C894LI",
   "_id": "j5XfwKQG9CkyrzxH",
-  "sort": 600000,
+  "sort": 2200000,
   "ownership": {
     "default": 0,
     "Zl1BOUaPLwDEujaL": 3

@@ -106,8 +106,10 @@ async function _onDrop(ev) {
   //@ts-ignore
   const data = TextEditor.getDragEventData(ev);
   if (data.uuid) {
-    const itemOrMacro = await fromUuid(data.uuid);
-    if (itemOrMacro instanceof Item || itemOrMacro instanceof Macro) ev.target.value = `${data.uuid}`;
+    const entity: any = await fromUuid(data.uuid);
+    if (entity instanceof Item)ev.target.value = `ItemMacro.${data.uuid}`;
+    else if (entity instanceof Macro) ev.target.value = `Macro.${data.uuid}`;
+    else if (entity?.macro) ev.target.value = `ActivityMacro.${data.uuid}`;
   }
 }
 
@@ -119,7 +121,7 @@ async function _onMacroControl(event) {
   if (a.classList.contains("add-macro")) {
     const macros = getCurrentSourceMacros(this.object);
     this.selectMidiTab = true;
-    await this._onSubmit(event);  // Submit any unsaved changes
+    if (this._onSubmit) await this._onSubmit(event);  // Submit any unsaved changes
     macros.items.push(new OnUseMacro());
     this.selectMidiTab = true;
     await this.object.update({ "flags.midi-qol.onUseMacroName": macros.toString() });
@@ -130,7 +132,7 @@ async function _onMacroControl(event) {
     const macros = getCurrentSourceMacros(this.object);
     const li = a.closest(".damage-part");
     this.selectMidiTab = true;
-    await this._onSubmit(event);  // Submit any unsaved changes
+    if (this._onSubmit) await this._onSubmit(event);  // Submit any unsaved changes
     macros.items.splice(Number(li.dataset.midiqolMacroPart), 1);
     this.selectMidiTab = true;
     await this.object.update({ "flags.midi-qol.onUseMacroName": macros.toString() });

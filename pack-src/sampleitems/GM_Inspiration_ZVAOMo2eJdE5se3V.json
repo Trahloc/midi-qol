@@ -59,7 +59,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -116,7 +116,11 @@
       "itemCondition": "",
       "effectCondition": "",
       "reactionCondition": "",
-      "otherCondition": ""
+      "otherCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default",
+      "removeAttackDamageButtons": "default"
     },
     "core": {
       "sourceId": "Item.F58v9Hv37KF4JszF"
@@ -161,7 +165,11 @@
       "sorting": "l"
     },
     "dnd5e": {
-      "persistSourceMigration": true
+      "persistSourceMigration": true,
+      "riders": {
+        "activity": [],
+        "effect": []
+      }
     },
     "tidy5e-sheet": {
       "section": "",
@@ -212,7 +220,7 @@
         "duration": {
           "concentration": false,
           "value": "",
-          "units": "",
+          "units": "inst",
           "special": "",
           "override": false
         },
@@ -222,7 +230,7 @@
           }
         ],
         "range": {
-          "units": "",
+          "units": "self",
           "special": "",
           "override": false
         },
@@ -242,7 +250,7 @@
             "choice": false,
             "special": ""
           },
-          "prompt": true,
+          "prompt": false,
           "override": false
         },
         "uses": {
@@ -258,8 +266,24 @@
         },
         "sort": 0,
         "useConditionText": "",
-        "forceDialog": false,
-        "effectConditionText": ""
+        "effectConditionText": "",
+        "name": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "gm-inspiration-10010",
@@ -274,14 +298,14 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498472799,
-    "modifiedTime": 1731498472799,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180117979,
+    "modifiedTime": 1734180117979,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "fZIl4G4qj3C894LI",
   "_id": "ZVAOMo2eJdE5se3V",
-  "sort": 500000,
+  "sort": 2100000,
   "ownership": {
     "default": 0,
     "Zl1BOUaPLwDEujaL": 3

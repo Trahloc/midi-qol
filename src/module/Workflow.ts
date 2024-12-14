@@ -1,4 +1,4 @@
-import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID, NumericTerm } from "../midi-qol.js";
+import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID, NumericTerm, MQActivityMacroLabel } from "../midi-qol.js";
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
@@ -2609,6 +2609,15 @@ export class Workflow {
         TroubleShooter.recordError(err, message);
         return undefined
       }));
+      if (this.activity?.otherActivity) {
+        values.push(this.callMacro(item, macro, macroData, foundry.utils.mergeObject(options, { otherActivityOnly: true }, {inplace: false})).catch((err) => {
+          const message = `midi-qol | called macro error in ${item?.name} ${item?.uuid} macro ${macro}`;
+          console.warn(message, err);
+          TroubleShooter.recordError(err, message);
+          return undefined
+        }));
+
+      }
     }
     let results: Array<damageBonusMacroResult | any> = await Promise.allSettled(values);
     if (debugEnabled === 1 && results.length) warn("callMacros | macro data ", macroData);
@@ -2616,85 +2625,149 @@ export class Workflow {
     return results;
   }
 
+
   async callMacro(item, macroName: string, macroData: any, options: any): Promise<damageBonusMacroResult | any> {
     let [name, uuid] = macroName?.trim().split("|");
     let macroItem;
     if (uuid?.length > 0) {
-      macroItem = MQfromUuidSync(uuid);
+      macroItem = await fromUuid(uuid);
       if (macroItem instanceof ActiveEffect && macroItem.parent instanceof Item) {
         macroItem = macroItem.parent;
       }
     }
-    const rolledItem = item;
-    if (!name) return undefined;
-    let itemMacroData;
+    let macroActivity;
+    if (options.otherActivityOnly) {
+      if (!this.activity?.otherActivity || name !== "ActivityMacro") return;
+      macroActivity = this.activity.otherActivity;
+      macroItem = this.item;
+    } else
+      macroActivity = this.activity;
     let macro;
+    let itemMacroData;
     const actorToUse = options.actor ?? this.actor;
+    const rolledItem = item;
+
     try {
-      if (name.startsWith("function.")) {
-        let [func, uuid] = name.split("|");
-        itemMacroData = {
-          name: "function call",
-          type: "script",
-          command: `return await ${func.replace("function.", "").trim()}({ speaker, actor, token, character, item, rolledItem, macroItem, args, scope, workflow })`
-        };
-      } else if (name.startsWith(MQItemMacroLabel) || name.startsWith("ItemMacro")) {
-        // ItemMacro
-        // ItemMacro.ItemName
-        // ItemMacro.uuid
-        if (name === MQItemMacroLabel || name === "ItemMacro") {
-          if (!item) return {};
-          macroItem = item;
-          itemMacroData = foundry.utils.getProperty(item, "flags.dae.macro") ?? foundry.utils.getProperty(macroItem, "flags.itemacro.macro");
-          macroData.sourceItemUuid = macroItem?.uuid;
-        } else {
-          const parts = name.split(".");
-          const itemNameOrUuid = parts.slice(1).join(".");
-          macroItem = await fromUuid(itemNameOrUuid);
-          // ItemMacro.name
-          if (!macroItem) macroItem = actorToUse.items.find(i => i.name === itemNameOrUuid && (foundry.utils.getProperty(i.flags, "dae.macro") ?? foundry.utils.getProperty(i.flags, "itemacro.macro")))
-          if (!macroItem && actorToUse instanceof Actor) {
-            const itemId = uuid.split(".").slice(-1)[0];
-            //@ts-expect-error
-            const itemData = actorToUse.effects.find(effect => effect.flags.dae?.itemData?._id === itemId)?.flags.dae.itemData;
-            if (itemData) macroItem = itemData;
-          } else if (!macroItem) {
-            console.warn("midi-qol | callMacro | No item for", name);
+      if (macroItem?.macro) { // The Uuid pointed to an Activity (not an item) and so just use its macro
+        macro = macroItem.macro;
+      } else {
+        if (!name) return undefined;
+        if (name.startsWith("function.")) {
+          let [func, uuid] = name.split("|");
+          itemMacroData = {
+            name: "function call",
+            type: "script",
+            command: `return await ${func.replace("function.", "").trim()}({ speaker, actor, token, character, item, rolledItem, macroItem, args, scope, workflow })`
+          };
+        } else if (name.startsWith(MQItemMacroLabel) || name.startsWith("ItemMacro")) {
+          // ItemMacro
+          // ItemMacro.ItemName
+          // ItemMacro.uuid
+          if (name === MQItemMacroLabel || name === "ItemMacro") {
+            if (!item) return {};
+            macroItem = item;
+            itemMacroData = foundry.utils.getProperty(item, "flags.dae.macro") ?? foundry.utils.getProperty(macroItem, "flags.itemacro.macro");
+            macroData.sourceItemUuid = macroItem?.uuid;
+          } else {
+            const parts = name.split(".");
+            const itemNameOrUuid = parts.slice(1).join(".");
+            macroItem = await fromUuid(itemNameOrUuid);
+            // ItemMacro.name
+            if (!macroItem) macroItem = actorToUse.items.find(i => i.name === itemNameOrUuid && (foundry.utils.getProperty(i.flags, "dae.macro") ?? foundry.utils.getProperty(i.flags, "itemacro.macro")))
+            if (!macroItem && actorToUse instanceof Actor) {
+              const itemId = uuid.split(".").slice(-1)[0];
+              //@ts-expect-error
+              const itemData = actorToUse.effects.find(effect => effect.flags.dae?.itemData?._id === itemId)?.flags.dae.itemData;
+              if (itemData) macroItem = itemData;
+            } else if (!macroItem) {
+              console.warn("midi-qol | callMacro | No item for", name);
+              return {};
+            }
+            itemMacroData = foundry.utils.getProperty(macroItem.flags, "dae.macro") ?? foundry.utils.getProperty(macroItem.flags, "itemacro.macro");
+            macroData.sourceItemUuid = macroItem.uuid;
+          }
+        } else if (name.startsWith(MQActivityMacroLabel) || name.startsWith("ActivityMacro")) {
+          // ActivityMacro
+          // ActivityMacro.uuid
+          // ActivityMacro.identifier
+          // ActivityMacro.ActivityName
+          if (name === MQActivityMacroLabel || name === "ActivityMacro") {
+            if (!macroActivity) return {};
+            macro = macroActivity.macro;
+          } else {
+            const parts = name.split(".");
+            const activitySpec = parts.slice(1).join(".");
+            let itemToUse = macroItem;
+            macroItem = item;
+            if (!macro) {
+              const activityOrItem: any = (activitySpec) ? await fromUuid(activitySpec) : macroActivity;
+              if (activityOrItem instanceof Item)
+                itemToUse = activityOrItem;
+              else itemToUse = activityOrItem?.item ?? macroItem;
+              // ActivityMacro.name or ActivityMacro.uuid where not found by fromUuid
+              if (activityOrItem?.macro?.command) {
+                macro = activityOrItem.macro;
+                macroActivity = activityOrItem
+              }
+              const itemId = parts.at(-1);
+              if (!macro?.command) {
+                macroActivity = itemToUse.system.activities?.contents.find(activity => activity.identifier === itemId);
+                if (macroActivity?.macro?.command) {
+                  macro = macroActivity.macro;
+                }
+              }
+              if (!macro?.command) {
+                macroActivity = itemToUse.system.activities?.contents.find(activity => activity._id === itemId);
+                if (macroActivity?.macro?.command)
+                  macro = macroActivity.macro;
+              }
+              if (!macro?.command) {
+                macroActivity = itemToUse.system.activities?.contents.find(activity => activity.name === itemId);
+                if (macroActivity?.macro.command) macro = macroActivity.macro;
+              }
+              if (!macro?.command && activityOrItem instanceof Item) {
+                macroActivity ??= itemToUse.system.activities?.contents[0];
+                if (macroActivity?.macro) macro = macroActivity.macro;
+              }
+              else if (!macro?.command) {
+                macroActivity ??= activityOrItem;
+                macro = macroActivity?.macro;
+              }
+            }
+            macroData.sourceItemUuid = itemToUse.uuid;
+          }
+        } else { // get a world/compendium macro.
+          if (name.startsWith("Macro.")) name = name.replace("Macro.", "");
+          macro = game.macros?.getName(name)
+          if (!macro) {
+            const itemOrMacro = await fromUuid(name);
+            if (itemOrMacro instanceof Item) {
+              macroData.sourceItemUuid = itemOrMacro.uuid;
+              itemMacroData = foundry.utils.getProperty(itemOrMacro, "flags.dae.macro") ?? foundry.utils.getProperty(itemOrMacro, "flags.itemacro.macro");
+            } else if (itemOrMacro instanceof Macro) macro = itemOrMacro;
+          }
+
+          if (macro?.type === "chat") {
+            macro.execute(); // use the core foundry processing for chat macros
+            return {}
+          }
+        }
+
+        if (!itemMacroData && !macro) {
+          const message = `Could not find item/macro ${name}`;
+          TroubleShooter.recordError(new Error(message), message);
+          ui.notifications?.error(`midi-qol | Could not find macro ${name} does not exist`);
+          return undefined;
+        }
+
+        if (itemMacroData) {
+          if (!itemMacroData.command) itemMacroData = itemMacroData.data;
+          if (!itemMacroData?.command) {
+            if (debugEnabled > 0) warn(`callMacro | could not find item macro ${name}`);
             return {};
           }
-          itemMacroData = foundry.utils.getProperty(macroItem.flags, "dae.macro") ?? foundry.utils.getProperty(macroItem.flags, "itemacro.macro");
-          macroData.sourceItemUuid = macroItem.uuid;
-        }
-      } else { // get a world/compendium macro.
-        if (name.startsWith("Macro.")) name = name.replace("Macro.", "");
-        macro = game.macros?.getName(name)
-        if (!macro) {
-          const itemOrMacro = await fromUuid(name);
-          if (itemOrMacro instanceof Item) {
-            macroData.sourceItemUuid = itemOrMacro.uuid;
-            itemMacroData = foundry.utils.getProperty(itemOrMacro, "flags.dae.macro") ?? foundry.utils.getProperty(itemOrMacro, "flags.itemacro.macro");
-          } else if (itemOrMacro instanceof Macro) macro = itemOrMacro;
-        }
-
-        if (macro?.type === "chat") {
-          macro.execute(); // use the core foundry processing for chat macros
-          return {}
         }
       }
-      if (!itemMacroData && !macro) {
-        const message = `Could not find item/macro ${name}`;
-        TroubleShooter.recordError(new Error(message), message);
-        ui.notifications?.error(`midi-qol | Could not find macro ${name} does not exist`);
-        return undefined;
-      }
-      if (itemMacroData) {
-        if (!itemMacroData.command) itemMacroData = itemMacroData.data;
-        if (!itemMacroData?.command) {
-          if (debugEnabled > 0) warn(`callMacro | could not find item macro ${name}`);
-          return {};
-        }
-      }
-
       macroData.speaker = this.speaker;
       macroData.actor = actorToUse;
       if (!macro) {
@@ -2705,6 +2778,7 @@ export class Workflow {
         itemMacroData.author = game.user?.id;
         macro = new CONFIG.Macro.documentClass(itemMacroData);
       }
+      if (!macro?.command) return undefined;
       const speaker = this.speaker;
       const actor = actorToUse;
       const token = tokenForActor(actorToUse)
@@ -2712,7 +2786,8 @@ export class Workflow {
 
       const scope: any = {};
       scope.workflow = this;
-      scope.activity = this.activity;
+      scope.rolledActivity = this.activity;
+      scope.macroActivity = macroActivity;
       scope.item = rolledItem;
       scope.rolledItem = rolledItem;
       scope.macroItem = macroItem ?? rolledItem;

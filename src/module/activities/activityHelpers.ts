@@ -108,11 +108,11 @@ export function activityConsumptionHook(activity, usageConfig, messageConfig, up
 }
 
 function activityRequiresPostTemplateConfiramtion(activity): boolean {
-  const isRangeTargeting = ["ft", "m"].includes(activity.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
+  // const isRangeTargeting = ["ft", "m"].includes(activity.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
   if (activity.target.template?.type) {
     return true;
-  } else if (isRangeTargeting) {
-    return true;
+//  } else if (isRangeTargeting) {
+//    return true;
   }
   return false;
 }
@@ -137,8 +137,8 @@ export function requiresTargetConfirmation(activity, options): boolean {
   if (activity.target?.affects.type === "self") return false;
   if (activity.target?.affects?.choice) return true;
   if (options.workflowOptions?.attackPerTarget === true) return false;
-  if (activity.item?.flags?.midiProperties?.confirmTargets === "always") return true;
-  if (activity.item?.flags?.midiProperties?.confirmTargets === "never") return false;
+  if (activity.midiProperties?.confirmTargets === "always") return true;
+  if (activity.midiProperties?.confirmTargets === "never") return false;
   let numTargets = game.user?.targets?.size ?? 0;
   if (numTargets === 0 && configSettings.enforceSingleWeaponTarget && activity.item.type === "weapon")
     numTargets = 1;

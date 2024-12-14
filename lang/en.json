@@ -553,7 +553,6 @@
     "item": "Roll Concentration Item"
   },
   "midi-qol.DoConcentrationCheck.Hint": "<strong>Chat Message Only</strong> display a chat message with a button (dnd5e default behaviour and required dnd5e concentration)<br><strong>Chat message + Auto Roll</strong> display a chat message and auto roll the save (requires dnd5e concentration)<br><strong>Roll Concentration Item</strong> roll a concentration item check (midi standard behaviour)",
-
   "midi-qol.RemoveConcentration.Name": "Remove concentration on failed concentration save",
   "midi-qol.UsePlayerPortrait.Name": "Use Actor portrait in chat cards",
   "midi-qol.UsePlayerPortrait.Hint": "For Actors of type character use the actor portrait instead of the token image in midi-qol chat cards",
@@ -628,17 +627,17 @@
   "midi-qol.ddbGL.Hint": "Accept attack/damage/saving throws from ddb-game-log to trigger midi workflows in foundry",
   "midi-qol.ShowReactionChatMessage.Name": "Show Chat prompt for reactions",
   "midi-qol.reactionFlavorHit": "{actorName} is hit by {itemName} and can use a reaction",
-  "midi-qol.reactionFlavorTargeted":"{actorName} is targeted by {itemName} and can use a reaction",
-  "midi-qol.reactionFlavorMiss":  "{actorName} is missed by {itemName} and can use a reaction",
-  "midi-qol.reactionFlavorCrit":  "{actorName} is critically hit by {itemName} and can use a reaction",
-  "midi-qol.reactionFlavorFumble":  "{actorName} is attacked by {itemName} which fumbled and can use a reaction ",
-  "midi-qol.reactionFlavorHeal":  "{actorName} is healed by {itemName} and can use a reaction",
+  "midi-qol.reactionFlavorTargeted": "{actorName} is targeted by {itemName} and can use a reaction",
+  "midi-qol.reactionFlavorMiss": "{actorName} is missed by {itemName} and can use a reaction",
+  "midi-qol.reactionFlavorCrit": "{actorName} is critically hit by {itemName} and can use a reaction",
+  "midi-qol.reactionFlavorFumble": "{actorName} is attacked by {itemName} which fumbled and can use a reaction ",
+  "midi-qol.reactionFlavorHeal": "{actorName} is healed by {itemName} and can use a reaction",
   "midi-qol.reactionFlavorDamage": "{actorName} is damaged by {itemName} and can use a reaction",
   "midi-qol.reactionFlavorAttacked": "{actorName} is attacked by {itemName} and can use a reaction",
   "midi-qol.reactionFlavorPreAttack": "{actorName} is about to be attacked by {itemName} and can use a reaction",
   "midi-qol.reactionFlavorSave": "{actorName} must save because of {itemName} and can use a reaction",
-  "midi-qol.reactionFlavorSaveFail":  "{actorName} failed a save because of {itemName} and can use a reaction",
-  "midi-qol.reactionFlavorSaveSuccess":  "{actorName} succeeded on a save because of {itemName} and can use a reaction",
+  "midi-qol.reactionFlavorSaveFail": "{actorName} failed a save because of {itemName} and can use a reaction",
+  "midi-qol.reactionFlavorSaveSuccess": "{actorName} succeeded on a save because of {itemName} and can use a reaction",
   "midi-qol.reactionFlavorMoved": "isMoved",
   "midi-qol.reactionUsed": "Reaction used",
   "midi-qol.bonusActionUsed": "Bonus Action used",
@@ -654,9 +653,7 @@
   "midi-qol.TargetConfirmation.Name": "Target Confirmation",
   "midi-qol.TargetConfirmation.Blurb": "Select up to {targetCount} {targetType}. Shift-Click to select multiple targets",
   "midi-qol.TargetConfirmation.BlurbAny": "Select any number of targets. Shift-Click to select multiple targets",
-
   "midi-qol.AddDead.Name": "Add effect when HP = 0",
-  
   "midi-qol.AddDead.Hint1": "Player Controlled",
   "midi-qol.AddDead.Hint2": "GM Controlled",
   "midi-qol.AddDeadOptions": {
@@ -801,15 +798,15 @@
   "midi-qol.HighlightSuccess.Name": "Color code Hit/Miss/Save Display",
   "midi-qol.HighlightSuccess.Hint": "When displaying hits/misses, hits/saves are in green and misses/failed saves in red",
   "midi-qol.HighLightCriticalAttackOnly.Name": "Only highlight critical/fumble hits",
-  "midi-qol.HighLightCriticalAttackOnly.Hint": "Override dnd5e highlighting attacks hits and misses and only highlight critical/fumble attack rolls",  
+  "midi-qol.HighLightCriticalAttackOnly.Hint": "Override dnd5e highlighting attacks hits and misses and only highlight critical/fumble attack rolls",
   "midi-qol.OptionalRuleVitality.Name": "(House Rule) Vitality pool",
   "midi-qol.OptionalRuleVitality.Hint": "when set to a resource damage applied to a target with 0 HP does damage to the vitality resource. If that reaches 0 the target is dead",
   "midi-qol.AutoRerollInitiative.Name": "Auto reroll initiative",
   "midi-qol.AutoRerollInitiative.Hint": "Auto reroll initiative for all combatants at the start of a new round. Warning: can break round/turn effect expiry",
-  "midi-qol.RollChecksBlind.Name" : "Which ability checks are rolled blind",
-  "midi-qol.RollSavesBlind.Name" : "Which ability saves are rolled blind",
-  "midi-qol.RollSkillsBlind.Name" : "Which skill checks are rolled blind",
-  "midi-qol.UndoWorkflow" : {
+  "midi-qol.RollChecksBlind.Name": "Which ability checks are rolled blind",
+  "midi-qol.RollSavesBlind.Name": "Which ability saves are rolled blind",
+  "midi-qol.RollSkillsBlind.Name": "Which skill checks are rolled blind",
+  "midi-qol.UndoWorkflow": {
     "Name": "Support undoing item rolls",
     "Hint": "If enabled midi will store undo data for all item rolls. Not suitable for game time. Undo via MidiQOL.undoMostRecentWorkflow()",
     "title": "Undo workflow",
@@ -835,7 +832,7 @@
   "midi-qol.Errors": "Errors",
   "midi-qol.Inactive": "Inactive",
   "midi-qol.Active": "Active",
-  "midi-qol.EnforceSingleWeaponTarget.Name":  "Weapons attack single target",
+  "midi-qol.EnforceSingleWeaponTarget.Name": "Weapons attack single target",
   "midi-qol.EnforceSingleWeaponTarget.Hint": "Weapons with no target specification can only attack one target",
   "midi-qol.DisplayBonusRolls.Name": "Show before and after optional bonus chat card",
   "midi-qol.DisplayBonusRolls.Hint": "Display a chat card with the before and after roll when an optional bonus is applied",
@@ -852,7 +849,7 @@
   "midi-qol.ConfirmMiss": "Confirm Miss",
   "midi-qol.ConfirmHit": "Confirm Hit",
   "midi-qol.AverageDamage.Name": "All damage/critical rolls are 'average' results",
-  "midi-qol.AverageDamageOptions" : {
+  "midi-qol.AverageDamageOptions": {
     "none": "None",
     "npc": "NPC only damage rolls",
     "character": "Character ony damage rolls",
@@ -889,9 +886,9 @@
     "never": "Never"
   },
   "midi-qol.SaveDamageOptions": {
-    "default": "Midi Settings", 
-    "fulldam": "Full Damage", 
-    "halfdam": "Half Damage", 
+    "default": "Midi Settings",
+    "fulldam": "Full Damage",
+    "halfdam": "Half Damage",
     "nodam": "No Damage"
   },
   "midi-qol.MidiSettings": "Midi Settings",
@@ -941,15 +938,14 @@
   "midi-qol.AutoMergeActivityOther.Name": "Auto merge other activity for Midi Attack Activities (Requires Reload)",
   "midi-qol.AutoMergeActivityOther.Hint": "If an item only has an attack activity and single Damage, Save, Check or Utility it will be merged with the Attack activity",
   "midi-qol.ConfirmAmmunition.Name": "Confirm Ammunition choice when rolling attack - shows attack roll configuration",
-  "midi-qol.SHARED" : {
+  "midi-qol.SHARED": {
     "use-condition": {
       "header": "Midi Conditions"
     },
+    "ignore": {
+      "header": "Ignore Traits"
+    },
     "FIELDS": {
-      "forceDialog": {
-        "label": "Force Configuration Dialog",
-        "hint": "Force Configuration Dialog when attack rolled"
-      },
 
       "useConditionText": {
         "label": "Use Condition",
@@ -959,13 +955,50 @@
         "label": "Active Effect Condition",
         "hint": "Condition to apply active effects"
       },
-      "midiAutomationOnly": {
-        "label": "Automation Only",
-        "hint": "The activity is intended for midi automation only and not for manual use"
+
+      "midiProperties": {
+        "forceDialog": {
+          "label": "Force Configuration Dialog",
+          "hint": "Force Configuration Dialog when attack rolled"
+        },
+        "confirmTargets": {
+          "label": "Target Confirmation",
+          "hint": "Confirm targets before rolling"
+        },
+        "automationOnly": {
+          "label": "Automation Only",
+          "hint": "The activity is only intended for midi automation and not for manual use"
+        },
+        "identifier": {
+          "label": "Identifier",
+          "hint": "An identifier for the activity"
+        }
+      },
+      "ActivityMacro": {
+        "label": "Activity Macro",
+        "hint": "Macro which can be run when activity used"
       },
       "useSystemActivity": {
         "label": "Use System Activity",
         "hint": "Use the dnd5e system activity rather than the midi one"
+      },
+      "ignoreTraits": {
+        "idi": {
+          "label": "Ignore Immunity",
+          "hint": "Ignore damage immunity when applying damage"
+        },
+        "idr": {
+          "label": "Ignore Resistance",
+          "hint": "Ignore damage resistance when applying damage"
+        },
+        "idv": {
+          "label": "Ignore Vulnerability",
+          "hint": "Ignore damage vulnerability when applying damage"
+        },
+        "ida": {
+          "label": "Ignore Absorption",
+          "hint": "Ignore damage absorption when applying damage"
+        }
       }
     }
   },
@@ -974,7 +1007,7 @@
       "one": "Midi Attack",
       "other": "Midi Attacks"
     },
-    "extras" : {
+    "extras": {
       "header": "Midi Attack Fields"
     },
     "FIELDS": {
@@ -986,7 +1019,7 @@
         "label": "Ammunition",
         "hint": "Default ammunition to consume"
       },
-      "otherActivityUuid": {
+      "otherActivityId": {
         "label": "Other Activity",
         "hint": "Extra activity to preform 'other' damage"
       }

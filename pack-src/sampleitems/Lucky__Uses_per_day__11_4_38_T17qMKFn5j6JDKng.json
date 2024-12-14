@@ -77,9 +77,7 @@
           "customCheck": "",
           "wallsBlock": "system"
         },
-        "core": {
-          "statusId": ""
-        },
+        "core": {},
         "dnd5e-helpers": {
           "rest-effect": "Ignore"
         }
@@ -93,7 +91,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -114,7 +112,11 @@
       "itemCondition": "",
       "otherCondition": "",
       "effectCondition": "",
-      "reactionCondition": ""
+      "reactionCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default",
+      "removeAttackDamageButtons": "default"
     },
     "betterRolls5e": {
       "critRange": {
@@ -246,7 +248,11 @@
     },
     "dnd5e": {
       "persistSourceMigration": true,
-      "migratedUses": 3
+      "migratedUses": 3,
+      "riders": {
+        "activity": [],
+        "effect": []
+      }
     }
   },
   "system": {
@@ -292,12 +298,9 @@
           "targets": [
             {
               "type": "itemUses",
-              "target": "",
               "value": "1",
-              "scaling": {
-                "mode": "",
-                "formula": ""
-              }
+              "target": "",
+              "scaling": {}
             }
           ],
           "scaling": {
@@ -339,7 +342,7 @@
             "choice": false,
             "special": ""
           },
-          "prompt": true,
+          "prompt": false,
           "override": false
         },
         "uses": {
@@ -355,8 +358,24 @@
         },
         "sort": 0,
         "useConditionText": "",
-        "forceDialog": false,
-        "effectConditionText": ""
+        "effectConditionText": "",
+        "name": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "lucky-uses-per-day-11438",
@@ -367,14 +386,14 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498472799,
-    "modifiedTime": 1731498472799,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180117979,
+    "modifiedTime": 1734180117979,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "fZIl4G4qj3C894LI",
   "_id": "T17qMKFn5j6JDKng",
-  "sort": 0,
+  "sort": 1000000,
   "ownership": {
     "default": 0,
     "Zl1BOUaPLwDEujaL": 3

@@ -1375,7 +1375,7 @@ function prepareSheetItem(wrapped, item, ctx) {
   if (ctx.activities) {
     ctx.activities = ctx.activities.filter(data => {
       const activity = item.system.activities.get(data._id ?? data.id);
-      return !activity?.midiAutomationOnly;
+      return !activity?.midiProperties?.automactionOnly;
     });
   }
   return ctx;
@@ -1732,16 +1732,20 @@ export async function doItemUse(wrapped, config: any = {}, dialog: any = {}, mes
   if (this.pack) return;
   if (config.legacy !== false) return wrapped(config, dialog, message);
   const { legacy, chooseActivity, ...activityConfig } = config;
-  const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id) && !a.midiAutomationOnly);
-  const attackActivity = activities?.find(a => a instanceof MidiAttackActivity);
-  const extraActvities = activities?.filter(a => a !== attackActivity && a !== attackActivity?.otherActivity);
-  if (attackActivity && extraActvities.length === 0) {
-    return attackActivity.use(config, dialog, message);
+  const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id) && !a.midiProperties?.automationOnly);
+  const attackActivities = activities?.filter(a => a instanceof MidiAttackActivity && !a.midiProperties?.automationOnly);
+  if (attackActivities.length === 1) { // if there is a single attack activity and no other non-automation activities use it
+    const attackActivity = attackActivities[0];
+    const extraActvities = activities?.filter(a => a !== attackActivity && a !== attackActivity?.otherActivity);
+    if (extraActvities.length === 0) {
+      return attackActivity.use(config, dialog, message);
+    }
   }
   //@ts-expect-error
   const areKeysPressed = game.system.utils.areKeysPressed;
   const skipPressed = areKeysPressed(config.event, "skipDialogAdvantage") || areKeysPressed(config.event, "skipDialogDisadvantage") || areKeysPressed(config.event, "skipDialogNormal");
   if (skipPressed) {
+    const attackActivity = attackActivities[0];
     if (attackActivity) return attackActivity.use(config, dialog, message);
     else return activities?.[0]?.use(config, dialog, message);
   }

@@ -62,7 +62,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -91,7 +91,11 @@
       "itemCondition": "",
       "effectCondition": "",
       "reactionCondition": "",
-      "otherCondition": ""
+      "otherCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default",
+      "removeAttackDamageButtons": "default"
     },
     "core": {
       "sourceId": "Item.sTiwetZlEawz5RLi"
@@ -361,9 +365,24 @@
           "formula": ""
         },
         "useConditionText": "",
-        "forceDialog": false,
         "effectConditionText": "",
-        "name": "Enable Aura"
+        "name": "Enable Aura",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       },
       "xAwjAilat4WOhGf3": {
         "type": "heal",
@@ -436,9 +455,24 @@
         "name": "Heal Target",
         "sort": 0,
         "useConditionText": "effects.some(ef => ef.name === \"Aura of Vitality\")",
-        "forceDialog": false,
         "effectConditionText": "",
-        "_id": "xAwjAilat4WOhGf3"
+        "_id": "xAwjAilat4WOhGf3",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "aura-of-vitality-10010",
@@ -450,14 +484,14 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498472799,
-    "modifiedTime": 1731498472799,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180117979,
+    "modifiedTime": 1734180117979,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "fZIl4G4qj3C894LI",
   "_id": "xdIAxO2YaQ3UDsQZ",
-  "sort": 900000,
+  "sort": 2500000,
   "ownership": {
     "default": 0,
     "Zl1BOUaPLwDEujaL": 3

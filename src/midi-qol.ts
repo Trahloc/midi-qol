@@ -103,6 +103,7 @@ export let gameStats: RollStats;
 export let overTimeEffectsToDelete = {};
 export let savedOverTimeEffectsToDelete = {}
 export let MQItemMacroLabel: string;
+export let MQActivityMacroLabel: string;
 export let MQDeferMacroLabel: string;
 export let MQOnUseOptions;
 export let GameSystemConfig;
@@ -143,7 +144,7 @@ Hooks.once("init", () => {
 globalThis.MidiQOL = { checkIncapacitated };
 function setupActvities() {
   globalThis.MidiQOL.activityTypes = {};
-  setupMidiActivityUsageDialog();
+  setupMidiActivityMixin();
   setupAttackActivity();
   globalThis.MidiQOL.activityTypes["attack"] = { documentClass: MidiAttackActivity };
   setupDamageActivity();
@@ -314,6 +315,9 @@ Hooks.once('setup', function () {
   MQdefaultDamageType = i18n("midi-qol.defaultDamageType");
   MQItemMacroLabel = i18n("midi-qol.ItemMacroText");
   if (MQItemMacroLabel === "midi-qol.ItemMacroText") MQItemMacroLabel = "ItemMacro";
+  MQActivityMacroLabel = i18n("midi-qol.ActivityMacroText");
+  if (MQItemMacroLabel === "midi-qol.ActiviotyMacroText") MQItemMacroLabel = "ActivityMacro";
+
   MQDeferMacroLabel = i18n("midi-qol.DeferText");
   if (MQDeferMacroLabel === "midi-qol.DeferText") MQDeferMacroLabel = "[Defer]";
   setupSheetQol();
@@ -330,7 +334,7 @@ function addConfigOptions() {
   if (game.system.id === "dnd5e" || game.system.id === "n5e") {
     config.midiProperties = {};
     // Add additonal vision types? How to modify token properties doing this.
-    config.midiProperties["confirmTargets"] = i18n("midi-qol.confirmTargetsProp");
+    // config.midiProperties["confirmTargets"] = i18n("midi-qol.confirmTargetsProp");
     config.midiProperties["autoFailFriendly"] = i18n("midi-qol.FailFriendly");
     config.midiProperties["autoSaveFriendly"] = i18n("midi-qol.SaveFriendly");
     config.midiProperties["magicdam"] = i18n("midi-qol.magicalDamageProp");
@@ -348,13 +352,13 @@ function addConfigOptions() {
     // sliver, adamant, spell, nonmagic, maic are all deprecated and should only appear as custom
     config.customDamageResistanceTypes = {
       "spell": i18n("midi-qol.SpellDamage"),
-      "non-spell": i18n("midi-qol.NonSpellDamage"),
+      "nonSpell": i18n("midi-qol.NonSpellDamage"),
       "magical": i18n("midi-qol.Magical"),
-      "non-magical": i18n("midi-qol.NonMagical"),
+      "nonMagical": i18n("midi-qol.NonMagical"),
       "physical": i18n("midi-qol.Physical"),
-      "non-magical-physical": i18n("midi-qol.NonMagicalPhysical"),
-      "non-silver-physical": i18n("midi-qol.NonSilverPhysical"),
-      "non-adamant-physical": i18n("midi-qol.NonAdamantinePhysical"),
+      "nonMagicalPhysical": i18n("midi-qol.NonMagicalPhysical"),
+      "nonSilverPhysical": i18n("midi-qol.NonSilverPhysical"),
+      "nonAdamantPhysical": i18n("midi-qol.NonAdamantinePhysical"),
     };
 
 
@@ -582,7 +586,7 @@ import { MidiDamageActivity, setupDamageActivity } from './module/activities/Dam
 import { MidiCheckActivity, setupCheckActivity } from './module/activities/CheckActivity.js';
 import { MidiHealActivity, setupHealActivity } from './module/activities/HealActivity.js';
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/activities/activityHelpers.js';
-import { MidiActivityMixin, setupMidiActivityUsageDialog } from './module/activities/MidiActivityMixin.js';
+import { MidiActivityMixin, setupMidiActivityMixin } from './module/activities/MidiActivityMixin.js';
 import { field } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/fields.mjs.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();

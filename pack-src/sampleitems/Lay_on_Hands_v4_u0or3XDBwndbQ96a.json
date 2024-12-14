@@ -118,8 +118,23 @@
         "sort": 0,
         "name": "Healing",
         "useConditionText": "![\"undead\",\"construct\"].includes(raceOrType)",
-        "forceDialog": false,
-        "effectConditionText": ""
+        "effectConditionText": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       },
       "xNwZrrbNeJCcch65": {
         "type": "utility",
@@ -189,8 +204,23 @@
           "formula": ""
         },
         "useConditionText": "![\"undead\",\"construct\"].includes(raceOrType)",
-        "forceDialog": false,
-        "effectConditionText": ""
+        "effectConditionText": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "lay-on-hands",
@@ -252,13 +282,13 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498472799,
-    "modifiedTime": 1731498472799,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180117979,
+    "modifiedTime": 1734180117979,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "_id": "u0or3XDBwndbQ96a",
-  "sort": 200000,
+  "sort": 1800000,
   "ownership": {
     "default": 0,
     "Zl1BOUaPLwDEujaL": 3

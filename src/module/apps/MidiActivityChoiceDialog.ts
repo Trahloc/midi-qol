@@ -15,7 +15,7 @@ export class MidiActivityChoiceDialog extends ActivityChoiceDialog {
     }
     const activities = this.item.system.activities
       .filter(a => !this.item.getFlag("dnd5e", "riders.activity")?.includes(a.id))
-      .filter(a => !a.midiAutomationOnly)
+      .filter(a => !a.midiProperties.automationOnly)
       .map(this._prepareActivityContext.bind(this))
       .sort((a, b) => a.sort - b.sort);
     return {

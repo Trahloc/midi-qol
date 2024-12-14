@@ -92,7 +92,9 @@ let defineMidiCheckActivityClass = (ActivityClass: any) => {
         }
       }
     }
-    get isOtherActivityCompatible() { return true }
+    get isOtherActivityCompatible() { 
+      return true;
+    }
     async rollDamage(config={}, dialog={}, message={}) {
       message = foundry.utils.mergeObject({
         "data.flags.dnd5e.roll": {

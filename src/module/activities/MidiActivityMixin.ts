@@ -1,4 +1,4 @@
-import { GameSystemConfig, MODULE_ID, SystemString, allAttackTypes, debugEnabled, error, i18n, i18nFormat, log, warn } from "../../midi-qol.js";
+import { GameSystemConfig, MODULE_ID, SystemString, allAttackTypes, debugEnabled, error, geti18nOptions, i18n, i18nFormat, log, warn } from "../../midi-qol.js";
 import { socketlibSocket } from "../GMAction.js";
 import { Workflow } from "../Workflow.js";
 import { TroubleShooter } from "../apps/TroubleShooter.js";
@@ -10,7 +10,6 @@ import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityR
 import { confirmWorkflow, postTemplateConfirmTargets, preTemplateTargets, removeFlanking, selectTargets, setDamageRollMinTerms } from "./activityHelpers.js";
 
 export var MidiActivityMixin = Base => {
-
   return class MidiActivityMixin extends Base {
     _workflow: Workflow | undefined;
     get workflow() {
@@ -22,21 +21,44 @@ export var MidiActivityMixin = Base => {
 
     static defineSchema() {
       //@ts-expect-error
-      const { StringField, BooleanField, ObjectField } = foundry.data.fields;
+      const { StringField, ArrayField, BooleanField, SchemaField, ObjectField } = foundry.data.fields;
       const schema = {
         ...super.defineSchema(),
         // flags: new ObjectField(),
         useConditionText: new StringField({ name: "useCondition", initial: "" }),
-        forceDialog: new BooleanField({ name: "forceDialog", initial: false }),
         effectConditionText: new StringField({ name: "effectCondition", initial: "" }),
-        midiAutomationOnly: new BooleanField({ name: "midiAutomationOnly", initial: false }),
         // disabled pending a way to make it work 
         // useSystemActivity: new BooleanField({ name: "useSystemActivity", initial: false }),
+        macroData: new SchemaField({
+          name: new StringField({ name: "name", initial: "" }),
+          command: new StringField({ name: "command", initial: "" }),
+        }),
+        ignoreTraits: new SchemaField({
+          idi: new BooleanField({ name: "idi", initial: false }),
+          idr: new BooleanField({ name: "idr", initial: false }),
+          idv: new BooleanField({ name: "idv", initial: false }),
+          ida: new BooleanField({ name: "ida", initial: false })
+        }),
+        midiProperties: new SchemaField({
+          forceDialog: new BooleanField({ name: "forceDialog", initial: false }),
+          confirmTargets: new StringField({ name: "confirmTargets", initial: "default" }),
+          automationOnly: new BooleanField({ name: "automationOnly", initial: false }),
+          identifier: new StringField({ name: "identifier", initial: "", required: false }),
+        })
       };
       return schema;
     }
-    get isOtherActivityCompatible() { return false }
+    get isOtherActivityCompatible() {
+      return false;
+    }
 
+    get macro() {
+      return new Macro({ name: this.macroData.name || this.name, command: this.macroData.command, img: this.img, type: "script" });
+    }
+    set macro(macro: Macro) {
+      //@ts-expect-error
+      return this.update({ macroData: { name: macro.name, command: macro.command } });
+    }
     get messageFlags() {
       const baseFlags = super.messageFlags;
       const targets = new Map();
@@ -144,6 +166,10 @@ export var MidiActivityMixin = Base => {
       return this.rollDamage({ event, midiOptions: { isCritical: true } }, {}, message);
     }
 
+    get identifier() {
+      if (this.midiProperties.identifier) return this.midiProperties.identifier;
+      return this.name.slugify();
+    }
     async use(config: any = {}, dialog: any = {}, message: any = {}) {
       if (!this.item.isEmbedded) return;
       if (!this.item.isOwner) {
@@ -165,7 +191,7 @@ export var MidiActivityMixin = Base => {
       await removeFlanking(this.item.parent);
       if (!config.midiOptions) config.midiOptions = {};
       if (!config.midiOptions.workflowOptions) config.midiOptions.workflowOptions = {};
-      await this.setupTargets(config, dialog, message);
+      if (!await this.setupTargets(config, dialog, message)) return;
       await this.confirmTargets();
 
       // come back and see about re-rolling etc.
@@ -256,8 +282,8 @@ export var MidiActivityMixin = Base => {
         config.midiOptions.isCritical ||= this.workflow?.isCritical;
 
         if (this.hasDamage || this.hasHealing) {
-          if (Object.values(keys).some(k => k)) dialog.configure = !!this.forceDialog;
-          else dialog.configure ??= !config.midiOptions?.fastForwardDamage || !!this.forceDialog;
+          if (Object.values(keys).some(k => k)) dialog.configure = !!this.midiProperties.forceDialog;
+          else dialog.configure ??= !config.midiOptions?.fastForwardDamage || !!this.midiProperties.forceDialog;
           if (this.workflow?.rollOptions?.rollToggle) dialog.configure = !dialog.configure;
           // if (dialog.configure) config.midiOptions.isCritical = false;
           preRollDamageHookId = Hooks.once(`${game.system.id}.preRollDamageV2`, (rollConfig, dialogConfig, messageConfig) => {
@@ -503,40 +529,6 @@ export var MidiActivityMixin = Base => {
         TroubleShooter.recordError(err, message);
         throw err;
       }
-    }
-
-    async _prepareEffectContext(context) {
-      context = await super._prepareEffectContext(context);
-
-      let indexOffset = 0;
-      if (context.activity.damage?.parts) {
-        const scalingOptions = [
-          { value: "", label: game.i18n.localize("DND5E.DAMAGE.Scaling.None") },
-          //@ts-expect-error
-          ...Object.entries(GameSystemConfig.damageScalingModes).map(([value, config]) => ({ value, label: config.label }))
-        ];
-        const types = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));
-        context.damageParts = context.activity.damage.parts.map((data, index) => {
-          if (data.base) indexOffset--;
-          const part = {
-            data,
-            fields: this.activity.schema.fields.damage.fields.parts.element.fields,
-            prefix: `damage.parts.${index + indexOffset}.`,
-            source: context.source.damage.parts[index + indexOffset] ?? data,
-            canScale: this.activity.canScaleDamage,
-            scalingOptions,
-            typeOptions: types.map(([value, config]) => ({
-              //@ts-expect-error
-              value, label: config.label, selected: data.types.has(value)
-            }))
-          };
-          return this._prepareDamagePartContext(context, part);
-        })
-      }
-      if (debugEnabled > 0) {
-        warn(("prepareEffectContext | context"), context);
-      }
-      return context;
     }
 
     async setupTargets(config, dialog, message): Promise<boolean> {
@@ -1033,15 +1025,27 @@ export var MidiActivityMixin = Base => {
 
 export var MidiActivityMixinSheet = Base => {
   return class MidiActivitySheet extends Base {
+
+    static DEFAULT_OPTIONS = {
+      ...super.DEFAULT_OPTIONS,
+      actions: {
+        ...super.DEFAULT_OPTIONS.actions,
+        addMacro: MidiActivitySheet.#addMacro,
+      }
+    }
+    static #addMacro() {
+      const Editor = globalThis.DAE?.DIMEditor;
+      if (Editor) new Editor(this.activity, {}).render(true);
+      else ui.notifications?.error("DIMEditor not available - install Dynamic Active Effects");
+    }
+
     static PARTS = {
       ...super.PARTS,
       "midi-qol": {
         template: "modules/midi-qol/templates/activity/midi-activity-tab.hbs",
-        templates: [
-          "modules/midi-qol/templates/activity/parts/use-condition.hbs",
-        ]
       }
     }
+
     _getTabs() {
       let tabs = super._getTabs();
       tabs = {
@@ -1055,15 +1059,51 @@ export var MidiActivityMixinSheet = Base => {
     async _preparePartContext(partId, context) {
       if (partId === "midi-qol") {
         context.tab = context.tabs["midi-qol"];
+        context.ConfirmTargetOptions = Object.entries(geti18nOptions("ConfirmTargetOptions")).map(([value, label]) => ({ value, label }));
+        context.placeholderIdentifier = context.activity.identifier;
         return context;
       }
       return super._preparePartContext(partId, context);
     }
+    /** @override */ // This does not seem to work for activity sheets
+    _getHeaderButtons() {
+      let buttons = super._getHeaderButtons();
+      const DIMtitle = game.i18n.localize('dae.DIMEditor.Name');
+      const Editor = globalThis.DAE?.DIMEditor;
+      if (!Editor) return buttons;
+      buttons.unshift({
+        label: DIMtitle,
+        class: "dae-dimeditor",
+        icon: "fas fa-file-pen",
+        onclick: () => { new Editor(this.document, {}).render(true) }
+      });
+      return buttons;
+    }
   }
 }
 
+function renderActivitySheetHook(app, [elem]) {
+  const Editor = globalThis.DAE?.DIMEditor;
+  if (!Editor) return;
+  let activity = app.activity;
+  if (!activity.macro) return;
+  let existingButton = elem.closest('.window-header').querySelector('button.dae-dimeditor');
+  if (existingButton) {
+    if (activity.macro?.command) existingButton.style.color = '#36ba36';
+    return;
+  }
+  let closeButton = elem.closest('.window-header').querySelector('button[data-action="close"]');
+  let daeButton = document.createElement('button');
+  const DIMtitle = game.i18n.localize('dae.DIMEditor.Name');
+  daeButton.setAttribute('class', 'header-control fa-solid fa-file-pen dae-dimeditor');
+  daeButton.onclick = ev => { new Editor(activity, {}).render(true); }
+  if (activity.macro?.command) daeButton.style.color = '#36ba36';
+  daeButton.title = "Activity Macro Editor";
+  closeButton.parentNode.insertBefore(daeButton, closeButton);
+}
+
 export var MidiActivityUsageDialog;
-export function setupMidiActivityUsageDialog() {
+export function setupMidiActivityMixin() {
   //@ts-expect-error
   const ActivityUsageDialog = game.system.applications.activity.ActivityUsageDialog;
   MidiActivityUsageDialog = class MidiActivityUsageDialog extends ActivityUsageDialog {
@@ -1076,4 +1116,5 @@ export function setupMidiActivityUsageDialog() {
       return context;
     }
   }
+  Hooks.on("renderActivitySheet", renderActivitySheetHook);
 }

@@ -331,6 +331,7 @@ export function initHooks() {
     return true;
   });
 
+
   function getItemSheetData(data, item) {
     const config = GameSystemConfig;
     const midiProps = config.midiProperties;
@@ -351,7 +352,7 @@ export function initHooks() {
       hasOtherDamage: true, // TODO fix this for activities ![undefined, ""].includes(item.system.formula) || (item.system.damage?.versatile && !item.system.properties?.has("ver")),
       showHeader: !configSettings.midiFieldsTab,
       midiPropertyLabels: midiProps,
-      ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions"),
+      ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions"), // this is used for attack per target
       AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
       AutoTargetOptions: autoTargetOptions,
       RemoveAttackDamageButtonsOptions,
@@ -386,19 +387,23 @@ export function initHooks() {
           && foundry.utils.getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
           foundry.utils.setProperty(item, `flags.midiProperties.${prop}`, true);
         } else if (foundry.utils.getProperty(item, `flags.midiProperties.${prop}`) === undefined) {
-          if (["confirmTargets"].includes(prop)) {
-            foundry.utils.setProperty(data, `flags.midiProperties.${prop}`, "default");
-          } else foundry.utils.setProperty(data, `flags.midiProperties.${prop}`, false);
+          /* This has been moved to the activity
+                    if (["confirmTargets"].includes(prop)) {
+                      foundry.utils.setProperty(data, `flags.midiProperties.${prop}`, "default");
+                    } else foundry.utils.setProperty(data, `flags.midiProperties.${prop}`, false);
+          */
+          foundry.utils.setProperty(data, `flags.midiProperties.${prop}`, false);
         }
       }
       if (!foundry.utils.getProperty(data, "flags.midi-qol.rollAttackPerTarget")) foundry.utils.setProperty(data, "flags.midi-qol.rollAttackPerTarget", "default");
-      if (data.flags.midiProperties["confirmTargets"] === true)
-        data.flags.midiProperties["confirmTargets"] = "always";
-      else if (data.flags.midiProperties["confirmTargets"] === false)
-        data.flags.midiProperties["confirmTargets"] = "never";
-      else if (data.flags.midiProperties["confirmTargets"] === undefined)
-        data.flags.midiProperties["confirmTargets"] = "default";
-
+      /*
+            if (data.flags.midiProperties["confirmTargets"] === true)
+              data.flags.midiProperties["confirmTargets"] = "always";
+            else if (data.flags.midiProperties["confirmTargets"] === false)
+              data.flags.midiProperties["confirmTargets"] = "never";
+            else if (data.flags.midiProperties["confirmTargets"] === undefined)
+              data.flags.midiProperties["confirmTargets"] = "default";
+      */
       delete data.flags.midiProperties.rollOther;
       delete data.flags.midiProperties.fulldam;
       delete data.flags.midiProperties.halfdam
@@ -410,6 +415,7 @@ export function initHooks() {
       delete data.flags.midiProperties.bonusSaveDamage;
       delete data.flags.midiProperties.offHandWeapon;
       delete data.flags.midiProperties.otherSaveDamage;
+      delete data.flags.midiProperties.confirmTargets;
     }
     return data;
   }
@@ -433,7 +439,7 @@ export function initHooks() {
 
     Hooks.on('tidy5e-sheet.getActivitiesForPlay', (parent, data) => {
       if (data.activities && data.activities instanceof Array) {
-        data.activities = data.activities.filter(activity => !activity?.midiAutomationOnly);
+        data.activities = data.activities.filter(activity => !activity?.midiProperties?.automationOnly);
       }
     });
 
@@ -914,23 +920,26 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           if (GameSystemConfig.healingTypes[damage.type]) continue;
           if (ignore(categories[trait], damage.type, false)) continue;
           if (ignore(custom, damage.type, false) || damage.active[custom]) continue;
+          if (!GameSystemConfig.customDamageResistanceTypes[custom])
+            custom = Object.keys(GameSystemConfig.customDamageResistanceTypes).find(key => GameSystemConfig.customDamageResistanceTypes[key].toLocaleLowerCase() === custom.toLocaleLowerCase()) ?? ""; 
+
           switch (custom) {
             case "spell": if (!damage.properties.has("spell")) continue; break;
-            case "non-spell": if (damage.properties.has("spell")) continue; break;
+            case "nonSpell": if (damage.properties.has("spell")) continue; break;
             case "magical": if (!damage.properties.has("mgc")) continue; break;
-            case "non-magical": if (damage.properties.has("mgc")) continue; break;
+            case "nonMagical": if (damage.properties.has("mgc")) continue; break;
             case "physical":
               bypassesPresent = damage.properties.intersection(bypasses);
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || bypassesPresent.size > 0) continue; break;
-            case "non-magical-physical":
+            case "nonMagicalPhysical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("mgc")) continue; break;
-            case "non-silver-physical":
+            case "nonSAilverPhysical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("sil")) continue;
               break;
-            case "non-adamant-physical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("ada")) continue; break
+            case "nonAdamantPhysical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("ada")) continue; break
             default: if (!damage.properties.has(custom)) continue; break;
           }
-          damage.active[custom] = true;
+          damage.active[GameSystemConfig.customDamageResistanceTypes[custom] ?? custom] = true;
           damage.active[categories[trait]] = true;
           damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
           damage.value = damage.value * traitMultipliers[trait];

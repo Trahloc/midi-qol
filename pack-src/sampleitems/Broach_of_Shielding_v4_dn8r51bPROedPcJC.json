@@ -4,7 +4,7 @@
   "img": "icons/equipment/neck/pendant-bronze-gem-blue.webp",
   "system": {
     "description": {
-      "value": "<p><em>Wondrous item, (requires attunement)</em></p><p>While wearing this brooch, you have resistance to force damage, and you have immunity to damage from the <em>@Compendium[dnd5e.spells.41JIhpDyM9Anm7cs]{Magic Missile}</em> spell.</p><p><strong>midi-qol</strong>: implements damage resistance to force and if the actor is targeted by a spell called \"Magic Missile\" it will do no damage.<br />v11.0.13</p>",
+      "value": "<p><em>Wondrous item, (requires attunement)</em></p><p>While wearing this brooch, you have resistance to force damage, and you have immunity to damage from the <em>@Compendium[dnd5e.spells.41JIhpDyM9Anm7cs]{Magic Missile}</em> spell.</p><p><strong>midi-qol</strong>: implements damage resistance to force and if the actor is targeted by a spell called \"Magic Missile\" it will do no damage.<br />12.4.15</p>",
       "chat": ""
     },
     "source": {
@@ -137,7 +137,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -218,7 +218,11 @@
       "itemCondition": "",
       "effectCondition": "",
       "reactionCondition": "",
-      "otherCondition": ""
+      "otherCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default",
+      "removeAttackDamageButtons": "default"
     },
     "tidy5e-sheet": {
       "section": "",
@@ -230,9 +234,9 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498474459,
-    "modifiedTime": 1731498474459,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180119396,
+    "modifiedTime": 1734180119396,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "5Ok9Jbl5nOokCkqf",

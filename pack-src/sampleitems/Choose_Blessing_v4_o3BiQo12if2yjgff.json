@@ -117,8 +117,23 @@
           "name": ""
         },
         "useConditionText": "",
-        "forceDialog": false,
-        "effectConditionText": ""
+        "effectConditionText": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       },
       "vtlNke9SL8OB7e1S": {
         "type": "utility",
@@ -175,9 +190,24 @@
           "name": ""
         },
         "useConditionText": "",
-        "forceDialog": false,
         "effectConditionText": "",
-        "name": "Blessed"
+        "name": "Blessed",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       },
       "8NWPVgSIJqOsbr9O": {
         "type": "utility",
@@ -235,8 +265,23 @@
           "name": ""
         },
         "useConditionText": "",
-        "forceDialog": false,
-        "effectConditionText": ""
+        "effectConditionText": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "choose-blessing-11313",
@@ -312,7 +357,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -386,7 +431,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -460,7 +505,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -536,9 +581,9 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498476764,
-    "modifiedTime": 1731498476764,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180122481,
+    "modifiedTime": 1734180122481,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "_id": "o3BiQo12if2yjgff",

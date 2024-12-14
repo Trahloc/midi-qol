@@ -14,7 +14,10 @@
       "itemCondition": "",
       "otherCondition": "",
       "effectCondition": "",
-      "reactionCondition": ""
+      "reactionCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default"
     },
     "magicitems": {
       "enabled": false,
@@ -362,12 +365,28 @@
         },
         "sort": 0,
         "useConditionText": "",
-        "forceDialog": false,
         "effectConditionText": "",
         "attackMode": "oneHanded",
         "ammunition": "",
         "otherActivityUuid": "Actor.BogmFuNh1wswTouJ.Item.VsXStPj3CzjgYaZN.Activity.OksXk6wnkGm8Prna",
-        "name": ""
+        "name": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        },
+        "otherActivityId": ""
       },
       "OksXk6wnkGm8Prna": {
         "type": "damage",
@@ -441,9 +460,24 @@
           ]
         },
         "useConditionText": "isAttuned && w.d20AttackRoll === 20 && ![\"undead\", \"construct\"].includes(raceOrType)",
-        "forceDialog": false,
         "effectConditionText": "",
-        "name": "Necrotic Damage"
+        "name": "Necrotic Damage",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "longsword-of-life-stealing-11438",
@@ -459,9 +493,9 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498474459,
-    "modifiedTime": 1731498474459,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180119396,
+    "modifiedTime": 1734180119396,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "5Ok9Jbl5nOokCkqf",

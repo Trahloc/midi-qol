@@ -185,10 +185,26 @@
         "name": "Mace of Disruption Attack",
         "otherActivityUuid": "Actor.BogmFuNh1wswTouJ.Item.O2vUnsgLKTtzvMXB.Activity.dnd5eactivity100",
         "useConditionText": "",
-        "forceDialog": false,
         "effectConditionText": "",
         "attackMode": "oneHanded",
-        "ammunition": ""
+        "ammunition": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        },
+        "otherActivityId": ""
       },
       "dnd5eactivity100": {
         "_id": "dnd5eactivity100",
@@ -289,7 +305,22 @@
         "name": "",
         "useConditionText": "isAttuned && [\"fiend\", \"undead\"].includes(raceOrType)",
         "effectConditionText": "isAttuned && [\"fiend\", \"undead\"].includes(raceOrType) && target.attributes.hp.value <= 25 && target.isHit && target.saved",
-        "forceDialog": false
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "mace-of-disruption-1165",
@@ -345,7 +376,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -401,7 +432,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -474,7 +505,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -691,9 +722,9 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498474459,
-    "modifiedTime": 1731498474459,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180119396,
+    "modifiedTime": 1734180119396,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "_id": "2NhezeeE1j206nqe",

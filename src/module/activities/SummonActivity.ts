@@ -37,6 +37,10 @@ let defineMidiSummonActivityClass = (ActivityClass: any) => {
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
-      }, {})
+      }, {});
+    get isOtherActivityCompatible() {
+      return false;
+    }
   }
+
 }

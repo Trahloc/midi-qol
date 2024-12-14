@@ -14,7 +14,10 @@
       "reactionCondition": "",
       "otherCondition": "[\"dragon\"].includes(raceOrType)",
       "effectCondition": "",
-      "rollAttackPerTarget": "default"
+      "rollAttackPerTarget": "default",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default"
     },
     "magicitems": {
       "enabled": false,
@@ -126,7 +129,7 @@
       "revision": 1,
       "rules": "2024"
     },
-    "quantity": 62,
+    "quantity": 1,
     "weight": {
       "value": 0.05,
       "units": "lb"
@@ -159,7 +162,7 @@
           "number": 1
         }
       },
-      "replace": false
+      "replace": true
     },
     "properties": [
       "mgc",
@@ -251,7 +254,7 @@
             }
           ],
           "critical": {
-            "allow": true,
+            "allow": false,
             "bonus": ""
           }
         },
@@ -267,8 +270,23 @@
         "name": "Slaying Damage",
         "sort": 0,
         "useConditionText": "[\"dragon\"].includes(raceOrType)",
-        "forceDialog": false,
-        "effectConditionText": ""
+        "effectConditionText": "",
+        "midiProperties": {
+          "automationOnly": true,
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "identifier": ""
+        },
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        }
       }
     },
     "identifier": "arrow-of-slaying-dragon-11413",
@@ -281,9 +299,9 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498474459,
-    "modifiedTime": 1731498474459,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180119396,
+    "modifiedTime": 1734180119396,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "5Ok9Jbl5nOokCkqf",

@@ -60,9 +60,7 @@
           "displayTemp": false,
           "wallsBlock": "system"
         },
-        "core": {
-          "statusId": ""
-        }
+        "core": {}
       },
       "tint": "#ffffff",
       "name": "Legendary Resistance",
@@ -73,7 +71,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -163,7 +161,11 @@
       "itemCondition": "",
       "effectCondition": "",
       "reactionCondition": "",
-      "otherCondition": ""
+      "otherCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default",
+      "removeAttackDamageButtons": "default"
     },
     "magicitems": {
       "enabled": false,
@@ -211,7 +213,11 @@
     },
     "dnd5e": {
       "persistSourceMigration": true,
-      "migratedUses": 3
+      "migratedUses": 3,
+      "riders": {
+        "activity": [],
+        "effect": []
+      }
     },
     "tidy5e-sheet": {
       "section": "",
@@ -258,12 +264,9 @@
           "targets": [
             {
               "type": "attribute",
-              "target": "",
               "value": "1",
-              "scaling": {
-                "mode": "",
-                "formula": ""
-              }
+              "target": "",
+              "scaling": {}
             }
           ],
           "scaling": {
@@ -278,13 +281,13 @@
         "duration": {
           "concentration": false,
           "value": "",
-          "units": "",
+          "units": "inst",
           "special": "",
           "override": false
         },
         "effects": [],
         "range": {
-          "units": "",
+          "units": "self",
           "special": "",
           "override": false
         },
@@ -304,7 +307,7 @@
             "choice": false,
             "special": ""
           },
-          "prompt": true,
+          "prompt": false,
           "override": false
         },
         "uses": {
@@ -320,8 +323,24 @@
         },
         "sort": 0,
         "useConditionText": "",
-        "forceDialog": false,
-        "effectConditionText": ""
+        "effectConditionText": "",
+        "name": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "legendary-resistance-10413",
@@ -335,14 +354,14 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498472799,
-    "modifiedTime": 1731498472799,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180117979,
+    "modifiedTime": 1734180117979,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "fZIl4G4qj3C894LI",
   "_id": "gORhS685EvD5Q6Lr",
-  "sort": 0,
+  "sort": 1300000,
   "ownership": {
     "default": 0,
     "Zl1BOUaPLwDEujaL": 3

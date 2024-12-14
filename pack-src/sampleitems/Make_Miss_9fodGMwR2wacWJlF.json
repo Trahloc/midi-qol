@@ -91,9 +91,24 @@
         },
         "sort": 0,
         "useConditionText": "",
-        "forceDialog": false,
         "effectConditionText": "",
-        "name": ""
+        "name": "",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "make-miss",
@@ -175,7 +190,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -207,7 +222,12 @@
       "rollAttackPerTarget": "default",
       "itemCondition": "",
       "reactionCondition": "",
-      "effectCondition": ""
+      "effectCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default",
+      "removeAttackDamageButtons": "default",
+      "otherCondition": ""
     },
     "midiProperties": {
       "nodam": false,
@@ -258,9 +278,9 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498471605,
-    "modifiedTime": 1731498471605,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180116268,
+    "modifiedTime": 1734180116268,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "tWh6UgUeg2lxQ8uJ",

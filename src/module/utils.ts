@@ -1,4 +1,4 @@
-import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, savedOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect, isdndv4 } from "../midi-qol.js";
+import { debug, i18n, error, warn, noDamageSaves, cleanSpellName, MQdefaultDamageType, allAttackTypes, debugEnabled, overTimeEffectsToDelete, geti18nOptions, getStaticID, savedOverTimeEffectsToDelete, GameSystemConfig, systemConcentrationId, MQItemMacroLabel, SystemString, MODULE_ID, midiReactionEffect, midiBonusActionEffect, isdndv4, MQActivityMacroLabel } from "../midi-qol.js";
 import { configSettings, autoRemoveTargets, checkRule, targetConfirmation, criticalDamage, criticalDamageGM, checkMechanic, safeGetGameSetting, DebounceInterval, _debouncedUpdateAction } from "./settings.js";
 import { log } from "../midi-qol.js";
 import { DummyWorkflow, Workflow } from "./Workflow.js";
@@ -503,6 +503,8 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
           for (let key of ["idi", "idr", "idv", "ida"]) {
             const property = foundry.utils.getProperty(workflow.item, `flags.midiProperties.${key}`);
             if (property) {
+              ui.notifications?.warn(`For ${workflow.actor.name} Item ${workflow.item.name} the ${key} property is deprecated. Use the activity.ignoreTraits instead`);
+              console.error(`For ${workflow.actor.name} Item ${workflow.item.name} the ${key} property is deprecated. Use the activity.ignoreTraits instead`);
               if (!calcDamageOptions.ignore?.[categories[key]]) foundry.utils.setProperty(calcDamageOptions, `ignore.${categories[key]}`, new Set())
               for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
                 calcDamageOptions.ignore[categories[key]].add(dt);
@@ -510,6 +512,18 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
             }
           }
         }
+        if (workflow.item) {
+          for (let key of ["idi", "idr", "idv", "ida"]) {
+            const property = foundry.utils.getProperty(workflow.activity, `ignoreTraits.${key}`)
+            if (property) {
+              if (!calcDamageOptions.ignore?.[categories[key]]) foundry.utils.setProperty(calcDamageOptions, `ignore.${categories[key]}`, new Set())
+              for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
+                calcDamageOptions.ignore[categories[key]].add(dt);
+              }
+            }
+          }
+        }
+
         //@ts-expect-error
         let returnDamages = foundry.utils.deepClone(token.actor.calculateDamage(damages, calcDamageOptions));
         if (configSettings.singleConcentrationRoll || type !== "otherDamage") {
@@ -737,17 +751,60 @@ export function midiCustomEffect(...args) {
     `flags.${MODULE_ID}.ignoreWalls`,
     `flags.${MODULE_ID}.rangeOverride`
   ];
-  // These have trailing data in the change key change.key values and should always just be a string
+  // These have trailing data in the change values and should always just be a string
   if (change.key === `flags.${game.system.id}.DamageBonusMacro`) {
     // DAEdnd5e - daeCustom processes these
   } else if (change.key === `flags.${MODULE_ID}.onUseMacroName`) {
     const args = change.value.split(",")?.map(arg => arg.trim());
     const currentFlag = foundry.utils.getProperty(actor, `flags.${MODULE_ID}.onUseMacroName`) ?? "";
+    if (args[0] === "ActivityMacro" || args[0] === MQActivityMacroLabel) {
+      if (change.effect.flags.dae?.activity) args[0] = `ActivityMacro.${change.effect.flags.dae.activity}`;
+      if (change.effect.transfer) args[0] = `ActivityMacro.${change.effect.parent.system.actvities.contents[0].uuid}`;
+      else {
+        const origin = MQfromUuidSync(change.effect.origin);
+        if (origin instanceof Item) {
+          //@ts-expect-error
+          const activities = origin.system.activities?.contents;
+          if (activities[0]?.uuid) args[0] = `ActivityMacro.${activities[0].uuid}`;
+        } else if (origin instanceof ActiveEffect) {
+          //@ts-expect-error
+          const activities = origin.parent?.system?.activities?.contents;
+          if (activities[0]?.uuid) args[0] = `ActivityMacro.${activities[0].uuid}`;
+        }
+      }
+    }
+    if (args[0].startsWith("ActivityMacro") || args[0].startsWith(MQActivityMacroLabel)) {
+      const potentialUuid = args[0].split(".").slice(1).join(".");
+      if (potentialUuid.includes("Activity.")) { // ActivityMacro.activityUuid
+        // since it's already an activity uuid do nothing
+      } else {
+        //@ts-expect-error
+        const item = fromUuidSync(potentialUuid);
+        if (item instanceof Item) {
+          //@ts-expect-error
+          const activities = item.system.activities?.contents;
+          if (activities[0]?.uuid) args[0] = `ActivityMacro.${activities[0].uuid}`;
+        } else { // Acitivty.Name or Activity.identifier
+          const origin = MQfromUuidSync(change.effect.origin);
+          if (change.effect.flags.dae?.activity) {
+            const activities = MQfromUuidSync(change.effect.flags.dae.activity).parent.activities;
+            const activity = activities.find(a => a.name === potentialUuid || a.identifier === potentialUuid);
+            if (activity?.uuid) args[0] = `ActivityMacro.${activity.uuid}`;
+          } else if (origin instanceof Item) {
+            //@ts-expect-error
+            const activities = origin.system.activities?.contents;
+            const activity = activities.find(a => a.name === potentialUuid || a.identifier === potentialUuid);
+            if (activity?.uuid) args[0] = `ActivityMacro.${activity.uuid}`;
+          }
+        }
+      }
+    }
     if (args[0] === "ItemMacro" || args[0] === MQItemMacroLabel) { // rewrite the ItemMacro if possible
       if (change.effect.transfer) args[0] = `ItemMacro.${change.effect.parent.uuid}`;
       // else if (sourceId) args[0] = `ItemMacro.${sourceId}`;
       else {
         if (change.effect.origin.includes("Item.")) {
+
           args[0] = `ItemMacro.${change.effect.origin}`;
         } else {
           const origin = MQfromUuidSync(change.effect.origin);
@@ -757,6 +814,7 @@ export function midiCustomEffect(...args) {
         }
       }
     }
+
     if (change.effect?.origin?.includes("Item.")) {
       args[0] = `${args[0]}|${change.effect.origin}`;
     }
@@ -863,7 +921,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
   if (effect.disabled || effect.isSuppressed) return;
   const auraFlags = effect.flags?.ActiveAuras ?? {};
   if (auraFlags.isAura && auraFlags.ignoreSelf) return;
-  const rollData = createConditionData({ actor, workflow: undefined, target: undefined });
+  const rollData = createConditionData({ actor, workflow: undefined, target: actor });
   if (!rollData.flags) rollData.flags = actor.flags;
   rollData.flags.midiqol = rollData.flags[MODULE_ID];
   const changes = effect.changes.filter(change => change.key.startsWith(`flags.${MODULE_ID}.OverTime`));
@@ -1376,15 +1434,14 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
         if (debugEnabled > 0) warn(`spell use hook fired: ${activity.item?.name} ${completeHookName}`)
 
         game.user?.updateTokenTargets(saveTargets);
-        resolve(activity);
+        resolve(activity.workflow);
       });
       const abortHookId = Hooks.once(abortHookName, (workflow) => {
         Hooks.off(completeHookName, completeHookId);
         Hooks.off(castHookName, castHookId);
         if (debugEnabled > 0) warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`)
-        console.warn(`completeItemUse abort hook fired: ${workflow.workflowName} ${abortHookName}`);
         game.user?.updateTokenTargets(saveTargets);
-        resolve(workflow.activity);
+        resolve(workflow);
       });
 
       let completeHookName = `midi-qol.postCleanup.${activity.uuid}`;
@@ -1397,8 +1454,7 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
         Hooks.off(castHookName, castHookId);
         if (debugEnabled > 0) warn(`completeActivityUse complete hook fired: ${workflow.workflowName} ${completeHookName}`)
         game.user?.updateTokenTargets(saveTargets);
-        console.warn(`completeActivityUse complete hook fired: ${workflow.workflowName} ${completeHookName}`);
-        resolve(workflow.activity);
+        resolve(workflow);
       });
       config.midiOptions.targetsToUse = targetsToUse;
       activity.use(config, dialog, message).then(result => { if (!result) resolve(result) });
@@ -1445,7 +1501,7 @@ export async function completeItemUseV2(item, config: any = {}, dialog: any = {}
     return undefined;
   }
   // TODO check that this makes sense now
-  return (await completeActivityUse(activity, config, dialog, message))?.workflow;
+  return await completeActivityUse(activity, config, dialog, message);
 }
 
 export function untargetAllTokens(...args) {
@@ -2512,7 +2568,7 @@ export function findNearbyCount(disposition: number | string | null | Array<stri
  * @param {boolean} [includeToken]        Include token in the return array?
  * @param {boolean} [relative]            If set, the specified disposition is compared with the token disposition. 
  *  A specified dispostion of HOSTILE and a token disposition of HOSTILE means find tokens whose disposition is FRIENDLY
-
+ 
 */
 
 export function findNearby(disposition: number | string | null | Array<string | number>, token: any /*Token | uuuidString */, distance: number,
@@ -3235,7 +3291,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         newRoll = result;
         resultApplied = true;
       }
-      if (result === undefined && debugEnabled > 0) console.warn(`midi-qol | bonusDialog | macro ${button.value} return undefined`)
+      if (result === undefined && debugEnabled > 0) warn(`bonusDialog | macro ${button.value} return undefined`)
     }
 
     //@ts-expect-error
@@ -3610,7 +3666,7 @@ async function itemReaction(item, triggerType, maxLevel, onlyZeroCost) {
   for (let activity of item.system.activities) {
     if (!activity.activation?.type?.includes("reaction")) continue;
     if (activity.activation.type !== "reaction") {
-      console.warn(`midi-qol | itemReaction | item ${item.name} ${activity.name} has a reaction type of ${activity.activation.type} which is deprecated - please update to reaction and reaction conditions`)
+      error(`itemReaction | item ${item.name} ${activity.name} has a reaction type of ${activity.activation.type} which is deprecated - please update to reaction and reaction conditions`)
     }
     if ((activity.activation?.value ?? 1) > 0 && onlyZeroCost) continue; // TODO can't specify 0 cost reactions in dnd5e 4.x - have to find another way
     if (!item.system.attuned && item.system.attunement === "required") continue;
@@ -3681,7 +3737,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
 
         if (!theItem.system.activities) continue;
         for (let activity of theItem.system.activities) {
-          const activationType = item.system.linkedActivity?.activation.type  ??
+          const activationType = item.system.linkedActivity?.activation.type ??
             activity.activation?.type;
           if (!activationType?.includes("reaction")) continue;
           if (activationType !== "reaction") {
@@ -3697,8 +3753,8 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
             if (item.system.linkedActivity) {
               if (!theItem.system.linkedActivity.item.system.magicAvailable
                 || !theItem.system.linkedActivity.item.system.equipped) continue;
-              const config = activity._prepareUsageConfig({create: false});
-              const canUse = await activity._prepareUsageUpdates( config, { returnErrors: true });
+              const config = activity._prepareUsageConfig({ create: false });
+              const canUse = await activity._prepareUsageUpdates(config, { returnErrors: true });
               if (canUse instanceof Array) continue; // insufficent uses available
               isValid = true;
             } else if (configSettings.ignoreSpellReactionRestriction) isValid = true;
@@ -3707,9 +3763,10 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
             else if (item.system.preparation?.prepared !== true && item.system.preparation?.mode === "prepared") continue;
             else if (item.system.level <= maxLevel) isValid = true;
           } else {
-            const config = activity._prepareUsageConfig({create: false});
+            const config = activity._prepareUsageConfig({ create: false });
             const canUse = await activity._prepareUsageUpdates(config, { returnErrors: true });
             if (canUse instanceof Array) continue; // insufficent uses available
+            isValid = true;
           }
           if (!isValid) continue;
           if (reactionCondition) {
@@ -4005,8 +4062,9 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
           if (activity.item instanceof CONFIG.Item.documentClass) { // a nomral item}
             const config = { midiOptions: itemRollOptions };
             result = await completeActivityUse(activity, config, {}, {});
-            if (result?.workflow && result.workflow !== result.WorkflowState_Cleanup) resolve(noResult);
-            else resolve({ name: activity?.name, uuid: activity?.uuid, itemName: activity.item.name, itemUuid: activity.item.uuid })
+            const workflow = result;  // completeActivityUse returns a workflow when called locally which for reactions it always is
+            if (workflow && workflow.currentAction !== workflow.WorkflowState_Cleanup) resolve(noResult);
+            else resolve({ name: workflow.activity?.name, uuid: workflow.activity?.uuid, itemName: workflow.activity.item.name, itemUuid: activity.item.uuid })
           }
         }
         // actor.reset();
@@ -4336,7 +4394,7 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
   return systemData.details.type?.value?.toLocaleLowerCase() ?? "";
 }
 
-export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any }) {
+export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | Actor | string | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any }) {
   const actor = data.workflow?.actor ?? data.actor;
   let item;
   if (data.item) {
@@ -4349,26 +4407,27 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
   try {
     if (data.target) {
-      rollData.target = data.target.actor?.getRollData();
-      if (data.target instanceof Token) rollData.targetUuid = data.target.document.uuid
-      else rollData.targetUuid = data.target.uuid;
-      rollData.targetId = data.target.id;
-      rollData.targetActorUuid = data.target.actor?.uuid;
-      rollData.targetActorId = data.target.actor?.id;
-      rollData.raceOrType = data.target.actor ? raceOrType(data.target.actor) : "";
-      rollData.typeOrRace = data.target.actor ? typeOrRace(data.target.actor) : "";
-      rollData.target.saved = data.workflow?.saves.has(data.target);
-      rollData.target.failedSave = data.workflow?.failedSaves.has(data.target);
-      rollData.target.superSaver = data.workflow?.superSavers.has(data.target);
-      rollData.semiSuperSaver = data.workflow?.semiSuperSavers.has(data.target);
-      rollData.target.isHit = data.workflow?.hitTargets.has(data.target);
-      rollData.target.isHitEC = data.workflow?.hitTargets.has(data.target);
-      rollData.target.canSense = data.workflow?.targetsCanSense?.has(data.workflow?.token);
-      rollData.target.canSee = data.workflow?.targetsCanSee?.has(data.workflow?.token);
-      rollData.canSense = data.workflow?.tokenCanSense?.has(data.target);
-      rollData.canSee = data.workflow?.tokenCanSee?.has(data.target);
+      const theTarget = getToken(data.target);
+      if (theTarget) {
+        rollData.target = theTarget.actor?.getRollData();
+        rollData.targetUuid = theTarget.document.uuid
+        rollData.targetId = theTarget.id;
+        rollData.targetActorUuid = theTarget.actor?.uuid;
+        rollData.targetActorId = theTarget.actor?.id;
+        rollData.raceOrType = theTarget.actor ? raceOrType(theTarget.actor) : "";
+        rollData.typeOrRace = theTarget.actor ? typeOrRace(theTarget.actor) : "";
+        rollData.target.saved = data.workflow?.saves.has(theTarget);
+        rollData.target.failedSave = data.workflow?.failedSaves.has(theTarget);
+        rollData.target.superSaver = data.workflow?.superSavers.has(theTarget);
+        rollData.semiSuperSaver = data.workflow?.semiSuperSavers.has(theTarget);
+        rollData.target.isHit = data.workflow?.hitTargets.has(theTarget);
+        rollData.target.isHitEC = data.workflow?.hitTargets.has(theTarget);
+        rollData.target.canSense = data.workflow?.targetsCanSense?.has(data.workflow?.token);
+        rollData.target.canSee = data.workflow?.targetsCanSee?.has(data.workflow?.token);
+        rollData.canSense = data.workflow?.tokenCanSense?.has(theTarget);
+        rollData.canSee = data.workflow?.tokenCanSee?.has(theTarget);
+      }
     }
-
     rollData.humanoid = globalThis.MidiQOL.humanoid;
     rollData.tokenUuid = data.workflow?.tokenUuid;
     rollData.tokenId = data.workflow?.tokenId;

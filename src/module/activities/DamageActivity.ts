@@ -33,7 +33,9 @@ let defineMidiDamageActivityClass = (ActivityClass: any) => {
         },
       }, { overwrite: true })
 
-    get isOtherActivityCompatible() { return true }
+    get isOtherActivityCompatible() {
+      return true;
+    }
 
     async rollDamage(config, dialog, message) {
       config.midiOptions ??= {};
@@ -52,7 +54,9 @@ export function defineMidiDamageSheetClass(baseClass: any) {
       ...super.PARTS,
       effect: {
         template: "modules/midi-qol/templates/activity/damage-effect.hbs",
-        templates: [super.PARTS.effect.templates],
+        templates: [
+          ...super.PARTS.effect.templates
+        ]
       }
     };
   }

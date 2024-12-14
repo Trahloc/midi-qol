@@ -56,7 +56,9 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
       }
     }
     
-    get isOtherActivityCompatible() { return true }
+    get isOtherActivityCompatible() { 
+      return true;
+    }
     getDamageConfig(config={}) {
       const rollConfig = super.getDamageConfig(config);
   

@@ -34,8 +34,10 @@ let defineMidiUtilityActivityClass = (ActvityClass: any) => {
         },
       }, { overwrite: true })
 
-    get isOtherActivityCompatible() { return true }
-
+    get isOtherActivityCompatible() {
+      return true;
+    }
+    
     async rollFormula(config, dialog, message: any = {}) {
       if (debugEnabled > 0)
         warn("UtilityActivity | rollFormula | Called", config, dialog, message);
@@ -61,8 +63,8 @@ let defineMidiUtilityActivityClass = (ActvityClass: any) => {
         advantage: areKeysPressed(config.event, "skipDialogAdvantage"),
         disadvantage: areKeysPressed(config.event, "skipDialogDisadvantage")
       };
-      if (Object.values(keys).some(k => k)) dialog.configure = this.forceDialog;
-      else dialog.configure ??= !config.midiOptions.fastForwardDamage || this.forceDialog;
+      if (Object.values(keys).some(k => k)) dialog.configure = this.midiProperties.forceDialog;
+      else dialog.configure ??= !config.midiOptions.fastForwardDamage || this.midiProperties.forceDialog;
 
       /*
       else
@@ -98,7 +100,9 @@ export function defineMidiUtilitySheetClass(baseClass: any) {
       ...super.PARTS,
       effect: {
         template: "modules/midi-qol/templates/activity/utility-effect.hbs",
-        templates: [super.PARTS.effect.templates]
+        templates: [
+          ...super.PARTS.effect.templates
+        ]
       }
     };
   }

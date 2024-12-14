@@ -40,7 +40,9 @@ let defineMidiHealActivityClass = (ActivityClass: any) => {
       //@ts-expect-error
       return this.rollDamage(event);
     }
-    get isOtherActivityCompatible() { return true }
+    get isOtherActivityCompatible() { 
+      return true;
+    }
 
     async rollDamage(config: any = {}, dialog: any = {}, message: any = {}) {
       config.midiOptions ??= {};
@@ -71,7 +73,9 @@ export function defineMidiHealSheetClass(baseClass: any) {
       ...super.PARTS,
       effect: {
         template: "modules/midi-qol/templates/activity/heal-effect.hbs",
-        templates: [ ...super.PARTS.effect.templates]
+        templates: [
+          ...super.PARTS.effect.templates
+        ]
       }
     };
   }

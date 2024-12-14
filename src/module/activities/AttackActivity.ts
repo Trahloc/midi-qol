@@ -3,7 +3,7 @@ import { debugEnabled, warn, GameSystemConfig, debug, log, i18n } from "../../mi
 import { untimedExecuteAsGM } from "../GMAction.js";
 import { Workflow } from "../Workflow.js";
 import { defaultRollOptions } from "../patching.js";
-import { AutoMergeActivityOther, ReplaceDefaultActivities, configSettings } from "../settings.js";
+import { ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { busyWait } from "../tests/setupTest.js";
 import { addAdvAttribution, areMidiKeysPressed, asyncHooksCall, displayDSNForRoll, getSpeaker, processAttackRollBonusFlags } from "../utils.js";
 import { MidiActivityMixin, MidiActivityMixinSheet } from "./MidiActivityMixin.js";
@@ -43,32 +43,31 @@ let defineMidiAttackSheetClass = (baseClass: any) => {
     }
 
     async _prepareEffectContext(context) {
+      const activity = this.activity;
       context = await super._prepareEffectContext(context);
       context.attackModeOptions = this.item.system.attackModes;
       context.hasAmmunition = this.item.system.properties.has("amm");
-      context.ammunitionOptions = this.item.isOwned
-        ? this.activity.actor.items
-          .filter(i => (i.type === "consumable") && (i.system.type?.value === "ammo")
-            && (!this.item.system.ammunition?.type || (i.system.type.subtype === this.item.system.ammunition.type)))
-          .map(i => ({
-            value: i.id, label: `${i.name} (${i.system.quantity})`, item: i,
-            disabled: !i.system.quantity, selected: i.id === this.activity.attack.ammunition
-          }))
-          .sort((lhs, rhs) => lhs.label.localeCompare(rhs.label, game.i18n.lang))
-        : [];
+      context.ammunitionOptions = this.item.system.ammunitionOptions ?? [];
+      context.ammunitionOptions?.forEach(option => {
+        option.selected = option.value === this.activity.ammunition;
+      });
+      if (activity.otherActivityUuid) {
+        ui.notifications?.warn("Please update other activity. otherActivityUuid is deprecated");
+        activity.otherActivityUuid = undefined;
+      }
       context.otherActivityOptions = this.item.system.activities
-        .filter(a => a.uuid !== this.activity.uuid && (a.damage || a.roll?.formula || a.save || a.check))
-        .reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.uuid }); return ret }, [{ label: "", value: "" }]);
-
+        .filter(a => a.id !== this.activity.id && (a.damage || a.roll?.formula || a.save || a.check))
+        .reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.id }); return ret }, [{ label: "", value: "Auto" }, { label: "None", value: "none" }]);
+      context.otherActivityOptions?.forEach(option => { option.selected = option.value === context.currentOtherActivityId });
       let indexOffset = 0;
-      if (context.activity.damage?.parts) {
+      if (activity.damage?.parts) {
         const scalingOptions = [
           { value: "", label: game.i18n.localize("DND5E.DAMAGE.Scaling.None") },
           //@ts-expect-error
           ...Object.entries(GameSystemConfig.damageScalingModes).map(([value, config]) => ({ value, label: config.label }))
         ];
         const types = Object.entries(GameSystemConfig.damageTypes).concat(Object.entries(GameSystemConfig.healingTypes));
-        context.damageParts = context.activity.damage.parts.map((data, index) => {
+        context.damageParts = activity.damage.parts.map((data, index) => {
           if (data.base) indexOffset--;
           const part = {
             data,
@@ -97,6 +96,7 @@ let defineMidiAttackSheetClass = (baseClass: any) => {
 
     _prepareSubmitData(event, formData) {
       let submitData = super._prepareSubmitData(event, formData);
+      submitData.otherActivityUuid = "";
       return submitData;
     }
 
@@ -108,7 +108,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
     _otherActivity: any | undefined;
 
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.ATTACK", "midi-qol.SHARED"];
-    
+
     static defineSchema() {
       //@ts-expect-error
       const { StringField, ArrayField, BooleanField, SchemaField, ObjectField, NumberField } = foundry.data.fields;
@@ -118,7 +118,9 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
         // @ ts-expect-error
         attackMode: new StringField({ name: "attackMode", initial: "oneHanded" }),
         ammunition: new StringField({ name: "ammunition", initial: "" }),
-        otherActivityUuid: new StringField({ name: "otherActivity", initial: "" }),
+        otherActivityId: new StringField({ name: "otherActivity", initial: "" }),
+        // deprecated 
+        otherActivityUuid: new StringField({ name: "otherActivityUuid", required: false, initial: "" }),
       };
       return schema;
     }
@@ -143,35 +145,11 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
     }
     static #rollAttackAdvantage(event, target, message) {
       //@ts-expect-error
-      return this.rollAttack({ event, midiOptions: { advantage: true }}, {}, {});
+      return this.rollAttack({ event, midiOptions: { advantage: true } }, {}, {});
     }
     static #rollAttackDisadvantage(event, target, message) {
       //@ts-expect-error
-      return this.rollAttack({ event, midiOptions: { disadvantage: true }}, {}, {});
-    }
-    async _prepareEffectContext(context) {
-      context = await super._prepareEffectContext(context);
-      context.attackModeOptions = this.item.system.attackModes;
-      context.hasAmmunition = this.item.system.properties.has("amm");
-      context.ammunitionOptions = this.activity.actor.items
-        .filter(i => (i.type === "consumable") && (i.system.type?.value === "ammo")
-          && (!this.item.system.ammunition?.type || (i.system.type.subtype === this.item.system.ammunition.type)))
-        .map(i => ({
-          value: i.id, label: `${i.name} (${i.system.quantity})`, item: i,
-          disabled: !i.system.quantity, selected: i.id === this.activity.attack.ammunition
-        }))
-        .sort((lhs, rhs) => lhs.label.localeCompare(rhs.label, game.i18n.lang));
-      context.otherActivityOptions = this.item.system.activities
-        .filter(a => {
-          a.otherActivityCompatible
-        }).reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.uuid }); return ret }, [{ label: "", value: "" }]
-
-        );
-
-      if (debugEnabled > 0) {
-        warn(("prepareEffectContext | context"), context);
-      }
-      return context;
+      return this.rollAttack({ event, midiOptions: { disadvantage: true } }, {}, {});
     }
 
     async _triggerSubsequentActions(config, results) {
@@ -207,8 +185,8 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
           }
           requiresAmmoConfirmation = ammoConfirmation.confirm;
         }
-        if (Object.values(keys).some(k => k)) dialog.configure = this.forceDialog || requiresAmmoConfirmation;
-        else dialog.configure ??= !config.midiOptions.fastForwardAttack || this.forceDialog || requiresAmmoConfirmation;
+        if (Object.values(keys).some(k => k)) dialog.configure = this.midiProperties.forceDialog || requiresAmmoConfirmation;
+        else dialog.configure ??= !config.midiOptions.fastForwardAttack || this.midiProperties.forceDialog || requiresAmmoConfirmation;
         preRollHookId = Hooks.once("dnd5e.preRollAttackV2", (rollConfig, dialogConfig, messageConfig) => {
           if (this.workflow?.aborted) return false;
           for (let roll of rollConfig.rolls) {
@@ -457,31 +435,59 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       const ammunitionItem = this.actor?.items?.get(this.ammunition);
       return ammunitionItem
     }
-
+    get isOtherActivityCompatible() {
+      return false;
+    }
+    /*
+    get otherActivityId() {
+      if (!this.otherActivityId && this.otherActivityUuid) 
+        return this.otherActivityUuid.split(".").pop();
+      return this.otherActivityId; 
+    }
+    */
     get otherActivity() {
       if (this._otherActivity !== undefined) return this._otherActivity;
-      if (this.ammunitionItem?.system.damage?.replace) {
+      if (this.otherActivityId === "none") return undefined;
+      if (this.ammunitionItem) {
         //TODO consider making this a choice of activity
-        this._otherActivity = this.ammunitionItem.system.activities.contents[0];
+        this._otherActivity = this.ammunitionItem.system.activities?.contents.find(
+          a => a.midiProperties?.automationOnly && a.isOtherActivityCompatible
+        )
+        // if (!this._otherActivity)
+        //  this._otherActivity = this.ammunitionItem.system.activities.contents[0];
         if (this._otherActivity) {
           this._otherActivity.prepareData();
           return this._otherActivity;
         }
       }
-      //@ts-expect-error
-      this._otherActivity = fromUuidSync(this.otherActivityUuid)
-      if (!this._otherActivity && AutoMergeActivityOther) {
-        const otherActivityOptions = this.item.system.activities.filter(a => a.isOtherActivityCompatible);
+
+      this._otherActivity = this.item.system.activities.get(this.otherActivityId)
+      if (!this._otherActivity) {
+        // Is there exactly 1 automation activity on the item
+        const otherActivityOptions = this.item.system.activities.filter(a => a.midiProperties?.automationOnly);
         if (otherActivityOptions.length === 1) {
-          //@ts-expect-error
-          this._otherActivity = fromUuidSync(otherActivityOptions[0].uuid);
+          this._otherActivity = otherActivityOptions[0];
         }
       }
+      if (!this._otherActivity) {
+        // Is there exactly 1 other activity compatible activity on the item
+        const otherActivityOptions = this.item.system.activities.filter(a => a.isOtherActivityCompatible);
+        if (otherActivityOptions.length === 1) {
+          this._otherActivity = otherActivityOptions[0];
+        }
+      }
+      // If none of the above match we can't tell which one to use.
       this._otherActivity?.prepareData();
       if (!this._otherActivity) this._otherActivity = null;
       return this._otherActivity;
     }
 
+    prepareData() {
+      super.prepareData();
+      if (this.otherActivityUuid && this.otherActivityUuid !== "") {
+        console.warn(`midi-qol | otherActivityUuid is deprecated. Edit ${this.actor?.name ?? ""} ${this.item?.name ?? ""} ${this.name} and reset other activity. Currently ${this.otherActivityUuid}`);
+      }
+    }
     get confirmAmmuntion(): { reason?: string, confirm: boolean, proceed: boolean } {
       const ammunitionOptions = this.item.system.ammunitionOptions;
       const ammoCount = (ammunitionOptions?.filter(ammo => !ammo.disabled) ?? []).length;
@@ -494,7 +500,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
 
     async _usageChatContext(message) {
       const context = await super._usageChatContext(message);
-    
+
       context.hasAttack = this.attack; // && !minimalCard && (systemCard || needAttackButton || configSettings.confirmAttackDamage !== "none"),
       return context;
     }

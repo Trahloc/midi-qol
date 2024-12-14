@@ -27,7 +27,6 @@ export var midiSoundSettingsBackup: any = undefined;
 export var DebounceInterval: number;
 export var _debouncedUpdateAction;
 export var ReplaceDefaultActivities: boolean = true;
-export var AutoMergeActivityOther: boolean = true;
 
 export const defaultTargetConfirmationSettings = {
   enabled: false,
@@ -152,7 +151,7 @@ class ConfigSettings {
   removeButtons: string = "all";
   removeConcentration: boolean = true;
   removeConcentrationEffects: string = "effects";
-  requireAmmunition: boolean =  false;
+  requireAmmunition: boolean = false;
   requireMagical: string = "off";
   requiresTargets: string = "none";
   rollNPCLinkedSaves: string = "auto";
@@ -211,7 +210,7 @@ class ConfigSettings {
     removeHiddenInvis: true,
     vitalityResource: "",
     wallsBlockRange: "center",
-  
+
   };
 }
 
@@ -551,7 +550,6 @@ export let fetchParams = () => {
   dragDropTargeting = Boolean(game.settings.get("midi-qol", "DragDropTarget"));
   DebounceInterval = Number(game.settings.get("midi-qol", "DebounceInterval"));
   ReplaceDefaultActivities = Boolean(game.settings.get("midi-qol", "ReplaceDefaultActivities"));
-  AutoMergeActivityOther = Boolean(game.settings.get("midi-qol", "AutoMergeActivityOther"));
   _debouncedUpdateAction = foundry.utils.debounce(_updateAction, DebounceInterval);
   targetConfirmation = game.settings.get("midi-qol", "TargetConfirmation");
   if (configSettings.griddedGridless === undefined) configSettings.griddedGridless = false;
@@ -604,14 +602,6 @@ const settings = [
   },
   {
     name: "ReplaceDefaultActivities",
-    scope: "world",
-    default: true,
-    config: true,
-    type: Boolean,
-    requiresReload: true,
-  },
-  {
-    name: "AutoMergeActivityOther",
     scope: "world",
     default: true,
     config: true,

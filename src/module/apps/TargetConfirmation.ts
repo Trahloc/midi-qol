@@ -86,7 +86,7 @@ export class TargetConfirmationDialog extends Application {
     data.targets = [];
     const maxTargets = this.data.activity.target?.affects?.count;
     for (let target of targets) {
-      if (data.targets.length >= maxTargets) break;
+      if (maxTargets && data.targets.length >= maxTargets) break;
       //@ts-expect-error .texture
       let img = target.document.texture.src;
       if (VideoHelper.hasVideoExtension(img)) {
@@ -180,18 +180,18 @@ export class TargetConfirmationDialog extends Application {
       this.hookId = Hooks.on("targetToken", (user, token, targeted) => {
         if (user !== game.user) return;
         const maxTargets = this.data.activity.target?.affects?.count;
-        if (game.user?.targets?.size > maxTargets)
+        if (maxTargets && game.user?.targets?.size > maxTargets)
           ui.notifications?.warn(i18nFormat("midi-qol.wrongNumberTargets", { allowedTargets: maxTargets }));
         if (game.user?.targets) {
           const validTargets: Array<string> = [];
           for (let target of game?.user?.targets) {
-            if (validTargets.length >= maxTargets) break;
+            if (maxTargets && validTargets.length >= maxTargets) break;
             if (isTargetable(target)) validTargets.push(target.id);
           }
           game.user?.updateTokenTargets(validTargets);
         }
         this.data.targets = Array.from(game.user?.targets ?? [])
-        this.render();
+        this.render(true);
       });
     }
     html.find(".midi-roll-confirm").on("click", () => {

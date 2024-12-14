@@ -30,9 +30,7 @@
           "hostile": false,
           "onlyOnce": false
         },
-        "core": {
-          "statusId": ""
-        },
+        "core": {},
         "dfreds-convenient-effects": {
           "description": ""
         }
@@ -66,7 +64,7 @@
         "duplicateSource": null,
         "coreVersion": "12.331",
         "systemId": "dnd5e",
-        "systemVersion": "4.1.1",
+        "systemVersion": "4.1.2",
         "createdTime": null,
         "modifiedTime": null,
         "lastModifiedBy": null
@@ -301,7 +299,10 @@
       "effectCondition": "",
       "reactionCondition": "",
       "removeAttackDamageButtons": "default",
-      "otherCondition": ""
+      "otherCondition": "",
+      "AoETargetType": "any",
+      "AoETargetTypeIncludeSelf": true,
+      "autoTarget": "default"
     },
     "walledtemplates": {
       "wallsBlock": "globalDefault",
@@ -428,10 +429,25 @@
         },
         "sort": 0,
         "useConditionText": "",
-        "forceDialog": false,
         "effectConditionText": "",
         "_id": "zZ5axenz7HzbgWlS",
-        "name": "Sneak Attack Damage"
+        "name": "Sneak Attack Damage",
+        "macroData": {
+          "name": "",
+          "command": ""
+        },
+        "ignoreTraits": {
+          "idi": false,
+          "idr": false,
+          "idv": false,
+          "ida": false
+        },
+        "midiProperties": {
+          "forceDialog": false,
+          "confirmTargets": "default",
+          "automationOnly": false,
+          "identifier": ""
+        }
       }
     },
     "identifier": "sneak-attack-11613",
@@ -442,14 +458,14 @@
     "duplicateSource": null,
     "coreVersion": "12.331",
     "systemId": "dnd5e",
-    "systemVersion": "4.1.1",
-    "createdTime": 1731498472799,
-    "modifiedTime": 1731498472799,
+    "systemVersion": "4.1.2",
+    "createdTime": 1734180117979,
+    "modifiedTime": 1734180117979,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "folder": "fZIl4G4qj3C894LI",
   "_id": "jkAYvxeezWkh1Oij",
-  "sort": 0,
+  "sort": 1400000,
   "ownership": {
     "default": 0,
     "Zl1BOUaPLwDEujaL": 3

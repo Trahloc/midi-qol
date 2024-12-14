@@ -50,11 +50,7 @@
       {{selectOptions AutoTargetOptions selected=item.flags.midi-qol.autoTarget}}
     </select>
   </div>
-  <div class="form-group">
-    <label>{{ localize "midi-qol.confirmTargetsProp"}}</label>
-    <select name="flags.midiProperties.confirmTargets" data-dtype="String">
-      {{selectOptions ConfirmTargetOptions selected=item.flags.midiProperties.confirmTargets}} </select>
-  </div>
+
   {{#if true}}
   <div class="form-group">
     <label>{{ localize "midi-qol.AttackPerTarget.Name"}}</label>

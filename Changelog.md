@@ -1,12 +1,33 @@
 ### 12.4.15
-* Midi Conditions are now on a separate tab. More properties will be migrated to that tab over time.
-* AoE targeting now respects the max number of creatures/allies/enemies in the spell details.   - Midi won't target more than the specified number of targets. The choice of targets to exclude is arbitrary.
-- Target Confirmation won't let you target more than the maximum number of targets.
+* Midi Conditions and most other fields are now on a separate midi-qol tab on the activity sheet. More properties will be migrated to that tab over time.
+**Breaking** moved ignore damage resistance/immunity/vulnerability/absorption to the activity sheet midi tab. The existing fields on the item sheet will be supported for a short time.
+**Breaking** moved confirm targets settings from the item sheet to the activity sheet midi tab without a deprecation period. You can now configure target confirmation per activity.
+* AoE targeting now respects the max number of creatures/allies/enemies in the spell details.
+ - Midi won't target more than the specified number of targets. The choice of which targets to exclude is arbitrary.
+* Target Confirmation won't let you target more than the maximum number of targets.
 * Fixes for emanation and emanationNoTemplate targeting.
 * Fixes for TargetConfirmation sometimes being displayed twice.
-* If Boss Loot Assets premium/free is active, the auto delete instantaneous templates settings is disabled.
 * Fix for never displaying save dc.
-* Added a guard to hasCondition if system.traits.ci.value is not a set - which it should not be.
+* Added activity.identifer (for midi activities only) which is settable on the midi-qol acitivty tab and defaults to the sluggified version of the activity name, e.g. Midi Attack -> midi-attack. 
+* If there is exactly one midi automation activity on an item the midi attack activity will preferentially chose that over other activities to use as the other item.
+* If Boss Loot Assets premium/free is active, the auto delete instantaneous templates settings is disabled.
+* Added a guard to hasCondition if system.traits.ci.value is not a set - which should not be the case.
+* **Breaking** completeActivityUse now returns the workflow (or workflow data) that the activity caused to be created.
+* For overetime effects the actor with the effect is considered the target so all of the condition fields relating to the target are available, e.g. raceOrType. As currently none of the workflow fields are available.
+* First stage of supporting activity macros. Requires DAE v12.0.6.
+  - The midi tab on the activity sheet now has a button to create/edit the activity macro as well as the familiar pen on the sheet header. Thanks @michael for the code to add it to the header.
+  - On the item sheet you can specify ActivityMacro (similarly to specifing ItemMacro) as onUseMacros. (Eventually this will be on an activity basis, but for the present it is still per time), but see below on how which activity macro is run.
+  - If you only put ActivityMacro in the field then the macro associated with the activity being run will be called, if present. If not present will not throw an error/warning.
+  - If you put a full uuid of the activity (i.e. ActivityMacro.uuid) then that specific activity macro will be run.
+  - If you put something like ActivityMacro.Midi Attack, then the macro of the activity that matches the specified name on the item being rolled will be called (if present). Similarly with an id instead of a name.
+  - You can also specifigy ActivityMacro.identifier (e.g. ActivityMacto.midi-attack) to allow you to specify identifiers that won't change it the activity is renamed.
+  * Like ItemMacro onUseMacros, midi will instantiate macroActivity (the activity that provides the macro) and rolledActivity, the activity that is being performed. **Breaking** rolledActivity replaces **scope.activity** in the scope which is no longer supported.
+  - **DamageBonusMacros** There is a limitation on this implementation that you can only specifiy either a complete activity uuid, an itemUuid (the first activity's macro will be run) or just ActivityMacro in which case the activity macro of the activity being run will be called.
+  * Added some new items, Wounding Weapon, Dragon Slayer - Weapon, Dragon Slayer - Ammunition and Life Stealer - Weapon to the sample items compendium. 
+    - These allow you to convert an existing weapon (or ammunition for Dragon Slayer Ammuntion) to the enhanced equivalent.
+    - To use these drag the Wounding Weapon effect (for example) drag the wounding weapon effect to a target weapon (i.e. Longsword) and it will become a Longsword of Wounding with the appropriate damage, etc. To convert it back just remove the effect from the weapon. These are all based on  a pattern developed in the excellent (and improving) Dungeon Master's Guide premium content.
+    - If playing with these I strongly recommend using TidySheet 5e since its item sheet correctly reflects changes made via the enchantment effects, while the standard dnd5e sheet does not seem to do so.
+  * DAE also has support for macro.activityMacro with similar semantics to macro.itemMacro
 
 ### 12.4.14
 * Fixes for self applied effects, both always and if token hits.
