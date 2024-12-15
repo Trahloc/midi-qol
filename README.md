@@ -902,8 +902,7 @@ In addition you can specify (in options)
   * `checkGMStatus`: boolean. If true non-gm clients will hand the roll to a gm client.
   * `targetUuids`: array of token.document.uuids, if present the roll will target the passed list of UUIDS rather than the user's (or GM's) current targets.
   * `asUser`: string of a user's ID (game.user.id). If present the roll will be socketed to the specified id's client to execute.
-* Additional workflow processing options to completeItemUse(item, config: {}, options: {...., workflowOptions}).
-  You can set as the workflowOptions object, eg `MidiQOL.completeItemUse(item, {}, {workflowOptions:{targetConfirmation: "always"}})`: 
+* Additional workflow processing options, set as a workflowOptions object, eg `MidiQOL.completeItemUse(item, {}, {workflowOptions:{targetConfirmation: "always"}})`: 
   - `targetConfirmation`: string ("always", "none"). "always" will force the target confirmation dialog for that item use ,
   - `autoRollAttack`: boolean force enable/disable auto rolling of the attack,
   - `autoFastAttack`: boolean force enable/disable fast forwarding of the attack
