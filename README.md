@@ -7,7 +7,7 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tposney)
 
-**Join our Discord community**
+### **Join our Discord community**
 
 <a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io/discord/915186263609454632?logo=discord" alt="chat on Discord"></a>
 
@@ -870,8 +870,7 @@ where specification is a comma separated list of fields.
   * The second is as part of the overtime effect with `macro=some macro` as explained [above](https://gitlab.com/tposney/midi-qol/-/tree/v11#overtime-macros). The macro is called each turn with the results of the save/targets etc. (see OnUse Macro data for details).
 
 # Bugs
-probably many however....
-* Language translations are not up-to-date.
+Fill free to report any in either the MidiQOL gitlab issues <https://gitlab.com/tposney/midi-qol/-/issues/> or my discord server (follow this [link](https://gitlab.com/tposney/midi-qol/-/edit/v11.6/README.md#join-our-discord-community)).
 
 # Notes for Macro writers
 For modules that want to call midi-qol it is easier than in minor-qol. Just call item.roll() and if you pass an event via item.roll({event}) you can have key accelerators. (the meanings of shift/ctrl/alt will be interpreted using the speed rolls settings)
@@ -886,9 +885,8 @@ Additional workflow processing options to itemRoll(options). You can set
   - autoFastDamage: boolean force enable/disable fastForward of the damage roll.
   - Leaving these blank means that the configured workflow options from the midi-qol configuration panel will apply.
 
-* MinorQOL.doRoll and MinorQOL.applyTokenDamage remain supported.
 * MidiQOL.applyTokenDamage is exported.
-* If you have macros that depend on being called when the roll is complete, that is still supported, both "minor-qol.RollComplete" and "midi-qol.RollComplete" as well as "midi-qol.RollComplete.ItemUuid" (where ItemUUid is the uuid of the item doing the roll) are called when the roll is finished. See also the onUse macro field which can be used to achieve similar results.
+* If you have macros that depend on being called when the roll is complete, that is still supported, "midi-qol.RollComplete" as well as "midi-qol.RollComplete.ItemUuid" (where ItemUuid is the uuid of the item doing the roll) are called when the roll is finished. See also the onUse macro field which can be used to achieve similar results.
 * There is a function `async MidiQOL.completeItemUse(item, config, options)` that returns a promise you can await, which will do the entire midi-qol workflow for the item before resolving. This is useful if you want to roll an item and do everything without worrying about saving throws and so on.
 
 It takes the same arguments (in config) as midis item.roll:
