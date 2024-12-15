@@ -23,11 +23,11 @@
   - You can also specifigy ActivityMacro.identifier (e.g. ActivityMacto.midi-attack) to allow you to specify identifiers that won't change it the activity is renamed.
   * Like ItemMacro onUseMacros, midi will instantiate macroActivity (the activity that provides the macro) and rolledActivity, the activity that is being performed. **Breaking** rolledActivity replaces **scope.activity** in the scope which is no longer supported.
   - **DamageBonusMacros** There is a limitation on this implementation that you can only specifiy either a complete activity uuid, an itemUuid (the first activity's macro will be run) or just ActivityMacro in which case the activity macro of the activity being run will be called.
+  * DAE also has support for macro.activityMacro with similar semantics to macro.itemMacro
   * Added some new items, Wounding Weapon, Dragon Slayer - Weapon, Dragon Slayer - Ammunition and Life Stealer - Weapon to the sample items compendium. 
     - These allow you to convert an existing weapon (or ammunition for Dragon Slayer Ammuntion) to the enhanced equivalent.
-    - To use these drag the Wounding Weapon effect (for example) drag the wounding weapon effect to a target weapon (i.e. Longsword) and it will become a Longsword of Wounding with the appropriate damage, etc. To convert it back just remove the effect from the weapon. These are all based on  a pattern developed in the excellent (and improving) Dungeon Master's Guide premium content.
+    - To use these drag the Wounding Weapon effect (for example) to a target weapon (i.e. Longsword) and it will become a Longsword of Wounding with the appropriate damage, etc. To convert it back just remove the effect from the weapon. These are all based on  a pattern developed in the excellent (and improving) Dungeon Master's Guide premium content.
     - If playing with these I strongly recommend using TidySheet 5e since its item sheet correctly reflects changes made via the enchantment effects, while the standard dnd5e sheet does not seem to do so.
-  * DAE also has support for macro.activityMacro with similar semantics to macro.itemMacro
 
 ### 12.4.14
 * Fixes for self applied effects, both always and if token hits.
