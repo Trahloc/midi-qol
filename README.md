@@ -870,7 +870,7 @@ where specification is a comma separated list of fields.
   * The second is as part of the overtime effect with `macro=some macro` as explained [above](https://gitlab.com/tposney/midi-qol/-/tree/v11#overtime-macros). The macro is called each turn with the results of the save/targets etc. (see OnUse Macro data for details).
 
 # Bugs
-Fill free to report any in either the MidiQOL gitlab issues <https://gitlab.com/tposney/midi-qol/-/issues/> or my discord server (follow this [link](https://gitlab.com/tposney/midi-qol/-/edit/v11.6/README.md#join-our-discord-community)).
+Fill free to report any in either the MidiQOL gitlab [issues](https://gitlab.com/tposney/midi-qol/-/issues/) or my discord server (follow this [link](https://gitlab.com/tposney/midi-qol/-/edit/v11.6/README.md#join-our-discord-community)).
 
 # Notes for Macro writers
 For modules that want to call midi-qol it is easier than in minor-qol. Just call item.roll() and if you pass an event via item.roll({event}) you can have key accelerators. (the meanings of shift/ctrl/alt will be interpreted using the speed rolls settings)
