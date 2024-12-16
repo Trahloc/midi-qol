@@ -7,7 +7,7 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tposney)
 
-**Join our Discord community**
+### **Join our Discord community**
 
 <a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io/discord/915186263609454632?logo=discord" alt="chat on Discord"></a>
 
@@ -870,8 +870,7 @@ where specification is a comma separated list of fields.
   * The second is as part of the overtime effect with `macro=some macro` as explained [above](https://gitlab.com/tposney/midi-qol/-/tree/v11#overtime-macros). The macro is called each turn with the results of the save/targets etc. (see OnUse Macro data for details).
 
 # Bugs
-probably many however....
-* Language translations are not up-to-date.
+Fill free to report any in either the MidiQOL gitlab [issues](https://gitlab.com/tposney/midi-qol/-/issues/) or my discord server (follow this [link](https://gitlab.com/tposney/midi-qol/-/edit/v11.6/README.md#join-our-discord-community)).
 
 # Notes for Macro writers
 For modules that want to call midi-qol it is easier than in minor-qol. Just call item.roll() and if you pass an event via item.roll({event}) you can have key accelerators. (the meanings of shift/ctrl/alt will be interpreted using the speed rolls settings)
@@ -879,35 +878,34 @@ event.altKey: true => advantage roll
 event.ctrlKey: true => disadvantage roll
 event.shiftKey: true => auto roll the attack roll
 Additional workflow processing options to itemRoll(options). You can set 
-  - lateTargeting: boolean to force enable/disable target confirmation for the items workflow
+  - targetConfirmation: string ("always"/"none") to force on or off the target confirmation for the item's workflow
   - autoRollAttack: boolean force enable/disable auto rolling of the attack,
   - autoFastAttack: boolean force enable/disable fast forwarding of the attack
-  - autoRollDamage: string (always, onHit, none)
+  - autoRollDamage: string ("always", "onHit", "none")
   - autoFastDamage: boolean force enable/disable fastForward of the damage roll.
   - Leaving these blank means that the configured workflow options from the midi-qol configuration panel will apply.
 
-* MinorQOL.doRoll and MinorQOL.applyTokenDamage remain supported.
 * MidiQOL.applyTokenDamage is exported.
-* If you have macros that depend on being called when the roll is complete, that is still supported, both "minor-qol.RollComplete" and "midi-qol.RollComplete" as well as "midi-qol.RollComplete.ItemUuid" (where ItemUUid is the uuid of the item doing the roll) are called when the roll is finished. See also the onUse macro field which can be used to achieve similar results.
+* If you have macros that depend on being called when the roll is complete, that is still supported, "midi-qol.RollComplete" as well as "midi-qol.RollComplete.ItemUuid" (where ItemUuid is the uuid of the item doing the roll) are called when the roll is finished. See also the onUse macro field which can be used to achieve similar results.
 * There is a function `async MidiQOL.completeItemUse(item, config, options)` that returns a promise you can await, which will do the entire midi-qol workflow for the item before resolving. This is useful if you want to roll an item and do everything without worrying about saving throws and so on.
 
-It takes the same arguments as midis item.roll:
- * showFullCard: default false
- * createWorkflow: default true
- * versatile: default false
- * configureDialog: default true
- * createMessage: default false
+It takes the same arguments (in config) as midis item.roll:
+ * `showFullCard`: default false
+ * `createWorkflow`: default true
+ * `versatile`: default false
+ * `configureDialog`: default true
+ * `createMessage`: default false
 
- In addition you can specify (in options)
-  * checkGMStatus: boolean, If true non-gm clients will hand the roll to a gm client.
-  * targetUuids, if present the roll will target the passed list of token uuids (token.document.uuid) rather than the users (or GMS) current targets.
-  * Additional workflow processing options to completeItemUse(item, config: {}, options: {...., workflowOptions}).
-  You can set: 
-  - lateTargeting: boolean to force enable/disable target confirmation for the items workflow
-  - autoRollAttack: boolean force enable/disable auto rolling of the attack,
-  - autoFastAttack: boolean force enable/disable fast forwarding of the attack
-  - autoRollDamage: string (always, onHit, none)
-  - autoFastDamage: boolean force enable/disable fastForward of the damage roll.
+In addition you can specify (in options)
+  * `checkGMStatus`: boolean. If true non-gm clients will hand the roll to a gm client.
+  * `targetUuids`: array of token.document.uuids, if present the roll will target the passed list of UUIDS rather than the user's (or GM's) current targets.
+  * `asUser`: string of a user's ID (game.user.id). If present the roll will be socketed to the specified id's client to execute.
+* Additional workflow processing options, set as a workflowOptions object, eg `MidiQOL.completeItemUse(item, {}, {workflowOptions:{targetConfirmation: "always"}})`: 
+  - `targetConfirmation`: string ("always", "none"). "always" will force the target confirmation dialog for that item use ,
+  - `autoRollAttack`: boolean force enable/disable auto rolling of the attack,
+  - `autoFastAttack`: boolean force enable/disable fast forwarding of the attack
+  - `autoRollDamage`: string ("always", "onHit", "none")
+  - `autoFastDamage`: boolean force enable/disable fastForward of the damage roll.
   - Leaving these blank means that the configured workflow options from the midi-qol configuration panel will apply.
 
 ## Midi-qol called Hooks
