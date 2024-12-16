@@ -115,10 +115,10 @@
   "midi-qol.RangeTarget.Name": "Marcar para Magias/Ataques à Distância",
   "midi-qol.RangeTarget.Hint": "Marca tokens automaticamente para alvos à distância se os alvos forem uma criatura/inimigo/aliado.",
   "midi-qol.PlayerRollSaves.Name": "Avisar Jogadores para Rolarem Salvaguardas",
-  "midi-qol.PlayerRollSaves.Hint": "Jogadores rolam salvaguardas. 'Nenhum' significa que o Midi QOL irá rolar a salvaguarda. Do contrário, o jogador receberá uma mensagem de sussurro no chat ou uma mensagem dos módulos LMRTFY ou Monk's Token Bar.",
+  "midi-qol.PlayerRollSaves.Hint": "Jogadores rolam salvaguardas. 'Nenhum' significa que o Midi QOL irá rolar a salvaguarda. Do contrário, o jogador receberá uma mensagem de sussurro no chat ou uma mensagem do módulo Monk's Token Bar.",
   "midi-qol.rollNPCSaves.Name": "Avisar MJ para Rolar Salvaguardas (Desvinculado)",
   "midi-qol.rollNPCLinkedSaves.Name": "Avisar MJ para Rolar Salvaguardas (Vinculado)",
-  "midi-qol.rollNPCSaves.Hint": "'Automático' significa que o Midi QOL rolará a salvaguarda para o ator. Do contrário, o MJ receberá uma mensagem no chat ou uma mensagem dos módulos LMRTFY ou Monk's Token Bar.",
+  "midi-qol.rollNPCSaves.Hint": "'Automático' significa que o Midi QOL irá rolar a salvaguarda para o ator. Do contrário, o MJ será solicitado de acordo com a configuração.",
   "midi-qol.PlayerSaveTimeout.Name": "Atrasar Rolagem para Jogadores",
   "midi-qol.PlayerSaveTimeout.Hint": "Quanto tempo o MJ deve esperar para rolar a salvaguarda no lugar do jogador (em segundos).",
   "midi-qol.MagicResistant": "magic-resistant",
@@ -227,10 +227,10 @@
   },
   "midi-qol.autoCheckSavesOptions": {
     "none": "Desativado",
-    "allNoRoll": "Salvaguarda (todos veem o resultado)",
-    "all": "Salvaguarda (todos veem o resultado + salvaguarda)",
+    "allNoRoll": "Salvaguarda (todos veem resultado)",
+    "all": "Salvaguarda (todos veem resultado + total salvaguarda)",
     "whisper": "Salvaguarda (apenas MJ vê)",
-    "allShow": "Salvaguarda (todos veem o resultado + rolagens)"
+    "allShow": "Salvaguarda (todos veem resultado + rolagens)"
   },
   "midi-qol.rangeTargetOptions": {
     "none": "Nenhum",
@@ -284,16 +284,12 @@
     "none": "Mensagem do Chat",
     "auto": "Automático",
     "autoDialog": "Rolar e Mostrar o Diálogo de Rolagem",
-    "letme": "Let Me Roll That For You",
-    "letmeQuery": "LMRTFY + Query",
     "mtb": "Monk's Token Bar",
-    "rer": "Rippers Epic Rolls"
+    "rer": "Ripper's Epic Rolls"
   },
   "midi-qol.playerRollSavesOptions": {
     "none": "Nenhum",
     "noneDialog": "Rolar e Mostrar o Diálogo de Rolagem",
-    "letme": "Let Me Roll That For You",
-    "letmeQuery": "LMRTFY + Query",
     "chat": "Mensagem do Chat",
     "mtb": "Monk's Token Bar",
     "rer": "Rippers Epic Rolls"
@@ -374,7 +370,6 @@
     "preTargeting": "Chamada Antes da Marcação ser Resolvida (*)",
     "preItemRoll": "Chamada Antes do Item ser Rolado (*)",
     "templatePlaced": "Chamada Apenas Quando o Modelo é Posicionado",
-    "preambleComplete": "Após Marcação ser Completada",
     "preAttackRoll": "Antes da Rolagem de Ataque",
     "preCheckHits": "Antes da Verificação de Acerto",
     "postAttackRoll": "Depois da da Rolagem de Ataque",
@@ -387,7 +382,7 @@
     "preActiveEffects": "Antes de Efeitos Ativos",
     "postActiveEffects": "Depois de Efeitos Ativos ",
     "isTargeted": "Alvo é Marcado Antes da Rolagem do Item",
-    "isPreAttacked": "Alvo Será Atacado (Antes da Checagem de Reações)",
+    "isPreAttacked": "Alvo Será Atacado (Antes de Reações)",
     "isAttacked": "Alvo é Atacado",
     "isHit": "Alvo é Atingido",
     "preTargetSave": "Alvo Irá Rolar Salvaguarda",
@@ -564,7 +559,6 @@
   "midi-qol.UsePlayerPortrait.Hint": "Para atores de Jogadores, usar a imagem ao invés do token nos cartões de chat do Midi QOL.",
   "midi-qol.DistanceIncludesHeight.Name": "Incluir Diferença de Altura em Cálculos de Alcance",
   "midi-qol.NoSocketLib": "Midi QOL requer o módulo socketlib instalado e habilitado",
-  "midi-qol.NoCubInstalled": "Você habilitou a opção 'Habilitar Automação de Concentração'. Isso requer que você também instale e ative o módulo Combat Utility Belt. A Automação de Concentraçãoserá desabilitada",
   "midi-qol.confirm": "Diálogo de Confirmação",
   "midi-qol.ExportConfig": "Exportar as Configurações do Midi QOL para Um Arquivo Json",
   "midi-qol.ImportConfig": "Importar as Configurações do Midi QOL de Um Arquivo Json",
@@ -583,9 +577,9 @@
   "midi-qol.NoChangelogs": "Midi QOL suporta e recomenda os módulos ChangeLogs ou Module Manager+ para mostrar quaisquer alterações desde a última atualização",
   "midi-qol.ActiveDefenceString": "Active Defence",
   "midi-qol.ActiveDefence.Name": "Defesa Ativa",
-  "midi-qol.ActiveDefence.Hint": "Ao invés do MJ rolar 'Para Atingir', jogadores fazem uma rolagem de defesa. Usará o módulo LMRTFY, se instalado.",
+  "midi-qol.ActiveDefence.Hint": "Ao invés do MJ rolar 'Para Atingir', jogadores fazem uma rolagem de defesa.",
   "midi-qol.ActiveDefenceShow.Name": "Exibição Padrão para Rolagens de Defesa Ativa",
-  "midi-qol.ActiveDefenceShow.Hint": "Se definido para 'Self Roll' ao usar LMRTFY, a rolagem será escondida do MJ, independente de outras configurações.",
+  "midi-qol.ActiveDefenceShow.Hint": "Se definido para 'Rolagem Pessoal', a rolagem será escondida do MJ, independente de outras configurações.",
   "midi-qol.PromptDamageRoll.Name": "Aprimorar Diálogo de Rolagem de Dano",
   "midi-qol.PromptDamageRoll.Hint": "Ao usar o Diálogo de Rolagem de Dano, exibe um diálogo aprimorado que possibilita escolher o tipo de dano.",
   "midi-qol.GMHide3dDice.Name": "Esconder rolagens de ataque/dano/salvaguardas de dados 3D do MJ. Subscreve outras configurações (apenas Cartão Mesclado)",
@@ -658,7 +652,7 @@
   "midi-qol.TargetConfirmationConfig.Name": "Confirmação de Alvo",
   "midi-qol.TargetConfirmationConfig.Hint": "Ao rolar um item, confirme os alvos antes de completar.",
   "midi-qol.TargetConfirmation.Name": "Confirmação de Alvo",
-  "midi-qol.TargetConfirmation.Blurb": "Selecione até {targetCount} alvos. Shift-Click para selecionar múltiplos alvos.",
+  "midi-qol.TargetConfirmation.Blurb": "Selecione até {targetCount} {targetType}. Shift-Clique para selecionar múltiplos alvos.",
   "midi-qol.TargetConfirmation.BlurbAny": "Selecione os alvos. Shift-Click para selecionar múltiplos alvos.",
 
   "midi-qol.AddDead.Name": "Adiciona efeito quando PV = 0",
@@ -712,7 +706,7 @@
   "midi-qol.ShowReactionAttackRoll.Name": "Mostrar Rolagem de Ataque",
   "midi-qol.ShowReactionAttackRollOptions": {
     "none": "Ataque Atinge",
-    "d20": "Apenas Rolagens de d20",
+    "d20": "Rolagens de d20",
     "all": "Rolagem de Ataque Completa",
     "allCrit": "Rolagem de Ataque Completa + Crítico"
   },
@@ -921,7 +915,7 @@
   "midi-qol.AoETargetTypeIncludeSelf.Name": "Se Incluir em Alvos de Área de Efeito",
   "midi-qol.AutoCompleteWorkflow.Name": "Completar Fluxo se Exigido",
   "midi-qol.AutoCompleteWorkflow.Hint": "Fluxos serão marcados como concluídos se rolados antes da conclusão. Nenhuma rolagem adicional será realizada.",
-  "midi-qol.squareRadius": "Raio Quadrado",
+  "midi-qol.emanationNoTemplate": "Emanação - Sem Modelo",
   "midi-qol.AddFakeDice.Name": "Adicione dados falsos à rolagem de dados de MJ do Dice So Nice",
   "midi-qol.MidiFieldsTab.Name": "Exibir os campos do Midi QOL em uma aba separada",
   "midi-qol.UndoChatColor.Name": "Desfazer a Cor dos Cartões de Chat",
@@ -941,5 +935,144 @@
   "midi-qol.CollapsibleTargets.Name": "Alvos Colapsáveis",
   "midi-qol.CollapsibleTargets.Hint": "A exibição de Acerto/Erro do alvo no cartão do chat é recolhível.",
   "midi-qol.AutoRemoveInstantaneousTemplate.Name": "Remover Modelos Instantâneos",
-  "midi-qol.AutoRemoveInstantaneousTemplate.Hint": "Modelos colocados por um item com duração 'Instantânea' são removidos no final da rolagem do item."
+  "midi-qol.AutoRemoveInstantaneousTemplate.Hint": "Modelos colocados por um item com duração 'Instantânea' são removidos no final da rolagem do item.",
+  "midi-qol.ReplaceDefaultActivities.Name": "Substituir Atividades D&D5e por Midi QOL",
+  "midi-qol.ReplaceDefaultActivities.Hint": "Quaisquer atividades existentes, Ataque, Dano, Salvaguarda, Teste e Utilidade usarão as versões do Midi QOL. Isso é necessário para automatizar itens do SRD. Do contrário, você precisará configurar manualmente cada item para automação do Midi QOL.",
+  "midi-qol.AutoMergeActivityOther.Name": "Auto-Mesclar Outras Atividades para Atividades de Ataque Midi QOL (necessário reiniciar)",
+  "midi-qol.AutoMergeActivityOther.Hint": "Se um item tiver apenas uma atividade de ataque e um único Dano, Salvaguarda, Teste ou Utilidade, ele será mesclado com a atividade de ataque.",
+  "midi-qol.ConfirmAmmunition.Name": "Confirmar Escolha de Munição ao Rolar Ataque - Mostra Configuração da Rolagem de Ataque",
+  "midi-qol.SHARED": {
+    "use-condition": {
+      "header": "Condições do Midi QOL"
+    },
+    "ignore": {
+      "header": "Ignorar Traços"
+    },
+    "FIELDS": {
+      "useConditionText": {
+        "label": "Condição de Uso",
+        "hint": "Condição para permitir o uso."
+      },
+      "effectConditionText": {
+        "label": "Condição de Efeito Ativo",
+        "hint": "Condição para aplicar efeito ativo."
+      },
+      "midiProperties": {
+        "forceDialog": {
+          "label": "Forçar Diálogo de Configuração",
+          "hint": "Força o diálogo de configuração ao rolar ataques."
+        },
+        "confirmTargets": {
+          "label": "Confirmação do Alvo",
+          "hint": "Confirma o alvo antes da rolagem."
+        },
+        "automationOnly": {
+          "label": "Apenas Automação",
+          "hint": "A atividade destina-se apenas à automação Midi QOL e não ao uso manual."
+        },
+        "identifier": {
+          "label": "Identificador",
+          "hint": "Um identificador para a Atividade."
+        }
+      },
+      "ActivityMacro": {
+        "label": "Macro de Atividade",
+        "hint": "Macro que pode ser executada quando a Atividade é usada."
+      },
+      "useSystemActivity": {
+        "label": "Usar Atividade do Sistema",
+        "hint": "Use a Atividade do sistema D&D5e ao invés da Atividade do Midi QOL."
+      },
+      "ignoreTraits": {
+        "idi": {
+          "label": "Ignorar Imunidade",
+          "hint": "Ignora imunidade a danos ao aplicar o dano."
+        },
+        "idr": {
+          "label": "Ignorar Resistência",
+          "hint": "Ignora resistência a danos ao aplicar o dano."
+        },
+        "idv": {
+          "label": "Ignorar Vulnerabilidade",
+          "hint": "Ignora vulnerabilidade a danos ao aplicar o dano."
+        },
+        "ida": {
+          "label": "Ignorar Absorção",
+          "hint": "Ignora absorção a danos ao aplicar o dano."
+        }
+      }
+    }
+  },
+  "midi-qol.ATTACK": {
+    "Title": {
+      "one": "Ataque Midi",
+      "other": "Ataques Midi"
+    },
+    "extras": {
+      "header": "Campos de Ataque Midi"
+    },
+    "FIELDS": {
+      "attackMode": {
+        "label": "Modo de Ataque",
+        "hint": "Modo de ataque padrão."
+      },
+      "ammunition": {
+        "label": "Munição",
+        "hint": "Munição padrão a ser consumida."
+      },
+      "otherActivityId": {
+        "label": "Outra Atividade",
+        "hint": "Atividade extra para pré-formar 'outros' danos."
+      }
+    }
+  },
+  "midi-qol.DAMAGE": {
+    "Title": {
+      "one": "Dano Midi",
+      "other": "Danos Midi"
+    }
+  },
+  "midi-qol.HEAL": {
+    "Title": {
+      "one": "Cura Midi",
+      "other": "Curas Midi"
+    }
+  },
+  "midi-qol.SAVE": {
+    "Title": {
+      "one": "Salvaguarda Midi",
+      "other": "Salvaguardas Midi"
+    }
+  },
+  "midi-qol.UTILITY": {
+    "Title": {
+      "one": "Utilidade Midi",
+      "other": "Utilidades Midi"
+    }
+  },
+  "midi-qol.SUMMON": {
+    "Title": {
+      "one": "Invocação Midi",
+      "other": "Invocações Midi"
+    }
+  },
+  "midi-qol.CHECK": {
+    "Title": {
+      "one": "Teste Midi",
+      "other": "Testes Midi"
+    }
+  },
+  "midi-qol.fields": {
+    "use-condition-header": "Atividade Midi Permite Condição de Uso",
+    "attack-extras": "Campos de Ataque Midi",
+    "effects-conditon": "Condição de Aplicação do Efeito Midi",
+    "force-dialog": "Forçar Diálogo de Configuração",
+    "midi-automation-only": "Usar Apenas em Automações Midi"
+  },
+  "midi-qol.BaseDamageFlavor": "Dano Base",
+  "midi-qol.OtherDamageFlavor": "Outro Dano",
+  "midi-qol.RequireAmmunition.Name": "Exigir Munição Disponível Se Usado",
+  "midi-qol.CheckTwoHanded.Name": "Não Requer Escudo em Ataques com Duas Mãos/Ambidestro",
+  "midi-qol.NoAmmunition": "Existem 0 {name} no seu inventário",
+  "midi-qol.TwoHandedShieldWarning": "Não é possível usar ataque com as duas mãos ou com a mão secundária com um escudo equipado"
 }
