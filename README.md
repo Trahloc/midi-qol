@@ -707,6 +707,8 @@ Optional flags cause a dialog to be raised when an opportunity to apply the effe
 
 An optional attack bonus prompts the attacker after the attack roll is made, but before the attack is adjudicated, giving the attacker the option to modify the roll. Effects last for one application unless the count flag is set.
 
+* `flags.midi-qol.optional.NAME.activation` a condition that if it evaluates to true, the optional pop up will be triggered so that the player can choose to use it.
+* `flags.midi-qol.optional.NAME.force` a condition that if it evaluates to true, the optional bonus will be applied without input from the player.
 * `flags.midi-qol.optional.Name.damage.all/mwak/rwak/msak/rsak`	bonus to apply to damage done. 
 * `flags.midi-qol.optional.Name.skill.all/per/prc/itm` etc	bonus to apply to skill rolls
 * `flags.midi-qol.optional.Name.attack.all/mwak/rwak/msak/rsak`	the bonus is added after the attack roll		
