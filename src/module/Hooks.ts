@@ -954,7 +954,7 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
         }
       }
       // For damage absorption ignore other immunity/resistance/vulnerability
-      if (actor.system.traits.da && false) { // not doing this makes absorbing tatoos much easier to implement
+      if (actor.system.traits?.da && false) { // not doing this makes absorbing tatoos much easier to implement
         for (let damage of damages) {
           if (ignore("absorption", damage.type, false)) continue;
           if (actor.system.traits.da?.value?.has(damage.type) || actor.system.traits.da?.all) {
@@ -1026,9 +1026,9 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     const traitMultipliers = { "dr": configSettings.damageResistanceMultiplier, "di": configSettings.damageImmunityMultiplier, "da": -1, "dv": configSettings.damageVulnerabilityMultiplier };
     // Handle custom immunities
     for (let trait of ["da", "dv", "di", "dr"]) {
-      const bypasses = actor.system.traits[trait].bypasses;
-      customs = (actor.system.traits[trait].custom ?? "").split(";").map(s => s.trim());
-      customs = [...customs, ...Object.keys((actor.system.traits[trait].midi ?? {}))];
+      const bypasses = actor.system.traits?.[trait].bypasses;
+      customs = (actor.system.traits?.[trait].custom ?? "").split(";").map(s => s.trim());
+      customs = [...customs, ...Object.keys((actor.system.traits?.[trait].midi ?? {}))];
       for (let custom of customs) {
         if (custom === "") continue;
         let bypassesPresent;
@@ -1093,12 +1093,11 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     let dmAll;
     if (options.ignore !== true && !options.ignore?.DR?.has("none") && !options.ignore?.DR?.has("all")) {
       // think about how to do custom dm.const specials = [...(actor.system.traits.dm.custom ?? []).split(";"), ...Object.keys(actor.system.traits.dm?.midi ?? {})];
-      const specials = Object.keys(actor.system.traits.dm?.midi ?? {});
+      const specials = Object.keys(actor.system.traits?.dm?.midi ?? {});
       for (let special of specials) {
         let dm;
         let dmRoll;
         let selectedDamage;
-        let oldDamage
         let dmActive;
         dmRoll = new Roll(`${actor.system.traits.dm.midi[special]}`, actor.getRollData())
         dm = doSyncRoll(dmRoll, `traits.dm.midi.${special}`)?.total ?? 0;;

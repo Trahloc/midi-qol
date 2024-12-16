@@ -1,3 +1,6 @@
+### 11.6.29
+* Fix for traits references throwing errors for group actors
+
 ### 11.6.28
 * Fix to re-enable idi/idr/idv that was disabled by mistake.
 
