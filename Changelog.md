@@ -1,5 +1,5 @@
 ### 11.6.28
-* Fix to re-enable idi/idr/idv that was disabled by mistak.
+* Fix to re-enable idi/idr/idv that was disabled by mistake.
 
 ### 11.6.27
 * Various changes thanks @thatlonelybugbear
