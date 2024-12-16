@@ -705,6 +705,8 @@ Negative DR is not supported (i.e. to increase damage taken).
 ## Optional Bonus Effects
 Optional flags cause a dialog to be raised when an opportunity to apply the effect comes up (i.e. the player is hit by an attack).
 
+Some examples of usage can be found in the [Wiki](https://gitlab.com/tposney/midi-qol/-/wikis/Home/%7BOptional-Bonus-Effects%7D#examples-of-usage).
+
 An optional attack bonus prompts the attacker after the attack roll is made, but before the attack is adjudicated, giving the attacker the option to modify the roll. Effects last for one application unless the count flag is set.
 
 * `flags.midi-qol.optional.NAME.activation` a condition that if it evaluates to true, the optional pop up will be triggered so that the player can choose to use it.
