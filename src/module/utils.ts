@@ -3222,8 +3222,23 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
     }
     if (chatMessage) untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: undoId, chatCardUuids: [(await chatMessage).uuid] });
   }
-
-  const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), item: this.item, actor: this.actor, target: this.targets?.first() });
+  let parameters: { [key: string]: any } = {};
+  if (!(this instanceof Workflow) && this.optionalBonusEffectsAC) {
+		parameters = {
+			actor: fromUuidSync(this.options.triggerActorUuid),
+			tokenId: fromUuidSync(this.options.triggerTokenUuid)?.id,
+			tokenUuid: this.options.triggerTokenUuid,
+			item: fromUuidSync(this.options.triggerItemUuid),
+			target: fromUuidSync(this.tokenUuid),
+		}
+  } else {
+		parameters = {
+			item: this.item,
+			actor: this.actor,
+			target: this.targets.first(),
+		};
+  };
+  const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), ...parameters });
   let validFlags: string[] = [];
   let lastForceFlag = ""
   const oldRoll = foundry.utils.deepClone(roll);;
@@ -3791,6 +3806,8 @@ export async function promptReactions(tokenUuid: string, reactionItemList: React
       let acRoll = await new Roll(`${actor.system.attributes.ac.value}`).roll();
       const data = {
         actor,
+        tokenUuid,
+        optionalBonusEffectsAC: true,
         roll: acRoll,
         rollHTML: reactionFlavor,
         rollTotal: acRoll.total,
