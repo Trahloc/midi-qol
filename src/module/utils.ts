@@ -4243,6 +4243,8 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.targetActorId = data.target.actor?.id;
       rollData.raceOrType = data.target.actor ? raceOrType(data.target.actor) : "";
       rollData.typeOrRace = data.target.actor ? typeOrRace(data.target.actor) : "";
+      rollData.target.raceOrType = raceOrType(data.target.actor);
+      rollData.target.typeOrRace = typeOrRace(data.target.actor);
       rollData.target.saved = data.workflow?.saves.has(data.target);
       rollData.target.failedSave = data.workflow?.failedSaves.has(data.target);
       rollData.target.superSaver = data.workflow?.superSavers.has(data.target);
@@ -4256,8 +4258,8 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     }
 
     rollData.humanoid = globalThis.MidiQOL.humanoid;
-    rollData.tokenUuid = data.workflow?.tokenUuid;
-    rollData.tokenId = data.workflow?.tokenId;
+    rollData.tokenUuid = data.workflow?.tokenUuid ?? data.tokenUuid;
+    rollData.tokenId = data.workflow?.tokenId ?? data.tokenId;
     rollData.effects = actor?.appliedEffects; // not needed since this is set in getRollData
     if (data.workflow) {
       rollData.w = data.workflow;
