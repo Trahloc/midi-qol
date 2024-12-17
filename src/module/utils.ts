@@ -3225,11 +3225,11 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
   let parameters: { [key: string]: any } = {};
   if (!(this instanceof Workflow) && this.optionalBonusEffectsAC) {
 		parameters = {
-			actor: fromUuidSync(this.options.triggerActorUuid),
-			tokenId: fromUuidSync(this.options.triggerTokenUuid)?.id,
+			actor: MQfromUuidSync(this.options.triggerActorUuid),
+			tokenId: MQfromUuidSync(this.options.triggerTokenUuid)?.id,
 			tokenUuid: this.options.triggerTokenUuid,
-			item: fromUuidSync(this.options.triggerItemUuid),
-			target: fromUuidSync(this.tokenUuid),
+			item: MQfromUuidSync(this.options.triggerItemUuid),
+			target: MQfromUuidSync(this.tokenUuid),
 		}
   } else {
 		parameters = {
