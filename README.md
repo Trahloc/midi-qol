@@ -9,6 +9,9 @@
 
 <a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io/discord/915186263609454632?logo=discord" alt="chat on Discord"></a>
 
+
+<a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io/discord/915186263609454632?logo=discord" alt="chat on Discord"></a>
+
 **Midi-qol** is a module designed to help automate various parts of your game, specifically rolling attacks/casting spells and applying damage/effects.
 
 It has LOTS of configuration options which can be daunting.
