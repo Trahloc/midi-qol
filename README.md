@@ -29,9 +29,6 @@ I really can't work out what is going on without them.
 
 No world information is exported. The list of active modules can be very useful to me in debugging.
 
-# midi-qol
-Midi-qol is a replacement for minor-qol and you should not have both modules active at the same time.  (Both can be INSTALLED at the same time, but only one should be ACTIVATED.)  Because there are some subtle differences in the way the midi-qol works compared to minor-qol you will need to experiment with the settings.
-
 ## HELP! My midi-qol disappeared.
 If you've just updated midi-qol and it disappears from your in-game list of modules you probably need to update your dnd5e system to the latest one.
 
