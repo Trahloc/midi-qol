@@ -3224,19 +3224,19 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
   }
   let parameters: { [key: string]: any } = {};
   if (!(this instanceof Workflow) && this.optionalBonusEffectsAC) {
-		parameters = {
-			actor: MQfromUuidSync(this.options.triggerActorUuid),
-			tokenId: MQfromUuidSync(this.options.triggerTokenUuid)?.id,
-			tokenUuid: this.options.triggerTokenUuid,
-			item: MQfromUuidSync(this.options.triggerItemUuid),
-			target: MQfromUuidSync(this.tokenUuid),
-		}
+    parameters = {
+      actor: MQfromUuidSync(this.options.triggerActorUuid),
+      tokenId: MQfromUuidSync(this.options.triggerTokenUuid)?.id,
+      tokenUuid: this.options.triggerTokenUuid,
+      item: MQfromUuidSync(this.options.triggerItemUuid),
+      target: MQfromUuidSync(this.tokenUuid),
+    }
   } else {
-		parameters = {
-			item: this.item,
-			actor: this.actor,
-			target: this.targets.first(),
-		};
+    parameters = {
+      item: this.item,
+      actor: this.actor,
+      target: this.targets.first(),
+    };
   };
   const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), ...parameters });
   let validFlags: string[] = [];
