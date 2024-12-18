@@ -7,7 +7,7 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/tposney)
 
-**Join our Discord community**
+### **Join our Discord community**
 
 <a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io/discord/915186263609454632?logo=discord" alt="chat on Discord"></a>
 
@@ -28,9 +28,6 @@ It has LOTS of configuration options which can be daunting.
 I really can't work out what is going on without them.
 
 No world information is exported. The list of active modules can be very useful to me in debugging.
-
-# midi-qol
-Midi-qol is a replacement for minor-qol and you should not have both modules active at the same time.  (Both can be INSTALLED at the same time, but only one should be ACTIVATED.)  Because there are some subtle differences in the way the midi-qol works compared to minor-qol you will need to experiment with the settings.
 
 ## HELP! My midi-qol disappeared.
 If you've just updated midi-qol and it disappears from your in-game list of modules you probably need to update your dnd5e system to the latest one.
@@ -705,8 +702,12 @@ Negative DR is not supported (i.e. to increase damage taken).
 ## Optional Bonus Effects
 Optional flags cause a dialog to be raised when an opportunity to apply the effect comes up (i.e. the player is hit by an attack).
 
+Some examples of usage can be found in the [Wiki](https://gitlab.com/tposney/midi-qol/-/wikis/Home/%7BOptional-Bonus-Effects%7D#examples-of-usage).
+
 An optional attack bonus prompts the attacker after the attack roll is made, but before the attack is adjudicated, giving the attacker the option to modify the roll. Effects last for one application unless the count flag is set.
 
+* `flags.midi-qol.optional.NAME.activation` a condition that if it evaluates to true, the optional pop up will be triggered so that the player can choose to use it.
+* `flags.midi-qol.optional.NAME.force` a condition that if it evaluates to true, the optional bonus will be applied without input from the player.
 * `flags.midi-qol.optional.Name.damage.all/mwak/rwak/msak/rsak`	bonus to apply to damage done. 
 * `flags.midi-qol.optional.Name.skill.all/per/prc/itm` etc	bonus to apply to skill rolls
 * `flags.midi-qol.optional.Name.attack.all/mwak/rwak/msak/rsak`	the bonus is added after the attack roll		
@@ -732,7 +733,20 @@ An optional attack bonus prompts the attacker after the attack roll is made, but
 * `flags.midi-qol.optional.Name.rollMode`, any additional rolls are to be made with the specifid roll mode. Can be useful to hide rolls from the players. Use one of `publicroll/gmroll/blindroll/selfroll` 
 * `flags.midi-qol.optional.Name.macroToCall`, `ItemMacro` or `world macro name` executes a macro when the user opts in to use the optional bonus, with arguments being the same as in MidiQOL onUse macros.
 
-Values for the optional roll bonus flags include a dice expression (added to the roll), a number, reroll (rerolling the roll completely) reroll-max, reroll-min, reroll-kh (reroll with max dice, min dice, or reroll and keep the higher of the original/new roll) or success which changes the roll to 99 ensuring success.
+Values for the optional roll bonus flags include:
+* a dice expression (added to the roll),
+* a number,
+* Rerolls with:
+  * `reroll`: rerolls and keeps the new roll,
+  * `reroll-max`: rerolls max and keeps the new roll,
+  * `reroll-min`: rerolls min and keeps the new roll,
+  * `reroll-kh`: rerolls and keeps higher roll,
+  * `reroll-kl`: rerolls and keeps lower roll,
+  * `reroll-query`: rerolls and asks user which roll to keep,
+* `success`: ensures success for D20Rolls (currently makes it a critical),
+* `fail`: ensures failure for D20Rolls,
+* `replace <formula>`: replaces with a new formula, example `replace 4d20kh`.
+
 
 ## Enhanced traits.dr/di/dv
 * Available from the special traits actor settings, or via active effects.
@@ -789,9 +803,9 @@ where specification is a comma separated list of fields.
   
   #### Overtime Macros:
   * `macro=<macro to call>` - call a macro as part of the damage application stage, with available arguments the results of rolling the overTime item, which will include damage done, saving throws made etc., as if it were an OnUse macro of the Overtime item roll. These macros can be:
-    * `world macros` using the name of the macro from your macro folder,
-    * linked to the Item Macro of an Item by using `ItemMacro.ItemUUID`,
-    * macros provided by modules in which case MidiQOL will `bind` the relevant arguments to that function, using for example `function.MidiQOL.log`.
+    * `world macros` using the name of the macro from your macro folder, eg `macro=Macro.My world macro name`
+    * linked to the Item Macro of an Item by using `ItemMacro.Item UUID`, eg `macro=ItemMacro.@itemUuid`
+    * macros provided by modules in which case MidiQOL will `bind` the relevant arguments to that function, using for example `macro=function.MidiQOL.log`.
 
   #### Overtime hints and tips
   * If the effect is configured to be stackable with a stack count, of say 2 and a base `damageRoll=3d6`, the damage will become `3d6 + 3d6`(for items like Longsword of Wounding or Devil's Glaive).
@@ -857,8 +871,7 @@ where specification is a comma separated list of fields.
   * The second is as part of the overtime effect with `macro=some macro` as explained [above](https://gitlab.com/tposney/midi-qol/-/tree/v11#overtime-macros). The macro is called each turn with the results of the save/targets etc. (see OnUse Macro data for details).
 
 # Bugs
-probably many however....
-* Language translations are not up-to-date.
+Fill free to report any in either the MidiQOL gitlab [issues](https://gitlab.com/tposney/midi-qol/-/issues/) or my discord server (follow this [link](https://gitlab.com/tposney/midi-qol/-/edit/v11.6/README.md#join-our-discord-community)).
 
 # Notes for Macro writers
 For modules that want to call midi-qol it is easier than in minor-qol. Just call item.roll() and if you pass an event via item.roll({event}) you can have key accelerators. (the meanings of shift/ctrl/alt will be interpreted using the speed rolls settings)
@@ -866,35 +879,34 @@ event.altKey: true => advantage roll
 event.ctrlKey: true => disadvantage roll
 event.shiftKey: true => auto roll the attack roll
 Additional workflow processing options to itemRoll(options). You can set 
-  - lateTargeting: boolean to force enable/disable target confirmation for the items workflow
+  - targetConfirmation: string ("always"/"none") to force on or off the target confirmation for the item's workflow
   - autoRollAttack: boolean force enable/disable auto rolling of the attack,
   - autoFastAttack: boolean force enable/disable fast forwarding of the attack
-  - autoRollDamage: string (always, onHit, none)
+  - autoRollDamage: string ("always", "onHit", "none")
   - autoFastDamage: boolean force enable/disable fastForward of the damage roll.
   - Leaving these blank means that the configured workflow options from the midi-qol configuration panel will apply.
 
-* MinorQOL.doRoll and MinorQOL.applyTokenDamage remain supported.
 * MidiQOL.applyTokenDamage is exported.
-* If you have macros that depend on being called when the roll is complete, that is still supported, both "minor-qol.RollComplete" and "midi-qol.RollComplete" as well as "midi-qol.RollComplete.ItemUuid" (where ItemUUid is the uuid of the item doing the roll) are called when the roll is finished. See also the onUse macro field which can be used to achieve similar results.
+* If you have macros that depend on being called when the roll is complete, that is still supported, "midi-qol.RollComplete" as well as "midi-qol.RollComplete.ItemUuid" (where ItemUuid is the uuid of the item doing the roll) are called when the roll is finished. See also the onUse macro field which can be used to achieve similar results.
 * There is a function `async MidiQOL.completeItemUse(item, config, options)` that returns a promise you can await, which will do the entire midi-qol workflow for the item before resolving. This is useful if you want to roll an item and do everything without worrying about saving throws and so on.
 
-It takes the same arguments as midis item.roll:
- * showFullCard: default false
- * createWorkflow: default true
- * versatile: default false
- * configureDialog: default true
- * createMessage: default false
+It takes the same arguments (in config) as midis item.roll:
+ * `showFullCard`: default false
+ * `createWorkflow`: default true
+ * `versatile`: default false
+ * `configureDialog`: default true
+ * `createMessage`: default false
 
- In addition you can specify (in options)
-  * checkGMStatus: boolean, If true non-gm clients will hand the roll to a gm client.
-  * targetUuids, if present the roll will target the passed list of token uuids (token.document.uuid) rather than the users (or GMS) current targets.
-  * Additional workflow processing options to completeItemUse(item, config: {}, options: {...., workflowOptions}).
-  You can set: 
-  - lateTargeting: boolean to force enable/disable target confirmation for the items workflow
-  - autoRollAttack: boolean force enable/disable auto rolling of the attack,
-  - autoFastAttack: boolean force enable/disable fast forwarding of the attack
-  - autoRollDamage: string (always, onHit, none)
-  - autoFastDamage: boolean force enable/disable fastForward of the damage roll.
+In addition you can specify (in options)
+  * `checkGMStatus`: boolean. If true non-gm clients will hand the roll to a gm client.
+  * `targetUuids`: array of token.document.uuids, if present the roll will target the passed list of UUIDS rather than the user's (or GM's) current targets.
+  * `asUser`: string of a user's ID (game.user.id). If present the roll will be socketed to the specified id's client to execute.
+* Additional workflow processing options, set as a workflowOptions object, eg `MidiQOL.completeItemUse(item, {}, {workflowOptions:{targetConfirmation: "always"}})`: 
+  - `targetConfirmation`: string ("always", "none"). "always" will force the target confirmation dialog for that item use ,
+  - `autoRollAttack`: boolean force enable/disable auto rolling of the attack,
+  - `autoFastAttack`: boolean force enable/disable fast forwarding of the attack
+  - `autoRollDamage`: string ("always", "onHit", "none")
+  - `autoFastDamage`: boolean force enable/disable fastForward of the damage roll.
   - Leaving these blank means that the configured workflow options from the midi-qol configuration panel will apply.
 
 ## Midi-qol called Hooks
