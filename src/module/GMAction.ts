@@ -1210,7 +1210,7 @@ export async function rollActionSave(data: any) {
     //@ts-expect-error
     if (!foundry.utils.isEmpty(buttons)) {
       buttons.No = {
-        label: `<i class="fas fa-times"></i> ${i18n("No")}`,
+        label: `<i class="fas fa-xmark"></i> ${i18n("No")}`,
         callback: async () => {
           resolve(undefined);
         }

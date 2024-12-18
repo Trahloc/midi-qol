@@ -1,3 +1,14 @@
+### 11.6.29
+* Fix for traits references throwing errors for group actors
+
+### 11.6.28
+* Fix to re-enable idi/idr/idv that was disabled by mistake.
+
+### 11.6.27
+* Various changes thanks @thatlonelybugbear
+  - add magical bonus when present in the versatile damage formula
+  - Style Defense Rolls as Saves & fix deprecated FA icons
+* rewrote setRollMinDiceTerm/setRollMaxDiceTerm to correctly set min/max d20 dice rolls.
 
 ### 11.6.26
 * Almost all of the chages are courtesy of @thatLonelyBugber - thanks.

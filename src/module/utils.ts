@@ -2837,7 +2837,7 @@ class RollModifyDialog extends Application {
       return obj;
     }, {})
     this.data.buttons.no = {
-      icon: '<i class="fas fa-times"></i>',
+      icon: '<i class="fas fa-xmark"></i>',
       label: i18n("Cancel"),
       callback: () => {
         this.data.flags = [];
@@ -6184,23 +6184,25 @@ export function doSyncRoll(roll, source: string | undefined) {
   return roll.evaluate({ async: false })
 }
 
-export function setRollMinDiceTerm(roll: Roll, minValue: number) {
-  roll.dice.forEach(d => {
+export function setRollMinDiceTerm(roll: Roll, minValue: number, count = 1) {
+  for (const [i, d] of roll.dice.entries()) {
+    if (i >= count) break;
     d.results.forEach(r => {
-      if (r.result < minValue) r.result = minValue;
+      if (r.result < minValue) r.result = Math.min(minValue, d.faces);
     });
-  });
+  };
   //@ts-expect-error
   roll._total = roll._evaluateTotal();
   return roll;
 }
 
-export function setRollMaxDiceTerm(roll: Roll, maxValue: number) {
-  roll.dice.forEach(d => {
+export function setRollMaxDiceTerm(roll: Roll, maxValue: number, count = 1) {
+  for (const [i, d] of roll.dice.entries()) {
+    if (i >= count) break;
     d.results.forEach(r => {
-      if (r.result > maxValue) r.result = maxValue;
+      if (r.result > maxValue) r.result = Math.max(1, maxValue);
     });
-  });
+  };
   //@ts-expect-error
   roll._total = roll._evaluateTotal();
   return roll;

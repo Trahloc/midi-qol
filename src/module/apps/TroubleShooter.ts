@@ -109,7 +109,7 @@ export class TroubleShooter extends FormApplication {
             }
           },
           no: {
-            icon: '<i class="fas fa-times"></i>',
+            icon: '<i class="fas fa-xmark"></i>',
             label: "Cancel",
             callback: html => resolve(false)
           }
@@ -221,7 +221,7 @@ export class TroubleShooter extends FormApplication {
             }
           },
           cancel: {
-            icon: '<i class="fas fa-times"></i>',
+            icon: '<i class="fas fa-xmark"></i>',
             label: "Cancel",
             callback: html => resolve(false)
           }
