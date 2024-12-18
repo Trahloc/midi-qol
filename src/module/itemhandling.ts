@@ -192,8 +192,9 @@ export async function doItemUse(wrapped, config: any = {}, options: any = {}) {
     }
 
     if (this.parent instanceof Actor) {
-      let CEFlanking = getFlankingEffect();
-      if (CEFlanking && CEFlanking.name) await CERemoveEffect({ effectName: CEFlanking.name, uuid: this.parent.uuid });
+      const hasFlanking = await getFlankingEffect(this.parent);
+      //@ts-expect-error
+      if (hasFlanking) await MidiQOL.removeEffects({ actorUuid: this.parent.uuid, effects: [hasFlanking.id] });
     }
 
     const pressedKeys = foundry.utils.duplicate(globalThis.MidiKeyManager.pressedKeys);
