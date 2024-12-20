@@ -745,7 +745,8 @@ Values for the optional roll bonus flags include:
   * `reroll-query`: rerolls and asks user which roll to keep,
 * `success`: ensures success for D20Rolls (currently makes it a critical),
 * `fail`: ensures failure for D20Rolls,
-* `replace <formula>`: replaces with a new formula, example `replace 4d20kh`.
+* `replace <formula>`: replaces with a new formula, example `replace 4d20kh`,
+* `ItemMacro.<itemUUID>`: which can implement whatever logic you want and should be returning one of the above types, eg `return '1d6[fire]'`.
 
 
 ## Enhanced traits.dr/di/dv
