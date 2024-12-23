@@ -4260,8 +4260,8 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.targetActorId = data.target.actor?.id;
       rollData.raceOrType = data.target.actor ? raceOrType(data.target.actor) : "";
       rollData.typeOrRace = data.target.actor ? typeOrRace(data.target.actor) : "";
-      rollData.target.raceOrType = raceOrType(data.target.actor);
-      rollData.target.typeOrRace = typeOrRace(data.target.actor);
+      rollData.target.raceOrType = data.target.actor ? raceOrType(data.target.actor) : "";
+      rollData.target.typeOrRace = data.target.actor ? typeOrRace(data.target.actor) : "";
       rollData.target.saved = data.workflow?.saves.has(data.target);
       rollData.target.failedSave = data.workflow?.failedSaves.has(data.target);
       rollData.target.superSaver = data.workflow?.superSavers.has(data.target);
