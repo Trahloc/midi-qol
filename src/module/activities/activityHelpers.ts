@@ -81,7 +81,7 @@ export async function doActivityReactions(activity, workflow: Workflow) {
   if (!foundry.utils.getProperty(activity, `flags.${MODULE_ID}.noProvokeReaction`)) {
     for (let targetToken of workflow.targets) {
       promises.push(new Promise(async resolve => {
-      //@ts-expect-error targetToken Type
+        //@ts-expect-error targetToken Type
         const result = await doReactions(targetToken, workflow.tokenUuid, null, "reactionpreattack", { item: this, workflow, workflowOptions: foundry.utils.mergeObject(workflow.workflowOptions, { sourceActorUuid: activity.actor?.uuid, sourceItemUuid: this?.uuid }, { inplace: false, overwrite: true }) });
         if (result?.name) {
           //@ts-expect-error
@@ -109,16 +109,16 @@ export function activityConsumptionHook(activity, usageConfig, messageConfig, up
 
 function activityRequiresPostTemplateConfiramtion(activity): boolean {
   // const isRangeTargeting = ["ft", "m"].includes(activity.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
-  if (activity.target.template?.type) {
+  if (activity.target?.template?.type) {
     return true;
-//  } else if (isRangeTargeting) {
-//    return true;
+    //  } else if (isRangeTargeting) {
+    //    return true;
   }
   return false;
 }
 function itemRequiresPostTemplateConfiramtion(activity): boolean {
   const isRangeTargeting = ["ft", "m"].includes(activity.item.system.range?.units) && ["creature", "ally", "enemy"].includes(activity.target?.affects.type);
-  if (activity.target.template?.type) {
+  if (activity.target?.template?.type) {
     return true;
   } else if (isRangeTargeting) {
     return true;
@@ -238,7 +238,7 @@ export async function preTemplateTargets(activity, options): Promise<boolean> {
 
 export async function postTemplateConfirmTargets(activity, options, workflow): Promise<boolean> {
   if (!activityRequiresPostTemplateConfiramtion(activity)) return true;
-  if (requiresTargetConfirmation(activity, options)) {
+  if (requiresTargetConfirmation(activity, options) || activity.target?.affects?.choice) {
     let result = true;
     result = await resolveTargetConfirmation(activity, options);
     if (result && game.user?.targets) workflow.targets = new Set(game.user.targets)
@@ -476,18 +476,14 @@ export function templateTokens(templateDetails: MeasuredTemplate, selfTokenRef: 
 
 // this is bound to a workflow when called - most of the time
 export function selectTargets(templateDocument: MeasuredTemplateDocument, data, user) {
-  //@ts-expect-error
-  const workflow = this?.currentAction ? this : Workflow.getWorkflow(templateDocument.flags?.dnd5e?.origin);
-  if (workflow === undefined) return true;
-  if (debugEnabled > 0) warn("selectTargets ", workflow, templateDocument, data, user);
-  const selfToken = getToken(workflow.tokenUuid);
-  let ignoreSelf: boolean = false;
-  if (workflow?.activity && activityHasAreaTarget(workflow.activity)
-    && foundry.utils.getProperty(workflow, `item.flags.${MODULE_ID}.AoETargetTypeIncludeSelf`) === false)
-    ignoreSelf = true;
-  let AoETargetType = getAoETargetType(workflow.activity);
-  let targeting = getActivityAutoTarget(workflow.activity);
-  if ((game.user?.targets.size === 0 || workflow.workflowOptions.forceTemplateTargeting || user !== game.user?.id || installedModules.get("levelsvolumetrictemplates")) && targeting !== "none") {
+  // const workflow = this?.currentAction ? this : Workflow.getWorkflow(templateDocument.flags?.dnd5e?.origin);
+  const activity = this;
+  if (debugEnabled > 0) warn("selectTargets ", activity, templateDocument, data, user);
+  const selfToken = getToken(activity.actor);
+  const ignoreSelf = (activity?.target.affects.special ?? "").split(";").some(spec => spec === "self");
+  let AoETargetType = getAoETargetType(activity);
+  let targeting = getActivityAutoTarget(activity);
+  if ((game.user?.targets.size === 0 || activity.workflow?.workflowOptions.forceTemplateTargeting || user !== game.user?.id || installedModules.get("levelsvolumetrictemplates")) && targeting !== "none") {
     let mTemplate: MeasuredTemplate = MQfromUuidSync(templateDocument.uuid)?.object;
     if (templateDocument?.object && !installedModules.get("levelsvolumetrictemplates")) {
       if (!mTemplate.shape) {
@@ -500,37 +496,34 @@ export function selectTargets(templateDocument: MeasuredTemplateDocument, data, 
         // mTemplate.distance = distance;
         if (debugEnabled > 0) warn(`selectTargets computed shape ${shape} distance ${distance}`)
       }
-      templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getActivityAutoTarget(workflow.activity));
+      templateTokens(mTemplate, selfToken, ignoreSelf, AoETargetType, getActivityAutoTarget(activity));
     } else if (templateDocument.object) {
       //@ts-expect-error
       VolumetricTemplates.compute3Dtemplate(templateDocument.object, canvas?.tokens?.placeables);
     }
   }
-  workflow.templateId = templateDocument?.id;
-  workflow.templateUuid = templateDocument?.uuid;
-  // if (user === game.user?.id && item) templateDocument.setFlag(MODULE_ID, "originUuid", item.uuid); // set a refernce back to the item that created the template.
+  // TODO fix this so the workflow is not required (store the template reference somewhere else)
+  if (activity.workflow) {
+    activity.workflow.templateId = templateDocument?.id;
+    activity.workflow.templateUuid = templateDocument?.uuid;
+  }
   if (targeting === "none") { // this is no good
-    Hooks.callAll("midi-qol-targeted", workflow.targets);
+    Hooks.callAll("midi-qol-targeted", activity.workflow?.targets);
     return true;
   }
 
   game.user?.targets?.forEach(token => {
-    if (!isAoETargetable(token, { ignoreSelf, selfToken, AoETargetType, autoTarget: getActivityAutoTarget(workflow.activity) })) 
+    if (!isAoETargetable(token, { ignoreSelf, selfToken, AoETargetType, autoTarget: getActivityAutoTarget(activity) }))
       token.setTarget(false, { user: game.user, releaseOthers: false })
-    if (workflow.activity.target?.affects.count && (game.user?.targets?.size ?? 0) > workflow.activity.target?.affects?.count)
+    if (activity.target?.affects.count && (game.user?.targets?.size ?? 0) > activity.target?.affects?.count)
       token.setTarget(false, { user: game.user, releaseOthers: false });
-    });
-  workflow.saves = new Set();
+  });
 
-  //@ts-expect-error filter
-  workflow.targets = new Set(game.user?.targets ?? new Set()).filter(token => isTargetable(token));
-  workflow.hitTargets = new Set(workflow.targets);
-  workflow.templateData = templateDocument.toObject(); // TODO check this v10
-  if (workflow.workflowType === "TrapWorkflow") return;
-  if (debugEnabled > 0) warn("selectTargets ", workflow?.suspended, workflow?.needTemplate, templateDocument);
-  if (workflow.needTemplate) {
-    workflow.needTemplate = false;
-    if (workflow.suspended) workflow.unSuspend.bind(workflow)({ templateDocument });
+  if (activity.workflow.workflowType === "TrapWorkflow") return;
+  if (debugEnabled > 0) warn("selectTargets ", activity.workflow?.suspended, activity.workflow?.needTemplate, templateDocument);
+  if (activity.workflow?.needTemplate) {
+    activity.workflow.needTemplate = false;
+    if (activity.workflow?.suspended) activity.workflow.unSuspend.bind(activity.workflow)({ templateDocument });
   }
   return;
 };

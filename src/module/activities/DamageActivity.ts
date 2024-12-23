@@ -26,7 +26,8 @@ let defineMidiDamageActivityClass = (ActivityClass: any) => {
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
-        title: "midi-qol.DAMAGE.Title.one",
+        title: configSettings.activityNamePrefix ? "midi-qol.DAMAGE.Title.one" : ActivityClass.metadata.title,
+        dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiDamageSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",

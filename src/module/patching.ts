@@ -406,8 +406,8 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
   // if (criticalDamage === "doubleDice") this.options.multiplyNumeric = true;
   this.simplify();
   for (let [i, term] of this.terms.entries()) {
-    let cm = this.options.criticalMultiplier ?? 2;
-    let cb = (this.options.criticalBonusDice && (i === 0)) ? this.options.criticalBonusDice : 0;
+    let cm = this.options.critical?.multiplier ?? 2;
+    let cb = (this.options.critical?.bonusDice && (i === 0)) ? this.options.critical?.bonusDice : 0;
     switch (getCriticalDamage()) {
       case "maxDamage":
         if (term instanceof DiceTerm) term.modifiers.push(`min${term.faces}`);
@@ -437,7 +437,7 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
           }
           critTerm.options = term.options;
           bonusTerms.push(critTerm);
-        } else if (term instanceof NumericTerm && this.options.multiplyNumeric) {
+        } else if (term instanceof NumericTerm && options.multiplyNumeric) {
           term.number *= cm;
         }
         break;
@@ -485,8 +485,8 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
     }
   }
   if (bonusTerms.length > 0) this.terms.push(...bonusTerms);
-  if (this.options.criticalBonusDamage) {
-    const extra = new Roll(this.options.criticalBonusDamage, this.data);
+  if (this.options.critical?.bonusDamage) {
+    const extra = new Roll(this.options.critical.bonusDamage, this.data);
     for (let term of extra.terms) {
       if (term instanceof DiceTerm || term instanceof NumericTerm)
         if (!term.options?.flavor) term.options = this.terms[0].options;
@@ -805,7 +805,6 @@ export async function procAdvantageSkill(actor, skillId, options: Options): Prom
   return options;
 }
 
-
 let debouncedATRefresh = foundry.utils.debounce(_midiATIRefresh, 30);
 function _midiATIRefresh(template) {
   // We don't have an item to check auto targeting with, so just use the midi setting
@@ -853,7 +852,8 @@ function _midiATIRefresh(template) {
   } else {
     const distance: number = template.distance ?? 0;
     if (template.activity) {
-      templateTokens(template, getTokenForActor(template.item.parent), !foundry.utils.getProperty(template.item, "flags.midi-qol.AoETargetTypeIncludeSelf"), getAoETargetType(template.activity), autoTarget);
+      const ignoreSelf = (template.activity?.target.affects.special ?? "").split(";").some(spec => spec === "self");
+      templateTokens(template, getTokenForActor(template.item.parent), ignoreSelf, getAoETargetType(template.activity), autoTarget);
       return true;
     } else
       templateTokens(template);
@@ -950,7 +950,7 @@ function _DAgetTargetOptions(...args) {
   const damageType = this.damages?.flags?.[MODULE_ID]?.damageType;
   let targetDetails;
   if (damageType) {
-    const targets = this?.chatMessage?.flags?.midi?.dnd5eTargets ?? [];
+    const targets = this?.chatMessage?.flags?.["midi-qol"]?.midi?.dnd5eTargets ?? [];
     targetDetails = targets.find(target => target.uuid === uuid);
     if (!targetDetails) return options;
     options.midi = foundry.utils.duplicate(targetDetails);

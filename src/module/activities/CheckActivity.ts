@@ -34,7 +34,8 @@ let defineMidiCheckActivityClass = (ActivityClass: any) => {
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
-        title: "midi-qol.CHECK.Title.one",
+        title: configSettings.activityNamePrefix ? "midi-qol.CHECK.Title.one" : ActivityClass.metadata.title,
+        dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiCheckSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",

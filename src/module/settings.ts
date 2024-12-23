@@ -1,5 +1,5 @@
 import { _mergeUpdate } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/utils/helpers.mjs";
-import { debug, setDebugLevel, i18n, debugEnabled, geti18nTranslations, geti18nOptions } from "../midi-qol.js";
+import { debug, setDebugLevel, i18n, debugEnabled, geti18nTranslations, geti18nOptions, error } from "../midi-qol.js";
 import { ConfigPanel } from "./apps/ConfigPanel.js"
 import { SoundConfigPanel } from "./apps/SoundConfigPanel.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
@@ -56,6 +56,7 @@ class ConfigSettings {
   addFakeDice: boolean = false;
   addWounded: number = 0;
   addWoundedStyle: string = "none";
+  activityNamePrefix: boolean = true;
   midiWoundedCondition: string = "none";
   midiDeadCondition: string = "none";
   midiUnconsciousCondition: string = "none";
@@ -555,6 +556,15 @@ export let fetchParams = () => {
   if (configSettings.griddedGridless === undefined) configSettings.griddedGridless = false;
   if (configSettings.gridlessFudge === undefined) configSettings.gridlessFudge = 0;
   if (configSettings.concentrationIncapacitatedConditionCheck === undefined) configSettings.concentrationIncapacitatedConditionCheck = false;
+  if (configSettings.activityNamePrefix === undefined) configSettings.activityNamePrefix = true;
+  const blfxActive = game.modules.get("boss-loot-assets-premium")?.active || game.modules.get("boss-loot-assets-free")?.active;
+  if (blfxActive) {
+    if (configSettings.activityNamePrefix === true) {
+      TroubleShooter.recordError({}, "Boss Loot FX is active - disabling activity name prefix");
+      console.warn("midiqol | Boss Loot FX is active - disabling activity name prefix");
+    }
+    configSettings.activityNamePrefix = false;
+  }
   if (targetConfirmation === undefined || typeof targetConfirmation === "string" || targetConfirmation instanceof String) targetConfirmation = {
     enabled: false,
     always: false,

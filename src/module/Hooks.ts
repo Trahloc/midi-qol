@@ -375,10 +375,6 @@ export function initHooks() {
         foundry.utils.setProperty(data, "flags.midi-qol.AoETargetType", "any");
         foundry.utils.setProperty(item, "flags.midi-qol.AoETargetType", "any");
       }
-      if (foundry.utils.getProperty(item, "flags.midi-qol.AoETargetTypeIncludeSelf") === undefined) {
-        foundry.utils.setProperty(data, "flags.midi-qol.AoETargetTypeIncludeSelf", true);
-        foundry.utils.setProperty(item, "flags.midi-qol.AoETargetTypeIncludeSelf", true);
-      }
     }
     foundry.utils.setProperty(data, "flags.midiProperties", item.flags?.midiProperties ?? {});
     if (["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(item?.type)) {
@@ -396,14 +392,6 @@ export function initHooks() {
         }
       }
       if (!foundry.utils.getProperty(data, "flags.midi-qol.rollAttackPerTarget")) foundry.utils.setProperty(data, "flags.midi-qol.rollAttackPerTarget", "default");
-      /*
-            if (data.flags.midiProperties["confirmTargets"] === true)
-              data.flags.midiProperties["confirmTargets"] = "always";
-            else if (data.flags.midiProperties["confirmTargets"] === false)
-              data.flags.midiProperties["confirmTargets"] = "never";
-            else if (data.flags.midiProperties["confirmTargets"] === undefined)
-              data.flags.midiProperties["confirmTargets"] = "default";
-      */
       delete data.flags.midiProperties.rollOther;
       delete data.flags.midiProperties.fulldam;
       delete data.flags.midiProperties.halfdam
@@ -416,6 +404,7 @@ export function initHooks() {
       delete data.flags.midiProperties.offHandWeapon;
       delete data.flags.midiProperties.otherSaveDamage;
       delete data.flags.midiProperties.confirmTargets;
+      delete data.flags.AoETargetTypeIncludeSelf;
     }
     return data;
   }
@@ -836,16 +825,16 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
         }
       }
       // For damage absorption ignore other immunity/resistance/vulnerability
-      if (actor.system.traits.da && false) { // not doing this makes absorbing tatoos much easier to implement
+      if (actor.system.traits?.da && false) { // not doing this makes absorbing tatoos much easier to implement
         for (let damage of damages) {
           if (ignore("absorption", damage.type, false)) continue;
-          if (actor.system.traits.da?.value?.has(damage.type) || actor.system.traits.da?.all) {
+          if (actor.system.traits?.da?.value?.has(damage.type) || actor.system.traits?.da?.all) {
             if (!options?.ignore?.immunity) foundry.utils.setProperty(options, "ignore.immunity", new Set())
             if (!options?.ignore?.resistance) foundry.utils.setProperty(options, "ignore.resistance", new Set())
             if (!options?.ignore?.vulnerability) foundry.utils.setProperty(options, "ignore.vulnerability", new Set())
-            if (actor.system.traits.di.value.has(damage.type)) options.ignore.immunity.add(damage.type);
-            if (actor.system.traits.dr.value.has(damage.type)) options.ignore.resistance.add(damage.type);
-            if (actor.system.traits.dv.value.has(damage.type)) options.ignore.vulnerability.add(damage.type);
+            if (actor.system.traits?.di.value.has(damage.type)) options.ignore.immunity.add(damage.type);
+            if (actor.system.traits?.dr.value.has(damage.type)) options.ignore.resistance.add(damage.type);
+            if (actor.system.traits?.dv.value.has(damage.type)) options.ignore.vulnerability.add(damage.type);
           }
         }
       }
@@ -978,14 +967,14 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
     let dmAll;
     if (options.ignore !== true && !options.ignore?.DR?.has("none") && !options.ignore?.DR?.has("all")) {
       // think about how to do custom dm.const specials = [...(actor.system.traits.dm.custom ?? []).split(";"), ...Object.keys(actor.system.traits.dm?.midi ?? {})];
-      const specials = Object.keys(actor.system.traits.dm?.midi ?? {});
+      const specials = Object.keys(actor.system.traits?.dm?.midi ?? {});
       for (let special of specials) {
         let dm;
         let dmRoll;
         let selectedDamage;
         let oldDamage
         let dmActive;
-        dmRoll = new Roll(`${actor.system.traits.dm.midi[special]}`, actor.getRollData())
+        dmRoll = new Roll(`${actor.system.traits?.dm.midi[special]}`, actor.getRollData())
         dm = doSyncRoll(dmRoll, `traits.dm.midi.${special}`)?.total ?? 0;;
         switch (special) {
           case "all":

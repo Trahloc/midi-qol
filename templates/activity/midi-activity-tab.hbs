@@ -9,18 +9,17 @@
     {{ formField fields.identifier value=../source.midiProperties.identifier placeholder=../placeholderIdentifier }}
     {{ formField fields.forceDialog value=../source.midiProperties.forceDialog }}
     {{ formField fields.confirmTargets value=../source.midiProperties.confirmTargets options=../ConfirmTargetOptions}}
+    {{ formField fields.triggeredActivityId value=../source.midiProperties.triggeredActivityId options=../triggeredActivityOptions}}
+    {{#if (ne ../source.midiProperties.triggeredActivityId "none")}}
+    {{ formField fields.triggeredActivityConditionText value=../source.midiProperties.triggeredActivityConditionText }}
+    {{ formField fields.triggeredActivityTargets value=../source.midiProperties.triggeredActivityTargets options=../triggeredActivityTargetOptions}}
+    {{ formField fields.triggeredActivityRollAs  value=../source.midiProperties.triggeredActivityRollAs  options=../triggeredActivityRollAsOptions}}
+    {{/if}}
     {{ formField fields.automationOnly value=../source.midiProperties.automationOnly }}
+    {{ formField fields.ignoreTraits value=../source.midiProperties.ignoreTraits options=../ignoreTraitsOptions label="midi-qol.SHARED.ignore.header" localize=true classes="multi-select"}}
     {{/with}}
   </fieldset>
-  <fieldset>
-    <legend> {{ localize "midi-qol.SHARED.ignore.header" }}</legend>
-    {{#with fields.ignoreTraits.fields as |fields|}}
-    {{ formField fields.idi value=../source.ignoreTraits.idi }}
-    {{ formField fields.idr value=../source.ignoreTraits.idr }}
-    {{ formField fields.idv value=../source.ignoreTraits.idv }}
-    {{ formField fields.ida value=../source.ignoreTraits.ida }}
-    {{/with}}
-  </fieldset>
+
   <fieldset>
     <label> {{ localize 'midi-qol.SHARED.FIELDS.ActivityMacro.label' }}
       <button type="button" class="unbutton control-button" data-action="addMacro"

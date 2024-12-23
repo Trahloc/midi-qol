@@ -35,7 +35,17 @@ export function defineChatMessageMidiClass(baseClass: any) {
       return super.isRoll && this.flags?.["midi-qol"].damageDetail?.length > 0 && this.isContentVisible && !!canvas?.tokens?.controlled.length;
     }
 
-    /**
+    // Patch for getAssociatedItem not peparing data on items recovered from item.data
+    getAssociatedItem() {
+      const item = super.getAssociatedItem();
+      if (this.flags.dnd5e?.item?.data) {
+        item.prepareData();
+        item.prepareFinalAttributes();
+      }
+      return item;
+    }
+
+      /**
    * Select the hit or missed targets.
    * @param {HTMLElement} li    The chat entry which contains the roll data.
    * @param {string} type       The type of selection ('hit' or 'miss').

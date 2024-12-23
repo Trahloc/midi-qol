@@ -211,8 +211,13 @@ async function cancelWorkflow(data: { workflowId: string, itemCardUuid: string }
 
 async function confirmDamageRollComplete(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
   //@ts-expect-error
-  const activity = fromUuidSync(data.activityUuid);
-  const workflow = activity.workflow
+  const itemCard = fromUuidSync(data.itemCardUuid);
+  //@ts-expect-error
+  let activity = fromUuidSync(data.activityUuid);
+  let workflow = Workflow.getWorkflow(data.activityUuid);
+  if (!activity && itemCard) // no activity means it was a synthetic item's activity
+    activity = itemCard.getAssociatedActivity(); // recover the activity from the chat message item data
+  if (!workflow) workflow = activity.workflow;
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     */
@@ -235,8 +240,13 @@ async function confirmDamageRollComplete(data: { activityUuid: string, itemCardI
 
 async function confirmDamageRollCompleteHit(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
   //@ts-expect-error
-  const activity = fromUuidSync(data.activityUuid);
-  const workflow = activity.workflow;
+  const itemCard = fromUuidSync(data.itemCardUuid);
+  //@ts-expect-error
+  let activity = fromUuidSync(data.activityUuid);
+  let workflow = Workflow.getWorkflow(data.activityUuid);
+  if (!activity && itemCard) // no activity means it was a synthetic item's activity
+    activity = itemCard.getAssociatedActivity(); // recover the activity from the chat message item data
+  if (!workflow) workflow = activity.workflow;
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
@@ -274,9 +284,16 @@ async function confirmDamageRollCompleteHit(data: { activityUuid: string, itemCa
 
 async function confirmDamageRollCompleteMiss(data: { activityUuid: string, itemCardId: string, itemCardUuid: string }) {
   //@ts-expect-error
-  const activity = fromUuidSync(data.activityUuid);
-  const workflow = activity.workflow
+  const itemCard = fromUuidSync(data.itemCardUuid);
+  //@ts-expect-error
+  let activity = fromUuidSync(data.activityUuid);
+  let workflow = Workflow.getWorkflow(data.activityUuid);
+  if (!activity && itemCard) // no activity means it was a synthetic item's activity
+    activity = itemCard.getAssociatedActivity(); // recover the activity from the chat message item data
+  if (!workflow) workflow = activity.workflow;
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
+    /* Confirm this needs to be awaited
+    */
     Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
@@ -294,7 +311,7 @@ async function confirmDamageRollCompleteMiss(data: { activityUuid: string, itemC
     await workflow.displayHits(workflow.whisperAttackCard, true);
   }
   // Make sure this needs to be awaited
-  return workflow.performState(workflow.WorkflowState_RollConfirmed).then(() => Workflow.removeWorkflow(workflow.id));
+  return workflow.performState(workflow.WorkflowState_RollConfirmed).then(() => Workflow.removeWorkflow(workflow?.id));
 }
 
 function paranoidCheck(action: string, actor: any, data: any): boolean {
@@ -493,12 +510,12 @@ async function _completeItemUseV2(data: {
   if (actor.actor) actor = actor.actor;
   //@ts-ignore v10
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor, keepId: true });
-    // prepare item data for socketed events
-    ownedItem.prepareData();
-    //@ts-expect-error
-    ownedItem.prepareFinalAttributes();
-    //@ts-expect-error
-    ownedItem.applyActiveEffects();
+  // prepare item data for socketed events
+  ownedItem.prepareData();
+  //@ts-expect-error
+  ownedItem.prepareFinalAttributes();
+  //@ts-expect-error
+  ownedItem.applyActiveEffects();
   const workflow = await completeItemUseV2(ownedItem, config, dialog, message);
   if (data.config?.midiOptions?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
   else return true;
@@ -513,12 +530,12 @@ async function _completeItemUse(data: {
   if (actor.actor) actor = actor.actor;
   //@ts-ignore v10
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor, keepId: true });
-    // prepare item data for socketed events
-    ownedItem.prepareData();
-    //@ts-expect-error
-    ownedItem.prepareFinalAttributes();
-    //@ts-expect-error
-    ownedItem.applyActiveEffects();
+  // prepare item data for socketed events
+  ownedItem.prepareData();
+  //@ts-expect-error
+  ownedItem.prepareFinalAttributes();
+  //@ts-expect-error
+  ownedItem.applyActiveEffects();
   const workflow = await completeItemUse(ownedItem, config, options);
   if (data.options?.workflowData) return workflow.getMacroData({ noWorkflowReference: true }); // can't return the workflow
   else return true;
@@ -720,10 +737,10 @@ export async function rollConcentration(data: { actorUuid, target, whisper, crea
     error(`GMAction.rollConcentration | no actor for ${data.actorUuid}`)
     return {};
   }
-  return actor.rollConcentration({target: data.target, legacy: false}, {}, {create: data.create, whisper: data.whisper, rollMode: data.rollMode});
+  return actor.rollConcentration({ target: data.target, legacy: false }, {}, { create: data.create, whisper: data.whisper, rollMode: data.rollMode });
 }
 
- async function rollAbilityV2(data: any) {
+async function rollAbilityV2(data: any) {
   if (data.request === "abil") data.request = "check";
   if (data.request === "test") data.request = "check";
   const actor = fromActorUuid(data.targetUuid);
@@ -731,35 +748,35 @@ export async function rollConcentration(data: { actorUuid, target, whisper, crea
     error(`GMAction.rollAbility | no actor for ${data.targetUuid}`)
     return {};
   }
-    /*
-  advantage: boolean | undefined,
-  disadvantage: boolean | undefined,
-  isFriendly: boolean | undefined,
-  isMagicSave: boolean | undefined,
-  isConcentrationCheck: boolean | undefined,
-  rollDC: number,
-  saveItemUuid: string,
-  workflowOptions: object
+  /*
+advantage: boolean | undefined,
+disadvantage: boolean | undefined,
+isFriendly: boolean | undefined,
+isMagicSave: boolean | undefined,
+isConcentrationCheck: boolean | undefined,
+rollDC: number,
+saveItemUuid: string,
+workflowOptions: object
 } = {
-  advantage: undefined,
-  disadvantage: undefined,
-  isMagicSave: isMagicSave,
-  isFriendly: undefined,
-  isConcentrationCheck: undefined,
-  rollDC: rollDC,
-  saveItemUuid: "",
-  workflowOptions: this.workflowOptions
+advantage: undefined,
+disadvantage: undefined,
+isMagicSave: isMagicSave,
+isFriendly: undefined,
+isConcentrationCheck: undefined,
+rollDC: rollDC,
+saveItemUuid: "",
+workflowOptions: this.workflowOptions
 };
 */
-  let config: any = {midiOptions: data.options};
-  switch(data.request) {
+  let config: any = { midiOptions: data.options };
+  switch (data.request) {
     case "save": config.ability = data.ability; break;
     case "check": config.ability = data.ability; break;
     case "skill": config.skill = data.ability; break;
     case "tool": config.tool = data.ability; break;
   };
-  let dialog: any = {configure: !data.options.fastForward};
-  let message: any = {create: data.options.chatMessage};
+  let dialog: any = { configure: !data.options.fastForward };
+  let message: any = { create: data.options.chatMessage };
   if (data.request === "tool") {
     const requestedTool = data.ability;
     const tool = actor.items.find(i => i.type === "tool" && i.system.type.baseItem === requestedTool);
@@ -936,7 +953,7 @@ async function prepareDamageListItems(data: {
         //recover the options used when calculating the damage
         if (Hooks.call("dnd5e.preApplyDamage", actor, amount, updates, damageItem.calcDamageOptions ?? {}) !== false) {
           // The actopr update - when no changes are made will update the passed options with a target
-          await actor.update(updates, foundry.utils.mergeObject(damageItem.calcDamageOptions, data.updateOptions ?? {}, {inplace: false}));
+          await actor.update(updates, foundry.utils.mergeObject(damageItem.calcDamageOptions, data.updateOptions ?? {}, { inplace: false }));
           Hooks.call("dnd5e.applyDamage", actor, amount, damageItem.calcDamageOptions ?? {});
         }
       }
@@ -989,7 +1006,7 @@ async function prepareDamageListItems(data: {
       buttonId: tokenUuid,
       iconPrefix: (data.autoApplyDamage === "yesCardNPC" && actor.type === "character") ? "*" : "",
     };
-    
+
     const tooltipList = damageItem.damageDetail?.map(di => {
       let allMods: string[] = Object.keys(di.active ?? {}).reduce((acc: string[], k) => {
         if (["semiSuperSaver", "superSaver"].includes(k)) return acc;
@@ -1266,7 +1283,7 @@ async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: n
 
   if (data.checkCollision) {
     //@ts-expect-error
-    const testCollision = CONFIG.Canvas.polygonBackends.move.testCollision(targetToken.center, newCenter, {source: targetToken.document, type: "move", any: "closest"});
+    const testCollision = CONFIG.Canvas.polygonBackends.move.testCollision(targetToken.center, newCenter, { source: targetToken.document, type: "move", any: "closest" });
     if (testCollision.length) {
       const collisionPoint = { x: testCollision[0].x, y: testCollision[0].y };
       //@ts-expect-error

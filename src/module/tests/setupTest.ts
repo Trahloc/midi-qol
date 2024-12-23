@@ -125,7 +125,7 @@ async function registerTests() {
                 // foundry.utils.setProperty(spell, "system.preparation", { mode: 'innate', prepared: 'true' });
                 //@ ts-expect-error
                 const trapItem: any = new CONFIG.Item.documentClass(spell.toObject(), { parent: targetActor });
-                trapItem.setFlag = async (scope: string, key: string, value: any) => { return trapItem };
+                // trapItem.setFlag = async (scope: string, key: string, value: any) => { return trapItem };
                 trapItem.prepareData();
                 trapItem.prepareFinalAttributes();
                 const templateLocation = targetToken.center;

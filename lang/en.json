@@ -938,15 +938,33 @@
   "midi-qol.AutoMergeActivityOther.Name": "Auto merge other activity for Midi Attack Activities (Requires Reload)",
   "midi-qol.AutoMergeActivityOther.Hint": "If an item only has an attack activity and single Damage, Save, Check or Utility it will be merged with the Attack activity",
   "midi-qol.ConfirmAmmunition.Name": "Confirm Ammunition choice when rolling attack - shows attack roll configuration",
+  "midi-qol.ActivityNamePrefix.Name": "Activity Prefix",
+  "midi-qol.ActivityNamePrefix.Hint": "Prefix midi-qol activities name with Midi. Change requires reload",
+  "midi-qol.TriggeredActivityTargetOptions": {
+    "self": "Target item owner",
+    "targets": "Same targets",
+    "hitTargets": "Hit targets",
+    "missedTargets": "Missed targets",
+    "failedSaves": "Target failed saves",
+    "saveTargets": "Target successful saves",
+    "retarget": "Generate new targets"
+  },
+  "midi-qol.TriggeredActivityRollAsOptions" : {
+    "self": "Item Owner",
+    "firstTarget": "First target",
+    "firstHitTarget": "First hit target",
+    "firstMissedTarget": "First missed target",
+    "firstSaveTarget": "First saved target",
+    "firstFailedSaveTarget": "First failed save target"
+  },
   "midi-qol.SHARED": {
     "use-condition": {
       "header": "Midi Conditions"
     },
     "ignore": {
-      "header": "Ignore Traits"
+      "header": "Ignore Damage Traits"
     },
     "FIELDS": {
-
       "useConditionText": {
         "label": "Use Condition",
         "hint": "Condition to allow use"
@@ -955,7 +973,6 @@
         "label": "Active Effect Condition",
         "hint": "Condition to apply active effects"
       },
-
       "midiProperties": {
         "forceDialog": {
           "label": "Force Configuration Dialog",
@@ -972,6 +989,44 @@
         "identifier": {
           "label": "Identifier",
           "hint": "An identifier for the activity"
+        },
+        "triggeredActivityId": {
+          "label": "Trigger Activity",
+          "hint": "Activity to execute"
+        },
+        "triggeredActivityConditionText": {
+          "label": "Trigger Condition",
+          "hint": "Condition to activate the trigger activity"
+        },
+        "triggeredActivityTargets": {
+          "label": "Trigger Targets",
+          "hint": "Which targets to select for the triggered activity"
+        },
+        "triggeredActivityRollAs": {
+          "label": "Roll as",
+          "hint": "Roll the activity as if owned by..."
+        },
+        "ignoreTraits": {
+          "idi": {
+            "label": "Immunity",
+            "hint": "Ignore damage immunity when applying damage"
+          },
+          "idr": {
+            "label": "Resistance",
+            "hint": "Ignore damage resistance when applying damage"
+          },
+          "idv": {
+            "label": "Vulnerability",
+            "hint": "Ignore damage vulnerability when applying damage"
+          },
+          "ida": {
+            "label": "Absorption",
+            "hint": "Ignore damage absorption when applying damage"
+          },
+          "idm": {
+            "label": "Modification",
+            "hint": "Ignore damage modification when applying damage"
+          }
         }
       },
       "ActivityMacro": {
@@ -1000,6 +1055,12 @@
           "hint": "Ignore damage absorption when applying damage"
         }
       }
+    }
+  },
+  "midi-qol.FORWARD": {
+    "Title": {
+      "one": "Midi Forward",
+      "other": "Midi Forwards"
     }
   },
   "midi-qol.ATTACK": {

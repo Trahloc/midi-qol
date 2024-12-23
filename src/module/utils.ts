@@ -10,6 +10,7 @@ import { OnUseMacros } from "./apps/Item.js";
 import { Options } from "./patching.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { busyWait } from "./tests/setupTest.js";
+import { MidiActivityChoiceDialog } from "./apps/MidiActivityChoiceDialog.js";
 
 const defaultTimeout = 30;
 export type ReactionItemReference = { itemName: string, itemId: string, actionName: string, img: string, id: string, uuid: string } | String;
@@ -163,6 +164,7 @@ export let getTraitMult = (actor, dmgTypeString, item, damageProperties: string[
     }
 
     for (let { type, mult } of traitList) {
+      if (!actor.system.traits) continue;
       let trait = foundry.utils.deepClone(actor.system.traits[type].value);
       // trait = trait.map(dt => dt.toLowerCase());
       let customs: string[] = [];
@@ -514,7 +516,7 @@ export async function processDamageRoll(workflow: Workflow, defaultDamageType: s
         }
         if (workflow.item) {
           for (let key of ["idi", "idr", "idv", "ida"]) {
-            const property = foundry.utils.getProperty(workflow.activity, `ignoreTraits.${key}`)
+            const property = workflow.activity.midiProperties?.ignoreTraits.has(key);
             if (property) {
               if (!calcDamageOptions.ignore?.[categories[key]]) foundry.utils.setProperty(calcDamageOptions, `ignore.${categories[key]}`, new Set())
               for (let dt of Object.keys(GameSystemConfig.damageTypes)) {
@@ -773,7 +775,7 @@ export function midiCustomEffect(...args) {
         }
       }
     }
-    if (args[0].startsWith("ActivityMacro") || args[0].startsWith(MQActivityMacroLabel)) {
+    else if (args[0].startsWith("ActivityMacro") || args[0].startsWith(MQActivityMacroLabel)) {
       const potentialUuid = args[0].split(".").slice(1).join(".");
       if (potentialUuid.includes("Activity.")) { // ActivityMacro.activityUuid
         // since it's already an activity uuid do nothing
@@ -799,7 +801,7 @@ export function midiCustomEffect(...args) {
         }
       }
     }
-    if (args[0] === "ItemMacro" || args[0] === MQItemMacroLabel) { // rewrite the ItemMacro if possible
+    else if (args[0] === "ItemMacro" || args[0] === MQItemMacroLabel) { // rewrite the ItemMacro if possible
       if (change.effect.transfer) args[0] = `ItemMacro.${change.effect.parent.uuid}`;
       // else if (sourceId) args[0] = `ItemMacro.${sourceId}`;
       else {
@@ -814,7 +816,6 @@ export function midiCustomEffect(...args) {
         }
       }
     }
-
     if (change.effect?.origin?.includes("Item.")) {
       args[0] = `${args[0]}|${change.effect.origin}`;
     }
@@ -1048,7 +1049,7 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       if (saveResult?.class) saveResult = JSON.parse(JSON.stringify(saveResult));
       const success = saveResult?.options?.success || saveResult?.total >= saveDC;
       if (saveResult?.options) saveResultDisplayed = true;
-      setProperty(effect, `flags.${MODULE_ID}.actionSaveSuccess`, success === true);
+      foundry.utils.setProperty(effect, `flags.${MODULE_ID}.actionSaveSuccess`, success === true);
     } else if (actionSave && actionSave === "roll" && options.isActionSave && options.saveToUse) {
       // player has made a save record the save/flags on the effect
       // if a match and saved then record the save success
@@ -1276,9 +1277,9 @@ export async function gmOverTimeEffect(actor, effect, startTurn: boolean = true,
       itemData.system.activities = { "overtime": activityData };
       let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: ((origin instanceof Actor) ? origin : actor) });
       // TODO: Horrible kludge to allow temporary items to be rolled since dnd5e insists on setting flags on temp items if there is damage/attacks
-      ownedItem.setFlag = async (scope: string, key: string, value: any) => { return ownedItem };
+      // ownedItem.setFlag = async (scope: string, key: string, value: any) => { return ownedItem };
       ownedItem.prepareData();
-      //@ts-expect-error
+      //@ts-expect-error 
       ownedItem.prepareFinalAttributes();
       //@ts-expect-error
       ownedItem.prepareEmbeddedDocuments();
@@ -1390,12 +1391,11 @@ export async function _processOverTime(combat, data, options, userId) {
 }
 export async function completeActivityUse(activity, config: any = {}, dialog: any = {}, message: any = {}) {
   let theItem: any;
-  let targetsToUse = new Set();
-
+  config.midiOptions ??= {};
+  let targetsToUse = config.midiOptions?.targetsToUse ?? new Set();
   if (typeof activity === "string") {
     activity = MQfromUuidSync(activity);
   }
-  config.midiOptions ??= {};
   foundry.utils.setProperty(config, "midiOptions.workflowOptions.forceCompletion", true);
   // delete any existing workflow - complete item use always is fresh.
   if (Workflow.getWorkflow(activity.uuid)) await Workflow.removeWorkflow(activity.uuid);
@@ -1487,21 +1487,34 @@ export async function completeItemUse(item, config: any = {}, options: any = { c
 
 export async function completeItemUseV2(item, config: any = {}, dialog: any = {}, message: any = {}) {
   if (typeof item === "string") {
-    //@ts-expect-error
-    item = fromUuidSync(item);
+    item = await fromUuid(item);
   }
+  config.midiOptions ??= {};
   if (!(item instanceof CONFIG.Item.documentClass)) {
     error("completeItemUseV2 only works for items", item);
     return undefined;
   }
+  if (config.midiOptions.activityId || config.midiOptions.activityIdentifier) {
+    //@ts-expect-error
+    const selected = item.system.activities.find(a => a.id === config.midiOptions.activityId || a.identifiere === config.midiOptions.activityIdentifier)
+    if (selected) return completeActivityUse(selected, config, dialog, message);
+  }
   //@ts-expect-error
-  const activity = item.system.activities.contents[0];
-  if (!activity) {
-    error(`completeItemUseV2 | item ${item.name} ${item.uuid} does not have an activity`);
+  const activities = item.system.activities?.filter(a => !item.getFlag("dnd5e", "riders.activity")?.includes(a.id) && !a.midiProperties?.automationOnly);
+  if (activities.length === 0) {
+    error(`completeItemUseV2 | item ${item.name} ${item.uuid} does not have a suitable activity`);
     return undefined;
   }
-  // TODO check that this makes sense now
-  return await completeActivityUse(activity, config, dialog, message);
+  if (activities.length === 1) { // if there is a single non-automation activity use it
+    return completeActivityUse(activities[0], config, dialog, message);
+  }
+
+  const { legacy, chooseActivity, ...activityConfig } = config;
+  if (  activities?.length > 1 || chooseActivity) {
+    const activity = await MidiActivityChoiceDialog.create(item);
+    if (activity) return completeActivityUse(activity, config, dialog, message);
+  }
+  return undefined;
 }
 
 export function untargetAllTokens(...args) {
@@ -2764,6 +2777,8 @@ export async function removeTokenConditionEffect(token: Token, condition: string
 
 export async function expireMyEffects(effectsToExpire: string[]) {
   const expireHit = effectsToExpire.includes("1Hit") && !this.effectsAlreadyExpired.includes("1Hit");
+  const expireCritical = effectsToExpire.includes("1Critical") && !this.effectsAlreadyExpired.includes("1Critical");
+  const expireFumble = effectsToExpire.includes("1Fumble") && !this.effectsAlreadyExpired.includes("1Fumble");
   let expireAnyAction = effectsToExpire.includes("1Action") && !this.effectsAlreadyExpired.includes("1Action");
   const expireBonusAction = (effectsToExpire.includes("1Action") || effectsToExpire.includes("Bonus Action")) && !this.effectsAlreadyExpired.includes("Bonus Action");
   const expireReaction = (effectsToExpire.includes("1Action") || effectsToExpire.includes("Reaction")) && !this.effectsAlreadyExpired.includes("Reaction");
@@ -2799,6 +2814,8 @@ export async function expireMyEffects(effectsToExpire: string[]) {
       (expireAttack && this.activity?.hasAttack && specialDuration.includes(`1Attack:${this.activity?.actionType}`)) ||
       (expireHit && this.activity?.hasAttack && specialDuration.includes("1Hit") && this.hitTargets.size > 0) ||
       (expireHit && this.activity?.hasAttack && specialDuration.includes(`1Hit:${this.activity?.actionType}`) && this.hitTargets.size > 0) ||
+      (expireCritical && this.activity?.hasAttack && specialDuration.includes("1Critical") && this.isCritical) ||
+      (expireFumble && this.activity?.hasAttack && specialDuration.includes("1Fumble") && this.isFumble) ||
       (expireDamage && this.activity?.hasDamage && specialDuration.includes("DamageDealt")) ||
       (expireInitiative && specialDuration.includes("Initiative"))
   });
@@ -3332,13 +3349,13 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         newRoll.terms[0].results.forEach(res => res.result = 99);
         //@ts-expect-error
         newRoll._total = 99;
-        setProperty(newRoll, "options", duplicate(roll.options))
-        setProperty(newRoll, "options.success", true);
+        foundry.utils.setProperty(newRoll, "options", duplicate(roll.options))
+        foundry.utils.setProperty(newRoll, "options.success", true);
         break;
       case "fail":
         newRoll = newRoll = await roll.clone().evaluate();
-        setProperty(newRoll, "options", duplicate(roll.options))
-        setProperty(newRoll, "options.success", false);
+        foundry.utils.setProperty(newRoll, "options", duplicate(roll.options))
+        foundry.utils.setProperty(newRoll, "options.success", false);
         //@ts-expect-error
         newRoll.terms[0].results.forEach(res => res.result = -1);
         //@ts-expect-error
@@ -4361,15 +4378,15 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
   return result;
 };
 
-export function evalReactionActivationCondition(workflow: Workflow, condition: string | undefined | boolean, target: Token | TokenDocument, options: any = {}): boolean {
+export function evalReactionActivationCondition(workflow: any, condition: string | undefined | boolean, target: Token | TokenDocument, options: any = {}): boolean {
   if (options.errorReturn === undefined) options.errorReturn = false
   // if (condition === undefined || condition === "" || condition === false) return false;
   return evalActivationCondition(workflow, condition, target, options);
 }
-export function evalActivationCondition(workflow: Workflow, condition: string | undefined | boolean, target: Token | TokenDocument, options: any = {}): boolean {
+export function evalActivationCondition(workflow: any , condition: string | undefined | boolean, target: Token | TokenDocument, options: any = {}): boolean {
   if (condition === undefined || condition === "" || condition === true) return true;
   if (condition === false) return false;
-  createConditionData({ workflow, target, actor: workflow.actor, extraData: options?.extraData, item: options.item });
+  createConditionData({ workflow, target, actor: workflow?.actor, extraData: options?.extraData, item: options.item });
   options.errorReturn ??= true;
   const returnValue = evalCondition(condition, workflow.conditionData, options);
   return returnValue;
@@ -4394,7 +4411,7 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
   return systemData.details.type?.value?.toLocaleLowerCase() ?? "";
 }
 
-export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | Actor | string | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any }) {
+export function createConditionData(data: { workflow?: any, target?: Token | TokenDocument | Actor | string | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any }) {
   const actor = data.workflow?.actor ?? data.actor;
   let item;
   if (data.item) {
@@ -5459,7 +5476,7 @@ async function _doConcentrationCheck(actor, itemData) {
   // actor took damage and is concentrating....
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor });
   // TODO: Horrible kludge to allow temporary items to be rolled since dnd5e insists on setting flags on temp items if there is damage/attacks
-  ownedItem.setFlag = async (scope: string, key: string, value: any) => { return ownedItem };
+  // ownedItem.setFlag = async (scope: string, key: string, value: any) => { return ownedItem };
   ownedItem.prepareData();
   //@ts-expect-error
   ownedItem.prepareFinalAttributes();
@@ -6063,10 +6080,10 @@ export function activityHasAutoPlaceTemplate(activity) {
 }
 
 export function activityHasEmanationNoTemplate(activity) {
-  return activity && activity.target.template.type === "emanationNoTemplate";
+  return activity && activity.target?.template.type === "emanationNoTemplate";
 }
 export function itemOtherFormula(item): string {
-  console.warn("midiqol | itemOtherFormula deprecated", item);
+  console.warn("midiqol | itemOtherFormula deprecated without replacement - use otherActivity instead", item);
   return "";
   const isVersatle = item?.isVersatile && item?.system.properties?.has("ver");
   if ((item?.system.formula ?? "") !== "") return item.system.formula;
@@ -6638,4 +6655,61 @@ export function areMidiKeysPressed(event, action) {
     if (b.modifiers.length) return false;
     return activeModifiers[b.key];
   });
+}
+export function setRangedTargets(tokenToUse, targetDetails) {
+  if (!canvas || !canvas.scene) return true;
+  if (!tokenToUse) {
+    ui.notifications?.warn(`${game.i18n.localize("midi-qol.noSelection")}`)
+    return true;
+  }
+  // We have placed an area effect template and we need to check if we over selected
+  let dispositions = targetDetails.affects.type === "creature" ? [-1, 0, 1] : targetDetails.affects.type === "ally" ? [tokenToUse.document.disposition] : [-tokenToUse.document.disposition];
+  // release current targets
+  game.user?.targets.forEach(t => {
+    t.setTarget(false, { releaseOthers: false });
+  });
+  game.user?.targets.clear();
+  // min dist is the number of grid squares away.
+  let minDist = targetDetails.template.size;
+  const targetIds: string[] = [];
+  const maxTargets = targetDetails.affects?.count;;
+  // ignoreToken set to null if special target include "self" - otherwise set to token
+  let ignoreToken = (targetDetails.affects.special ?? "").split(";").some(spec => spec === "self") ? null : tokenToUse;
+  if (canvas.tokens?.placeables && canvas.grid) {
+    for (let target of canvas.tokens.placeables) {
+      if (maxTargets !== "" && targetIds.length >= maxTargets) break;
+      if (!isTargetable(target)) continue;
+      const ray = new Ray(target.center, tokenToUse.center);
+      const wallsBlock = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(configSettings.rangeTarget)
+      let inRange = target.actor
+        //@ts-expect-error .disposition v10
+        && dispositions.includes(target.document.disposition);
+      if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIngoreIncapcitate"].includes(configSettings.rangeTarget))
+        inRange = inRange && !checkIncapacitated(target.actor, debugEnabled > 0);
+      if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.rangeTarget))
+        inRange = inRange && !checkDefeated(target);
+      inRange = inRange && (configSettings.rangeTarget === "none" || !hasWallBlockingCondition(target))
+      if (inRange) {
+        // if ignoreToken set don't target it.
+        if (ignoreToken === target) {
+          inRange = false;
+        }
+        const distance = computeDistance(target, tokenToUse, { wallsBlock });
+        inRange = inRange && distance >= 0 && distance <= minDist;
+        console.error((inRange ? "In Range" : "Out of Range"), target.name, distance, minDist);
+      }
+      if (inRange) {
+        target.setTarget(true, { user: game.user, releaseOthers: false });
+        if (target.document.id) targetIds.push(target.document.id);
+      }
+    }
+
+    // if (!this.ignoreUserTargets) this.targets = new Set(game.user?.targets ?? []);
+    // this.saves = new Set();
+    // this.failedSaves = new Set(this.targets)
+    // this.hitTargets = new Set(this.targets);
+    // this.hitTargetsEC = new Set();
+    game.user?.broadcastActivity({ targets: targetIds });
+  }
+  return true;
 }

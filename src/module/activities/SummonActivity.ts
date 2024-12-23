@@ -32,12 +32,13 @@ let defineMidiSummonActivityClass = (ActivityClass: any) => {
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
-        title: "midi-qol.SUMMON.Title.one",
+        title: configSettings.activityNamePrefix ? "midi-qol.SUMMON.Title.one" : ActivityClass.metadata.title,
+        dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiSummonSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
-      }, {});
+      }, {inplace: false});
     get isOtherActivityCompatible() {
       return false;
     }

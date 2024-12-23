@@ -1,5 +1,5 @@
 import { debugEnabled, i18n, warn } from "../../midi-qol.js";
-import { ReplaceDefaultActivities } from "../settings.js";
+import { ReplaceDefaultActivities, configSettings } from "../settings.js";
 import { asyncHooksCall } from "../utils.js";
 import { MidiActivityMixin, MidiActivityMixinSheet } from "./MidiActivityMixin.js";
 
@@ -22,12 +22,13 @@ export function setupUtilityActivity() {
   }
 }
 
-let defineMidiUtilityActivityClass = (ActvityClass: any) => {
-  return class MidiUtilityActivity extends MidiActivityMixin(ActvityClass) {
+let defineMidiUtilityActivityClass = (ActivityClass: any) => {
+  return class MidiUtilityActivity extends MidiActivityMixin(ActivityClass) {
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
-        title: "midi-qol.UTILITY.Title.one",
+        title: configSettings.activityNamePrefix ? "midi-qol.UTILITY.Title.one" : ActivityClass.metadata.title,
+        dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiUtilitySheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",

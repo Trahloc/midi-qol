@@ -26,7 +26,8 @@ let defineMidiHealActivityClass = (ActivityClass: any) => {
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
-        title: "midi-qol.HEAL.Title.one",
+        title: configSettings.activityNamePrefix ? "midi-qol.HEAL.Title.one" : ActivityClass.metadata.title,
+        dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiHealSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",

@@ -26,7 +26,8 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
     static metadata =
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
-        title: "midi-qol.SAVE.Title.one",
+        title: configSettings.activityNamePrefix ? "midi-qol.SAVE.Title.one" : ActivityClass.metadata.title,
+        dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiSaveSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",

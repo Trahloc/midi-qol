@@ -1,3 +1,25 @@
+### 12.4.16
+* Fix for errors being thrown for group actors and damage calculation.
+* Fixed a couple of bugs when rolling activities without any targets defined in the activity.
+* Add isHitCritical special duration for target effect expiry. (requires dae upate).
+* Added 1Critical and 1Fumble special duration for actor effect expiry. (requires dae update)
+* Fix so that the place template button is not displayed for emanation AoE activities.
+* Fix for critical damage (when handled by midi) with extra critical damage dice from the character traits setting and extra damage from the activity setting.
+  - Note that the extra damage from the activity setting is NOT subject to the critical damage rules, it is just rolled as is. This is consistent with how dnd5e handles it.
+* Fix for superSavers and semiSuperSavers not being recognised.
+* **Breaking** All AoE templates will, by default, target the caster. This includes emanation AoE activities. To avoid including the caster put "self" in the special field. The current item property AoETargetTypeIncludeSelf is deprecated without replacement.
+* Change to activity.identifier. If the activity name is not set the identifier will be the sluggified dnd5e activity name. This is done so that identifiers for activities will not change when the midi prefix setting is enabled/disabled.
+  - This has no effect when a name for the activity, or an identifier is set.
+* Midi will look at the choose targets field and if set will display the target confirmation app.
+* All midi activities have the ability to trigger another activity (which starts a new roll/workflow (with a new chatcard) of the triggered activity).
+  - There is also a trigger condition condition which must evaluate to true for the forward activity to be called.
+  - This allows for arbitrarily long sequences of activities to be created.
+  - You can choose which targets to use for the next activity. Template placement will override the target setting.
+  - There is a rollAs setting to have the triggered activity rolled as if by someone else. An example of this is ice knife, which can now be implemented without macros. A sample ice knife is included in the sample items.
+* Added config setting (misc tab activity name prefix - defaults to true) to put the Midi prefix in front of default activity name, if false activity names revert to the default dnd5e names. If boss loot FX is enabled this is force set to false so that default activity names are not modified by midi.
+* Added activity choice dialog logic to completeItemUseV2 (i.e. if there is more than one possible activity to be rolled the player is given a choice dialog).
+* Synthetic items being used (defined as no _id on the item) will have their item data added to chatMessages: (flags.dnd5e.item.data). To retrieve the item at a later time, use chatcard.getAssociatedItem() (which will work for any used item - not just synthetic ones and deals with deleted items due to consumption).
+
 ### 12.4.15
 * Midi Conditions and most other fields are now on a separate midi-qol tab on the activity sheet. More properties will be migrated to that tab over time.
 **Breaking** moved ignore damage resistance/immunity/vulnerability/absorption to the activity sheet midi tab. The existing fields on the item sheet will be supported for a short time.
@@ -11,7 +33,7 @@
 * Added activity.identifer (for midi activities only) which is settable on the midi-qol acitivty tab and defaults to the sluggified version of the activity name, e.g. Midi Attack -> midi-attack. 
 * If there is exactly one midi automation activity on an item the midi attack activity will preferentially chose that over other activities to use as the other item.
 * If Boss Loot Assets premium/free is active, the auto delete instantaneous templates settings is disabled.
-* Added a guard to hasCondition if system.traits.ci.value is not a set - which should not be the case.
+* Added a guard to hasCondition if system.traits.ci.value is not a set - which should not be the case. Turns out this is the case for group actors.
 * **Breaking** completeActivityUse now returns the workflow (or workflow data) that the activity caused to be created.
 * For overetime effects the actor with the effect is considered the target so all of the condition fields relating to the target are available, e.g. raceOrType. As currently none of the workflow fields are available.
 * First stage of supporting activity macros. Requires DAE v12.0.6.

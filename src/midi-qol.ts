@@ -68,10 +68,13 @@ export let i18nFormat = (key, data = {}) => {
   return game.i18n.format(key, data);
 }
 export function geti18nOptions(key) {
-  const translations = game.i18n.translations[MODULE_ID] ?? {};
+  let translation: any = game.i18n.translations[MODULE_ID] ?? {};
   //@ts-ignore _fallback not accessible
-  const fallback = game.i18n._fallback[MODULE_ID] ?? {};
-  let translation = foundry.utils.mergeObject(fallback[key] ?? {}, translations[key] ?? {}, { overwrite: true, inplace: false });
+  let fallback: any = game.i18n._fallback[MODULE_ID] ?? {};
+  fallback = (fallback instanceof String)  ? fallback : (foundry.utils.getProperty(fallback, key) ?? {});
+  translation = (translation instanceof String) ? translation : (foundry.utils.getProperty(translation, key) ?? {});
+  
+  translation = foundry.utils.mergeObject(fallback ?? {}, translation ?? {}, { overwrite: true, inplace: false });
   return translation;
 }
 export function geti18nTranslations() {
@@ -159,6 +162,8 @@ function setupActvities() {
   globalThis.MidiQOL.activityTypes["summon"] = { documentClass: MidiSummonActivity };
   setupUtilityActivity();
   globalThis.MidiQOL.activityTypes["utility"] = { documentClass: MidiUtilityActivity };
+  setupForwardActivity();
+  globalThis.MidiQOL.activityTypes["forward"] = { documentClass: MidiForwardActivity };
   globalThis.MidiQOL.activityTypes["MidiActivityMixin"] = MidiActivityMixin;
 }
 
@@ -588,6 +593,7 @@ import { MidiHealActivity, setupHealActivity } from './module/activities/HealAct
 import { resolveTargetConfirmation, showItemInfo, templateTokens } from './module/activities/activityHelpers.js';
 import { MidiActivityMixin, setupMidiActivityMixin } from './module/activities/MidiActivityMixin.js';
 import { field } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/fields.mjs.js';
+import { MidiForwardActivity, setupForwardActivity } from './module/activities/ForwardActivity.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });

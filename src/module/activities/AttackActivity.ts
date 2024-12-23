@@ -128,7 +128,8 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       foundry.utils.mergeObject(
         foundry.utils.mergeObject({}, super.metadata), {
         sheetClass: MidiAttackSheet,
-        title: "midi-qol.ATTACK.Title.one",
+        title: configSettings.activityNamePrefix ? "midi-qol.ATTACK.Title.one" : ActivityClass.metadata.title,
+        dnd5eTitle: ActivityClass.metadata.title,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
           actions: {
