@@ -3434,7 +3434,23 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
     if (chatMessage) untimedExecuteAsGM("updateUndoChatCardUuidsById", { id: undoId, chatCardUuids: [(await chatMessage).uuid] });
   }
 
-  const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), item: this.item, actor: this.actor, target: this.targets?.first() });
+  let parameters: { [key: string]: any } = {};
+  if (!(this instanceof Workflow) && this.optionalBonusEffectsAC) {
+    parameters = {
+      actor: MQfromUuidSync(this.options.triggerActorUuid),
+      tokenId: MQfromUuidSync(this.options.triggerTokenUuid)?.id,
+      tokenUuid: this.options.triggerTokenUuid,
+      item: MQfromUuidSync(this.options.triggerItemUuid),
+      target: MQfromUuidSync(this.tokenUuid),
+    }
+  } else {
+    parameters = {
+      item: this.item,
+      actor: this.actor,
+      target: this.targets.first(),
+    };
+  };
+  const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), ...parameters });
   let validFlags: string[] = [];
   let lastForceFlag = ""
   const oldRoll = foundry.utils.deepClone(roll);;
@@ -3993,6 +4009,8 @@ export async function promptReactions(tokenUuid: string, reactionActivityList: R
       let acRoll = await new Roll(`${actor.system.attributes.ac.value}`).roll();
       const data = {
         actor,
+        tokenUuid,
+        optionalBonusEffectsAC: true,
         roll: acRoll,
         rollHTML: reactionFlavor,
         rollTotal: acRoll.total,
@@ -4324,7 +4342,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
       AsyncFunction = (async function () { }).constructor;
     const evl = AsyncFunction("sandbox", src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, computeDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, computeDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat, raceOrType, typeOrRace });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4359,7 +4377,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     }
     const evl = new Function('sandbox', src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, computeDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, computeDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat, raceOrType, typeOrRace });
 
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
@@ -4433,6 +4451,8 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
         rollData.targetActorId = theTarget.actor?.id;
         rollData.raceOrType = theTarget.actor ? raceOrType(theTarget.actor) : "";
         rollData.typeOrRace = theTarget.actor ? typeOrRace(theTarget.actor) : "";
+        rollData.target.raceOrType = theTarget.actor ? raceOrType(theTarget.actor) : "";
+        rollData.target.typeOrRace = theTarget.actor ? typeOrRace(theTarget.actor) : "";
         rollData.target.saved = data.workflow?.saves.has(theTarget);
         rollData.target.failedSave = data.workflow?.failedSaves.has(theTarget);
         rollData.target.superSaver = data.workflow?.superSavers.has(theTarget);
@@ -4446,8 +4466,8 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
       }
     }
     rollData.humanoid = globalThis.MidiQOL.humanoid;
-    rollData.tokenUuid = data.workflow?.tokenUuid;
-    rollData.tokenId = data.workflow?.tokenId;
+    rollData.tokenUuid = data.workflow?.tokenUuid ?? data.tokenUuid;
+    rollData.tokenId = data.workflow?.tokenId ?? data.tokenId;
     rollData.effects = actor?.appliedEffects; // not needed since this is set in getRollData
     if (data.workflow) {
       rollData.w = data.workflow;

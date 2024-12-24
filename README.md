@@ -9,33 +9,23 @@
 
 <a href="https://discord.gg/Xd4NEvw5d7"><img src="https://img.shields.io/discord/915186263609454632?logo=discord" alt="chat on Discord"></a>
 
-
-- MidiQOL v11.4.42 is compatible with Foundry v12 (all the way to .329) and dnd5e v3.2.9.
-- MidiQOL v11.4.42 is compatible with dnd5e v3.3.x.
-
-## Future releases **tentative** timetable
-
-- **11.5.0** will be dnd5e v3.2+ only. Tentative date July 29.
-
-- **11.6.0** will drop support for midi damage application/calculation and only support dnd5e damage application/calculation. Tentative date August 5. You are actively encouraged to both try v3 damage calculation/application and report bugs. This version will remove concentration-data from midi-qol and all use will switch to dependents. Currently midi-only supports backwards compatible concentration-data.
-
-- **12.0.0** will be v12 only. Tentative date August 19 - assuming the most popular modules dependent on midi are v12 ready.
-The reason for planning this is that v12 has a whole new framework for dialogs/applications and I'm keen to redo the midi dialogs to look better.
-
-### Custom Sounds rewritten
-You will have to change your configuration
-
-Midi-qol is a module designed to help automate various parts of your game, specifically rolling attacks/casting spells and applying damage/effects.
+**Midi-qol** is a module designed to help automate various parts of your game, specifically rolling attacks/casting spells and applying damage/effects.
 
 It has LOTS of configuration options which can be daunting.
 
+## Available versions
+
+- MidiQOL **v11.4.48** is compatible with dnd5e up to **v3.2.x** and Foundry **v12** (as all the versions mentioned below).
+- MidiQOL **v11.6.x** is compatible with dnd5e **v3.3.x**.
+- MidiQOL **v12.x** is a beta build if someone wants to test for dnd5e **v4.x**. Non game ready and none of the premade modules are compatible at all (needs DAE v12.x too).
+
 # Bug reports
-**Important** When submitting a bug report ALWAYS include your exported (from the misc tab) midi-qol settings. I really can't work out what is going on without them.
+**Important** When submitting a bug report ALWAYS include either:
+* your exported Troubleshooter data file, from the relevant menu in MidiQOL settings,
+* or your exported (from the misc tab) midi-qol settings.
+I really can't work out what is going on without them.
 
-The export settings exports all of your midi-qol settings, plus a list of the active modules you have installed. No world information is exported. The list of active modules can be very useful to me in debugging.
-
-# midi-qol
-Midi-qol is a replacement for minor-qol and you should not have both modules active at the same time.  (Both can be INSTALLED at the same time, but only one should be ACTIVATED.)  Because there are some subtle differences in the way the midi-qol works compared to minor-qol you will need to experiment with the settings.
+No world information is exported. The list of active modules can be very useful to me in debugging.
 
 ## HELP! My midi-qol disappeared.
 If you've just updated midi-qol and it disappears from your in-game list of modules you probably need to update your dnd5e system to the latest one.
