@@ -206,7 +206,7 @@
             "contiguous": false,
             "units": "ft",
             "type": "radius",
-            "size": "10",
+            "size": "5",
             "count": ""
           },
           "affects": {
@@ -280,7 +280,9 @@
           "confirmTargets": "default",
           "automationOnly": true,
           "identifier": ""
-        }
+        },
+        "img": "",
+        "appliedEffects": []
       }
     },
     "identifier": "ice-knife",
@@ -351,7 +353,7 @@
     "systemId": "dnd5e",
     "systemVersion": "4.1.2",
     "createdTime": 1734955035837,
-    "modifiedTime": 1734955059185,
+    "modifiedTime": 1734957333568,
     "lastModifiedBy": "Zl1BOUaPLwDEujaL"
   },
   "_id": "qvSODqiXj1EkRqRn",

@@ -31,17 +31,17 @@ let defineMidiSummonActivityClass = (ActivityClass: any) => {
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.SUMMON"];
     static metadata =
       foundry.utils.mergeObject(
-        foundry.utils.mergeObject({}, super.metadata), {
+        super.metadata, {
         title: configSettings.activityNamePrefix ? "midi-qol.SUMMON.Title.one" : ActivityClass.metadata.title,
         dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiSummonSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
+          dialog: ActivityClass.metadata.usage.dialog,
         },
-      }, {inplace: false});
+      }, { inplace: false, insertKeys: true, insertValues: true });
     get isOtherActivityCompatible() {
       return false;
     }
   }
-
 }

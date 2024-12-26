@@ -57,7 +57,7 @@ let defineMidiAttackSheetClass = (baseClass: any) => {
       }
       context.otherActivityOptions = this.item.system.activities
         .filter(a => a.id !== this.activity.id && (a.damage || a.roll?.formula || a.save || a.check))
-        .reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.id }); return ret }, [{ label: "", value: "Auto" }, { label: "None", value: "none" }]);
+        .reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.id }); return ret }, [{ label: "Auto", value: "" }, { label: "None", value: "none" }]);
       context.otherActivityOptions?.forEach(option => { option.selected = option.value === context.currentOtherActivityId });
       let indexOffset = 0;
       if (activity.damage?.parts) {
@@ -126,7 +126,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
     }
     static metadata =
       foundry.utils.mergeObject(
-        foundry.utils.mergeObject({}, super.metadata), {
+        super.metadata, {
         sheetClass: MidiAttackSheet,
         title: configSettings.activityNamePrefix ? "midi-qol.ATTACK.Title.one" : ActivityClass.metadata.title,
         dnd5eTitle: ActivityClass.metadata.title,
@@ -138,7 +138,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
             rollAttackDisadvantage: MidiAttackActivity.#rollAttackDisadvantage
           }
         },
-      }, { insertKeys: true, insertValues: true })
+      }, { inplace: false, insertKeys: true, insertValues: true })
 
     static #rollAttack(event, target, message) {
       //@ts-expect-error

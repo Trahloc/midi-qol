@@ -2442,8 +2442,8 @@ export function isAutoFastDamage(workflow: Workflow | undefined = undefined): bo
   return game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward)
 }
 
-export function isAutoConsumeResource(workflowOptions: any | undefined = undefined): string {
-  if (workflowOptions.autoConsumeResource !== undefined) return workflowOptions.autoConsumeResource;
+export function isAutoConsumeResource(workflow: Workflow | undefined = undefined): string {
+  if (workflow?.workflowOptions?.autoConsumeResource !== undefined) return workflow.workflowOptions.autoConsumeResource;
   return game.user?.isGM ? configSettings.gmConsumeResource : configSettings.consumeResource;
 }
 
@@ -2482,6 +2482,18 @@ export function itemHasDamage(item) {
 
 export function itemIsVersatile(item) {
   return item?.system.properties?.has("ver");
+}
+
+export function getRemoveAllButtons(item?: Item) : boolean {
+  if (item) {
+    const itemSetting = foundry.utils.getProperty(item, `flags.${MODULE_ID}.removeAttackDamageButtons`);
+    if (itemSetting && itemSetting !== "default") {
+      return itemSetting === "everything";
+    }
+  }
+  return game.user?.isGM ?
+    configSettings.gmRemoveButtons === "everything" :
+    configSettings.removeButtons === "everything";
 }
 
 export function getRemoveAttackButtons(item?: Item): boolean {
@@ -4342,7 +4354,7 @@ async function asyncMySafeEval(expression: string, sandbox: any, onErrorReturn: 
       AsyncFunction = (async function () { }).constructor;
     const evl = AsyncFunction("sandbox", src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, computeDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat, raceOrType, typeOrRace });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, computeDistance, checkRange, checkDistance, contestedRoll, fromUuidSync: MQfromUuidSync, confirm, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat, evalRaceOrType: raceOrType, evalTypeOrRace: typeOrRace });
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
       get: (t, k) => k === Symbol.unscopables ? undefined : (t[k] ?? Math[k]),
@@ -4377,7 +4389,7 @@ function mySafeEval(expression: string, sandbox: any, onErrorReturn: any | undef
     }
     const evl = new Function('sandbox', src);
     //@ts-expect-error
-    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, computeDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat, raceOrType, typeOrRace });
+    sandbox = foundry.utils.mergeObject(sandbox, { Roll, findNearby, findNearbyCount, checkNearby, hasCondition, checkDefeated, checkIncapacitated, canSee, canSense, computeDistance, checkRange, checkDistance, fromUuidSync: MQfromUuidSync, MQfromUuidSync, nonWorkflowTargetedToken: game.user?.targets.first()?.document.uuid, combat: game.combat, evalRaceOrType: raceOrType, evalTypeOrRaceEval: typeOrRace });
 
     const sandboxProxy = new Proxy(sandbox, {
       has: () => true, // Include everything
@@ -4429,7 +4441,7 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
   return systemData.details.type?.value?.toLocaleLowerCase() ?? "";
 }
 
-export function createConditionData(data: { workflow?: any, target?: Token | TokenDocument | Actor | string | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any }) {
+export function createConditionData(data: { workflow?: any, target?: Token | TokenDocument | Actor | string | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any, tokenUuid?: string | undefined, tokenId?: string | undefined}) {
   const actor = data.workflow?.actor ?? data.actor;
   let item;
   if (data.item) {
@@ -4443,6 +4455,9 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
   try {
     if (data.target) {
       const theTarget = getToken(data.target);
+      rollData.actor = {};
+      rollData.actor.raceOrType = actor ? raceOrType(actor) : "";
+      rollData.actor.typeOrRace = actor ? typeOrRace(actor) : "";
       if (theTarget) {
         rollData.target = theTarget.actor?.getRollData();
         rollData.targetUuid = theTarget.document.uuid

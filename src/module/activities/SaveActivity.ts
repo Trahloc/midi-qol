@@ -25,14 +25,14 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "DND5E.DAMAGE", "midi-qol.SAVE", "midi-qol.DAMAGE"];
     static metadata =
       foundry.utils.mergeObject(
-        foundry.utils.mergeObject({}, super.metadata), {
+        super.metadata, {
         title: configSettings.activityNamePrefix ? "midi-qol.SAVE.Title.one" : ActivityClass.metadata.title,
         dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiSaveSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
-      }, { overwrite: true })
+      }, { inplace: false, insertKeys: true, insertValues: true });
 
     static defineSchema() {
       //@ts-expect-error
@@ -56,53 +56,53 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
         })
       }
     }
-    
-    get isOtherActivityCompatible() { 
+
+    get isOtherActivityCompatible() {
       return true;
     }
-    getDamageConfig(config={}) {
+    getDamageConfig(config = {}) {
       const rollConfig = super.getDamageConfig(config);
-  
+
       rollConfig.critical ??= {};
       rollConfig.critical.allow = this.damage.critical.allow;
       rollConfig.critical.bonusDamage = this.damage.critical.bonus;
-  
+
       return rollConfig;
     }
     async rollDamage(config: any = {}, dialog = {}, message = {}) {
-          message = foundry.utils.mergeObject({
-            "data.flags.dnd5e.roll": {
-              damageOnSave: this.damage.onSave
-            }
-          }, message);
-          config.midiOptions ??= {};
-          config.midiOptions.fastForwardDamage ??= game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward);
-          return super.rollDamage(config, dialog, message);
+      message = foundry.utils.mergeObject({
+        "data.flags.dnd5e.roll": {
+          damageOnSave: this.damage.onSave
         }
-  }
+      }, message);
+      config.midiOptions ??= {};
+      config.midiOptions.fastForwardDamage ??= game.user?.isGM ? configSettings.gmAutoFastForwardDamage : ["all", "damage"].includes(configSettings.autoFastForward);
+      return super.rollDamage(config, dialog, message);
     }
+  }
+}
 
 let defineMidiSaveSheetClass = (baseClass: any) => {
   return class MidiSaveSheet extends MidiActivityMixinSheet(baseClass) {
-      static PARTS = {
-        ...super.PARTS,
-        effect: {
-          template: "modules/midi-qol/templates/activity/save-effect.hbs",
-          templates: [
-            ...super.PARTS.effect.templates,
-            "modules/midi-qol/templates/activity/parts/save-damage.hbs",
-          ]
-        }
-      };
+    static PARTS = {
+      ...super.PARTS,
+      effect: {
+        template: "modules/midi-qol/templates/activity/save-effect.hbs",
+        templates: [
+          ...super.PARTS.effect.templates,
+          "modules/midi-qol/templates/activity/parts/save-damage.hbs",
+        ]
+      }
+    };
 
-      static DEFAULT_OPTIONS = {
-        ...super.DEFAULT_OPTIONS,
-        classes: ["save-activity", "damage-activity"]
-      }
-      async _prepareContext(options) {
-        await this.activity.prepareData({});
-        const returnvalue = await super._prepareContext(options);
-        return returnvalue;
-      }
+    static DEFAULT_OPTIONS = {
+      ...super.DEFAULT_OPTIONS,
+      classes: ["save-activity", "damage-activity"]
+    }
+    async _prepareContext(options) {
+      await this.activity.prepareData({});
+      const returnvalue = await super._prepareContext(options);
+      return returnvalue;
     }
   }
+}

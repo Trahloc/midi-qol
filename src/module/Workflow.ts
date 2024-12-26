@@ -2,7 +2,7 @@ import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debug
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, applyTokenDamage, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, requestPCActiveDefence, evalActivationCondition, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, activityHasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasAreaTarget, getsaveMultiplierForActivity, checkActivityRange, computeDistance, getAoETargetType, getActivityAutoTarget, activityHasEmanationNoTemplate, isAutoFastDamage, completeItemUseV2, completeActivityUse, getActor } from "./utils.js"
+import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, applyTokenDamage, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, requestPCActiveDefence, evalActivationCondition, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, activityHasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasAreaTarget, getsaveMultiplierForActivity, checkActivityRange, computeDistance, getAoETargetType, getActivityAutoTarget, activityHasEmanationNoTemplate, isAutoFastDamage, completeItemUseV2, completeActivityUse, getActor, getRemoveAllButtons } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { saveTargetsUndoData, saveUndoData } from "./undo.js";
@@ -399,34 +399,49 @@ export class Workflow {
     return debouncedUpdate(chatMessage, { content });
   }
 
-  static async removeItemCardAttackDamageButtons(itemCardUuid: string, removeAttackButtons: boolean = true, removeDamageButtons: boolean = true) {
+  removeAllButtons(itemCardUuid: string) {
+    const chatMessage = getCachedDocument(itemCardUuid);
+    let content = chatMessage?.content && foundry.utils.duplicate(chatMessage.content);
+    if (!content) return;
+    const buttonRe = /<button\b[^>]*>(.*?)<\/button>/gi;
+    content = content.replace(buttonRe, "");
+    return debouncedUpdate(chatMessage, { content });
+  }
+
+  static async removeItemCardAttackDamageButtons(itemCardUuid: string, {removeAllButtons = false, removeAttackButtons = true, removeDamageButtons = true} = {}) {
     try {
       const chatMessage = getCachedDocument(itemCardUuid);
       let content = chatMessage?.content && foundry.utils.duplicate(chatMessage.content);
       if (!content) return;
-      // TODO work out what to do if we are a damage only workflow and betters rolls is active - display update wont work.
-      const attackRe = /<div class="midi-qol-attack-buttons[^"]*">[\s\S]*?<\/div>/
-      // const otherAttackRe = /<button data-action="attack">[^<]*<\/button>/;
-      const damageRe = /<div class="midi-qol-damage-buttons[^"]*">[\s\S]*?<\/div>/
-      const versatileRe = /<button class="midi-qol-versatile-damage-button" data-action="versatile">[^<]*<\/button>/
-      const otherDamageRe = /<button class="midi-qol-otherDamage-button" data-action="rollDamage">[^<]*<\/button>/
-      const formulaRe = /<button data-action="rollFormula">[^<]*<\/button>/
-      if (removeAttackButtons) {
-        content = content?.replace(attackRe, "")
-      }
-      if (removeDamageButtons) {
-        content = content?.replace(damageRe, "")
-        content = content?.replace(otherDamageRe, "")
-        content = content?.replace(formulaRe, "")
-        content = content?.replace(versatileRe, "<div></div>");
-      }
-      // Come back and make this cached.
-      await debouncedUpdate(chatMessage, { content });
-      if (removeDamageButtons) {
-        setTimeout(() => {
-          const chatmessageElt = document?.querySelector(`[data-message-id="${chatMessage.id ?? "XXX"}"]`);
-          // if (chatmessageElt) chatmessageElt?.querySelectorAll(".collapsible").forEach(ce => { if (!ce.classList.contains("collapsed")) ce.classList.add("collapsed") });
-        }, 1);
+      if (removeAllButtons) {
+        const buttonRe = /<button\b[^>][^>]*>([\s\S]*?)<\/button>/gi;
+        content = content.replace(buttonRe, "");
+        return debouncedUpdate(chatMessage, { content });
+      } else {
+        // TODO work out what to do if we are a damage only workflow and betters rolls is active - display update wont work.
+        const attackRe = /<div class="midi-qol-attack-buttons[^"]*">[\s\S]*?<\/div>/
+        // const otherAttackRe = /<button data-action="attack">[^<]*<\/button>/;
+        const damageRe = /<div class="midi-qol-damage-buttons[^"]*">[\s\S]*?<\/div>/
+        const versatileRe = /<button class="midi-qol-versatile-damage-button" data-action="versatile">[^<]*<\/button>/
+        const otherDamageRe = /<button class="midi-qol-otherDamage-button" data-action="rollDamage">[^<]*<\/button>/
+        const formulaRe = /<button data-action="rollFormula">[^<]*<\/button>/
+        if (removeAttackButtons) {
+          content = content?.replace(attackRe, "")
+        }
+        if (removeDamageButtons) {
+          content = content?.replace(damageRe, "")
+          content = content?.replace(otherDamageRe, "")
+          content = content?.replace(formulaRe, "")
+          content = content?.replace(versatileRe, "<div></div>");
+        }
+        // Come back and make this cached.
+        await debouncedUpdate(chatMessage, { content });
+        if (removeDamageButtons) {
+          setTimeout(() => {
+            const chatmessageElt = document?.querySelector(`[data-message-id="${chatMessage.id ?? "XXX"}"]`);
+            // if (chatmessageElt) chatmessageElt?.querySelectorAll(".collapsible").forEach(ce => { if (!ce.classList.contains("collapsed")) ce.classList.add("collapsed") });
+          }, 1);
+        }
       }
     } catch (err) {
       const message = `removeAttackDamageButtons`;
@@ -462,9 +477,9 @@ export class Workflow {
         if (itemCard) await itemCard.delete();
         clearUpdatesCache(workflow.itemCardUuid);
       } else {
-        await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid);
-        await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
-        await workflow.removeEffectsButton();
+        await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid, {removeAllButtons: true});
+        // await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
+        // await workflow.removeEffectsButton();
         setTimeout(() => {
           const chatmessageElt = document?.querySelector(`[data-message-id="${workflow.itemCardId ?? "XXX"}"]`);
           if (chatmessageElt) chatmessageElt?.querySelectorAll(".collapsible").forEach(ce => { if (!ce.classList.contains("collapsed")) ce.classList.add("collapsed") });
@@ -1058,7 +1073,7 @@ export class Workflow {
   }
   async WorkflowState_DamageRollStarted(context: any = {}): Promise<WorkflowState> {
     if (this.itemCardUuid) {
-      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, getRemoveAttackButtons(this.item), getRemoveDamageButtons(this.item));
+      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, { removeAllButtons: getRemoveAllButtons(this.item), removeAttackButtons: getRemoveAttackButtons(this.item), removeDamageButtons: getRemoveDamageButtons(this.item)});
       await Workflow.removeItemCardConfirmRollButton(this.itemCardUuid);
     }
     if (getActivityAutoTarget(this.activity) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
@@ -1604,7 +1619,7 @@ export class Workflow {
 
   async WorkflowState_Completed(context: any = {}): Promise<WorkflowState> {
     if (this.itemCardUuid && MQfromUuidSync(this.itemCardUuid)) {
-      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, getRemoveAttackButtons(this.item), getRemoveDamageButtons(this.item));
+      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, {removeAllButtons: getRemoveAllButtons(this.item), removeAttackButtons: getRemoveAttackButtons(this.item), removeDamageButtons: getRemoveDamageButtons(this.item)});
     }
     if (context.attackRoll) return this.WorkflowState_AttackRollComplete;
     if (context.damageRoll) return this.WorkflowState_ConfirmRoll;
@@ -1721,7 +1736,7 @@ export class Workflow {
     const chatMessage = this.chatCard;
     if (!this.targetsDisplayed && this.targets.size > 0 && chatMessage && (this.activity.damage || this.effectTargets.size > 0)) {
       this.hitDisplayData = {};
-      const theTargets = this.effectTargets.size > 0 ? this.effectTargets : this.targets;
+      const theTargets = this.effectTargets?.size > 0 ? this.effectTargets : this.targets;
       for (let targetToken of theTargets) {
         const targettokenUuid = targetToken.actor?.uuid;
         if (!targettokenUuid) continue;
@@ -3030,7 +3045,7 @@ export class Workflow {
           content = content.replace(searchRe, replaceString);
         } else {
           const otherSearchRe = /<div class="midi-qol-other-damage-roll">[\s\S]*?<div class="end-midi-qol-other-damage-roll">/;
-          const otherReplaceString = `<div class="midi-qol-other-damage-roll"><div style="text-align:center">${this.damageFlavor}</div>${this.damageRollHTML || ""}<div class="end-midi-qol-other-ddamage-roll">`
+          const otherReplaceString = `<div class="midi-qol-other-damage-roll"><div style="text-align:center">${this.damageFlavor}</div>${this.damageRollHTML || ""}<div class="end-midi-qol-other-damage-roll">`
           content = content.replace(otherSearchRe, otherReplaceString);
         }
         if (this.otherDamageRollHTML) {
@@ -3996,8 +4011,8 @@ export class Workflow {
     }
     if (data && this.currentAction === this.WorkflowState_Completed) {
       if (this.itemCardUuid) {
-        await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid);
-        await Workflow.removeItemCardConfirmRollButton(this.itemCardUuid);
+        await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, {removeAllButtons: true});
+        // await Workflow.removeItemCardConfirmRollButton(this.itemCardUuid);
       }
       delete data._id;
       const itemCard = await CONFIG.ChatMessage.documentClass.create(data);

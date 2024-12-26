@@ -31,14 +31,14 @@ let defineMidiForwardActivityClass = (ActivityClass: any) => {
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.FORWARD"];
     static metadata =
       foundry.utils.mergeObject(
-        foundry.utils.mergeObject({}, super.metadata), {
+        super.metadata, {
         title: configSettings.activityNamePrefix ? "midi-qol.FORWARD.Title.one": ActivityClass.metadata.title,
         dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiForwardSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
-      }, {});
+      }, {inplace: false, insertKeys: true, insertValues: true});
     get isOtherActivityCompatible() {
       return false;
     }

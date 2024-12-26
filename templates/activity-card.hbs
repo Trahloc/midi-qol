@@ -38,8 +38,9 @@
     {{#if hasAttack}}
     {{#if mergeCardMulti}}
     <div class="midi-qol-attack-buttons flexrow 5">
-      <button data-action="rollAttackDisadvantage" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Disadvantage'}}"><i
-          class="fas fa-caret-down"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
+      <button data-action="rollAttackDisadvantage" style="flex: 1 1 0"
+        data-tooltip="{{localize 'DND5E.Disadvantage'}}"><i class="fas fa-caret-down"></i><i
+          class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
       <button data-action="rollAttack" style="flex: 3 1 0">{{ localize "DND5E.Attack" }}</button>
       <button data-action="rollAttackAdvantage" style="flex: 1 1 0" data-tooltip="{{localize 'DND5E.Advantage'}}"><i
           class="fas fa-caret-up"></i><i class="fas fa-dice-d20"></i><i class="fas fa-dice-d20"></i></button>
@@ -68,68 +69,11 @@
     {{/if}}
     {{/if}}
 
-    {{!-- Versatile --}}
-    {{#if isVersatile}}
-    <button class="midi-qol-versatile-damage-button" data-action="versatile">{{ versaBtnText }}</button>
-    {{/if}}
-
-    {{!-- Roll Formula --}}
-    {{#if hasRollFormula}}
-    <button data-action="rollFormula">{{ RollFormula }}Roll Utiltiy Formula</button>
-    {{/if}}
-    {{!-- Saving Throw --}}
-
-    {{#if hasSave}}
-    {{#with activity.save}}
-    <button data-action="save" data-ability="{{ability}}" data-dc="{{dc}}">
-      {{#with (lookup (lookup @root.config.abilities ability) "label") as |abilityLabel|}}
-      <span class="visible-dc">{{ localize "DND5E.SavingThrowDC" dc=../dc ability=abilityLabel }}</span>
-      <span class="hidden-dc">{{ localize "DND5E.SavePromptTitle" ability=abilityLabel }}</span>
-      {{ SavingThrow }} {{labels.save}}
-      {{/with}}
-    </button>
-    {{/with}}
-    {{/if}}
-
     {{!-- Other Formula --}}
     {{#if activity.otherActivity?.damage}}
     <button class="midi-qol-otherDamage-button" data-action="rollDamage">{{ OtherFormula }}</button>
     {{/if}}
-    {{!-- Templates --}}
-    {{#if hasAreaTarget}}
-    <button data-action="placeTemplate">{{ PlaceTemplate }}</button>
-    {{/if}}
 
-    {{!-- Summons --}}
-    {{#if hasPlaceSummons}}
-    <button data-action="placeSummons">{{ PlaceSummons }}</button>
-    {{/if}}
-
-    {{!-- Tool Check --}}
-    {{#if isTool}}
-    <button data-action="toolCheck" data-ability="{{system.ability.value}}">{{ Use }} {{item.name}}</button>
-    {{/if}}
-    <!-- dnd5e>
-    {{#if isTool}}
-    <button type="button" data-action="toolCheck" data-ability="{{ item.system.ability }}">
-      <i class="fas fa-hammer"></i>
-      {{ localize "DND5E.UseItem" item=item.name }}
-    </button>
-    {{/if}}
-    <-->
-
-    {{!-- Ability Check --}}
-    {{#if hasAbilityCheck}}
-    <button data-action="rollCheck" data-ability="{{item.sytem.ability}}">{{labels.abilityCheck}}</button>
-    {{/if}}
-    <!-- dnd5e>
-    {{#if hasAbilityCheck}}
-    <button type="button" data-action="abilityCheck" data-ability="{{ item.system.ability }}">
-      <i class="dnd5e-icon" data-src="systems/dnd5e/icons/svg/ability-score-improvement.svg"></i>
-      {{ labels.abilityCheck }}
-    </button>
-    {{/if}}
-    <-->
     {{!-- Apply Effects --}}
     {{#if hasEffects}}
     <button data-action="midiApplyEffects">{{ localize "midi-qol.ApplyEffects" }}</button>
@@ -141,8 +85,8 @@
           data-action="confirmDamageRollCompleteMiss">{{localize "midi-qol.ConfirmMiss"}}</button>
         <button class="midi-qol-confirm-damage-roll-complete" data-action="confirmDamageRollComplete">{{localize
           "midi-qol.ConfirmRoll"}}</button>
-        <button class="midi-qol-confirm-damage-roll-complete-hit"
-          data-action="confirmDamageRollCompleteHit">{{localize "midi-qol.ConfirmHit"}}</button>
+        <button class="midi-qol-confirm-damage-roll-complete-hit" data-action="confirmDamageRollCompleteHit">{{localize
+          "midi-qol.ConfirmHit"}}</button>
       </div>
       {{#if canCancel}}
       <button class="midi-qol-confirm-damage-roll-cancel" data-action="confirmDamageRollCancel">{{localize
@@ -150,6 +94,15 @@
       {{/if}}
     </div>
     {{/if}}
+  </div>
+  {{/if}}
+  {{#if buttons}}
+  <div class="card-buttons">
+    {{#each buttons}}
+    <button type="button" {{ dnd5e-dataset dataset }}>
+      {{{ icon }}} <span>{{{ label }}}</span>
+    </button>
+    {{/each}}
   </div>
   {{/if}}
   {{!-- Midi results --}}
@@ -209,34 +162,5 @@
     </li>
     {{/each}}
   </ul>
-  {{/if}}
-
-  {{!-- Applicable Effects --}}
-  {{#if hasEffects}}
-  <div class="effects-tray collapsible collapsed">
-    <label class="roboto-upper">
-      <i class="fas fa-bolt"></i>
-      <span>{{ localize "DND5E.Effects" }}</span>
-      <i class="fas fa-caret-down"></i>
-    </label>
-    <div class="collapsible-content">
-      <ul class="effects unlist wrapper">
-        {{~#each effects~}}
-        <li class="effect" data-uuid="{{ uuid }}" data-transferred="{{ transfer }}">
-          <!-- TODO V12 change to icon -->
-          <img class="gold-icon" alt="{{ name }}" src="{{ img }}">
-          <div class="name-stacked">
-            <span class="title">{{ name }}</span>
-            <span class="subtitle">{{ duration.label }}</span>
-          </div>
-          <button type="button" class="apply-effect" data-action="applyEffect" data-tooltip="DND5E.EffectsApplyTokens"
-            aria-label="{{ localize " DND5E.EffectsApplyTokens" }}">
-            <i class="fas fa-reply-all fa-flip-horizontal"></i>
-          </button>
-        </li>
-        {{~/each~}}
-      </ul>
-    </div>
-  </div>
   {{/if}}
 </div>

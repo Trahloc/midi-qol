@@ -1,3 +1,13 @@
+### 12.4.17
+* Midi has changed how buttons are shown of the activity chart card for all buttons except attack and damage and now supports all dnd5e buttons being displayed on the activity card. As far as I can tell they work, but probably have not checked everything.
+* Added new option in remove buttons to remove all.
+* Attack activity "Other activity" default relabeled as "Auto" (which it was supposed to be).  
+  - Midi will look for a suitable other activity when doing the attack and use it if present.
+* Fix for summoning activity not displaying the right configuration dialog.
+* Fix for utility activities (when used as attack activities other activity) displaying the utility roll twice.
+* **Breaking** The signature for the hooks midi-qol.preItemRoll and midi-qol.preTargeting have changed. The arguments are now {activity, token, config, dialog, message}. You can fetch the item via activity.item and the actor via activity.actor. 
+  - For a short period you will be able to recover the workflow via activity.workflow, but in a subsequent release the calls will be made before the workflow has been initialised.
+
 ### 12.4.16
 * Fix for errors being thrown for group actors and damage calculation.
 * Fixed a couple of bugs when rolling activities without any targets defined in the activity.
@@ -12,7 +22,7 @@
   - This has no effect when a name for the activity, or an identifier is set.
 * Midi will look at the choose targets field and if set will display the target confirmation app.
 * All midi activities have the ability to trigger another activity (which starts a new roll/workflow (with a new chatcard) of the triggered activity).
-  - There is also a trigger condition condition which must evaluate to true for the forward activity to be called.
+  - There is also a trigger condition which must evaluate to true for the forward activity to be called.
   - This allows for arbitrarily long sequences of activities to be created.
   - You can choose which targets to use for the next activity. Template placement will override the target setting.
   - There is a rollAs setting to have the triggered activity rolled as if by someone else. An example of this is ice knife, which can now be implemented without macros. A sample ice knife is included in the sample items.

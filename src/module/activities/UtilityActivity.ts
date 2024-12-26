@@ -26,14 +26,14 @@ let defineMidiUtilityActivityClass = (ActivityClass: any) => {
   return class MidiUtilityActivity extends MidiActivityMixin(ActivityClass) {
     static metadata =
       foundry.utils.mergeObject(
-        foundry.utils.mergeObject({}, super.metadata), {
+        super.metadata, {
         title: configSettings.activityNamePrefix ? "midi-qol.UTILITY.Title.one" : ActivityClass.metadata.title,
         dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiUtilitySheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
-      }, { overwrite: true })
+      }, { inplace: false, insertKeys: true, insertValues: true });
 
     get isOtherActivityCompatible() {
       return true;
@@ -77,7 +77,7 @@ let defineMidiUtilityActivityClass = (ActivityClass: any) => {
         return true;
       })
 
-      message.create = true;
+      message.create ??= true;
       let result = await super.rollFormula(config, dialog, message);
       // result = await postProcessUtilityRoll(this, config, result);
       if (config.midiOptions.updateWorkflow !== false && this.workflow) {

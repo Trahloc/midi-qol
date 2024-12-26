@@ -198,11 +198,6 @@ async function cancelWorkflow(data: { workflowId: string, itemCardUuid: string }
   if (workflow?.itemCardUuid !== data.itemCardUuid) {
     const itemCard = await fromUuid(data.itemCardUuid);
     if (itemCard) itemCard.delete()
-    /* Confirm this needs to be awaited
-    await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
-    await Workflow.removeItemCardConfirmRollButton(data.itemCardId);
-    return undefined;
-    */
     return undefined;
   }
   if (workflow) return workflow.performState(workflow.WorkflowState_Cancel);
@@ -221,7 +216,7 @@ async function confirmDamageRollComplete(data: { activityUuid: string, itemCardI
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     */
-    Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
+    Workflow.removeItemCardAttackDamageButtons(data.itemCardId, {removeAttackButtons: true, removeDamageButtons: true}).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
   const hasHits = workflow.hitTargets.size > 0 || workflow.hitTargetsEC.size > 0;
@@ -248,12 +243,7 @@ async function confirmDamageRollCompleteHit(data: { activityUuid: string, itemCa
     activity = itemCard.getAssociatedActivity(); // recover the activity from the chat message item data
   if (!workflow) workflow = activity.workflow;
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
-    /* Confirm this needs to be awaited
-    await Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true);
-    await Workflow.removeItemCardConfirmRollButton(data.itemCardId);
-    return undefined;
-    */
-    Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
+    Workflow.removeItemCardAttackDamageButtons(data.itemCardId, {removeAttackButtons: true, removeDamageButtons: true}).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
 
@@ -294,7 +284,7 @@ async function confirmDamageRollCompleteMiss(data: { activityUuid: string, itemC
   if (!workflow || workflow.itemCardUuid !== data.itemCardUuid) {
     /* Confirm this needs to be awaited
     */
-    Workflow.removeItemCardAttackDamageButtons(data.itemCardId, true, true).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
+    Workflow.removeItemCardAttackDamageButtons(data.itemCardId, {removeDamageButtons: true, removeAttackButtons: true}).then(() => Workflow.removeItemCardConfirmRollButton(data.itemCardId));
     return undefined;
   }
   if (workflow.hitTargets.size > 0 || workflow.hitTargetsEC.size > 0) {

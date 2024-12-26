@@ -25,14 +25,14 @@ let defineMidiDamageActivityClass = (ActivityClass: any) => {
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.DAMAGE"];
     static metadata =
       foundry.utils.mergeObject(
-        foundry.utils.mergeObject({}, super.metadata), {
+        super.metadata, {
         title: configSettings.activityNamePrefix ? "midi-qol.DAMAGE.Title.one" : ActivityClass.metadata.title,
         dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiDamageSheet,
         usage: {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
-      }, { overwrite: true })
+      }, { inplace: false, insertKeys: true, insertValues: true });
 
     get isOtherActivityCompatible() {
       return true;

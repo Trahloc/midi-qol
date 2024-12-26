@@ -33,7 +33,7 @@ let defineMidiCheckActivityClass = (ActivityClass: any) => {
     static supermetadata = super.metadata;
     static metadata =
       foundry.utils.mergeObject(
-        foundry.utils.mergeObject({}, super.metadata), {
+        super.metadata, {
         title: configSettings.activityNamePrefix ? "midi-qol.CHECK.Title.one" : ActivityClass.metadata.title,
         dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiCheckSheet,
@@ -44,7 +44,7 @@ let defineMidiCheckActivityClass = (ActivityClass: any) => {
             rollDamage: MidiSaveActivity.metadata.usage.actions.rollDamage
           }
         },
-      }, { insertKeys: true, invsertValues: true })
+      }, { inplace: false, insertKeys: true, invsertValues: true })
 
     static defineSchema() {
       //@ts-expect-error

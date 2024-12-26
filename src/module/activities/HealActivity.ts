@@ -25,7 +25,7 @@ let defineMidiHealActivityClass = (ActivityClass: any) => {
     static LOCALIZATION_PREFIXES = [...super.LOCALIZATION_PREFIXES, "midi-qol.HEAL"];
     static metadata =
       foundry.utils.mergeObject(
-        foundry.utils.mergeObject({}, super.metadata), {
+        super.metadata, {
         title: configSettings.activityNamePrefix ? "midi-qol.HEAL.Title.one" : ActivityClass.metadata.title,
         dnd5eTitle: ActivityClass.metadata.title,
         sheetClass: MidiHealSheet,
@@ -35,7 +35,7 @@ let defineMidiHealActivityClass = (ActivityClass: any) => {
             rollDamage: MidiHealActivity.#rollDamage
           }
         },
-      }, { insertKeys: true, insertValues: true })
+      }, { inplace: false, insertKeys: true, insertValues: true })
 
     static #rollDamage(event, target, message) {
       //@ts-expect-error

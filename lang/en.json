@@ -267,7 +267,8 @@
     "off": "Off",
     "attack": "Attack Only",
     "damage": "Damage Only",
-    "all": "Attack and Damage"
+    "all": "Attack and Damage",
+    "everything": "All Buttons"
   },
   "midi-qol.damageImmunitiesOptions": {
     "none": "Never",
