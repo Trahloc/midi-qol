@@ -4265,7 +4265,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.target.saved = data.workflow?.saves.has(data.target);
       rollData.target.failedSave = data.workflow?.failedSaves.has(data.target);
       rollData.target.superSaver = data.workflow?.superSavers.has(data.target);
-      rollData.semiSuperSaver = data.workflow?.semiSuperSavers.has(data.target);
+      rollData.target.semiSuperSaver = data.workflow?.semiSuperSavers.has(data.target);
       rollData.target.isHit = data.workflow?.hitTargets.has(data.target);
       rollData.target.isHitEC = data.workflow?.hitTargets.has(data.target);
       rollData.target.canSense = data.workflow?.targetsCanSense?.has(data.workflow?.token);
@@ -4290,6 +4290,13 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.hasAttack = data.workflow.item.hasAttack;
       rollData.hasDamage = data.workflow.item.hasDamage;
     }
+    if (game.combat) {
+      rollData.combatRound = game.combat?.round;
+      rollData.combatTurn = game.combat?.turn;
+      rollData.combatTime = game.combat?.round + (game.combat.turn ?? 0) / 100;
+      rollData.actor.isCombatTurn = game.combat?.combatant?.tokenId === data.workflow?.token.id;
+      if (data.target) rollData.target.isCombatTurn = game.combat?.combatant?.tokenId === data.target.id;
+    } else rollData.combatTime = 0;
     rollData.CONFIG = CONFIG;
     rollData.CONST = {};
     let exclusions: string[] = [];
