@@ -941,10 +941,11 @@ export var MidiActivityMixin = Base => {
         const requiresTargets = configSettings.requiresTargets === "always" || (configSettings.requiresTargets === "combat" && inCombat);
         let speaker = getSpeaker(this.actor);
 
+        const token = tokenForActor(this.actor);
         // Call preTargeting hook/onUse macro. Create a dummy workflow if one does not already exist for the item
-        let cancelWorkflow = await asyncHooksCall("midi-qol.preTargeting", {activity: this, config, dialog, message}) === false
-          || await asyncHooksCall(`midi-qol.preTargeting.${this.item.uuid}`, { activity: this, config, dialog, message}) === false
-          || await asyncHooksCall(`midi-qol.preTargeting.${this.uuid}`, {activity: this, config, dialog, message}) === false;
+        let cancelWorkflow = await asyncHooksCall("midi-qol.preTargeting", {activity: this, token, config, dialog, message}) === false
+          || await asyncHooksCall(`midi-qol.preTargeting.${this.item.uuid}`, { activity: this, token, config, dialog, message}) === false
+          || await asyncHooksCall(`midi-qol.preTargeting.${this.uuid}`, {activity: this, token, config, dialog, message}) === false;
         if (configSettings.allowUseMacro) {
           const results = await workflow?.callMacros(this.item, workflow?.onUseMacros?.getMacros("preTargeting"), "OnUse", "preTargeting");
           cancelWorkflow ||= results?.some(i => i === false) ?? false;
@@ -1108,7 +1109,7 @@ export var MidiActivityMixin = Base => {
           }
         }
 
-        const hookAbort = await asyncHooksCall("midi-qol.preItemRoll", {activity: this, config, dialog, message}) === false || await asyncHooksCall(`midi-qol.preItemRoll.${this.uuid}`, {activity: this, config, dialog, message}) === false;
+        const hookAbort = await asyncHooksCall("midi-qol.preItemRoll", {activity: this, token: tokenToUse, config, dialog, message}) === false || await asyncHooksCall(`midi-qol.preItemRoll.${this.uuid}`, {activity: this, token: tokenToUse, config, dialog, message}) === false;
         if (hookAbort || workflow.aborted) {
           console.warn("midi-qol | attack roll blocked by preItemRoll hook");
           workflow.aborted = true;

@@ -1,5 +1,5 @@
 ### 12.4.17.1
-* Fix for a couple of typos - thanks @thatlongelybugbear and @michael.
+* Fix for a couple of typos - thanks @thatlonelybugbear and @michael.
 * Actually pass the token to the preItemRoll and preTarget hooks.
 
 ### 12.4.17
