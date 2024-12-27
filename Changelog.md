@@ -1,3 +1,7 @@
+### 12.4.18
+* Fix for monk's token bar saves not working.
+* Fix for chat prompt saves not functioning.
+
 ### 12.4.17.1
 * Fix for a couple of typos - thanks @thatlonelybugbear and @michael.
 * Actually pass the token to the preItemRoll and preTarget hooks.

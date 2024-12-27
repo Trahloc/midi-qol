@@ -2,7 +2,7 @@ import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debug
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
-import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, applyTokenDamage, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, requestPCActiveDefence, evalActivationCondition, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, activityHasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasAreaTarget, getsaveMultiplierForActivity, checkActivityRange, computeDistance, getAoETargetType, getActivityAutoTarget, activityHasEmanationNoTemplate, isAutoFastDamage, completeItemUseV2, completeActivityUse, getActor, getRemoveAllButtons } from "./utils.js"
+import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, applyTokenDamage, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, requestPCActiveDefence, evalActivationCondition, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, activityHasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasAreaTarget, getsaveMultiplierForActivity, checkActivityRange, computeDistance, getAoETargetType, getActivityAutoTarget, activityHasEmanationNoTemplate, isAutoFastDamage, completeItemUseV2, completeActivityUse, getActor, getRemoveAllButtons, requestPCSave } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { saveTargetsUndoData, saveUndoData } from "./undo.js";
@@ -3564,6 +3564,40 @@ export class Workflow {
             isconcentrationCheck: saveDetails.isConcentrationCheck, // Not sure if epic rolls will pick this up
             workflowOptions: saveDetails.workflowOptions
           })
+        } else if ((player?.active && playerChat) || (player?.isGM && GMprompt === "none")) {
+          if (debugEnabled > 0) warn(`checkSaves | Player ${player?.name} controls actor ${target.actor.name} - requesting ${rollAbility} ${rollType}`);
+          promises.push(new Promise((resolve) => {
+            let requestId = target?.id ?? foundry.utils.randomID();
+            const playerId = player?.id;
+            this.saveRequests[requestId] = resolve;
+            requestPCSave(rollAbility, rollType, player, target.actor, { advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, flavor: this.item.name, dc: saveDetails.rollDC, requestId, GMprompt, isMagicSave, magicResistance, magicVulnerability, saveItemUuid: this.item.uuid, isConcentrationCheck: saveDetails.isConcentrationCheck })
+
+            // set a timeout for taking over the roll
+            if (configSettings.playerSaveTimeout > 0) {
+              this.saveTimeouts[requestId] = setTimeout(async () => {
+                if (this.saveRequests[requestId]) {
+                  delete this.saveRequests[requestId];
+                  delete this.saveTimeouts[requestId];
+                  let result;
+                  if (!game.user?.isGM && configSettings.autoCheckSaves === "allShow") {
+                    // non-gm users don't have permission to create chat cards impersonating the GM so hand the role to a GM client
+                    result = await timedAwaitExecuteAsGM("rollAbility", {
+                      targetUuid: target.actor?.uuid ?? "",
+                      request: rollType,
+                      ability: this.saveItem.system.save.ability,
+                      showRoll,
+                      options: {
+                        messageData: { user: playerId }, target: saveDetails.rollDC, chatMessage: showRoll, mapKeys: false, advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, fastForward: true, saveItemUuid: this.saveItem.uuid, isConcentrationCheck: saveDetails.isConcentrationCheck, workflowOptions: saveDetails.workflowOptions
+                      }
+                    });
+                  } else {
+                    result = await rollAction.bind(target.actor)(this.saveItem.system.save.ability, { messageData: { user: playerId }, chatMessage: showRoll, mapKeys: false, advantage: saveDetails.advantage, disadvantage: saveDetails.disadvantage, fastForward: true, isMagicSave, saveItemUuid: this.saveItem?.uuid, isConcentrationCheck: saveDetails.isConcentrationCheck });
+                  }
+                  resolve(result);
+                }
+              }, (configSettings.playerSaveTimeout || 1) * 1000);
+            }
+          }))
         } else {
           // Find a player owner for the roll if possible
           let owner: User | undefined = playerFor(target);

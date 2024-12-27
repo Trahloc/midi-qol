@@ -644,7 +644,7 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
     if (preRollAbilityHookId) Hooks.off(`${game.system.id}.preRoll${type}V2`, preRollAbilityHookId);
     if (rollAbilityHookId) Hooks.off(`${game.system.id}.post${type}RollConfiguration`, rollAbilityHookId);
     game.settings.set("core", "rollMode", saveRollMode);
-    return result
+    return oldFormat ? result?.[0] : result
   }
 }
 
