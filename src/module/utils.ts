@@ -1462,7 +1462,7 @@ export async function completeActivityUse(activity, config: any = {}, dialog: an
   } else {
     const newConfig = foundry.utils.deepClone(config);
     newConfig.midiOptions ??= {};
-    newConfig.config.midiOptions.targetsToUse = config.midiOptions.targetUuids ? config.midiOptions.targetUuids : Array.from(game.user?.targets || []).map(t => t.document.uuid); // game.user.targets is always a set of tokens
+    newConfig.midiOptions.targetsToUse = config.midiOptions.targetUuids ? config.midiOptions.targetUuids : Array.from(game.user?.targets || []).map(t => t.document.uuid); // game.user.targets is always a set of tokens
     const data = {
       activityUuid: activity.uuid,
       actorUuid: activity.item.parent.uuid,
@@ -1496,7 +1496,7 @@ export async function completeItemUseV2(item, config: any = {}, dialog: any = {}
   }
   if (config.midiOptions.activityId || config.midiOptions.activityIdentifier) {
     //@ts-expect-error
-    const selected = item.system.activities.find(a => a.id === config.midiOptions.activityId || a.identifiere === config.midiOptions.activityIdentifier)
+    const selected = item.system.activities.find(a => a.id === config.midiOptions.activityId || a.identifier === config.midiOptions.activityIdentifier)
     if (selected) return completeActivityUse(selected, config, dialog, message);
   }
   //@ts-expect-error

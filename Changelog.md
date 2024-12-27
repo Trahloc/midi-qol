@@ -1,3 +1,7 @@
+### 12.4.17.1
+* Fix for a couple of typos - thanks @thatlongelybugbear and @michael.
+* Actually pass the token to the preItemRoll and preTarget hooks.
+
 ### 12.4.17
 * Midi has changed how buttons are shown of the activity chart card for all buttons except attack and damage and now supports all dnd5e buttons being displayed on the activity card. As far as I can tell they work, but probably have not checked everything.
 * Added new option in remove buttons to remove all.
