@@ -4273,7 +4273,9 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.canSense = data.workflow?.tokenCanSense?.has(data.target);
       rollData.canSee = data.workflow?.tokenCanSee?.has(data.target);
     }
-
+    rollData.actor = {};
+    rollData.actor.raceOrType = actor ? raceOrType(actor) : "";
+    rollData.actor.typeOrRace = actor ? typeOrRace(actor) : "";
     rollData.humanoid = globalThis.MidiQOL.humanoid;
     rollData.tokenUuid = data.workflow?.tokenUuid ?? data.tokenUuid;
     rollData.tokenId = data.workflow?.tokenId ?? data.tokenId;
