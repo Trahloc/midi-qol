@@ -922,7 +922,7 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || bypassesPresent.size > 0) continue; break;
             case "nonMagicalPhysical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("mgc")) continue; break;
-            case "nonSAilverPhysical":
+            case "nonSilverPhysical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("sil")) continue;
               break;
             case "nonAdamantPhysical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("ada")) continue; break
