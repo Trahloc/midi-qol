@@ -4471,7 +4471,7 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
         rollData.target.saved = data.workflow?.saves.has(theTarget);
         rollData.target.failedSave = data.workflow?.failedSaves.has(theTarget);
         rollData.target.superSaver = data.workflow?.superSavers.has(theTarget);
-        rollData.semiSuperSaver = data.workflow?.semiSuperSavers.has(theTarget);
+        rollData.target.semiSuperSaver = data.workflow?.semiSuperSavers.has(theTarget);
         rollData.target.isHit = data.workflow?.hitTargets.has(theTarget);
         rollData.target.isHitEC = data.workflow?.hitTargets.has(theTarget);
         rollData.target.canSense = data.workflow?.targetsCanSense?.has(data.workflow?.token);
@@ -4503,6 +4503,8 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
       rollData.combatRound = game.combat?.round;
       rollData.combatTurn = game.combat?.turn;
       rollData.combatTime = game.combat?.round + (game.combat.turn ?? 0) / 100;
+      rollData.actor.isCombatTurn = game.combat?.combatant?.tokenId === data.workflow?.token.id;
+      if (theTarget) rollData.target.isCombatTurn = game.combat?.combatant?.tokenId === theTarget.id;
     } else rollData.combatTime = 0;
     rollData.CONFIG = CONFIG;
     rollData.CONST = {};
