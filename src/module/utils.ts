@@ -4277,8 +4277,8 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
     rollData.actor.raceOrType = actor ? raceOrType(actor) : "";
     rollData.actor.typeOrRace = actor ? typeOrRace(actor) : "";
     rollData.humanoid = globalThis.MidiQOL.humanoid;
-    rollData.tokenUuid = data.workflow?.tokenUuid ?? data.tokenUuid;
-    rollData.tokenId = data.workflow?.tokenId ?? data.tokenId;
+    rollData.tokenUuid = data.workflow?.tokenUuid ?? getTokenDocument(data.actor)?.uuid;
+    rollData.tokenId = data.workflow?.tokenId ?? tokenForActor(data.actor)?.id;
     rollData.effects = actor?.appliedEffects; // not needed since this is set in getRollData
     if (data.workflow) {
       rollData.w = data.workflow;
@@ -4296,7 +4296,9 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
       rollData.combatRound = game.combat?.round;
       rollData.combatTurn = game.combat?.turn;
       rollData.combatTime = game.combat?.round + (game.combat.turn ?? 0) / 100;
+      //@ts-expect-error combatant.tokenId
       rollData.actor.isCombatTurn = game.combat?.combatant?.tokenId === data.workflow?.token.id;
+      //@ts-expect-error combatant.tokenId
       if (data.target) rollData.target.isCombatTurn = game.combat?.combatant?.tokenId === data.target.id;
     } else rollData.combatTime = 0;
     rollData.CONFIG = CONFIG;
@@ -5584,7 +5586,7 @@ export function getActor(actorRef: Actor | Token | TokenDocument | string | null
   return null;
 }
 
-export function getTokenDocument(tokenRef: Actor | Token | TokenDocument | string | undefined): TokenDocument | undefined {
+export function getTokenDocument(tokenRef: Actor | Token | TokenDocument | string | undefined | null): TokenDocument | undefined {
   if (!tokenRef) return undefined;
   if (tokenRef instanceof TokenDocument) return tokenRef;
   if (typeof tokenRef === "string") {

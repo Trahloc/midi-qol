@@ -1,3 +1,6 @@
+### 11.6.30
+* Added some extra data to condition data - courtesy @thatlonelybugbear
+
 ### 11.6.29
 * Fix for traits references throwing errors for group actors
 
