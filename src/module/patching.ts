@@ -1047,8 +1047,8 @@ export function itemPrepareData(wrapped) {
     for (let change of effect.changes) {
       if (change.key === "flags.midi-qol.onUseMacroName") {
         if (change.mode !== CONST.ACTIVE_EFFECT_MODES.CUSTOM) {
-          error("onUseMacro effect mode is not custom", `Actor: ${this.parent.name} Item: ${this.name} Effect: ${effect.name} ${this.uuid} `);
-          TroubleShooter.recordError(new Error("onUseMacro effect mode is not custom - mode treated as custom"), `Actor: ${this.parent.name} Item: ${this.name} Effect: ${effect.name} ${this.uuid} `);
+          error("onUseMacro effect mode is not custom", `Actor: ${this.parent?.name} Item: ${this.name} Effect: ${effect.name} ${this.uuid} `);
+          TroubleShooter.recordError(new Error("onUseMacro effect mode is not custom - mode treated as custom"), `Actor: ${this.parent?.name} Item: ${this.name} Effect: ${effect.name} ${this.uuid} `);
           change.mode = CONST.ACTIVE_EFFECT_MODES.CUSTOM;
         }
       }

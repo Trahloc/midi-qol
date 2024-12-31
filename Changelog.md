@@ -1,3 +1,16 @@
+### 12.4.19
+* Fix for template targeting when levels is installed and levels volumetric templates is not.
+* Support for 2024 and 2014 heavy weapon disadvantage rules. Midi examines the dnd5e rules version setting to decide which to apply.
+* Fix for template activities not having targets correctly recorded in dnd5e damage application.
+* If auto removing instantaneous templates do not create an effect on the caster to remove the template.
+* Reinstate damage absorption behaviour which was inadvertently removed.
+* **Breaking** Change to damage absorption. 
+- All of the damage absorption midi fields now support a numeric value indicating the multiplier to apply to the damage.
+- system.traits.da.fire override -1 means that an actor hit with 10 points of fire damage will in fact cure 10 points. (The sign convention is in line with dnd5e damage modification). 
+- A system.traits.da.midi.physical of -0.5 means the actor heals half the physical damage applied.
+- system.traits.da.midi.mwak of 0.5 means the actor will take half as damage from melee weapon attacks and 1.5 means the actor will take half as much damage again as was rolled.
+- You can (but will make things more confusing) combine dr/dv and da, so if you have system.traits.dr.value ADD fire and system.traits.da.fire -1 which will heal half the fire damage rolled (dr halves the damage and da converts what's left to healing), or system.traits.dv.value add fire system.traits.da.fire -1 which will heal two times the damage.
+
 ### 12.4.18
 * Fix for monk's token bar saves not working.
 * Fix for chat prompt saves not functioning.

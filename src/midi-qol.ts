@@ -255,12 +255,12 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
     //@ts-expect-error
     for (let key of Object.keys(game.system.config.damageTypes ?? {})) {
       fieldMappings[`flags.${MODULE_ID}.DR.${key}`] = `system.traits.dm.amount.${key}`;
-      fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.value`;
+      fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.${key}`;
     }
     //@ts-expect-error
     for (let key of Object.keys(game.system.config.healingTypes ?? {})) {
       fieldMappings[`flags.${MODULE_ID}.DR.${key}`] = `system.traits.dm.amount.${key}`;
-      fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.value`;
+      fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.${key}`;
     }
     fieldMappings[`flags.${MODULE_ID}.DR.all`] = "system.traits.dm.midi.all";
     fieldMappings[`flags.${MODULE_ID}.absorption.all`] = "system.traits.da.all";

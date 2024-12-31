@@ -3,7 +3,7 @@ import { Workflow } from "../Workflow.js";
 import { TargetConfirmationDialog } from "../apps/TargetConfirmation.js";
 import { configSettings, targetConfirmation } from "../settings.js";
 import { installedModules } from "../setupModules.js";
-import { getFlankingEffect, CERemoveEffect, sumRolls, evalActivationCondition, getAutoTarget, computeTemplateShapeDistance, getToken, MQfromUuidSync, checkActivityRange, checkDefeated, checkIncapacitated, computeCoverBonus, getSpeaker, hasWallBlockingCondition, isTargetable, tokenForActor, activityHasAreaTarget, getActivityAutoTarget, getAoETargetType, doReactions } from "../utils.js";
+import { getFlankingEffect, CERemoveEffect, sumRolls, evalActivationCondition, getAutoTarget, computeTemplateShapeDistance, getToken, MQfromUuidSync, checkActivityRange, checkDefeated, checkIncapacitated, computeCoverBonus, getSpeaker, hasWallBlockingCondition, isTargetable, tokenForActor, activityHasAreaTarget, getActivityAutoTarget, getAoETargetType, doReactions, getUnitDist } from "../utils.js";
 
 export async function confirmWorkflow(existingWorkflow: Workflow): Promise<boolean> {
   const validStates = [existingWorkflow.WorkflowState_Completed, existingWorkflow.WorkflowState_Start, existingWorkflow.WorkflowState_RollFinished]
@@ -385,8 +385,8 @@ function isTokenInside(template: MeasuredTemplate, token: Token, wallsBlockTarge
             //@ts-ignore
             z: elevation
           }
-          //@ts-expect-error .distance
-          contains = getUnitDist(p2.x, p2.y, p2.z, token) <= template.distance;
+          //@ts-expect-error
+          contains = getUnitDist(p2.x, p2.y, p2.z, token) <= template.document.distance;
           //@ts-expect-error .Levels
           contains = contains && !CONFIG.Levels?.API?.testCollision(p1, p2, "collision");
         } else if (!installedModules.get("levelsvolumetrictemplates")) {

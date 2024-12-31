@@ -869,6 +869,14 @@ Hooks.on("dnd5e.preCalculateDamage", (actor, damages, options) => {
 Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
   try {
     if (!configSettings.v3DamageApplication) return true;
+    const downgrade = type => options.downgrade === true || options.downgrade?.has?.(type);
+    const ignore = (category, type, skipDowngrade) => {
+      return options.ignore === true
+        || options.ignore?.[category] === true
+        || options.ignore?.[category]?.has?.(type)
+        || ((category === "immunity") && downgrade(type) && !skipDowngrade)
+        || ((category === "resistance") && downgrade(type))
+    };
     const mo = options.midi;
     if (mo?.noCalc) return true;
     for (let damage of damages) {
@@ -881,16 +889,13 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         damage.active.multiplier = damage.active.multiplier / 2 * configSettings.damageVulnerabilityMultiplier;
         damage.value = damage.value / 2 * configSettings.damageVulnerabilityMultiplier;
       }
+      if (actor.system.traits.da?.[damage.type] !== undefined && !ignore("absorption", damage.type, false)) {
+        const multiplier = Number(actor.system.traits.da?.[damage.type]) ?? -1;
+        damage.active.multiplier *= multiplier;
+        damage.value *= multiplier;
+        damage.active.absorption = true;
+      }
     }
-
-    const downgrade = type => options.downgrade === true || options.downgrade?.has?.(type);
-    const ignore = (category, type, skipDowngrade) => {
-      return options.ignore === true
-        || options.ignore?.[category] === true
-        || options.ignore?.[category]?.has?.(type)
-        || ((category === "immunity") && downgrade(type) && !skipDowngrade)
-        || ((category === "resistance") && downgrade(type))
-    };
 
     let customs: string[] = [];
     const categories = { "di": "immunity", "dr": "resistance", "dv": "vulnerability", "da": "absorption" };
@@ -910,32 +915,49 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
           if (ignore(categories[trait], damage.type, false)) continue;
           if (ignore(custom, damage.type, false) || damage.active[custom]) continue;
           if (!GameSystemConfig.customDamageResistanceTypes[custom])
-            custom = Object.keys(GameSystemConfig.customDamageResistanceTypes).find(key => GameSystemConfig.customDamageResistanceTypes[key].toLocaleLowerCase() === custom.toLocaleLowerCase()) ?? ""; 
-
+            custom = Object.keys(GameSystemConfig.customDamageResistanceTypes).find(key => GameSystemConfig.customDamageResistanceTypes[key].toLocaleLowerCase() === custom.toLocaleLowerCase()) ?? custom;
           switch (custom) {
             case "spell": if (!damage.properties.has("spell")) continue; break;
-            case "nonSpell": if (damage.properties.has("spell")) continue; break;
+            case "nonSpell": 
+            case "non-spell": 
+              if (damage.properties.has("spell")) continue; break;
             case "magical": if (!damage.properties.has("mgc")) continue; break;
-            case "nonMagical": if (damage.properties.has("mgc")) continue; break;
+            case "nonMagical": 
+            case "non-magical":
+              if (damage.properties.has("mgc")) continue; break;
             case "physical":
               bypassesPresent = damage.properties.intersection(bypasses);
-              if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || bypassesPresent.size > 0) continue; break;
+              if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || bypassesPresent.size > 0) continue; 
+              break;
+            case "nonPhysical":
+            case "non-physical":
+              if (GameSystemConfig.damageTypes[damage.type]?.isPhysical) continue; break; 
             case "nonMagicalPhysical":
+            case "non-magical-physical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("mgc")) continue; break;
             case "nonSilverPhysical":
+            case "non-silver-physical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("sil")) continue;
               break;
-            case "nonAdamantPhysical": if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("ada")) continue; break
+            case "nonAdamantPhysical": 
+            case "non-adamant-physical":
+              if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("ada")) continue;
+              break;
+            case "all": if (damage.type === "midi-none") continue; break;
             default: if (!damage.properties.has(custom)) continue; break;
           }
           damage.active[GameSystemConfig.customDamageResistanceTypes[custom] ?? custom] = true;
           damage.active[categories[trait]] = true;
-          damage.active.multiplier = (damage.active.multiplier ?? 1) * traitMultipliers[trait];
-          damage.value = damage.value * traitMultipliers[trait];
-        };
+          let multiplier = traitMultipliers[trait];
+          const da = actor.system.traits?.da?.midi?.[custom] || actor.system.traits?.da?.midi?.all;
+          if (da && Number.isNumeric(da)) {
+            multiplier = Number(da);
+          }
+          damage.active.multiplier = (damage.active.multiplier ?? 1) * multiplier;
+          damage.value = damage.value * multiplier;
+        }
       }
     }
-
     if (configSettings.saveDROrder === "DRSavedr" && options?.ignore !== true) {
       // Currently now way to disable just super saver and leave saver
       for (let damage of damages) {

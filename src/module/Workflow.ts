@@ -1,7 +1,7 @@
 import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debugEnabled, MQItemMacroLabel, debugCallTiming, geti18nOptions, i18nFormat, GameSystemConfig, i18nSystem, allDamageTypes, MODULE_ID, NumericTerm, MQActivityMacroLabel } from "../midi-qol.js";
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
-import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic } from "./settings.js";
+import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic, safeGetGameSetting } from "./settings.js";
 import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, applyTokenDamage, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, requestPCActiveDefence, evalActivationCondition, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, activityHasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasAreaTarget, getsaveMultiplierForActivity, checkActivityRange, computeDistance, getAoETargetType, getActivityAutoTarget, activityHasEmanationNoTemplate, isAutoFastDamage, completeItemUseV2, completeActivityUse, getActor, getRemoveAllButtons, requestPCSave } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
@@ -408,7 +408,7 @@ export class Workflow {
     return debouncedUpdate(chatMessage, { content });
   }
 
-  static async removeItemCardAttackDamageButtons(itemCardUuid: string, {removeAllButtons = false, removeAttackButtons = true, removeDamageButtons = true} = {}) {
+  static async removeItemCardAttackDamageButtons(itemCardUuid: string, { removeAllButtons = false, removeAttackButtons = true, removeDamageButtons = true } = {}) {
     try {
       const chatMessage = getCachedDocument(itemCardUuid);
       let content = chatMessage?.content && foundry.utils.duplicate(chatMessage.content);
@@ -477,7 +477,7 @@ export class Workflow {
         if (itemCard) await itemCard.delete();
         clearUpdatesCache(workflow.itemCardUuid);
       } else {
-        await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid, {removeAllButtons: true});
+        await Workflow.removeItemCardAttackDamageButtons(workflow.itemCardUuid, { removeAllButtons: true });
         // await Workflow.removeItemCardConfirmRollButton(workflow.itemCardUuid);
         // await workflow.removeEffectsButton();
         setTimeout(() => {
@@ -1073,7 +1073,7 @@ export class Workflow {
   }
   async WorkflowState_DamageRollStarted(context: any = {}): Promise<WorkflowState> {
     if (this.itemCardUuid) {
-      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, { removeAllButtons: getRemoveAllButtons(this.item), removeAttackButtons: getRemoveAttackButtons(this.item), removeDamageButtons: getRemoveDamageButtons(this.item)});
+      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, { removeAllButtons: getRemoveAllButtons(this.item), removeAttackButtons: getRemoveAttackButtons(this.item), removeDamageButtons: getRemoveDamageButtons(this.item) });
       await Workflow.removeItemCardConfirmRollButton(this.itemCardUuid);
     }
     if (getActivityAutoTarget(this.activity) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
@@ -1619,7 +1619,7 @@ export class Workflow {
 
   async WorkflowState_Completed(context: any = {}): Promise<WorkflowState> {
     if (this.itemCardUuid && MQfromUuidSync(this.itemCardUuid)) {
-      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, {removeAllButtons: getRemoveAllButtons(this.item), removeAttackButtons: getRemoveAttackButtons(this.item), removeDamageButtons: getRemoveDamageButtons(this.item)});
+      await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, { removeAllButtons: getRemoveAllButtons(this.item), removeAttackButtons: getRemoveAttackButtons(this.item), removeDamageButtons: getRemoveDamageButtons(this.item) });
     }
     if (context.attackRoll) return this.WorkflowState_AttackRollComplete;
     if (context.damageRoll) return this.WorkflowState_ConfirmRoll;
@@ -1789,46 +1789,46 @@ export class Workflow {
         //@ts-expect-error
         await origin.addDependent(this.template);
       }
-    } else if (installedModules.get("dae") && activityHasAreaTarget(this.activity) && template && this.activity.duration?.units && configSettings.autoRemoveTemplate) { // create an effect to delete the template
+    } else if (installedModules.get("dae") && activityHasAreaTarget(this.activity) && template
+      && this.activity.duration?.units && configSettings.autoRemoveTemplate) { // create an effect to delete the template
       // If we are not applying concentration and want to auto remove the template create an effect to do so
       const activityDuration = this.activity.duration;
-      let selfTarget = this.item.actor.token ? this.item.actor.token.object : getTokenForActor(this.item.actor);
-      if (selfTarget) selfTarget = this.token; //TODO see why this is here
       let effectData;
       const templateString = " " + i18n("midi-qol.MeasuredTemplate");
-      if (selfTarget) {
-        let effect = this.item.actor.effects.find(ef => ef.name === this.item.name + templateString);
-        if (effect) { // effect already applied
-          if (template) { // we can add dependents so do that
-            await effect.addDependent(this.template);
-          }
-        } else if (template) { // add an effect which will cause the template to be deleted
-          effectData = {
-            origin: this.item?.uuid, //flag the effect as associated to the spell being cast
-            disabled: false,
-            icon: this.item?.img,
-            label: this.item?.name + templateString,
-            duration: {},
-            flags: {
-              dae: {
-                stackable: "noneName"
-              },
-              dnd5e: { dependents: [{ uuid: this.templateUuid }] }
+      let effect = this.item.actor.effects.find(ef => ef.name === this.item.name + templateString);
+      if (effect) { // effect already applied
+        if (template) { // we can add dependents so do that
+          await effect.addDependent(this.template);
+        }
+      } else if (template) { // add an effect which will cause the template to be deleted
+        effectData = {
+          origin: this.item?.uuid, //flag the effect as associated to the spell being cast
+          disabled: false,
+          icon: this.item?.img,
+          label: this.item?.name + templateString,
+          duration: {},
+          flags: {
+            dae: {
+              stackable: "noneName"
             },
-          }
+            dnd5e: { dependents: [{ uuid: this.templateUuid }] }
+          },
+        }
 
-          const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget.id));
-          const convertedDuration = globalThis.DAE.convertDuration(activityDuration, inCombat);
-          if (convertedDuration?.type === "seconds") {
-            effectData.duration = { seconds: convertedDuration.seconds, startTime: game.time.worldTime }
-          } else if (convertedDuration?.type === "turns") {
-            effectData.duration = {
-              rounds: convertedDuration.rounds,
-              turns: convertedDuration.turns,
-              startRound: game.combat?.round,
-              startTurn: game.combat?.turn,
-            }
+        let selfTarget = this.item.actor.token ? this.item.actor.token.object : getTokenForActor(this.item.actor);
+        const inCombat = (game.combat?.turns.some(combatant => combatant.token?.id === selfTarget?.id));
+        const convertedDuration = globalThis.DAE.convertDuration(activityDuration, inCombat);
+        if (convertedDuration?.type === "seconds") {
+          effectData.duration = { seconds: convertedDuration.seconds, startTime: game.time.worldTime }
+        } else if (convertedDuration?.type === "turns") {
+          effectData.duration = {
+            rounds: convertedDuration.rounds,
+            turns: convertedDuration.turns,
+            startRound: game.combat?.round,
+            startTurn: game.combat?.turn,
           }
+        }
+        if (!(this.activity.duration?.units == "inst" && configSettings.autoRemoveInstantaneousTemplate)) {
           await this.actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
         }
       }
@@ -2061,19 +2061,31 @@ export class Workflow {
         foundry.utils.setProperty(this.actor, "flags.midi.evaluated.disadvantage.attack.nearbyFoe", { value: true, effects: ["Nearby Foe"] });
         this.disadvantage = true;
       }
-      // this.disadvantage = this.disadvantage || nearbyFoe;
     }
-    if (["tiny", "sm"].includes(this.actor.system.traits?.size) && this.item.system.properties?.has("hvy")) {
-      const failDisadvantageHeavy = getProperty(this.actor, `flags.${MODULE_ID}.fail.disadvantage.heavy`);
+    // this.disadvantage = this.disadvantage || nearbyFoe;
+
+    if (this.item.system.properties?.has("hvy")) {
+      const failDisadvantageHeavy = foundry.utils.getProperty(this.actor, `flags.${MODULE_ID}.fail.disadvantage.heavy`);
       if (failDisadvantageHeavy && !conditionData)
         conditionData = createConditionData({ workflow: this, target, actor: this.actor });
-      if (!failDisadvantageHeavy || !(await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.fail.disadvantage.heavy`, conditionData))) {
-        this.disadvantage = true;
-        this.attackAdvAttribution.add("DIS:small");
-        this.advReminderAttackAdvAttribution.add("DIS:Small");
+      if (!failDisadvantageHeavy || !await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.fail.disadvantage.heavy`, conditionData)) {
+        if (safeGetGameSetting("dnd5e", "rulesVersion") === "modern") {
+          if ((this.activity.actionType === "mwak" && this.actor.system.abilities?.str.value < 13) ||
+            (this.activity.actionType === "rwak" && this.actor.system.abilities?.dex.value < 13)) {
+            this.disadvantage = true;
+            this.attackAdvAttribution.add("DIS:heavy weapon");
+            this.advReminderAttackAdvAttribution.add("DIS:Heavy Weapon");
+          }
+        } else if (safeGetGameSetting("dnd5e", "rulesVersion") === "legacy") {
+          if (["tiny", "sm"].includes(this.actor.system.traits?.size)) {
+            this.disadvantage = true;
+            this.attackAdvAttribution.add("DIS:small");
+            this.advReminderAttackAdvAttribution.add("DIS:Small");
+          }
+        }
       }
+      await this.checkTargetAdvantage();
     }
-    await this.checkTargetAdvantage();
   }
 
   async processCriticalFlags() {
@@ -3096,6 +3108,9 @@ export class Workflow {
           bonusDamageTotal: this.bonusDamageTotal,
           displayId: this.displayId,
           dnd5eTargets: midiAttackTargets
+        },
+        "dnd5e": {
+          targets: midiAttackTargets
         }
       }, { overwrite: true, inplace: false });
     }
@@ -3288,7 +3303,8 @@ export class Workflow {
           "flags.midi-qol.type": MESSAGETYPES.SAVES,
           "flags.midi-qol.saveUuids": Array.from(this.saves).map(t => getTokenDocument(t)?.uuid),
           "flags.midi-qol.failedSaveUuids": Array.from(this.failedSaves).map(t => getTokenDocument(t)?.uuid),
-          "flags.midi-qol.midi.dnd5eTargets": midiTargetDetails
+          "flags.midi-qol.midi.dnd5eTargets": midiTargetDetails,
+          "flags.dndn5e.targets": midiTargetDetails,
         };
         //@ts-expect-error
         if (game.release.generation < 12) {
@@ -4045,7 +4061,7 @@ export class Workflow {
     }
     if (data && this.currentAction === this.WorkflowState_Completed) {
       if (this.itemCardUuid) {
-        await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, {removeAllButtons: true});
+        await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, { removeAllButtons: true });
         // await Workflow.removeItemCardConfirmRollButton(this.itemCardUuid);
       }
       delete data._id;

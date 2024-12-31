@@ -4452,12 +4452,12 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
   let rollData = data.activity?.getRollData() ?? item?.getRollData() ?? actor.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
   rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
+  rollData.actor = {};
+  rollData.actor.raceOrType = actor ? raceOrType(actor) : "";
+  rollData.actor.typeOrRace = actor ? typeOrRace(actor) : "";
   try {
     if (data.target) {
       const theTarget = getToken(data.target);
-      rollData.actor = {};
-      rollData.actor.raceOrType = actor ? raceOrType(actor) : "";
-      rollData.actor.typeOrRace = actor ? typeOrRace(actor) : "";
       if (theTarget) {
         rollData.target = theTarget.actor?.getRollData();
         rollData.targetUuid = theTarget.document.uuid
@@ -4478,6 +4478,9 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
         rollData.target.canSee = data.workflow?.targetsCanSee?.has(data.workflow?.token);
         rollData.canSense = data.workflow?.tokenCanSense?.has(theTarget);
         rollData.canSee = data.workflow?.tokenCanSee?.has(theTarget);
+        //@ts-expect-error
+        if (theTarget) rollData.target.isCombatTurn = game.combat?.combatant?.tokenId === theTarget.id;
+
       }
     }
     rollData.humanoid = globalThis.MidiQOL.humanoid;
@@ -4503,8 +4506,8 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
       rollData.combatRound = game.combat?.round;
       rollData.combatTurn = game.combat?.turn;
       rollData.combatTime = game.combat?.round + (game.combat.turn ?? 0) / 100;
+      //@ts-expect-error
       rollData.actor.isCombatTurn = game.combat?.combatant?.tokenId === data.workflow?.token.id;
-      if (theTarget) rollData.target.isCombatTurn = game.combat?.combatant?.tokenId === theTarget.id;
     } else rollData.combatTime = 0;
     rollData.CONFIG = CONFIG;
     rollData.CONST = {};
