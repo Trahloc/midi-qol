@@ -2084,8 +2084,8 @@ export class Workflow {
           }
         }
       }
-      await this.checkTargetAdvantage();
     }
+    await this.checkTargetAdvantage();
   }
 
   async processCriticalFlags() {
@@ -2192,7 +2192,7 @@ export class Workflow {
     const actionType = this.activity?.actionType;
     //@ts-expect-error
     const firstTargetDocument = getTokenDocument(this.targets.first());
-    const firstTarget = getToken(firstTargetDocument);
+    const firstTarget = firstTargetDocument?.object;
     if (!firstTargetDocument || !firstTarget) return;
     if (checkRule("nearbyAllyRanged") > 0 && ["rwak", "rsak", "rpak"].includes(actionType)) {
       //@ts-expect-error .width.height
