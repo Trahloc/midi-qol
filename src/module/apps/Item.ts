@@ -94,10 +94,8 @@ export function activateMacroListeners(app: Application, html) {
       callbacks: { drop: _onDrop },
     });
 
-//    let form = html.filter((i, el) => el instanceof HTMLFormElement)[0];
-//    if (!form) form = html.find("form")[0]
     //@ts-expect-error .form
-    dd.bind(app.form);
+    dd.bind(app.form ?? app.element);
   }
 }
 

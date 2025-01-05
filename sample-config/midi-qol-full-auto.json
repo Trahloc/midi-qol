@@ -165,7 +165,7 @@
     "effectActivation": false,
     "addFakeDice": false,
     "highLightCriticalAttackOnly": false,
-    "autoRemoveInstantaneousTemplate": true,
+    "autoRemoveInstantaneousTemplate": false,
     "doConcentrationCheck": "chat",
     "undoChatColor": "Delete",
     "averageDamage": "none",

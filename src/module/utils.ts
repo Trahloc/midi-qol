@@ -3459,7 +3459,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
     parameters = {
       item: this.item,
       actor: this.actor,
-      target: this.targets.first(),
+      target: this.targets?.first(),
     };
   };
   const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), ...parameters });
@@ -6077,9 +6077,10 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
 }
 
 export function getActivityAutoTarget(activity: any): string {
-  if (!activity) return configSettings.autoTarget;
+  const item = activity?.item;
+  if (!item) return configSettings.autoTarget;
   //TODO move this to per activity flag
-  const midiFlags = foundry.utils.getProperty(activity.item, `flags.${MODULE_ID}`);
+  const midiFlags = foundry.utils.getProperty(item, `flags.${MODULE_ID}`);
   const autoTarget = midiFlags.autoTarget;
   if (!autoTarget || autoTarget === "default") return configSettings.autoTarget;
   return autoTarget;
@@ -6101,10 +6102,10 @@ export function getAoETargetType(activity): string {
   }
   return AoETargetType;
 }
+
 export function getAutoTarget(item: Item): string {
   //@ts-expect-error
-  foundry.utils.logCompatibilityWarning("getAutoTarget(item) is deprecated in favor of getActivityAutoTargetType(activity).", { since: "12.1.0", until: "12.5.0" });
-
+  foundry.utils.logCompatibilityWarning("getAutoTarget(item) is deprecated in favor of getActivityAutoTarget(activity).", { since: "12.1.0", until: "12.5.0" });
   if (!item) return configSettings.autoTarget;
   const midiFlags = foundry.utils.getProperty(item, `flags.${MODULE_ID}`);
   const autoTarget = midiFlags.autoTarget;
@@ -6736,7 +6737,6 @@ export function setRangedTargets(tokenToUse, targetDetails) {
         }
         const distance = computeDistance(target, tokenToUse, { wallsBlock });
         inRange = inRange && distance >= 0 && distance <= minDist;
-        console.error((inRange ? "In Range" : "Out of Range"), target.name, distance, minDist);
       }
       if (inRange) {
         target.setTarget(true, { user: game.user, releaseOthers: false });

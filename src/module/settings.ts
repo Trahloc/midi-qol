@@ -6,7 +6,6 @@ import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configureDamageRollDialog } from "./patching.js";
 import { TargetConfirmationConfig } from "./apps/TargetConfirmationConfig.js";
 import { _updateAction } from "./utils.js";
-import { config } from "@league-of-foundry-developers/foundry-vtt-types/src/types/augments/simple-peer.js";
 
 export var itemRollButtons: boolean;
 export var criticalDamage: string;
@@ -316,7 +315,7 @@ export async function importSettingsFromJSON(json) {
   }
 
   await game.settings.set("midi-qol", "ConfigSettings", removeOldValues(json.configSettings));
-  await game.settings.set("midi-qol", "ItemRollButtons", removeOldValues(json.itemRollButtons));
+  // await game.settings.set("midi-qol", "ItemRollButtons", removeOldValues(json.itemRollButtons));
   await game.settings.set("midi-qol", "CriticalDamage", removeOldValues(json.criticalDamage));
   await game.settings.set("midi-qol", "CriticalDamageGM", removeOldValues(json.criticalDamageGM));
   await game.settings.set("midi-qol", "showGM", removeOldValues(json.nsaFlag));
@@ -538,7 +537,7 @@ export let fetchParams = () => {
   if (criticalDamageGM === "none") criticalDamageGM = criticalDamage;
   nsaFlag = Boolean(game.settings.get("midi-qol", "showGM"));
   coloredBorders = String(game.settings.get("midi-qol", "ColoredBorders"));
-  itemRollButtons = Boolean(game.settings.get("midi-qol", "ItemRollButtons"));
+  itemRollButtons = false; // Boolean(game.settings.get("midi-qol", "ItemRollButtons"));
   addChatDamageButtons = String(game.settings.get("midi-qol", "AddChatDamageButtons"))
   autoFastForwardAbilityRolls = Boolean(game.settings.get("midi-qol", "AutoFastForwardAbilityRolls"));
   autoRemoveTargets = String(game.settings.get("midi-qol", "AutoRemoveTargets"));
@@ -626,6 +625,7 @@ const settings = [
     config: true,
     onChange: fetchParams
   },
+  /*
   {
     name: "ItemRollButtons",
     scope: "world",
@@ -633,6 +633,7 @@ const settings = [
     type: Boolean,
     onChange: fetchParams
   },
+  */
   {
     name: "showGM",
     scope: "world",

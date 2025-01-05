@@ -441,8 +441,8 @@ export function isAoETargetable(targetToken, options: { selfToken?: Token | Toke
 }
 
 export function templateTokens(templateDetails: MeasuredTemplate, selfTokenRef: Token | TokenDocument | string | undefined = "", ignoreSelf: boolean = false, AoETargetType: string = "any", autoTarget?: string): Token[] {
-  //@ts-expect-error .item
-  if (!autoTarget) autoTarget = getAutoTarget(templateDetails.item);
+  if (!autoTarget) autoTarget = configSettings.autoTarget
+  // deprecated if (!autoTarget) autoTarget = getAutoTarget(templateDetails.item);
   if ((autoTarget) === "none") return [];
   const wallsBlockTargeting = ["wallsBlock", "wallsBlockIgnoreDefeated", "wallsBlockIgnoreIncapacitated"].includes(autoTarget);
   const tokens = canvas?.tokens?.placeables ?? []; //.map(t=>t)

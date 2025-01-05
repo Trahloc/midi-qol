@@ -118,7 +118,7 @@ export class TargetConfirmationDialog extends Application {
       // TODO look at doing save cover bonus calculations here - need the template
       if (typeof configSettings.optionalRules.coverCalculation === "string" && configSettings.optionalRules.coverCalculation !== "none") {
         // TODO confirm this is right for auto template targeting.
-        const isRangeTargeting = ["ft", "m"].includes(this.data.activity.range?.units) && ["creature", "ally", "enemy"].includes(this.data.activity.affects.type);
+        const isRangeTargeting = ["ft", "m"].includes(this.data.activity.range?.units) && ["creature", "ally", "enemy"].includes(this.data.activity.target.affects.type);
         if (!activityHasAreaTarget(this.data.activity) && !isRangeTargeting) {
           const targetCover = attackerToken ? computeCoverBonus(attackerToken, target, this.data.activity.item) : 0;
           switch (targetCover) {

@@ -1,3 +1,13 @@
+### 12.4.20
+* Fix for workflows incorrectly being reused on subsequen activity/item uses - thanks @Elwin
+* Reinstate target advantage, inadvertently disabled in 12.4.19
+* Fix for optional bonus flags not working for skill/saves/checks from character sheet.
+* Fix for interaction with CPR setting display DSN after all macros complete.
+* Comestic change to treatment of flags.grants.attack.bonus.xxx, the bonus will be displayed on the chat card as a subtratction to the targets AC.
+* Fix for flags.grants.advantage/disadvantage not being processed.
+* Fix for error thrown with tidy item sheet - thanks @kgar.
+* Fix for duplicate healing buttons on healing activities.
+
 ### 12.4.19
 * Fix for template targeting when levels is installed and levels volumetric templates is not.
 * Support for 2024 and 2014 heavy weapon disadvantage rules. Midi examines the dnd5e rules version setting to decide which to apply.

@@ -486,8 +486,8 @@ async function _completeActivityUse(data: {
   let actor: any = await fromUuid(actorUuid);
   if (actor.actor) actor = actor.actor;
 
-  const activity = await completeActivityUse(activityUuid, config, dialog, message);
-  if (data.config.midiOptions?.workflowData) return activity.workflow?.getMacroData({ noWorkflowReference: true }); // can't return the workflow
+  const workflow = await completeActivityUse(activityUuid, config, dialog, message);
+  if (data.config.midiOptions?.workflowData) return workflow?.getMacroData({ noWorkflowReference: true }); // can't return the workflow
   else return true;
 }
 

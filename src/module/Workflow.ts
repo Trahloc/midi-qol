@@ -26,6 +26,7 @@ export type WorkflowState = undefined | ((context: any) => Promise<WorkflowState
 export class Workflow {
   [x: string]: any;
   static _workflows: {} = {};
+  static get forceCreate() { return true }
 
   //@ts-expect-error dnd5e v10
   actor: globalThis.dnd5e.documents.Actor5e;
@@ -1924,7 +1925,8 @@ export class Workflow {
     const actType = this.activity?.actionType || "none"
     let conditionData;
     if (advantage || disadvantage) {
-      const target: Token = this.targets.values().next().value;
+      //@ts-expect-error
+      const target: Token = this.targets.first();
       conditionData = createConditionData({ workflow: this, target, actor: this.actor });
 
       if (advantage) {
@@ -2084,8 +2086,8 @@ export class Workflow {
           }
         }
       }
-      await this.checkTargetAdvantage();
     }
+    await this.checkTargetAdvantage();
   }
 
   async processCriticalFlags() {
@@ -4059,6 +4061,7 @@ export class Workflow {
       replaceString = `<div class="midi-qol-bonus-roll"><div class="end-midi-qol-bonus-roll">`
       content = content.replace(searchRe, replaceString);
     }
+    if (installedModules.get("ready-set-roll-5e")) return;
     if (data && this.currentAction === this.WorkflowState_Completed) {
       if (this.itemCardUuid) {
         await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, { removeAllButtons: true });
@@ -4265,6 +4268,7 @@ export class Workflow {
       let targetActor: globalThis.dnd5e.documents.Actor5e = targetToken.actor;
       if (!targetActor) continue; // tokens without actors are an abomination and we refuse to deal with them.
       let targetAC = Number.parseInt(targetActor.system.attributes.ac.value ?? 10);
+      let attackBonus = 0;
       const wjVehicle = installedModules.get("wjmais") ? foundry.utils.getProperty(targetActor, "flags.wjmais.crew.min") != null : false;
       if (targetActor.type === "vehicle" && !wjVehicle) {
         const inMotion = foundry.utils.getProperty(targetActor, `flags.${MODULE_ID}.inMotion`);
@@ -4304,14 +4308,16 @@ export class Workflow {
             // if (Number.isNumeric(midiFlagsAttackBonus.all)) attackTotal +=  Number.parseInt(midiFlagsAttackBonus.all);
             // if (Number.isNumeric(midiFlagsAttackBonus[activity.actionType]) && midiFlagsAttackBonus[item.system.actionType]) attackTotal += Number.parseInt(midiFlagsAttackBonus[item.system.actionType]);
             if (midiFlagsAttackBonus?.all) {
-              const attackBonus = await (new Roll(midiFlagsAttackBonus.all, targetActor.getRollData()))?.evaluate();
-              attackTotal += attackBonus?.total ?? 0;
-              foundry.utils.setProperty(this.actor, "flags.midi.evaluated.grants.attack.bonus.all", { value: attackBonus?.total ?? 0, effects: [`${targetActor.name}`] });
+              const attackBonusRoll = await (new Roll(midiFlagsAttackBonus.all, targetActor.getRollData()))?.evaluate();
+              attackBonus = attackBonusRoll?.total ?? 0;
+              // attackTotal += attackBonus?.total ?? 0;
+              foundry.utils.setProperty(this.actor, "flags.midi.evaluated.grants.attack.bonus.all", { value: attackBonus, effects: [`${targetActor.name}`] });
             }
             if (midiFlagsAttackBonus[activity.actionType]) {
-              const attackBonus = await (new Roll(midiFlagsAttackBonus[activity.actionType], targetActor.getRollData())).evaluate();
-              attackTotal += attackBonus?.total ?? 0;
-              foundry.utils.setProperty(this.actor, `flags.midi.evaluated.grants.attack.bonus.${item.system.actionType}`, { value: attackBonus?.total ?? 0, effects: [`${targetActor.name}`] });
+              const attackBonusRoll = await (new Roll(midiFlagsAttackBonus[activity.actionType], targetActor.getRollData())).evaluate();
+              attackBonus = attackBonusRoll?.total ?? 0;
+              // attackTotal += attackBonus?.total ?? 0;
+              foundry.utils.setProperty(this.actor, `flags.midi.evaluated.grants.attack.bonus.${item.system.actionType}`, { value: attackBonus, effects: [`${targetActor.name}`] });
             }
           }
           if (challengeModeArmorSet) isHit = attackTotal > targetAC || this.isCritical;
@@ -4322,7 +4328,7 @@ export class Workflow {
               // TODO what else to do once rolled
               targetAC = Number.parseInt(targetActor.system.attributes.ac.value ?? 10) + bonusAC;
             }
-            isHit = attackTotal >= targetAC || this.isCritical;
+            isHit = (attackTotal + attackBonus) >= targetAC || this.isCritical;
           }
           if (bonusAC === FULL_COVER) isHit = false; // bonusAC will only be FULL_COVER if cover bonus checking is enabled.
 
@@ -4342,7 +4348,7 @@ export class Workflow {
             if (result.ac) targetAC = result.ac + bonusAC; // deal with bonus ac if any.
             if (targetEC) targetEC = targetAC - targetAR;
             if (bonusAC === FULL_COVER) isHit = false; // bonusAC will only be FULL_COVER if cover bonus checking is enabled.
-            isHit = (attackTotal >= targetAC || this.isCritical) && result.name !== "missed";
+            isHit = (attackTotal + attackBonus >= targetAC || this.isCritical) && result.name !== "missed";
             if (challengeModeArmorSet) isHit = this.attackTotal >= targetAC || this.isCritical;
             if (targetEC) isHitEC = challengeModeArmorSet && this.attackTotal <= targetAC && this.attackTotal >= targetEC;
           } else if ((!isHit && !isHitEC) && this.activity?.attack && this.attackRoll && targetToken !== null && !foundry.utils.getProperty(this, `item.flags.${MODULE_ID}.noProvokeReaction`)) {
@@ -4502,7 +4508,7 @@ export class Workflow {
         actorUuid: targetToken.actor?.uuid,
         tokenuuid: targetUuid,
         hitStyle,
-        ac: targetAC,
+        ac: attackBonus > 0 ? `${targetAC}-${attackBonus}` : targetAC,
         hitClass: ["hit", "critical", "isHitEC"].includes(isHitResult) ? "success" : "failure",
         acClass: targetToken.actor?.hasPlayerOwner ? "" : "midi-qol-npc-ac",
         hitSymbol,
@@ -4799,6 +4805,7 @@ export class Workflow {
 }
 
 export class UserWorkflow extends Workflow {
+  static get forceCreate() { return true; }
 }
 
 export class DamageOnlyWorkflow extends Workflow {
@@ -4875,6 +4882,7 @@ export class DamageOnlyWorkflow extends Workflow {
     })
     return this;
   }
+  static get forceCreate() { return false; }
   async WorkflowState_Start(context: any = {}): Promise<WorkflowState> {
     this.effectsAlreadyExpired = [];
 
@@ -4931,7 +4939,7 @@ export class DamageOnlyWorkflow extends Workflow {
 export class TrapWorkflow extends Workflow {
   templateLocation: { x: number, y: number, direction?: number, removeDelay?: number } | undefined;
   saveTargets: any;
-
+  static get forceCreate() { return false; }
   //@ts-expect-error dnd5e v10
   constructor(actor: globalThis.dnd5e.documents.Actor5e, activity, targets: Array<Token> | undefined,
     templateLocation: { x: number, y: number, direction?: number, removeDelay?: number } | undefined = undefined,
@@ -5123,7 +5131,7 @@ export class TrapWorkflow extends Workflow {
 
 export class DDBGameLogWorkflow extends Workflow {
   DDBGameLogHookId: number;
-
+  static get forceCreate() { return false}
   static get(id: string): DDBGameLogWorkflow {
     return Workflow._workflows[id];
   }
@@ -5219,7 +5227,7 @@ export class DDBGameLogWorkflow extends Workflow {
         flavor: this.bonusDamageFlavor,
         speaker: this.speaker
       }
-      foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
+      // foundry.utils.setProperty(messageData, `flags.${game.system.id}.roll.type`, "midi");
       this.bonusDamageRoll?.toMessage(messageData); // see if this can deal with an array of rolls
     }
     expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"]);
@@ -5250,6 +5258,7 @@ export class DDBGameLogWorkflow extends Workflow {
 }
 
 export class DummyWorkflow extends Workflow {
+  static get forceCreate() { return false}
   //@ts-expect-error dnd5e v10
   constructor(actor: globalThis.dnd5e.documents.Actor5e, item: globalThis.dnd5e.documents.Item5e, speaker, targets, options: any) {
     options.noTemplateHook = true;

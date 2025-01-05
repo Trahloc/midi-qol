@@ -12,11 +12,12 @@ export function defineChatMessageMidiClass(baseClass: any) {
     }
 
     get isRoll() {
-      if (this.flags?.dnd5e?.roll?.type === "midi") return false
+      if (this.flags?.["midi-qol"]) return false // do this so that dsn won't trigger
       return super.isRoll;
     }
 
     get hasRolls() {
+      if (this.flags?.["midi-qol"].roll?.length > 0) return true;
       return super.isRoll;
     }
     // midi has it's own target handling so don't display the attack targets here
@@ -24,15 +25,13 @@ export function defineChatMessageMidiClass(baseClass: any) {
       return;
     }
     get canSelectTargets() {
-      if (this.flags.dnd5e?.roll?.type !== "midi")
+      if (this.flags?.["midi-qol"]?.messageType === "attack") return true;
         return super.canSelectTargets;
-      return super.isRoll && this.isContentVisible;
     }
 
     get canApplyDamage() {
-      const type = this.flags.dnd5e?.roll?.type;
-      if (type !== "midi") return super.canApplyDamage;
-      return super.isRoll && this.flags?.["midi-qol"].damageDetail?.length > 0 && this.isContentVisible && !!canvas?.tokens?.controlled.length;
+      if (this.flags?.["midi-qol"].damageDetail?.length > 0 && this.isContentVisible && !!canvas?.tokens?.controlled.length) return true;
+      return super.canApplyDamage;
     }
 
     // Patch for getAssociatedItem not peparing data on items recovered from item.data
@@ -51,8 +50,8 @@ export function defineChatMessageMidiClass(baseClass: any) {
  * @param {string} type       The type of selection ('hit' or 'miss').
  */
     selectTargets(li, type) {
-      if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") return super.selectTargets(li, type);
       if (!canvas?.ready) return;
+      if (!foundry.utils.getProperty(this, "flags.midi-qol")) return super.selectTargets(li, type);
       const lis = li.closest("[data-message-id]").querySelectorAll(`.evaluation li.target.${type}`);
       let targetUuids = this.getFlag("midi-qol", "targetUuids") || [];
       let hitTargetUuids = this.getFlag("midi-qol", "hitTargetUuids") || [];
@@ -203,7 +202,6 @@ export function defineChatMessageMidiClass(baseClass: any) {
     _enrichDamageTooltip(rolls, html) {
       if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== undefined || !this.flags?.["midi-qol"])
         return super._enrichDamageTooltip(rolls, html);
-      // if (foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") return;
       for (let rollType of MQDamageRollTypes) {
         const rollsToCheck = this.rolls.filter(r => foundry.utils.getProperty(r, "options.midi-qol.rollType") === rollType);
         let rType = "damage";
@@ -253,7 +251,7 @@ export function defineChatMessageMidiClass(baseClass: any) {
     }
 
     _highlightCriticalSuccessFailure(html) {
-      // if (this.getFlag("dnd5e", "roll.type") !== "midi") return super._highlightCriticalSuccessFailure(html);
+      if (!this.flags?.["midi-qol"]) return super._highlightCriticalSuccessFailure(html);
       super._highlightCriticalSuccessFailure(html);
       for (let [index, d20Roll] of this.rolls.entries()) {
         const total = html.find(".dice-total")[index];
@@ -321,12 +319,6 @@ export function defineChatMessageMidiClass(baseClass: any) {
 
     _enrichChatCard(html) {
       if (!foundry.utils.getProperty(this, "flags.midi-qol.messageType")) return super._enrichChatCard(html);
-      if (false && (foundry.utils.getProperty(this, "flags.midi-qol.roll")?.length > 0) && foundry.utils.getProperty(this, "flags.dnd5e.roll.type") !== "midi") {
-        this.rolls = foundry.utils.getProperty(this, "flags.midi-qol.roll");
-        super._enrichChatCard(html);
-        html.querySelectorAll(".dice-tooltip").forEach(el => el.style.height = "0");
-        return; // Old form midi chat card tht causes dnd5e to throw errors
-      }
       if (debugEnabled > 1) warn("Enriching chat card", this.id);
       this.enrichAttackRolls(html); // This has to run first to stop errors when ChatMessage5e._enrichDamageTooltip runs
 

@@ -156,13 +156,11 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
     async _triggerSubsequentActions(config, results) {
     }
 
-    async rollAttack(config, dialog, message) {
+    async rollAttack(config:any = {}, dialog: any = {}, message: any = {}) {
       let preRollHookId;
       let rollAttackHookId;
       let rolls;
-      if (!dialog) dialog = {};
-      if (!message) message = {};
-      if (!config.midiOptions) config.midiOptions = {};
+      config.midiOptions ??= {};
       try {
         if (debugEnabled > 0) warn("MidiQOL | AttackActivity | rollAttack | Called", config, dialog, message);
         let returnValue = await this.configureAttackRoll(config);

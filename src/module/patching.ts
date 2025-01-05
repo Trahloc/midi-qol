@@ -1372,10 +1372,10 @@ function itemSheetDefaultOptions(wrapped) {
 
 function prepareSheetItem(wrapped, item, ctx) {
   wrapped(item, ctx);
-  if (ctx.activities) {
+  if (ctx.activities?.length > 0) {
     ctx.activities = ctx.activities.filter(data => {
       const activity = item.system.activities.get(data._id ?? data.id);
-      return !activity?.midiProperties?.automactionOnly;
+      return !activity?.midiProperties?.automationOnly;
     });
   }
   return ctx;
