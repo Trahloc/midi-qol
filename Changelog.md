@@ -1,3 +1,6 @@
+### 11.6.31
+* ALways record placed templates for auto remove instantaneous templates.
+
 ### 11.6.30
 * Added some extra data to condition data - courtesy @thatlonelybugbear
 

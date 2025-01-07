@@ -317,10 +317,11 @@ export class Workflow {
       }
     }
     this.needTemplate = (getAutoTarget(this.item) !== "none" && this.item?.hasAreaTarget && !hasAutoPlaceTemplate(this.item));
+    if (this.item?.hasAreaTarget && !hasAutoPlaceTemplate(this.item))
+      this.placeTemplateHookId = Hooks.once("createMeasuredTemplate", selectTargets.bind(this));
     if (this.needTemplate && options.noTemplateHook !== true) {
       if (debugEnabled > 0) warn("registering for preCreateMeasuredTemplate, createMeasuredTemplate")
       this.preCreateTemplateHookId = Hooks.once("preCreateMeasuredTemplate", this.setTemplateFlags.bind(this));
-      this.placeTemplateHookId = Hooks.once("createMeasuredTemplate", selectTargets.bind(this));
     }
     if (this.item.system.summons && configSettings.autoRemoveSummonedCreature) {
       this.postSummonHookId = Hooks.once("dnd5e.postSummon", (item, profile, createdTokens, options) => {
