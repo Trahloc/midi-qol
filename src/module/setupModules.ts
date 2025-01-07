@@ -3,7 +3,7 @@ import { log } from "../midi-qol.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
 import { configSettings } from "./settings.js";
 
-export const DAE_REQUIRED_VERSION = "12.0.8";
+export const DAE_REQUIRED_VERSION = "12.0.10";
 export const REQUIRED_MODULE_VERSIONS = {
   "about-time": "0.0", 
   "anonymous": "0.0.0",

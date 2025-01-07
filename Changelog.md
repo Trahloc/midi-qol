@@ -1,3 +1,15 @@
+### 12.4.21
+* Fix for dm.midi.amount.xxx, system.traits.dr.midi.mwak/etc fields not processing.
+* Fix for saves/ability checks not displaying roll details.
+* Fix for template targeting not recording targeted tokens in some cases.
+* Fix for not picking up item enchantments when using an item (for example magicalBonus when doing an attack).
+* Added Midi Enchnant, no extra functionality but allows pre-item use checks etc to be performed.
+* Cleanup of system.traits.da.xxx keys.
+* Respect trait bypasses for some of the "special" midi da/dr/dv/di/dm, midi.mwak, midi.rwak and midi.physical.
+  - In particular dm.midi.physical allows you to set a maximum damage reduction across all physical damage, and bypass that via system.traits.dm.bypasses.
+* Cleanup of midi fields and field browser data
+* Requires dae upgrade to 12.0.10 or later
+
 ### 12.4.20
 * Fix for workflows incorrectly being reused on subsequen activity/item uses - thanks @Elwin
 * Reinstate target advantage, inadvertently disabled in 12.4.19

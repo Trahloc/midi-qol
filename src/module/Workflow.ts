@@ -1334,7 +1334,7 @@ export class Workflow {
     const otherActivitySelfAllEffects = otherActivityEffects.filter(ef => ef.flags?.dae?.selfTargetAlways) ?? [];
     activityEffects = activityEffects.filter(ef => !ef.flags?.dae?.selfTarget && !ef.flags?.dae?.selfTargetAlways);
     otherActivityEffects = otherActivityEffects.filter(ef => !ef.flags?.dae?.selfTarget && !ef.flags?.dae?.selfTargetAlways);
-    let anyApplication = this.effectTargets.size > 0 || this.otherEffectTargets.size > 0;
+    // let anyApplication = this.effectTargets.size > 0 || this.otherEffectTargets.size > 0;
 
     let selfEffectsToApply = "none";
     const metaData = {
@@ -1497,7 +1497,7 @@ export class Workflow {
 
     //Now do self effects
     let selfEffects: any[] = [];
-    if (this.effectTargets.size > 0) selfEffects = activitySelfEffects;
+    if (this.effectTargets?.size > 0) selfEffects = activitySelfEffects;
     else selfEffects = activitySelfAllEffect;
     const selfToken = tokenForActor(this.actor);
     if (selfEffects.length > 0 && selfToken) {
@@ -1558,7 +1558,7 @@ export class Workflow {
       })
     }
 
-    if (ceSelfEffect && (this.effectTargets.size > 0 || ceSelfEffect.flags?.dae?.selfTargetAlways)) {
+    if (ceSelfEffect && (this.effectTargets?.size > 0 || ceSelfEffect.flags?.dae?.selfTargetAlways)) {
       if (["both", "cepri"].includes(useCE) || (useCE === "itempri" && !selfEffects.length)) {
         const actorHasEffect = this.actor.effects.find(ef => ef.name === this.activity.name);
         if (this.item?.flags.midiProperties?.toggleEffect && actorHasEffect) {
@@ -1735,7 +1735,7 @@ export class Workflow {
     await this.expireTargetEffects(specialExpiries)
     const rollFinishedStartTime = Date.now();
     const chatMessage = this.chatCard;
-    if (!this.targetsDisplayed && this.targets.size > 0 && chatMessage && (this.activity.damage || this.effectTargets.size > 0)) {
+    if (!this.targetsDisplayed && this.targets?.size > 0 && chatMessage && (this.activity.damage || this.effectTargets?.size > 0)) {
       this.hitDisplayData = {};
       const theTargets = this.effectTargets?.size > 0 ? this.effectTargets : this.targets;
       for (let targetToken of theTargets) {

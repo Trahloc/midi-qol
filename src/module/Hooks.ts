@@ -943,6 +943,11 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             case "non-adamant-physical":
               if (!GameSystemConfig.damageTypes[damage.type]?.isPhysical || damage.properties.has("ada")) continue;
               break;
+            case "mwak":
+            case "rwak":
+              bypassesPresent = damage.properties.intersection(bypasses);
+              if (!damage.properties.has(custom) || bypassesPresent.size > 0) continue;
+              break;
             case "all": if (damage.type === "midi-none") continue; break;
             default: if (!damage.properties.has(custom)) continue; break;
           }
@@ -996,8 +1001,10 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
         let selectedDamage;
         let oldDamage
         let dmActive;
-        dmRoll = new Roll(`${actor.system.traits?.dm.midi[special]}`, actor.getRollData())
-        dm = doSyncRoll(dmRoll, `traits.dm.midi.${special}`)?.total ?? 0;;
+        dmRoll = new Roll(`${actor.system.traits?.dm.midi?.[special]}`, actor.getRollData())
+        dm = doSyncRoll(dmRoll, `traits.dm.midi.${special}`)?.total ?? 0;
+        const bypasses = actor.system.traits["dm"].bypasses ?? new Set();
+
         switch (special) {
           case "all":
             selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type]);
@@ -1006,6 +1013,15 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
 
           case "mwak":
           case "rwak":
+            if (options.ignore?.modification?.has(special)) continue;
+            selectedDamage = selectDamages(damages, (damage) => {
+            const bypassesPresent = damage.properties.intersection(bypasses);
+            return !GameSystemConfig.healingTypes[damage.type] 
+            && damage.properties.has(special)
+            && bypassesPresent.size === 0
+          });
+            if (selectedDamage > 0) dmActive = i18n(special);
+            break;
           case "msak":
           case "rsak":
             if (options.ignore?.modification?.has(special)) continue;
@@ -1042,7 +1058,12 @@ Hooks.on("dnd5e.calculateDamage", (actor, damages, options) => {
             break;
 
           case "physical":
-            selectedDamage = selectDamages(damages, (damage) => !GameSystemConfig.healingTypes[damage.type] && GameSystemConfig.damageTypes[damage.type]?.isPhysical);
+            selectedDamage = selectDamages(damages, (damage) => {
+              const bypassesPresent = damage.properties.intersection(bypasses);
+              return !GameSystemConfig.healingTypes[damage.type] 
+              && GameSystemConfig.damageTypes[damage.type]?.isPhysical
+              && bypassesPresent.size === 0;
+            });
             if (selectedDamage > 0) dmActive = i18n("midi-qol.Physical");
             break;
 

@@ -12,7 +12,7 @@ export function defineChatMessageMidiClass(baseClass: any) {
     }
 
     get isRoll() {
-      if (this.flags?.["midi-qol"]) return false // do this so that dsn won't trigger
+      if (this.flags?.["midi-qol"]?.messageType) return false // do this so that dsn won't trigger
       return super.isRoll;
     }
 
@@ -30,7 +30,7 @@ export function defineChatMessageMidiClass(baseClass: any) {
     }
 
     get canApplyDamage() {
-      if (this.flags?.["midi-qol"].damageDetail?.length > 0 && this.isContentVisible && !!canvas?.tokens?.controlled.length) return true;
+      if (this.flags?.["midi-qol"]?.damageDetail?.length > 0 && this.isContentVisible && !!canvas?.tokens?.controlled.length) return true;
       return super.canApplyDamage;
     }
 

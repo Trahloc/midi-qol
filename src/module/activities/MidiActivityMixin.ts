@@ -248,7 +248,8 @@ export var MidiActivityMixin = Base => {
       if (!activity.workflow || activity.workflow.currentAction !== activity.workflow.WorkflowState_NoAction) {
         console.log("MidiActivity | use | Workflow is not in the correct state", config.midiOptions, activity.workflow?.currentAction);
         let workflowClass = config?.midi?.workflowClass ?? globalThis.MidiQOL.workflowClass;
-        if (!(workflowClass.prototype instanceof Workflow)) workflowClass = Workflow;        activity.workflow = new workflowClass(activity.actor, activity, ChatMessage.getSpeaker({ actor: activity.item.actor }), activity.targets, { ...config.midiOptions, event: config.event });
+        if (!(workflowClass.prototype instanceof Workflow)) workflowClass = Workflow;
+        activity.workflow = new workflowClass(activity.actor, this, ChatMessage.getSpeaker({ actor: activity.item.actor }), activity.targets, { ...config.midiOptions, event: config.event });
       }
       // Stupid vscode thinks activity.workflow can be undefined which it can't so put in a superflous check to keep it happy
       if (!activity.workflow) return undefined;
@@ -264,7 +265,7 @@ export var MidiActivityMixin = Base => {
       // await activity.confirmTargets();
 
       if (!await activity.setupTargets(config, dialog, message)) return;
-      activity.workflow.targets = activity.targets;
+      activity.workflow.setTargets(activity.targets);
       const extraWorkflowData = await activity.confirmCanProceed(config, dialog, message);
       if (!extraWorkflowData) return;
       foundry.utils.setProperty(message, "data.flags.midi-qol.messageType", "attack");
@@ -276,7 +277,6 @@ export var MidiActivityMixin = Base => {
       const results = await super.use(config, dialog, message);
       if (!results) return;
       if (autoCreatetemplate || emanationNoTemplate) if (!await activity.setupTargets(config, dialog, message)) return;
-      activity.workflow.targets = activity.targets;
       activity.workflow.noAutoDamage = config.midiOptions.systemCard;
       activity.workflow.noAutoAttack = config.midiOptions.systemCard;
       activity.workflow.setTargets(activity.targets); // Allow for targets set by emanation
@@ -635,6 +635,7 @@ export var MidiActivityMixin = Base => {
         const tokensIdsToUse: Array<string> = this.targets ? Array.from(this.targets).map(t => t.id) : [];
         game.user?.updateTokenTargets(tokensIdsToUse)
       }
+      if (this.workflow) this.workflow.setTargets(this.targets);
       return true;
     }
 

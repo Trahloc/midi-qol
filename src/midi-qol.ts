@@ -71,9 +71,9 @@ export function geti18nOptions(key) {
   let translation: any = game.i18n.translations[MODULE_ID] ?? {};
   //@ts-ignore _fallback not accessible
   let fallback: any = game.i18n._fallback[MODULE_ID] ?? {};
-  fallback = (fallback instanceof String)  ? fallback : (foundry.utils.getProperty(fallback, key) ?? {});
+  fallback = (fallback instanceof String) ? fallback : (foundry.utils.getProperty(fallback, key) ?? {});
   translation = (translation instanceof String) ? translation : (foundry.utils.getProperty(translation, key) ?? {});
-  
+
   translation = foundry.utils.mergeObject(fallback ?? {}, translation ?? {}, { overwrite: true, inplace: false });
   return translation;
 }
@@ -156,6 +156,8 @@ function setupActvities() {
   globalThis.MidiQOL.activityTypes["save"] = { documentClass: MidiSaveActivity };
   setupCheckActivity(); // must happen after setupSaveActivity
   globalThis.MidiQOL.activityTypes["check"] = { documentClass: MidiCheckActivity };
+  setupEnchantActivity();
+  globalThis.MidiQOL.activityTypes["enchant"] = { documentClass: MidiEnchantActivity };
   setupHealActivity();
   globalThis.MidiQOL.activityTypes["heal"] = { documentClass: MidiHealActivity };
   setupSummonActivity();
@@ -224,63 +226,111 @@ Hooks.once('init', async function () {
 });
 Hooks.on("dae.modifySpecials", (specKey, specials, _characterSpec) => {
   specials[`flags.${MODULE_ID}.onUseMacroName`] = [new StringField(), CONST.ACTIVE_EFFECT_MODES.CUSTOM];
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.onUseMacroName`);
   specials[`flags.${MODULE_ID}.optional.NAME.macroToCall`] = [new StringField(), CONST.ACTIVE_EFFECT_MODES.CUSTOM];
-  if (configSettings.v3DamageApplication) {
-    for (let type of ["dm", "da", "di", "dv", "dr"]) {
-      specials[`system.traits.${type}.midi.all`] = [new StringField(), -1];
-      specials[`system.traits.${type}.midi.magical`] = [new StringField(), -1];
-      specials[`system.traits.${type}.midi.non-magical`] = [new StringField(), -1];
-      specials[`system.traits.${type}.midi.non-magical-physical`] = [new StringField(), -1];
-      specials[`system.traits.${type}.midi.non-silver-physical`] = [new StringField(), -1];
-      specials[`system.traits.${type}.midi.non-adamant-physical`] = [new StringField(), -1];
-      specials[`system.traits.${type}.midi.non-physical`] = [new StringField(), -1];
-      specials[`system.traits.${type}.midi.physical`] = [new StringField(), -1];
-      specials[`system.traits.${type}.midi.spell`] = [new StringField(), -1];
-      specials[`system.traits.${type}.midi.non-spell`] = [new StringField(), -1];
-    }
-
-    // specials[`system.traits.dm.midi.final`] = [new StringField(), -1];
-    specials[`system.traits.idi.value`] = [new StringField(), -1];
-    specials[`system.traits.idr.value`] = [new StringField(), -1];
-    specials[`system.traits.idv.value`] = [new StringField(), -1];
-    specials[`system.traits.ida.value`] = [new StringField(), -1];
-    specials[`system.traits.idm.value`] = [new StringField(), -1];
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.macroToCall`);
+  for (let type of ["dm", "da", "di", "dv", "dr"]) {
+    // specials[`system.traits.${type}.midi.all`] = [new StringField(), -1];
+    // daeFieldBrowserFields.push(`system.traits.${type}.midi.all`);
+    specials[`system.traits.${type}.midi.magical`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.${type}.midi.magical`);
+    specials[`system.traits.${type}.midi.non-magical`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.${type}.midi.non-magical`);
+    specials[`system.traits.${type}.midi.non-magical-physical`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.${type}.midi.non-magical-physical`);
+    specials[`system.traits.${type}.midi.non-silver-physical`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.${type}.midi.non-silver-physical`);
+    specials[`system.traits.${type}.midi.non-adamant-physical`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.${type}.midi.non-adamant-physical`);
+    specials[`system.traits.${type}.midi.non-physical`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.${type}.midi.non-physical`);
+    specials[`system.traits.${type}.midi.physical`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.${type}.midi.physical`);
+    specials[`system.traits.${type}.midi.spell`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.${type}.midi.spell`);
+    specials[`system.traits.${type}.midi.non-spell`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.${type}.midi.non-spell`);
+    if (!["dm", "da"].includes(type)) allAttackTypes.forEach(attackType => {
+      specials[`system.traits.${type}.midi.${attackType}`] = [new StringField(), -1];
+      daeFieldBrowserFields.push(`system.traits.${type}.midi.${attackType}`);
+    }); 
   }
+
+  if (GameSystemConfig.damageTypes) {
+    specials[`system.traits.dm.midi.all`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.dm.midi.all`);
+    Object.keys(GameSystemConfig.damageTypes).forEach(dType => {
+      specials[`system.traits.dm.amount.${dType}`] = [new StringField(), -1]
+      daeFieldBrowserFields.push(`system.traits.dm.${dType}`);
+    });
+    Object.keys(GameSystemConfig.itemActionTypes).forEach(aType => {
+      specials[`system.traits.dm.midi.${aType}`] = [new StringField(), -1];
+      daeFieldBrowserFields.push(`system.traits.dm.midi.${aType}`);
+    });
+    Object.keys(GameSystemConfig.healingTypes).forEach(dType => {
+      specials[`system.traits.dm.amount.${dType}`] = [new StringField(), -1];
+      daeFieldBrowserFields.push(`system.traits.dm.midi.${dType}`);
+    });
+    specials[`system.traits.da.midi.all`] = [new StringField(), -1];
+    daeFieldBrowserFields.push(`system.traits.da.midi.all`);
+    Object.keys(GameSystemConfig.damageTypes).forEach(dType => {
+      specials[`system.traits.da.${dType}`] = [new StringField(), -1];
+      daeFieldBrowserFields.push(`system.traits.da.${dType}`);
+    });
+    Object.keys(GameSystemConfig.itemActionTypes).forEach(aType => {
+      specials[`system.traits.da.midi.${aType}`] = [new StringField(), -1];
+      daeFieldBrowserFields.push(`system.traits.da.midi.${aType}`);
+    });
+    Object.keys(GameSystemConfig.healingTypes).forEach(dType => {
+      specials[`system.traits.da.${dType}`] = [new StringField(), -1];
+      daeFieldBrowserFields[`system.traits.da.${dType}`] = [new StringField(), -1];
+    });
+  }
+
+  // specials[`system.traits.dm.midi.final`] = [new StringField(), -1];
+  specials[`system.traits.idi.value`] = [new StringField(), -1];
+  daeFieldBrowserFields.push(`system.traits.idi.value`);
+  specials[`system.traits.idr.value`] = [new StringField(), -1];
+  daeFieldBrowserFields.push(`system.traits.idr.value`);
+  specials[`system.traits.idv.value`] = [new StringField(), -1];
+  daeFieldBrowserFields.push(`system.traits.idv.value`);
+  specials[`system.traits.ida.value`] = [new StringField(), -1];
+  daeFieldBrowserFields.push(`system.traits.ida.value`);
+  specials[`system.traits.idm.value`] = [new StringField(), -1];
+  daeFieldBrowserFields.push(`system.traits.idm.value`);
 });
+
 Hooks.on("dae.addFieldMappings", (fieldMappings) => {
   registerSettings();
   fetchParams();
-
-  if (configSettings.v3DamageApplication) {
-    //@ts-expect-error
-    for (let key of Object.keys(game.system.config.damageTypes ?? {})) {
-      fieldMappings[`flags.${MODULE_ID}.DR.${key}`] = `system.traits.dm.amount.${key}`;
-      fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.${key}`;
-    }
-    //@ts-expect-error
-    for (let key of Object.keys(game.system.config.healingTypes ?? {})) {
-      fieldMappings[`flags.${MODULE_ID}.DR.${key}`] = `system.traits.dm.amount.${key}`;
-      fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.${key}`;
-    }
-    fieldMappings[`flags.${MODULE_ID}.DR.all`] = "system.traits.dm.midi.all";
-    fieldMappings[`flags.${MODULE_ID}.absorption.all`] = "system.traits.da.all";
-
-    //@ts-expect-error
-    Object.keys(game.system.config.itemActionTypes).forEach(aType => {
-      fieldMappings[`flags.${MODULE_ID}.DR.${aType}`] = `system.traits.dm.midi.${aType}`;
-    });
-    fieldMappings[`flags.${MODULE_ID}.DR.all`] = `system.traits.dm.midi.all`;
-    fieldMappings[`flags.${MODULE_ID}.DR.non-magical`] = `system.traits.dm.midi.non-magical`;
-    fieldMappings[`flags.${MODULE_ID}.DR.non-magical-physical`] = `system.traits.dm.midi.non-magical-physical`;
-    fieldMappings[`flags.${MODULE_ID}.DR.non-silver`] = `system.traits.dm.midi.non-silver-physical`;
-    fieldMappings[`flags.${MODULE_ID}.DR.non-adamant`] = `system.traits.dm.midi.non-adamant-physical`;
-    fieldMappings[`flags.${MODULE_ID}.DR.non-physical`] = `system.traits.dm.midi.non-physical`;
-    fieldMappings[`flags.${MODULE_ID}.DR.non-spell`] = `system.traits.dm.midi.non-spell`;
-    fieldMappings[`flags.${MODULE_ID}.DR.spell`] = `system.traits.dm.midi.spell`;
-
-    // fieldMappings[`flags.${MODULE_ID}.DR.final`] = `system.traits.dm.midi.final`;
-    fieldMappings[`flags.${MODULE_ID}.concentrationSaveBonus`] = "system.attributes.concentration.bonuses.save";
+  //@ts-expect-error
+  for (let key of Object.keys(game.system.config.damageTypes ?? {})) {
+    fieldMappings[`flags.${MODULE_ID}.DR.${key}`] = `system.traits.dm.amount.${key}`;
+    fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.${key}`;
   }
+  //@ts-expect-error
+  for (let key of Object.keys(game.system.config.healingTypes ?? {})) {
+    fieldMappings[`flags.${MODULE_ID}.DR.${key}`] = `system.traits.dm.amount.${key}`;
+    fieldMappings[`flags.${MODULE_ID}.absorption.${key}`] = `system.traits.da.${key}`;
+  }
+  fieldMappings[`flags.${MODULE_ID}.DR.all`] = "system.traits.dm.midi.all";
+  fieldMappings[`flags.${MODULE_ID}.absorption.all`] = "system.traits.da.midi.all";
+
+  //@ts-expect-error
+  Object.keys(game.system.config.itemActionTypes).forEach(aType => {
+    fieldMappings[`flags.${MODULE_ID}.DR.${aType}`] = `system.traits.dm.midi.${aType}`;
+  });
+  fieldMappings[`flags.${MODULE_ID}.DR.all`] = `system.traits.dm.midi.all`;
+  fieldMappings[`flags.${MODULE_ID}.DR.non-magical`] = `system.traits.dm.midi.non-magical`;
+  fieldMappings[`flags.${MODULE_ID}.DR.non-magical-physical`] = `system.traits.dm.midi.non-magical-physical`;
+  fieldMappings[`flags.${MODULE_ID}.DR.non-silver`] = `system.traits.dm.midi.non-silver-physical`;
+  fieldMappings[`flags.${MODULE_ID}.DR.non-adamant`] = `system.traits.dm.midi.non-adamant-physical`;
+  fieldMappings[`flags.${MODULE_ID}.DR.non-physical`] = `system.traits.dm.midi.non-physical`;
+  fieldMappings[`flags.${MODULE_ID}.DR.non-spell`] = `system.traits.dm.midi.non-spell`;
+  fieldMappings[`flags.${MODULE_ID}.DR.spell`] = `system.traits.dm.midi.spell`;
+
+  // fieldMappings[`flags.${MODULE_ID}.DR.final`] = `system.traits.dm.midi.final`;
+  fieldMappings[`flags.${MODULE_ID}.concentrationSaveBonus`] = "system.attributes.concentration.bonuses.save";
   fieldMappings[`flags.${MODULE_ID}.fail.critical.all`] = `flags.${MODULE_ID}.grants.noCritical.all`;
   for (let attackType of allAttackTypes) {
     fieldMappings[`flags.${MODULE_ID}.fail.critical.${attackType}`] = `flags.${MODULE_ID}.grants.noCritical.${attackType}`;
@@ -290,11 +340,90 @@ Hooks.on("dae.addFieldMappings", (fieldMappings) => {
     fieldMappings[`flags.${MODULE_ID}.max.skill.${skill}`] = `system.skills.${skill}.roll.max`;
     fieldMappings[`flags.${MODULE_ID}.min.skill.${skill}`] = `system.skills.${skill}.roll.min`;
   }
-  fieldMappings[`flags.${MODULE_ID}.max.ability.save.concentration`] = `system.attributes.concentration.roll.max`; 
-  fieldMappings[`flags.${MODULE_ID}.min.ability.save.concentration`] = `system.attributes.concentration.roll.min`; 
+  fieldMappings[`flags.${MODULE_ID}.max.ability.save.concentration`] = `system.attributes.concentration.roll.max`;
+  fieldMappings[`flags.${MODULE_ID}.min.ability.save.concentration`] = `system.attributes.concentration.roll.min`;
   fieldMappings[`flags.${MODULE_ID}.concentrationSaveBonus`] = `system.attributes.concentration.bonuses.save`;
   if (debugEnabled > 0) warn("fieldMappings", fieldMappings);
 
+});
+
+Hooks.on("dae.addSpecialDurations", daeSpecialDurations => {
+    daeSpecialDurations["1Action"] = i18n("dae.1Action");
+    daeSpecialDurations["Bonus Action"] = i18n("dae.Bonus Action");
+    daeSpecialDurations["Reaction"] = i18n("dae.Reaction");
+    daeSpecialDurations["Turn Action"] = i18n("dae.Turn Action");
+    daeSpecialDurations["1Spell"] = i18n("dae.1Spell");
+    daeSpecialDurations["1Attack"] = game.i18n.format("dae.1Attack", { type: `${i18n("dae.spell")}/${i18n("dae.weapon")} ${i18n("dae.attack")}` });
+    daeSpecialDurations["1Hit"] = game.i18n.format("dae.1Hit", { type: `${i18n("dae.spell")}/${i18n("dae.weapon")}` });
+    daeSpecialDurations["1Critical"] = i18n("dae.1Critical");
+    daeSpecialDurations["1Fumble"] = i18n("dae.1Fumble");
+    //    daeSpecialDurations["1Hit"] = i18n("dae.1Hit");
+    daeSpecialDurations["1Reaction"] = i18n("dae.1Reaction")
+    let attackTypes = ["mwak", "rwak", "msak", "rsak"];
+    if (game.system.id === "sw5e") attackTypes = ["mwak", "rwak", "mpak", "rpak"];
+    attackTypes.forEach(at => {
+      daeSpecialDurations[`1Attack:${at}`] = `${GameSystemConfig.itemActionTypes[at]}: ${game.i18n.format("dae.1Attack", { type: GameSystemConfig.itemActionTypes[at] })}`;
+      daeSpecialDurations[`1Hit:${at}`] = `${GameSystemConfig.itemActionTypes[at]}: ${game.i18n.format("dae.1Hit", { type: GameSystemConfig.itemActionTypes[at] })}`;
+    })
+    daeSpecialDurations["DamageDealt"] = i18n("dae.DamageDealt");
+    daeSpecialDurations["isAttacked"] = i18n("dae.isAttacked");
+    daeSpecialDurations["isDamaged"] = i18n("dae.isDamaged");
+    daeSpecialDurations["isHealed"] = i18n("dae.isHealed");
+    daeSpecialDurations["zeroHP"] = i18n("dae.ZeroHP");
+    daeSpecialDurations["isHit"] = i18n("dae.isHit");
+    daeSpecialDurations["isHitCritical"] = i18n("dae.isHitCritical");
+    daeSpecialDurations["isSave"] = `${i18n("dae.isRollBase")} ${i18n("dae.isSaveDetail")}`;
+    daeSpecialDurations["isSaveSuccess"] = `${i18n("dae.isRollBase")} ${i18n("dae.isSaveDetail")}: ${i18n("dae.success")}`;
+    daeSpecialDurations["isSaveFailure"] = `${i18n("dae.isRollBase")} ${i18n("dae.isSaveDetail")}: ${i18n("dae.failure")}`;
+    daeSpecialDurations["isConcentrationSave"] = i18n("dae.isConcentrationSave");
+    daeSpecialDurations["isConcentrationSaveFail"] = `${i18n("dae.isConcentrationSave")}: ${i18n("dae.failure")}`;
+    daeSpecialDurations["isConcentrationSaveSuccess"] = `${i18n("dae.isConcentrationSave")}: ${i18n("dae.success")}`;
+    daeSpecialDurations["isCheck"] = `${i18n("dae.isRollBase")} ${i18n("dae.isCheckDetail")}`;
+    daeSpecialDurations["isSkill"] = `${i18n("dae.isRollBase")} ${i18n("dae.isSkillDetail")}`;
+    daeSpecialDurations["isInitiative"] = `${i18n("dae.isRollBase")} ${i18n("dae.isInitiativeDetail")}`;
+
+    daeSpecialDurations["isMoved"] = i18n("dae.isMoved");
+    daeSpecialDurations["longRest"] = i18n("DND5E.LongRest");
+    daeSpecialDurations["shortRest"] = i18n("DND5E.ShortRest");
+    daeSpecialDurations["newDay"] = `${i18n("DND5E.NewDay")}`;
+    Object.keys(GameSystemConfig.abilities).forEach(abl => {
+      //@ts-expect-error .version
+      let ablString = foundry.utils.isNewerVersion(game.system.version, "2.1.5")
+        ? GameSystemConfig.abilities[abl].label
+        : GameSystemConfig.abilities[abl];
+      daeSpecialDurations[`isSave.${abl}`] = `${i18n("dae.isRollBase")} ${ablString} ${i18n("dae.isSaveDetail")}`;
+      daeSpecialDurations[`isSaveSuccess.${abl}`] = `${i18n("dae.isRollBase")} ${ablString} ${i18n("dae.isSaveDetail")}: ${i18n("dae.success")}`;
+      daeSpecialDurations[`isSaveFailure.${abl}`] = `${i18n("dae.isRollBase")} ${ablString} ${i18n("dae.isSaveDetail")}: ${i18n("dae.failure")}`;
+      daeSpecialDurations[`isCheck.${abl}`] = `${i18n("dae.isRollBase")} ${ablString} ${i18n("dae.isCheckDetail")}`;
+    })
+    //@ts-expect-error
+    if (foundry.utils.isNewerVersion(game.system.version, "2.9.99")) {
+      Object.keys(GameSystemConfig.damageTypes).forEach(key => {
+        daeSpecialDurations[`isDamaged.${key}`] = `${i18n("dae.isDamaged")}: ${GameSystemConfig.damageTypes[key].label}`;
+      });
+
+    } else {
+      Object.keys(GameSystemConfig.damageTypes).forEach(dt => {
+        daeSpecialDurations[`isDamaged.${dt}`] = `${i18n("dae.isDamaged")}: ${GameSystemConfig.damageTypes[dt]}`;
+      });
+    }
+    //@ts-expect-error
+    if (foundry.utils.isNewerVersion(game.system.version, "2.9.99")) {
+      daeSpecialDurations[`isDamaged.healing`] = `${i18n("dae.isDamaged")}: ${GameSystemConfig.healingTypes["healing"].label}`;
+    } else {
+      daeSpecialDurations[`isDamaged.healing`] = `${i18n("dae.isDamaged")}: ${GameSystemConfig.healingTypes["healing"]}`;
+    }
+    Object.keys(GameSystemConfig.skills).forEach(skillId => {
+      daeSpecialDurations[`isSkill.${skillId}`] = `${i18n("dae.isRollBase")} ${i18n("dae.isSkillDetail")} ${GameSystemConfig.skills[skillId].label}`;
+    });
+
+})
+
+var daeFieldBrowserFields: Array<string> = [];
+
+Hooks.on("dae.setFieldData", (fieldData: Record<string, string[]>) => {
+  fieldData["MidiQOL"] = Array.from(new Set(daeFieldBrowserFields)).sort();
+  log("setDaeFieldData | fieldData", fieldData);
 });
 
 /* ------------------------------------ */
@@ -304,15 +433,14 @@ Hooks.once('setup', function () {
   // Do anything after initialization but before
   //@ts-expect-error
   isdndv4 = game.system.id === "dnd5e" && foundry.utils.isNewerVersion(game.system.version, "3.3.99");
-  // ready
+  setupModules();
+  setupMidiFlags();
   setupSocket();
   fetchParams();
   fetchSoundSettings();
   itemPatching();
   visionPatching();
-  setupModules();
   initGMActionSetup();
-  setupMidiFlags();
   setupHooks();
   undoDamageText = i18n("midi-qol.undoDamageFrom");
   savingThrowText = i18n("midi-qol.savingThrowText");
@@ -382,7 +510,7 @@ function addConfigOptions() {
     config.traits.dv.configKey = "damageTypes";
     if (!config.traits.da && game.system.id === "dnd5e") {
       config.traits.da = {
-        labels: {title: "Damage Absorption", localization: "midi-qol.DamageAbsorption"},
+        labels: { title: "Damage Absorption", localization: "midi-qol.DamageAbsorption" },
         icon: "systems/dnd5e/icons/svg/damageresistances.svg",
         configKey: "damageTypes"
       }
@@ -594,6 +722,7 @@ import { resolveTargetConfirmation, showItemInfo, templateTokens } from './modul
 import { MidiActivityMixin, setupMidiActivityMixin } from './module/activities/MidiActivityMixin.js';
 import { field } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/fields.mjs.js';
 import { MidiForwardActivity, setupForwardActivity } from './module/activities/ForwardActivity.js';
+import { MidiEnchantActivity, setupEnchantActivity } from './module/activities/EnchantActivity.js';
 Hooks.once("midi-qol.midiReady", () => {
   setupMidiTests();
 });
@@ -724,7 +853,7 @@ function setupMidiQOLApi() {
   const Workflows = { "Workflow": Workflow, "DamageOnlyWorkflow": DamageOnlyWorkflow, "TrapWorkflow": TrapWorkflow, "DummyWorkflow": DummyWorkflow, "DDBGameLogWorkflow": DDBGameLogWorkflow };
   //@ts-ignore
   globalThis.MidiQOL = foundry.utils.mergeObject(globalThis.MidiQOL ?? {}, {
-    addConcentration: () => {console.error("midi-qol | addConcentration is no longer supported.")},  
+    addConcentration: () => { console.error("midi-qol | addConcentration is no longer supported.") },
     addDependent,
     addConcentrationDependent,
     addRollTo,
@@ -930,212 +1059,379 @@ function doRoll(event = { shiftKey: false, ctrlKey: false, altKey: false, metaKe
 function setupMidiFlags() {
   //@ts-expect-error
   let config = game.system.config;
-  //@ts-expect-error
-  const systemVersion = game.system.version;
-  midiFlags.push(`flags.${MODULE_ID}.advantage.all`)
-  midiFlags.push(`flags.${MODULE_ID}.disadvantage.all`)
-  midiFlags.push(`flags.${MODULE_ID}.advantage.attack.all`)
-  midiFlags.push(`flags.${MODULE_ID}.disadvantage.attack.all`)
-  midiFlags.push(`flags.${MODULE_ID}.critical.all`)
+  midiFlags.push(`flags.${MODULE_ID}.advantage.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.all`);
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.all`);
+  midiFlags.push(`flags.${MODULE_ID}.advantage.attack.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.attack.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.critical.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.critical.all`);
   midiFlags.push(`flags.${MODULE_ID}.max.damage.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.max.damage.all`);
   midiFlags.push(`flags.${MODULE_ID}.min.damage.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.min.damage.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.max.damage.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.max.damage.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.min.damage.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.min.damage.all`);
   midiFlags.push(`flags.${MODULE_ID}.noCritical.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.noCritical.all`);
   midiFlags.push(`flags.${MODULE_ID}.fail.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.all`);
   midiFlags.push(`flags.${MODULE_ID}.fail.attack.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.attack.all`);
   midiFlags.push(`flags.${MODULE_ID}.success.attack.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.success.attack.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.advantage.attack.all`);
-  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.save.all`)
-  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.check.all`)
-  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.skill.all`)
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.advantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.save.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.advantage.save.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.advantage.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.advantage.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.advantage.skill.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.advantage.skill.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.attack.all`);
-  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.save.all`)
-  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.check.all`)
-  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.skill.all`)
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.disadvantage.attack.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.save.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.disadvantage.save.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.disadvantage.check.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.skill.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.disadvantage.skill.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.fail.advantage.attack.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.fail.advantage.attack.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.fail.disadvantage.attack.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.fail.disadvantage.attack.all`);
   midiFlags.push(`flags.${MODULE_ID}.neverTarget`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.neverTarget`);
   midiFlags.push(`flags.${MODULE_ID}.grants.attack.success.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.attack.success.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.attack.fail.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.attack.fail.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.attack.bonus.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.attack.bonus.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.critical.all`);
-  midiFlags.push(`flags.${MODULE_ID}.grants.critical.range`);
-  midiFlags.push(`flags.${MODULE_ID}.grants.criticalThreshold`);
-  midiFlags.push(`flags.${MODULE_ID}.fail.critical.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.critical.all`);
   midiFlags.push(`flags.${MODULE_ID}.grants.noCritical.all`);
-  midiFlags.push(`flags.${MODULE_ID}.advantage.concentration`)
-  midiFlags.push(`flags.${MODULE_ID}.disadvantage.concentration`)
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.noCritical.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.critical.range`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.critical.range`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.criticalThreshold`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.criticalThreshold`);
+  midiFlags.push(`flags.${MODULE_ID}.fail.critical.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.critical.all`);
+  midiFlags.push(`flags.${MODULE_ID}.grants.noCritical.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.noCritical.all`);
+  midiFlags.push(`flags.${MODULE_ID}.advantage.concentration`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.concentration`);
+  midiFlags.push(`flags.${MODULE_ID}.disadvantage.concentration`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.concentration`);
   midiFlags.push(`flags.${MODULE_ID}.ignoreNearbyFoes`);
-  midiFlags.push(`flags.${MODULE_ID}.`)
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.ignoreNearbyFoes`);
+  midiFlags.push(`flags.${MODULE_ID}.`);
   midiFlags.push(`flags.${MODULE_ID}.concentrationSaveBonus`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.concentrationSaveBonus`);
   midiFlags.push(`flags.${MODULE_ID}.potentCantrip`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.potentCantrip`);
   midiFlags.push(`flags.${MODULE_ID}.sculptSpells`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.sculptSpells`);
   midiFlags.push(`flags.${MODULE_ID}.carefulSpells`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.carefulSpells`);
   midiFlags.push(`flags.${MODULE_ID}.magicResistance.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.magicResistance.all`);
   midiFlags.push(`flags.${MODULE_ID}.magicResistance.save.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.magicResistance.save.all`);
   midiFlags.push(`flags.${MODULE_ID}.magicResistance.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.magicResistance.check.all`);
   midiFlags.push(`flags.${MODULE_ID}.magicResistance.skill.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.magicResistance.skill.all`);
   midiFlags.push(`flags.${MODULE_ID}.magicVulnerability.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.magicVulnerability.all`);
   midiFlags.push(`flags.${MODULE_ID}.rangeOverride.attack.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.rangeOverride.attack.all`);
   midiFlags.push(`flags.${MODULE_ID}.range.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.range.all`);
   midiFlags.push(`flags.${MODULE_ID}.long.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.long.all`);
   let attackTypes = allAttackTypes.concat(["heal", "other", "save", "util"])
-  evalCondition
   attackTypes.forEach(at => {
     midiFlags.push(`flags.${MODULE_ID}.range.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.range.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.long.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.long.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.advantage.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.disadvantage.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.fail.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.success.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.success.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.critical.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.critical.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.noCritical.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.noCritical.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.advantage.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.advantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.fail.advantage.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.fail.advantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.disadvantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.fail.disadvantage.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.fail.disadvantage.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.critical.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.critical.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.noCritical.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.noCritical.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.fail.critical.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.critical.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.attack.bonus.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.attack.bonus.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.attack.success.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.attack.success.${at}`);
     if (at !== "heal") midiFlags.push(`flags.${MODULE_ID}.DR.${at}`);
+    midiFlags.push(`flags.${MODULE_ID}.advantage.damage.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.damage.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.max.damage.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.max.damage.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.min.damage.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.min.damage.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.max.damage.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.max.damage.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.min.damage.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.min.damage.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.optional.NAME.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.attack.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.optional.NAME.attack.fail.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.attack.fail.${at}`);
 
     midiFlags.push(`flags.${MODULE_ID}.optional.NAME.damage.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.damage.${at}`);
     midiFlags.push(`flags.${MODULE_ID}.rangeOverride.attack.${at}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.rangeOverride.attack.${at}`);
   });
   midiFlags.push(`flags.${MODULE_ID}.advantage.ability.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.ability.all`);
   midiFlags.push(`flags.${MODULE_ID}.advantage.ability.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.ability.check.all`);
   midiFlags.push(`flags.${MODULE_ID}.advantage.ability.save.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.ability.save.all`);
   midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.ability.all`);
   midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.ability.check.all`);
   midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.save.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.ability.save.all`);
   midiFlags.push(`flags.${MODULE_ID}.fail.ability.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.ability.all`);
   midiFlags.push(`flags.${MODULE_ID}.fail.ability.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.ability.check.all`);
   midiFlags.push(`flags.${MODULE_ID}.fail.ability.save.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.ability.save.all`);
   midiFlags.push(`flags.${MODULE_ID}.superSaver.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.superSaver.all`);
   midiFlags.push(`flags.${MODULE_ID}.semiSuperSaver.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.semiSuperSaver.all`);
   midiFlags.push(`flags.${MODULE_ID}.max.ability.save.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.max.ability.save.all`);
   midiFlags.push(`flags.${MODULE_ID}.max.ability.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.max.ability.check.all`);
   midiFlags.push(`flags.${MODULE_ID}.max.ability.save.concentration`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.max.ability.save.concentration`);
   midiFlags.push(`flags.${MODULE_ID}.min.ability.save.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.min.ability.save.all`);
   midiFlags.push(`flags.${MODULE_ID}.min.ability.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.min.ability.check.all`);
   midiFlags.push(`flags.${MODULE_ID}.min.ability.save.concentration`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.min.ability.save.concentration`);
   midiFlags.push(`flags.${MODULE_ID}.sharpShooter`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.sharpShooter`);
 
   Object.keys(config.abilities).forEach(abl => {
     midiFlags.push(`flags.${MODULE_ID}.advantage.ability.check.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.ability.check.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.check.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.ability.check.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.advantage.ability.save.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.ability.save.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.disadvantage.ability.save.${abl}`);
-    midiFlags.push(`flags.${MODULE_ID}.advantage.attack.${abl}`);
-    midiFlags.push(`flags.${MODULE_ID}.disadvantage.attack.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.ability.save.${abl}`);
+    // midiFlags.push(`flags.${MODULE_ID}.advantage.attack.${abl}`);
+    // daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.attack.${abl}`);
+    // midiFlags.push(`flags.${MODULE_ID}.disadvantage.attack.${abl}`);
+    // daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.attack.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.fail.ability.check.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.ability.check.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.fail.ability.save.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.ability.save.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.superSaver.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.superSaver.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.semiSuperSaver.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.semiSuperSaver.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.max.ability.save.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.max.ability.save.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.min.ability.save.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.min.ability.save.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.max.ability.check.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.max.ability.check.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.min.ability.check.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.min.ability.check.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.optional.NAME.save.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.save.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.optional.NAME.save.fail.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.save.fail.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.optional.NAME.check.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.check.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.optional.NAME.check.fail.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.check.fail.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.magicResistance.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.magicResistance.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.magicVulnerability.all.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.magicVulnerability.all.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.advantage.save.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.advantage.save.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.advantage.check.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.advantage.check.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.advantage.skill.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.advantage.skill.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.save.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.disadvantage.save.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.check.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.disadvantage.check.${abl}`);
     midiFlags.push(`flags.${MODULE_ID}.grants.disadvantage.skill.${abl}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.grants.disadvantage.skill.${abl}`);
   })
 
   midiFlags.push(`flags.${MODULE_ID}.advantage.skill.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.skill.all`);
   midiFlags.push(`flags.${MODULE_ID}.disadvantage.skill.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.skill.all`);
   midiFlags.push(`flags.${MODULE_ID}.fail.skill.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.skill.all`);
   midiFlags.push(`flags.${MODULE_ID}.max.skill.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.max.skill.all`);
   midiFlags.push(`flags.${MODULE_ID}.min.skill.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.min.skill.all`);
   Object.keys(config.skills).forEach(skill => {
     midiFlags.push(`flags.${MODULE_ID}.advantage.skill.${skill}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.skill.${skill}`);
     midiFlags.push(`flags.${MODULE_ID}.disadvantage.skill.${skill}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.skill.${skill}`);
     midiFlags.push(`flags.${MODULE_ID}.fail.skill.${skill}`);
-    // midiFlags.push(`flags.${MODULE_ID}.max.skill.${skill}`);
-    // midiFlags.push(`flags.${MODULE_ID}.min.skill.${skill}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.skill.${skill}`);
+    // midiFlags.push(`flags.${MODULE_ID}.max.skill.${skill}`); replaced by core
+    // midiFlags.push(`flags.${MODULE_ID}.min.skill.${skill}`); replaced by core
     midiFlags.push(`flags.${MODULE_ID}.optional.NAME.skill.${skill}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.skill.${skill}`);
   })
   midiFlags.push(`flags.${MODULE_ID}.advantage.deathSave`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.advantage.deathSave`);
   midiFlags.push(`flags.${MODULE_ID}.disadvantage.deathSave`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.disadvantage.deathSave`);
   midiFlags.push(`flags.${MODULE_ID}.deathSaveBonus`);
-
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.deathSaveBonus`);
   if (game.system.id === "dnd5e") {
     // fix for translations
     ["vocal", "somatic", "material"].forEach(comp => {
       midiFlags.push(`flags.${MODULE_ID}.fail.spell.${comp.toLowerCase()}`);
+      daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.spell.${comp.toLowerCase()}`);
     });
     midiFlags.push(`flags.${MODULE_ID}.DR.all`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.all`);
 
     midiFlags.push(`flags.${MODULE_ID}.DR.non-magical`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.non-magical`);
     midiFlags.push(`flags.${MODULE_ID}.DR.non-magical-physical`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.non-magical-physical`);
     midiFlags.push(`flags.${MODULE_ID}.DR.non-silver`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.non-silver`);
     midiFlags.push(`flags.${MODULE_ID}.DR.non-adamant`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.non-adamant`);
     midiFlags.push(`flags.${MODULE_ID}.DR.non-physical`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.non-physical`);
     midiFlags.push(`flags.${MODULE_ID}.DR.final`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.final`);
     midiFlags.push(`flags.${MODULE_ID}.damage.reroll-kh`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.damage.reroll-kh`);
     midiFlags.push(`flags.${MODULE_ID}.damage.reroll-kl`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.damage.reroll-kl`);
 
     Object.keys(config.damageTypes).forEach(key => {
       midiFlags.push(`flags.${MODULE_ID}.DR.${key}`);
-
-      // TODO dbd3 - see how to present label but check key  midiFlags.push(`flags.${MODULE_ID}.DR.${config.damageTypes[key].label}`);
+      daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.${key}`);
     });
 
     midiFlags.push(`flags.${MODULE_ID}.DR.healing`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.healing`);
     midiFlags.push(`flags.${MODULE_ID}.DR.temphp`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.temphp`);
   } else if (game.system.id === "sw5e") {
     midiFlags.push(`flags.${MODULE_ID}.DR.all`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.all`);
     midiFlags.push(`flags.${MODULE_ID}.DR.final`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.final`);
     Object.keys(config.damageResistanceTypes).forEach(dt => {
       midiFlags.push(`flags.${MODULE_ID}.DR.${dt}`);
+      daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.${dt}`);
     })
     midiFlags.push(`flags.${MODULE_ID}.DR.healing`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.healing`);
     midiFlags.push(`flags.${MODULE_ID}.DR.temphp`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.DR.temphp`);
   }
 
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.attack.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.attack.all`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.attack.fail.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.attack.fail.all`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.damage.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.damage.all`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.check.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.check.all`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.save.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.save.all`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.check.fail.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.check.fail.all`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.save.fail.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.save.fail.all`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.label`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.label`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.skill.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.skill.all`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.skill.fail.all`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.skill.fail.all`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.count`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.count`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.countAlt`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.countAlt`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.ac`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.ac`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.criticalDamage`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.criticalDamage`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.activation`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.activation`);
   midiFlags.push(`flags.${MODULE_ID}.optional.NAME.force`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.optional.NAME.force`);
 
   midiFlags.push(`flags.${MODULE_ID}.uncanny-dodge`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.uncanny-dodge`);
   midiFlags.push(`flags.${MODULE_ID}.OverTime`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.OverTime`);
   midiFlags.push(`flags.${MODULE_ID}.inMotion`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.inMotion`);
   //@ts-ignore
   const damageTypes = Object.keys(config.damageTypes);
   for (let key of damageTypes) {
     midiFlags.push(`flags.${MODULE_ID}.absorption.${key}`);
+    daeFieldBrowserFields.push(`flags.${MODULE_ID}.absorption.${key}`);
   }
   midiFlags.push(`flags.${MODULE_ID}.fail.disadvantage.heavy`);
+  daeFieldBrowserFields.push(`flags.${MODULE_ID}.fail.disadvantage.heavy`);
 
   /*
   midiFlags.push(`flags.${MODULE_ID}.grants.advantage.attack.all`);
@@ -1147,12 +1443,12 @@ function setupMidiFlags() {
   */
   if (installedModules.get("dae")) {
     const initDAE = async () => {
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 120; i++) {
         if (globalThis.DAE) {
           globalThis.DAE.addAutoFields(midiFlags);
           return true;
         } else {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 250));
         }
       }
       return false;

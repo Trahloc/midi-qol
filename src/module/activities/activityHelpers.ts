@@ -237,12 +237,25 @@ export async function preTemplateTargets(activity, options): Promise<boolean> {
 }
 
 export async function postTemplateConfirmTargets(activity, options, workflow): Promise<boolean> {
-  if (!activityRequiresPostTemplateConfiramtion(activity)) return true;
+  if (!activityRequiresPostTemplateConfiramtion(activity)) {
+    if (game.user?.targets) {
+      activity.workflow.setTargets(game.user?.targets);
+      activity.targets = new Set(game.user?.targets);
+    }
+    return true;
+  }
   if (requiresTargetConfirmation(activity, options) || activity.target?.affects?.choice) {
     let result = true;
     result = await resolveTargetConfirmation(activity, options);
-    if (result && game.user?.targets) workflow.targets = new Set(game.user.targets)
+    if (result && game.user?.targets) {
+      workflow.setTargets(game.user.targets);
+      activity.targets = new Set(game.user.targets);
+    }
     return result === true;
+  }
+  if (game.user?.targets) {
+    activity.workflow.setTargets(game.user?.targets);
+    activity.targets = new Set(game.user?.targets);
   }
   return true;
 }
