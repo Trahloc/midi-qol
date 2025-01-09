@@ -4249,7 +4249,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   if (!item) item = data.workflow?.item;
   let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
-  rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
+  rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunement === "";
   try {
     if (data.target) {
       rollData.target = data.target.actor?.getRollData();
