@@ -3236,6 +3236,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       item: this.item,
       actor: this.actor,
       target: this.targets?.first(),
+      optionalBonusContext: options,
     };
   };
   const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), ...parameters });
@@ -4250,6 +4251,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
   rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunement === "";
+  if (data.optionalBonusContext) rollData.optionalBonusContext = data.optionalBonusContext;
   try {
     if (data.target) {
       rollData.target = data.target.actor?.getRollData();
@@ -5246,11 +5248,16 @@ export function tokenForActor(actor: Actor | string | undefined | null): Token |
 }
 
 export async function doConcentrationCheck(actor, saveDC) {
+  const concentratingItemUuid = actor.effects.find((effect)=>effect.statuses.has('concentrating'))?.flags?.dnd5e?.itemUuid;
+  let concentratingItemName = concentratingItemUuid ? fromUuidSync(concentratingItemUuid).name : false;
+  if (concentratingItemName) concentratingItemName = `${concentrationCheckItemDisplayName}: ${concentratingItemName}`;
+  else concentratingItemName = concentrationCheckItemDisplayName;
+  const abilityMod = actor.system.attributes.concentration.ability ?? "con";
   const itemData = foundry.utils.duplicate(itemJSONData);
   foundry.utils.setProperty(itemData, "system.save.dc", saveDC);
-  foundry.utils.setProperty(itemData, "system.save.ability", "con");
+  foundry.utils.setProperty(itemData, "system.save.ability", abilityMod);
   foundry.utils.setProperty(itemData, "system.save.scaling", "flat");
-  foundry.utils.setProperty(itemData, "name", concentrationCheckItemDisplayName);
+  foundry.utils.setProperty(itemData, "name", concentratingItemName);
   foundry.utils.setProperty(itemData, "system.target.type", "self");
   foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.noProvokeReaction`, true);
   return await _doConcentrationCheck(actor, itemData)
