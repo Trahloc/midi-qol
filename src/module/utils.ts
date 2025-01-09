@@ -3235,7 +3235,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
     parameters = {
       item: this.item,
       actor: this.actor,
-      target: this.targets.first(),
+      target: this.targets?.first(),
     };
   };
   const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), ...parameters });
