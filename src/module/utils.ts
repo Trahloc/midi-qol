@@ -6723,7 +6723,7 @@ export function setRangedTargets(tokenToUse, targetDetails) {
       let inRange = target.actor
         //@ts-expect-error .disposition v10
         && dispositions.includes(target.document.disposition);
-      if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIngoreIncapcitate"].includes(configSettings.rangeTarget))
+      if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIgnoreIncapacitated"].includes(configSettings.rangeTarget))
         inRange = inRange && !checkIncapacitated(target.actor, debugEnabled > 0);
       if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.rangeTarget))
         inRange = inRange && !checkDefeated(target);
