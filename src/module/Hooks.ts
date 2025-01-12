@@ -837,22 +837,65 @@ export const overTimeJSONData = {
 
 export const itemJSONData = {
   "name": "Concentration Check - Midi QOL",
-  "_id": "mididnd5econc000",
-  "type": "feat",
+  "type": "weapon",
   "img": "./modules/midi-qol/icons/concentrate.png",
   "system": {
+    "description": {
+      "value": "",
+      "chat": "",
+      "unidentified": ""
+    },
+
     "activation": {
       "type": "special",
+      "cost": 0,
+      "condition": ""
     },
+    "target": {
+      "type": ""
+    },
+    "ability": "",
     "actionType": "save",
+    "attackBonus": 0,
+    "chatFlavor": "",
+    "weaponType": "simpleM",
+    "proficient": false,
     "attributes": {
       "spelldc": 10
     }
   },
+  "effects": [],
   "sort": 0,
   "flags": {
     "midi-qol": {
+      "onUseMacroName": "ItemMacro",
       "isConcentrationCheck": true
+    },
+    "itemacro": {
+      "macro": {
+
+        "_id": null,
+        "name": "Concentration Check - Midi QOL",
+        "type": "script",
+        "author": "devnIbfBHb74U9Zv",
+        "img": "icons/svg/dice-target.svg",
+        "scope": "global",
+        "command": `
+              if (MidiQOL.configSettings().autoCheckSaves === 'none') return;
+              for (let targetUuid of args[0].targetUuids) {
+                let target = await fromUuid(targetUuid);
+                if (MidiQOL.configSettings().removeConcentration 
+                  && (target.actor.system.attributes.hp.value === 0 || args[0].failedSaveUuids.find(uuid => uuid === targetUuid))) {
+                await target.actor.endConcentration();
+                }
+              }`,
+        "folder": null,
+        "sort": 0,
+        "permission": {
+          "default": 0
+        },
+        "flags": {}
+      }
     },
   }
 }
