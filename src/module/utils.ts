@@ -5169,6 +5169,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   const offsets = t > 0 ? [[0, 0], [-t, -t], [-t, t], [t, t], [t, -t], [-t, 0], [t, 0], [0, -t], [0, t]] : [[0, 0]];
   const tests = offsets.map(o => ({
     point: new PIXI.Point(targetPoint.x + o[0], targetPoint.y + o[1]),
+    elevation: target.document.elevation,
     los: new Map()
   }));
   const config = { tests, object: targetEntity };
