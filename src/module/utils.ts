@@ -3355,8 +3355,7 @@ export function getOptionalCountRemaining(actor: globalThis.dnd5e.documents.Acto
   if (Number.isNumeric(countValue)) return countValue;
   if (countValue.startsWith("ItemUses.")) {
     const itemName = countValue.split(".")[1];
-    //@ts-expect-error item
-    const item = actor.items.find(item => item.name.includes(itemName));
+    const item = actor.items.find(i => i.name.includes(itemName));
     return item?.system.uses.value;
   }
   if (countValue.startsWith("@")) {
@@ -3389,8 +3388,7 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
   }
   if (typeof count.value === "string" && count.value.startsWith("ItemUses.")) {
     const itemName = count.value.split(".")[1];
-    //@ts-expect-error item
-    const item = actor.items.find(item => item.name.includes(itemName));
+    const item = actor.items.find(i => i.name.includes(itemName));
     if (!item) {
       const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
       error(message);
@@ -3401,8 +3399,7 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
   }
   if (typeof countAlt?.value === "string" && countAlt.value.startsWith("ItemUses.")) {
     const itemName = countAlt.value.split(".")[1];
-    //@ts-expect-error item
-    const item = actor.items.find(item => item.name.includes(itemName));
+    const item = actor.items.find(i => i.name.includes(itemName));
     if (!item) {
       const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
       error(message);
