@@ -41,7 +41,7 @@ let defineMidiHealActivityClass = (ActivityClass: any) => {
       //@ts-expect-error
       return this.rollDamage(event);
     }
-    get isOtherActivityCompatible() { 
+    get possibleOtherActivity() { 
       return true;
     }
 

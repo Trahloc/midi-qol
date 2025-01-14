@@ -683,9 +683,11 @@ export function requestPCSave(ability, rollType, player, actor, { advantage, dis
   try {
     // display a chat message to the user telling them to save
     const actorName = actor.name;
-    let abilityString = GameSystemConfig.abilities[ability];
-    if (abilityString.label) abilityString = abilityString.label;
-    let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityString} ${i18n("midi-qol.saving-throw")}`;
+    let abilityString = ability;
+    let abilityDetails = GameSystemConfig.abilities[ability];
+    if (!abilityDetails) abilityDetails = GameSystemConfig.tools[ability];
+    if (abilityDetails?.label) abilityString = abilityDetails.label;
+    let content = ` ${actorName} ${configSettings.displaySaveDC ? "DC " + dc : ""} ${abilityDetails} ${i18n("midi-qol.saving-throw")}`;
     if (advantage && !disadvantage) content = content + ` (${i18n("DND5E.Advantage")}) - ${flavor})`;
     else if (!advantage && disadvantage) content = content + ` (${i18n("DND5E.Disadvantage")}) - ${flavor})`;
     else content + ` - ${flavor})`;
@@ -772,6 +774,8 @@ export function midiCustomEffect(...args) {
           //@ts-expect-error
           const activities = origin.parent?.system?.activities?.contents;
           if (activities[0]?.uuid) args[0] = `ActivityMacro.${activities[0].uuid}`;
+        } else if (origin.item) {
+          args[0] = `ActivityMacro.${change.effect.origin}`;
         }
       }
     }
@@ -806,7 +810,6 @@ export function midiCustomEffect(...args) {
       // else if (sourceId) args[0] = `ItemMacro.${sourceId}`;
       else {
         if (change.effect.origin.includes("Item.")) {
-
           args[0] = `ItemMacro.${change.effect.origin}`;
         } else {
           const origin = MQfromUuidSync(change.effect.origin);
@@ -5359,6 +5362,8 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   const offsets = t > 0 ? [[0, 0], [-t, -t], [-t, t], [t, t], [t, -t], [-t, 0], [t, 0], [0, -t], [0, t]] : [[0, 0]];
   const tests = offsets.map(o => ({
     point: new PIXI.Point(targetPoint.x + o[0], targetPoint.y + o[1]),
+    //@ts-expect-error
+    elevation: target.document.elevation,
     los: new Map()
   }));
   const config = { tests, object: targetEntity };
@@ -5513,8 +5518,6 @@ async function _doConcentrationCheck(actor, itemData) {
   let result;
   // actor took damage and is concentrating....
   let ownedItem: Item = new CONFIG.Item.documentClass(itemData, { parent: actor });
-  // TODO: Horrible kludge to allow temporary items to be rolled since dnd5e insists on setting flags on temp items if there is damage/attacks
-  // ownedItem.setFlag = async (scope: string, key: string, value: any) => { return ownedItem };
   ownedItem.prepareData();
   //@ts-expect-error
   ownedItem.prepareFinalAttributes();
@@ -6006,12 +6009,12 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
         case GridDiagonals.EXACT:
         case GridDiagonals.RECTILINEAR:
           if (d.diagonals > 0)
-            distance = d.distance - (Math.SQRT2 * fudgeFactor);
-          else distance = d.distance - fudgeFactor;
+            distance = Math.max(0, d.distance - (Math.SQRT2 * fudgeFactor));
+          else distance = Math.max(0, d.distance - fudgeFactor);
           break;
         case GridDiagonals.APPROXIMATE:
           if (d.diagonals > 0)
-            distance = d.distance - fudgeFactor;
+            distance = Math.max(0, d.distance - fudgeFactor);
           break;
         case GridDiagonals.ILLEGAL:
         default:

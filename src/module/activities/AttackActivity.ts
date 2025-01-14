@@ -56,7 +56,7 @@ let defineMidiAttackSheetClass = (baseClass: any) => {
         activity.otherActivityUuid = undefined;
       }
       context.otherActivityOptions = this.item.system.activities
-        .filter(a => a.id !== this.activity.id && (a.damage || a.roll?.formula || a.save || a.check))
+        .filter(a => a.id !== this.activity.id && a.isOtherActivityCompatible)
         .reduce((ret, a) => { ret.push({ label: `${a.name}`, value: a.id }); return ret }, [{ label: "Auto", value: "" }, { label: "None", value: "none" }]);
       context.otherActivityOptions?.forEach(option => { option.selected = option.value === context.currentOtherActivityId });
       let indexOffset = 0;
@@ -160,7 +160,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       let preRollHookId;
       let rollAttackHookId;
       let rolls;
-      config.midiOptions ??= {};
+      config.midiOptions ??= this.midiOptions ?? this.workflow?.rollOptions ?? {};
       try {
         if (debugEnabled > 0) warn("MidiQOL | AttackActivity | rollAttack | Called", config, dialog, message);
         let returnValue = await this.configureAttackRoll(config);
@@ -219,7 +219,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
 
 
         message ??= {};
-        message.create = config.midiOptions.chatMessage;
+        message.create ??= config.midiOptions.chatMessage;
         config.attackMode = this.attackMode ?? "oneHanded";
         if (config.event && areMidiKeysPressed(config.event, "Versatile") && this.item.system.damage?.versatile && this.item.system.properties.has("ver")) {
           config.attackMode = config.attackMode === "twoHanded" ? "oneHanded" : "twoHanded";
@@ -263,8 +263,7 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       if (debugEnabled > 0) warn("configureAttackRoll", this, config);
       if (!this.workflow) return false;
       let workflow: Workflow = this.workflow;
-      if (!config.midiOptions) config.midiOptions = {};
-
+      config.midiOptions ??= this.midiOptions ?? {};
       if (workflow && !workflow.reactionQueried) {
 
       }
@@ -433,6 +432,9 @@ let defineMidiAttackActivityClass = (ActivityClass: any) => {
       if (!this.ammunition) return undefined;
       const ammunitionItem = this.actor?.items?.get(this.ammunition);
       return ammunitionItem
+    }
+    get possibleOtherActivity() {
+      return false;
     }
     get isOtherActivityCompatible() {
       return false;

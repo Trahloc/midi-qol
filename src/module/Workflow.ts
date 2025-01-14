@@ -863,9 +863,10 @@ export class Workflow {
       return this.WorkflowState_WaitForDamageRoll;
     }
 
+    const isFastRoll = this.rollOptions.fastForwardAttack ?? isAutoFastAttack(this);
+    this.rollOptions.fastForwardAttack ||= isFastRoll;
     if (this.noAutoAttack) return this.WorkflowState_Suspend;
     this.autoRollAttack = this.rollOptions.advantage || this.rollOptions.disadvantage || this.rollOptions.autoRollAttack;
-    const isFastRoll = this.rollOptions.fastForwardAttack ?? isAutoFastAttack(this);
     if (!this.autoRollAttack) {
       // Not auto rolling attack so setup the buttons to display advantage/disadvantage
       const chatMessage = this.chatCard;
@@ -1305,8 +1306,11 @@ export class Workflow {
     // TODO look at macros being per activity rather than per item
     if (this.activity.item) {
       if (configSettings.allowUseMacro && this.options.noOnUseMacro !== true) {
-        const results: any = await this.callMacros(this.activity.item, this.onUseMacros?.getMacros("preActiveEffects"), "OnUse", "preActiveEffects");
+        let results: any = await this.callMacros(this.activity.item, this.onUseMacros?.getMacros("preActiveEffects"), "OnUse", "preActiveEffects");
         // Special check for return of {haltEffectsApplication: true} from item macro
+        if (results.some(r => r?.haltEffectsApplication))
+          return this.WorkflowState_RollFinished;
+        results = await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("postActiveEffects"), "OnUse", "postActiveEffects");
         if (results.some(r => r?.haltEffectsApplication))
           return this.WorkflowState_RollFinished;
       }
@@ -2743,14 +2747,22 @@ export class Workflow {
 
   async callMacro(item, macroName: string, macroData: any, options: any): Promise<damageBonusMacroResult | any> {
     let [name, uuid] = macroName?.trim().split("|");
-    let macroItem;
+    let macroItem = item;
+    let macroActivity = this.activity;
+    let macroEntity;
     if (uuid?.length > 0) {
-      macroItem = await fromUuid(uuid);
-      if (macroItem instanceof ActiveEffect && macroItem.parent instanceof Item) {
-        macroItem = macroItem.parent;
+      macroEntity = await fromUuid(uuid);
+    }
+    if (macroEntity) {
+      if (macroEntity instanceof ActiveEffect && macroEntity.parent instanceof Item) {
+        macroItem = macroEntity.parent;
+      } else if (macroEntity instanceof Item) {
+        macroItem = macroEntity
+      } else if (macroEntity.item) { // it points to an activity
+        macroActivity = macroEntity;
+        macroItem = macroEntity.item;
       }
     }
-    let macroActivity;
     if (options.otherActivityOnly) {
       if (!this.activity?.otherActivity || name !== "ActivityMacro") return;
       macroActivity = this.activity.otherActivity;
@@ -2763,7 +2775,7 @@ export class Workflow {
     const rolledItem = item;
 
     try {
-      if (macroItem?.macro) { // The Uuid pointed to an Activity (not an item) and so just use its macro
+      if (macroItem?.macro && ["ItemMacro", MQItemMacroLabel].includes(name)) {
         macro = macroItem.macro;
       } else {
         if (!name) return undefined;
@@ -2778,19 +2790,23 @@ export class Workflow {
           // ItemMacro
           // ItemMacro.ItemName
           // ItemMacro.uuid
-          if (name === MQItemMacroLabel || name === "ItemMacro") {
-            if (!item) return {};
-            macroItem = item;
-            itemMacroData = foundry.utils.getProperty(item, "flags.dae.macro") ?? foundry.utils.getProperty(macroItem, "flags.itemacro.macro");
+          if (name === MQItemMacroLabel || name === "ItemMacro") { // TODO this should not occur so remove it
+            if (!macroItem) return {};
+            itemMacroData = foundry.utils.getProperty(macroItem, "flags.dae.macro") ?? foundry.utils.getProperty(macroItem, "flags.itemacro.macro");
             macroData.sourceItemUuid = macroItem?.uuid;
           } else {
             const parts = name.split(".");
             const itemNameOrUuid = parts.slice(1).join(".");
-            macroItem = await fromUuid(itemNameOrUuid);
+            macroItem = await fromUuid(itemNameOrUuid); // item or activity
+            if (macroItem?.item) macroItem = macroItem.item;
             // ItemMacro.name
             if (!macroItem) macroItem = actorToUse.items.find(i => i.name === itemNameOrUuid && (foundry.utils.getProperty(i.flags, "dae.macro") ?? foundry.utils.getProperty(i.flags, "itemacro.macro")))
             if (!macroItem && actorToUse instanceof Actor && uuid) {
-              const itemId = uuid.split(".").slice(-1)[0];
+              let itemId;
+              if (uuid.includes("Activity."))
+                itemId = uuid.split(".").slice(-3)[0];
+              else
+                itemId = uuid.split(".").slice(-1)[0];
               //@ts-expect-error
               const itemData = actorToUse.effects.find(effect => effect.flags.dae?.itemData?._id === itemId)?.flags.dae.itemData;
               if (itemData) macroItem = itemData;
@@ -3371,7 +3387,13 @@ export class Workflow {
       let skillOrTool = this.saveActivity.check.associated.first();
       if (!skillOrTool && this.item.type === "tool")
         skillOrTool = this.item.system.type.baseItem;
-      if (GameSystemConfig.skills[skillOrTool]) {
+      if (!skillOrTool) {
+        rollType = "check";
+        rollAbility = this.saveActivity.check.ability;
+        //@ts-expect-error actor.rollAbilityTest
+        rollAction = CONFIG.Actor.documentClass.prototype.rollAbilityCheck;
+        flagRollType = "check";
+      } else if (GameSystemConfig.skills[skillOrTool]) {
         rollType = "skill";
         rollAbility = this.saveActivity.check.ability;
         rollAbility = skillOrTool;
@@ -3385,19 +3407,13 @@ export class Workflow {
         rollAbility = skillOrTool
         flagRollType = "tool";
       }
-    } else {
-      rollType = "check";
-      rollAbility = this.saveActivity.check.ability;
-      //@ts-expect-error actor.rollAbilityTest
-      rollAction = CONFIG.Actor.documentClass.prototype.rollAbilityCheck;
-      flagRollType = "check";
     }
 
     if (this.chatUseFlags?.babonus?.saveDC) {
       rollDC = this.chatUseFlags.babonus.saveDC;
     }
-    const playerMonksTB = !simulate && installedModules.get("monks-tokenbar") && configSettings.playerRollSaves === "mtb";
-    const playerEpicRolls = !simulate && installedModules.get("epic-rolls-5e") && configSettings.playerRollSaves === "rer"
+    const playerMonksTB = !simulate && flagRollType !== "tool" && installedModules.get("monks-tokenbar") && configSettings.playerRollSaves === "mtb";
+    const playerEpicRolls = !simulate && flagRollType !== "tool" && installedModules.get("epic-rolls-5e") && configSettings.playerRollSaves === "rer"
     let monkRequestsPlayer: any[] = [];
     let rerRequestsPlayer: any[] = [];
     let monkRequestsGM: any[] = [];
@@ -3407,7 +3423,6 @@ export class Workflow {
     const isMagicSave = this.item?.type === "spell" || this.item?.flags.midiProperties?.magiceffect || this.item?.flags.midiProperties?.magiceffect;
 
     try {
-
       let actorDisposition;
       if (this.token && this.token.document?.disposition) actorDisposition = this.token.document.disposition;
       else { // no token to use so make a guess
@@ -3477,7 +3492,7 @@ export class Workflow {
         if (settingsOptions.advantage) saveDetails.advantage = true;
         if (settingsOptions.disadvantage) saveDetails.disadvantage = true;
         saveDetails.isConcentrationCheck = this.item.flags?.[MODULE_ID]?.isConcentrationCheck;
-        // The rollAbilitycheck function eventually calss actor.rollConcentration so all the falgs are set.
+        // The rollAbilitycheck function eventually calls actor.rollConcentration so all the falgs are set.
 
         // Check grants save fields
         if (await evalAllConditionsAsync(this.actor, `flags.${MODULE_ID}.grants.advantage.all`, conditionData)
@@ -5131,7 +5146,7 @@ export class TrapWorkflow extends Workflow {
 
 export class DDBGameLogWorkflow extends Workflow {
   DDBGameLogHookId: number;
-  static get forceCreate() { return false}
+  static get forceCreate() { return false }
   static get(id: string): DDBGameLogWorkflow {
     return Workflow._workflows[id];
   }
@@ -5258,7 +5273,7 @@ export class DDBGameLogWorkflow extends Workflow {
 }
 
 export class DummyWorkflow extends Workflow {
-  static get forceCreate() { return false}
+  static get forceCreate() { return false }
   //@ts-expect-error dnd5e v10
   constructor(actor: globalThis.dnd5e.documents.Actor5e, item: globalThis.dnd5e.documents.Item5e, speaker, targets, options: any) {
     options.noTemplateHook = true;

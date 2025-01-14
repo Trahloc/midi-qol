@@ -1007,6 +1007,10 @@
           "label": "Roll as",
           "hint": "Roll the activity as if owned by..."
         },
+        "otherActivityCompatible": {
+          "label": "Other Activity",
+          "hint": "Can be used as an other activity"
+        },
         "ignoreTraits": {
           "idi": {
             "label": "Immunity",
@@ -1095,7 +1099,7 @@
   },
   "midi-qol.ENCHANT": {
     "Title": {
-      "one": "Midi Enchent",
+      "one": "Midi Enchant",
       "other": "Midi Enchants"
     }
   },

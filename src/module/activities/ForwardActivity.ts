@@ -39,7 +39,8 @@ let defineMidiForwardActivityClass = (ActivityClass: any) => {
           chatCard: "modules/midi-qol/templates/activity-card.hbs",
         },
       }, {inplace: false, insertKeys: true, insertValues: true});
-    get isOtherActivityCompatible() {
+
+    get possibleOtherActivity() {
       return false;
     }
   }

@@ -40,7 +40,7 @@ let defineMidiSummonActivityClass = (ActivityClass: any) => {
           dialog: ActivityClass.metadata.usage.dialog,
         },
       }, { inplace: false, insertKeys: true, insertValues: true });
-    get isOtherActivityCompatible() {
+    get possibleOtherActivity() {
       return false;
     }
   }

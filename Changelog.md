@@ -1,3 +1,16 @@
+### 12.4.22
+* Fix for error being thrown when activity.use({},{},{create: false}) to roll an activity without a chat card.
+* Fix for midi-check activity not picking up rolls without skill/tool and treating them as tool rolls.
+* Fix for attempting tool checks via monk's token bar, which does not support them. Now handled automatically by midi.
+* Fix for attempting to set allowCritical in damage rolls when not needed.
+* Fix for not picking up attack/damage options when rolling from the chat card.
+* Fix for drag and drop targeting not respecting automation only flags on activities.
+* Fix for some errors with vision detection when using levels - thanks @thatlonelybugbear
+* Allow roll toggle key (F) to function when rolling from the chat card.
+* Some fixes for onUseMacro calling.
+* Added ability to configure activities as suitable candidates for use by Midi's AttackActivity. Defaults to true for those that are possible other activities, damage, heal, save, check, utility.
+* Requires dae 12.0.11
+
 ### 12.4.21
 * Fix for dm.midi.amount.xxx, system.traits.dr.midi.mwak/etc fields not processing.
 * Fix for saves/ability checks not displaying roll details.

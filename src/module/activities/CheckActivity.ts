@@ -93,7 +93,7 @@ let defineMidiCheckActivityClass = (ActivityClass: any) => {
         }
       }
     }
-    get isOtherActivityCompatible() { 
+    get possibleOtherActivity() {
       return true;
     }
     async rollDamage(config={}, dialog={}, message={}) {

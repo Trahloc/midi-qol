@@ -57,7 +57,7 @@ let defineMidiSaveActivityClass = (ActivityClass: any) => {
       }
     }
 
-    get isOtherActivityCompatible() {
+    get possibleOtherActivity() {
       return true;
     }
     getDamageConfig(config = {}) {

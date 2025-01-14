@@ -34,9 +34,9 @@ let defineMidiDamageActivityClass = (ActivityClass: any) => {
         },
       }, { inplace: false, insertKeys: true, insertValues: true });
 
-    get isOtherActivityCompatible() {
-      return true;
-    }
+      get possibleOtherActivity() {
+        return true;
+      }
 
     async rollDamage(config, dialog, message) {
       config.midiOptions ??= {};

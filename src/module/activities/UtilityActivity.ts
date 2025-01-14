@@ -35,7 +35,7 @@ let defineMidiUtilityActivityClass = (ActivityClass: any) => {
         },
       }, { inplace: false, insertKeys: true, insertValues: true });
 
-    get isOtherActivityCompatible() {
+    get possibleOtherActivity() {
       return true;
     }
     

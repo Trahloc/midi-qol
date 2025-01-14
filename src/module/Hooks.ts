@@ -645,7 +645,7 @@ export function initHooks() {
       error(message);
       TroubleShooter.recordError(new Error(message), message);
     }
-    item?.use();
+    item?.use({legacy: false}, {}, {});
     return true;
   })
 
