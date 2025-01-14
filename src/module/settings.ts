@@ -523,9 +523,11 @@ export let fetchParams = () => {
   if (configSettings.midiDeadCondition === undefined) configSettings.midiDeadCondition = "none";
   if (configSettings.midiUnconsciousCondition === undefined) configSettings.midiUnconsciousCondition = "none";
   // Fix for typo in en.json
+  // should those be deleted entirely?
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapcitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
   if (configSettings.autoTarget === "wallsBlockIgnoreIncapacitated") configSettings.autoTarget = "wallsBlockIgnoreIncapacitated";
   if (configSettings.autoTarget === "alwaysIgnoreIncapcitated") configSettings.autoTarget = "alwaysIgnoreIncapacitated";
+  //till here?
   // if (configSettings.midiFieldsTab === undefined) configSettings.midiFieldsTab = true;
   configSettings.midiFieldsTab = true;
   configSettings.v3DamageApplication = true;
