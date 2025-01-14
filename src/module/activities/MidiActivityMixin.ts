@@ -386,11 +386,14 @@ export var MidiActivityMixin = Base => {
               } else dialogConfig.options.defaultButton = "normal";
             } return true;
           });
-
+          rollDamageHookId = Hooks.once(`${game.system.id}.rollDamageV2`, rolls => {
+            if (rolls[0] && this.workflow) this.workflow.isCritical = rolls[0].options.isCritical;
+          }); 
           message.create ??= false;
           if (this.damage?.parts.some(part => part.types.size > 1)) dialog.configure = true;
           if (this.healing?.types?.size > 1) dialog.configure = true;
           result = await super.rollDamage(config, dialog, message) ?? [];
+          console.error("Roll damage ", result, config, dialog, message);
           result = await this.postProcessDamageRoll(config, result);
           if (this.workflow && config.midiOptions.updateWorkflow !== false) await this.workflow.setDamageRolls(result);
         }
