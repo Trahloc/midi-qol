@@ -5257,7 +5257,7 @@ export async function doConcentrationCheck(actor, saveDC) {
     .map(effect => effect?.flags?.dnd5e?.itemUuid);
   let concentratingItemName = [];
   for (const itemUuid of concentratingItemUuids) {
-    typeof(itemUuid) === 'string' ? concentratingItemName.push(MQfromUuidSync(itemUuid).name) : concentratingItemName.push("No item");
+    typeof(itemUuid) === "string" ? concentratingItemName.push(MQfromUuidSync(itemUuid).name) : concentratingItemName.push("No item");
   };
   concentratingItemName = `${concentrationCheckItemDisplayName}: ${concentratingItemName.join(", ")}`;
   const actorConcAbility = actor.system.attributes.concentration.ability;
