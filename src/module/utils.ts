@@ -5254,7 +5254,8 @@ export async function doConcentrationCheck(actor, saveDC) {
   let concentratingItemName = concentratingItemUuid ? fromUuidSync(concentratingItemUuid).name : false;
   if (concentratingItemName) concentratingItemName = `${concentrationCheckItemDisplayName}: ${concentratingItemName}`;
   else concentratingItemName = concentrationCheckItemDisplayName;
-  const abilityMod = actor.system.attributes.concentration.ability ?? "con";
+  const actorConcAbility = actor.system.attributes.concentration.ability;
+  const abilityMod = actorConcAbility !== "" ? actorConcAbility : "con";
   const itemData = foundry.utils.duplicate(itemJSONData);
   foundry.utils.setProperty(itemData, "system.save.dc", saveDC);
   foundry.utils.setProperty(itemData, "system.save.ability", abilityMod);
