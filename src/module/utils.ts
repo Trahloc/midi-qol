@@ -5250,10 +5250,16 @@ export function tokenForActor(actor: Actor | string | undefined | null): Token |
 }
 
 export async function doConcentrationCheck(actor, saveDC) {
-  const concentratingItemUuid = actor.effects.find((effect)=>effect.statuses.has("concentrating"))?.flags?.dnd5e?.itemUuid;
-  let concentratingItemName = concentratingItemUuid ? fromUuidSync(concentratingItemUuid).name : false;
-  if (concentratingItemName) concentratingItemName = `${concentrationCheckItemDisplayName}: ${concentratingItemName}`;
-  else concentratingItemName = concentrationCheckItemDisplayName;
+  const concentratingItemUuids = actor.effects
+    //@ts-expect-error effect
+    .filter(effect => effect.statuses.has("concentrating"))
+    //@ts-expect-error effect
+    .map(effect => effect?.flags?.dnd5e?.itemUuid);
+  let concentratingItemName = [];
+  for (const itemUuid of concentratingItemUuids) {
+    typeof(itemUuid) === 'string' ? concentratingItemName.push(MQfromUuidSync(itemUuid).name) : concentratingItemName.push("No item");
+  };
+  concentratingItemName = `${concentrationCheckItemDisplayName}: ${concentratingItemName.join(", ")}`;
   const actorConcAbility = actor.system.attributes.concentration.ability;
   const abilityMod = actorConcAbility !== "" ? actorConcAbility : "con";
   const itemData = foundry.utils.duplicate(itemJSONData);
