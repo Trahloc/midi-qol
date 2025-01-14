@@ -1703,7 +1703,7 @@ export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: b
                   let collisionCheck;
 
                   //@ts-expect-error polygonBackends
-                  collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { source: t1.document, mode: "any", type: "move" })
+                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { source: t1.document, mode: "any", type: "sight" })
                   if (collisionCheck) continue;
                   break;
                 case "centerLevels":
@@ -1734,7 +1734,7 @@ export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: b
                   } else {
                     let collisionCheck;
                     //@ts-expect-error polygonBackends
-                    collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { source: t1.document, mode: "any", type: "move" })
+                    collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { source: t1.document, mode: "any", type: "sight" })
                     if (collisionCheck) continue;
                   }
                   break;
