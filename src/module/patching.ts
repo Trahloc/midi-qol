@@ -468,11 +468,8 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
       if (overtimeActorUuid)
         messageData["flags.midi-qol.overtimeActorUuid"] = overtimeActorUuid;
     });
-
-    /*if (options.isConcentrationCheck) {
-      procOptions.isConcentrationCheck = false; // stop an infinite loop
-      return this.rollConcentration(procOptions)
-    } else*/  result = await wrapped(abilityId, procOptions);
+    
+    result = await wrapped(abilityId, procOptions);
     if (success === false) {
       result = new Roll("-1[auto fail]");
       // V12 - since the roll is -1 evaluateSync will work
