@@ -5250,7 +5250,7 @@ export function tokenForActor(actor: Actor | string | undefined | null): Token |
 }
 
 export async function doConcentrationCheck(actor, saveDC) {
-  const concentratingItemUuid = actor.effects.find((effect)=>effect.statuses.has('concentrating'))?.flags?.dnd5e?.itemUuid;
+  const concentratingItemUuid = actor.effects.find((effect)=>effect.statuses.has("concentrating"))?.flags?.dnd5e?.itemUuid;
   let concentratingItemName = concentratingItemUuid ? fromUuidSync(concentratingItemUuid).name : false;
   if (concentratingItemName) concentratingItemName = `${concentrationCheckItemDisplayName}: ${concentratingItemName}`;
   else concentratingItemName = concentrationCheckItemDisplayName;
