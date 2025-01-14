@@ -235,10 +235,10 @@
   "midi-qol.rangeTargetOptions": {
     "none": "Nenhum",
     "always": "Sempre",
-    "alwaysIgnoreIncpacitated": "Sempre (ignorar Incapacitado/Morto)",
+    "alwaysIgnoreIncapacitated": "Sempre (ignorar Incapacitado/Morto)",
     "alwaysIgnoreDefeated": "Sempre (ignorar Morto)",
     "wallsBlock": "Paredes Bloqueiam",
-    "wallsBlockIgnoreInacpacitated": "Paredes Bloqueiam (ignorar Incapacitado/Morto)",
+    "wallsBlockIgnoreIncapacitated": "Paredes Bloqueiam (ignorar Incapacitado/Morto)",
     "wallsBlockIgnoreDefeated": "Paredes Bloqueiam (ignorar Morto)"
   },
   "midi-qol.autoRollDamageOptions": {

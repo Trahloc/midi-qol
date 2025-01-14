@@ -1703,7 +1703,7 @@ export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: b
                   let collisionCheck;
 
                   //@ts-expect-error polygonBackends
-                  collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { source: t1.document, mode: "any", type: "move" })
+                  collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { source: t1.document, mode: "any", type: "sight" })
                   if (collisionCheck) continue;
                   break;
                 case "centerLevels":
@@ -1734,7 +1734,7 @@ export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: b
                   } else {
                     let collisionCheck;
                     //@ts-expect-error polygonBackends
-                    collisionCheck = CONFIG.Canvas.polygonBackends.move.testCollision(origin, dest, { source: t1.document, mode: "any", type: "move" })
+                    collisionCheck = CONFIG.Canvas.polygonBackends.sight.testCollision(origin, dest, { source: t1.document, mode: "any", type: "sight" })
                     if (collisionCheck) continue;
                   }
                   break;
@@ -1852,7 +1852,7 @@ export function computeDistance(t1: any /*Token*/, t2: any /*Token*/, options: b
 
     }
   }
-  return distance;
+  return Math.max(distance, 0);
 };
 
 let pointWarn = foundry.utils.debounce(() => {
@@ -5171,6 +5171,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   const offsets = t > 0 ? [[0, 0], [-t, -t], [-t, t], [t, t], [t, -t], [-t, 0], [t, 0], [0, -t], [0, t]] : [[0, 0]];
   const tests = offsets.map(o => ({
     point: new PIXI.Point(targetPoint.x + o[0], targetPoint.y + o[1]),
+    elevation: target.document.elevation,
     los: new Map()
   }));
   const config = { tests, object: targetEntity };

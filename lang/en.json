@@ -235,10 +235,10 @@
   "midi-qol.rangeTargetOptions": {
     "none": "None",
     "always": "Always",
-    "alwaysIgnoreIncpacitated": "Always - Ignore Incapacitated/Dead",
+    "alwaysIgnoreIncapacitated": "Always - Ignore Incapacitated/Dead",
     "alwaysIgnoreDefeated": "Always - Ignore Dead",
     "wallsBlock": "Walls Block",
-    "wallsBlockIgnoreInacpacitated": "Walls Block - Ignore Incapacitated/Dead",
+    "wallsBlockIgnoreIncapacitated": "Walls Block - Ignore Incapacitated/Dead",
     "wallsBlockIgnoreDefeated": "Walls Block - Ignore Dead"
   },
   "midi-qol.autoRollDamageOptions": {
@@ -901,7 +901,7 @@
     "nodam": "No Damage"
   },
   "midi-qol.MidiSettings": "Midi Settings",
-  "midi-qol.ConcentrationIncapacitatedConditionCheck.Name": "Remove concentration when incapacitating status applied",
+  "midi-qol.ConcentrationIncapacitatedConditionCheck.Name": "Remove concentration when incapacitated status applied",
   "midi-qol.ConcentrationIncapacitatedConditionCheck.Hint": "Incapacitated, Dead,  Unconscious, Petrified, Paralysed and Stunned remove concentration",
   "midi-qol.AoETargetType.Name": "AoE Target Type",
   "midi-qol.AoETargetType.Hint": "Midi will only target tokens of the specified type when using AoE templates",
