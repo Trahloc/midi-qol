@@ -837,34 +837,19 @@ export const overTimeJSONData = {
 
 export const itemJSONData = {
   "name": "Concentration Check - Midi QOL",
-  "type": "weapon",
+  "_id": "mididnd5econc000",
+  "type": "feat",
   "img": "./modules/midi-qol/icons/concentrate.png",
   "system": {
-    "description": {
-      "value": "",
-      "chat": "",
-      "unidentified": ""
-    },
-
     "activation": {
       "type": "special",
       "cost": 0,
-      "condition": ""
     },
-    "target": {
-      "type": ""
-    },
-    "ability": "",
     "actionType": "save",
-    "attackBonus": 0,
-    "chatFlavor": "",
-    "weaponType": "simpleM",
-    "proficient": false,
     "attributes": {
       "spelldc": 10
     }
   },
-  "effects": [],
   "sort": 0,
   "flags": {
     "midi-qol": {
@@ -873,7 +858,6 @@ export const itemJSONData = {
     },
     "itemacro": {
       "macro": {
-
         "_id": null,
         "name": "Concentration Check - Midi QOL",
         "type": "script",

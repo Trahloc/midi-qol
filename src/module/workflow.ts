@@ -3782,7 +3782,7 @@ export class Workflow {
       if (this.item.flags[MODULE_ID]?.isConcentrationCheck) {
         const checkBonus = foundry.utils.getProperty(target, `actor.flags.${MODULE_ID}.concentrationSaveBonus`);
         if (checkBonus) {
-          const rollBonus = (await new Roll(`${checkBonus}`, target.actor?.getRollData()).evaluate({ async: true }));
+          const rollBonus = (await new Roll(`${checkBonus}`, target.actor?.getRollData()).evaluate());
           result = addRollTo(result, rollBonus);
           saveRollTotal = result.total;
           saveRoll = result;
