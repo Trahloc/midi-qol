@@ -1,5 +1,11 @@
 ### 11.6.31
-* ALways record placed templates for auto remove instantaneous templates.
+* Always record placed templates for auto remove instantaneous templates.
+* Various fixes to concentration rolls - thanks @thatlonelybugbear
+* Incapacitated typo fixes - thanks @thatlonelybugbear
+* Collision checks for checking distance changed to sight rather than move - cleans up some odd cases - thanks @thatlonelybugbear
+* Change to Optional uses count to support name partial matches instead of exact item name match - useful for some enchant items - thanks @thatlonelybugbear
+* Added target elevation in midi canSee/canSense to fix a problem with levels vision checking - thanks @thatlonelybugbear
+* Fix for checkDistance sometimes incorrectly returning a negative distance - thanks @thatlonelybugbear
 
 ### 11.6.30
 * Added some extra data to condition data - courtesy @thatlonelybugbear

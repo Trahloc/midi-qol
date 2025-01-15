@@ -3842,7 +3842,7 @@ export function playerForActor(actor: Actor | undefined | null): User | undefine
   //@ts-expect-error ownership v10
   const ownwership = actor.ownership;
   // find an active user whose character is the actor
-  if (actor.hasPlayerOwner) user = game.users?.find(u => u.character?.id === actor?.id && u.active);
+  if (actor.hasPlayerOwner) user = game.users?.players.find(u => u.character?.id === actor?.id && u.active);
   if (!user) // no controller - find the first owner who is active
     user = game.users?.players.find(p => p.active && ownwership[p.id ?? ""] === OWNERSHIP_LEVELS.OWNER)
   if (!user) // find a non-active owner
@@ -4240,7 +4240,7 @@ export function effectActivationConditionToUse(workflow: Workflow) {
   return foundry.utils.getProperty(this, `flags.${MODULE_ID}.effectCondition`);
 }
 
-export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any }) {
+export function createConditionData(data: { workflow?: Workflow | undefined, target?: Token | TokenDocument | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, options?: any | undefined }) {
   const actor = data.workflow?.actor ?? data.actor;
   let item;
   if (data.item) {
@@ -4251,7 +4251,7 @@ export function createConditionData(data: { workflow?: Workflow | undefined, tar
   let rollData = data.workflow?.otherDamageItem?.getRollData() ?? item?.getRollData() ?? actor?.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
   rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunement === "";
-  if (data.options) rollData.options = data.options;
+  if (data?.options) rollData.options = data.options;
   if (foundry.utils.getProperty(rollData, 'options.messageData.flags.midi-qol.isConcentrationCheck')) rollData.isConcentrationCheck = true;
   try {
     if (data.target) {
@@ -5172,6 +5172,7 @@ export function _canSenseModes(tokenEntity: Token | TokenDocument, targetEntity:
   const offsets = t > 0 ? [[0, 0], [-t, -t], [-t, t], [t, t], [t, -t], [-t, 0], [t, 0], [0, -t], [0, t]] : [[0, 0]];
   const tests = offsets.map(o => ({
     point: new PIXI.Point(targetPoint.x + o[0], targetPoint.y + o[1]),
+    //@ts-expect-error
     elevation: target.document.elevation,
     los: new Map()
   }));
@@ -5251,20 +5252,16 @@ export function tokenForActor(actor: Actor | string | undefined | null): Token |
 
 export async function doConcentrationCheck(actor, saveDC) {
   const concentratingItemUuids = actor.effects
-    //@ts-expect-error effect
     .filter(effect => effect.statuses.has("concentrating"))
-    //@ts-expect-error effect
     .map(effect => effect?.flags?.dnd5e?.itemUuid);
-  let concentratingItemName = [];
+  let concentratingItemNameValues:string [] = [];
   for (const itemUuid of concentratingItemUuids) {
-    typeof(itemUuid) === "string" ? concentratingItemName.push(MQfromUuidSync(itemUuid).name) : concentratingItemName.push("No item");
+    typeof(itemUuid) === "string" ? concentratingItemNameValues.push(MQfromUuidSync(itemUuid).name) : concentratingItemNameValues.push("No item");
   };
-  concentratingItemName = `${concentrationCheckItemDisplayName}: ${concentratingItemName.join(", ")}`;
-  const actorConcAbility = actor.system.attributes.concentration.ability;
-  const abilityMod = actorConcAbility !== "" ? actorConcAbility : "con";
+  let concentratingItemName = `${concentrationCheckItemDisplayName}: ${concentratingItemNameValues.join(", ")}`;
   const itemData = foundry.utils.duplicate(itemJSONData);
   foundry.utils.setProperty(itemData, "system.save.dc", saveDC);
-  foundry.utils.setProperty(itemData, "system.save.ability", abilityMod);
+  foundry.utils.setProperty(itemData, "system.save.ability", actor.system.attributes.concentration.ability || "con");
   foundry.utils.setProperty(itemData, "system.save.scaling", "flat");
   foundry.utils.setProperty(itemData, "name", concentratingItemName);
   foundry.utils.setProperty(itemData, "system.target.type", "self");
@@ -5285,7 +5282,7 @@ async function _doConcentrationCheck(actor, itemData) {
     ownedItem.getSaveDC()
   }
   try {
-    result = await completeItemUse(ownedItem, {}, { checkGMStatus: true, systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { targetConfirmation: "none" } })
+    result = await completeItemUse(ownedItem, {}, { checkGMStatus: true, isConcentrationCheck: true, isConcentration: true, systemCard: false, createWorkflow: true, versatile: false, configureDialog: false, workflowOptions: { targetConfirmation: "none" } })
   } catch (err) {
     const message = "midi-qol | doConcentrationCheck";
     TroubleShooter.recordError(err, message);
