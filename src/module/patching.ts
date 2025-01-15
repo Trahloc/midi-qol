@@ -400,7 +400,8 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
     "explodePlayer": "Explode Player critical dice",
     "explodeGM": "Explode GM crtical dice",
     "baseDamage": "Only Weapon Extra Critical",
-    "maxBaseRollCrit": "Max base damage and roll critical dice"
+    "maxBaseRollCrit": "Max base damage and roll critical dice",
+    "bestOfTwo": "Best of two rolls",
   },
  */
   // if (criticalDamage === "doubleDice") this.options.multiplyNumeric = true;
@@ -447,6 +448,12 @@ function configureDamage(wrapped, options: any = { critical: {} }) {
           term.modifiers.push(`min${term.faces}`);
         } else if (term instanceof NumericTerm && this.options.multiplyNumeric) {
           term.number *= cm;
+        }
+        break;
+      case "bestOfTwo":
+        if (term instanceof DiceTerm) {
+          term.modifiers.push(`kh${term.number !== 1 ? term.number: ""}`);
+          term.number *= 2;
         }
         break;
       case "doubleDice":

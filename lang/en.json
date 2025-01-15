@@ -155,7 +155,8 @@
     "explodeCharacter": "Explode Character critical dice",
     "explodeNPC": "Explode NPC critical dice",
     "baseDamage": "Only Weapon Extra Critical",
-    "maxBaseRollCrit": "Max Base Roll Crit"
+    "maxBaseRollCrit": "Max Base Roll Crit",
+    "bestOfTwo": "Roll damage die twice and pick the highest"
   },
   "midi-qol.MergeCard.Name": "Merge Rolls to one card",
   "midi-qol.MergeCard.Hint": "Merge Attack, Hits, Damage, Saves to a single chat card",
