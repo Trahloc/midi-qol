@@ -516,8 +516,15 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
     config = { ability: config };
     dialog = {};
     _applyDeprecatedD20Configs(config, dialog, message, oldConfig);
+  } else {
+    config.legacy = false;
   }
+  if (config.midiOptions?.isConcentrationCheck) {
 
+    foundry.utils.setProperty(message, "data.flags.midi-qol.isConcentrationCheck", true);
+    config.midiOptions.isConcentrationCheck = false;
+    return this.rollConcentration(config, dialog, message);
+  }
   message.data ??= {};
   config.midiOptions ??= {};
   let abilityId = config.ability;

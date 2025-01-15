@@ -4020,11 +4020,11 @@ export class Workflow {
     DCString = `${DCString} ${rollDC}`;
     if ((rollDC ?? -1) === -1) DCString = "";
     if (rollType === "save")
-      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.abilities[rollAbility].label ?? GameSystemConfig.abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}`;
+      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.abilities[rollAbility]?.label ?? rollAbility} ${i18n(allHitTargets.size > 1 ? "midi-qol.saving-throws" : "midi-qol.saving-throw")}`;
     else if (rollType === "check")
-      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.abilities[rollAbility].label ?? GameSystemConfig.abilities[rollAbility].label} ${i18n(allHitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:`;
+      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.abilities[rollAbility]?.label ?? rollAbility} ${i18n(allHitTargets.size > 1 ? "midi-qol.ability-checks" : "midi-qol.ability-check")}:`;
     else if (rollType === "skill")
-      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.skills[rollAbility].label ?? GameSystemConfig.skills[rollAbility]}`;
+      this.saveDisplayFlavor = `<label class="midi-qol-saveDC">${DCString}</label> ${GameSystemConfig.skills[rollAbility]?.label ??  rollAbility}`;
     else if (rollType === "tool") {
       //@ts-expect-error
       const toolLabel = await game.system.documents.Trait.keyLabel(`tool:${rollAbility}`);

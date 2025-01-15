@@ -3461,6 +3461,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       item: this.item,
       actor: this.actor,
       target: this.targets?.first(),
+      options
     };
   };
   const conditionData = createConditionData({ workflow: (this instanceof Workflow ? this : undefined), ...parameters });
@@ -4442,7 +4443,7 @@ export function raceOrType(entity: Token | Actor | TokenDocument | string): stri
   return systemData.details.type?.value?.toLocaleLowerCase() ?? "";
 }
 
-export function createConditionData(data: { workflow?: any, target?: Token | TokenDocument | Actor | string | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any, tokenUuid?: string | undefined, tokenId?: string | undefined}) {
+export function createConditionData(data: { workflow?: any, target?: Token | TokenDocument | Actor | string | undefined, actor?: Actor | undefined | null, item?: Item | string | undefined, extraData?: any, activity?: any, tokenUuid?: string | undefined, tokenId?: string | undefined, options?: any | undefined}) {
   const actor = data.workflow?.actor ?? data.actor;
   let item;
   if (data.item) {
@@ -4450,9 +4451,11 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
     else if (typeof data.item === "string") item = MQfromUuidSync(data.item);
   }
   if (!item) item = data.activity?.item ?? data.workflow?.activity?.item ?? data.workflow?.item;
-  let rollData = data.activity?.getRollData() ?? item?.getRollData() ?? actor.getRollData() ?? {};
+  let rollData: any = data.activity?.getRollData() ?? item?.getRollData() ?? actor.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
   rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
+  rollData.options = data?.options;
+  rollData.isConcentrationCheck = foundry.utils.getProperty(rollData, 'options.messageData.flags.midi-qol.isConcentrationCheck')) rollData.isConcentrationCheck = true;
   rollData.actor = {};
   rollData.actor.raceOrType = actor ? raceOrType(actor) : "";
   rollData.actor.typeOrRace = actor ? typeOrRace(actor) : "";
@@ -5441,9 +5444,21 @@ export function tokenForActor(actor: Actor | string | undefined | null): Token |
 }
 
 export async function doConcentrationCheck(actor, saveDC) {
+
+  const concentratingItemUuids = actor.effects
+    .filter(effect => effect.statuses.has("concentrating"))
+    .map(effect => effect?.flags?.dnd5e?.itemUuid);
+  let concentratingItemName: string[] = [];
+
+  for (const itemUuid of concentratingItemUuids) {
+    //@ts-expect-error
+    typeof(itemUuid) === "string" ? concentratingItemName.push(fromUuidSync(itemUuid)?.item?.name) : concentratingItemName.push("No item");
+  };
+  
+  const itemDisplayName = `${concentrationCheckItemDisplayName}: ${concentratingItemName.join(", ")}`;
   const itemData = {
-    "name": "Concentration Check - Midi QOL",
-    "type": "weapon",
+    "name": itemDisplayName,
+    "type": "feat",
     "img": "./modules/midi-qol/icons/concentrate.png",
     "system": {
       "activities": {
@@ -5466,7 +5481,7 @@ export async function doConcentrationCheck(actor, saveDC) {
             "onSave": "half"
           },
           "save": {
-            "ability": "con",
+            "ability": actor.system.attributes.concentration.ability || "con",
             "dc": {
               "calculation": "",
               "formula": `${saveDC}`,
@@ -5509,7 +5524,7 @@ export async function doConcentrationCheck(actor, saveDC) {
     }
   }
 
-  foundry.utils.setProperty(itemData, "name", concentrationCheckItemDisplayName);
+  // foundry.utils.setProperty(itemData, "name", itemDisplayName);
   foundry.utils.setProperty(itemData, `flags.${MODULE_ID}.noProvokeReaction`, true);
   return await _doConcentrationCheck(actor, itemData)
 }
@@ -5524,7 +5539,7 @@ async function _doConcentrationCheck(actor, itemData) {
   //@ts-expect-error
   ownedItem.prepareEmbeddedDocuments();
   try {
-    const midiOptions = { checkGMStatus: true, systemCard: false, createWorkflow: true, versatile: false, workflowOptions: { targetConfirmation: "none" } }
+    const midiOptions = { checkGMStatus: true, systemCard: false, isConcentrationCheck: true, createWorkflow: true, versatile: false, workflowOptions: { targetConfirmation: "none" } }
     result = await completeItemUseV2(ownedItem, { midiOptions }, { configure: false }, {}); // worried about multiple effects in flight so do one at a time
   } catch (err) {
     const message = "midi-qol | doConcentrationCheck";
