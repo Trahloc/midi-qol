@@ -3562,6 +3562,29 @@ export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.docum
   const countRemaining = getOptionalCountRemaining(actor, `flags.${MODULE_ID}.optional.${flag}.count`) && getOptionalCountRemaining(actor, `flags.${MODULE_ID}.optional.${flag}.countAlt`)
   return countRemaining;
 }
+
+function getOptionalItemUsesItemMatch(actor: globalThis.dnd5e.documents.Actor5e, countValue: string, postError = false, update = false) {
+  const itemName = countValue.split(".");
+  let item: globalThis.dnd5e.documents.Item5e;
+  if (itemName[1] === 'identifier') {
+    item = actor.items.find(i => i.identifier === itemName[2]);
+  } else if (itemName[1] === 'partialNameMatch') {
+    item = actor.items.find(i => i.name.includes(itemName[2]));
+  } else if (itemName[1] === 'exactNameMatch') {
+    item = actor.items.getName(itemName[2]);
+  } else {
+    item = actor.items.getName(itemName[1]);
+  }
+  if (!item && postError) {
+    const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
+    error(message);
+    TroubleShooter.recordError(new Error(message), message);
+    return undefined;
+  }
+  if (!update) return item?.system.uses.value;
+  else return item;
+}
+
 //@ts-expect-error dnd5e v10
 export function getOptionalCountRemaining(actor: globalThis.dnd5e.documents.Actor5e, flag: string) {
   const countValue = foundry.utils.getProperty(actor, flag);
@@ -3580,9 +3603,7 @@ export function getOptionalCountRemaining(actor: globalThis.dnd5e.documents.Acto
   } else if (countValue === "every") return 1;
   if (Number.isNumeric(countValue)) return countValue;
   if (countValue.startsWith("ItemUses.")) {
-    const itemName = countValue.split(".")[1];
-    const item = actor.items.getName(itemName);
-    return item?.system.uses.value;
+    return getOptionalItemUsesItemMatch(actor, countValue, false, false);
   }
   if (countValue.startsWith("@")) {
     let result = foundry.utils.getProperty(actor?.system ?? {}, countValue.slice(1))
@@ -3613,25 +3634,13 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
     await effect.update({ changes: effectData.changes });
   }
   if (typeof count.value === "string" && count.value.startsWith("ItemUses.")) {
-    const itemName = count.value.split(".")[1];
-    const item = actor.items.getName(itemName);
-    if (!item) {
-      const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
-      error(message);
-      TroubleShooter.recordError(new Error(message), message);
-      return;
-    }
+    const item = getOptionalItemUsesItemMatch(actor, count.value, true, true);
+    if (!item) return;
     await item.update({ "system.uses.spent": Math.max(0, item.system.uses.spent + 1) });
   }
   if (typeof countAlt?.value === "string" && countAlt.value.startsWith("ItemUses.")) {
-    const itemName = countAlt.value.split(".")[1];
-    const item = actor.items.getName(itemName);
-    if (!item) {
-      const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
-      error(message);
-      TroubleShooter.recordError(new Error(message), message);
-      return;
-    }
+    const item = getOptionalItemUsesItemMatch(actor, countAlt.value, true, true);
+    if (!item) return;
     await item.update({ "system.uses.spent": Math.max(0, item.system.uses.spent + 1) });
   }
 
