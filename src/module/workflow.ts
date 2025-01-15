@@ -3780,7 +3780,7 @@ export class Workflow {
         this.semiSuperSavers.add(target);
 
       if (this.item.flags[MODULE_ID]?.isConcentrationCheck) {
-        const checkBonus = foundry.utils.getProperty(target, `actor.flags.${MODULE_ID}.concentrationSaveBonus`) || foundry.utils.getProperty(target, `actor.system.attributes.concentration.bonuses.save`);
+        const checkBonus = foundry.utils.getProperty(target, `actor.flags.${MODULE_ID}.concentrationSaveBonus`);
         if (checkBonus) {
           const rollBonus = (await new Roll(`${checkBonus}`, target.actor?.getRollData()).evaluate());
           result = addRollTo(result, rollBonus);
