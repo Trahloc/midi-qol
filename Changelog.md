@@ -1,3 +1,6 @@
+### 12.4.23
+* Fix for not evaluating some flags.midi-qol with mode custom when they should evaluate to a boolean.
+
 ### 12.4.22
 * Fix for error being thrown when activity.use({},{},{create: false}) to roll an activity without a chat card.
 * Fix for midi-check activity not picking up rolls without skill/tool and treating them as tool rolls.

@@ -847,7 +847,7 @@ export function midiCustomEffect(...args) {
     else foundry.utils.setProperty(actor, change.key, change.value);
   } else if (change.key.match(/system.traits.*custom/)) {
     // do the trait application here - think about how to update both trait and bypass
-  } else if (typeof change.value === "string" && change.value.startsWith("flags.midi-qol")) {
+  } else if (typeof change.value === "string" && change.key.startsWith("flags.midi-qol")) {
     let val: any;
     try {
       switch (midiFlagTypes[change.key]) {
