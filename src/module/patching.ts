@@ -527,9 +527,9 @@ async function doRollAbilityV2(wrapped, rollType, config: any = {}, dialog: any 
     config.legacy = false;
   }
   if (config.midiOptions?.isConcentrationCheck) {
-
     foundry.utils.setProperty(message, "data.flags.midi-qol.isConcentrationCheck", true);
-    config.midiOptions.isConcentrationCheck = false;
+    config.midiOptions.isConcentrationCheck = false; // remove the isConcentrationCheck option so we won't infinitely recurse
+    // Note to self concentration max/min value is now handled directly by dnd5e - so the flag has changed
     return this.rollConcentration(config, dialog, message);
   }
   message.data ??= {};
