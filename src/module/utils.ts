@@ -3563,7 +3563,7 @@ export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.docum
   return countRemaining;
 }
 
-function getOptionalItemUsesItemMatch(actor: globalThis.dnd5e.documents.Actor5e, countValue: string, postError = false, update = false) {
+function getOptionalItemUsesItemMatch(actor: globalThis.dnd5e.documents.Actor5e, countValue: string, returnItem = false) {
   let itemName = countValue.split(".");
   let item: globalThis.dnd5e.documents.Item5e;
   if (itemName[1] === "identifier") {
@@ -3579,14 +3579,18 @@ function getOptionalItemUsesItemMatch(actor: globalThis.dnd5e.documents.Actor5e,
     itemName = itemName[1];
     item = actor.items.getName(itemName);
   }
-  if (!item && postError) {
-    const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
-    error(message);
-    TroubleShooter.recordError(new Error(message), message);
-    return undefined;
+  if (returnItem) {
+    if (!item) {
+      const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
+      error(message);
+      TroubleShooter.recordError(new Error(message), message);
+      return undefined;
+    } else {
+      return item;
+    }
+  } else {
+    return item?.system.uses.value;
   }
-  if (!update) return item?.system.uses.value;
-  else return item;
 }
 
 //@ts-expect-error dnd5e v10
@@ -3607,7 +3611,7 @@ export function getOptionalCountRemaining(actor: globalThis.dnd5e.documents.Acto
   } else if (countValue === "every") return 1;
   if (Number.isNumeric(countValue)) return countValue;
   if (countValue.startsWith("ItemUses.")) {
-    return getOptionalItemUsesItemMatch(actor, countValue, false, false);
+    return getOptionalItemUsesItemMatch(actor, countValue, false);
   }
   if (countValue.startsWith("@")) {
     let result = foundry.utils.getProperty(actor?.system ?? {}, countValue.slice(1))
@@ -3638,12 +3642,12 @@ export async function removeEffectGranting(actor: globalThis.dnd5e.documents.Act
     await effect.update({ changes: effectData.changes });
   }
   if (typeof count.value === "string" && count.value.startsWith("ItemUses.")) {
-    const item = getOptionalItemUsesItemMatch(actor, count.value, true, true);
+    const item = getOptionalItemUsesItemMatch(actor, count.value, true);
     if (!item) return;
     await item.update({ "system.uses.spent": Math.max(0, item.system.uses.spent + 1) });
   }
   if (typeof countAlt?.value === "string" && countAlt.value.startsWith("ItemUses.")) {
-    const item = getOptionalItemUsesItemMatch(actor, countAlt.value, true, true);
+    const item = getOptionalItemUsesItemMatch(actor, countAlt.value, true);
     if (!item) return;
     await item.update({ "system.uses.spent": Math.max(0, item.system.uses.spent + 1) });
   }
