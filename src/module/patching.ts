@@ -418,12 +418,14 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
   }
   try {
-    if (options.isConcentration) options.isConcentrationCheck = true;
-    if (options.isConcentrationCheck) foundry.utils.mergeObject(messageData, { "flags.midi-qol": { isConcentrationCheck: true } });
     const rollTarget = options.targetValue;
     if (rollTarget !== undefined && !checkRule("criticalSaves")) { // We have a target value, which means we are checking for success and not criticals
       options.critical = 21;
       options.fumble = 0;
+    }
+    if (options.isConcentrationCheck) {
+      options.isConcentrationCheck = false;
+      return this.rollConcentration(options);
     }
     let success: boolean | undefined = undefined;
     if (procAutoFail(this, rollType, abilityId)) {
@@ -449,7 +451,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     }
 
     options.event = {};
-
+    if (options.isConcentration) options.isConcentrationCheck = true;
     let procOptions: any = await procAbilityAdvantage(this, rollType, abilityId, options);
     if (procOptions.advantage && procOptions.disadvantage) {
       procOptions.advantage = false;
@@ -483,7 +485,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     let maxFlags = foundry.utils.getProperty(this, "flags.midi-qol.max.ability") ?? {};
     let maxValue = (maxFlags[rollType] && (maxFlags[rollType].all || maxFlags[rollType][abilityId])) ?? false;
     if (options.isConcentrationCheck) 
-      maxValue = maxFlags.save?.concentration ?? maxValue;
+      maxValue = foundry.utils.getProperty(this, "system.attributes.concentration.roll.max") ?? maxFlags.save?.concentration ?? maxValue;
     if (maxValue && Number.isNumeric(maxValue)) {
       result = setRollMaxDiceTerm(result, Number(maxValue));
     }
@@ -491,7 +493,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     const minFlags = foundry.utils.getProperty(this, "flags.midi-qol.min.ability") ?? {};
     let minValue = (minFlags[rollType] && (minFlags[rollType].all || minFlags[rollType][abilityId])) ?? false;
     if (options.isConcentrationCheck)
-      minValue = minFlags.save?.concentration ?? minValue;
+      minValue = foundry.utils.getProperty(this, "system.attributes.concentration.roll.min") ?? minFlags.save?.concentration ?? minValue;
     if (minValue && Number.isNumeric(minValue)) {
       result = setRollMinDiceTerm(result, Number(minValue));
     }
@@ -524,6 +526,7 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     if (rollMode !== "blindroll") rollMode = result.options.rollMode;
     await displayDSNForRoll(result, rollType, rollMode);
     foundry.utils.mergeObject(messageData, { "flags": options.flags ?? {} });
+    if (options.isConcentrationCheck) foundry.utils.mergeObject(messageData, { "flags.midi-qol": { isConcentrationCheck: true } });
     foundry.utils.setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
     if (!options.simulate) {
       result = await bonusCheck(this, result, rollType, abilityId, messageData);
