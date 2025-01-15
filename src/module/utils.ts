@@ -3564,16 +3564,20 @@ export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.docum
 }
 
 function getOptionalItemUsesItemMatch(actor: globalThis.dnd5e.documents.Actor5e, countValue: string, postError = false, update = false) {
-  const itemName = countValue.split(".");
+  let itemName = countValue.split(".");
   let item: globalThis.dnd5e.documents.Item5e;
   if (itemName[1] === 'identifier') {
-    item = actor.items.find(i => i.identifier === itemName[2]);
+    itemName = itemName[2];
+    item = actor.items.find(i => i.identifier === itemName);
   } else if (itemName[1] === 'partialNameMatch') {
-    item = actor.items.find(i => i.name.includes(itemName[2]));
+    itemName = itemName[2];
+    item = actor.items.find(i => i.name.includes(itemName));
   } else if (itemName[1] === 'exactNameMatch') {
-    item = actor.items.getName(itemName[2]);
+    itemName = itemName[2];
+    item = actor.items.getName(itemName);
   } else {
-    item = actor.items.getName(itemName[1]);
+    itemName = itemName[1];
+    item = actor.items.getName(itemName);
   }
   if (!item && postError) {
     const message = `midi-qol | removeEffectGranting | could not decrement uses for ${itemName} on actor ${actor.name}`;
