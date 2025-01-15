@@ -3566,13 +3566,13 @@ export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.docum
 function getOptionalItemUsesItemMatch(actor: globalThis.dnd5e.documents.Actor5e, countValue: string, postError = false, update = false) {
   let itemName = countValue.split(".");
   let item: globalThis.dnd5e.documents.Item5e;
-  if (itemName[1] === 'identifier') {
+  if (itemName[1] === "identifier") {
     itemName = itemName[2];
     item = actor.items.find(i => i.identifier === itemName);
-  } else if (itemName[1] === 'partialNameMatch') {
+  } else if (itemName[1] === "partialNameMatch") {
     itemName = itemName[2];
     item = actor.items.find(i => i.name.includes(itemName));
-  } else if (itemName[1] === 'exactNameMatch') {
+  } else if (itemName[1] === "exactNameMatch") {
     itemName = itemName[2];
     item = actor.items.getName(itemName);
   } else {
