@@ -710,6 +710,7 @@ async function rollDeathSave(wrapped, config: any = {}, dialog: any = {}, messag
     for (let roll of config.rolls) {
       roll.options.advantage = config.midiOptions.advantage;
       roll.options.disadvantage = config.midiOptions.disadvantage;
+      if (config.midiOptions.parts.length) roll.parts.push(config.midiOptions.parts);
       if (blindSaveRoll) roll.options.rollMode = "blindRoll"
     }
     setDialogOptions(dialog, config, config.rolls[0].options);
