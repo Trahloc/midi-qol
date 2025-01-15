@@ -419,12 +419,12 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
   }
   try {
     if (options.isConcentration) options.isConcentrationCheck = true;
+    if (options.isConcentrationCheck) foundry.utils.mergeObject(messageData, { "flags.midi-qol": { isConcentrationCheck: true } });
     const rollTarget = options.targetValue;
     if (rollTarget !== undefined && !checkRule("criticalSaves")) { // We have a target value, which means we are checking for success and not criticals
       options.critical = 21;
       options.fumble = 0;
     }
-
     let success: boolean | undefined = undefined;
     if (procAutoFail(this, rollType, abilityId)) {
       options.parts = ["-100"];
@@ -524,7 +524,6 @@ async function doAbilityRoll(wrapped, rollType: string, ...args) {
     if (rollMode !== "blindroll") rollMode = result.options.rollMode;
     await displayDSNForRoll(result, rollType, rollMode);
     foundry.utils.mergeObject(messageData, { "flags": options.flags ?? {} });
-    if (options.isConcentrationCheck) foundry.utils.mergeObject(messageData, { "flags.midi-qol": { isConcentrationCheck: true } });
     foundry.utils.setProperty(messageData, "flags.midi-qol.lmrtfy.requestId", options.flags?.lmrtfy?.data?.requestId);
     if (!options.simulate) {
       result = await bonusCheck(this, result, rollType, abilityId, messageData);
