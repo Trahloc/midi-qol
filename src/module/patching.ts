@@ -861,7 +861,7 @@ function _midiATIRefresh(template) {
       return true;
     })
 
-    if (tokensToCheck.length > 0) {
+    if (tokensToCheck?.length > 0) {
       //@ts-expect-error compute3Dtemplate(t, tokensToCheck = canvas.tokens.placeables)
       VolumetricTemplates.compute3Dtemplate(template, tokensToCheck);
     }
@@ -1752,8 +1752,8 @@ export async function doItemUse(wrapped, config: any = {}, dialog: any = {}, mes
   const attackActivities = activities?.filter(a => a instanceof MidiAttackActivity && !a.midiProperties?.automationOnly);
   if (attackActivities?.length === 1) { // if there is a single attack activity and no other non-automation activities use it
     const attackActivity = attackActivities[0];
-    const extraActvities = activities?.filter(a => a !== attackActivity && a !== attackActivity?.otherActivity);
-    if (extraActvities.length === 0) {
+    const extraActivities = activities?.filter(a => a !== attackActivity && a !== attackActivity?.otherActivity);
+    if (extraActivities?.length === 0) {
       return attackActivity.use(config, dialog, message);
     }
   }
