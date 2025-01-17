@@ -1750,7 +1750,7 @@ export async function doItemUse(wrapped, config: any = {}, dialog: any = {}, mes
   const { legacy, chooseActivity, ...activityConfig } = config;
   const activities = this.system.activities?.filter(a => !this.getFlag("dnd5e", "riders.activity")?.includes(a.id) && !a.midiProperties?.automationOnly);
   const attackActivities = activities?.filter(a => a instanceof MidiAttackActivity && !a.midiProperties?.automationOnly);
-  if (attackActivities.length === 1) { // if there is a single attack activity and no other non-automation activities use it
+  if (attackActivities?.length === 1) { // if there is a single attack activity and no other non-automation activities use it
     const attackActivity = attackActivities[0];
     const extraActvities = activities?.filter(a => a !== attackActivity && a !== attackActivity?.otherActivity);
     if (extraActvities.length === 0) {
@@ -1769,7 +1769,7 @@ export async function doItemUse(wrapped, config: any = {}, dialog: any = {}, mes
     const activity = await MidiActivityChoiceDialog.create(this);
     return activity?.use(config, dialog, message);
   }
-  if (activities.length === 1) {
+  if (activities?.length === 1) {
     return activities[0].use(config, dialog, message);
   }
   if (this.actor) return this.displayCard(message);
