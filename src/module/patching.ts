@@ -1646,7 +1646,7 @@ async function _preCreateActiveEffect(wrapped, data, options, user): Promise<voi
       //@ts-expect-error - there is a separate check for hp.value <= in Hooks.ts so don't duplicate removal
       if (parent.system.attributes?.hp?.value > 0) { 
       //@ts-expect-error
-      parent.endConcentration();
+        await parent.endConcentration();
       }
     }
   } catch (err) {
