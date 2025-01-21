@@ -3379,6 +3379,12 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           newRoll = new Roll(rollParts.slice(1).join(" "), (this.activity ?? this.actor).getRollData());
           newRoll = await newRoll.evaluate();
           if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType, rollMode);
+        } else if (typeof button.value === "string" && button.value.startsWith("reroll-withBonus ")) {
+          let bonus = button.value.split("reroll-withBonus ").slice(1).join(" ");
+          if (!bonus.startsWith("+")) bonus = "+" + bonus;
+          roll._formula = roll._formula.concat(bonus);
+          newRoll = await roll.reroll();
+          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType, rollMode);
         } else if (flagSelector.startsWith("damage.") && foundry.utils.getProperty(this.actor ?? this, `${button.key}.criticalDamage`)) {
           //@ts-expect-error .DamageRoll
           const DamageRoll = CONFIG.Dice.DamageRoll
