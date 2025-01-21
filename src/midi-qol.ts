@@ -739,7 +739,7 @@ Hooks.on("monaco-editor.ready", (registerTypes) => {
     canSense: function canSee(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string): boolean,
     cansSenseModes: function canSenseModes(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, validModes: Array<string> = ["all"]): Array<string>,
     checkDistance: function checkDistnce(tokenEntity1: Token | TokenDocument | string, tokenEntity2: Token | TokenDocument | string, distance: number, wallsBlock?: boolean): boolean,
-    checkIncapacitated: function checkIncapacitated(actor: Actor, logResult?: true): boolean,
+    checkIncapacitated: function checkIncapacitated(actor: Actor, logResult?: true, warning?: false): boolean,
     checkNearby: function checkNearby(tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
     checkRange: function checkRange(item: Item, tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
     checkActivityRange: function checkActivityRange(activity: Activity, tokenEntity: Token | TokenDocument | string, targetEntity: Token | TokenDocument | string, range: number): boolean,
