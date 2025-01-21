@@ -1584,7 +1584,7 @@ export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | str
 export function logIncapacitatedCheckResult(actorName: string, status: string, logResult: boolean = true, warning: boolean = false) {
   const displayString = status === "incapacitated" ? `${actorName} is ${getStatusName(status)}` : `${actorName} is ${getStatusName(status)} and therefore ${getStatusName("incapacitated")}`;
   if (logResult) log(displayString);
-  if (checkMechanic("incapacitated") === "warn" && warning) ui.notifications.warn(displayString);
+  if (warning) ui.notifications.warn(displayString);
 }
 
 export function getUnitDist(x1: number, y1: number, z1: number, token2): number {
