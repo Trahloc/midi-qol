@@ -799,7 +799,7 @@ export class Workflow {
         }
       }
     }
-    if (!this.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") !== "nothing" && checkIncapacitated(this.actor, debugEnabled > 0)) {
+    if (!this.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") !== "nothing" && checkIncapacitated(this.actor, debugEnabled > 0), true) {
       if (checkMechanic("incapacitated") === "enforce") return this.WorkflowState_RollFinished;
     }
     return this.WorkflowState_PreambleComplete;
