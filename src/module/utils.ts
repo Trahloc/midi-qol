@@ -1543,7 +1543,7 @@ export function checkDefeated(actorRef: Actor | Token | TokenDocument | string):
     || hasCondition(actor, configSettings.midiDeadCondition);
 }
 
-export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | string | undefined | null, logResult: boolean = true): string | false {
+export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | string | undefined | null, logResult: boolean = true, warning: boolean = false): string | false {
   const actor = getActor(actorRef);
   if (!actor) return false;
   let status: string;
@@ -1577,14 +1577,14 @@ export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | str
   if (incapCondition) {
     status = incapCondition;
   }
-  if (status) logIncapacitatedCheckResult(actor.name, status, logResult);
+  if (status) logIncapacitatedCheckResult(actor.name, status, logResult, warning);
   return status;
 }
 
-export function logIncapacitatedCheckResult(actorName: string, status: string, logResult: boolean = true) {
+export function logIncapacitatedCheckResult(actorName: string, status: string, logResult: boolean = true, warning: boolean = false) {
   const displayString = status !== "incapacitated" ? `${actorName} is ${getStatusName(status)}` : `${actorName} is ${getStatusName(status)} and therefore ${getStatusName("incapacitated")}`;
   if (logResult) log(displayString);
-  if (checkMechanic("incapacitated") === "warn") ui.notifications.warn(displayString);
+  if (checkMechanic("incapacitated") === "warn" && warning) ui.notifications.warn(displayString);
 }
 
 export function getUnitDist(x1: number, y1: number, z1: number, token2): number {
@@ -2623,7 +2623,7 @@ export function findNearby(disposition: number | string | null | Array<string | 
       if (!isTargetable(t)) return false;
       //@ts-expect-error .height .width v10
       if (options.maxSize && t.document.height * t.document.width > options.maxSize) return false;
-      if (!options.includeIncapacitated && checkIncapacitated(t.actor, debugEnabled > 0)) return false;
+      if (!options.includeIncapacitated && checkIncapacitated(t.actor, debugEnabled > 0, false)) return false;
       let inRange = false;
       if (t.actor &&
         (t.id !== token.id || options?.includeToken) && // not the token
@@ -3759,11 +3759,11 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     //@ts-expect-error attributes
     if (!target.actor || !target.actor.flags) return noResult;
     // TODO V4 Change no reactions if incapacitated - I think this makes sense.
-    if (checkIncapacitated(target.actor, debugEnabled > 0)) return noResult;
+    if (checkIncapacitated(target.actor, debugEnabled > 0, false)) return noResult;
     if (checkMechanic("incapacitated")) {
       try {
         enableNotifications(false);
-        if (checkIncapacitated(target.actor, debugEnabled > 0)) return noResult;
+        if (checkIncapacitated(target.actor, debugEnabled > 0, false)) return noResult;
       } finally {
         enableNotifications(true);
       }
@@ -5118,7 +5118,7 @@ export function computeFlankingStatus(token, target): boolean {
     if (ally.document.uuid === token.document.uuid) continue;
     if (!heightIntersects(ally.document, target.document)) continue;
     const actor: any = ally.actor;
-    if (checkIncapacitated(ally.actor, debugEnabled > 0)) continue;
+    if (checkIncapacitated(ally.actor, debugEnabled > 0, false)) continue;
     if (hasCondition(actor, "incapacitated")) continue;
     const allyStartX = ally.document.width >= 1 ? 0.5 : ally.document.width / 2;
     const allyStartY = ally.document.height >= 1 ? 0.5 : ally.document.height / 2;
@@ -6745,7 +6745,7 @@ export function setRangedTargets(tokenToUse, targetDetails) {
         //@ts-expect-error .disposition v10
         && dispositions.includes(target.document.disposition);
       if (target.actor && ["wallsBlockIgnoreIncapacited", "alwaysIgnoreIncapacitated"].includes(configSettings.rangeTarget))
-        inRange = inRange && !checkIncapacitated(target.actor, debugEnabled > 0);
+        inRange = inRange && !checkIncapacitated(target.actor, debugEnabled > 0, false);
       if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(configSettings.rangeTarget))
         inRange = inRange && !checkDefeated(target);
       inRange = inRange && (configSettings.rangeTarget === "none" || !hasWallBlockingCondition(target))
