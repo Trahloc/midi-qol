@@ -511,7 +511,7 @@
   },
   "midi-qol.NearbyAllyRanged.Hint": "Ranged Attacks with allies nearby (5 feet) to the target have disadvantage for targets smaller than this (w*h). 0 disables",
   "midi-qol.Incapacitated.Name": "When an Incapacitated actor takes an action, MidiQOL should",
-  "midi-qol.Incapacitated.Options": {
+  "midi-qol.IncapacitatedOptions": {
     "nothing": "Do nothing",
     "enforce": "Enforce no actions",
     "warn": "Post a warning only"
