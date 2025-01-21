@@ -712,7 +712,7 @@ export var MidiActivityMixin = Base => {
           const condition = checkIncapacitated(this.actor, true);
           if (condition) {
             logIncapacitatedCheckResult(this.actor.name, condition, debugEnabled > 0);
-            if (checkMechanic("incapacitated") !== "enforce") return false;
+            if (checkMechanic("incapacitated") === "enforce") return false;
           }
         }
         let isEmanationTargeting = activityHasAutoPlaceTemplate(this) || activityHasEmanationNoTemplate(this);
@@ -948,7 +948,7 @@ export var MidiActivityMixin = Base => {
           const condition = checkIncapacitated(this.actor, true);
           if (condition) {
             logIncapacitatedCheckResult(this.actor.name, condition, debugEnabled > 0);
-            if (checkMechanic("incapacitated") !== "enforce") return this.removeWorkflow();
+            if (checkMechanic("incapacitated") === "enforce") return this.removeWorkflow();
           }
         }
         let isEmanationTargeting = activityHasAutoPlaceTemplate(this) || activityHasEmanationNoTemplate(this);
