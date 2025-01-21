@@ -3760,7 +3760,7 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     if (!target.actor || !target.actor.flags) return noResult;
     // TODO V4 Change no reactions if incapacitated - I think this makes sense.
     if (checkIncapacitated(target.actor, debugEnabled > 0)) return noResult;
-    if (checkRule("incapacitated")) {
+    if (checkMechanic("incapacitated")) {
       try {
         enableNotifications(false);
         if (checkIncapacitated(target.actor, debugEnabled > 0)) return noResult;
