@@ -711,7 +711,7 @@ export var MidiActivityMixin = Base => {
         if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated") !== "nothing") {
           const condition = checkIncapacitated(this.actor, true, false);
           if (condition) {
-            logIncapacitatedCheckResult(this.actor.name, condition, debugEnabled > 0);
+            logIncapacitatedCheckResult(this.actor.name, condition, debugEnabled > 0, true);
             if (checkMechanic("incapacitated") === "enforce") return false;
           }
         }
@@ -947,7 +947,7 @@ export var MidiActivityMixin = Base => {
         if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated") !== "nothing") {
           const condition = checkIncapacitated(this.actor, true, false);
           if (condition) {
-            logIncapacitatedCheckResult(this.actor.name, condition, debugEnabled > 0);
+            logIncapacitatedCheckResult(this.actor.name, condition, debugEnabled > 0, true);
             if (checkMechanic("incapacitated") === "enforce") return this.removeWorkflow();
           }
         }
