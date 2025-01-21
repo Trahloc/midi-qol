@@ -2420,7 +2420,7 @@ export function computeCoverBonus(attacker: Token | TokenDocument, target: Token
       coverBonus = 0;
     if (["rsak"/*, rpak*/].includes(item?.system.actionType) && attacker.actor && foundry.utils.getProperty(attacker.actor, "flags.dnd5e.spellSniper") && coverBonus !== FULL_COVER)
       coverBonus = 0;
-    if (target.actor && coverBonus > existingCoverBonus)
+    if (target.actor && coverBonus !== existingCoverBonus)
       foundry.utils.setProperty(target.actor, `flags.${MODULE_ID}.acBonus`, coverBonus);
     else coverBonus = existingCoverBonus;
     return coverBonus;
