@@ -1581,7 +1581,7 @@ export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | str
   return status;
 }
 
-function logIncapacitatedCheckResult(actorName: string, status: string, logResult: boolean = true) {
+export function logIncapacitatedCheckResult(actorName: string, status: string, logResult: boolean = true) {
   const displayString = status !== "incapacitated" ? `${actorName} is ${getStatusName(status)}` : `${actorName} is ${getStatusName(status)} and therefore ${getStatusName("incapacitated")}`;
   if (logResult) log(displayString);
   if (checkMechanic("incapacitated") === "warn") ui.notifications.warn(displayString);
