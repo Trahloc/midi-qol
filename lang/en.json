@@ -510,7 +510,12 @@
     "tokenvisibility": "Alternative Token Visibility - deprecated"
   },
   "midi-qol.NearbyAllyRanged.Hint": "Ranged Attacks with allies nearby (5 feet) to the target have disadvantage for targets smaller than this (w*h). 0 disables",
-  "midi-qol.Incapacitated.Name": "Incapacitated actors can't take actions or reactions",
+  "midi-qol.Incapacitated.Name": "When an Incapacitated actor takes an action, MidiQOL should",
+  "midi-qol.Incapacitated.Options": {
+    "none": "Do nothing",
+    "enforce": "Enforce no actions",
+    "warn": "Post a warning only"
+  },
   "midi-qol.RemoveHiddenInvis.Name": "Attacking removes hidden (use CE/CV/CUB/core foundry specialStatus )",
   "midi-qol.CriticalSaves.Name": "(House Rule) Critical/Fumble always succeed/fail for saving throws",
   "midi-qol.MaxDRValue.Name": "(House rule) Enabling this means that only the most effective Damage Reduction will apply. Off means DR accumulates",
