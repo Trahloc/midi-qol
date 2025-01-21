@@ -200,7 +200,7 @@ class ConfigSettings {
     distanceIncludesHeight: false,
     DRAllPerDamageDetail: true,
     hiddenAdvantage: "none",
-    incapacitated: "warn",
+    incapacitated: "nothing",
     invisAdvantage: "RAW",
     invisVision: false,
     maxDRValue: false,
@@ -436,7 +436,7 @@ export let fetchParams = () => {
     criticalNat20: false,
     criticalSaves: false,
     distanceIncludesHeight: false,
-    incapacitated: "warn",
+    incapacitated: "nothing",
     invisAdvantage: "RAW",
     hiddenAdvantage: "none",
     maxDRValue: false,
@@ -449,6 +449,7 @@ export let fetchParams = () => {
     mergeCardMulti: false,
     mergeCardMultiDamage: false,
   }, configSettings.optionalRules ?? {}, { overwrite: true, insertKeys: true, insertValues: true });
+  if (!configSettings.optionalRules.incapacitated) configSettings.optionalRules.incapacitated = "nothing";
   if (!configSettings.optionalRules.wallsBlockRange) configSettings.optionalRules.wallsBlockRange = "center";
   if (configSettings.optionalRules.checkFlanking === true) configSettings.optionalRules.checkFlanking = "ceadv";
   if (!configSettings.optionalRules.coverCalculation) configSettings.optionalRules.coverCalculation = "none";
