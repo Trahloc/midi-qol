@@ -708,11 +708,12 @@ export var MidiActivityMixin = Base => {
       if (debugEnabled > 0)
         warn("MidiQOL | confirmCanProceed | Called", this);
       try {
-        if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated")) {
+        if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated") !== "nothing") {
           const condition = checkIncapacitated(this.actor, true);
           if (condition) {
+            //@ts-expect-error
             ui.notifications?.warn(`${this.actor.name} is ${getStatusName(condition)} and is incapacitated`)
-            return false;
+            if (checkMechanic("incapacitated") !== "enforce") return false;
           }
         }
         let isEmanationTargeting = activityHasAutoPlaceTemplate(this) || activityHasEmanationNoTemplate(this);
@@ -944,11 +945,11 @@ export var MidiActivityMixin = Base => {
             return this.removeWorkflow();
           }
         }
-        if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated")) {
+        if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated") !== "nothing") {
           const condition = checkIncapacitated(this.actor, true);
           if (condition) {
             ui.notifications?.warn(`${this.actor.name} is ${getStatusName(condition)} and is incapacitated`)
-            return this.removeWorkflow();
+            if (checkMechanic("incapacitated") !== "enforce") return this.removeWorkflow();
           }
         }
         let isEmanationTargeting = activityHasAutoPlaceTemplate(this) || activityHasEmanationNoTemplate(this);
