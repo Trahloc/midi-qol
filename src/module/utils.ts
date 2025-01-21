@@ -1546,6 +1546,7 @@ export function checkDefeated(actorRef: Actor | Token | TokenDocument | string):
 export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | string | undefined | null, logResult: boolean = true): string | false {
   const actor = getActor(actorRef);
   if (!actor) return false;
+  let status: string;
   //@ts-expect-error
   if (actor.system.traits?.ci?.value?.has("incapacitated")) return false;
   const vitalityResource = checkRule("vitalityResource");
@@ -1553,8 +1554,7 @@ export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | str
     const vitality = foundry.utils.getProperty(actor, vitalityResource.trim()) ?? 0;
     //@ts-expect-error .system
     if (vitality <= 0 && actor?.system.attributes?.hp?.value <= 0) {
-      if (logResult) log(`${actor.name} is dead and therefore incapacitated`);
-      return "dead";
+      status = "dead";
     }
   } else {
     //@ts-expect-error
@@ -1563,25 +1563,28 @@ export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | str
     }
     //@ts-expect-error .system
     if (actor?.system?.attributes?.hp?.value <= 0) {
-      if (logResult) log(`${actor.name} is incapacitated`)
-      return "dead";
+      status = "dead";
     }
   }
 
   if (configSettings.midiUnconsciousCondition && hasCondition(actor, configSettings.midiUnconsciousCondition)) {
-    if (logResult) log(`${actor.name} is ${getStatusName(configSettings.midiUnconsciousCondition)} and therefore incapacitated`)
-    return configSettings.midiUnconsciousCondition;
+    status = configSettings.midiUnconsciousCondition;
   }
   if (configSettings.midiDeadCondition && hasCondition(actor, configSettings.midiDeadCondition)) {
-    if (logResult) log(`${actor.name} is ${getStatusName(configSettings.midiDeadCondition)} and therefore incapacitated`)
-    return configSettings.midiDeadCondition;
+    status = configSettings.midiDeadCondition;
   }
   const incapCondition = (globalThis.MidiQOL.incapacitatedConditions ?? ["incapacitated"]).find(cond => hasCondition(actor, cond));
   if (incapCondition) {
-    if (logResult) log(`${actor.name} has condition ${getStatusName(incapCondition)} so incapacitated`)
-    return incapCondition;
+    status = incapCondition;
   }
-  return false;
+  if (status) logIncapacitatedCheckResult(actor.name, status, logResult);
+  return status;
+}
+
+function logIncapacitatedCheckResult(actorName: string, status: string, logResult: boolean = true) {
+  const displayString = status !== "incapacitated" ? `${actorName} is ${getStatusName(status)}` : `${actorName} is ${getStatusName(status)} and therefore ${getStatusName("incapacitated")}`;
+  if (logResult) log(displayString);
+  if (checkMechanic("incapacitated") === "warn") ui.notifications.warn(displayString);
 }
 
 export function getUnitDist(x1: number, y1: number, z1: number, token2): number {
