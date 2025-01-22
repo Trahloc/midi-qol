@@ -4476,7 +4476,7 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
   if (!item) item = data.activity?.item ?? data.workflow?.activity?.item ?? data.workflow?.item;
   let rollData: any = data.activity?.getRollData() ?? item?.getRollData() ?? actor.getRollData() ?? {};
   rollData = foundry.utils.mergeObject(rollData, data.extraData ?? {});
-  rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunment === "";
+  rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunement === "";
   rollData.options = data?.options;
   rollData.isConcentrationCheck = foundry.utils.getProperty(rollData, 'options.messageData.flags.midi-qol.isConcentrationCheck');
   rollData.actor = {};
