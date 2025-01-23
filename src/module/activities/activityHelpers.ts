@@ -417,7 +417,7 @@ export function isAoETargetable(targetToken, options: { selfToken?: Token | Toke
   if (!isTargetable(targetToken)) return false;
   const autoTarget = options.autoTarget ?? configSettings.autoTarget;
   const selfToken = getToken(options.selfToken);
-  if (["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapacitated"].includes(autoTarget) && checkIncapacitated(targetToken.actor, false)) return false;
+  if (["wallsBlockIgnoreIncapacitated", "alwaysIgnoreIncapacitated"].includes(autoTarget) && checkIncapacitated(targetToken.actor, false, false)) return false;
   if (["wallsBlockIgnoreDefeated", "alwaysIgnoreDefeated"].includes(autoTarget) && checkDefeated(targetToken)) return false;
   if (targetToken === selfToken && options.ignoreSelf) return false;
   //@ts-expect-error .disposition
