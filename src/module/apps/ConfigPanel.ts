@@ -148,6 +148,7 @@ export class ConfigPanel extends FormApplication {
       AverageDamageOptions: geti18nOptions("AverageDamageOptions"),
       TargetConfirmationOptions: geti18nOptions("TargetConfirmationOptions"),
       RemoveConcentrationEffectsOptions: geti18nOptions("RemoveConcentrationEffectsOptions"),
+      IncapacitatedOptions: geti18nOptions("IncapacitatedOptions"),
       CheckRangeOptions: geti18nOptions("CheckRangeOptions"),
       InvisAdvantageOptions: geti18nOptions("InvisAdvantageOptions"),
       HiddenAdvantageOptions,
