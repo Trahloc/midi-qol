@@ -7,7 +7,7 @@ import { checkMechanic, configSettings } from "../settings.js";
 import { installedModules } from "../setupModules.js";
 import { busyWait } from "../tests/setupTest.js";
 import { saveUndoData } from "../undo.js";
-import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityRange, checkIncapacitated, createConditionData, displayDSNForRoll, evalActivationCondition, evalCondition, getAutoRollAttack, getAutoRollDamage, getRemoveAttackButtons, getRemoveDamageButtons, getSpeaker, getStatusName, getToken, activityHasAutoPlaceTemplate, hasUsedBonusAction, hasUsedReaction, initializeVision, isAutoConsumeResource, isInCombat, needsBonusActionCheck, needsReactionCheck, processDamageRollBonusFlags, setBonusActionUsed, setReactionUsed, sumRolls, tokenForActor, validTargetTokens, activityHasEmanationNoTemplate, getActivityAutoTarget, areMidiKeysPressed, getActor, setRangedTargets, isAutoFastDamage } from "../utils.js";
+import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityRange, checkIncapacitated, createConditionData, displayDSNForRoll, evalActivationCondition, evalCondition, getAutoRollAttack, getAutoRollDamage, getRemoveAttackButtons, getRemoveDamageButtons, getSpeaker, getStatusName, getToken, activityHasAutoPlaceTemplate, hasUsedBonusAction, hasUsedReaction, initializeVision, isAutoConsumeResource, isInCombat, logIncapacitatedCheckResult, needsBonusActionCheck, needsReactionCheck, processDamageRollBonusFlags, setBonusActionUsed, setReactionUsed, sumRolls, tokenForActor, validTargetTokens, activityHasEmanationNoTemplate, getActivityAutoTarget, areMidiKeysPressed, getActor, setRangedTargets, isAutoFastDamage } from "../utils.js";
 import { confirmWorkflow, postTemplateConfirmTargets, preTemplateTargets, removeFlanking, selectTargets, setDamageRollMinTerms } from "./activityHelpers.js";
 
 export var MidiActivityMixin = Base => {
@@ -708,11 +708,11 @@ export var MidiActivityMixin = Base => {
       if (debugEnabled > 0)
         warn("MidiQOL | confirmCanProceed | Called", this);
       try {
-        if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated")) {
-          const condition = checkIncapacitated(this.actor, true);
+        if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated") !== "nothing") {
+          const condition = checkIncapacitated(this.actor, true, false);
           if (condition) {
-            ui.notifications?.warn(`${this.actor.name} is ${getStatusName(condition)} and is incapacitated`)
-            return false;
+            logIncapacitatedCheckResult(this.actor.name, condition, debugEnabled > 0, true);
+            if (checkMechanic("incapacitated") === "enforce") return false;
           }
         }
         let isEmanationTargeting = activityHasAutoPlaceTemplate(this) || activityHasEmanationNoTemplate(this);
@@ -944,11 +944,11 @@ export var MidiActivityMixin = Base => {
             return this.removeWorkflow();
           }
         }
-        if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated")) {
-          const condition = checkIncapacitated(this.actor, true);
+        if (!config.midiOptions?.workflowOptions?.allowIncapacitated && checkMechanic("incapacitated") !== "nothing") {
+          const condition = checkIncapacitated(this.actor, true, false);
           if (condition) {
-            ui.notifications?.warn(`${this.actor.name} is ${getStatusName(condition)} and is incapacitated`)
-            return this.removeWorkflow();
+            logIncapacitatedCheckResult(this.actor.name, condition, debugEnabled > 0, true);
+            if (checkMechanic("incapacitated") === "enforce") return this.removeWorkflow();
           }
         }
         let isEmanationTargeting = activityHasAutoPlaceTemplate(this) || activityHasEmanationNoTemplate(this);

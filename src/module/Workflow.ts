@@ -799,7 +799,9 @@ export class Workflow {
         }
       }
     }
-    if (!this.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") && checkIncapacitated(this.actor, debugEnabled > 0)) return this.WorkflowState_RollFinished
+    if (!this.workflowOptions.allowIncapacitated && checkMechanic("incapacitated") !== "nothing" && checkIncapacitated(this.actor, debugEnabled > 0), true) {
+      if (checkMechanic("incapacitated") === "enforce") return this.WorkflowState_RollFinished;
+    }
     return this.WorkflowState_PreambleComplete;
   }
   async WorkflowState_PreambleComplete(context: any = {}): Promise<WorkflowState> {
