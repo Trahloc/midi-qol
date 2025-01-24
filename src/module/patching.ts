@@ -1,6 +1,6 @@
 import { log, i18n, error, i18nFormat, warn, debugEnabled, GameSystemConfig, MODULE_ID, isdndv4, NumericTerm } from "../midi-qol.js";
 import { configSettings, autoFastForwardAbilityRolls, checkRule, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect, getActivityAutoTarget, getAoETargetType, hasCondition, areMidiKeysPressed } from "./utils.js";
+import { bonusDialog, checkDefeated, checkIncapacitated, ConvenientEffectsHasEffect, createConditionData, displayDSNForRoll, expireRollEffect, getCriticalDamage, getDeadStatus, getOptionalCountRemainingShortFlag, getTokenForActor, getSpeaker, getUnconsciousStatus, getWoundedStatus, hasAutoPlaceTemplate, hasUsedAction, hasUsedBonusAction, hasUsedReaction, midiRenderRoll, notificationNotify, removeActionUsed, removeBonusActionUsed, removeReactionUsed, tokenForActor, expireEffects, DSNMarkDiceDisplayed, evalAllConditions, evalAllConditionsAsync, MQfromUuidSync, CEAddEffectWith, isConvenientEffect, CERemoveEffect, getActivityAutoTargetAction, getAoETargetType, hasCondition, areMidiKeysPressed } from "./utils.js";
 import { installedModules } from "./setupModules.js";
 import { OnUseMacro, OnUseMacros } from "./apps/Item.js";
 import { TroubleShooter } from "./apps/TroubleShooter.js";
@@ -825,7 +825,7 @@ let debouncedATRefresh = foundry.utils.debounce(_midiATIRefresh, 30);
 function _midiATIRefresh(template) {
   // We don't have an item to check auto targeting with, so just use the midi setting
   if (!canvas?.tokens) return;
-  let autoTarget = getActivityAutoTarget(template.activity);
+  let autoTarget = getActivityAutoTargetAction(template.activity);
   if (autoTarget === "none") return;
   if (autoTarget === "dftemplates" && installedModules.get("df-templates"))
     return; // df-templates will handle template targeting.

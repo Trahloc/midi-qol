@@ -1544,9 +1544,9 @@ export function checkDefeated(actorRef: Actor | Token | TokenDocument | string):
 }
 
 export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | string | undefined | null, logResult: boolean = true, warning: boolean = false): string | false {
-  const actor = getActor(actorRef);
+  const actor: Actor | null | undefined = getActor(actorRef);
   if (!actor) return false;
-  let status: string;
+  let status: string | false = false;
   //@ts-expect-error
   if (actor.system.traits?.ci?.value?.has("incapacitated")) return false;
   const vitalityResource = checkRule("vitalityResource");
@@ -1577,14 +1577,14 @@ export function checkIncapacitated(actorRef: Actor | Token | TokenDocument | str
   if (incapCondition) {
     status = incapCondition;
   }
-  if (status) logIncapacitatedCheckResult(actor.name, status, logResult, warning);
+  if (status) logIncapacitatedCheckResult(actor.name ?? "unknown", status, logResult, warning);
   return status;
 }
 
 export function logIncapacitatedCheckResult(actorName: string, status: string, logResult: boolean = true, warning: boolean = false) {
   const displayString = status === "incapacitated" ? `${actorName} is ${getStatusName(status)}` : `${actorName} is ${getStatusName(status)} and therefore ${getStatusName("incapacitated")}`;
   if (logResult) log(displayString);
-  if (warning) ui.notifications.warn(displayString);
+  if (warning) ui.notifications?.warn(displayString);
 }
 
 export function getUnitDist(x1: number, y1: number, z1: number, token2): number {
@@ -3359,6 +3359,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       case "reroll-min": newRoll = await roll.reroll({ minimize: true });
         if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType === "attackRoll" ? "attackRollD20" : rollType, rollMode);
         break;
+
       case "success":
         newRoll = newRoll = await roll.clone().evaluate();
         //@ts-expect-error
@@ -3382,13 +3383,13 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
           newRoll = new Roll(rollParts.slice(1).join(" "), (this.activity ?? this.actor).getRollData());
           newRoll = await newRoll.evaluate();
           if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType, rollMode);
-        } else if (typeof button.value === "string" && button.value.startsWith("reroll-withBonus ")) {
-          let bonus = button.value.split("reroll-withBonus ").slice(1).join(" ");
-          if (!bonus.startsWith("+")) bonus = "+" + bonus;
-          roll._formula = roll._formula.concat(bonus);
-          newRoll = await roll.reroll();
-          if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType, rollMode);
-        } else if (flagSelector.startsWith("damage.") && foundry.utils.getProperty(this.actor ?? this, `${button.key}.criticalDamage`)) {
+        } else if (typeof button.value == "string" && button.value.startsWith("reroll-withBonus")) {
+            let bonus = button.value.split("reroll-withBonus ").slice(1).join(" ");
+            if (!bonus.startsWith("+")) bonus = "+" + bonus;
+            //@ts-expect-error
+            newRoll = await new roll.constructor(`${roll.formula} ${bonus}`, roll.data).roll();
+            if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType, rollMode);
+        }else if (flagSelector.startsWith("damage.") && foundry.utils.getProperty(this.actor ?? this, `${button.key}.criticalDamage`)) {
           //@ts-expect-error .DamageRoll
           const DamageRoll = CONFIG.Dice.DamageRoll
           let rollOptions = foundry.utils.duplicate(roll.options);
@@ -3572,20 +3573,23 @@ export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.docum
   return countRemaining;
 }
 
-function getOptionalItemUsesItemMatch(actor: globalThis.dnd5e.documents.Actor5e, countValue: string, returnItem = false) {
-  let itemName = countValue.split(".");
-  let item: globalThis.dnd5e.documents.Item5e;
-  if (itemName[1] === "identifier") {
-    itemName = itemName[2];
+//@ts-expect-error
+function getOptionalItemUsesItemMatch(actor: game.dnd5e.documents.Actor5e, countValue: string, returnItem = false) {
+  let itemNames = countValue.split(".");
+  let itemName: string;
+  //@ts-expect-error
+  let item: game.dnd5e.documents.Item5e;
+  if (itemNames[1] === "identifier") {
+    itemName = itemNames[2];
     item = actor.items.find(i => i.identifier === itemName);
-  } else if (itemName[1] === "partialNameMatch") {
-    itemName = itemName[2];
+  } else if (itemNames[1] === "partialNameMatch") {
+    itemName = itemNames[2];
     item = actor.items.find(i => i.name.includes(itemName));
-  } else if (itemName[1] === "exactNameMatch") {
-    itemName = itemName[2];
+  } else if (itemNames[1] === "exactNameMatch") {
+    itemName = itemNames[2];
     item = actor.items.getName(itemName);
   } else {
-    itemName = itemName[1];
+    itemName = itemNames[1];
     item = actor.items.getName(itemName);
   }
   if (returnItem) {
@@ -4537,7 +4541,7 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
       rollData.combatTurn = game.combat?.turn;
       rollData.combatTime = game.combat?.round + (game.combat.turn ?? 0) / 100;
       //@ts-expect-error
-      rollData.actor.isCombatTurn = game.combat?.combatant?.tokenId === data.workflow?.token.id;
+      rollData.actor.isCombatTurn = game.combat?.combatant?.tokenId === data.workflow?.token?.id;
     } else rollData.combatTime = 0;
     rollData.CONFIG = CONFIG;
     rollData.CONST = {};
@@ -6118,12 +6122,11 @@ export function midiMeasureDistances(segments: { ray: Ray }[], options: any = {}
   }
 }
 
-export function getActivityAutoTarget(activity: any): string {
+export function getActivityAutoTargetAction(activity: any): string {
   const item = activity?.item;
   if (!item) return configSettings.autoTarget;
   //TODO move this to per activity flag
-  const midiFlags = foundry.utils.getProperty(item, `flags.${MODULE_ID}`);
-  const autoTarget = midiFlags.autoTarget;
+  const autoTarget = activity.midiProperties.autoTargetAction;
   if (!autoTarget || autoTarget === "default") return configSettings.autoTarget;
   return autoTarget;
 }
@@ -6137,22 +6140,17 @@ export function getAoETargetType(activity): string {
     if (activityTarget.affects.type === "enemy") AoETargetType = "enemy";
     if (activityTarget.affects.type === "creature") AoETargetType = "any";
   }
-  if (!activityTarget?.override) {
-    if ((foundry.utils.getProperty(activity, `item.flags.${MODULE_ID}.AoETargetType`) ?? "any") !== "any") {
-      AoETargetType = foundry.utils.getProperty(activity, `item.flags.${MODULE_ID}.AoETargetType`);
-    }
+  if (activity.midiProperties.autoTargetType !== "any") {
+    console.error("AoETargetType ", activity.midiProperties.autoTargetType, AoETargetType); 
+    AoETargetType = activity.midiProperties.autoTargetType;
   }
   return AoETargetType;
 }
 
 export function getAutoTarget(item: Item): string {
   //@ts-expect-error
-  foundry.utils.logCompatibilityWarning("getAutoTarget(item) is deprecated in favor of getActivityAutoTarget(activity).", { since: "12.1.0", until: "12.5.0" });
-  if (!item) return configSettings.autoTarget;
-  const midiFlags = foundry.utils.getProperty(item, `flags.${MODULE_ID}`);
-  const autoTarget = midiFlags.autoTarget;
-  if (!autoTarget || autoTarget === "default") return configSettings.autoTarget;
-  return autoTarget;
+  foundry.utils.logCompatibilityWarning("getAutoTarget(item) is deprecated in favor of getActivityAutoTarget(activity).");
+  return configSettings.autoTarget;
 }
 export function hasAutoPlaceTemplate(item) {
   return item && item.hasAreaTarget && ["self"].includes(item.system.range?.units) && ["radius", "squareRadius"].includes(item.system.target.type);

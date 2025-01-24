@@ -31,14 +31,6 @@
     <input type="Number" name="flags.midi-qol.fumbleThreshold" value="{{item.flags.midi-qol.fumbleThreshold}}" />
   </div>
   {{/if}}
-  <div class="form-group">
-    <label>{{localize "midi-qol.AoETargetType.Name"}}</label>
-    <select name="flags.midi-qol.AoETargetType" data-dtype="String">
-      {{selectOptions AoETargetTypeOptions selected=item.flags.midi-qol.AoETargetType}}
-    </select>
-  </div>
-  <div class="midi-qol-faint">{{localize "midi-qol.AoETargetType.Hint"}}
-  </div>
   <!--
   <div class="form-group">
     <label>{{localize "midi-qol.AoETargetTypeIncludeSelf.Name"}}</label>
@@ -46,13 +38,6 @@
       item.flags.midi-qol.AoETargetTypeIncludeSelf}} />
   </div>
   -->
-  <div class="form-group">
-    <label>{{localize "midi-qol.AutoTarget.Name"}}</label>
-    <select name="flags.midi-qol.autoTarget" data-dtype="String">
-      {{selectOptions AutoTargetOptions selected=item.flags.midi-qol.autoTarget}}
-    </select>
-  </div>
-
   {{#if true}}
   <div class="form-group">
     <label>{{ localize "midi-qol.AttackPerTarget.Name"}}</label>

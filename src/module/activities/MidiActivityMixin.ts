@@ -1,3 +1,4 @@
+import { get } from "jquery";
 import { GameSystemConfig, MODULE_ID, SystemString, allAttackTypes, debugEnabled, error, geti18nOptions, i18n, i18nFormat, log, warn } from "../../midi-qol.js";
 import { socketlibSocket } from "../GMAction.js";
 import { DDBGameLogWorkflow, DamageOnlyWorkflow, TrapWorkflow, Workflow } from "../Workflow.js";
@@ -7,7 +8,7 @@ import { checkMechanic, configSettings } from "../settings.js";
 import { installedModules } from "../setupModules.js";
 import { busyWait } from "../tests/setupTest.js";
 import { saveUndoData } from "../undo.js";
-import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityRange, checkIncapacitated, createConditionData, displayDSNForRoll, evalActivationCondition, evalCondition, getAutoRollAttack, getAutoRollDamage, getRemoveAttackButtons, getRemoveDamageButtons, getSpeaker, getStatusName, getToken, activityHasAutoPlaceTemplate, hasUsedBonusAction, hasUsedReaction, initializeVision, isAutoConsumeResource, isInCombat, logIncapacitatedCheckResult, needsBonusActionCheck, needsReactionCheck, processDamageRollBonusFlags, setBonusActionUsed, setReactionUsed, sumRolls, tokenForActor, validTargetTokens, activityHasEmanationNoTemplate, getActivityAutoTarget, areMidiKeysPressed, getActor, setRangedTargets, isAutoFastDamage } from "../utils.js";
+import { activityHasAreaTarget, asyncHooksCall, canSee, canSense, checkActivityRange, checkIncapacitated, createConditionData, displayDSNForRoll, evalActivationCondition, evalCondition, getAutoRollAttack, getAutoRollDamage, getRemoveAttackButtons, getRemoveDamageButtons, getSpeaker, getStatusName, getToken, activityHasAutoPlaceTemplate, hasUsedBonusAction, hasUsedReaction, initializeVision, isAutoConsumeResource, isInCombat, logIncapacitatedCheckResult, needsBonusActionCheck, needsReactionCheck, processDamageRollBonusFlags, setBonusActionUsed, setReactionUsed, sumRolls, tokenForActor, validTargetTokens, activityHasEmanationNoTemplate, getActivityAutoTargetAction, areMidiKeysPressed, getActor, setRangedTargets, isAutoFastDamage } from "../utils.js";
 import { confirmWorkflow, postTemplateConfirmTargets, preTemplateTargets, removeFlanking, selectTargets, setDamageRollMinTerms } from "./activityHelpers.js";
 
 export var MidiActivityMixin = Base => {
@@ -49,6 +50,8 @@ export var MidiActivityMixin = Base => {
           triggeredActivityRollAs: new StringField({ name: "triggeredActivityRollAs", initial: "self" }),
           forceDialog: new BooleanField({ name: "forceDialog", initial: false }),
           confirmTargets: new StringField({ name: "confirmTargets", initial: "default" }),
+          autoTargetType: new StringField({ name: "autoTargetType", initial: "any" }),
+          autoTargetAction: new StringField({ name: "autoTargetAction", initial: "default" }),
           automationOnly: new BooleanField({ name: "automationOnly", initial: false }),
           otherActivityCompatible: new BooleanField({ name: "otherActivityCompatible", initial: true }),
           identifier: new StringField({ name: "identifier", initial: "", required: false }),
@@ -1263,7 +1266,7 @@ export var MidiActivityMixin = Base => {
               if (workflow && !foundry.utils.getProperty(this, "item.flags.walledtemplates.noAutotarget"))
                 selectTargets.bind(this)(td);
             }
-            else if (getActivityAutoTarget(this) !== "none") selectTargets.bind(this)(td);
+            else if (getActivityAutoTargetAction(this) !== "none") selectTargets.bind(this)(td);
           }
           return templates;
         }
@@ -1445,7 +1448,12 @@ export var MidiActivityMixinSheet = Base => {
         //@ts-expect-error
         return { value, label: entry.label, selected: this.activity.midiProperties.ignoreTraits.has(value) }
       });
+      context.AutoTargetTypeOptions = Object.entries(geti18nOptions("AoETargetTypeOptions")).map(([value, label]) => ({ value, label }));
+      const defaultAction = {"default": i18n("midi-qol.MidiSettings")};
+      context.AutoTargetActionOptions = Object.entries(mergeObject(defaultAction, geti18nOptions("autoTargetOptions"))).map(([value, label]) => ({ value, label }));
+      context.hasAreaTarget = this.activity.target?.template?.type;
       context.possibleOtherActivity = this.activity.possibleOtherActivity;
+      console.error(context);
       return context;
 
     }

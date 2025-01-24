@@ -2,7 +2,7 @@ import { warn, debug, log, i18n, MESSAGETYPES, error, MQdefaultDamageType, debug
 import { socketlibSocket, timedAwaitExecuteAsGM, timedExecuteAsGM, untimedExecuteAsGM } from "./GMAction.js";
 import { installedModules } from "./setupModules.js";
 import { configSettings, autoRemoveTargets, checkRule, autoFastForwardAbilityRolls, checkMechanic, safeGetGameSetting } from "./settings.js";
-import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, applyTokenDamage, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, requestPCActiveDefence, evalActivationCondition, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, activityHasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasAreaTarget, getsaveMultiplierForActivity, checkActivityRange, computeDistance, getAoETargetType, getActivityAutoTarget, activityHasEmanationNoTemplate, isAutoFastDamage, completeItemUseV2, completeActivityUse, getActor, getRemoveAllButtons, requestPCSave } from "./utils.js"
+import { createDamageDetailV4, processDamageRoll, untargetDeadTokens, applyTokenDamage, checkIncapacitated, getAutoRollDamage, isAutoFastAttack, getAutoRollAttack, getRemoveDamageButtons, getRemoveAttackButtons, getTokenPlayerName, checkNearby, hasCondition, expireMyEffects, validTargetTokens, getTokenForActorAsSet, doReactions, playerFor, requestPCActiveDefence, evalActivationCondition, processDamageRollBonusFlags, asyncHooksCallAll, asyncHooksCall, MQfromUuidSync, midiRenderRoll, markFlanking, canSense, tokenForActor, getTokenForActor, createConditionData, evalCondition, removeHidden, hasDAE, computeCoverBonus, FULL_COVER, isInCombat, displayDSNForRoll, setActionUsed, removeInvisible, isTargetable, hasWallBlockingCondition, getTokenDocument, getToken, checkDefeated, getIconFreeLink, activityHasAutoPlaceTemplate, itemOtherFormula, addRollTo, sumRolls, midiRenderAttackRoll, midiRenderDamageRoll, midiRenderBonusDamageRoll, midiRenderOtherDamageRoll, debouncedUpdate, getCachedDocument, clearUpdatesCache, getDamageType, getTokenName, setRollOperatorEvaluated, evalAllConditionsAsync, getAppliedEffects, canSee, CEAddEffectWith, getCEEffectByName, CEHasEffectApplied, CERemoveEffect, CEToggleEffect, getActivityDefaultDamageType, activityHasAreaTarget, getsaveMultiplierForActivity, checkActivityRange, computeDistance, getAoETargetType, getActivityAutoTargetAction, activityHasEmanationNoTemplate, isAutoFastDamage, completeItemUseV2, completeActivityUse, getActor, getRemoveAllButtons, requestPCSave } from "./utils.js"
 import { OnUseMacros } from "./apps/Item.js";
 import { bonusCheck, collectBonusFlags, defaultRollOptions, procAbilityAdvantage, procAutoFail } from "./patching.js";
 import { saveTargetsUndoData, saveUndoData } from "./undo.js";
@@ -247,10 +247,6 @@ export class Workflow {
       this._id = this.activity.uuid;
       const workflowName = options.workflowOptions?.workflowName ?? this.item?.name ?? "no item";
       this.workflowName = `${this.constructor.name} ${workflowName} ${foundry.utils.randomID()}`;
-      const consume = this.activity.consumption;
-      if (consume?.type === "ammo") {
-        this.ammo = this.item.actor.items.get(consume.target);
-      }
     }
 
     this.tokenId = speaker.token;
@@ -349,7 +345,7 @@ export class Workflow {
         this.item.flags.midiProperties = {};
       }
     }
-    this.needTemplate = (getActivityAutoTarget(this.activity) !== "none" && activityHasAreaTarget(this.activity) && !activityHasAutoPlaceTemplate(this.item));
+    this.needTemplate = (getActivityAutoTargetAction(this.activity) !== "none" && activityHasAreaTarget(this.activity) && !activityHasAutoPlaceTemplate(this.item));
     if (this.needTemplate && options.noTemplateHook !== true) {
       if (debugEnabled > 0) warn("registering for preCreateMeasuredTemplate, createMeasuredTemplate")
       this.preCreateTemplateHookId = Hooks.once("preCreateMeasuredTemplate", this.setTemplateFlags.bind(this));
@@ -693,8 +689,8 @@ export class Workflow {
       return this.WorkflowState_AoETargetConfirmation;
     }
 
-    this.temptargetConfirmation = getActivityAutoTarget(this.activity) !== "none" && activityHasAreaTarget(this.activity);
-    if (debugEnabled > 1) debug("WORKFLOW NONE", getActivityAutoTarget(this.activity), activityHasAreaTarget(this.activity));
+    this.temptargetConfirmation = getActivityAutoTargetAction(this.activity) !== "none" && activityHasAreaTarget(this.activity);
+    if (debugEnabled > 1) debug("WORKFLOW NONE", getActivityAutoTargetAction(this.activity), activityHasAreaTarget(this.activity));
     if (this.temptargetConfirmation) {
       return this.WorkflowState_AwaitTemplate;
     }
@@ -1080,7 +1076,7 @@ export class Workflow {
       await Workflow.removeItemCardAttackDamageButtons(this.itemCardUuid, { removeAllButtons: getRemoveAllButtons(this.item), removeAttackButtons: getRemoveAttackButtons(this.item), removeDamageButtons: getRemoveDamageButtons(this.item) });
       await Workflow.removeItemCardConfirmRollButton(this.itemCardUuid);
     }
-    if (getActivityAutoTarget(this.activity) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
+    if (getActivityAutoTargetAction(this.activity) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
       // we are not auto targeting so for area effect attacks, without hits (e.g. fireball)
       this.targets = validTargetTokens(game.user?.targets);
       this.hitTargets = validTargetTokens(game.user?.targets);
@@ -1312,7 +1308,7 @@ export class Workflow {
         // Special check for return of {haltEffectsApplication: true} from item macro
         if (results.some(r => r?.haltEffectsApplication))
           return this.WorkflowState_RollFinished;
-        results = await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("postActiveEffects"), "OnUse", "postActiveEffects");
+        results = await this.callMacros(this.ammo, this.ammoOnUseMacros?.getMacros("preActiveEffects"), "OnUse", "preActiveEffects");
         if (results.some(r => r?.haltEffectsApplication))
           return this.WorkflowState_RollFinished;
       }
@@ -1478,7 +1474,7 @@ export class Workflow {
             itemCardId: this.itemCardId,
             itemCardUuid: this.itemCardUuid,
             metaData,
-            origin,
+            origin: this.otherI,
             spellLevel: this.spellLevel,
             toggleEffect: this.item?.flags.midiProperties?.toggleEffect,
             tokenId: this.tokenId,
@@ -3564,7 +3560,7 @@ export class Workflow {
           requests.push({
             token: target.id,
             dc: saveDetails.rollDC,
-            showdc: configSettings.displaySaveDC,
+            showdc: configSettings.displaySaveDC, // TODO: improve to use dnd5e settings as well
             advantage: saveDetails.advantage, // seems that monks ignores this again - set alt/ctrl key
             altKey: saveDetails.advantage === true,
             disadvantage: saveDetails.disadvantage, // seems that monks ignores this again - set alt/ctrl key
@@ -3913,13 +3909,14 @@ export class Workflow {
             } else {
               newRoll = await socketlibSocket.executeAsUser("bonusCheck", owner?.id, {
                 actorUuid: target.actor.uuid,
-                result: JSON.stringify(result.toJSON()),
+                result: JSON.stringify(result[0].toJSON()),
                 rollType,
                 selector: failFlagsLength ? "fail.all" : `fail.${rollAbility}`
               });
 
             }
-            saveRolls[0] = newRoll;
+
+            saveRolls[0] = Roll.fromJSON(JSON.stringify(newRoll));
             saveRollTotal = saveRolls.reduce((acc, r) => acc + r.total, 0);
           }
         }
@@ -4988,7 +4985,7 @@ export class TrapWorkflow extends Workflow {
         */
     // this.activity.use({ configure: false }, {}, {})
     // this.itemCardId = (await showItemCard.bind(this.item)(false, this, true))?.id;
-    if (debugEnabled > 1) debug(" Trapworkflow | WorkflowState_Start ", this.item, getActivityAutoTarget(this.activity), activityHasAreaTarget(this.activity), this.targets);
+    if (debugEnabled > 1) debug(" Trapworkflow | WorkflowState_Start ", this.item, getActivityAutoTargetAction(this.activity), activityHasAreaTarget(this.activity), this.targets);
     // don't support the placement of a template
     return this.WorkflowState_AwaitTemplate
   }
@@ -5249,7 +5246,7 @@ export class DDBGameLogWorkflow extends Workflow {
     }
     expireMyEffects.bind(this)(["1Attack", "1Action", "1Spell"]);
 
-    if (getActivityAutoTarget(this.activity) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
+    if (getActivityAutoTargetAction(this.activity) === "none" && activityHasAreaTarget(this.activity) && !this.activity.attack) {
       // we are not auto targeting so for area effect attacks, without hits (e.g. fireball)
       this.targets = validTargetTokens(game.user?.targets);
       this.hitTargets = validTargetTokens(game.user?.targets);

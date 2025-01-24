@@ -341,7 +341,7 @@ export function initHooks() {
       TroubleShooter.recordError(new Error(message));
       return;
     }
-    let autoTargetOptions = foundry.utils.mergeObject({ "default": i18n("midi-qol.MidiSettings") }, geti18nOptions("autoTargetOptions"));
+    // let autoTargetOptions = foundry.utils.mergeObject({ "default": i18n("midi-qol.MidiSettings") }, geti18nOptions("autoTargetOptions"));
     let RemoveAttackDamageButtonsOptions = foundry.utils.mergeObject({ "default": i18n("midi-qol.MidiSettings") }, geti18nOptions("removeButtonsOptions"));
     const ceForItem = getCEEffectByName(item.name);
     data = foundry.utils.mergeObject(data, {
@@ -353,15 +353,11 @@ export function initHooks() {
       showHeader: !configSettings.midiFieldsTab,
       midiPropertyLabels: midiProps,
       ConfirmTargetOptions: geti18nOptions("ConfirmTargetOptions"), // this is used for attack per target
-      AoETargetTypeOptions: geti18nOptions("AoETargetTypeOptions"),
-      AutoTargetOptions: autoTargetOptions,
+      // AutoTargetOptions: autoTargetOptions,
       RemoveAttackDamageButtonsOptions,
       hasReaction: true, // can't test the item since any of the activities might be a reaction item.system.activation?.type?.includes("reaction"),
       onUseMacroParts: getCurrentSourceMacros(item)
     });
-    if (!foundry.utils.getProperty(item, "flags.midi-qol.autoTarget")) {
-      foundry.utils.setProperty(data, "flags.midi-qol.autoTarget", "default");
-    }
     if (!foundry.utils.getProperty(item, "flags.midi-qol.removeAttackDamageButtons")) {
       foundry.utils.setProperty(data, "flags.midi-qol.removeAttackDamageButtons", "default");
     }
@@ -370,12 +366,7 @@ export function initHooks() {
       data.showCEOff = ["both", "cepri", "itempri"].includes(configSettings.autoCEEffects);
       data.showCEOn = ["none", "itempri"].includes(configSettings.autoCEEffects);
     }
-    if (true) { // can't do item check anymore item.hasAreaTarget
-      if (!foundry.utils.getProperty(item, "flags.midi-qol.AoETargetType")) {
-        foundry.utils.setProperty(data, "flags.midi-qol.AoETargetType", "any");
-        foundry.utils.setProperty(item, "flags.midi-qol.AoETargetType", "any");
-      }
-    }
+
     foundry.utils.setProperty(data, "flags.midiProperties", item.flags?.midiProperties ?? {});
     if (["spell", "feat", "weapon", "consumable", "equipment", "power", "maneuver"].includes(item?.type)) {
       for (let prop of Object.keys(midiProps)) {
@@ -404,8 +395,16 @@ export function initHooks() {
       delete data.flags.midiProperties.offHandWeapon;
       delete data.flags.midiProperties.otherSaveDamage;
       delete data.flags.midiProperties.confirmTargets;
+      delete data.flags.midiProperties.idi;
+      delete data.flags.midiProperties.idr;
+      delete data.flags.midiProperties.ida;
+      delete data.flags.midiProperties.idv;
       delete data.flags.AoETargetTypeIncludeSelf;
+      if (data.flags["midi-qol"]?.AoETargetType)
+        delete data.flags["midi-qol"].AoETargetType;
     }
+    if (data.flags["midi-qol"]?.autoTarget)
+      delete data.flags["midi-qol"].autoTarget;
     return data;
   }
 

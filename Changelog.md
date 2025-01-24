@@ -1,3 +1,12 @@
+### 12.4.24
+* Fix for ignoring always confirm targets activity setting if no targets selected when activity rolled.
+* Fix for optional bonus rolls being performed on player clients for failed saves not working.
+* Fix for item details displaying as [Object Object] in chat card with dnd5e 4.2.
+* Added optional bonus reroll-withBonus - thanks @thatlonbelybugbear
+* Added identifier, exactNameMatch or omitted, partialNameMatch when matching activity names for optional bonuses - thanks @thatlonelybugbear
+* Moved auto target details from the item midi-qol tab to the activity midi-qol tab.
+* Finalised deprecation of idi,idr,idv,ida flags from items. Now are set per activity from the midi-qol tab.
+
 ### 12.4.23
 * Fix for not evaluating some flags.midi-qol with mode custom when they should evaluate to a boolean.
 
