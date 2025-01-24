@@ -743,6 +743,7 @@ Values for the optional roll bonus flags include:
   * `reroll-kh`: rerolls and keeps higher roll,
   * `reroll-kl`: rerolls and keeps lower roll,
   * `reroll-query`: rerolls and asks user which roll to keep,
+  * `reroll-withBonus`: rerolls and adds the provided bonus, for example: `reroll-withBonus +1d4`
 * `success`: ensures success for D20Rolls (currently makes it a critical),
 * `fail`: ensures failure for D20Rolls,
 * `replace <formula>`: replaces with a new formula, example `replace 4d20kh`,
