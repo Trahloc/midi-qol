@@ -1,3 +1,10 @@
+### 11.6.32
+* Fix for optional.NAME.save.fail.xxxx not correctly being rolled on player clients.
+* Adding options for the No actions for incapacitated mechanic - thanks @thatlonelybugbear
+* Adding optional bonus entry for <reroll-withBonus > - thanks @thatlonelybugbear
+* Fix for not awaiting endConcentration - thanks @thatlonelybugbear
+* Add getOptionalItemUsesItemMatch(actor, countValue, returnItem); - thanks @thatlonelybugbear
+
 ### 11.6.31
 * Always record placed templates for auto remove instantaneous templates.
 * Various fixes to concentration rolls - thanks @thatlonelybugbear

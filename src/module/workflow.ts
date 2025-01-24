@@ -1867,7 +1867,7 @@ export class Workflow {
       } else if (this.item.system.properties?.has("thr")) {
         const meleeRange = 5 + (this.item.system?.properties?.has("rch") ? 5 : 0);
         //@ts-expect-error .first
-        if (computeDistance(me, this.targets.first(), {wallsBlock: false}) <= meleeRange) nearbyFoe = false;
+        if (computeDistance(me, this.targets.first(), { wallsBlock: false }) <= meleeRange) nearbyFoe = false;
         else nearbyFoe = checkNearby(-1, canvas?.tokens?.get(this.tokenId), configSettings.optionalRules.nearbyFoe, { includeIncapacitated: false, canSee: true });
       }
       if (nearbyFoe) {
@@ -1938,7 +1938,7 @@ export class Workflow {
       const grants = firstTarget.actor?.flags[MODULE_ID]?.grants?.critical ?? {};
       const fails = firstTarget.actor?.flags[MODULE_ID]?.fail?.critical ?? {};
       if (grants || fails) {
-        if (Number.isNumeric(grants.range) && computeDistance(firstTarget, this.token, {wallsBlock: false}) <= Number(grants.range)) {
+        if (Number.isNumeric(grants.range) && computeDistance(firstTarget, this.token, { wallsBlock: false }) <= Number(grants.range)) {
           this.critFlagSet = true;
         }
         const conditionData = createConditionData({ workflow: this, target: firstTarget, actor: this.actor });
@@ -3257,7 +3257,7 @@ export class Workflow {
           isMagicSave: boolean | undefined,
           isConcentrationCheck: boolean | undefined,
           rollDC: number,
-          saveItemUuid: string, 
+          saveItemUuid: string,
           workflowOptions: object
         } = {
           advantage: undefined,
@@ -3529,7 +3529,7 @@ export class Workflow {
         isMagicSave,
         saveItemUuid: this.saveItem.uuid,
         isConcentrationCheck: this.saveItem.flags[MODULE_ID]?.isConcentrationCheck,
-        workflowOptions: this.workflowOptions  
+        workflowOptions: this.workflowOptions
       }
       const requestDataPlayer: any = {
         tokenData: monkRequestsPlayer,
@@ -3750,7 +3750,7 @@ export class Workflow {
           if (owner) {
             let newRoll;
             if (owner?.isGM && game.user?.isGM) {
-              newRoll = await bonusCheck(target.actor, result, rollType, failAbilityFlagsLength ? `fail.${rollAbility}` : "fail.all");
+              newRoll = await bonusCheck(target.actor, result[0], rollType, failAbilityFlagsLength ? `fail.${rollAbility}` : "fail.all");
             } else {
               newRoll = await socketlibSocket.executeAsUser("bonusCheck", owner?.id, {
                 actorUuid: target.actor.uuid,
@@ -3760,10 +3760,13 @@ export class Workflow {
               });
 
             }
+
+            newRoll = Roll.fromJSON(JSON.stringify(newRoll));
             saveRollTotal = newRoll.total;
             saveRoll = newRoll;
           }
         }
+
         saved = saveRollTotal >= rollDC;
         const dterm: DiceTerm = saveRoll.terms[0];
         const diceRoll = dterm?.results?.find(result => result.active)?.result ?? (saveRoll.total);
@@ -4342,7 +4345,7 @@ export class Workflow {
               hitSymbol = "fa-xmark";
               break;
             case "fa-times":
-              // deprecated name of FA icon
+            // deprecated name of FA icon
             case "fa-xmark":
               if (isHitResult === "fumble") {
                 // display fumble as a critical success of the defense roll
@@ -4424,7 +4427,7 @@ export class Workflow {
             if (selfTarget === target) {
               inRange = false;
             }
-            const distance = computeDistance(target, token, {wallsBlock: wallsBlocking});
+            const distance = computeDistance(target, token, { wallsBlock: wallsBlocking });
             inRange = inRange && distance >= 0 && distance <= minDist
           }
           if (inRange) {

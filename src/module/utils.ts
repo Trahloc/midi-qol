@@ -3157,6 +3157,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         } else if (typeof button.value === "string" && button.value.startsWith("reroll-withBonus ")) {
           let bonus = button.value.split("reroll-withBonus ").slice(1).join(" ");
           if (!bonus.startsWith("+")) bonus = "+" + bonus;
+          //@ts-expect-error
           roll._formula = roll._formula.concat(bonus);
           newRoll = await roll.reroll();
           if (showDiceSoNice) await displayDSNForRoll(newRoll, rollType, rollMode);
@@ -3344,9 +3345,11 @@ export function getOptionalCountRemainingShortFlag(actor: globalThis.dnd5e.docum
   return countRemaining;
 }
 
-function getOptionalItemUsesItemMatch(actor: globalThis.dnd5e.documents.Actor5e, countValue: string, returnItem = false) {
-  let itemName = countValue.split(".");
-  let item: globalThis.dnd5e.documents.Item5e;
+//@ts-expect-error
+function getOptionalItemUsesItemMatch(actor: game.dnd5e.documents.Actor5e, countValue: string, returnItem = false) {
+  let itemName: string[] | string = countValue.split(".");
+  //@ts-expect-error
+  let item: game.dnd5e.documents.Item5e;
   if (itemName[1] === "identifier") {
     itemName = itemName[2];
     item = actor.items.find(i => i.identifier === itemName);
