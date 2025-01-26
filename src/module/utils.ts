@@ -3459,12 +3459,12 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
 
   let parameters: { [key: string]: any } = {};
   if (!(this instanceof Workflow) && this.optionalBonusEffectsAC) {
-    const triggeringActor = MQfromUuidSync(this.optionalBonusEffectsAC.workflowOptions?.sourceActorUuid);
-    const triggeringToken = triggeringActor?.token ?? triggeringActor.getActiveTokens()[0];
+    const sourceActor = MQfromUuidSync(this.optionalBonusEffectsAC.workflowOptions?.sourceActorUuid);
+    const sourceToken = sourceActor ? getTokenForActor(sourceActor) : undefined;
     parameters = {
-      actor: triggeringActor,
-      tokenId: triggeringToken?.id,
-      tokenUuid: triggerToken?.uuid,
+      actor: sourceActor,
+      tokenId: sourceToken?.id,
+      tokenUuid: sourceToken?.document?.uuid,
       item: this.optionalBonusEffectsAC.item,
       target: MQfromUuidSync(this.tokenUuid),
     }
