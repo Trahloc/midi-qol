@@ -6481,7 +6481,7 @@ export function processConcentrationRequestMessage(message, html, data) {
   let elt = html.find("[data-action=concentration]");
   const hasRolled = foundry.utils.getProperty(message, `flags.${MODULE_ID}.concentrationRolled`);
   //@ts-expect-error
-  if (hasRolled || !game.users?.activeGM.isSelf) return;
+  if (hasRolled || !game.users?.activeGM?.isSelf) return;
   if (elt.length === 1 && !hasRolled) {
     let { action, dc, type } = elt[0].dataset;
     let token, actor;
