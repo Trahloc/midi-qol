@@ -4058,6 +4058,7 @@ export async function promptReactions(tokenUuid: string, reactionActivityList: R
         actor,
         tokenUuid,
         optionalBonusEffectsAC: options,
+        triggerTokenUuid,
         roll: acRoll,
         rollHTML: reactionFlavor,
         rollTotal: acRoll.total,
