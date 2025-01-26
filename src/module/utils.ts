@@ -3468,6 +3468,7 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
       tokenUuid: sourceToken?.document?.uuid,
       item: this.optionalBonusEffectsAC.item,
       target: MQfromUuidSync(this.tokenUuid),
+      options
     }
   } else {
     parameters = {
@@ -4064,7 +4065,7 @@ export async function promptReactions(tokenUuid: string, reactionActivityList: R
         rollTotal: acRoll.total,
       }
       //@ts-expect-error attributes
-      const newAC = await bonusDialog.bind(data)(validFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, acRoll, "roll");
+      const newAC = await bonusDialog.bind(data)(validFlags, "ac", true, `${actor.name} - ${i18n("DND5E.AC")} ${actor.system.attributes.ac.value}`, acRoll, "roll", { sourceActivity: options.activity });
       const endTime = Date.now();
       if (debugEnabled > 0) warn("promptReactions | returned via bonus dialog ", endTime - startTime)
       return { name: actor.name, uuid: actor.uuid, ac: newAC.total };
