@@ -4486,6 +4486,7 @@ export function createConditionData(data: { workflow?: any, target?: Token | Tok
   rollData.isAttuned = rollData.item?.attuned || rollData.item?.attunement === "";
   rollData.options = data?.options;
   rollData.isConcentrationCheck = foundry.utils.getProperty(rollData, 'options.messageData.flags.midi-qol.isConcentrationCheck');
+  rollData.isDeathSave = foundry.utils.getProperty(rollData, 'options.messageData.flags.dnd5e.roll.type') === 'death';
   rollData.actor = {};
   rollData.actor.raceOrType = actor ? raceOrType(actor) : "";
   rollData.actor.typeOrRace = actor ? typeOrRace(actor) : "";
