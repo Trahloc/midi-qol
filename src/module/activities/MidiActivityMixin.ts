@@ -1450,7 +1450,7 @@ export var MidiActivityMixinSheet = Base => {
       });
       context.AutoTargetTypeOptions = Object.entries(geti18nOptions("AoETargetTypeOptions")).map(([value, label]) => ({ value, label }));
       const defaultAction = {"default": i18n("midi-qol.MidiSettings")};
-      context.AutoTargetActionOptions = Object.entries(mergeObject(defaultAction, geti18nOptions("autoTargetOptions"))).map(([value, label]) => ({ value, label }));
+      context.AutoTargetActionOptions = Object.entries(foundry.utils.mergeObject(defaultAction, geti18nOptions("autoTargetOptions"))).map(([value, label]) => ({ value, label }));
       context.hasAreaTarget = this.activity.target?.template?.type;
       context.possibleOtherActivity = this.activity.possibleOtherActivity;
       console.error(context);
