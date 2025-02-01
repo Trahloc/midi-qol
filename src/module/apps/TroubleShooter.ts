@@ -79,16 +79,21 @@ export class TroubleShooter extends FormApplication {
     const content = await renderTemplate("templates/apps/import-data.html",
       { hint1: "Choose a Trouble Shooter JSON file to import" });
     let dialog = new Promise((resolve, reject) => {
-      new Dialog({
-        title: `Import Trouble Shooter Data`,
+      // @ts-expect-error need to update types
+      new foundry.applications.api.DialogV2({
+        window: { title: `Import Trouble Shooter Data` },
         content: content,
-        buttons: {
-          import: {
-            icon: '<i class="fas fa-file-import"></i>',
-            label: "Import",
-            callback: html => {
+        position: {
+          width: 400
+        },
+        buttons: [
+          {
+            action: "import",
+            label: '<i class="fas fa-file-import"></i> Import',
+            default: true,
+            callback: event => {
               //@ts-ignore
-              const form = html.find("form")[0];
+              const form = event.currentTarget?.querySelector("form");
               if (!form.data.files.length) return ui.notifications?.error("You did not upload a data file!");
               readTextFromFile(form.data.files[0]).then(json => {
                 const jsonData = JSON.parse(json);
@@ -108,15 +113,12 @@ export class TroubleShooter extends FormApplication {
               });
             }
           },
-          no: {
-            icon: '<i class="fas fa-times"></i>',
-            label: "Cancel",
-            callback: html => resolve(false)
+          {
+            action: "no",
+            label: '<i class="fas fa-times"></i> Cancel',
+            callback: event => resolve(false)
           }
-        },
-        default: "import"
-      }, {
-        width: 400
+        ],
       }).render(true);
     });
     return await dialog;
@@ -205,14 +207,18 @@ export class TroubleShooter extends FormApplication {
       return false;
     }
     let dialog: Promise<boolean> = new Promise((resolve, reject) => {
-      new Dialog({
-        title: `Oeverwrite midi-qol settings from loaded file`,
+      // @ts-expect-error need to update types
+      new foundry.applications.api.DialogV2({
+        window: { title: `Overwrite midi-qol settings from loaded file` },
         content: `This will <strong>permanently</strong> overwrite you midi settings`,
-        buttons: {
-          overwrite: {
-            icon: '<i class="fas fa-file-import"></i>',
-            label: "Overwrite",
-            callback: async (html) => {
+        position: {
+          width: 400
+        },
+        buttons: [
+          {
+            action: "overwrite",
+            label: '<i class="fas fa-file-import"></i> Overwrite',
+            callback: async (event) => {
               await exportSettingsToJSON(); // Just a safety net saving of the settings
               const settingsJSON = TroubleShooter.data.midiSettings;
               importSettingsFromJSON(settingsJSON);
@@ -220,15 +226,13 @@ export class TroubleShooter extends FormApplication {
               resolve(true);
             }
           },
-          cancel: {
-            icon: '<i class="fas fa-times"></i>',
-            label: "Cancel",
-            callback: html => resolve(false)
+          {
+            action: "cancel",
+            default: true,
+            label: '<i class="fas fa-times"></i> Cancel',
+            callback: event => resolve(false)
           }
-        },
-        default: "cancel"
-      }, {
-        width: 400
+        ],
       }).render(true);
     });
     return await dialog;

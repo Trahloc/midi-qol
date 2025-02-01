@@ -2893,7 +2893,8 @@ export function actorFromUuid(uuid: string | undefined): any {
   return null;
 }
 
-class RollModifyDialog extends Application {
+// @ts-expect-error need to update types
+class RollModifyDialog extends foundry.applications.api.HandlebarsApplicationMixin(foundry.applications.api.ApplicationV2) {
   rollExpanded: boolean;
   timeRemaining: number;
   timeoutId: any;
@@ -2922,8 +2923,9 @@ class RollModifyDialog extends Application {
   }
 
   constructor(data, options) {
-    options.height = "auto";
-    options.resizable = true;
+    foundry.utils.setProperty(options, "position.height", "auto");
+    foundry.utils.setProperty(options, "window.resizable", true);
+    options.window.title ??= data.title;
     super(options);
     this.data = data;
     this.timeRemaining = this.data.timeout;
@@ -2936,12 +2938,19 @@ class RollModifyDialog extends Application {
     }, this.data.timeout * 1000);
   }
 
+  static PARTS = {
+    dialog: {
+      id: "dialog-optional",
+      classes: ["dialog", "midi-qol", "optional"],
+      template: "modules/midi-qol/templates/dialog.hbs"
+    }
+  }
+
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
-      template: "modules/midi-qol/templates/dialog.html",
-      classes: ["dialog"],
-      width: 600,
-      jQuery: true
+      position: {
+        width: 600
+      }
     }, { overwrite: true });
   }
   get title() {
@@ -2960,26 +2969,44 @@ class RollModifyDialog extends Application {
       clearTimeout(this.secondTimeoutId)
       if (!this.timeoutId) return;
       this.timeRemaining -= 1;
-      this.render(false);
+      // this.render(false);
+      // @ts-expect-error need to update types
+      const element = $(this.element);
+      const title = element.find(".window-title")[0];
+      if (!this.secondTimeoutId && this.timeoutId) this.set1SecondTimeout();
+      if (!title) return;
+      let color = "red";
+      if (this.timeRemaining >= this.data.timeout * 0.75) color = "chartreuse";
+      else if (this.timeRemaining >= this.data.timeout * 0.50) color = "yellow";
+      else if (this.timeRemaining >= this.data.timeout * 0.25) color = "orange";
+      title.style.color = color;
+      title.textContent = this.title;
       if (this.timeRemaining > 0) this.set1SecondTimeout();
     }, 1000)
   }
 
+  _onRender(context, options) {
+    // @ts-expect-error need to update types
+    const html = $(this.element);
+    html.find(".dialog-button").click(this._onClickButton.bind(this));
+    $(document).on('keydown.chooseDefault', this._onKeyDown.bind(this));
+    html.on("click", ".dice-roll", this._onDiceRollClick.bind(this));
+  }
+
   async render(force: boolean = false, options: any = {}) {
     const result: any = await super.render(force, options);
-    const element = this.element;
+    // @ts-expect-error need to update types
+    const element = $(this.element);
     const title = element.find(".window-title")[0];
     if (!this.secondTimeoutId && this.timeoutId) this.set1SecondTimeout();
     if (!title) return result;
-    let color = "red";
-    if (this.timeRemaining >= this.data.timeout * 0.75) color = "chartreuse";
-    else if (this.timeRemaining >= this.data.timeout * 0.50) color = "yellow";
-    else if (this.timeRemaining >= this.data.timeout * 0.25) color = "orange";
+    let color = "chartreuse";
     title.style.color = color;
+    title.textContent = this.title;
     return result;
   }
 
-  async getData(options) {
+  async _prepareContext(options) {
     this.data.flags = this.data.flags.filter(flagName => {
       if ((getOptionalCountRemaining(this.data.actor, `${flagName}.count`)) < 1) return false;
       return foundry.utils.getProperty(this.data.actor, flagName) !== undefined
@@ -3079,12 +3106,6 @@ class RollModifyDialog extends Application {
       content: this.data.content, // This is set by the callback
       buttons: this.data.buttons
     }
-  }
-
-  activateListeners(html) {
-    html.find(".dialog-button").click(this._onClickButton.bind(this));
-    $(document).on('keydown.chooseDefault', this._onKeyDown.bind(this));
-    html.on("click", ".dice-roll", this._onDiceRollClick.bind(this));
   }
 
   _onDiceRollClick(event) {
@@ -3338,7 +3359,8 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         reRoll = reRoll = await roll.reroll();
         if (showDiceSoNice) await displayDSNForRoll(reRoll, rollType, rollMode);
         const newRollHTML = await midiRenderRoll(reRoll);
-        if (await Dialog.confirm({ title: "Confirm reroll", content: `Replace ${rollHTML} with ${newRollHTML}`, defaultYes: true }))
+        // @ts-expect-error need to update types
+        if (await foundry.applications.api.DialogV2.confirm({ window: {title: "Confirm reroll"}, content: `Replace ${rollHTML} with ${newRollHTML}`, defaultYes: true }))
           newRoll = reRoll
         else
           newRoll = roll;
@@ -3560,7 +3582,9 @@ export async function bonusDialog(bonusFlags, flagSelector, showRoll, title, rol
         item: this.item,
         workflow: this instanceof Workflow ? this : undefined
       }, {
-      width: 400
+        position: {
+          width: 400
+        }
     }).render(true);
   });
 }
@@ -3914,17 +3938,17 @@ export async function doReactions(targetRef: Token | TokenDocument | string, tri
     if (["isHit", "isMissed", "isCrit", "isFumble", "isAttacked"].includes(reactionTriggerLabelFor(triggerType))) {
       switch (configSettings.showReactionAttackRoll) {
         case "all":
-          content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""}</h4>`;
+          content = `${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""}`;
           break;
         case "allCrit":
           //@ts-expect-error
           const criticalString = attackRoll?.isCritical ? `<span style="color: green">(${i18n("DND5E.Critical")})</span>` : "";
-          content = `<h4>${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""} ${criticalString}</h4>`;
+          content = `${reactionFlavor} - ${rollOptions.all} ${attackRoll?.total ?? ""} ${criticalString}`;
           break;
         case "d20":
           //@ts-expect-error
           const theRoll = attackRoll?.terms[0]?.results ? attackRoll.terms[0].results[0].result : attackRoll?.terms[0]?.total ? attackRoll.terms[0].total : "";
-          content = `<h4>${reactionFlavor} ${rollOptions.d20} ${theRoll}</h4>`;
+          content = `${reactionFlavor} ${rollOptions.d20} ${theRoll}`;
           break;
         default:
           content = reactionFlavor;
@@ -4175,7 +4199,8 @@ export async function reactionDialog(actor: globalThis.dnd5e.documents.Actor5e, 
   }
 }
 
-class ReactionDialog extends Application {
+// @ts-expect-error need to update types
+class ReactionDialog extends foundry.applications.api.HandlebarsApplicationMixin(foundry.applications.api.ApplicationV2) {
   startTime: number;
   endTime: number;
   timeoutId: number;
@@ -4203,13 +4228,20 @@ class ReactionDialog extends Application {
     this.data.completed = false;
   }
 
+  static PARTS = {
+    dialog: {
+      id: "dialog-reaction",
+      classes: ["dialog", "midi-qol", "reaction"],
+      template: "modules/midi-qol/templates/dialog.hbs"
+    }
+  }
+
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
-      template: "modules/midi-qol/templates/dialog.html",
-      classes: ["dialog"],
-      width: 150,
-      height: "auto",
-      jQuery: true
+      position: {
+        width: 150,
+        height: "auto"
+      }
     });
   }
   get title() {
@@ -4222,7 +4254,7 @@ class ReactionDialog extends Application {
     }
     else return this.data.title ?? "Dialog";
   }
-  getData(options) {
+  _prepareContext(options) {
     this.data.buttons = this.data.activities.reduce((acc: {}, activity: any) => {
       let name = `${activity.item.name}: ${activity.name ?? activity.actionName}`;
       if (activity.item.system.linkedActivity) {
@@ -4249,7 +4281,16 @@ class ReactionDialog extends Application {
     //@ts-expect-error typeof setTimeout
     this.timeoutId = setTimeout(() => {
       this.timeRemaining -= 1;
-      this.render(false);
+      // @ts-expect-error need to update types
+      const element = $(this.element);
+      const title = element.find(".window-title")[0];
+      if (!title) return;
+      let color = "red";
+      if (this.timeRemaining >= this.data.timeout * 0.75) color = "chartreuse";
+      else if (this.timeRemaining >= this.data.timeout * 0.50) color = "yellow";
+      else if (this.timeRemaining >= this.data.timeout * 0.25) color = "orange";
+      title.style.color = color;
+      title.textContent = this.title;
       if (this.timeRemaining > 0) this.set1Secondtimeout();
     }, 1000)
   }
@@ -4257,21 +4298,21 @@ class ReactionDialog extends Application {
   async render(force: boolean = false, options: any = {}) {
     if (!this.timeoutId) this.set1Secondtimeout();
     const result: any = await super.render(force, options);
-    const element = this.element;
+    // @ts-expect-error need to update types
+    const element = $(this.element);
     const title = element.find(".window-title")[0];
     if (!title) return result;
-    let color = "red";
-    if (this.timeRemaining >= this.data.timeout * 0.75) color = "chartreuse";
-    else if (this.timeRemaining >= this.data.timeout * 0.50) color = "yellow";
-    else if (this.timeRemaining >= this.data.timeout * 0.25) color = "orange";
+    let color = "chartreuse";
     title.style.color = color;
+    title.textContent = this.title;
     return result;
   }
 
-  activateListeners(html) {
+  _onRender(context, options) {
+    // @ts-expect-error need to update types
+    const html = $(this.element);
     html.find(".dialog-button").click(this._onClickButton.bind(this));
     $(document).on('keydown.chooseDefault', this._onKeyDown.bind(this));
-    // if ( this.data.render instanceof Function ) this.data.render(this.options.jQuery ? html : html[0]);
   }
 
   _onClickButton(event) {
@@ -4369,8 +4410,9 @@ export function getConcentrationEffect(actor, itemRef?: Item | string): ActiveEf
 }
 
 async function confirm(title: string = "Are you sure", { content, defaultYes } = { content: "", defaultYes: true }): Promise<any> {
-  return Dialog.confirm({
-    title: title ?? "Confirm",
+  // @ts-expect-error need to update types
+  return foundry.applications.api.DialogV2.confirm({
+    window: {title: title ?? "Confirm"},
     content,
     defaultYes
   });
@@ -6334,7 +6376,10 @@ export async function chooseEffect({ speaker, actor, token, character, item, arg
         dialog.data.title = `${i18n('CONTROLS.CommonSelect')} ${i18n(
           'DOCUMENT.ActiveEffect'
         )}: ${timeRemaining}s`;
-        dialog.render(false);
+        const element = $(dialog.element);
+        const title = element.find(".window-title")[0];
+        if (!title) return;
+        title.textContent = dialog.data.title;
         if (timeRemaining > 0) set1SecondTimeout();
       }, 1000);
     };

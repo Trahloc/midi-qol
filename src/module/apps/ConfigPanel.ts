@@ -331,31 +331,33 @@ export class ItemTypeSelector extends FormApplication {
 async function importFromJSONDialog() {
   const content = await renderTemplate("templates/apps/import-data.html", { entity: "midi-qol", name: "settings" });
   let dialog = new Promise((resolve, reject) => {
-    new Dialog({
-      title: `Import midi-qol settings`,
+    // @ts-expect-error need to update types
+    new foundry.applications.api.DialogV2({
+      window: { title: `Import midi-qol settings` },
+      position: {
+        width: 400
+      },
       content: content,
-      buttons: {
-        import: {
-          icon: '<i class="fas fa-file-import"></i>',
-          label: "Import",
-          callback: html => {
+      buttons: [
+        {
+          action: "import",
+          label: '<i class="fas fa-file-import"></i> Import',
+          default: true,
+          callback: event => {
             //@ts-ignore
-            const form = html.find("form")[0];
+            const form = event.currentTarget?.querySelector("form");
             if (!form.data.files.length) return ui.notifications?.error("You did not upload a data file!");
             readTextFromFile(form.data.files[0]).then(json => {
               importSettingsFromJSON(json).then(() => resolve(true))
             });
           }
         },
-        no: {
-          icon: '<i class="fas fa-times"></i>',
-          label: "Cancel",
-          callback: html => resolve(false)
+        {
+          action: "no",
+          label: '<i class="fas fa-times"></i> Cancel',
+          callback: event => resolve(false)
         }
-      },
-      default: "import"
-    }, {
-      width: 400
+      ],
     }).render(true);
   });
   return await dialog;
@@ -394,22 +396,23 @@ function showDiffs(current: any, changed: any, flavor: string = "", title: strin
     let dialogTitle;
     if (title !== "") dialogTitle = `${i18n("midi-qol.QuickSettings")} - ${title}`;
     else dialogTitle = i18n("midi-qol.QuickSettings");
-    let d = new Dialog({
-      title: dialogTitle,
+    // @ts-expect-error need to update types
+    let d = new foundry.applications.api.DialogV2({
+      window: { title: dialogTitle },
       content: changes.join("<br>"),
-      buttons: {
-        apply: {
-          icon: '<i class="fas fa-check"></i>',
-          label: "Apply Changes",
+      buttons: [
+        {
+          action: "apply",
+          default: true,
+          label: '<i class="fas fa-check"></i> Apply Changes',
           callback: () => resolve(true)
         },
-        abort: {
-          icon: '<i class="fas fa-xmark"></i>',
-          label: "Don't Apply Changes",
+        {
+          action: "abort",
+          label: '<i class="fas fa-xmark"></i> Don\'t Apply Changes',
           callback: () => resolve(false)
         }
-      },
-      default: "apply",
+      ],
       close: () => resolve(false)
     });
     d.render(true);

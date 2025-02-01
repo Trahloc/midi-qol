@@ -18,18 +18,17 @@ export async function confirmWorkflow(existingWorkflow: Workflow): Promise<boole
       await existingWorkflow.performState(existingWorkflow.WorkflowState_Cleanup);
     } else {
       //@ts-expect-error
-      switch (await Dialog.wait({
-        title: game.i18n.format("midi-qol.WaitingForexistingWorkflow", { name: existingWorkflow.activity.name }),
-        default: "cancel",
+      switch (await foundry.applications.api.DialogV2.wait({
+        window: { title: game.i18n.format("midi-qol.WaitingForexistingWorkflow", { name: existingWorkflow.activity.name }) },
         content: "Choose what to do with the previous roll",
         rejectClose: false,
         close: () => { return false },
-        buttons: {
-          complete: { icon: `<i class="fas fa-check"></i>`, label: "Complete previous", callback: () => { return "complete" } },
-          discard: { icon: `<i class="fas fa-trash"></i>`, label: "Discard previous", callback: () => { return "discard" } },
-          undo: { icon: `<i class="fas fa-undo"></i>`, label: "Undo until previous", callback: () => { return "undo" } },
-          cancel: { icon: `<i class="fas fa-times"></i>`, label: "Cancel New", callback: () => { return "cancel" } },
-        }
+        buttons: [
+          { action: "complete", label: `<i class="fas fa-check"></i> Complete previous`, callback: () => { return "complete" } },
+          { action: "discard", label: `<i class="fas fa-trash"></i> Discard previous`, callback: () => { return "discard" } },
+          { action: "undo", label: `<i class="fas fa-undo"></i> Undo until previous`, callback: () => { return "undo" } },
+          { action: "cancel", default: true, label: `<i class="fas fa-times"></i> Cancel New`, callback: () => { return "cancel" } }
+        ],
       }, { width: 700 })) {
         case "complete":
           await existingWorkflow.performState(existingWorkflow.WorkflowState_Cleanup);
