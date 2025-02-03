@@ -184,7 +184,7 @@
 * ----------------------------------------- */
 /* Dialog Window
 /* ----------------------------------------- */
-.midi-qol .dialog .dialog-content .dialog-buttons {
+.midi-qol.dialog .dialog-content .dialog-buttons {
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
@@ -192,15 +192,20 @@
   justify-content: space-around;
 }
 
-.midi-qol .dialog .dialog-buttons button {
+.midi-qol.dialog .dialog-buttons button {
   background: rgba(0, 0, 0, 0.1);
   border: 2px groove #f0f0e0;
   margin: 0 5px 0 0;
 }
-.midi-qol .dialog .dialog-buttons button:last-child {
+.midi-qol.dialog:not(.reaction,.optional) .dialog-buttons button:last-child {
   margin-right: 0;
 }
-.midi-qol .dialog .dialog-buttons button.default {
+
+.midi-qol.dialog.reaction,.midi-qol.dialog.optional .dialog-buttons button:last-child {
+  margin-right: 0 5px 0 0;
+}
+
+.midi-qol.dialog .dialog-buttons button.default {
   background: rgba(0, 0, 0, 0.05);
   border: 2px groove #c9c7b8;
 }
@@ -734,4 +739,25 @@
       position: relative;
     top: 0.25rem;
     left: 0.25rem;
+  }
+
+  /* Item sheet midi tab */
+  .midi-qol-tab .form-header {
+    color: var(--color-text-dark-primary);
+  }
+  .midi-qol-tab textarea {
+    color: var(--color-text-dark-primary);
+  }
+  .midi-qol-tab .midi-properties {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .midi-qol-tab .form-group {
+    margin-bottom: 5px;
+  }
+  .midi-qol-tab .midi-properties label.checkbox {
+    align-items: baseline;
+  }
+  .theme-dark .midi-qol-tab textarea {
+    background: var(--dnd5e-background-card);
   }

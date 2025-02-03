@@ -1288,7 +1288,7 @@ async function _moveTokenAwayFromPoint(data: { targetUuid: string, point: { x: n
 export async function rollActionSave(data: any) {
   let { request, actorUuid, abilities, options, content, title, saveDC } = data;
   let saveResult: any = await new Promise(async (resolve, reject) => {
-    const buttons: any = {};
+    const buttons: any = [];
     for (let ability of abilities) {
       let config: any = {
         type: request,
@@ -1307,6 +1307,7 @@ export async function rollActionSave(data: any) {
       const button = {
         //@ts-expect-error
         label: game.system?.enrichers?.createRollLabel(config) ?? `${saveDC} ${ability} ${request}`,
+        action: ability,
         callback: async (html: any) => {
           let roll = await rollAbility({
             targetUuid: actorUuid,
@@ -1317,25 +1318,27 @@ export async function rollActionSave(data: any) {
           resolve(roll)
         }
       };
-      buttons[ability] = button;
+      buttons.push(button);
     }
     //@ts-expect-error
     if (!foundry.utils.isEmpty(buttons)) {
-      buttons.No = {
+      buttons.push({
+        action: 'no',
         label: `<i class="fas fa-times"></i> ${i18n("No")}`,
         callback: async () => {
           resolve(undefined);
         }
-      }
+      });
       const id = `overtime-dialog-${foundry.utils.randomID()}`;
       //@ts-expect-error
-      await Dialog.wait({
-        title,
-        content: `<style>  #${id} .dialog-buttons { flex-direction: column;} </style> ${content}`,
+      await foundry.applications.api.DialogV2.wait({
+        window: { title },
+        content: `<style>  #${id} .form-footer { flex-direction: column;} </style> ${content}`,
         buttons,
+        id,
         rejectClose: false,
         close: () => { return (null) }
-      }, { "id": id });
+      });
     }
     resolve("invalid");
   })

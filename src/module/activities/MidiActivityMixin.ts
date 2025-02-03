@@ -855,11 +855,11 @@ export var MidiActivityMixin = Base => {
         workflow.reactionQueried = false;
         const blockReaction = thisUsesReaction && hasReaction && workflow.inCombat && needsReactionCheck(this.actor) && !config.midiOptions?.ammoSelector?.hasRun;
         if (blockReaction) {
-          let shouldRoll = false;
-          let d = await Dialog.confirm({
-            title: i18n("midi-qol.EnforceReactions.Title"),
+          // @ts-expect-error need to update types
+          let shouldRoll = await foundry.applications.api.DialogV2.confirm({
+            window: { title: i18n("midi-qol.EnforceReactions.Title") },
             content: i18n("midi-qol.EnforceReactions.Content"),
-            yes: () => { shouldRoll = true },
+            rejectClose: false
           });
           if (!shouldRoll) {
             return false; // user aborted roll TODO should the workflow be deleted?
@@ -870,11 +870,11 @@ export var MidiActivityMixin = Base => {
         const itemUsesBonusAction = ["bonus"].includes(this.activation?.type);
         const blockBonus = workflow.inCombat && itemUsesBonusAction && hasBonusAction && needsBonusActionCheck(this.actor) && !config.midiOptions?.ammoSelector?.hasRun;
         if (blockBonus) {
-          let shouldRoll = false;
-          let d = await Dialog.confirm({
-            title: i18n("midi-qol.EnforceBonusActions.Title"),
+          // @ts-expect-error need to update types
+          let shouldRoll = await foundry.applications.api.DialogV2.confirm({
+            window: { title: i18n("midi-qol.EnforceBonusActions.Title") },
             content: i18n("midi-qol.EnforceBonusActions.Content"),
-            yes: () => { shouldRoll = true },
+            rejectClose: false
           });
           if (!shouldRoll) {
             return false;
@@ -1101,11 +1101,11 @@ export var MidiActivityMixin = Base => {
         workflow.reactionQueried = false;
         const blockReaction = thisUsesReaction && hasReaction && workflow.inCombat && needsReactionCheck(this.actor) && !config.midiOptions?.ammoSelector?.hasRun;
         if (blockReaction) {
-          let shouldRoll = false;
-          let d = await Dialog.confirm({
-            title: i18n("midi-qol.EnforceReactions.Title"),
+          // @ts-expect-error need to update types
+          let shouldRoll = await foundry.applications.api.DialogV2.confirm({
+            window: { title: i18n("midi-qol.EnforceReactions.Title") },
             content: i18n("midi-qol.EnforceReactions.Content"),
-            yes: () => { shouldRoll = true },
+            rejectClose: false,
           });
           if (!shouldRoll) {
             await workflow.performState(workflow.WorkflowState_Abort);
@@ -1117,11 +1117,11 @@ export var MidiActivityMixin = Base => {
         const itemUsesBonusAction = ["bonus"].includes(this.activation?.type);
         const blockBonus = workflow.inCombat && itemUsesBonusAction && hasBonusAction && needsBonusActionCheck(this.actor) && !config.midiOptions?.ammoSelector?.hasRun;
         if (blockBonus) {
-          let shouldRoll = false;
-          let d = await Dialog.confirm({
-            title: i18n("midi-qol.EnforceBonusActions.Title"),
+          // @ts-expect-error need to update types
+          let shouldRoll = await foundry.applications.api.DialogV2.confirm({
+            window: { title: i18n("midi-qol.EnforceBonusActions.Title") },
             content: i18n("midi-qol.EnforceBonusActions.Content"),
-            yes: () => { shouldRoll = true },
+            rejectClose: false,
           });
           if (!shouldRoll) {
             await workflow.performState(workflow.WorkflowState_Abort); // user aborted roll TODO should the workflow be deleted?
