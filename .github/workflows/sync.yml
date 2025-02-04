@@ -12,25 +12,31 @@ jobs:
       - name: Checkout GitHub Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # Fetch full history
+          fetch-depth: 0 # Fetch full history to avoid shallow clones
 
       - name: Set up Git
         run: |
           git config --global user.name 'Trahloc'
           git config --global user.email 'github-com@trahloc.com'
 
-      - name: Add GitLab Remote
+      - name: Add GitLab Remote (if not exists)
         run: |
-          git remote add gitlab https://github.com/Trahloc/midi-qol.git || true
-
-      - name: Fetch All Branches from GitLab
-        run: git fetch gitlab --prune
+          git remote | grep -q gitlab || git remote add gitlab https://github.com/Trahloc/midi-qol.git
+          git fetch gitlab --prune  # Prune deleted branches to avoid clutter
 
       - name: Force Sync All GitLab Branches to GitHub
         run: |
           for branch in $(git branch -r | grep 'gitlab/' | sed 's|gitlab/||' | grep -v 'HEAD'); do
             echo "Syncing branch: $branch"
+            
+            # Ensure we fully match GitLab
             git checkout -B "$branch" "gitlab/$branch"
-            git reset --hard "gitlab/$branch"  # **Hard reset to match GitLab**
-            git push --force origin "$branch"  # **Force push changes**
+            git reset --hard "gitlab/$branch"
+
+            # Only push if there are actual changes (avoids redundant force pushes)
+            if ! git diff --quiet gitlab/$branch origin/$branch; then
+              git push --force origin "$branch"
+            else
+              echo "No changes detected for $branch, skipping push."
+            fi
           done
