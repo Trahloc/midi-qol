@@ -1,0 +1,50 @@
+name: Sync with GitLab
+
+on:
+  schedule:
+    - cron: '33 3 * * *'  # Runs daily at 3:33 AM UTC
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitHub Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch full history
+
+      - name: Set up Git
+        run: |
+          git config --global user.name 'Trahloc'
+          git config --global user.email 'github-com@trahloc.com'
+
+      - name: Add GitLab Remote
+        run: git remote add gitlab https://github.com/Trahloc/midi-qol.git || true
+
+      - name: Fetch changes from GitLab
+        run: git fetch gitlab master
+
+      - name: Check for Updates
+        id: check_update
+        run: |
+          LOCAL_COMMIT=$(git rev-parse origin/master)
+          REMOTE_COMMIT=$(git rev-parse gitlab/master)
+          echo "Local Commit: $LOCAL_COMMIT"
+          echo "Remote Commit: $REMOTE_COMMIT"
+          if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
+            echo "Up to date, skipping sync."
+            echo "skip_sync=true" >> $GITHUB_ENV
+          else
+            echo "New updates found, syncing..."
+            echo "skip_sync=false" >> $GITHUB_ENV
+          fi
+
+      - name: Sync Only If Changes Detected
+        if: env.skip_sync == 'false'
+        run: |
+          git reset --hard gitlab/master
+          git clean -fd
+          git push --force origin master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
