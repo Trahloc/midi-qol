@@ -28,17 +28,8 @@ jobs:
 
       - name: Force Sync All Branches to GitHub
         run: |
-          for branch in $(git branch -r | grep 'gitlab/' | sed 's|gitlab/||'); do
+          for branch in $(git branch -r | grep 'gitlab/' | sed 's|gitlab/||' | grep -v 'HEAD'); do
             echo "Syncing branch: $branch"
             git checkout -B "$branch" "gitlab/$branch"
             git push --force origin "$branch"
-          done
-
-      - name: Delete Extra Branches on GitHub
-        run: |
-          for branch in $(git branch -r | grep 'origin/' | sed 's|origin/||'); do
-            if ! git show-ref --quiet refs/remotes/gitlab/$branch; then
-              echo "Deleting extra branch: $branch from GitHub"
-              git push origin --delete "$branch"
-            fi
           done
