@@ -26,10 +26,11 @@ jobs:
       - name: Fetch All Branches from GitLab
         run: git fetch gitlab --prune
 
-      - name: Force Sync All Branches to GitHub
+      - name: **Force Sync All GitLab Branches to GitHub**
         run: |
           for branch in $(git branch -r | grep 'gitlab/' | sed 's|gitlab/||' | grep -v 'HEAD'); do
             echo "Syncing branch: $branch"
             git checkout -B "$branch" "gitlab/$branch"
-            git push --force origin "$branch"
+            git reset --hard "gitlab/$branch"  # **Hard reset to match GitLab**
+            git push --force origin "$branch"  # **Force push changes**
           done
